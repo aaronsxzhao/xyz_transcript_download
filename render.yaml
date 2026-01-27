@@ -1,5 +1,11 @@
 # Render.com configuration
 # Deploy: Connect GitHub repo at https://dashboard.render.com
+#
+# REQUIRED: Set these environment variables in Render Dashboard:
+#   - GROQ_API_KEY: Your Groq API key (for transcription)
+#   - LLM_API_KEY: Your LLM API key
+#   - LLM_BASE_URL: Your LLM API base URL
+#   - LLM_MODEL: LLM model name (e.g., gemini-2.5-pro)
 
 services:
   - type: web
@@ -12,6 +18,8 @@ services:
         value: api
       - key: WHISPER_API_PROVIDER
         value: groq
+      - key: XYZ_DATA_DIR
+        value: /data
       - key: GROQ_API_KEY
         sync: false  # Set manually in dashboard
       - key: LLM_API_KEY

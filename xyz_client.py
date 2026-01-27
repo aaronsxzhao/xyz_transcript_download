@@ -81,12 +81,33 @@ class XyzClient:
             if author_elem:
                 author = author_elem.get_text(strip=True)
 
+            # Try multiple sources for cover image
+            cover_url = ""
+            if image_tag and image_tag.get('content'):
+                cover_url = image_tag['content']
+            else:
+                # Try twitter:image
+                twitter_image = soup.find('meta', {'name': 'twitter:image'})
+                if twitter_image and twitter_image.get('content'):
+                    cover_url = twitter_image['content']
+                else:
+                    # Try JSON-LD data
+                    script_tag = soup.find('script', {'id': '__NEXT_DATA__'})
+                    if script_tag:
+                        try:
+                            import json
+                            data = json.loads(script_tag.string)
+                            podcast_data = data.get('props', {}).get('pageProps', {}).get('podcast', {})
+                            cover_url = podcast_data.get('image', {}).get('picUrl', '')
+                        except (json.JSONDecodeError, AttributeError):
+                            pass
+
             return Podcast(
                 pid=pid or "",
                 title=title_tag['content'] if title_tag else "",
                 author=author,
                 description=description_tag['content'] if description_tag else "",
-                cover_url=image_tag['content'] if image_tag else "",
+                cover_url=cover_url,
                 episode_count=0,
             )
 

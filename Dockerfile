@@ -1,11 +1,14 @@
 # XYZ Podcast Transcript Tool - Docker Image
-# Optimized for cloud deployment (Fly.io, Railway, etc.)
+# Optimized for cloud deployment (Fly.io, Render, etc.)
 
 FROM python:3.11-slim
 
-# Install system dependencies
+# Install system dependencies including Node.js for frontend build
 RUN apt-get update && apt-get install -y --no-install-recommends \
     ffmpeg \
+    curl \
+    && curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
+    && apt-get install -y nodejs \
     && rm -rf /var/lib/apt/lists/*
 
 # Set working directory
@@ -20,8 +23,10 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy application code
 COPY . .
 
-# Build frontend if not already built
-RUN if [ -d "web/dist" ]; then echo "Frontend already built"; else echo "No frontend dist found"; fi
+# Build frontend
+WORKDIR /app/web
+RUN npm ci && npm run build
+WORKDIR /app
 
 # Create data directory
 RUN mkdir -p /data
