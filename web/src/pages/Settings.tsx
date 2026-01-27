@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Settings as SettingsIcon, Cpu, MessageSquare, Clock, Loader2, CheckCircle } from 'lucide-react'
+import { Cpu, MessageSquare, Clock, Loader2, CheckCircle } from 'lucide-react'
 import { fetchSettings } from '../lib/api'
 
 interface SettingsData {

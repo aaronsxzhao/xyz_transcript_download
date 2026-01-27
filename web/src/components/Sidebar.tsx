@@ -2,7 +2,6 @@ import { Link, useLocation } from 'react-router-dom'
 import { 
   LayoutDashboard, 
   Radio, 
-  FileText, 
   Settings, 
   ChevronLeft,
   ChevronRight,

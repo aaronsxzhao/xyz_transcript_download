@@ -10,7 +10,6 @@ import {
   ChevronDown,
   ChevronUp,
   Loader2,
-  Download,
   ExternalLink,
 } from 'lucide-react'
 import { fetchSummary, fetchTranscript, type Summary, type Transcript } from '../lib/api'

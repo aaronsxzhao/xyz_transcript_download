@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom'
-import { FileText, Tag, MessageSquare } from 'lucide-react'
+import { Tag, MessageSquare } from 'lucide-react'
 import type { SummaryListItem } from '../lib/api'
 
 interface SummaryCardProps {
