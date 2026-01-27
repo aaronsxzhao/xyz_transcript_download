@@ -182,7 +182,7 @@ export default function Viewer() {
               Key Points by Topic
             </h2>
             
-            {Object.entries(keyPointsByTopic).map(([topic, points]: [string, KeyPoint[]]) => (
+            {(Object.entries(keyPointsByTopic) as [string, KeyPoint[]][]).map(([topic, points]) => (
               <div
                 key={topic}
                 className="bg-dark-surface border border-dark-border rounded-xl overflow-hidden"
