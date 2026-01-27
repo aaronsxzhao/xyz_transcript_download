@@ -1,0 +1,44 @@
+# Core dependencies
+requests>=2.31.0
+python-dotenv>=1.0.0
+beautifulsoup4>=4.12.0
+
+# Web API
+fastapi>=0.109.0
+uvicorn[standard]>=0.27.0
+websockets>=12.0
+
+# HTTP session management
+urllib3>=2.0.0
+
+# Retry logic
+tenacity>=8.2.0
+
+# Rich terminal output
+rich>=13.0.0
+
+# Scheduling
+schedule>=1.2.0
+
+# Browser automation (for authentication)
+playwright>=1.40.0
+browser-cookie3>=0.19.1
+
+# LLM API client
+openai>=1.0.0
+
+# Speech-to-text with faster-whisper (CTranslate2)
+# Up to 4x faster than openai-whisper, uses less memory
+faster-whisper>=1.0.0
+torch>=2.0.0
+
+# Optional: mlx-whisper for Apple Silicon (M1/M2/M3)
+# Uncomment on macOS with Apple Silicon for GPU acceleration
+# mlx-whisper>=0.1.0
+
+# Audio processing
+imageio-ffmpeg>=0.4.9
+pydub>=0.25.1
+
+# Optional: Flash Attention for faster inference (CUDA only)
+# flash-attn>=2.3.0  # Uncomment if using CUDA GPU
