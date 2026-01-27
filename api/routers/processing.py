@@ -10,7 +10,6 @@ router = APIRouter()
 
 # In-memory job tracking
 jobs: Dict[str, ProcessingStatus] = {}
-connected_clients: list = []
 
 
 class ConnectionManager:

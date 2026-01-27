@@ -42,3 +42,14 @@ env/
 # OS
 .DS_Store
 Thumbs.db
+
+# Build artifacts
+*.app/
+*.dmg
+*.zip
+
+# Node
+web/node_modules/
+
+# Logs
+*.log

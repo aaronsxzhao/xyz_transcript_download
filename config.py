@@ -4,7 +4,6 @@ Loads settings from environment variables with validation.
 """
 
 import os
-import sys
 from pathlib import Path
 from typing import List, Optional
 
@@ -221,8 +220,8 @@ def validate_config() -> bool:
         print("Warning: LLM_API_KEY not configured")
     
     # Check Whisper config
-    if WHISPER_MODE == "api" and not OPENAI_API_KEY:
-        print("Error: WHISPER_MODE=api requires OPENAI_API_KEY")
+    if WHISPER_MODE == "api" and not WHISPER_API_KEY:
+        print(f"Error: WHISPER_MODE=api requires API key for {WHISPER_API_PROVIDER}")
         valid = False
     
     return valid

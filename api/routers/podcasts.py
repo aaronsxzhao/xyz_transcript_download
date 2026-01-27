@@ -50,12 +50,24 @@ async def add_podcast(data: PodcastCreate):
         raise HTTPException(status_code=400, detail="Already subscribed to this podcast")
     
     # Save to database
-    db.save_podcast(podcast)
+    db.add_podcast(podcast.pid, podcast.title, podcast.author, podcast.description, podcast.cover_url)
+    
+    # Get the podcast record for the podcast_id
+    podcast_record = db.get_podcast(podcast.pid)
     
     # Fetch and save episodes
     episodes = client.get_episodes_from_page(podcast.pid, limit=50)
     for ep in episodes:
-        db.save_episode(ep)
+        db.add_episode(
+            eid=ep.eid,
+            pid=ep.pid,
+            podcast_id=podcast_record.id,
+            title=ep.title,
+            description=ep.description,
+            duration=ep.duration,
+            pub_date=ep.pub_date,
+            audio_url=ep.audio_url,
+        )
     
     return PodcastResponse(
         pid=podcast.pid,
@@ -101,7 +113,7 @@ async def remove_podcast(pid: str):
     if not podcast:
         raise HTTPException(status_code=404, detail="Podcast not found")
     
-    db.remove_podcast(pid)
+    db.delete_podcast(pid)
     
     return {"message": f"Unsubscribed from {podcast.title}"}
 
@@ -166,7 +178,16 @@ async def refresh_podcast_episodes(pid: str):
     for ep in episodes:
         existing = db.get_episode(ep.eid)
         if not existing:
-            db.save_episode(ep)
+            db.add_episode(
+                eid=ep.eid,
+                pid=ep.pid,
+                podcast_id=podcast.id,
+                title=ep.title,
+                description=ep.description,
+                duration=ep.duration,
+                pub_date=ep.pub_date,
+                audio_url=ep.audio_url,
+            )
             new_count += 1
     
     return {"message": f"Found {new_count} new episodes", "total": len(episodes)}

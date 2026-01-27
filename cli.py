@@ -968,7 +968,6 @@ def cmd_check_data(args):
     from xyz_client import get_client
     from database import get_database
     from config import DATA_DIR
-    import json
     
     client = get_client()
     db = get_database()

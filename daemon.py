@@ -3,6 +3,7 @@ Background daemon for monitoring podcasts and processing new episodes.
 Includes health checks, graceful shutdown, and disk space monitoring.
 """
 
+import json
 import os
 import shutil
 import signal
@@ -174,7 +175,6 @@ class PodcastDaemon:
             "processor_alive": self._processor_thread.is_alive() if self._processor_thread else False,
         }
         with open(HEALTH_FILE, "w") as f:
-            import json
             json.dump(health_data, f)
 
     def _remove_health_file(self):

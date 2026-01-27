@@ -1,7 +1,6 @@
 """Pydantic schemas for API requests and responses."""
 from typing import List, Optional
 from pydantic import BaseModel
-from datetime import datetime
 
 
 # Podcast schemas

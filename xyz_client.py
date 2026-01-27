@@ -8,7 +8,6 @@ import re
 import json
 from dataclasses import dataclass
 from typing import Optional, List
-from urllib.parse import urlparse
 
 import requests
 from bs4 import BeautifulSoup
@@ -191,7 +190,7 @@ class XyzClient:
             Transcript text if available, None otherwise
         """
         try:
-            response = requests.get(url, headers=DEFAULT_HEADERS)
+            response = self.session.get(url)
             response.raise_for_status()
             soup = BeautifulSoup(response.content, 'html.parser')
 
