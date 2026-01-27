@@ -25,7 +25,8 @@ COPY . .
 
 # Build frontend
 WORKDIR /app/web
-RUN npm ci && npm run build
+# Cache bust: 2026-01-27-v2
+RUN ls -la src/lib/ && npm ci && npm run build
 WORKDIR /app
 
 # Create data directory
