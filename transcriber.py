@@ -17,7 +17,7 @@ from config import (
     WHISPER_COMPUTE_TYPE,
     WHISPER_BATCH_SIZE,
     WHISPER_BACKEND,
-    OPENAI_API_KEY,
+    WHISPER_API_KEY,
     WHISPER_BASE_URL,
     WHISPER_API_MODEL,
     MAX_AUDIO_SIZE_MB,
@@ -354,19 +354,21 @@ class MLXTranscriber:
 
 
 class APITranscriber:
-    """Handles audio transcription using OpenAI Whisper API."""
+    """Handles audio transcription using Whisper API (OpenAI or Groq)."""
 
     def __init__(self, api_key: Optional[str] = None, base_url: Optional[str] = None):
         from openai import OpenAI
 
-        self.api_key = api_key or OPENAI_API_KEY
+        self.api_key = api_key or WHISPER_API_KEY
         self.base_url = base_url or WHISPER_BASE_URL
 
         if not self.api_key:
-            raise ValueError("OpenAI API key is required for API transcription")
+            raise ValueError("API key is required for API transcription. Set GROQ_API_KEY or OPENAI_API_KEY.")
 
         self.client = OpenAI(api_key=self.api_key, base_url=self.base_url)
         self.max_size = MAX_AUDIO_SIZE_MB * 1024 * 1024
+        
+        logger.info(f"Using Whisper API: {self.base_url}")
 
     def transcribe(
         self,

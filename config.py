@@ -136,14 +136,41 @@ WHISPER_COMPUTE_TYPE = _validate_choice(
 WHISPER_BATCH_SIZE = _get_env_int("WHISPER_BATCH_SIZE", 0, min_val=0)  # 0 = auto
 
 # API settings (only used if WHISPER_MODE=api)
+# Provider: "openai", "groq" (Groq is free and very fast)
+WHISPER_API_PROVIDER = _validate_choice(
+    "WHISPER_API_PROVIDER",
+    _get_env("WHISPER_API_PROVIDER", "groq"),
+    ["openai", "groq"],
+    "groq"
+)
+
+# OpenAI Whisper API settings
 OPENAI_API_KEY = _get_env("OPENAI_API_KEY", "")
-WHISPER_BASE_URL = _get_env("WHISPER_BASE_URL", "https://api.openai.com/v1")
-WHISPER_API_MODEL = "whisper-1"
-MAX_AUDIO_SIZE_MB = 25  # OpenAI Whisper API limit
+OPENAI_WHISPER_URL = "https://api.openai.com/v1"
+
+# Groq Whisper API settings (free tier available, very fast)
+GROQ_API_KEY = _get_env("GROQ_API_KEY", "")
+GROQ_WHISPER_URL = "https://api.groq.com/openai/v1"
+
+# Determine which API to use
+if WHISPER_API_PROVIDER == "groq":
+    WHISPER_BASE_URL = GROQ_WHISPER_URL
+    WHISPER_API_KEY = GROQ_API_KEY
+    WHISPER_API_MODEL = "whisper-large-v3"  # Groq's model
+else:
+    WHISPER_BASE_URL = _get_env("WHISPER_BASE_URL", OPENAI_WHISPER_URL)
+    WHISPER_API_KEY = OPENAI_API_KEY
+    WHISPER_API_MODEL = "whisper-1"  # OpenAI's model
+
+MAX_AUDIO_SIZE_MB = 25  # API limit
 
 # Validate API config if using API mode
-if WHISPER_MODE == "api" and not OPENAI_API_KEY:
-    print("Warning: WHISPER_MODE=api but OPENAI_API_KEY not set. Transcription will fail.")
+if WHISPER_MODE == "api":
+    if WHISPER_API_PROVIDER == "groq" and not GROQ_API_KEY:
+        print("Warning: WHISPER_MODE=api with groq provider but GROQ_API_KEY not set.")
+        print("Get a free API key at: https://console.groq.com/keys")
+    elif WHISPER_API_PROVIDER == "openai" and not OPENAI_API_KEY:
+        print("Warning: WHISPER_MODE=api with openai provider but OPENAI_API_KEY not set.")
 
 # Check interval for daemon (in seconds)
 CHECK_INTERVAL = _get_env_int("XYZ_CHECK_INTERVAL", 3600, min_val=60)

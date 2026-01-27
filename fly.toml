@@ -1,0 +1,37 @@
+# Fly.io configuration for XYZ Podcast Transcript Tool
+# Deploy with: fly launch && fly deploy
+
+app = "xyz-podcast"
+primary_region = "hkg"  # Hong Kong (closest to China for Xiaoyuzhou)
+
+[build]
+
+[env]
+  WHISPER_MODE = "api"
+  WHISPER_API_PROVIDER = "groq"
+  LOG_LEVEL = "INFO"
+
+[http_service]
+  internal_port = 8080
+  force_https = true
+  auto_stop_machines = true
+  auto_start_machines = true
+  min_machines_running = 0
+  processes = ["app"]
+
+[[http_service.checks]]
+  grace_period = "10s"
+  interval = "30s"
+  method = "GET"
+  timeout = "5s"
+  path = "/api/health"
+
+[[vm]]
+  memory = "512mb"
+  cpu_kind = "shared"
+  cpus = 1
+
+# Persistent storage for data
+[mounts]
+  source = "xyz_data"
+  destination = "/data"

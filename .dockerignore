@@ -1,0 +1,45 @@
+# Git
+.git
+.gitignore
+
+# Python
+__pycache__
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+env/
+.venv/
+*.egg-info/
+.eggs/
+dist/
+build/
+
+# Node
+web/node_modules/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Data (use mounted volume instead)
+data/
+
+# Local files
+.env
+*.log
+*.pid
+
+# Mac
+.DS_Store
+
+# Build artifacts
+*.app
+*.zip
+*.dmg
+
+# Plans
+.cursor/
