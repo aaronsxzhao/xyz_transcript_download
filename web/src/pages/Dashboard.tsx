@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { Radio, FileText, MessageSquare, Loader2, Plus, ArrowRight } from 'lucide-react'
-import { fetchStats, fetchSummaries, processEpisode, type Stats, type SummaryListItem } from '../lib/api'
+import { fetchStats, fetchSummaries, processEpisode, type Stats, type SummaryListItem, type ProcessingJob } from '../lib/api'
 import { useStore } from '../lib/store'
 import SummaryCard from '../components/SummaryCard'
 import ProcessingProgress from '../components/ProcessingProgress'
@@ -121,7 +121,7 @@ export default function Dashboard() {
         <div>
           <h2 className="text-lg font-semibold text-white mb-4">Processing Queue</h2>
           <div className="space-y-3">
-            {jobs.map((job) => (
+            {jobs.map((job: ProcessingJob) => (
               <ProcessingProgress key={job.job_id} job={job} />
             ))}
           </div>

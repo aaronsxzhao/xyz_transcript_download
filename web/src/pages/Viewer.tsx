@@ -12,7 +12,7 @@ import {
   Loader2,
   ExternalLink,
 } from 'lucide-react'
-import { fetchSummary, fetchTranscript, type Summary, type Transcript } from '../lib/api'
+import { fetchSummary, fetchTranscript, type Summary, type Transcript, type KeyPoint, type TranscriptSegment } from '../lib/api'
 
 type Tab = 'summary' | 'transcript'
 
@@ -70,11 +70,11 @@ export default function Viewer() {
   }
   
   // Group key points by topic
-  const keyPointsByTopic = summary?.key_points.reduce((acc, kp) => {
+  const keyPointsByTopic = summary?.key_points.reduce((acc: Record<string, KeyPoint[]>, kp: KeyPoint) => {
     if (!acc[kp.topic]) acc[kp.topic] = []
     acc[kp.topic].push(kp)
     return acc
-  }, {} as Record<string, typeof summary.key_points>) || {}
+  }, {} as Record<string, KeyPoint[]>) || {}
   
   if (loading) {
     return (
@@ -182,7 +182,7 @@ export default function Viewer() {
               Key Points by Topic
             </h2>
             
-            {Object.entries(keyPointsByTopic).map(([topic, points]) => (
+            {Object.entries(keyPointsByTopic).map(([topic, points]: [string, KeyPoint[]]) => (
               <div
                 key={topic}
                 className="bg-dark-surface border border-dark-border rounded-xl overflow-hidden"
@@ -234,7 +234,7 @@ export default function Viewer() {
                 Takeaways
               </h2>
               <ul className="space-y-3">
-                {summary.takeaways.map((takeaway, idx) => (
+                {summary.takeaways.map((takeaway: string, idx: number) => (
                   <li key={idx} className="flex items-start gap-3">
                     <CheckCircle className="text-green-500 flex-shrink-0 mt-0.5" size={16} />
                     <span className="text-gray-300">{takeaway}</span>
@@ -255,7 +255,7 @@ export default function Viewer() {
           
           {transcript.segments.length > 0 ? (
             <div className="space-y-4 max-h-[600px] overflow-y-auto">
-              {transcript.segments.map((seg, idx) => (
+              {transcript.segments.map((seg: TranscriptSegment, idx: number) => (
                 <div key={idx} className="flex gap-4">
                   <span className="text-xs text-gray-500 font-mono w-12 flex-shrink-0 pt-0.5">
                     {formatTime(seg.start)}
