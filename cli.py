@@ -1209,11 +1209,15 @@ def cmd_serve(args):
         web_dir = Path(__file__).parent / "web"
         if (web_dir / "node_modules").exists():
             console.print("[dim]Starting frontend dev server...[/dim]")
+            # Pass API port to vite via environment variable
+            env = os.environ.copy()
+            env["VITE_API_PORT"] = str(port)
             frontend_process = subprocess.Popen(
                 ["npm", "run", "dev"],
                 cwd=str(web_dir),
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.DEVNULL,
+                env=env,
             )
         else:
             console.print("[yellow]Frontend not installed. Run: cd web && npm install[/yellow]")
