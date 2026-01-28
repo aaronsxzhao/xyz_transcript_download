@@ -11,6 +11,7 @@ export default function Podcasts() {
   const [newUrl, setNewUrl] = useState('')
   const [showAddForm, setShowAddForm] = useState(false)
   const [refreshing, setRefreshing] = useState<string | null>(null)
+  const [deletingPid, setDeletingPid] = useState<string | null>(null)
   const { addToast } = useToast()
   
   useEffect(() => {
@@ -64,6 +65,7 @@ export default function Podcasts() {
     if (!confirm('Remove this podcast?')) return
     
     const podcast = podcasts.find(p => p.pid === pid)
+    setDeletingPid(pid)
     
     try {
       await removePodcast(pid)
@@ -79,6 +81,8 @@ export default function Podcasts() {
         type: 'error',
         title: 'Failed to remove podcast',
       })
+    } finally {
+      setDeletingPid(null)
     }
   }
   
@@ -201,10 +205,15 @@ export default function Podcasts() {
                   </button>
                   <button
                     onClick={() => handleRemove(podcast.pid)}
-                    className="p-2 bg-dark-hover hover:bg-red-600/20 text-red-400 rounded-lg transition-colors"
+                    disabled={deletingPid === podcast.pid}
+                    className="p-2 bg-dark-hover hover:bg-red-600/20 text-red-400 rounded-lg transition-colors disabled:opacity-50"
                     title="Remove podcast"
                   >
-                    <Trash2 size={16} />
+                    {deletingPid === podcast.pid ? (
+                      <Loader2 size={16} className="animate-spin" />
+                    ) : (
+                      <Trash2 size={16} />
+                    )}
                   </button>
                 </div>
               </div>

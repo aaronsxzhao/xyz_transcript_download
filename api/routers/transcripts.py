@@ -1,47 +1,44 @@
 """Transcript endpoints."""
-import json
-from fastapi import APIRouter, HTTPException
+from typing import Optional
+from fastapi import APIRouter, HTTPException, Depends
 
 from api.schemas import TranscriptResponse
+from api.auth import get_current_user, User
+from api.db import get_db
 
 router = APIRouter()
 
 
 @router.get("/{eid}", response_model=TranscriptResponse)
-async def get_transcript(eid: str):
+async def get_transcript(eid: str, user: Optional[User] = Depends(get_current_user)):
     """Get transcript for an episode."""
-    from config import DATA_DIR
+    db = get_db(user.id if user else None)
     
-    transcript_path = DATA_DIR / "transcripts" / f"{eid}.json"
+    transcript = db.get_transcript(eid)
     
-    if not transcript_path.exists():
+    if not transcript:
         raise HTTPException(status_code=404, detail="Transcript not found")
     
-    with open(transcript_path, "r", encoding="utf-8") as f:
-        data = json.load(f)
-    
     return TranscriptResponse(
-        episode_id=data.get("episode_id", eid),
-        language=data.get("language", "zh"),
-        duration=data.get("duration", 0),
-        text=data.get("text", ""),
+        episode_id=transcript.episode_id,
+        language=transcript.language,
+        duration=transcript.duration,
+        text=transcript.text,
         segments=[
             {"start": s.get("start", 0), "end": s.get("end", 0), "text": s.get("text", "")}
-            for s in data.get("segments", [])
+            for s in transcript.segments
         ],
     )
 
 
 @router.delete("/{eid}")
-async def delete_transcript(eid: str):
+async def delete_transcript(eid: str, user: Optional[User] = Depends(get_current_user)):
     """Delete transcript for an episode."""
-    from config import DATA_DIR
+    db = get_db(user.id if user else None)
     
-    transcript_path = DATA_DIR / "transcripts" / f"{eid}.json"
-    
-    if not transcript_path.exists():
+    if not db.has_transcript(eid):
         raise HTTPException(status_code=404, detail="Transcript not found")
     
-    transcript_path.unlink()
+    db.delete_transcript(eid)
     
     return {"message": "Transcript deleted"}

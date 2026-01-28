@@ -397,6 +397,44 @@ class SupabaseDatabase:
         result = self.client.table("summaries").select("id").eq("user_id", user_id).eq("episode_id", episode_id).execute()
         return len(result.data) > 0
     
+    def delete_transcript(self, user_id: str, episode_id: str) -> bool:
+        """Delete a transcript and its segments."""
+        if not self.client:
+            return False
+        
+        # Get transcript ID first
+        result = self.client.table("transcripts").select("id").eq("user_id", user_id).eq("episode_id", episode_id).execute()
+        if not result.data:
+            return False
+        
+        transcript_id = result.data[0]["id"]
+        
+        # Delete segments first (foreign key constraint)
+        self.client.table("transcript_segments").delete().eq("transcript_id", transcript_id).execute()
+        
+        # Delete transcript
+        self.client.table("transcripts").delete().eq("id", transcript_id).execute()
+        return True
+    
+    def delete_summary(self, user_id: str, episode_id: str) -> bool:
+        """Delete a summary and its key points."""
+        if not self.client:
+            return False
+        
+        # Get summary ID first
+        result = self.client.table("summaries").select("id").eq("user_id", user_id).eq("episode_id", episode_id).execute()
+        if not result.data:
+            return False
+        
+        summary_id = result.data[0]["id"]
+        
+        # Delete key points first (foreign key constraint)
+        self.client.table("summary_key_points").delete().eq("summary_id", summary_id).execute()
+        
+        # Delete summary
+        self.client.table("summaries").delete().eq("id", summary_id).execute()
+        return True
+    
     # ==================== Stats ====================
     
     def get_stats(self, user_id: str) -> Dict[str, int]:

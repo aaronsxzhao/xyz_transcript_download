@@ -1,0 +1,39 @@
+# Cloud-optimized dependencies (no local Whisper)
+# Use this for Render/Fly.io deployment with WHISPER_MODE=api
+
+# Core dependencies
+requests>=2.31.0
+python-dotenv>=1.0.0
+beautifulsoup4>=4.12.0
+
+# Web API
+fastapi>=0.109.0
+uvicorn[standard]>=0.27.0
+websockets>=12.0
+
+# HTTP session management
+urllib3>=2.0.0
+httpx>=0.26.0
+
+# Retry logic
+tenacity>=8.2.0
+
+# Rich terminal output
+rich>=13.0.0
+
+# Scheduling
+schedule>=1.2.0
+
+# LLM API client
+openai>=1.0.0
+
+# Supabase (authentication and database)
+supabase>=2.0.0
+python-jose[cryptography]>=3.3.0
+email-validator>=2.0.0
+
+# Audio processing (still needed for duration detection)
+pydub>=0.25.1
+
+# Note: torch, faster-whisper, mlx-whisper are NOT included
+# Cloud deployment uses Groq API for transcription (WHISPER_MODE=api)

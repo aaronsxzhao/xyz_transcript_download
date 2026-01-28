@@ -2,9 +2,10 @@
  * Processing panel that shows active jobs with progress
  */
 import { useState } from 'react'
-import { ChevronUp, ChevronDown, Loader2, CheckCircle, XCircle, Radio, X, Ban } from 'lucide-react'
+import { ChevronUp, ChevronDown, Radio, X } from 'lucide-react'
 import { useStore } from '../lib/store'
 import { cancelJob, type ProcessingJob } from '../lib/api'
+import { getStatusIcon, getStatusColor, getStatusText, isActiveStatus } from '../lib/statusUtils'
 
 export default function ProcessingPanel() {
   const { jobs, wsConnected } = useStore()
@@ -72,77 +73,18 @@ function JobItem({ job, showCancel = false }: { job: ProcessingJob; showCancel?:
     }
   }
   
-  const getStatusIcon = () => {
-    switch (job.status) {
-      case 'completed':
-        return <CheckCircle className="w-4 h-4 text-green-400" />
-      case 'failed':
-        return <XCircle className="w-4 h-4 text-red-400" />
-      case 'cancelled':
-        return <Ban className="w-4 h-4 text-gray-400" />
-      case 'cancelling':
-        return <Loader2 className="w-4 h-4 text-yellow-400 animate-spin" />
-      default:
-        return <Loader2 className="w-4 h-4 text-indigo-400 animate-spin" />
-    }
-  }
-  
-  const getStatusColor = () => {
-    switch (job.status) {
-      case 'completed':
-        return 'bg-green-500'
-      case 'failed':
-        return 'bg-red-500'
-      case 'cancelled':
-        return 'bg-gray-500'
-      case 'cancelling':
-        return 'bg-yellow-500'
-      case 'downloading':
-        return 'bg-blue-500'
-      case 'transcribing':
-        return 'bg-purple-500'
-      case 'summarizing':
-        return 'bg-indigo-500'
-      default:
-        return 'bg-gray-500'
-    }
-  }
-  
-  const getStatusText = () => {
-    switch (job.status) {
-      case 'pending':
-        return 'Waiting...'
-      case 'downloading':
-        return 'Downloading audio...'
-      case 'transcribing':
-        return 'Transcribing...'
-      case 'summarizing':
-        return 'Summarizing...'
-      case 'completed':
-        return 'Done!'
-      case 'failed':
-        return 'Failed'
-      case 'cancelled':
-        return 'Cancelled'
-      case 'cancelling':
-        return 'Cancelling (after current step)...'
-      default:
-        return job.status
-    }
-  }
-  
-  const isActive = !['completed', 'failed', 'cancelled'].includes(job.status)
+  const isActive = isActiveStatus(job.status)
   
   return (
     <div className="p-3 space-y-2">
       <div className="flex items-start gap-2">
-        {getStatusIcon()}
+        {getStatusIcon(job.status)}
         <div className="flex-1 min-w-0">
           <p className="text-sm font-medium text-white truncate">
             {job.episode_title || 'Processing episode...'}
           </p>
           <p className="text-xs text-gray-500">
-            {job.message || getStatusText()}
+            {job.message || getStatusText(job.status)}
           </p>
         </div>
         {/* Cancel button */}
@@ -162,7 +104,7 @@ function JobItem({ job, showCancel = false }: { job: ProcessingJob; showCancel?:
       {isActive && (
         <div className="relative h-1.5 bg-dark-border rounded-full overflow-hidden">
           <div
-            className={`absolute left-0 top-0 h-full ${getStatusColor()} transition-all duration-300`}
+            className={`absolute left-0 top-0 h-full ${getStatusColor(job.status)} transition-all duration-300`}
             style={{ width: `${Math.min(job.progress, 100)}%` }}
           />
           {/* Animated shimmer for indeterminate progress */}

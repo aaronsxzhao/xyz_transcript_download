@@ -5,13 +5,15 @@ from pathlib import Path
 # Add parent directory to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from fastapi import FastAPI
+from typing import Optional
+from fastapi import FastAPI, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 
 from api.routers import podcasts, episodes, transcripts, summaries, processing
 from api.routers import auth_router
+from api.auth import get_current_user, User
 
 # Create FastAPI app
 app = FastAPI(
@@ -90,52 +92,18 @@ async def image_proxy(url: str):
 
 
 @app.get("/api/stats")
-async def get_stats(user: "User" = None):
+async def get_stats(user: Optional["User"] = Depends(get_current_user)):
     """Get dashboard statistics."""
-    from typing import Optional
-    from fastapi import Depends
-    from config import DATA_DIR, USE_SUPABASE
-    from api.auth import get_current_user, User
+    from api.db import get_db
     
-    # Get user from dependency manually for optional auth
-    # In production, use Depends(get_current_user)
-    
-    if USE_SUPABASE:
-        from api.supabase_db import get_supabase_database
-        db = get_supabase_database()
-        if db and user:
-            stats = db.get_stats(user.id)
-            return {
-                "total_podcasts": stats["podcasts"],
-                "total_episodes": stats["episodes"],
-                "total_transcripts": stats["transcripts"],
-                "total_summaries": stats["summaries"],
-                "processing_queue": 0,
-            }
-    
-    # Fall back to local SQLite
-    from database import get_database
-    
-    db = get_database()
-    
-    # Count podcasts and episodes
-    podcasts = db.get_all_podcasts()
-    total_episodes = sum(
-        len(db.get_episodes_by_podcast(p.pid)) for p in podcasts
-    )
-    
-    # Count transcripts and summaries
-    transcripts_dir = DATA_DIR / "transcripts"
-    summaries_dir = DATA_DIR / "summaries"
-    
-    total_transcripts = len(list(transcripts_dir.glob("*.json"))) if transcripts_dir.exists() else 0
-    total_summaries = len(list(summaries_dir.glob("*.json"))) if summaries_dir.exists() else 0
+    db = get_db(user.id if user else None)
+    stats = db.get_stats()
     
     return {
-        "total_podcasts": len(podcasts),
-        "total_episodes": total_episodes,
-        "total_transcripts": total_transcripts,
-        "total_summaries": total_summaries,
+        "total_podcasts": stats["podcasts"],
+        "total_episodes": stats["episodes"],
+        "total_transcripts": stats["transcripts"],
+        "total_summaries": stats["summaries"],
         "processing_queue": 0,
     }
 

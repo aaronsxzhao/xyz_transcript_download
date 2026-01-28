@@ -1,33 +1,25 @@
-# XYZ Podcast Transcript Tool - Docker Image
-# Optimized for cloud deployment (Fly.io, Render, etc.)
+# XYZ Podcast Transcript Tool - Cloud-Optimized Docker Image
+# Optimized for fast deployment on Render/Fly.io
+# Uses pre-built frontend and cloud APIs (no torch/whisper)
 
 FROM python:3.11-slim
 
-# Install system dependencies including Node.js for frontend build
+# Install minimal system dependencies (no Node.js needed)
 RUN apt-get update && apt-get install -y --no-install-recommends \
     ffmpeg \
-    curl \
-    && curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
-    && apt-get install -y nodejs \
     && rm -rf /var/lib/apt/lists/*
 
 # Set working directory
 WORKDIR /app
 
-# Copy requirements first for better caching
-COPY requirements.txt .
+# Copy cloud-optimized requirements (no torch/faster-whisper)
+COPY requirements-cloud.txt .
 
-# Install Python dependencies
-RUN pip install --no-cache-dir -r requirements.txt
+# Install Python dependencies (fast - no 2GB torch download)
+RUN pip install --no-cache-dir -r requirements-cloud.txt
 
 # Copy application code
 COPY . .
-
-# Build frontend
-WORKDIR /app/web
-# Cache bust: 2026-01-27-v2
-RUN ls -la src/lib/ && npm ci && npm run build
-WORKDIR /app
 
 # Create data directory
 RUN mkdir -p /data
