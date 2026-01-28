@@ -24,9 +24,18 @@ export const useStore = create<AppState>((set) => ({
   jobs: [],
   setJobs: (jobs) => set({ jobs }),
   updateJob: (job) =>
-    set((state) => ({
-      jobs: state.jobs.map((j) => (j.job_id === job.job_id ? job : j)),
-    })),
+    set((state) => {
+      const existingIndex = state.jobs.findIndex((j) => j.job_id === job.job_id)
+      if (existingIndex >= 0) {
+        // Update existing job
+        const newJobs = [...state.jobs]
+        newJobs[existingIndex] = job
+        return { jobs: newJobs }
+      } else {
+        // Add new job
+        return { jobs: [job, ...state.jobs] }
+      }
+    }),
   
   // WebSocket
   wsConnected: false,

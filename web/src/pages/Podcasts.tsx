@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { Radio, Plus, Trash2, RefreshCw, Loader2, ExternalLink } from 'lucide-react'
 import { fetchPodcasts, addPodcast, removePodcast, refreshPodcast, type Podcast } from '../lib/api'
+import { useToast } from '../components/Toast'
 
 export default function Podcasts() {
   const [podcasts, setPodcasts] = useState<Podcast[]>([])
@@ -10,6 +11,7 @@ export default function Podcasts() {
   const [newUrl, setNewUrl] = useState('')
   const [showAddForm, setShowAddForm] = useState(false)
   const [refreshing, setRefreshing] = useState<string | null>(null)
+  const { addToast } = useToast()
   
   useEffect(() => {
     loadPodcasts()
@@ -31,13 +33,28 @@ export default function Podcasts() {
     if (!newUrl.trim()) return
     
     setAdding(true)
+    addToast({
+      type: 'loading',
+      title: 'Adding podcast...',
+      message: 'Fetching podcast information',
+    })
+    
     try {
       const podcast = await addPodcast(newUrl)
       setPodcasts([podcast, ...podcasts])
       setNewUrl('')
       setShowAddForm(false)
-    } catch (err: any) {
-      alert(err.message || 'Failed to add podcast')
+      addToast({
+        type: 'success',
+        title: 'Podcast added',
+        message: podcast.title,
+      })
+    } catch (err: unknown) {
+      addToast({
+        type: 'error',
+        title: 'Failed to add podcast',
+        message: err instanceof Error ? err.message : 'Unknown error',
+      })
     } finally {
       setAdding(false)
     }
@@ -46,11 +63,22 @@ export default function Podcasts() {
   async function handleRemove(pid: string) {
     if (!confirm('Remove this podcast?')) return
     
+    const podcast = podcasts.find(p => p.pid === pid)
+    
     try {
       await removePodcast(pid)
       setPodcasts(podcasts.filter(p => p.pid !== pid))
+      addToast({
+        type: 'success',
+        title: 'Podcast removed',
+        message: podcast?.title || 'Podcast unsubscribed',
+      })
     } catch (err) {
       console.error('Failed to remove podcast:', err)
+      addToast({
+        type: 'error',
+        title: 'Failed to remove podcast',
+      })
     }
   }
   
@@ -58,10 +86,18 @@ export default function Podcasts() {
     setRefreshing(pid)
     try {
       const result = await refreshPodcast(pid)
-      alert(result.message)
+      addToast({
+        type: 'success',
+        title: 'Podcast refreshed',
+        message: result.message,
+      })
       loadPodcasts()
     } catch (err) {
       console.error('Failed to refresh podcast:', err)
+      addToast({
+        type: 'error',
+        title: 'Failed to refresh podcast',
+      })
     } finally {
       setRefreshing(null)
     }

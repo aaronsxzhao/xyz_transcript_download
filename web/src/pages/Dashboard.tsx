@@ -4,6 +4,7 @@ import { Radio, FileText, MessageSquare, Loader2, Plus, ArrowRight } from 'lucid
 import { fetchStats, fetchSummaries, processEpisode, type Stats, type SummaryListItem, type ProcessingJob } from '../lib/api'
 import { useStore } from '../lib/store'
 import { getCache, setCache, CacheKeys } from '../lib/cache'
+import { useToast } from '../components/Toast'
 import SummaryCard from '../components/SummaryCard'
 import ProcessingProgress from '../components/ProcessingProgress'
 
@@ -15,6 +16,7 @@ export default function Dashboard() {
   const [processing, setProcessing] = useState(false)
   
   const { jobs } = useStore()
+  const { addToast } = useToast()
   
   useEffect(() => {
     loadData()
@@ -56,8 +58,18 @@ export default function Dashboard() {
     try {
       await processEpisode(episodeUrl)
       setEpisodeUrl('')
+      addToast({
+        type: 'success',
+        title: 'Processing started',
+        message: 'Check the processing panel for progress',
+      })
     } catch (err) {
       console.error('Failed to start processing:', err)
+      addToast({
+        type: 'error',
+        title: 'Failed to start processing',
+        message: err instanceof Error ? err.message : 'Unknown error',
+      })
     } finally {
       setProcessing(false)
     }
