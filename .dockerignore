@@ -13,8 +13,10 @@ env/
 .venv/
 *.egg-info/
 .eggs/
-dist/
+/dist/
 build/
+# Keep web/dist for pre-built frontend
+!web/dist/
 
 # Node
 web/node_modules/
