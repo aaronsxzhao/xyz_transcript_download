@@ -407,13 +407,21 @@ class APITranscriber:
                 )
 
             segments = []
-            if hasattr(response, 'segments'):
+            if hasattr(response, 'segments') and response.segments:
                 for seg in response.segments:
-                    segments.append(TranscriptSegment(
-                        start=seg.get("start", 0),
-                        end=seg.get("end", 0),
-                        text=seg.get("text", "").strip(),
-                    ))
+                    # Handle both dict and object responses
+                    if isinstance(seg, dict):
+                        segments.append(TranscriptSegment(
+                            start=seg.get("start", 0),
+                            end=seg.get("end", 0),
+                            text=seg.get("text", "").strip(),
+                        ))
+                    else:
+                        segments.append(TranscriptSegment(
+                            start=getattr(seg, 'start', 0),
+                            end=getattr(seg, 'end', 0),
+                            text=getattr(seg, 'text', "").strip(),
+                        ))
 
             return Transcript(
                 episode_id=episode_id,
