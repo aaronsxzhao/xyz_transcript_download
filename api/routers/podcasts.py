@@ -211,7 +211,13 @@ async def remove_podcast(pid: str, user: Optional[User] = Depends(get_current_us
     podcast = db.get_podcast(pid)
     
     if not podcast:
-        raise HTTPException(status_code=404, detail="Podcast not found")
+        # Try to force delete by pid even if not found in expected format
+        # This handles edge cases where an episode was mistakenly added as a podcast
+        try:
+            db.force_delete_podcast_by_pid(pid)
+            return {"message": f"Removed entry: {pid}"}
+        except Exception:
+            raise HTTPException(status_code=404, detail="Podcast not found")
     
     db.delete_podcast(pid)
     

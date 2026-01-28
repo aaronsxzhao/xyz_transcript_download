@@ -125,7 +125,7 @@ function JobItem({ job, showCancel = false }: { job: ProcessingJob; showCancel?:
       case 'cancelled':
         return 'Cancelled'
       case 'cancelling':
-        return 'Cancelling...'
+        return 'Cancelling (after current step)...'
       default:
         return job.status
     }
@@ -163,7 +163,7 @@ function JobItem({ job, showCancel = false }: { job: ProcessingJob; showCancel?:
         <div className="relative h-1.5 bg-dark-border rounded-full overflow-hidden">
           <div
             className={`absolute left-0 top-0 h-full ${getStatusColor()} transition-all duration-300`}
-            style={{ width: `${Math.min(job.progress * 100, 100)}%` }}
+            style={{ width: `${Math.min(job.progress, 100)}%` }}
           />
           {/* Animated shimmer for indeterminate progress */}
           {job.progress === 0 && (
@@ -175,7 +175,7 @@ function JobItem({ job, showCancel = false }: { job: ProcessingJob; showCancel?:
       {/* Progress percentage */}
       {job.progress > 0 && isActive && (
         <p className="text-xs text-gray-500 text-right">
-          {Math.round(job.progress * 100)}%
+          {Math.round(job.progress)}%
         </p>
       )}
     </div>

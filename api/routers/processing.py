@@ -155,7 +155,15 @@ def process_episode_sync(job_id: str, episode_url: str, transcribe_only: bool = 
             update_job_status(job_id, "transcribing", 60, "Using existing transcript")
             transcript = transcriber.load_transcript(episode.eid)
         else:
-            update_job_status(job_id, "transcribing", 35, "Transcribing with Whisper...")
+            update_job_status(job_id, "transcribing", 32, "Loading Whisper model...")
+            
+            # Check cancellation before the long transcription
+            if is_job_cancelled(job_id):
+                update_job_status(job_id, "cancelled", 32, "Cancelled before transcription")
+                mark_job_cancelled(job_id)
+                return
+            
+            update_job_status(job_id, "transcribing", 35, "Transcribing audio (this may take a while)...")
             transcript = transcriber.transcribe(audio_path, episode.eid)
             
             if transcript:
@@ -283,8 +291,17 @@ async def cancel_job(job_id: str):
     # Request cancellation
     cancelled_jobs.add(job_id)
     
+    # Give status-specific cancellation message
+    cancel_msg = "Cancellation requested..."
+    if job.status == "transcribing":
+        cancel_msg = "Will cancel after current transcription step..."
+    elif job.status == "summarizing":
+        cancel_msg = "Will cancel after current LLM call..."
+    elif job.status == "downloading":
+        cancel_msg = "Will cancel after download completes..."
+    
     # Update status immediately
-    update_job_status(job_id, "cancelling", job.progress, "Cancellation requested...")
+    update_job_status(job_id, "cancelling", job.progress, cancel_msg)
     
     # Broadcast update
     await broadcast_status(job_id)

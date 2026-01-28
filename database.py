@@ -279,6 +279,20 @@ class Database:
             conn.commit()
             return True
 
+    def force_delete_podcast_by_pid(self, pid: str) -> bool:
+        """Force delete a podcast by pid, even if malformed. Used for cleanup."""
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+            
+            # Delete any episodes with this pid
+            cursor.execute("DELETE FROM episodes WHERE pid = ?", (pid,))
+            
+            # Delete podcast by pid
+            cursor.execute("DELETE FROM podcasts WHERE pid = ?", (pid,))
+            
+            conn.commit()
+            return cursor.rowcount > 0
+
     # Episode operations
 
     def add_episode(
