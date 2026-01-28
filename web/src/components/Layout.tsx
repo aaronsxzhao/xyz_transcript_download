@@ -1,4 +1,5 @@
 import { ReactNode, useEffect } from 'react'
+import { Menu } from 'lucide-react'
 import Sidebar from './Sidebar'
 import ProcessingPanel from './ProcessingPanel'
 import { connectWebSocket, disconnectWebSocket } from '../lib/websocket'
@@ -9,7 +10,7 @@ interface LayoutProps {
 }
 
 export default function Layout({ children }: LayoutProps) {
-  const { sidebarOpen } = useStore()
+  const { sidebarOpen, toggleSidebar } = useStore()
   
   useEffect(() => {
     connectWebSocket()
@@ -20,8 +21,27 @@ export default function Layout({ children }: LayoutProps) {
     <div className="flex h-screen bg-dark-bg">
       <Sidebar />
       
-      <main className={`flex-1 overflow-auto transition-all ${sidebarOpen ? 'ml-64' : 'ml-16'}`}>
-        <div className="p-6">
+      {/* Mobile overlay when sidebar is open */}
+      {sidebarOpen && (
+        <div 
+          className="fixed inset-0 bg-black/50 z-30 md:hidden"
+          onClick={toggleSidebar}
+        />
+      )}
+      
+      <main className={`flex-1 overflow-auto transition-all md:${sidebarOpen ? 'ml-64' : 'ml-16'} ml-0`}>
+        {/* Mobile header with menu button */}
+        <div className="sticky top-0 z-20 flex items-center gap-4 p-4 bg-dark-bg border-b border-dark-border md:hidden">
+          <button
+            onClick={toggleSidebar}
+            className="p-2 rounded-lg hover:bg-dark-hover transition-colors"
+          >
+            <Menu size={24} />
+          </button>
+          <span className="font-semibold text-lg">Podcast Tool</span>
+        </div>
+        
+        <div className="p-4 md:p-6">
           {children}
         </div>
       </main>

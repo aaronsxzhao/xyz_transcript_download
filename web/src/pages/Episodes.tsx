@@ -114,17 +114,17 @@ export default function Episodes() {
   }
   
   return (
-    <div className="space-y-6">
-      <div className="flex items-center gap-4">
+    <div className="space-y-4 md:space-y-6">
+      <div className="flex items-center gap-3 md:gap-4">
         <Link
           to="/podcasts"
-          className="p-2 bg-dark-surface border border-dark-border rounded-lg hover:bg-dark-hover transition-colors"
+          className="p-2 bg-dark-surface border border-dark-border rounded-lg hover:bg-dark-hover transition-colors flex-shrink-0"
         >
           <ArrowLeft size={20} />
         </Link>
-        <div>
-          <h1 className="text-2xl font-bold text-white">{podcast?.title || 'Episodes'}</h1>
-          <p className="text-gray-400">{episodes.length} episodes</p>
+        <div className="min-w-0">
+          <h1 className="text-lg md:text-2xl font-bold text-white line-clamp-1">{podcast?.title || 'Episodes'}</h1>
+          <p className="text-sm md:text-base text-gray-400">{episodes.length} episodes</p>
         </div>
       </div>
       
@@ -133,34 +133,34 @@ export default function Episodes() {
         {episodes.map((episode) => (
           <div
             key={episode.eid}
-            className="p-4 bg-dark-surface border border-dark-border rounded-xl hover:border-dark-hover transition-colors"
+            className="p-3 md:p-4 bg-dark-surface border border-dark-border rounded-xl hover:border-dark-hover transition-colors"
           >
-            <div className="flex items-start gap-4">
+            <div className="flex flex-col sm:flex-row sm:items-start gap-3 md:gap-4">
               <div className="flex-1 min-w-0">
-                <h3 className="font-medium text-white mb-1 line-clamp-2">
+                <h3 className="font-medium text-white mb-1 line-clamp-2 text-sm md:text-base">
                   {episode.title}
                 </h3>
-                <div className="flex items-center gap-4 text-sm text-gray-400">
+                <div className="flex flex-wrap items-center gap-2 md:gap-4 text-xs md:text-sm text-gray-400">
                   <span>{episode.pub_date?.slice(0, 10)}</span>
                   <span>{formatDuration(episode.duration)}</span>
                   
                   {/* Status indicators */}
                   {episode.has_transcript && (
                     <span className="flex items-center gap-1 text-green-500">
-                      <FileText size={14} />
-                      Transcript
+                      <FileText size={12} className="md:w-3.5 md:h-3.5" />
+                      <span className="hidden sm:inline">Transcript</span>
                     </span>
                   )}
                   {episode.has_summary && (
                     <span className="flex items-center gap-1 text-purple-500">
-                      <MessageSquare size={14} />
-                      Summary
+                      <MessageSquare size={12} className="md:w-3.5 md:h-3.5" />
+                      <span className="hidden sm:inline">Summary</span>
                     </span>
                   )}
                 </div>
               </div>
               
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 justify-end sm:justify-start">
                 {(() => {
                   const activeJob = getActiveJob(episode.eid)
                   

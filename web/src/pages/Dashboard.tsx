@@ -102,20 +102,20 @@ export default function Dashboard() {
       </div>
       
       {/* Quick process form */}
-      <div className="p-6 bg-dark-surface border border-dark-border rounded-xl">
+      <div className="p-4 md:p-6 bg-dark-surface border border-dark-border rounded-xl">
         <h2 className="text-lg font-semibold text-white mb-4">Quick Process</h2>
-        <form onSubmit={handleProcess} className="flex gap-4">
+        <form onSubmit={handleProcess} className="flex flex-col sm:flex-row gap-3 sm:gap-4">
           <input
             type="url"
             value={episodeUrl}
             onChange={(e) => setEpisodeUrl(e.target.value)}
-            placeholder="Paste episode URL (e.g., https://www.xiaoyuzhoufm.com/episode/...)"
-            className="flex-1 px-4 py-3 bg-dark-hover border border-dark-border rounded-lg text-white placeholder:text-gray-500 focus:outline-none focus:border-indigo-500"
+            placeholder="Paste episode URL..."
+            className="flex-1 px-4 py-3 bg-dark-hover border border-dark-border rounded-lg text-white placeholder:text-gray-500 focus:outline-none focus:border-indigo-500 text-base"
           />
           <button
             type="submit"
             disabled={processing || !episodeUrl.trim()}
-            className="flex items-center gap-2 px-6 py-3 bg-indigo-600 hover:bg-indigo-700 disabled:bg-gray-700 disabled:cursor-not-allowed text-white font-medium rounded-lg transition-colors"
+            className="flex items-center justify-center gap-2 px-6 py-3 bg-indigo-600 hover:bg-indigo-700 disabled:bg-gray-700 disabled:cursor-not-allowed text-white font-medium rounded-lg transition-colors"
           >
             {processing ? <Loader2 className="w-5 h-5 animate-spin" /> : <Plus className="w-5 h-5" />}
             Process
@@ -125,7 +125,7 @@ export default function Dashboard() {
       
       {/* Stats */}
       {stats && (
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
           <StatCard
             icon={Radio}
             label="Podcasts"
@@ -184,7 +184,7 @@ export default function Dashboard() {
             <p className="text-sm text-gray-500">Process an episode to generate summaries</p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4">
             {summaries.slice(0, 6).map((summary) => (
               <SummaryCard key={summary.episode_id} summary={summary} />
             ))}
@@ -207,14 +207,14 @@ function StatCard({
   color: string
 }) {
   return (
-    <div className="p-6 bg-dark-surface border border-dark-border rounded-xl">
-      <div className="flex items-center gap-4">
-        <div className={`p-3 rounded-lg bg-dark-hover ${color}`}>
-          <Icon size={24} />
+    <div className="p-4 md:p-6 bg-dark-surface border border-dark-border rounded-xl">
+      <div className="flex items-center gap-3 md:gap-4">
+        <div className={`p-2 md:p-3 rounded-lg bg-dark-hover ${color}`}>
+          <Icon className="w-5 h-5 md:w-6 md:h-6" />
         </div>
         <div>
-          <p className="text-2xl font-bold text-white">{value}</p>
-          <p className="text-sm text-gray-400">{label}</p>
+          <p className="text-xl md:text-2xl font-bold text-white">{value}</p>
+          <p className="text-xs md:text-sm text-gray-400">{label}</p>
         </div>
       </div>
     </div>

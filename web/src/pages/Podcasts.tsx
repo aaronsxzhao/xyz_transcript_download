@@ -119,14 +119,14 @@ export default function Podcasts() {
   
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-white mb-2">Podcasts</h1>
-          <p className="text-gray-400">Manage your subscribed podcasts</p>
+          <h1 className="text-xl md:text-2xl font-bold text-white mb-1 md:mb-2">Podcasts</h1>
+          <p className="text-sm md:text-base text-gray-400">Manage your subscribed podcasts</p>
         </div>
         <button
           onClick={() => setShowAddForm(!showAddForm)}
-          className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-medium rounded-lg transition-colors"
+          className="flex items-center justify-center gap-2 px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-medium rounded-lg transition-colors w-full sm:w-auto"
         >
           <Plus size={20} />
           Add Podcast
@@ -135,20 +135,20 @@ export default function Podcasts() {
       
       {/* Add form */}
       {showAddForm && (
-        <div className="p-6 bg-dark-surface border border-dark-border rounded-xl">
+        <div className="p-4 md:p-6 bg-dark-surface border border-dark-border rounded-xl">
           <h2 className="text-lg font-semibold text-white mb-4">Add New Podcast</h2>
-          <form onSubmit={handleAdd} className="flex gap-4">
+          <form onSubmit={handleAdd} className="flex flex-col sm:flex-row gap-3 sm:gap-4">
             <input
               type="url"
               value={newUrl}
               onChange={(e) => setNewUrl(e.target.value)}
-              placeholder="Paste podcast or episode URL from xiaoyuzhoufm.com"
-              className="flex-1 px-4 py-3 bg-dark-hover border border-dark-border rounded-lg text-white placeholder:text-gray-500 focus:outline-none focus:border-indigo-500"
+              placeholder="Paste podcast or episode URL..."
+              className="flex-1 px-4 py-3 bg-dark-hover border border-dark-border rounded-lg text-white placeholder:text-gray-500 focus:outline-none focus:border-indigo-500 text-base"
             />
             <button
               type="submit"
               disabled={adding || !newUrl.trim()}
-              className="flex items-center gap-2 px-6 py-3 bg-indigo-600 hover:bg-indigo-700 disabled:bg-gray-700 disabled:cursor-not-allowed text-white font-medium rounded-lg transition-colors"
+              className="flex items-center justify-center gap-2 px-6 py-3 bg-indigo-600 hover:bg-indigo-700 disabled:bg-gray-700 disabled:cursor-not-allowed text-white font-medium rounded-lg transition-colors"
             >
               {adding ? <Loader2 className="w-5 h-5 animate-spin" /> : <Plus className="w-5 h-5" />}
               Add
@@ -169,33 +169,35 @@ export default function Podcasts() {
           {podcasts.map((podcast) => (
             <div
               key={podcast.pid}
-              className="p-6 bg-dark-surface border border-dark-border rounded-xl hover:border-dark-hover transition-colors"
+              className="p-4 md:p-6 bg-dark-surface border border-dark-border rounded-xl hover:border-dark-hover transition-colors"
             >
-              <div className="flex items-start gap-4">
-                <PodcastImage url={podcast.cover_url} alt={podcast.title} />
-                
-                <div className="flex-1 min-w-0">
-                  <h3 className="text-lg font-semibold text-white mb-1 truncate">
-                    {podcast.title}
-                  </h3>
-                  {podcast.author && (
-                    <p className="text-sm text-gray-400 mb-2">{podcast.author}</p>
-                  )}
-                  <p className="text-sm text-gray-500 line-clamp-2">
-                    {podcast.description || 'No description'}
-                  </p>
-                  <p className="text-sm text-indigo-400 mt-2">
-                    {podcast.episode_count} episodes
-                  </p>
+              <div className="flex flex-col sm:flex-row sm:items-start gap-4">
+                <div className="flex items-start gap-3 sm:gap-4 flex-1 min-w-0">
+                  <PodcastImage url={podcast.cover_url} alt={podcast.title} />
+                  
+                  <div className="flex-1 min-w-0">
+                    <h3 className="text-base md:text-lg font-semibold text-white mb-1 line-clamp-2">
+                      {podcast.title}
+                    </h3>
+                    {podcast.author && (
+                      <p className="text-sm text-gray-400 mb-1 md:mb-2">{podcast.author}</p>
+                    )}
+                    <p className="text-sm text-gray-500 line-clamp-2 hidden sm:block">
+                      {podcast.description || 'No description'}
+                    </p>
+                    <p className="text-sm text-indigo-400 mt-1 md:mt-2">
+                      {podcast.episode_count} episodes
+                    </p>
+                  </div>
                 </div>
                 
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 justify-end sm:justify-start">
                   <Link
                     to={`/podcasts/${podcast.pid}/episodes`}
-                    className="flex items-center gap-1 px-3 py-2 bg-dark-hover hover:bg-dark-border text-white rounded-lg transition-colors"
+                    className="flex items-center gap-1 px-3 py-2 bg-dark-hover hover:bg-dark-border text-white rounded-lg transition-colors text-sm"
                   >
                     <ExternalLink size={16} />
-                    Episodes
+                    <span className="hidden sm:inline">Episodes</span>
                   </Link>
                   <button
                     onClick={() => handleRefresh(podcast.pid)}
@@ -233,8 +235,8 @@ function PodcastImage({ url, alt }: { url?: string; alt: string }) {
   
   if (!url || error) {
     return (
-      <div className="w-20 h-20 rounded-lg bg-dark-hover flex items-center justify-center">
-        <Radio className="w-8 h-8 text-gray-600" />
+      <div className="w-14 h-14 md:w-20 md:h-20 rounded-lg bg-dark-hover flex items-center justify-center flex-shrink-0">
+        <Radio className="w-6 h-6 md:w-8 md:h-8 text-gray-600" />
       </div>
     )
   }
@@ -246,7 +248,7 @@ function PodcastImage({ url, alt }: { url?: string; alt: string }) {
     <img
       src={proxyUrl}
       alt={alt}
-      className="w-20 h-20 rounded-lg object-cover bg-dark-hover"
+      className="w-14 h-14 md:w-20 md:h-20 rounded-lg object-cover bg-dark-hover flex-shrink-0"
       onError={() => setError(true)}
     />
   )

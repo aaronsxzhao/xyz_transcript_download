@@ -28,7 +28,8 @@ export default function Sidebar() {
   }
   
   return (
-    <aside className={`fixed left-0 top-0 h-full bg-dark-surface border-r border-dark-border transition-all ${sidebarOpen ? 'w-64' : 'w-16'}`}>
+    <aside className={`fixed left-0 top-0 h-full bg-dark-surface border-r border-dark-border transition-all z-40
+      ${sidebarOpen ? 'w-64 translate-x-0' : 'md:w-16 -translate-x-full md:translate-x-0'}`}>
       {/* Header */}
       <div className="flex items-center justify-between h-16 px-4 border-b border-dark-border">
         {sidebarOpen && (

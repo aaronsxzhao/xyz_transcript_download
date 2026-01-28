@@ -24,7 +24,7 @@ export default function ProcessingPanel() {
   }
   
   return (
-    <div className="fixed bottom-4 left-4 z-40 w-80 bg-dark-surface border border-dark-border rounded-xl shadow-xl overflow-hidden">
+    <div className="fixed bottom-4 left-4 right-4 sm:right-auto z-40 sm:w-80 bg-dark-surface border border-dark-border rounded-xl shadow-xl overflow-hidden">
       {/* Header */}
       <button
         onClick={() => setExpanded(!expanded)}

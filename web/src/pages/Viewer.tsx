@@ -85,34 +85,42 @@ export default function Viewer() {
   }
   
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 md:space-y-6">
       {/* Header */}
-      <div className="flex items-start gap-4">
-        <Link
-          to="/"
-          className="p-2 bg-dark-surface border border-dark-border rounded-lg hover:bg-dark-hover transition-colors mt-1"
-        >
-          <ArrowLeft size={20} />
-        </Link>
-        <div className="flex-1">
-          <h1 className="text-2xl font-bold text-white mb-2">
+      <div className="flex flex-col sm:flex-row sm:items-start gap-3 md:gap-4">
+        <div className="flex items-start gap-3">
+          <Link
+            to="/"
+            className="p-2 bg-dark-surface border border-dark-border rounded-lg hover:bg-dark-hover transition-colors flex-shrink-0"
+          >
+            <ArrowLeft size={20} />
+          </Link>
+          <div className="flex-1 min-w-0 sm:hidden">
+            <h1 className="text-lg font-bold text-white line-clamp-2">
+              {summary?.title || 'Episode Viewer'}
+            </h1>
+          </div>
+        </div>
+        
+        <div className="flex-1 min-w-0 hidden sm:block">
+          <h1 className="text-xl md:text-2xl font-bold text-white mb-2 line-clamp-2">
             {summary?.title || 'Episode Viewer'}
           </h1>
-          <div className="flex items-center gap-4">
+          <div className="flex flex-wrap items-center gap-2 md:gap-4">
             {summary && (
               <>
-                <span className="flex items-center gap-1.5 text-sm text-gray-400">
+                <span className="flex items-center gap-1.5 text-xs md:text-sm text-gray-400">
                   <Tag size={14} />
                   {summary.topics.length} topics
                 </span>
-                <span className="flex items-center gap-1.5 text-sm text-gray-400">
+                <span className="flex items-center gap-1.5 text-xs md:text-sm text-gray-400">
                   <MessageSquare size={14} />
                   {summary.key_points.length} key points
                 </span>
               </>
             )}
             {transcript && (
-              <span className="flex items-center gap-1.5 text-sm text-gray-400">
+              <span className="flex items-center gap-1.5 text-xs md:text-sm text-gray-400">
                 <FileText size={14} />
                 {formatTime(transcript.duration)}
               </span>
@@ -121,7 +129,7 @@ export default function Viewer() {
         </div>
         
         {/* Export buttons */}
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 sm:flex-shrink-0">
           <a
             href={`/api/summaries/${eid}/html`}
             target="_blank"
@@ -129,28 +137,50 @@ export default function Viewer() {
             className="flex items-center gap-2 px-3 py-2 bg-dark-surface border border-dark-border rounded-lg hover:bg-dark-hover text-sm transition-colors"
           >
             <ExternalLink size={16} />
-            HTML
+            <span className="hidden sm:inline">HTML</span>
           </a>
         </div>
       </div>
       
+      {/* Mobile stats */}
+      <div className="flex flex-wrap items-center gap-3 sm:hidden text-xs text-gray-400">
+        {summary && (
+          <>
+            <span className="flex items-center gap-1">
+              <Tag size={12} />
+              {summary.topics.length} topics
+            </span>
+            <span className="flex items-center gap-1">
+              <MessageSquare size={12} />
+              {summary.key_points.length} points
+            </span>
+          </>
+        )}
+        {transcript && (
+          <span className="flex items-center gap-1">
+            <FileText size={12} />
+            {formatTime(transcript.duration)}
+          </span>
+        )}
+      </div>
+      
       {/* Tabs */}
-      <div className="flex gap-2 border-b border-dark-border">
+      <div className="flex gap-1 md:gap-2 border-b border-dark-border">
         <button
           onClick={() => setActiveTab('summary')}
-          className={`flex items-center gap-2 px-4 py-3 border-b-2 transition-colors ${
+          className={`flex items-center gap-1.5 md:gap-2 px-3 md:px-4 py-2.5 md:py-3 border-b-2 transition-colors text-sm md:text-base ${
             activeTab === 'summary'
               ? 'border-indigo-500 text-white'
               : 'border-transparent text-gray-400 hover:text-white'
           }`}
         >
-          <MessageSquare size={18} />
+          <MessageSquare size={16} className="md:w-[18px] md:h-[18px]" />
           Summary
         </button>
         <button
           onClick={() => setActiveTab('transcript')}
           disabled={!transcript}
-          className={`flex items-center gap-2 px-4 py-3 border-b-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
+          className={`flex items-center gap-1.5 md:gap-2 px-3 md:px-4 py-2.5 md:py-3 border-b-2 transition-colors text-sm md:text-base disabled:opacity-50 disabled:cursor-not-allowed ${
             activeTab === 'transcript'
               ? 'border-indigo-500 text-white'
               : 'border-transparent text-gray-400 hover:text-white'
