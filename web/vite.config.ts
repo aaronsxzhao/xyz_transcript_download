@@ -20,6 +20,7 @@ export default defineConfig({
       '/api': {
         target: `http://localhost:${apiPort}`,
         changeOrigin: true,
+        ws: true, // Enable WebSocket proxying
       },
       '/data': {
         target: `http://localhost:${apiPort}`,
