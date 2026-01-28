@@ -11,6 +11,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 
 from api.routers import podcasts, episodes, transcripts, summaries, processing
+from api.routers import auth_router
 
 # Create FastAPI app
 app = FastAPI(
@@ -29,6 +30,7 @@ app.add_middleware(
 )
 
 # Include routers
+app.include_router(auth_router.router, prefix="/api/auth", tags=["Authentication"])
 app.include_router(podcasts.router, prefix="/api/podcasts", tags=["Podcasts"])
 app.include_router(episodes.router, prefix="/api/episodes", tags=["Episodes"])
 app.include_router(transcripts.router, prefix="/api/transcripts", tags=["Transcripts"])
@@ -54,10 +56,31 @@ async def health_check():
 
 
 @app.get("/api/stats")
-async def get_stats():
+async def get_stats(user: "User" = None):
     """Get dashboard statistics."""
+    from typing import Optional
+    from fastapi import Depends
+    from config import DATA_DIR, USE_SUPABASE
+    from api.auth import get_current_user, User
+    
+    # Get user from dependency manually for optional auth
+    # In production, use Depends(get_current_user)
+    
+    if USE_SUPABASE:
+        from api.supabase_db import get_supabase_database
+        db = get_supabase_database()
+        if db and user:
+            stats = db.get_stats(user.id)
+            return {
+                "total_podcasts": stats["podcasts"],
+                "total_episodes": stats["episodes"],
+                "total_transcripts": stats["transcripts"],
+                "total_summaries": stats["summaries"],
+                "processing_queue": 0,
+            }
+    
+    # Fall back to local SQLite
     from database import get_database
-    from config import DATA_DIR
     
     db = get_database()
     

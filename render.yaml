@@ -6,6 +6,9 @@
 #   - LLM_API_KEY: Your LLM API key
 #   - LLM_BASE_URL: Your LLM API base URL
 #   - LLM_MODEL: LLM model name (e.g., gemini-2.5-pro)
+#   - SUPABASE_URL: Your Supabase project URL
+#   - SUPABASE_KEY: Your Supabase anon/public key
+#   - SUPABASE_SERVICE_KEY: Your Supabase service role key
 
 services:
   - type: web
@@ -27,6 +30,13 @@ services:
       - key: LLM_BASE_URL
         sync: false
       - key: LLM_MODEL
+        sync: false
+      # Supabase configuration (for user auth and cloud storage)
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_KEY
+        sync: false
+      - key: SUPABASE_SERVICE_KEY
         sync: false
     disk:
       name: xyz-data

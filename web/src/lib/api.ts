@@ -2,7 +2,39 @@
  * API client for backend communication
  */
 
+import { getAccessToken } from './auth'
+
 const API_BASE = '/api'
+
+/**
+ * Helper to create headers with auth token
+ */
+function getAuthHeaders(contentType?: string): HeadersInit {
+  const headers: HeadersInit = {}
+  
+  const token = getAccessToken()
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`
+  }
+  
+  if (contentType) {
+    headers['Content-Type'] = contentType
+  }
+  
+  return headers
+}
+
+/**
+ * Authenticated fetch wrapper
+ */
+async function authFetch(url: string, options: RequestInit = {}): Promise<Response> {
+  const headers = {
+    ...getAuthHeaders(),
+    ...options.headers,
+  }
+  
+  return fetch(url, { ...options, headers })
+}
 
 export interface Podcast {
   pid: string
@@ -83,19 +115,19 @@ export interface ProcessingJob {
 
 // API functions
 export async function fetchStats(): Promise<Stats> {
-  const res = await fetch(`${API_BASE}/stats`)
+  const res = await authFetch(`${API_BASE}/stats`)
   if (!res.ok) throw new Error('Failed to fetch stats')
   return res.json()
 }
 
 export async function fetchPodcasts(): Promise<Podcast[]> {
-  const res = await fetch(`${API_BASE}/podcasts`)
+  const res = await authFetch(`${API_BASE}/podcasts`)
   if (!res.ok) throw new Error('Failed to fetch podcasts')
   return res.json()
 }
 
 export async function addPodcast(url: string): Promise<Podcast> {
-  const res = await fetch(`${API_BASE}/podcasts`, {
+  const res = await authFetch(`${API_BASE}/podcasts`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ url }),
@@ -108,38 +140,38 @@ export async function addPodcast(url: string): Promise<Podcast> {
 }
 
 export async function removePodcast(pid: string): Promise<void> {
-  const res = await fetch(`${API_BASE}/podcasts/${pid}`, {
+  const res = await authFetch(`${API_BASE}/podcasts/${pid}`, {
     method: 'DELETE',
   })
   if (!res.ok) throw new Error('Failed to remove podcast')
 }
 
 export async function fetchPodcast(pid: string): Promise<Podcast> {
-  const res = await fetch(`${API_BASE}/podcasts/${pid}`)
+  const res = await authFetch(`${API_BASE}/podcasts/${pid}`)
   if (!res.ok) throw new Error('Failed to fetch podcast')
   return res.json()
 }
 
 export async function fetchEpisodes(pid: string): Promise<Episode[]> {
-  const res = await fetch(`${API_BASE}/podcasts/${pid}/episodes`)
+  const res = await authFetch(`${API_BASE}/podcasts/${pid}/episodes`)
   if (!res.ok) throw new Error('Failed to fetch episodes')
   return res.json()
 }
 
 export async function fetchSummaries(): Promise<SummaryListItem[]> {
-  const res = await fetch(`${API_BASE}/summaries`)
+  const res = await authFetch(`${API_BASE}/summaries`)
   if (!res.ok) throw new Error('Failed to fetch summaries')
   return res.json()
 }
 
 export async function fetchSummary(eid: string): Promise<Summary> {
-  const res = await fetch(`${API_BASE}/summaries/${eid}`)
+  const res = await authFetch(`${API_BASE}/summaries/${eid}`)
   if (!res.ok) throw new Error('Failed to fetch summary')
   return res.json()
 }
 
 export async function fetchTranscript(eid: string): Promise<Transcript> {
-  const res = await fetch(`${API_BASE}/transcripts/${eid}`)
+  const res = await authFetch(`${API_BASE}/transcripts/${eid}`)
   if (!res.ok) throw new Error('Failed to fetch transcript')
   return res.json()
 }
@@ -148,7 +180,7 @@ export async function processEpisode(
   episodeUrl: string,
   options: { transcribeOnly?: boolean; force?: boolean } = {}
 ): Promise<{ job_id: string }> {
-  const res = await fetch(`${API_BASE}/process`, {
+  const res = await authFetch(`${API_BASE}/process`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
@@ -162,7 +194,7 @@ export async function processEpisode(
 }
 
 export async function refreshPodcast(pid: string): Promise<{ message: string; total: number }> {
-  const res = await fetch(`${API_BASE}/podcasts/${pid}/refresh`, {
+  const res = await authFetch(`${API_BASE}/podcasts/${pid}/refresh`, {
     method: 'POST',
   })
   if (!res.ok) throw new Error('Failed to refresh podcast')
@@ -177,7 +209,7 @@ export async function fetchSettings(): Promise<{
   llm_model: string
   check_interval: number
 }> {
-  const res = await fetch(`${API_BASE}/settings`)
+  const res = await authFetch(`${API_BASE}/settings`)
   if (!res.ok) throw new Error('Failed to fetch settings')
   return res.json()
 }

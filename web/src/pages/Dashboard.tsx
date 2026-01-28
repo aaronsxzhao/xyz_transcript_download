@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { Radio, FileText, MessageSquare, Loader2, Plus, ArrowRight } from 'lucide-react'
 import { fetchStats, fetchSummaries, processEpisode, type Stats, type SummaryListItem, type ProcessingJob } from '../lib/api'
 import { useStore } from '../lib/store'
+import { getCache, setCache, CacheKeys } from '../lib/cache'
 import SummaryCard from '../components/SummaryCard'
 import ProcessingProgress from '../components/ProcessingProgress'
 
@@ -20,6 +21,15 @@ export default function Dashboard() {
   }, [])
   
   async function loadData() {
+    // Load from cache first for instant display
+    const cachedStats = getCache<Stats>(CacheKeys.STATS)
+    const cachedSummaries = getCache<SummaryListItem[]>(CacheKeys.SUMMARIES)
+    
+    if (cachedStats) setStats(cachedStats)
+    if (cachedSummaries) setSummaries(cachedSummaries)
+    if (cachedStats || cachedSummaries) setLoading(false)
+    
+    // Then fetch fresh data
     try {
       const [statsData, summariesData] = await Promise.all([
         fetchStats(),
@@ -27,6 +37,10 @@ export default function Dashboard() {
       ])
       setStats(statsData)
       setSummaries(summariesData)
+      
+      // Update cache
+      setCache(CacheKeys.STATS, statsData)
+      setCache(CacheKeys.SUMMARIES, summariesData)
     } catch (err) {
       console.error('Failed to load data:', err)
     } finally {

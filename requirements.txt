@@ -27,6 +27,10 @@ browser-cookie3>=0.19.1
 # LLM API client
 openai>=1.0.0
 
+# Supabase (authentication and database)
+supabase>=2.0.0
+python-jose[cryptography]>=3.3.0
+
 # Speech-to-text with faster-whisper (CTranslate2)
 # Up to 4x faster than openai-whisper, uses less memory
 faster-whisper>=1.0.0

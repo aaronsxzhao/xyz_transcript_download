@@ -191,6 +191,15 @@ MIN_DISK_SPACE_MB = _get_env_int("MIN_DISK_SPACE_MB", 500, min_val=100)
 # Xiaoyuzhou API base URL
 XYZ_API_BASE = "https://api.xiaoyuzhoufm.com"
 
+# Supabase Configuration (for cloud storage and auth)
+SUPABASE_URL = _get_env("SUPABASE_URL", "")
+SUPABASE_KEY = _get_env("SUPABASE_KEY", "")  # anon/public key
+SUPABASE_SERVICE_KEY = _get_env("SUPABASE_SERVICE_KEY", "")  # service role key
+SUPABASE_JWT_SECRET = _get_env("SUPABASE_JWT_SECRET", "")  # JWT secret for verification
+
+# Use Supabase if configured, otherwise fall back to local SQLite
+USE_SUPABASE = bool(SUPABASE_URL and SUPABASE_KEY)
+
 # Request headers for Xiaoyuzhou API
 DEFAULT_HEADERS = {
     "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36",

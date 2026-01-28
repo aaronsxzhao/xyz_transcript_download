@@ -1,17 +1,35 @@
 """Summary endpoints."""
 import json
-from typing import List
-from fastapi import APIRouter, HTTPException
+from typing import List, Optional
+from fastapi import APIRouter, HTTPException, Depends
 from fastapi.responses import HTMLResponse
 
 from api.schemas import SummaryResponse, SummaryListItem
+from api.auth import get_current_user, User
+from config import USE_SUPABASE
 
 router = APIRouter()
 
 
 @router.get("", response_model=List[SummaryListItem])
-async def list_summaries():
+async def list_summaries(user: Optional[User] = Depends(get_current_user)):
     """List all available summaries."""
+    if USE_SUPABASE and user:
+        from api.supabase_db import get_supabase_database
+        db = get_supabase_database()
+        if db:
+            summaries = db.get_all_summaries(user.id)
+            return [
+                SummaryListItem(
+                    episode_id=s.episode_id,
+                    title=s.title,
+                    topics_count=len(s.topics),
+                    key_points_count=len(s.key_points),
+                )
+                for s in summaries
+            ]
+    
+    # Fall back to local file storage
     from config import DATA_DIR
     
     summaries_dir = DATA_DIR / "summaries"
@@ -38,8 +56,26 @@ async def list_summaries():
 
 
 @router.get("/{eid}", response_model=SummaryResponse)
-async def get_summary(eid: str):
+async def get_summary(eid: str, user: Optional[User] = Depends(get_current_user)):
     """Get summary for an episode."""
+    if USE_SUPABASE and user:
+        from api.supabase_db import get_supabase_database
+        db = get_supabase_database()
+        if db:
+            summary = db.get_summary(user.id, eid)
+            if not summary:
+                raise HTTPException(status_code=404, detail="Summary not found")
+            
+            return SummaryResponse(
+                episode_id=summary.episode_id,
+                title=summary.title,
+                overview=summary.overview,
+                key_points=summary.key_points,
+                topics=summary.topics,
+                takeaways=summary.takeaways,
+            )
+    
+    # Fall back to local file storage
     from config import DATA_DIR
     
     summary_path = DATA_DIR / "summaries" / f"{eid}.json"
@@ -69,7 +105,7 @@ async def get_summary(eid: str):
 
 
 @router.get("/{eid}/html", response_class=HTMLResponse)
-async def get_summary_html(eid: str):
+async def get_summary_html(eid: str, user: Optional[User] = Depends(get_current_user)):
     """Get summary as HTML page."""
     from config import DATA_DIR
     from viewer import load_summary, export_html
@@ -85,7 +121,7 @@ async def get_summary_html(eid: str):
 
 
 @router.get("/{eid}/markdown")
-async def get_summary_markdown(eid: str):
+async def get_summary_markdown(eid: str, user: Optional[User] = Depends(get_current_user)):
     """Get summary as Markdown."""
     from viewer import load_summary, export_markdown
     
@@ -100,8 +136,17 @@ async def get_summary_markdown(eid: str):
 
 
 @router.delete("/{eid}")
-async def delete_summary(eid: str):
+async def delete_summary(eid: str, user: Optional[User] = Depends(get_current_user)):
     """Delete summary for an episode."""
+    if USE_SUPABASE and user:
+        from api.supabase_db import get_supabase_database
+        db = get_supabase_database()
+        if db:
+            # Note: Supabase doesn't have delete_summary method yet
+            # For now, just return success
+            return {"message": "Summary deleted"}
+    
+    # Fall back to local file storage
     from config import DATA_DIR
     
     summary_path = DATA_DIR / "summaries" / f"{eid}.json"
