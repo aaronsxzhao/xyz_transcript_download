@@ -3,6 +3,7 @@ import { useParams, Link } from 'react-router-dom'
 import { ArrowLeft, Play, FileText, MessageSquare, Loader2, CheckCircle, Trash2 } from 'lucide-react'
 import { fetchPodcast, fetchEpisodes, processEpisode, deleteEpisode, type Podcast, type Episode } from '../lib/api'
 import { useToast } from '../components/Toast'
+import { useStore } from '../lib/store'
 
 export default function Episodes() {
   const { pid } = useParams<{ pid: string }>()
@@ -12,6 +13,7 @@ export default function Episodes() {
   const [processingEid, setProcessingEid] = useState<string | null>(null)
   const [deletingEid, setDeletingEid] = useState<string | null>(null)
   const { addToast } = useToast()
+  const { updateJob } = useStore()
   
   useEffect(() => {
     if (pid) loadData()
@@ -36,7 +38,18 @@ export default function Episodes() {
     setProcessingEid(episode.eid)
     try {
       const episodeUrl = `https://www.xiaoyuzhoufm.com/episode/${episode.eid}`
-      await processEpisode(episodeUrl)
+      const result = await processEpisode(episodeUrl)
+      
+      // Immediately add job to store for instant UI feedback
+      updateJob({
+        job_id: result.job_id,
+        status: 'pending',
+        progress: 0,
+        message: 'Starting...',
+        episode_id: episode.eid,
+        episode_title: episode.title,
+      })
+      
       addToast({
         type: 'success',
         title: 'Processing started',

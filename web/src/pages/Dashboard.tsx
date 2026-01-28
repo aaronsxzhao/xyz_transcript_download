@@ -15,7 +15,7 @@ export default function Dashboard() {
   const [episodeUrl, setEpisodeUrl] = useState('')
   const [processing, setProcessing] = useState(false)
   
-  const { jobs } = useStore()
+  const { jobs, updateJob } = useStore()
   const { addToast } = useToast()
   
   useEffect(() => {
@@ -56,7 +56,16 @@ export default function Dashboard() {
     
     setProcessing(true)
     try {
-      await processEpisode(episodeUrl)
+      const result = await processEpisode(episodeUrl)
+      
+      // Immediately add job to store for instant UI feedback
+      updateJob({
+        job_id: result.job_id,
+        status: 'pending',
+        progress: 0,
+        message: 'Starting...',
+      })
+      
       setEpisodeUrl('')
       addToast({
         type: 'success',

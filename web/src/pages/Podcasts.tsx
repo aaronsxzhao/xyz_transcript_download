@@ -12,7 +12,7 @@ export default function Podcasts() {
   const [showAddForm, setShowAddForm] = useState(false)
   const [refreshing, setRefreshing] = useState<string | null>(null)
   const [deletingPid, setDeletingPid] = useState<string | null>(null)
-  const { addToast } = useToast()
+  const { addToast, removeToast } = useToast()
   
   useEffect(() => {
     loadPodcasts()
@@ -34,7 +34,7 @@ export default function Podcasts() {
     if (!newUrl.trim()) return
     
     setAdding(true)
-    addToast({
+    const toastId = addToast({
       type: 'loading',
       title: 'Adding podcast...',
       message: 'Fetching podcast information',
@@ -45,12 +45,14 @@ export default function Podcasts() {
       setPodcasts([podcast, ...podcasts])
       setNewUrl('')
       setShowAddForm(false)
+      removeToast(toastId)
       addToast({
         type: 'success',
         title: 'Podcast added',
         message: podcast.title,
       })
     } catch (err: unknown) {
+      removeToast(toastId)
       addToast({
         type: 'error',
         title: 'Failed to add podcast',

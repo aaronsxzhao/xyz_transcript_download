@@ -62,6 +62,17 @@ def update_job_status(job_id: str, status: str, progress: float = 0, message: st
             jobs[job_id].episode_id = episode_id
         if episode_title:
             jobs[job_id].episode_title = episode_title
+        
+        # Broadcast update to all connected WebSocket clients
+        # Use asyncio to run in thread context
+        try:
+            import asyncio
+            loop = asyncio.get_event_loop()
+            if loop.is_running():
+                # Schedule broadcast from sync context
+                asyncio.run_coroutine_threadsafe(broadcast_status(job_id), loop)
+        except Exception:
+            pass  # Ignore if no event loop
 
 
 async def broadcast_status(job_id: str):
@@ -236,6 +247,9 @@ async def process_episode(data: ProcessRequest, background_tasks: BackgroundTask
         progress=0,
         message="Starting...",
     )
+    
+    # Broadcast new job to WebSocket clients immediately
+    await broadcast_status(job_id)
     
     # Start background processing
     background_tasks.add_task(
