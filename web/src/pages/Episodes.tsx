@@ -4,6 +4,7 @@ import { ArrowLeft, Play, FileText, MessageSquare, Loader2, CheckCircle, Trash2 
 import { fetchPodcast, fetchEpisodes, processEpisode, deleteEpisode, type Podcast, type Episode } from '../lib/api'
 import { useToast } from '../components/Toast'
 import { useStore } from '../lib/store'
+import { getStatusColor } from '../lib/statusUtils'
 
 export default function Episodes() {
   const { pid } = useParams<{ pid: string }>()
@@ -13,7 +14,15 @@ export default function Episodes() {
   const [processingEid, setProcessingEid] = useState<string | null>(null)
   const [deletingEid, setDeletingEid] = useState<string | null>(null)
   const { addToast } = useToast()
-  const { updateJob } = useStore()
+  const { jobs, updateJob } = useStore()
+  
+  // Helper to find active job for an episode
+  function getActiveJob(eid: string) {
+    return jobs.find(job => 
+      job.episode_id === eid && 
+      !['completed', 'failed', 'cancelled'].includes(job.status)
+    )
+  }
   
   useEffect(() => {
     if (pid) loadData()
@@ -152,28 +161,56 @@ export default function Episodes() {
               </div>
               
               <div className="flex items-center gap-2">
-                {episode.has_summary ? (
-                  <Link
-                    to={`/viewer/${episode.eid}`}
-                    className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-colors"
-                  >
-                    <CheckCircle size={16} />
-                    View
-                  </Link>
-                ) : (
-                  <button
-                    onClick={() => handleProcess(episode)}
-                    disabled={processingEid === episode.eid}
-                    className="flex items-center gap-2 px-4 py-2 bg-dark-hover hover:bg-dark-border text-white rounded-lg transition-colors disabled:opacity-50"
-                  >
-                    {processingEid === episode.eid ? (
-                      <Loader2 size={16} className="animate-spin" />
-                    ) : (
-                      <Play size={16} />
-                    )}
-                    Process
-                  </button>
-                )}
+                {(() => {
+                  const activeJob = getActiveJob(episode.eid)
+                  
+                  if (episode.has_summary) {
+                    return (
+                      <Link
+                        to={`/viewer/${episode.eid}`}
+                        className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-colors"
+                      >
+                        <CheckCircle size={16} />
+                        View
+                      </Link>
+                    )
+                  }
+                  
+                  if (activeJob) {
+                    // Show processing progress
+                    return (
+                      <div className="flex items-center gap-3 px-4 py-2 bg-dark-hover rounded-lg min-w-[140px]">
+                        <Loader2 size={16} className="animate-spin text-indigo-400" />
+                        <div className="flex-1">
+                          <div className="text-xs text-gray-400 mb-1">
+                            {activeJob.message || activeJob.status}
+                          </div>
+                          <div className="h-1.5 bg-dark-border rounded-full overflow-hidden">
+                            <div 
+                              className={`h-full ${getStatusColor(activeJob.status)} transition-all duration-300`}
+                              style={{ width: `${Math.min(activeJob.progress, 100)}%` }}
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    )
+                  }
+                  
+                  return (
+                    <button
+                      onClick={() => handleProcess(episode)}
+                      disabled={processingEid === episode.eid}
+                      className="flex items-center gap-2 px-4 py-2 bg-dark-hover hover:bg-dark-border text-white rounded-lg transition-colors disabled:opacity-50"
+                    >
+                      {processingEid === episode.eid ? (
+                        <Loader2 size={16} className="animate-spin" />
+                      ) : (
+                        <Play size={16} />
+                      )}
+                      Process
+                    </button>
+                  )
+                })()}
                 
                 {/* Delete button */}
                 <button
