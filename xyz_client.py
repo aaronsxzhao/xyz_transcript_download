@@ -74,6 +74,11 @@ class XyzClient:
 
             # Extract podcast ID from URL
             pid = self._extract_id_from_url(url, "podcast")
+            
+            # If we can't extract a valid podcast ID, this is not a valid podcast URL
+            if not pid:
+                logger.warning(f"Could not extract podcast ID from URL: {url}")
+                return None
 
             # Try to get author from page content
             author = ""
@@ -103,7 +108,7 @@ class XyzClient:
                             pass
 
             return Podcast(
-                pid=pid or "",
+                pid=pid,  # Already validated above
                 title=title_tag['content'] if title_tag else "",
                 author=author,
                 description=description_tag['content'] if description_tag else "",
