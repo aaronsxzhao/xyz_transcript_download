@@ -1,13 +1,61 @@
 /**
- * WebSocket client for real-time updates
+ * WebSocket client for real-time updates with polling fallback
  */
 import { useStore } from './store'
+import type { ProcessingJob } from './api'
 
 let ws: WebSocket | null = null
 let reconnectTimeout: number | null = null
+let pollInterval: number | null = null
+
+// Poll for job updates as fallback (every 2 seconds when there are active jobs)
+async function pollJobs() {
+  try {
+    const response = await fetch('/api/jobs')
+    if (response.ok) {
+      const data = await response.json()
+      const jobs: ProcessingJob[] = data.jobs || []
+      
+      // Update each job in the store
+      jobs.forEach(job => {
+        useStore.getState().updateJob(job)
+      })
+    }
+  } catch (e) {
+    // Silently fail - polling is just a fallback
+  }
+}
+
+function startPolling() {
+  if (pollInterval) return
+  
+  // Poll immediately, then every 2 seconds
+  pollJobs()
+  pollInterval = window.setInterval(() => {
+    // Only poll if there are active jobs
+    const jobs = useStore.getState().jobs
+    const hasActiveJobs = jobs.some(job => 
+      !['completed', 'failed', 'cancelled'].includes(job.status)
+    )
+    
+    if (hasActiveJobs) {
+      pollJobs()
+    }
+  }, 2000)
+}
+
+function stopPolling() {
+  if (pollInterval) {
+    clearInterval(pollInterval)
+    pollInterval = null
+  }
+}
 
 export function connectWebSocket() {
   if (ws?.readyState === WebSocket.OPEN) return
+  
+  // Start polling as fallback
+  startPolling()
   
   const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
   // Use current host and port (works for both dev and production)
@@ -63,6 +111,8 @@ export function connectWebSocket() {
 }
 
 export function disconnectWebSocket() {
+  stopPolling()
+  
   if (reconnectTimeout) {
     clearTimeout(reconnectTimeout)
   }

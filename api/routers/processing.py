@@ -174,8 +174,21 @@ def process_episode_sync(job_id: str, episode_url: str, transcribe_only: bool = 
                 mark_job_cancelled(job_id)
                 return
             
-            update_job_status(job_id, "transcribing", 35, "Transcribing audio (this may take a while)...")
-            transcript = transcriber.transcribe(audio_path, episode.eid)
+            update_job_status(job_id, "transcribing", 35, "Transcribing audio...")
+            
+            # Progress callback to report real transcription progress
+            # Maps 0-100% transcription progress to 35-60% job progress
+            last_progress = [35]  # Use list to allow modification in closure
+            def transcription_progress(progress: float):
+                # progress is 0.0 to 1.0
+                job_progress = 35 + (progress * 25)  # 35% to 60%
+                # Only update if progress increased by at least 1%
+                if job_progress >= last_progress[0] + 1:
+                    last_progress[0] = job_progress
+                    pct = int(progress * 100)
+                    update_job_status(job_id, "transcribing", job_progress, f"Transcribing... {pct}%")
+            
+            transcript = transcriber.transcribe(audio_path, episode.eid, progress_callback=transcription_progress)
             
             if transcript:
                 transcriber.save_transcript(transcript)
