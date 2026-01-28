@@ -64,6 +64,8 @@ export default function Dashboard() {
         status: 'pending',
         progress: 0,
         message: 'Starting...',
+        episode_id: result.episode_id,
+        episode_title: result.episode_title,
       })
       
       setEpisodeUrl('')

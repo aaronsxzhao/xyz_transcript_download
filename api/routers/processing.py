@@ -239,13 +239,28 @@ async def process_episode(data: ProcessRequest, background_tasks: BackgroundTask
     if not data.episode_url:
         raise HTTPException(status_code=400, detail="episode_url is required")
     
-    # Create job
+    # Try to fetch episode info for immediate display
+    episode_id = None
+    episode_title = None
+    try:
+        from xyz_client import get_client
+        client = get_client()
+        episode = client.get_episode_by_share_url(data.episode_url)
+        if episode:
+            episode_id = episode.eid
+            episode_title = episode.title
+    except Exception:
+        pass  # Will be fetched again in background task
+    
+    # Create job with episode info if available
     job_id = str(uuid.uuid4())[:8]
     jobs[job_id] = ProcessingStatus(
         job_id=job_id,
         status="pending",
         progress=0,
         message="Starting...",
+        episode_id=episode_id,
+        episode_title=episode_title,
     )
     
     # Broadcast new job to WebSocket clients immediately
@@ -260,7 +275,12 @@ async def process_episode(data: ProcessRequest, background_tasks: BackgroundTask
         data.force,
     )
     
-    return {"job_id": job_id, "message": "Processing started"}
+    return {
+        "job_id": job_id, 
+        "message": "Processing started",
+        "episode_id": episode_id,
+        "episode_title": episode_title,
+    }
 
 
 @router.get("/jobs")

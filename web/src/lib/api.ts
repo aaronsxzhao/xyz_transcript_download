@@ -179,7 +179,7 @@ export async function fetchTranscript(eid: string): Promise<Transcript> {
 export async function processEpisode(
   episodeUrl: string,
   options: { transcribeOnly?: boolean; force?: boolean } = {}
-): Promise<{ job_id: string }> {
+): Promise<{ job_id: string; episode_id?: string; episode_title?: string }> {
   const res = await authFetch(`${API_BASE}/process`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
