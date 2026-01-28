@@ -2,9 +2,9 @@
  * Processing panel that shows active jobs with progress
  */
 import { useState } from 'react'
-import { ChevronUp, ChevronDown, Loader2, CheckCircle, XCircle, Radio } from 'lucide-react'
+import { ChevronUp, ChevronDown, Loader2, CheckCircle, XCircle, Radio, X, Ban } from 'lucide-react'
 import { useStore } from '../lib/store'
-import type { ProcessingJob } from '../lib/api'
+import { cancelJob, type ProcessingJob } from '../lib/api'
 
 export default function ProcessingPanel() {
   const { jobs, wsConnected } = useStore()
@@ -12,10 +12,10 @@ export default function ProcessingPanel() {
   
   // Only show if there are active jobs
   const activeJobs = jobs.filter(job => 
-    job.status !== 'completed' && job.status !== 'failed'
+    job.status !== 'completed' && job.status !== 'failed' && job.status !== 'cancelled'
   )
   const completedJobs = jobs.filter(job => 
-    job.status === 'completed' || job.status === 'failed'
+    job.status === 'completed' || job.status === 'failed' || job.status === 'cancelled'
   )
   
   if (jobs.length === 0) {
@@ -47,7 +47,7 @@ export default function ProcessingPanel() {
       {expanded && (
         <div className="max-h-64 overflow-y-auto divide-y divide-dark-border">
           {activeJobs.map((job) => (
-            <JobItem key={job.job_id} job={job} />
+            <JobItem key={job.job_id} job={job} showCancel />
           ))}
           {completedJobs.slice(0, 3).map((job) => (
             <JobItem key={job.job_id} job={job} />
@@ -58,13 +58,30 @@ export default function ProcessingPanel() {
   )
 }
 
-function JobItem({ job }: { job: ProcessingJob }) {
+function JobItem({ job, showCancel = false }: { job: ProcessingJob; showCancel?: boolean }) {
+  const [cancelling, setCancelling] = useState(false)
+  
+  const handleCancel = async () => {
+    setCancelling(true)
+    try {
+      await cancelJob(job.job_id)
+    } catch (err) {
+      console.error('Failed to cancel job:', err)
+    } finally {
+      setCancelling(false)
+    }
+  }
+  
   const getStatusIcon = () => {
     switch (job.status) {
       case 'completed':
         return <CheckCircle className="w-4 h-4 text-green-400" />
       case 'failed':
         return <XCircle className="w-4 h-4 text-red-400" />
+      case 'cancelled':
+        return <Ban className="w-4 h-4 text-gray-400" />
+      case 'cancelling':
+        return <Loader2 className="w-4 h-4 text-yellow-400 animate-spin" />
       default:
         return <Loader2 className="w-4 h-4 text-indigo-400 animate-spin" />
     }
@@ -76,6 +93,10 @@ function JobItem({ job }: { job: ProcessingJob }) {
         return 'bg-green-500'
       case 'failed':
         return 'bg-red-500'
+      case 'cancelled':
+        return 'bg-gray-500'
+      case 'cancelling':
+        return 'bg-yellow-500'
       case 'downloading':
         return 'bg-blue-500'
       case 'transcribing':
@@ -101,10 +122,16 @@ function JobItem({ job }: { job: ProcessingJob }) {
         return 'Done!'
       case 'failed':
         return 'Failed'
+      case 'cancelled':
+        return 'Cancelled'
+      case 'cancelling':
+        return 'Cancelling...'
       default:
         return job.status
     }
   }
+  
+  const isActive = !['completed', 'failed', 'cancelled'].includes(job.status)
   
   return (
     <div className="p-3 space-y-2">
@@ -118,10 +145,21 @@ function JobItem({ job }: { job: ProcessingJob }) {
             {job.message || getStatusText()}
           </p>
         </div>
+        {/* Cancel button */}
+        {showCancel && isActive && job.status !== 'cancelling' && (
+          <button
+            onClick={handleCancel}
+            disabled={cancelling}
+            className="p-1 text-gray-500 hover:text-red-400 hover:bg-red-400/10 rounded transition-colors"
+            title="Cancel processing"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        )}
       </div>
       
       {/* Progress bar */}
-      {job.status !== 'completed' && job.status !== 'failed' && (
+      {isActive && (
         <div className="relative h-1.5 bg-dark-border rounded-full overflow-hidden">
           <div
             className={`absolute left-0 top-0 h-full ${getStatusColor()} transition-all duration-300`}
@@ -135,7 +173,7 @@ function JobItem({ job }: { job: ProcessingJob }) {
       )}
       
       {/* Progress percentage */}
-      {job.progress > 0 && job.status !== 'completed' && job.status !== 'failed' && (
+      {job.progress > 0 && isActive && (
         <p className="text-xs text-gray-500 text-right">
           {Math.round(job.progress * 100)}%
         </p>

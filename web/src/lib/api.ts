@@ -213,3 +213,19 @@ export async function fetchSettings(): Promise<{
   if (!res.ok) throw new Error('Failed to fetch settings')
   return res.json()
 }
+
+export async function cancelJob(jobId: string): Promise<{ message: string }> {
+  const res = await authFetch(`${API_BASE}/jobs/${jobId}/cancel`, {
+    method: 'POST',
+  })
+  if (!res.ok) throw new Error('Failed to cancel job')
+  return res.json()
+}
+
+export async function deleteEpisode(eid: string): Promise<{ message: string }> {
+  const res = await authFetch(`${API_BASE}/episodes/${eid}`, {
+    method: 'DELETE',
+  })
+  if (!res.ok) throw new Error('Failed to delete episode')
+  return res.json()
+}

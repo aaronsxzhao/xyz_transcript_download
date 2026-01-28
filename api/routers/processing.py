@@ -1,7 +1,7 @@
 """Processing endpoints with WebSocket support."""
 import asyncio
 import uuid
-from typing import Dict, Optional
+from typing import Dict, Set, Optional
 from fastapi import APIRouter, HTTPException, WebSocket, WebSocketDisconnect, BackgroundTasks
 
 from api.schemas import ProcessRequest, BatchProcessRequest, ProcessingStatus
@@ -10,6 +10,20 @@ router = APIRouter()
 
 # In-memory job tracking
 jobs: Dict[str, ProcessingStatus] = {}
+
+# Track cancelled jobs
+cancelled_jobs: Set[str] = set()
+
+
+def is_job_cancelled(job_id: str) -> bool:
+    """Check if a job has been cancelled."""
+    return job_id in cancelled_jobs
+
+
+def mark_job_cancelled(job_id: str):
+    """Mark a job as cancelled and clean up."""
+    if job_id in cancelled_jobs:
+        cancelled_jobs.discard(job_id)
 
 
 class ConnectionManager:
@@ -74,6 +88,12 @@ def process_episode_sync(job_id: str, episode_url: str, transcribe_only: bool = 
     summarizer = get_summarizer()
     
     try:
+        # Check for cancellation before starting
+        if is_job_cancelled(job_id):
+            update_job_status(job_id, "cancelled", 0, "Cancelled before starting")
+            mark_job_cancelled(job_id)
+            return
+        
         # Get episode info
         update_job_status(job_id, "fetching", 5, "Fetching episode info...")
         
@@ -91,7 +111,7 @@ def process_episode_sync(job_id: str, episode_url: str, transcribe_only: bool = 
             if not podcast:
                 podcast_info = client.get_podcast(episode.pid)
                 if podcast_info:
-                    db.add_podcast(podcast_info.pid, podcast_info.title, podcast_info.author, podcast_info.description)
+                    db.add_podcast(podcast_info.pid, podcast_info.title, podcast_info.author, podcast_info.description, podcast_info.cover_url)
                     update_job_status(job_id, "fetching", 12, f"Auto-subscribed to: {podcast_info.title}")
                     podcast = db.get_podcast(episode.pid)  # Get the newly created record
             
@@ -108,6 +128,12 @@ def process_episode_sync(job_id: str, episode_url: str, transcribe_only: bool = 
                     audio_url=episode.audio_url,
                 )
         
+        # Check for cancellation before downloading
+        if is_job_cancelled(job_id):
+            update_job_status(job_id, "cancelled", 15, "Cancelled before download")
+            mark_job_cancelled(job_id)
+            return
+        
         # Download
         update_job_status(job_id, "downloading", 15, "Downloading audio...")
         audio_path = downloader.download(episode)
@@ -117,6 +143,12 @@ def process_episode_sync(job_id: str, episode_url: str, transcribe_only: bool = 
             return
         
         update_job_status(job_id, "downloading", 30, "Download complete")
+        
+        # Check for cancellation before transcribing
+        if is_job_cancelled(job_id):
+            update_job_status(job_id, "cancelled", 30, "Cancelled before transcription")
+            mark_job_cancelled(job_id)
+            return
         
         # Transcribe
         if transcriber.transcript_exists(episode.eid) and not force:
@@ -137,6 +169,12 @@ def process_episode_sync(job_id: str, episode_url: str, transcribe_only: bool = 
             update_job_status(job_id, "completed", 100, "Transcription complete (skipped summary)")
             return
         
+        # Check for cancellation before summarizing
+        if is_job_cancelled(job_id):
+            update_job_status(job_id, "cancelled", 60, "Cancelled before summarization")
+            mark_job_cancelled(job_id)
+            return
+        
         # Summarize
         existing_summary = summarizer.load_summary(episode.eid)
         if existing_summary and not force:
@@ -153,7 +191,12 @@ def process_episode_sync(job_id: str, episode_url: str, transcribe_only: bool = 
             update_job_status(job_id, "failed", 0, "Summary generation failed")
     
     except Exception as e:
-        update_job_status(job_id, "failed", 0, f"Error: {str(e)}")
+        # Check if cancelled during processing
+        if is_job_cancelled(job_id):
+            update_job_status(job_id, "cancelled", 0, "Cancelled")
+            mark_job_cancelled(job_id)
+        else:
+            update_job_status(job_id, "failed", 0, f"Error: {str(e)}")
 
 
 async def process_episode_async(job_id: str, episode_url: str, transcribe_only: bool = False, force: bool = False):
@@ -219,8 +262,34 @@ async def delete_job(job_id: str):
     if job_id not in jobs:
         raise HTTPException(status_code=404, detail="Job not found")
     
+    # Also cancel if still running
+    cancelled_jobs.add(job_id)
     del jobs[job_id]
     return {"message": "Job deleted"}
+
+
+@router.post("/jobs/{job_id}/cancel")
+async def cancel_job(job_id: str):
+    """Cancel a processing job."""
+    if job_id not in jobs:
+        raise HTTPException(status_code=404, detail="Job not found")
+    
+    job = jobs[job_id]
+    
+    # Check if job is still running
+    if job.status in ("completed", "failed", "cancelled"):
+        return {"message": "Job already finished", "status": job.status}
+    
+    # Request cancellation
+    cancelled_jobs.add(job_id)
+    
+    # Update status immediately
+    update_job_status(job_id, "cancelling", job.progress, "Cancellation requested...")
+    
+    # Broadcast update
+    await broadcast_status(job_id)
+    
+    return {"message": "Cancellation requested", "job_id": job_id}
 
 
 @router.websocket("/ws/progress")

@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react'
 import { useParams, Link } from 'react-router-dom'
-import { ArrowLeft, Play, FileText, MessageSquare, Loader2, CheckCircle } from 'lucide-react'
-import { fetchPodcast, fetchEpisodes, processEpisode, type Podcast, type Episode } from '../lib/api'
+import { ArrowLeft, Play, FileText, MessageSquare, Loader2, CheckCircle, Trash2 } from 'lucide-react'
+import { fetchPodcast, fetchEpisodes, processEpisode, deleteEpisode, type Podcast, type Episode } from '../lib/api'
+import { useToast } from '../components/Toast'
 
 export default function Episodes() {
   const { pid } = useParams<{ pid: string }>()
@@ -9,6 +10,8 @@ export default function Episodes() {
   const [episodes, setEpisodes] = useState<Episode[]>([])
   const [loading, setLoading] = useState(true)
   const [processingEid, setProcessingEid] = useState<string | null>(null)
+  const [deletingEid, setDeletingEid] = useState<string | null>(null)
+  const { addToast } = useToast()
   
   useEffect(() => {
     if (pid) loadData()
@@ -34,10 +37,44 @@ export default function Episodes() {
     try {
       const episodeUrl = `https://www.xiaoyuzhoufm.com/episode/${episode.eid}`
       await processEpisode(episodeUrl)
+      addToast({
+        type: 'success',
+        title: 'Processing started',
+        message: episode.title,
+      })
     } catch (err) {
       console.error('Failed to start processing:', err)
+      addToast({
+        type: 'error',
+        title: 'Failed to start processing',
+      })
     } finally {
       setProcessingEid(null)
+    }
+  }
+  
+  async function handleDelete(episode: Episode) {
+    if (!confirm(`Delete "${episode.title}"?\n\nThis will also delete any transcript and summary.`)) {
+      return
+    }
+    
+    setDeletingEid(episode.eid)
+    try {
+      await deleteEpisode(episode.eid)
+      setEpisodes(episodes.filter(e => e.eid !== episode.eid))
+      addToast({
+        type: 'success',
+        title: 'Episode deleted',
+        message: episode.title,
+      })
+    } catch (err) {
+      console.error('Failed to delete episode:', err)
+      addToast({
+        type: 'error',
+        title: 'Failed to delete episode',
+      })
+    } finally {
+      setDeletingEid(null)
     }
   }
   
@@ -124,6 +161,20 @@ export default function Episodes() {
                     Process
                   </button>
                 )}
+                
+                {/* Delete button */}
+                <button
+                  onClick={() => handleDelete(episode)}
+                  disabled={deletingEid === episode.eid}
+                  className="p-2 bg-dark-hover hover:bg-red-600/20 text-red-400 rounded-lg transition-colors disabled:opacity-50"
+                  title="Delete episode"
+                >
+                  {deletingEid === episode.eid ? (
+                    <Loader2 size={16} className="animate-spin" />
+                  ) : (
+                    <Trash2 size={16} />
+                  )}
+                </button>
               </div>
             </div>
           </div>

@@ -1,7 +1,10 @@
 """Episode management endpoints."""
-from fastapi import APIRouter, HTTPException
+from typing import Optional
+from fastapi import APIRouter, HTTPException, Depends
 
 from api.schemas import EpisodeResponse
+from api.auth import get_current_user, User
+from config import USE_SUPABASE
 
 router = APIRouter()
 
@@ -75,3 +78,72 @@ async def get_episode_audio_info(eid: str):
         "local_path": audio_path,
         "downloaded": audio_path is not None,
     }
+
+
+@router.delete("/{eid}")
+async def delete_episode(eid: str, user: Optional[User] = Depends(get_current_user)):
+    """Delete an episode and its associated data (transcript, summary, audio)."""
+    from config import DATA_DIR
+    from api.routers.processing import cancelled_jobs, jobs
+    
+    # Cancel any in-progress job for this episode
+    for job_id, job in list(jobs.items()):
+        if job.episode_id == eid and job.status not in ("completed", "failed", "cancelled"):
+            cancelled_jobs.add(job_id)
+    
+    if USE_SUPABASE and user:
+        from api.supabase_db import get_supabase_database
+        db = get_supabase_database()
+        if db:
+            episode = db.get_episode(user.id, eid)
+            if not episode:
+                raise HTTPException(status_code=404, detail="Episode not found")
+            
+            # Delete from database (this cascades to transcripts/summaries in Supabase)
+            db.delete_episode(user.id, eid)
+            
+            return {"message": f"Deleted episode: {episode.title}"}
+    
+    # Fall back to local SQLite
+    from database import get_database
+    
+    db = get_database()
+    episode = db.get_episode(eid)
+    
+    if not episode:
+        raise HTTPException(status_code=404, detail="Episode not found")
+    
+    episode_title = episode.title
+    
+    # Delete from database
+    db.delete_episode(eid)
+    
+    # Delete associated files
+    transcripts_dir = DATA_DIR / "transcripts"
+    summaries_dir = DATA_DIR / "summaries"
+    audio_dir = DATA_DIR / "audio"
+    
+    # Delete transcript file
+    transcript_file = transcripts_dir / f"{eid}.json"
+    if transcript_file.exists():
+        transcript_file.unlink()
+    
+    # Delete summary file
+    summary_file = summaries_dir / f"{eid}.json"
+    if summary_file.exists():
+        summary_file.unlink()
+    
+    # Delete audio files (check in podcast folder and unknown folder)
+    if audio_dir.exists():
+        for ext in ['.m4a', '.mp3', '.wav']:
+            # Check in podcast folder
+            if episode.pid:
+                audio_file = audio_dir / episode.pid / f"{eid}{ext}"
+                if audio_file.exists():
+                    audio_file.unlink()
+            # Check in unknown folder
+            audio_file = audio_dir / "unknown" / f"{eid}{ext}"
+            if audio_file.exists():
+                audio_file.unlink()
+    
+    return {"message": f"Deleted episode: {episode_title}"}
