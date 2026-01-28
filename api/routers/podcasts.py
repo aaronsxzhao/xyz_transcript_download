@@ -37,16 +37,41 @@ async def list_podcasts(user: Optional[User] = Depends(get_current_user)):
 
 @router.post("", response_model=PodcastResponse)
 async def add_podcast(data: PodcastCreate, user: Optional[User] = Depends(get_current_user)):
-    """Subscribe to a new podcast by URL."""
+    """Subscribe to a new podcast by URL.
+    
+    If an episode URL is provided instead of a podcast URL, this will:
+    1. Fetch the episode to get the parent podcast ID
+    2. Subscribe to the parent podcast
+    3. Include the episode in the subscription
+    """
     from xyz_client import get_client
     
     client = get_client()
     db = get_db(user.id if user else None)
     
-    # Fetch podcast info
-    podcast = client.get_podcast_by_url(data.url)
-    if not podcast:
-        raise HTTPException(status_code=404, detail="Could not fetch podcast from URL")
+    url = data.url.strip()
+    
+    # Detect if this is an episode URL instead of a podcast URL
+    is_episode_url = "/episode/" in url
+    
+    if is_episode_url:
+        # User provided an episode URL - fetch episode to get parent podcast
+        episode = client.get_episode_by_share_url(url)
+        if not episode:
+            raise HTTPException(status_code=404, detail="Could not fetch episode from URL")
+        
+        if not episode.pid:
+            raise HTTPException(status_code=400, detail="Episode has no parent podcast")
+        
+        # Now fetch the parent podcast
+        podcast = client.get_podcast(episode.pid)
+        if not podcast:
+            raise HTTPException(status_code=404, detail="Could not fetch parent podcast")
+    else:
+        # Normal podcast URL
+        podcast = client.get_podcast_by_url(url)
+        if not podcast:
+            raise HTTPException(status_code=404, detail="Could not fetch podcast from URL")
     
     # Check if already subscribed
     existing = db.get_podcast(podcast.pid)

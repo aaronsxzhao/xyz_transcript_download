@@ -142,7 +142,7 @@ export default function Podcasts() {
               type="url"
               value={newUrl}
               onChange={(e) => setNewUrl(e.target.value)}
-              placeholder="Paste podcast URL (e.g., https://www.xiaoyuzhoufm.com/podcast/...)"
+              placeholder="Paste podcast or episode URL from xiaoyuzhoufm.com"
               className="flex-1 px-4 py-3 bg-dark-hover border border-dark-border rounded-lg text-white placeholder:text-gray-500 focus:outline-none focus:border-indigo-500"
             />
             <button
