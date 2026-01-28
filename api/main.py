@@ -55,6 +55,40 @@ async def health_check():
     return {"status": "ok"}
 
 
+@app.get("/api/image-proxy")
+async def image_proxy(url: str):
+    """Proxy images to avoid CORS issues."""
+    import httpx
+    from fastapi.responses import Response
+    
+    # Validate URL is an image from known domains
+    allowed_domains = [
+        "image.xyzcdn.net",
+        "jike.ruguoapp.com",
+        "piccdn.igetget.com",
+    ]
+    
+    from urllib.parse import urlparse
+    parsed = urlparse(url)
+    
+    if not any(domain in parsed.netloc for domain in allowed_domains):
+        return Response(status_code=403, content="Domain not allowed")
+    
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            resp = await client.get(url)
+            if resp.status_code == 200:
+                content_type = resp.headers.get("content-type", "image/jpeg")
+                return Response(
+                    content=resp.content,
+                    media_type=content_type,
+                    headers={"Cache-Control": "public, max-age=86400"}  # Cache for 1 day
+                )
+            return Response(status_code=resp.status_code)
+    except Exception:
+        return Response(status_code=502)
+
+
 @app.get("/api/stats")
 async def get_stats(user: "User" = None):
     """Get dashboard statistics."""

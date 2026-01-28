@@ -166,17 +166,7 @@ export default function Podcasts() {
               className="p-6 bg-dark-surface border border-dark-border rounded-xl hover:border-dark-hover transition-colors"
             >
               <div className="flex items-start gap-4">
-                {podcast.cover_url ? (
-                  <img
-                    src={podcast.cover_url}
-                    alt={podcast.title}
-                    className="w-20 h-20 rounded-lg object-cover"
-                  />
-                ) : (
-                  <div className="w-20 h-20 rounded-lg bg-dark-hover flex items-center justify-center">
-                    <Radio className="w-8 h-8 text-gray-600" />
-                  </div>
-                )}
+                <PodcastImage url={podcast.cover_url} alt={podcast.title} />
                 
                 <div className="flex-1 min-w-0">
                   <h3 className="text-lg font-semibold text-white mb-1 truncate">
@@ -223,5 +213,30 @@ export default function Podcasts() {
         </div>
       )}
     </div>
+  )
+}
+
+// Image component with proxy and error fallback
+function PodcastImage({ url, alt }: { url?: string; alt: string }) {
+  const [error, setError] = useState(false)
+  
+  if (!url || error) {
+    return (
+      <div className="w-20 h-20 rounded-lg bg-dark-hover flex items-center justify-center">
+        <Radio className="w-8 h-8 text-gray-600" />
+      </div>
+    )
+  }
+  
+  // Use proxy to avoid CORS issues
+  const proxyUrl = `/api/image-proxy?url=${encodeURIComponent(url)}`
+  
+  return (
+    <img
+      src={proxyUrl}
+      alt={alt}
+      className="w-20 h-20 rounded-lg object-cover bg-dark-hover"
+      onError={() => setError(true)}
+    />
   )
 }

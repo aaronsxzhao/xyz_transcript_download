@@ -10,6 +10,7 @@ websockets>=12.0
 
 # HTTP session management
 urllib3>=2.0.0
+httpx>=0.26.0
 
 # Retry logic
 tenacity>=8.2.0
