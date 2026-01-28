@@ -237,6 +237,17 @@ class Database:
                 ))
             return podcasts
 
+    def update_podcast_cover(self, pid: str, cover_url: str) -> bool:
+        """Update the cover URL for a podcast."""
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                "UPDATE podcasts SET cover_url = ? WHERE pid = ?",
+                (cover_url, pid)
+            )
+            conn.commit()
+            return cursor.rowcount > 0
+
     def update_podcast_checked(self, pid: str):
         """Update the last checked timestamp for a podcast."""
         with self._get_connection() as conn:

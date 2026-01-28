@@ -130,6 +130,16 @@ class SupabaseDatabase:
         self.client.table("podcasts").delete().eq("user_id", user_id).eq("pid", pid).execute()
         return True
     
+    def update_podcast_cover(self, user_id: str, pid: str, cover_url: str) -> bool:
+        """Update the cover URL for a podcast."""
+        if not self.client:
+            return False
+        
+        self.client.table("podcasts").update({
+            "cover_url": cover_url
+        }).eq("user_id", user_id).eq("pid", pid).execute()
+        return True
+    
     # ==================== Episodes ====================
     
     def get_episodes_by_podcast(self, user_id: str, pid: str) -> List[EpisodeRecord]:

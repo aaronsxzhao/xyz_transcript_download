@@ -292,7 +292,7 @@ async def list_podcast_episodes(pid: str, limit: int = 50, user: Optional[User] 
 
 @router.post("/{pid}/refresh")
 async def refresh_podcast_episodes(pid: str, user: Optional[User] = Depends(get_current_user)):
-    """Refresh episodes for a podcast."""
+    """Refresh episodes for a podcast (also updates missing cover images)."""
     from xyz_client import get_client
     
     client = get_client()
@@ -304,6 +304,12 @@ async def refresh_podcast_episodes(pid: str, user: Optional[User] = Depends(get_
             podcast = db.get_podcast(user.id, pid)
             if not podcast:
                 raise HTTPException(status_code=404, detail="Podcast not found")
+            
+            # Update cover URL if missing
+            if not podcast.cover_url:
+                fresh_info = client.get_podcast(pid)
+                if fresh_info and fresh_info.cover_url:
+                    db.update_podcast_cover(user.id, pid, fresh_info.cover_url)
             
             # Fetch latest episodes
             episodes = client.get_episodes_from_page(pid, limit=50)
@@ -334,6 +340,12 @@ async def refresh_podcast_episodes(pid: str, user: Optional[User] = Depends(get_
     podcast = db.get_podcast(pid)
     if not podcast:
         raise HTTPException(status_code=404, detail="Podcast not found")
+    
+    # Update cover URL if missing
+    if not podcast.cover_url:
+        fresh_info = client.get_podcast(pid)
+        if fresh_info and fresh_info.cover_url:
+            db.update_podcast_cover(pid, fresh_info.cover_url)
     
     # Fetch latest episodes
     episodes = client.get_episodes_from_page(pid, limit=50)
