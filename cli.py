@@ -1222,6 +1222,18 @@ def cmd_serve(args):
         else:
             console.print("[yellow]Frontend not installed. Run: cd web && npm install[/yellow]")
     
+    # Open browser after a short delay (unless --no-browser is set)
+    if not getattr(args, 'no_browser', False):
+        def open_browser():
+            import time
+            import webbrowser
+            time.sleep(2)  # Wait for servers to start
+            url = "http://localhost:5173" if not args.api_only else f"http://localhost:{port}"
+            webbrowser.open(url)
+        
+        browser_thread = threading.Thread(target=open_browser, daemon=True)
+        browser_thread.start()
+    
     # Start API server
     try:
         import uvicorn
@@ -1337,6 +1349,7 @@ def create_parser() -> argparse.ArgumentParser:
     serve_parser = subparsers.add_parser("serve", help="Start web app (API + frontend)")
     serve_parser.add_argument("--api-only", action="store_true", help="Only start API server")
     serve_parser.add_argument("--port", type=int, default=8000, help="API port (default: 8000)")
+    serve_parser.add_argument("--no-browser", action="store_true", help="Don't open browser automatically")
     serve_parser.set_defaults(func=cmd_serve)
     
     # organize (move orphaned episodes to correct podcast folders)
