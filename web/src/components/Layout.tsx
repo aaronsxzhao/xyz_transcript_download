@@ -29,7 +29,7 @@ export default function Layout({ children }: LayoutProps) {
         />
       )}
       
-      <main className={`flex-1 overflow-auto transition-all md:${sidebarOpen ? 'ml-64' : 'ml-16'} ml-0`}>
+      <main className={`flex-1 overflow-auto transition-all ${sidebarOpen ? 'md:ml-64' : 'md:ml-16'}`}>
         {/* Mobile header with menu button */}
         <div className="sticky top-0 z-20 flex items-center gap-4 p-4 bg-dark-bg border-b border-dark-border md:hidden">
           <button
