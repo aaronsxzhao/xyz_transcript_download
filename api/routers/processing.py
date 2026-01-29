@@ -1,6 +1,7 @@
 """Processing endpoints with WebSocket support."""
 import asyncio
 import uuid
+from concurrent.futures import ThreadPoolExecutor
 from typing import Dict, Set, Optional
 from fastapi import APIRouter, HTTPException, WebSocket, WebSocketDisconnect, BackgroundTasks, Depends
 
@@ -15,6 +16,10 @@ jobs: Dict[str, ProcessingStatus] = {}
 
 # Track cancelled jobs
 cancelled_jobs: Set[str] = set()
+
+# Limit concurrent episode processing to prevent resource exhaustion
+# When limit reached, jobs queue automatically and wait for a slot
+PROCESSING_EXECUTOR = ThreadPoolExecutor(max_workers=3, thread_name_prefix="episode_processor")
 
 
 def is_job_cancelled(job_id: str) -> bool:
@@ -373,12 +378,16 @@ def process_episode_sync(job_id: str, episode_url: str, transcribe_only: bool = 
 
 
 async def process_episode_async(job_id: str, episode_url: str, transcribe_only: bool = False, force: bool = False, user_id: Optional[str] = None):
-    """Async wrapper for episode processing."""
+    """Async wrapper for episode processing.
+    
+    Uses PROCESSING_EXECUTOR with limited workers to prevent resource exhaustion.
+    When all workers are busy, jobs queue automatically and wait for a slot.
+    """
     loop = asyncio.get_event_loop()
     
-    # Run in thread pool with user_id
+    # Run in limited thread pool (max 3 concurrent heavy processing jobs)
     await loop.run_in_executor(
-        None,
+        PROCESSING_EXECUTOR,
         lambda: process_episode_sync(job_id, episode_url, transcribe_only, force, user_id)
     )
     

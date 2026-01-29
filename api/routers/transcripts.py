@@ -1,4 +1,5 @@
 """Transcript endpoints."""
+import asyncio
 from typing import Optional
 from fastapi import APIRouter, HTTPException, Depends
 
@@ -9,12 +10,18 @@ from api.db import get_db
 router = APIRouter()
 
 
+async def run_sync(func, *args):
+    """Run a synchronous function in executor to avoid blocking event loop."""
+    loop = asyncio.get_event_loop()
+    return await loop.run_in_executor(None, func, *args)
+
+
 @router.get("/{eid}", response_model=TranscriptResponse)
 async def get_transcript(eid: str, user: Optional[User] = Depends(get_current_user)):
     """Get transcript for an episode."""
     db = get_db(user.id if user else None)
     
-    transcript = db.get_transcript(eid)
+    transcript = await run_sync(db.get_transcript, eid)
     
     if not transcript:
         raise HTTPException(status_code=404, detail="Transcript not found")
@@ -36,9 +43,10 @@ async def delete_transcript(eid: str, user: Optional[User] = Depends(get_current
     """Delete transcript for an episode."""
     db = get_db(user.id if user else None)
     
-    if not db.has_transcript(eid):
+    has_transcript = await run_sync(db.has_transcript, eid)
+    if not has_transcript:
         raise HTTPException(status_code=404, detail="Transcript not found")
     
-    db.delete_transcript(eid)
+    await run_sync(db.delete_transcript, eid)
     
     return {"message": "Transcript deleted"}

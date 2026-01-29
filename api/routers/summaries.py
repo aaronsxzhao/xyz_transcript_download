@@ -1,4 +1,5 @@
 """Summary endpoints."""
+import asyncio
 from typing import List, Optional
 from fastapi import APIRouter, HTTPException, Depends
 from fastapi.responses import HTMLResponse
@@ -10,12 +11,18 @@ from api.db import get_db
 router = APIRouter()
 
 
+async def run_sync(func, *args):
+    """Run a synchronous function in executor to avoid blocking event loop."""
+    loop = asyncio.get_event_loop()
+    return await loop.run_in_executor(None, func, *args)
+
+
 @router.get("", response_model=List[SummaryListItem])
 async def list_summaries(user: Optional[User] = Depends(get_current_user)):
     """List all available summaries."""
     db = get_db(user.id if user else None)
     
-    summaries = db.get_all_summaries()
+    summaries = await run_sync(db.get_all_summaries)
     
     return [
         SummaryListItem(
@@ -33,7 +40,7 @@ async def get_summary(eid: str, user: Optional[User] = Depends(get_current_user)
     """Get summary for an episode."""
     db = get_db(user.id if user else None)
     
-    summary = db.get_summary(eid)
+    summary = await run_sync(db.get_summary, eid)
     
     if not summary:
         raise HTTPException(status_code=404, detail="Summary not found")
@@ -53,12 +60,16 @@ async def get_summary_html(eid: str, user: Optional[User] = Depends(get_current_
     """Get summary as HTML page."""
     from viewer import load_summary, export_html
     
-    summary = load_summary(eid)
+    def generate_html():
+        summary = load_summary(eid)
+        if not summary:
+            return None
+        return export_html(summary)
     
-    if not summary:
+    html_content = await run_sync(generate_html)
+    
+    if not html_content:
         raise HTTPException(status_code=404, detail="Summary not found")
-    
-    html_content = export_html(summary)
     
     return HTMLResponse(content=html_content)
 
@@ -68,12 +79,16 @@ async def get_summary_markdown(eid: str, user: Optional[User] = Depends(get_curr
     """Get summary as Markdown."""
     from viewer import load_summary, export_markdown
     
-    summary = load_summary(eid)
+    def generate_markdown():
+        summary = load_summary(eid)
+        if not summary:
+            return None
+        return export_markdown(summary)
     
-    if not summary:
+    md_content = await run_sync(generate_markdown)
+    
+    if not md_content:
         raise HTTPException(status_code=404, detail="Summary not found")
-    
-    md_content = export_markdown(summary)
     
     return {"markdown": md_content}
 
@@ -83,9 +98,10 @@ async def delete_summary(eid: str, user: Optional[User] = Depends(get_current_us
     """Delete summary for an episode."""
     db = get_db(user.id if user else None)
     
-    if not db.has_summary(eid):
+    has_summary = await run_sync(db.has_summary, eid)
+    if not has_summary:
         raise HTTPException(status_code=404, detail="Summary not found")
     
-    db.delete_summary(eid)
+    await run_sync(db.delete_summary, eid)
     
     return {"message": "Summary deleted"}

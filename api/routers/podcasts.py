@@ -1,4 +1,5 @@
 """Podcast management endpoints."""
+import asyncio
 from typing import List, Optional
 from fastapi import APIRouter, HTTPException, Depends
 
@@ -10,6 +11,12 @@ from config import USE_SUPABASE
 router = APIRouter()
 
 
+async def run_sync(func, *args):
+    """Run a synchronous function in executor to avoid blocking event loop."""
+    loop = asyncio.get_event_loop()
+    return await loop.run_in_executor(None, func, *args)
+
+
 @router.get("", response_model=List[PodcastResponse])
 async def list_podcasts(user: Optional[User] = Depends(get_current_user)):
     """List all subscribed podcasts."""
@@ -18,11 +25,12 @@ async def list_podcasts(user: Optional[User] = Depends(get_current_user)):
     
     db = get_db(user.id if user else None)
     
-    podcasts = db.get_all_podcasts()
+    # Run blocking DB calls in executor
+    podcasts = await run_sync(db.get_all_podcasts)
     
     result = []
     for p in podcasts:
-        episodes = db.get_episodes_by_podcast(p.pid)
+        episodes = await run_sync(db.get_episodes_by_podcast, p.pid)
         result.append(PodcastResponse(
             pid=p.pid,
             title=p.title,
@@ -56,7 +64,7 @@ async def add_podcast(data: PodcastCreate, user: Optional[User] = Depends(get_cu
     
     if is_episode_url:
         # User provided an episode URL - fetch episode to get parent podcast
-        episode = client.get_episode_by_share_url(url)
+        episode = await run_sync(client.get_episode_by_share_url, url)
         if not episode:
             raise HTTPException(status_code=404, detail="Could not fetch episode from URL")
         
@@ -64,39 +72,46 @@ async def add_podcast(data: PodcastCreate, user: Optional[User] = Depends(get_cu
             raise HTTPException(status_code=400, detail="Episode has no parent podcast")
         
         # Now fetch the parent podcast
-        podcast = client.get_podcast(episode.pid)
+        podcast = await run_sync(client.get_podcast, episode.pid)
         if not podcast:
             raise HTTPException(status_code=404, detail="Could not fetch parent podcast")
     else:
         # Normal podcast URL
-        podcast = client.get_podcast_by_url(url)
+        podcast = await run_sync(client.get_podcast_by_url, url)
         if not podcast:
             raise HTTPException(status_code=404, detail="Could not fetch podcast from URL")
     
     # Check if already subscribed
-    existing = db.get_podcast(podcast.pid)
+    existing = await run_sync(db.get_podcast, podcast.pid)
     if existing:
         raise HTTPException(status_code=400, detail="Already subscribed to this podcast")
     
-    # Save to database
-    podcast_id = db.add_podcast(
-        podcast.pid, podcast.title, podcast.author,
-        podcast.description, podcast.cover_url
-    )
+    # Save to database (use lambda for multiple args)
+    def save_podcast():
+        return db.add_podcast(
+            podcast.pid, podcast.title, podcast.author,
+            podcast.description, podcast.cover_url
+        )
+    podcast_id = await run_sync(save_podcast)
     
     # Fetch and save episodes
-    episodes = client.get_episodes_from_page(podcast.pid, limit=50)
-    for ep in episodes:
-        db.add_episode(
-            eid=ep.eid,
-            pid=ep.pid,
-            podcast_id=podcast_id,
-            title=ep.title,
-            description=ep.description,
-            duration=ep.duration,
-            pub_date=ep.pub_date,
-            audio_url=ep.audio_url,
-        )
+    def fetch_episodes():
+        return client.get_episodes_from_page(podcast.pid, limit=50)
+    episodes = await run_sync(fetch_episodes)
+    
+    def save_episodes():
+        for ep in episodes:
+            db.add_episode(
+                eid=ep.eid,
+                pid=ep.pid,
+                podcast_id=podcast_id,
+                title=ep.title,
+                description=ep.description,
+                duration=ep.duration,
+                pub_date=ep.pub_date,
+                audio_url=ep.audio_url,
+            )
+    await run_sync(save_episodes)
     
     return PodcastResponse(
         pid=podcast.pid,
@@ -113,12 +128,12 @@ async def get_podcast(pid: str, user: Optional[User] = Depends(get_current_user)
     """Get podcast details by ID."""
     db = get_db(user.id if user else None)
     
-    podcast = db.get_podcast(pid)
+    podcast = await run_sync(db.get_podcast, pid)
     
     if not podcast:
         raise HTTPException(status_code=404, detail="Podcast not found")
     
-    episodes = db.get_episodes_by_podcast(pid)
+    episodes = await run_sync(db.get_episodes_by_podcast, pid)
     
     return PodcastResponse(
         pid=podcast.pid,
@@ -135,15 +150,16 @@ async def remove_podcast(pid: str, user: Optional[User] = Depends(get_current_us
     """Unsubscribe from a podcast."""
     db = get_db(user.id if user else None)
     
-    podcast = db.get_podcast(pid)
+    podcast = await run_sync(db.get_podcast, pid)
     
     if not podcast:
         # Try force delete for edge cases (e.g., episode mistakenly added as podcast)
-        if db.force_delete_podcast(pid):
+        deleted = await run_sync(db.force_delete_podcast, pid)
+        if deleted:
             return {"message": f"Removed entry: {pid}"}
         raise HTTPException(status_code=404, detail="Podcast not found")
     
-    db.delete_podcast(pid)
+    await run_sync(db.delete_podcast, pid)
     
     return {"message": f"Unsubscribed from {podcast.title}"}
 
@@ -153,33 +169,36 @@ async def list_podcast_episodes(pid: str, limit: int = 50, user: Optional[User] 
     """List episodes for a podcast."""
     db = get_db(user.id if user else None)
     
-    podcast = db.get_podcast(pid)
+    podcast = await run_sync(db.get_podcast, pid)
     
     if not podcast:
         raise HTTPException(status_code=404, detail="Podcast not found")
     
-    episodes = db.get_episodes_by_podcast(pid)
+    episodes = await run_sync(db.get_episodes_by_podcast, pid)
     
-    result = []
-    for ep in episodes[:limit]:
-        has_transcript = db.has_transcript(ep.eid)
-        has_summary = db.has_summary(ep.eid)
-        
-        result.append(EpisodeResponse(
-            eid=ep.eid,
-            pid=ep.pid,
-            title=ep.title,
-            description=ep.description,
-            duration=ep.duration,
-            pub_date=ep.pub_date,
-            cover_url="",
-            audio_url=ep.audio_url,
-            status=ep.status,
-            has_transcript=has_transcript,
-            has_summary=has_summary,
-        ))
+    # Build episode list with transcript/summary status
+    def build_episode_list():
+        result = []
+        for ep in episodes[:limit]:
+            has_transcript = db.has_transcript(ep.eid)
+            has_summary = db.has_summary(ep.eid)
+            
+            result.append(EpisodeResponse(
+                eid=ep.eid,
+                pid=ep.pid,
+                title=ep.title,
+                description=ep.description,
+                duration=ep.duration,
+                pub_date=ep.pub_date,
+                cover_url="",
+                audio_url=ep.audio_url,
+                status=ep.status,
+                has_transcript=has_transcript,
+                has_summary=has_summary,
+            ))
+        return result
     
-    return result
+    return await run_sync(build_episode_list)
 
 
 @router.post("/{pid}/refresh")
@@ -190,33 +209,40 @@ async def refresh_podcast_episodes(pid: str, user: Optional[User] = Depends(get_
     client = get_client()
     db = get_db(user.id if user else None)
     
-    podcast = db.get_podcast(pid)
+    podcast = await run_sync(db.get_podcast, pid)
     if not podcast:
         raise HTTPException(status_code=404, detail="Podcast not found")
     
     # Update cover URL if missing
     if not podcast.cover_url:
-        fresh_info = client.get_podcast(pid)
+        fresh_info = await run_sync(client.get_podcast, pid)
         if fresh_info and fresh_info.cover_url:
-            db.update_podcast_cover(pid, fresh_info.cover_url)
+            await run_sync(db.update_podcast_cover, pid, fresh_info.cover_url)
     
     # Fetch latest episodes
-    episodes = client.get_episodes_from_page(pid, limit=50)
-    new_count = 0
+    def fetch_episodes():
+        return client.get_episodes_from_page(pid, limit=50)
+    episodes = await run_sync(fetch_episodes)
     
-    for ep in episodes:
-        existing = db.get_episode(ep.eid)
-        if not existing:
-            db.add_episode(
-                eid=ep.eid,
-                pid=ep.pid,
-                podcast_id=podcast.id,
-                title=ep.title,
-                description=ep.description,
-                duration=ep.duration,
-                pub_date=ep.pub_date,
-                audio_url=ep.audio_url,
-            )
-            new_count += 1
+    # Save new episodes
+    def save_new_episodes():
+        new_count = 0
+        for ep in episodes:
+            existing = db.get_episode(ep.eid)
+            if not existing:
+                db.add_episode(
+                    eid=ep.eid,
+                    pid=ep.pid,
+                    podcast_id=podcast.id,
+                    title=ep.title,
+                    description=ep.description,
+                    duration=ep.duration,
+                    pub_date=ep.pub_date,
+                    audio_url=ep.audio_url,
+                )
+                new_count += 1
+        return new_count
+    
+    new_count = await run_sync(save_new_episodes)
     
     return {"message": f"Found {new_count} new episodes", "total": len(episodes)}
