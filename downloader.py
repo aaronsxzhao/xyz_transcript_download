@@ -4,9 +4,10 @@ Downloads podcast episodes from Xiaoyuzhou.
 """
 
 import os
+import subprocess
 import time
 from pathlib import Path
-from typing import Optional, Callable
+from typing import Optional, Callable, Tuple
 
 import requests
 from requests.adapters import HTTPAdapter
@@ -17,6 +18,88 @@ from xyz_client import Episode
 from logger import get_logger
 
 logger = get_logger("downloader")
+
+# Try to use imageio-ffmpeg if available
+try:
+    import imageio_ffmpeg
+    FFMPEG_PATH = imageio_ffmpeg.get_ffmpeg_exe()
+except ImportError:
+    FFMPEG_PATH = "ffmpeg"
+
+
+def compress_audio(input_path: Path, output_path: Optional[Path] = None) -> Optional[Path]:
+    """
+    Compress audio for fast processing.
+    
+    Creates a smaller version of the audio file optimized for speech recognition:
+    - Mono channel (speech doesn't need stereo)
+    - 16kHz sample rate (sufficient for Whisper)
+    - 64kbps bitrate (enough for speech clarity)
+    
+    This typically results in 5-10x smaller file size and 3-5x faster transcription.
+    
+    Args:
+        input_path: Path to the original audio file
+        output_path: Path for compressed output (default: input_fast.mp3)
+        
+    Returns:
+        Path to compressed file, or None on failure
+    """
+    if not input_path.exists():
+        logger.error(f"Input file not found: {input_path}")
+        return None
+    
+    # Generate output path if not provided
+    if output_path is None:
+        output_path = input_path.parent / f"{input_path.stem}_fast.mp3"
+    
+    # Skip if compressed version already exists and is newer
+    if output_path.exists():
+        if output_path.stat().st_mtime >= input_path.stat().st_mtime:
+            logger.info(f"Using existing compressed audio: {output_path}")
+            return output_path
+    
+    try:
+        logger.info(f"Compressing audio: {input_path.name} -> {output_path.name}")
+        
+        # ffmpeg command for speech-optimized compression
+        cmd = [
+            FFMPEG_PATH,
+            "-y",  # Overwrite output
+            "-i", str(input_path),
+            "-ac", "1",  # Mono
+            "-ar", "16000",  # 16kHz sample rate
+            "-b:a", "64k",  # 64kbps bitrate
+            "-f", "mp3",  # MP3 format
+            str(output_path)
+        ]
+        
+        result = subprocess.run(
+            cmd,
+            capture_output=True,
+            text=True,
+            timeout=300  # 5 minute timeout
+        )
+        
+        if result.returncode != 0:
+            logger.error(f"ffmpeg compression failed: {result.stderr}")
+            return None
+        
+        # Log compression ratio
+        original_size = input_path.stat().st_size
+        compressed_size = output_path.stat().st_size
+        ratio = original_size / compressed_size if compressed_size > 0 else 0
+        
+        logger.info(f"Compression complete: {original_size/1024/1024:.1f}MB -> {compressed_size/1024/1024:.1f}MB ({ratio:.1f}x smaller)")
+        
+        return output_path
+        
+    except subprocess.TimeoutExpired:
+        logger.error("Audio compression timed out")
+        return None
+    except Exception as e:
+        logger.error(f"Audio compression failed: {e}")
+        return None
 
 
 def create_session_with_retries(retries: int = 3, backoff_factor: float = 0.5) -> requests.Session:
@@ -205,9 +288,32 @@ class AudioDownloader:
 
         return True
 
+    def get_compressed_path(self, episode: Episode) -> Path:
+        """Get the path for the compressed (fast) version of an episode's audio."""
+        original_path = self.get_audio_path(episode)
+        return original_path.parent / f"{original_path.stem}_fast.mp3"
+    
+    def compress(self, episode: Episode) -> Optional[Path]:
+        """
+        Create a compressed version of the episode audio for fast processing.
+        
+        Args:
+            episode: Episode to compress
+            
+        Returns:
+            Path to compressed audio, or None on failure
+        """
+        original_path = self.get_audio_path(episode)
+        if not original_path.exists():
+            logger.error(f"Original audio not found: {original_path}")
+            return None
+        
+        compressed_path = self.get_compressed_path(episode)
+        return compress_audio(original_path, compressed_path)
+    
     def delete(self, episode: Episode) -> bool:
         """
-        Delete downloaded audio file.
+        Delete downloaded audio file (both original and compressed).
         
         Args:
             episode: Episode whose audio to delete
@@ -215,11 +321,21 @@ class AudioDownloader:
         Returns:
             True if deleted, False otherwise
         """
+        deleted = False
+        
+        # Delete original
         audio_path = self.get_audio_path(episode)
         if audio_path.exists():
             audio_path.unlink()
-            return True
-        return False
+            deleted = True
+        
+        # Delete compressed version too
+        compressed_path = self.get_compressed_path(episode)
+        if compressed_path.exists():
+            compressed_path.unlink()
+            deleted = True
+            
+        return deleted
 
 
 # Global downloader instance

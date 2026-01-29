@@ -99,11 +99,27 @@ class BatchProcessRequest(BaseModel):
 
 class ProcessingStatus(BaseModel):
     job_id: str
-    status: str  # pending, downloading, transcribing, summarizing, completed, failed
+    # Status values:
+    # - pending: Job queued
+    # - fetching: Getting episode info
+    # - downloading: Downloading audio
+    # - compressing: Creating fast version for dual-track processing
+    # - transcribing: Single-track transcription
+    # - transcribing_fast: Fast track transcription (compressed audio)
+    # - quick_ready: Quick summary available (fast track done)
+    # - refining: Waiting for accurate track
+    # - merging: Combining fast and accurate results
+    # - summarizing: Generating summary
+    # - completed: All done
+    # - failed: Error occurred
+    # - cancelled: User cancelled
+    # - cancelling: Cancellation in progress
+    status: str
     progress: float = 0
     message: str = ""
     episode_id: Optional[str] = None
     episode_title: Optional[str] = None
+    is_quick: bool = False  # True when showing quick (fast track) result
 
 
 # Stats schemas

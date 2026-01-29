@@ -471,6 +471,79 @@ class Summarizer:
         return file_path.exists()
 
 
+def merge_summaries(fast_summary: Summary, accurate_summary: Summary) -> Summary:
+    """
+    Merge two summaries from fast and accurate tracks.
+    
+    Strategy:
+    - Overview: Use accurate version (more detailed)
+    - Topics: Union of both, deduplicated
+    - Key Points: Prefer accurate version's points, supplement with fast version's unique insights
+    - Takeaways: Merge and deduplicate
+    
+    Args:
+        fast_summary: Summary from compressed audio (quick version)
+        accurate_summary: Summary from original audio (detailed version)
+        
+    Returns:
+        Merged Summary with best of both
+    """
+    # Use accurate overview (more detail from full audio)
+    merged_overview = accurate_summary.overview
+    
+    # Merge topics (accurate first, then unique fast topics)
+    merged_topics = list(accurate_summary.topics)
+    seen_topics = set(t.lower().strip() for t in merged_topics)
+    for topic in fast_summary.topics:
+        if topic.lower().strip() not in seen_topics:
+            merged_topics.append(topic)
+            seen_topics.add(topic.lower().strip())
+    
+    # Merge key points - prefer accurate version
+    # Use topic as key to merge
+    topic_to_keypoint = {}
+    
+    # Add accurate key points first (primary)
+    for kp in accurate_summary.key_points:
+        topic_key = kp.topic.lower().strip()
+        topic_to_keypoint[topic_key] = kp
+    
+    # Add fast key points if topic not already covered
+    for kp in fast_summary.key_points:
+        topic_key = kp.topic.lower().strip()
+        if topic_key not in topic_to_keypoint:
+            topic_to_keypoint[topic_key] = kp
+        else:
+            # Merge points for same topic - add unique points from fast version
+            existing_kp = topic_to_keypoint[topic_key]
+            existing_points = set(p.lower().strip() for p in existing_kp.points)
+            merged_points = list(existing_kp.points)
+            for point in kp.points:
+                if point.lower().strip() not in existing_points:
+                    merged_points.append(point)
+                    existing_points.add(point.lower().strip())
+            topic_to_keypoint[topic_key] = KeyPoint(topic=existing_kp.topic, points=merged_points)
+    
+    merged_key_points = list(topic_to_keypoint.values())
+    
+    # Merge takeaways (accurate first, then unique fast)
+    merged_takeaways = list(accurate_summary.takeaways)
+    seen_takeaways = set(t.lower().strip() for t in merged_takeaways)
+    for takeaway in fast_summary.takeaways:
+        if takeaway.lower().strip() not in seen_takeaways:
+            merged_takeaways.append(takeaway)
+            seen_takeaways.add(takeaway.lower().strip())
+    
+    return Summary(
+        episode_id=accurate_summary.episode_id,
+        title=accurate_summary.title,
+        overview=merged_overview,
+        key_points=merged_key_points,
+        topics=merged_topics,
+        takeaways=merged_takeaways,
+    )
+
+
 # Global summarizer instance
 _summarizer: Optional[Summarizer] = None
 
