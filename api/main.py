@@ -30,6 +30,13 @@ async def startup_event():
     loop = asyncio.get_running_loop()
     processing.set_main_loop(loop)
 
+
+@app.on_event("shutdown")
+async def shutdown_event():
+    """Clean up resources on shutdown."""
+    # Shutdown the processing thread pool executor
+    processing.PROCESSING_EXECUTOR.shutdown(wait=False, cancel_futures=True)
+
 # CORS middleware for frontend
 app.add_middleware(
     CORSMiddleware,
