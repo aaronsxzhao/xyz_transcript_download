@@ -9,6 +9,8 @@ interface AppState {
   jobs: ProcessingJob[]
   setJobs: (jobs: ProcessingJob[]) => void
   updateJob: (job: ProcessingJob) => void
+  removeJob: (jobId: string) => void
+  clearCompletedJobs: () => void
   
   // WebSocket connection
   wsConnected: boolean
@@ -43,6 +45,16 @@ export const useStore = create<AppState>((set) => ({
         return { jobs: [job, ...state.jobs] }
       }
     }),
+  removeJob: (jobId) =>
+    set((state) => ({
+      jobs: state.jobs.filter((j) => j.job_id !== jobId),
+    })),
+  clearCompletedJobs: () =>
+    set((state) => ({
+      jobs: state.jobs.filter((j) => 
+        !['completed', 'failed', 'cancelled'].includes(j.status)
+      ),
+    })),
   
   // WebSocket
   wsConnected: false,

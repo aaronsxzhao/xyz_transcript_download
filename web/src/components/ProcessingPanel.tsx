@@ -2,13 +2,13 @@
  * Processing panel that shows active jobs with progress
  */
 import { useState } from 'react'
-import { ChevronUp, ChevronDown, Radio, X } from 'lucide-react'
+import { ChevronUp, ChevronDown, Radio, X, Trash2 } from 'lucide-react'
 import { useStore } from '../lib/store'
 import { cancelJob, type ProcessingJob } from '../lib/api'
 import { getStatusIcon, getStatusColor, getStatusText, isActiveStatus } from '../lib/statusUtils'
 
 export default function ProcessingPanel() {
-  const { jobs, wsConnected } = useStore()
+  const { jobs, wsConnected, removeJob, clearCompletedJobs } = useStore()
   const [expanded, setExpanded] = useState(true)
   
   // Only show if there are active jobs
@@ -26,23 +26,34 @@ export default function ProcessingPanel() {
   return (
     <div className="fixed bottom-4 left-4 right-4 sm:right-auto z-40 sm:w-80 bg-dark-surface border border-dark-border rounded-xl shadow-xl overflow-hidden">
       {/* Header */}
-      <button
-        onClick={() => setExpanded(!expanded)}
-        className="w-full flex items-center justify-between p-3 bg-dark-hover hover:bg-dark-border transition-colors"
-      >
-        <div className="flex items-center gap-2">
+      <div className="flex items-center justify-between p-3 bg-dark-hover">
+        <button
+          onClick={() => setExpanded(!expanded)}
+          className="flex items-center gap-2 flex-1"
+        >
           <Radio className="w-4 h-4 text-indigo-400" />
           <span className="font-medium text-sm">
             Processing {activeJobs.length > 0 ? `(${activeJobs.length} active)` : ''}
           </span>
-        </div>
+        </button>
         <div className="flex items-center gap-2">
           {!wsConnected && (
             <span className="text-xs text-yellow-500">Offline</span>
           )}
-          {expanded ? <ChevronDown size={16} /> : <ChevronUp size={16} />}
+          {completedJobs.length > 0 && (
+            <button
+              onClick={clearCompletedJobs}
+              className="p-1 text-gray-500 hover:text-white hover:bg-dark-border rounded transition-colors"
+              title="Clear completed"
+            >
+              <Trash2 size={14} />
+            </button>
+          )}
+          <button onClick={() => setExpanded(!expanded)} className="p-1">
+            {expanded ? <ChevronDown size={16} /> : <ChevronUp size={16} />}
+          </button>
         </div>
-      </button>
+      </div>
       
       {/* Jobs list */}
       {expanded && (
@@ -51,7 +62,7 @@ export default function ProcessingPanel() {
             <JobItem key={job.job_id} job={job} showCancel />
           ))}
           {completedJobs.slice(0, 3).map((job) => (
-            <JobItem key={job.job_id} job={job} />
+            <JobItem key={job.job_id} job={job} onDismiss={() => removeJob(job.job_id)} />
           ))}
         </div>
       )}
@@ -59,7 +70,7 @@ export default function ProcessingPanel() {
   )
 }
 
-function JobItem({ job, showCancel = false }: { job: ProcessingJob; showCancel?: boolean }) {
+function JobItem({ job, showCancel = false, onDismiss }: { job: ProcessingJob; showCancel?: boolean; onDismiss?: () => void }) {
   const [cancelling, setCancelling] = useState(false)
   
   const handleCancel = async () => {
@@ -87,13 +98,23 @@ function JobItem({ job, showCancel = false }: { job: ProcessingJob; showCancel?:
             {job.message || getStatusText(job.status)}
           </p>
         </div>
-        {/* Cancel button */}
+        {/* Cancel button for active jobs */}
         {showCancel && isActive && job.status !== 'cancelling' && (
           <button
             onClick={handleCancel}
             disabled={cancelling}
             className="p-1 text-gray-500 hover:text-red-400 hover:bg-red-400/10 rounded transition-colors"
             title="Cancel processing"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        )}
+        {/* Dismiss button for completed jobs */}
+        {onDismiss && !isActive && (
+          <button
+            onClick={onDismiss}
+            className="p-1 text-gray-500 hover:text-white hover:bg-dark-border rounded transition-colors"
+            title="Dismiss"
           >
             <X className="w-4 h-4" />
           </button>

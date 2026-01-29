@@ -265,6 +265,33 @@ class DatabaseInterface:
             transcript_path = DATA_DIR / "transcripts" / f"{episode_id}.json"
             return transcript_path.exists()
     
+    def save_transcript(self, transcript_data: TranscriptData) -> bool:
+        """Save a transcript."""
+        if self.use_supabase:
+            return self.db.save_transcript(
+                self.user_id,
+                transcript_data.episode_id,
+                transcript_data.language,
+                transcript_data.duration,
+                transcript_data.text,
+                transcript_data.segments,
+            )
+        else:
+            # Save to file
+            transcripts_dir = DATA_DIR / "transcripts"
+            transcripts_dir.mkdir(parents=True, exist_ok=True)
+            transcript_path = transcripts_dir / f"{transcript_data.episode_id}.json"
+            data = {
+                "episode_id": transcript_data.episode_id,
+                "language": transcript_data.language,
+                "duration": transcript_data.duration,
+                "text": transcript_data.text,
+                "segments": transcript_data.segments,
+            }
+            with open(transcript_path, "w", encoding="utf-8") as f:
+                json.dump(data, f, ensure_ascii=False, indent=2)
+            return True
+    
     def delete_transcript(self, episode_id: str) -> bool:
         """Delete transcript for an episode."""
         if self.use_supabase:
@@ -350,6 +377,35 @@ class DatabaseInterface:
         else:
             summary_path = DATA_DIR / "summaries" / f"{episode_id}.json"
             return summary_path.exists()
+    
+    def save_summary(self, summary_data: SummaryData) -> bool:
+        """Save a summary."""
+        if self.use_supabase:
+            return self.db.save_summary(
+                self.user_id,
+                summary_data.episode_id,
+                summary_data.title,
+                summary_data.overview,
+                summary_data.topics,
+                summary_data.takeaways,
+                summary_data.key_points,
+            )
+        else:
+            # Save to file
+            summaries_dir = DATA_DIR / "summaries"
+            summaries_dir.mkdir(parents=True, exist_ok=True)
+            summary_path = summaries_dir / f"{summary_data.episode_id}.json"
+            data = {
+                "episode_id": summary_data.episode_id,
+                "title": summary_data.title,
+                "overview": summary_data.overview,
+                "topics": summary_data.topics,
+                "takeaways": summary_data.takeaways,
+                "key_points": summary_data.key_points,
+            }
+            with open(summary_path, "w", encoding="utf-8") as f:
+                json.dump(data, f, ensure_ascii=False, indent=2)
+            return True
     
     def delete_summary(self, episode_id: str) -> bool:
         """Delete summary for an episode."""

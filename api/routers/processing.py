@@ -2,9 +2,11 @@
 import asyncio
 import uuid
 from typing import Dict, Set, Optional
-from fastapi import APIRouter, HTTPException, WebSocket, WebSocketDisconnect, BackgroundTasks
+from fastapi import APIRouter, HTTPException, WebSocket, WebSocketDisconnect, BackgroundTasks, Depends
 
 from api.schemas import ProcessRequest, BatchProcessRequest, ProcessingStatus
+from api.auth import get_current_user, User
+from api.db import get_db, TranscriptData, SummaryData
 
 router = APIRouter()
 
@@ -84,7 +86,7 @@ async def broadcast_status(job_id: str):
         })
 
 
-def process_episode_sync(job_id: str, episode_url: str, transcribe_only: bool = False, force: bool = False):
+def process_episode_sync(job_id: str, episode_url: str, transcribe_only: bool = False, force: bool = False, user_id: Optional[str] = None):
     """Synchronous episode processing (runs in thread)."""
     from xyz_client import get_client
     from database import get_database
@@ -97,6 +99,9 @@ def process_episode_sync(job_id: str, episode_url: str, transcribe_only: bool = 
     downloader = get_downloader()
     transcriber = get_transcriber()
     summarizer = get_summarizer()
+    
+    # Get database interface for saving (supports both local and Supabase)
+    db_interface = get_db(user_id)
     
     try:
         # Check for cancellation before starting
@@ -162,9 +167,19 @@ def process_episode_sync(job_id: str, episode_url: str, transcribe_only: bool = 
             return
         
         # Transcribe
-        if transcriber.transcript_exists(episode.eid) and not force:
+        existing_transcript = db_interface.get_transcript(episode.eid)
+        if existing_transcript and not force:
             update_job_status(job_id, "transcribing", 60, "Using existing transcript")
-            transcript = transcriber.load_transcript(episode.eid)
+            # Convert to transcriber format for summarization
+            from transcriber import Transcript, TranscriptSegment as TSeg
+            transcript = Transcript(
+                episode_id=existing_transcript.episode_id,
+                language=existing_transcript.language,
+                duration=existing_transcript.duration,
+                text=existing_transcript.text,
+                segments=[TSeg(start=s.get("start", 0), end=s.get("end", 0), text=s.get("text", "")) 
+                         for s in existing_transcript.segments],
+            )
         else:
             update_job_status(job_id, "transcribing", 32, "Loading Whisper model...")
             
@@ -191,7 +206,15 @@ def process_episode_sync(job_id: str, episode_url: str, transcribe_only: bool = 
             transcript = transcriber.transcribe(audio_path, episode.eid, progress_callback=transcription_progress)
             
             if transcript:
-                transcriber.save_transcript(transcript)
+                # Save transcript using database interface (supports both local and Supabase)
+                transcript_data = TranscriptData(
+                    episode_id=transcript.episode_id,
+                    language=transcript.language,
+                    duration=transcript.duration,
+                    text=transcript.text,
+                    segments=[{"start": s.start, "end": s.end, "text": s.text} for s in transcript.segments],
+                )
+                db_interface.save_transcript(transcript_data)
                 update_job_status(job_id, "transcribing", 60, "Transcription complete")
             else:
                 update_job_status(job_id, "failed", 0, "Transcription failed")
@@ -208,7 +231,7 @@ def process_episode_sync(job_id: str, episode_url: str, transcribe_only: bool = 
             return
         
         # Summarize
-        existing_summary = summarizer.load_summary(episode.eid)
+        existing_summary = db_interface.get_summary(episode.eid)
         if existing_summary and not force:
             update_job_status(job_id, "completed", 100, "Using existing summary")
             return
@@ -217,7 +240,16 @@ def process_episode_sync(job_id: str, episode_url: str, transcribe_only: bool = 
         summary = summarizer.summarize(transcript, episode_title=episode.title)
         
         if summary:
-            summarizer.save_summary(summary)
+            # Save summary using database interface (supports both local and Supabase)
+            summary_data = SummaryData(
+                episode_id=summary.episode_id,
+                title=summary.title,
+                overview=summary.overview,
+                topics=summary.topics,
+                takeaways=summary.takeaways,
+                key_points=[{"topic": kp.topic, "points": kp.points} for kp in summary.key_points],
+            )
+            db_interface.save_summary(summary_data)
             update_job_status(job_id, "completed", 100, "Processing complete!")
         else:
             update_job_status(job_id, "failed", 0, "Summary generation failed")
@@ -231,15 +263,14 @@ def process_episode_sync(job_id: str, episode_url: str, transcribe_only: bool = 
             update_job_status(job_id, "failed", 0, f"Error: {str(e)}")
 
 
-async def process_episode_async(job_id: str, episode_url: str, transcribe_only: bool = False, force: bool = False):
+async def process_episode_async(job_id: str, episode_url: str, transcribe_only: bool = False, force: bool = False, user_id: Optional[str] = None):
     """Async wrapper for episode processing."""
     loop = asyncio.get_event_loop()
     
-    # Run in thread pool
+    # Run in thread pool with user_id
     await loop.run_in_executor(
         None,
-        process_episode_sync,
-        job_id, episode_url, transcribe_only, force
+        lambda: process_episode_sync(job_id, episode_url, transcribe_only, force, user_id)
     )
     
     # Broadcast final status
@@ -247,10 +278,16 @@ async def process_episode_async(job_id: str, episode_url: str, transcribe_only: 
 
 
 @router.post("/process")
-async def process_episode(data: ProcessRequest, background_tasks: BackgroundTasks):
+async def process_episode(
+    data: ProcessRequest, 
+    background_tasks: BackgroundTasks,
+    user: Optional[User] = Depends(get_current_user)
+):
     """Start processing an episode."""
     if not data.episode_url:
         raise HTTPException(status_code=400, detail="episode_url is required")
+    
+    user_id = user.id if user else None
     
     # Try to fetch episode info for immediate display
     episode_id = None
@@ -279,13 +316,14 @@ async def process_episode(data: ProcessRequest, background_tasks: BackgroundTask
     # Broadcast new job to WebSocket clients immediately
     await broadcast_status(job_id)
     
-    # Start background processing
+    # Start background processing with user_id for Supabase support
     background_tasks.add_task(
         process_episode_async,
         job_id,
         data.episode_url,
         data.transcribe_only,
         data.force,
+        user_id,
     )
     
     return {
