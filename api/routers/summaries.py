@@ -58,18 +58,35 @@ async def get_summary(eid: str, user: Optional[User] = Depends(get_current_user)
 @router.get("/{eid}/html", response_class=HTMLResponse)
 async def get_summary_html(eid: str, user: Optional[User] = Depends(get_current_user)):
     """Get summary as HTML page."""
-    from viewer import load_summary, export_html
+    from viewer import Summary, KeyPoint, export_html
     
-    def generate_html():
-        summary = load_summary(eid)
-        if not summary:
-            return None
-        return export_html(summary)
+    db = get_db(user.id if user else None)
+    summary_data = await run_sync(db.get_summary, eid)
     
-    html_content = await run_sync(generate_html)
-    
-    if not html_content:
+    if not summary_data:
         raise HTTPException(status_code=404, detail="Summary not found")
+    
+    # Convert database format to viewer format
+    key_points = [
+        KeyPoint(
+            topic=kp.get("topic", ""),
+            summary=kp.get("summary", ""),
+            original_quote=kp.get("original_quote", ""),
+            timestamp=kp.get("timestamp", ""),
+        )
+        for kp in summary_data.key_points
+    ]
+    
+    summary = Summary(
+        episode_id=summary_data.episode_id,
+        title=summary_data.title,
+        overview=summary_data.overview,
+        key_points=key_points,
+        topics=summary_data.topics,
+        takeaways=summary_data.takeaways,
+    )
+    
+    html_content = await run_sync(export_html, summary)
     
     return HTMLResponse(content=html_content)
 
@@ -77,18 +94,35 @@ async def get_summary_html(eid: str, user: Optional[User] = Depends(get_current_
 @router.get("/{eid}/markdown")
 async def get_summary_markdown(eid: str, user: Optional[User] = Depends(get_current_user)):
     """Get summary as Markdown."""
-    from viewer import load_summary, export_markdown
+    from viewer import Summary, KeyPoint, export_markdown
     
-    def generate_markdown():
-        summary = load_summary(eid)
-        if not summary:
-            return None
-        return export_markdown(summary)
+    db = get_db(user.id if user else None)
+    summary_data = await run_sync(db.get_summary, eid)
     
-    md_content = await run_sync(generate_markdown)
-    
-    if not md_content:
+    if not summary_data:
         raise HTTPException(status_code=404, detail="Summary not found")
+    
+    # Convert database format to viewer format
+    key_points = [
+        KeyPoint(
+            topic=kp.get("topic", ""),
+            summary=kp.get("summary", ""),
+            original_quote=kp.get("original_quote", ""),
+            timestamp=kp.get("timestamp", ""),
+        )
+        for kp in summary_data.key_points
+    ]
+    
+    summary = Summary(
+        episode_id=summary_data.episode_id,
+        title=summary_data.title,
+        overview=summary_data.overview,
+        key_points=key_points,
+        topics=summary_data.topics,
+        takeaways=summary_data.takeaways,
+    )
+    
+    md_content = await run_sync(export_markdown, summary)
     
     return {"markdown": md_content}
 
