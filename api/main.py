@@ -1,4 +1,5 @@
 """FastAPI application for Podcast Transcript Tool."""
+import asyncio
 import sys
 from pathlib import Path
 
@@ -21,6 +22,13 @@ app = FastAPI(
     description="API for managing podcast transcripts and summaries",
     version="1.0.0",
 )
+
+
+@app.on_event("startup")
+async def startup_event():
+    """Capture the main event loop on startup for thread-safe broadcasting."""
+    loop = asyncio.get_running_loop()
+    processing.set_main_loop(loop)
 
 # CORS middleware for frontend
 app.add_middleware(

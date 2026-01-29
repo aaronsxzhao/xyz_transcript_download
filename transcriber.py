@@ -385,18 +385,25 @@ class APITranscriber:
         file_size = audio_path.stat().st_size
 
         if file_size <= self.max_size:
-            return self._transcribe_file(audio_path, episode_id, language)
+            return self._transcribe_file(audio_path, episode_id, language, progress_callback)
 
-        return self._transcribe_large_file(audio_path, episode_id, language)
+        return self._transcribe_large_file(audio_path, episode_id, language, progress_callback)
 
     def _transcribe_file(
         self,
         audio_path: Path,
         episode_id: str,
         language: str,
+        progress_callback: Optional[Callable[[float], None]] = None,
     ) -> Optional[Transcript]:
         """Transcribe a single audio file."""
         try:
+            # Signal start of transcription
+            if progress_callback:
+                progress_callback(0.1)
+            
+            logger.info(f"Sending audio to Whisper API ({audio_path.stat().st_size / 1024 / 1024:.1f} MB)...")
+            
             with open(audio_path, "rb") as audio_file:
                 response = self.client.audio.transcriptions.create(
                     model=WHISPER_API_MODEL,
@@ -405,6 +412,10 @@ class APITranscriber:
                     response_format="verbose_json",
                     timestamp_granularities=["segment"],
                 )
+            
+            # API call complete
+            if progress_callback:
+                progress_callback(0.9)
 
             segments = []
             if hasattr(response, 'segments') and response.segments:
@@ -423,6 +434,12 @@ class APITranscriber:
                             text=getattr(seg, 'text', "").strip(),
                         ))
 
+            # Done
+            if progress_callback:
+                progress_callback(1.0)
+            
+            logger.info(f"API transcription complete: {len(segments)} segments")
+
             return Transcript(
                 episode_id=episode_id,
                 language=response.language if hasattr(response, 'language') else language,
@@ -440,6 +457,7 @@ class APITranscriber:
         audio_path: Path,
         episode_id: str,
         language: str,
+        progress_callback: Optional[Callable[[float], None]] = None,
     ) -> Optional[Transcript]:
         """Transcribe a large audio file by splitting."""
         import tempfile
@@ -453,6 +471,8 @@ class APITranscriber:
             return None
 
         chunk_duration = duration / num_chunks
+        
+        logger.info(f"Large file ({file_size / 1024 / 1024:.1f} MB) - splitting into {num_chunks} chunks")
 
         all_segments = []
         all_text = []
@@ -462,12 +482,27 @@ class APITranscriber:
             for i in range(num_chunks):
                 start_time = i * chunk_duration
                 chunk_path = Path(temp_dir) / f"chunk_{i}.mp3"
+                
+                # Update progress: splitting phase (0-10% of chunk)
+                if progress_callback:
+                    chunk_base = i / num_chunks
+                    progress_callback(chunk_base + 0.02 / num_chunks)
 
                 if not self._extract_chunk(audio_path, chunk_path, start_time, chunk_duration):
                     continue
 
+                # Create a sub-callback for this chunk's transcription
+                def chunk_progress(p: float, chunk_idx=i):
+                    if progress_callback:
+                        # Map chunk progress to overall progress
+                        # Each chunk gets equal share: [chunk_idx/num_chunks, (chunk_idx+1)/num_chunks]
+                        chunk_start = chunk_idx / num_chunks
+                        chunk_range = 1.0 / num_chunks
+                        overall = chunk_start + (p * chunk_range * 0.9)  # Leave 10% for final processing
+                        progress_callback(min(overall, 0.95))
+
                 chunk_transcript = self._transcribe_file(
-                    chunk_path, f"{episode_id}_chunk_{i}", language
+                    chunk_path, f"{episode_id}_chunk_{i}", language, chunk_progress
                 )
 
                 if chunk_transcript:
@@ -480,11 +515,18 @@ class APITranscriber:
                         all_segments.append(adjusted_seg)
 
                     all_text.append(chunk_transcript.text)
+                
+                logger.info(f"Chunk {i+1}/{num_chunks} complete")
 
                 time_offset += chunk_duration
 
         if not all_text:
             return None
+        
+        if progress_callback:
+            progress_callback(1.0)
+        
+        logger.info(f"Large file transcription complete: {len(all_segments)} total segments")
 
         return Transcript(
             episode_id=episode_id,

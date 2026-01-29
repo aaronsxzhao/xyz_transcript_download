@@ -21,6 +21,26 @@ cancelled_jobs: Set[str] = set()
 # When limit reached, jobs queue automatically and wait for a slot
 PROCESSING_EXECUTOR = ThreadPoolExecutor(max_workers=3, thread_name_prefix="episode_processor")
 
+# Store reference to the main event loop for thread-safe broadcasting
+_main_loop: Optional[asyncio.AbstractEventLoop] = None
+
+
+def set_main_loop(loop: asyncio.AbstractEventLoop):
+    """Set the main event loop reference for thread-safe broadcasting."""
+    global _main_loop
+    _main_loop = loop
+
+
+def get_main_loop() -> Optional[asyncio.AbstractEventLoop]:
+    """Get the main event loop for thread-safe broadcasting."""
+    global _main_loop
+    if _main_loop is None:
+        try:
+            _main_loop = asyncio.get_running_loop()
+        except RuntimeError:
+            pass
+    return _main_loop
+
 
 def is_job_cancelled(job_id: str) -> bool:
     """Check if a job has been cancelled."""
@@ -71,15 +91,16 @@ def update_job_status(job_id: str, status: str, progress: float = 0, message: st
             jobs[job_id].episode_title = episode_title
         
         # Broadcast update to all connected WebSocket clients
-        # Use asyncio to run in thread context
+        # Use the cached main event loop for thread-safe broadcasting
         try:
-            import asyncio
-            loop = asyncio.get_event_loop()
-            if loop.is_running():
+            loop = get_main_loop()
+            if loop and loop.is_running():
                 # Schedule broadcast from sync context
                 asyncio.run_coroutine_threadsafe(broadcast_status(job_id), loop)
-        except Exception:
-            pass  # Ignore if no event loop
+        except Exception as e:
+            # Log but don't fail - status is still updated in memory
+            import traceback
+            traceback.print_exc()
 
 
 async def broadcast_status(job_id: str):
