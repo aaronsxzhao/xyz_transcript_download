@@ -7,8 +7,9 @@ import type { ProcessingJob } from './api'
 let ws: WebSocket | null = null
 let reconnectTimeout: number | null = null
 let pollInterval: number | null = null
+let fastPollInterval: number | null = null
 
-// Poll for job updates as fallback (every 2 seconds when there are active jobs)
+// Poll for job updates as fallback
 async function pollJobs() {
   try {
     const response = await fetch('/api/jobs')
@@ -20,31 +21,51 @@ async function pollJobs() {
       jobs.forEach(job => {
         useStore.getState().updateJob(job)
       })
+      
+      // Manage fast polling based on active jobs
+      const hasActiveJobs = jobs.some(job => 
+        !['completed', 'failed', 'cancelled'].includes(job.status)
+      )
+      
+      if (hasActiveJobs && !fastPollInterval) {
+        startFastPolling()
+      } else if (!hasActiveJobs && fastPollInterval) {
+        stopFastPolling()
+      }
     }
   } catch (e) {
     // Silently fail - polling is just a fallback
   }
 }
 
+// Fast polling (every 500ms) for smooth progress updates during active jobs
+function startFastPolling() {
+  if (fastPollInterval) return
+  
+  fastPollInterval = window.setInterval(() => {
+    pollJobs()
+  }, 500)
+}
+
+function stopFastPolling() {
+  if (fastPollInterval) {
+    clearInterval(fastPollInterval)
+    fastPollInterval = null
+  }
+}
+
 function startPolling() {
   if (pollInterval) return
   
-  // Poll immediately, then every 2 seconds
+  // Poll immediately, then every 3 seconds for checking new jobs
   pollJobs()
   pollInterval = window.setInterval(() => {
-    // Only poll if there are active jobs
-    const jobs = useStore.getState().jobs
-    const hasActiveJobs = jobs.some(job => 
-      !['completed', 'failed', 'cancelled'].includes(job.status)
-    )
-    
-    if (hasActiveJobs) {
-      pollJobs()
-    }
-  }, 2000)
+    pollJobs()
+  }, 3000)
 }
 
 function stopPolling() {
+  stopFastPolling()
   if (pollInterval) {
     clearInterval(pollInterval)
     pollInterval = null

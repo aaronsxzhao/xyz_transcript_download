@@ -135,11 +135,16 @@ function JobItem({ job, showCancel = false, onDismiss }: { job: ProcessingJob; s
         </div>
       )}
       
-      {/* Progress percentage */}
-      {job.progress > 0 && isActive && (
-        <p className="text-xs text-gray-500 text-right">
-          {Math.round(job.progress)}%
-        </p>
+      {/* Progress percentage - always show for active jobs */}
+      {isActive && (
+        <div className="flex justify-between items-center">
+          <p className="text-xs text-indigo-400">
+            {job.message || 'Processing...'}
+          </p>
+          <p className="text-xs font-medium text-white">
+            {Math.round(job.progress)}%
+          </p>
+        </div>
       )}
     </div>
   )
