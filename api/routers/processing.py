@@ -172,7 +172,7 @@ def _background_refinement(audio_path, episode, fast_summary, db_interface, tran
             overview=final_summary.overview,
             topics=final_summary.topics,
             takeaways=final_summary.takeaways,
-            key_points=[{"topic": kp.topic, "points": kp.points} for kp in final_summary.key_points],
+            key_points=[{"topic": kp.topic, "summary": kp.summary, "original_quote": kp.original_quote, "timestamp": kp.timestamp} for kp in final_summary.key_points],
         )
         db_interface.save_summary(summary_data)
         
@@ -300,7 +300,7 @@ def process_episode_sync(job_id: str, episode_url: str, transcribe_only: bool = 
                     episode_id=summary.episode_id, title=summary.title,
                     overview=summary.overview, topics=summary.topics,
                     takeaways=summary.takeaways,
-                    key_points=[{"topic": kp.topic, "points": kp.points} for kp in summary.key_points],
+                    key_points=[{"topic": kp.topic, "summary": kp.summary, "original_quote": kp.original_quote, "timestamp": kp.timestamp} for kp in summary.key_points],
                 )
                 db_interface.save_summary(summary_data)
                 update_job_status(job_id, "completed", 100, "Processing complete!")
@@ -372,7 +372,7 @@ def process_episode_sync(job_id: str, episode_url: str, transcribe_only: bool = 
             episode_id=summary.episode_id, title=summary.title,
             overview=summary.overview, topics=summary.topics,
             takeaways=summary.takeaways,
-            key_points=[{"topic": kp.topic, "points": kp.points} for kp in summary.key_points],
+            key_points=[{"topic": kp.topic, "summary": kp.summary, "original_quote": kp.original_quote, "timestamp": kp.timestamp} for kp in summary.key_points],
         )
         db_interface.save_summary(summary_data)
         
