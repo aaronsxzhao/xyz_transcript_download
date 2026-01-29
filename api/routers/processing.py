@@ -86,14 +86,12 @@ async def broadcast_status(job_id: str):
         })
 
 
-def _process_track(track_name: str, audio_path, episode_id: str, episode_title: str, 
-                   transcriber, summarizer, job_id: str, progress_callback=None):
+def _process_track(audio_path, episode_id: str, episode_title: str, 
+                   transcriber, summarizer, progress_callback=None):
     """
-    Process a single track (fast or accurate).
+    Process a single audio track (transcribe + summarize).
     Returns (transcript, summary) tuple or (None, None) on failure.
     """
-    from transcriber import Transcript
-    
     try:
         # Transcribe
         transcript = transcriber.transcribe(audio_path, episode_id, progress_callback=progress_callback)
@@ -110,14 +108,65 @@ def _process_track(track_name: str, audio_path, episode_id: str, episode_title: 
         return None, None
 
 
+def _background_refinement(audio_path, episode, fast_summary, db_interface, transcriber, summarizer, user_id):
+    """
+    Background task to process accurate track and silently update summary.
+    Runs after job is already marked complete - user doesn't see this.
+    """
+    try:
+        from summarizer import merge_summaries
+        
+        # Transcribe original audio
+        accurate_transcript = transcriber.transcribe(audio_path, episode.eid)
+        if not accurate_transcript:
+            return  # Keep fast version
+        
+        # Generate accurate summary
+        accurate_summary = summarizer.summarize(accurate_transcript, episode_title=episode.title)
+        if not accurate_summary:
+            return  # Keep fast version
+        
+        # Save accurate transcript (better quality)
+        transcript_data = TranscriptData(
+            episode_id=accurate_transcript.episode_id,
+            language=accurate_transcript.language,
+            duration=accurate_transcript.duration,
+            text=accurate_transcript.text,
+            segments=[{"start": s.start, "end": s.end, "text": s.text} for s in accurate_transcript.segments],
+        )
+        db_interface.save_transcript(transcript_data)
+        
+        # Merge summaries for best of both
+        final_summary = merge_summaries(fast_summary, accurate_summary)
+        
+        # Save merged summary
+        summary_data = SummaryData(
+            episode_id=final_summary.episode_id,
+            title=final_summary.title,
+            overview=final_summary.overview,
+            topics=final_summary.topics,
+            takeaways=final_summary.takeaways,
+            key_points=[{"topic": kp.topic, "points": kp.points} for kp in final_summary.key_points],
+        )
+        db_interface.save_summary(summary_data)
+        
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        # Silently fail - keep fast version
+
+
 def process_episode_sync(job_id: str, episode_url: str, transcribe_only: bool = False, force: bool = False, user_id: Optional[str] = None):
     """
-    Synchronous episode processing with dual-track parallel processing.
+    Synchronous episode processing with optimized dual-track processing.
     
-    Uses compressed audio for fast results and original audio for accuracy.
-    Shows quick summary first, then merges with accurate version.
+    Uses compressed audio for fast initial results. When fast track completes,
+    job is marked complete immediately. Accurate track runs silently in background
+    to refine the summary - completely invisible to the user.
+    
+    User experience: Fast processing with seamless progress bar.
     """
-    import concurrent.futures
+    import threading
     from xyz_client import get_client
     from database import get_database
     from downloader import get_downloader, compress_audio
@@ -158,7 +207,7 @@ def process_episode_sync(job_id: str, episode_url: str, transcribe_only: bool = 
                 podcast_info = client.get_podcast(episode.pid)
                 if podcast_info:
                     db.add_podcast(podcast_info.pid, podcast_info.title, podcast_info.author, podcast_info.description, podcast_info.cover_url)
-                    update_job_status(job_id, "fetching", 12, f"Auto-subscribed to: {podcast_info.title}")
+                    update_job_status(job_id, "fetching", 12, f"Subscribed to: {podcast_info.title}")
                     podcast = db.get_podcast(episode.pid)
             
             if podcast:
@@ -174,16 +223,16 @@ def process_episode_sync(job_id: str, episode_url: str, transcribe_only: bool = 
         existing_summary = db_interface.get_summary(episode.eid)
         
         if existing_transcript and existing_summary and not force:
-            update_job_status(job_id, "completed", 100, "Using existing transcript and summary")
+            update_job_status(job_id, "completed", 100, "Already processed")
             return
         
         # Check for cancellation before downloading
         if is_job_cancelled(job_id):
-            update_job_status(job_id, "cancelled", 15, "Cancelled before download")
+            update_job_status(job_id, "cancelled", 15, "Cancelled")
             mark_job_cancelled(job_id)
             return
         
-        # ===== PHASE 2: Download audio (10-20%) =====
+        # ===== PHASE 2: Download audio (10-25%) =====
         update_job_status(job_id, "downloading", 15, "Downloading audio...")
         audio_path = downloader.download(episode)
         
@@ -191,30 +240,26 @@ def process_episode_sync(job_id: str, episode_url: str, transcribe_only: bool = 
             update_job_status(job_id, "failed", 0, "Download failed")
             return
         
-        update_job_status(job_id, "downloading", 20, "Download complete")
+        update_job_status(job_id, "downloading", 25, "Download complete")
         
-        # ===== PHASE 3: Compress audio for fast track (20-25%) =====
-        update_job_status(job_id, "compressing", 22, "Creating fast version...")
-        compressed_path = compress_audio(audio_path)
-        
-        if not compressed_path:
-            # Fall back to single-track processing with original
-            update_job_status(job_id, "compressing", 25, "Using original audio (compression failed)")
-            compressed_path = audio_path
-        else:
-            update_job_status(job_id, "compressing", 25, "Fast version ready")
-        
-        # Check for cancellation before transcribing
+        # Check for cancellation before processing
         if is_job_cancelled(job_id):
-            update_job_status(job_id, "cancelled", 25, "Cancelled before transcription")
+            update_job_status(job_id, "cancelled", 25, "Cancelled")
             mark_job_cancelled(job_id)
             return
         
-        # ===== PHASE 4: Dual-track parallel processing (25-100%) =====
+        # ===== PHASE 3: Prepare optimized audio (25-30%) =====
+        update_job_status(job_id, "transcribing", 28, "Preparing audio...")
+        compressed_path = compress_audio(audio_path)
         
-        # If we have existing transcript, use it for accurate track
+        # Determine processing mode
+        use_fast_track = compressed_path is not None and compressed_path != audio_path
+        process_path = compressed_path if use_fast_track else audio_path
+        
+        # If we have existing transcript, just summarize
         if existing_transcript and not force:
-            accurate_transcript = Transcript(
+            update_job_status(job_id, "summarizing", 70, "Generating summary...")
+            transcript = Transcript(
                 episode_id=existing_transcript.episode_id,
                 language=existing_transcript.language,
                 duration=existing_transcript.duration,
@@ -222,162 +267,100 @@ def process_episode_sync(job_id: str, episode_url: str, transcribe_only: bool = 
                 segments=[TSeg(start=s.get("start", 0), end=s.get("end", 0), text=s.get("text", "")) 
                          for s in existing_transcript.segments],
             )
-            # Only run fast track for summary
-            use_dual_track = False
-        else:
-            accurate_transcript = None
-            use_dual_track = compressed_path != audio_path  # Only dual-track if compression succeeded
-        
-        if transcribe_only:
-            # Single track transcription only
-            update_job_status(job_id, "transcribing", 30, "Transcribing audio...")
+            summary = summarizer.summarize(transcript, episode_title=episode.title)
             
-            last_progress = [30]
-            def progress_cb(progress: float):
-                job_progress = 30 + (progress * 65)
-                if job_progress >= last_progress[0] + 1:
-                    last_progress[0] = job_progress
-                    update_job_status(job_id, "transcribing", job_progress, f"Transcribing... {int(progress*100)}%")
-            
-            transcript = transcriber.transcribe(audio_path, episode.eid, progress_callback=progress_cb)
-            
-            if transcript:
-                transcript_data = TranscriptData(
-                    episode_id=transcript.episode_id, language=transcript.language,
-                    duration=transcript.duration, text=transcript.text,
-                    segments=[{"start": s.start, "end": s.end, "text": s.text} for s in transcript.segments],
+            if summary:
+                summary_data = SummaryData(
+                    episode_id=summary.episode_id, title=summary.title,
+                    overview=summary.overview, topics=summary.topics,
+                    takeaways=summary.takeaways,
+                    key_points=[{"topic": kp.topic, "points": kp.points} for kp in summary.key_points],
                 )
-                db_interface.save_transcript(transcript_data)
-                update_job_status(job_id, "completed", 100, "Transcription complete")
+                db_interface.save_summary(summary_data)
+                update_job_status(job_id, "completed", 100, "Processing complete!")
             else:
-                update_job_status(job_id, "failed", 0, "Transcription failed")
+                update_job_status(job_id, "failed", 0, "Summary generation failed")
             return
         
-        # Progress callback for fast track (25-55%)
-        last_fast_progress = [25]
-        def fast_progress_callback(progress: float):
-            job_progress = 25 + (progress * 30)  # 25% to 55%
-            if job_progress >= last_fast_progress[0] + 1:
-                last_fast_progress[0] = job_progress
-                update_job_status(job_id, "transcribing_fast", job_progress, f"Fast transcription... {int(progress*100)}%")
+        # ===== PHASE 4: Transcribe (30-70%) =====
+        update_job_status(job_id, "transcribing", 30, "Transcribing audio...")
         
-        update_job_status(job_id, "transcribing_fast", 25, "Starting dual-track processing...")
+        last_progress = [30]
+        def progress_callback(progress: float):
+            # Map 0-1 progress to 30-70% of job
+            job_progress = 30 + (progress * 40)
+            if job_progress >= last_progress[0] + 1:
+                last_progress[0] = job_progress
+                pct = int(progress * 100)
+                update_job_status(job_id, "transcribing", job_progress, f"Transcribing... {pct}%")
         
-        fast_summary = None
-        accurate_summary = None
-        fast_transcript = None
+        # Transcribe (using fast audio if available)
+        transcript = transcriber.transcribe(process_path, episode.eid, progress_callback=progress_callback)
         
-        if use_dual_track:
-            # Run both tracks in parallel
-            with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
-                # Submit fast track
-                fast_future = executor.submit(
-                    _process_track, "fast", compressed_path, episode.eid, episode.title,
-                    transcriber, summarizer, job_id, fast_progress_callback
-                )
-                
-                # Submit accurate track (no progress callback - runs in background)
-                accurate_future = executor.submit(
-                    _process_track, "accurate", audio_path, episode.eid, episode.title,
-                    transcriber, summarizer, job_id, None
-                )
-                
-                # Wait for fast track first
-                update_job_status(job_id, "transcribing_fast", 30, "Processing fast version...")
-                
-                try:
-                    fast_transcript, fast_summary = fast_future.result(timeout=1800)  # 30 min timeout
-                except Exception as e:
-                    update_job_status(job_id, "transcribing_fast", 55, f"Fast track error: {str(e)}")
-                
-                if fast_summary:
-                    # ===== PHASE 5: Quick summary ready (55-75%) =====
-                    update_job_status(job_id, "quick_ready", 75, "Quick summary ready! Refining...")
-                    
-                    # Save quick summary immediately
-                    quick_summary_data = SummaryData(
-                        episode_id=fast_summary.episode_id,
-                        title=fast_summary.title,
-                        overview=fast_summary.overview,
-                        topics=fast_summary.topics,
-                        takeaways=fast_summary.takeaways,
-                        key_points=[{"topic": kp.topic, "points": kp.points} for kp in fast_summary.key_points],
-                    )
-                    db_interface.save_summary(quick_summary_data)
-                    
-                    # Also save fast transcript
-                    if fast_transcript:
-                        fast_transcript_data = TranscriptData(
-                            episode_id=fast_transcript.episode_id, language=fast_transcript.language,
-                            duration=fast_transcript.duration, text=fast_transcript.text,
-                            segments=[{"start": s.start, "end": s.end, "text": s.text} for s in fast_transcript.segments],
-                        )
-                        db_interface.save_transcript(fast_transcript_data)
-                
-                # ===== PHASE 6: Wait for accurate track (75-90%) =====
-                update_job_status(job_id, "refining", 80, "Waiting for high-quality transcript...")
-                
-                try:
-                    accurate_transcript, accurate_summary = accurate_future.result(timeout=3600)  # 60 min timeout
-                except Exception as e:
-                    update_job_status(job_id, "refining", 85, f"Accurate track error: {str(e)}")
-        else:
-            # Single track processing (fallback or existing transcript)
-            if accurate_transcript:
-                # We have existing transcript, just summarize
-                update_job_status(job_id, "summarizing", 65, "Generating summary...")
-                accurate_summary = summarizer.summarize(accurate_transcript, episode_title=episode.title)
-            else:
-                # Process original audio only
-                last_progress = [25]
-                def single_progress_callback(progress: float):
-                    job_progress = 25 + (progress * 35)
-                    if job_progress >= last_progress[0] + 1:
-                        last_progress[0] = job_progress
-                        update_job_status(job_id, "transcribing", job_progress, f"Transcribing... {int(progress*100)}%")
-                
-                accurate_transcript, accurate_summary = _process_track(
-                    "single", audio_path, episode.eid, episode.title,
-                    transcriber, summarizer, job_id, single_progress_callback
-                )
+        if not transcript:
+            update_job_status(job_id, "failed", 0, "Transcription failed")
+            return
         
-        # ===== PHASE 7: Merge and finalize (90-100%) =====
-        if accurate_transcript and accurate_summary:
-            update_job_status(job_id, "merging", 90, "Finalizing with high-quality transcript...")
-            
-            # Save accurate transcript (overwrites fast version if any)
+        update_job_status(job_id, "transcribing", 70, "Transcription complete")
+        
+        if transcribe_only:
+            # Save and finish
             transcript_data = TranscriptData(
-                episode_id=accurate_transcript.episode_id, language=accurate_transcript.language,
-                duration=accurate_transcript.duration, text=accurate_transcript.text,
-                segments=[{"start": s.start, "end": s.end, "text": s.text} for s in accurate_transcript.segments],
+                episode_id=transcript.episode_id, language=transcript.language,
+                duration=transcript.duration, text=transcript.text,
+                segments=[{"start": s.start, "end": s.end, "text": s.text} for s in transcript.segments],
             )
             db_interface.save_transcript(transcript_data)
-            
-            # Merge summaries if we have both
-            if fast_summary and accurate_summary:
-                from summarizer import merge_summaries
-                final_summary = merge_summaries(fast_summary, accurate_summary)
-            else:
-                final_summary = accurate_summary
-            
-            # Save final summary
-            summary_data = SummaryData(
-                episode_id=final_summary.episode_id,
-                title=final_summary.title,
-                overview=final_summary.overview,
-                topics=final_summary.topics,
-                takeaways=final_summary.takeaways,
-                key_points=[{"topic": kp.topic, "points": kp.points} for kp in final_summary.key_points],
+            update_job_status(job_id, "completed", 100, "Transcription complete!")
+            return
+        
+        # Check for cancellation before summarizing
+        if is_job_cancelled(job_id):
+            update_job_status(job_id, "cancelled", 70, "Cancelled")
+            mark_job_cancelled(job_id)
+            return
+        
+        # ===== PHASE 5: Summarize (70-95%) =====
+        update_job_status(job_id, "summarizing", 75, "Generating summary...")
+        
+        summary = summarizer.summarize(transcript, episode_title=episode.title)
+        
+        if not summary:
+            update_job_status(job_id, "failed", 0, "Summary generation failed")
+            return
+        
+        update_job_status(job_id, "summarizing", 95, "Saving results...")
+        
+        # Save transcript
+        transcript_data = TranscriptData(
+            episode_id=transcript.episode_id, language=transcript.language,
+            duration=transcript.duration, text=transcript.text,
+            segments=[{"start": s.start, "end": s.end, "text": s.text} for s in transcript.segments],
+        )
+        db_interface.save_transcript(transcript_data)
+        
+        # Save summary
+        summary_data = SummaryData(
+            episode_id=summary.episode_id, title=summary.title,
+            overview=summary.overview, topics=summary.topics,
+            takeaways=summary.takeaways,
+            key_points=[{"topic": kp.topic, "points": kp.points} for kp in summary.key_points],
+        )
+        db_interface.save_summary(summary_data)
+        
+        # ===== PHASE 6: Complete! (100%) =====
+        update_job_status(job_id, "completed", 100, "Processing complete!")
+        
+        # ===== BACKGROUND: Silently refine with original audio =====
+        # Only if we used compressed audio - run accurate track in background
+        if use_fast_track and not transcribe_only:
+            # Start background refinement (invisible to user)
+            refinement_thread = threading.Thread(
+                target=_background_refinement,
+                args=(audio_path, episode, summary, db_interface, transcriber, summarizer, user_id),
+                daemon=True  # Won't block shutdown
             )
-            db_interface.save_summary(summary_data)
-            update_job_status(job_id, "completed", 100, "Processing complete!")
-            
-        elif fast_summary:
-            # Only fast track succeeded - keep quick summary
-            update_job_status(job_id, "completed", 100, "Complete (quick version)")
-            
-        else:
-            update_job_status(job_id, "failed", 0, "Both tracks failed")
+            refinement_thread.start()
     
     except Exception as e:
         import traceback

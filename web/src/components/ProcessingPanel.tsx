@@ -2,8 +2,7 @@
  * Processing panel that shows active jobs with progress
  */
 import { useState } from 'react'
-import { Link } from 'react-router-dom'
-import { ChevronUp, ChevronDown, Radio, X, Trash2, ExternalLink } from 'lucide-react'
+import { ChevronUp, ChevronDown, Radio, X, Trash2 } from 'lucide-react'
 import { useStore } from '../lib/store'
 import { cancelJob, type ProcessingJob } from '../lib/api'
 import { getStatusIcon, getStatusColor, getStatusText, isActiveStatus } from '../lib/statusUtils'
@@ -87,8 +86,6 @@ function JobItem({ job, showCancel = false, onDismiss }: { job: ProcessingJob; s
   
   const isActive = isActiveStatus(job.status)
   
-  const isQuickReady = job.status === 'quick_ready' || job.status === 'refining' || job.status === 'merging'
-  
   return (
     <div className="p-3 space-y-2">
       <div className="flex items-start gap-2">
@@ -100,16 +97,6 @@ function JobItem({ job, showCancel = false, onDismiss }: { job: ProcessingJob; s
           <p className="text-xs text-gray-500">
             {job.message || getStatusText(job.status)}
           </p>
-          {/* Quick summary ready - show view link */}
-          {isQuickReady && job.episode_id && (
-            <Link
-              to={`/viewer/${job.episode_id}`}
-              className="inline-flex items-center gap-1 mt-1 text-xs text-yellow-400 hover:text-yellow-300"
-            >
-              <ExternalLink size={12} />
-              View quick summary
-            </Link>
-          )}
         </div>
         {/* Cancel button for active jobs */}
         {showCancel && isActive && job.status !== 'cancelling' && (

@@ -103,12 +103,7 @@ class ProcessingStatus(BaseModel):
     # - pending: Job queued
     # - fetching: Getting episode info
     # - downloading: Downloading audio
-    # - compressing: Creating fast version for dual-track processing
-    # - transcribing: Single-track transcription
-    # - transcribing_fast: Fast track transcription (compressed audio)
-    # - quick_ready: Quick summary available (fast track done)
-    # - refining: Waiting for accurate track
-    # - merging: Combining fast and accurate results
+    # - transcribing: Transcribing audio
     # - summarizing: Generating summary
     # - completed: All done
     # - failed: Error occurred
@@ -119,7 +114,6 @@ class ProcessingStatus(BaseModel):
     message: str = ""
     episode_id: Optional[str] = None
     episode_title: Optional[str] = None
-    is_quick: bool = False  # True when showing quick (fast track) result
 
 
 # Stats schemas
