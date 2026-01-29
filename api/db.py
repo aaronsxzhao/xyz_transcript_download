@@ -439,6 +439,42 @@ class DatabaseInterface:
                 "transcripts": len(list(transcripts_dir.glob("*.json"))) if transcripts_dir.exists() else 0,
                 "summaries": len(list(summaries_dir.glob("*.json"))) if summaries_dir.exists() else 0,
             }
+    
+    # ==================== Batch Operations (Performance) ====================
+    
+    def get_episode_counts_by_podcast(self) -> Dict[str, int]:
+        """Get episode counts for all podcasts in one query."""
+        if self.use_supabase:
+            return self.db.get_all_episode_counts_by_podcast(self.user_id)
+        else:
+            # Local: count from database
+            podcasts = self.db.get_all_podcasts()
+            return {
+                p.pid: len(self.db.get_episodes_by_podcast(p.pid))
+                for p in podcasts
+            }
+    
+    def get_transcript_episode_ids(self) -> set:
+        """Get set of episode IDs that have transcripts."""
+        if self.use_supabase:
+            return self.db.get_transcript_episode_ids(self.user_id)
+        else:
+            # Local: check filesystem
+            transcripts_dir = DATA_DIR / "transcripts"
+            if not transcripts_dir.exists():
+                return set()
+            return {f.stem for f in transcripts_dir.glob("*.json")}
+    
+    def get_summary_episode_ids(self) -> set:
+        """Get set of episode IDs that have summaries."""
+        if self.use_supabase:
+            return self.db.get_summary_episode_ids(self.user_id)
+        else:
+            # Local: check filesystem
+            summaries_dir = DATA_DIR / "summaries"
+            if not summaries_dir.exists():
+                return set()
+            return {f.stem for f in summaries_dir.glob("*.json") if not f.stem.startswith(".")}
 
 
 def get_db(user_id: Optional[str] = None) -> DatabaseInterface:

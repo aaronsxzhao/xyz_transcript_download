@@ -321,20 +321,30 @@ class SupabaseDatabase:
         
         result = self.client.table("summaries").select("*").eq("user_id", user_id).order("created_at", desc=True).execute()
         
+        if not result.data:
+            return []
+        
+        # Get all summary IDs
+        summary_ids = [s["id"] for s in result.data]
+        
+        # Fetch ALL key points in ONE query instead of N queries
+        kp_result = self.client.table("summary_key_points").select("*").in_("summary_id", summary_ids).execute()
+        
+        # Group key points by summary_id
+        kp_by_summary: Dict[int, List[Dict[str, Any]]] = {}
+        for kp in kp_result.data:
+            sid = kp["summary_id"]
+            if sid not in kp_by_summary:
+                kp_by_summary[sid] = []
+            kp_by_summary[sid].append({
+                "topic": kp["topic"],
+                "summary": kp["summary"],
+                "original_quote": kp["original_quote"],
+                "timestamp": kp["timestamp"]
+            })
+        
         summaries = []
         for summary in result.data:
-            # Get key points for each summary
-            kp_result = self.client.table("summary_key_points").select("*").eq("summary_id", summary["id"]).execute()
-            key_points = [
-                {
-                    "topic": kp["topic"],
-                    "summary": kp["summary"],
-                    "original_quote": kp["original_quote"],
-                    "timestamp": kp["timestamp"]
-                }
-                for kp in kp_result.data
-            ]
-            
             summaries.append(SummaryRecord(
                 id=summary["id"],
                 user_id=summary["user_id"],
@@ -343,7 +353,7 @@ class SupabaseDatabase:
                 overview=summary["overview"],
                 topics=summary.get("topics", []),
                 takeaways=summary.get("takeaways", []),
-                key_points=key_points
+                key_points=kp_by_summary.get(summary["id"], [])
             ))
         
         return summaries
@@ -442,17 +452,50 @@ class SupabaseDatabase:
         if not self.client:
             return {"podcasts": 0, "episodes": 0, "transcripts": 0, "summaries": 0}
         
-        podcasts = self.client.table("podcasts").select("id", count="exact").eq("user_id", user_id).execute()
-        episodes = self.client.table("episodes").select("id", count="exact").eq("user_id", user_id).execute()
-        transcripts = self.client.table("transcripts").select("id", count="exact").eq("user_id", user_id).execute()
-        summaries = self.client.table("summaries").select("id", count="exact").eq("user_id", user_id).execute()
+        from concurrent.futures import ThreadPoolExecutor, as_completed
         
-        return {
-            "podcasts": podcasts.count or 0,
-            "episodes": episodes.count or 0,
-            "transcripts": transcripts.count or 0,
-            "summaries": summaries.count or 0
-        }
+        def count_table(table: str) -> int:
+            result = self.client.table(table).select("id", count="exact").eq("user_id", user_id).execute()
+            return result.count or 0
+        
+        # Execute all count queries in parallel
+        tables = ["podcasts", "episodes", "transcripts", "summaries"]
+        results = {}
+        
+        with ThreadPoolExecutor(max_workers=4) as executor:
+            futures = {executor.submit(count_table, table): table for table in tables}
+            for future in as_completed(futures):
+                table = futures[future]
+                results[table] = future.result()
+        
+        return results
+    
+    # ==================== Batch Operations ====================
+    
+    def get_transcript_episode_ids(self, user_id: str) -> set:
+        """Get set of episode IDs that have transcripts."""
+        if not self.client:
+            return set()
+        result = self.client.table("transcripts").select("episode_id").eq("user_id", user_id).execute()
+        return {r["episode_id"] for r in result.data}
+    
+    def get_summary_episode_ids(self, user_id: str) -> set:
+        """Get set of episode IDs that have summaries."""
+        if not self.client:
+            return set()
+        result = self.client.table("summaries").select("episode_id").eq("user_id", user_id).execute()
+        return {r["episode_id"] for r in result.data}
+    
+    def get_all_episode_counts_by_podcast(self, user_id: str) -> Dict[str, int]:
+        """Get episode counts for all podcasts in one query."""
+        if not self.client:
+            return {}
+        result = self.client.table("episodes").select("pid").eq("user_id", user_id).execute()
+        counts: Dict[str, int] = {}
+        for r in result.data:
+            pid = r["pid"]
+            counts[pid] = counts.get(pid, 0) + 1
+        return counts
 
 
 # Singleton instance

@@ -25,22 +25,23 @@ async def list_podcasts(user: Optional[User] = Depends(get_current_user)):
     
     db = get_db(user.id if user else None)
     
-    # Run blocking DB calls in executor
-    podcasts = await run_sync(db.get_all_podcasts)
+    # Fetch podcasts and episode counts in parallel (2 queries instead of N+1)
+    podcasts, episode_counts = await asyncio.gather(
+        run_sync(db.get_all_podcasts),
+        run_sync(db.get_episode_counts_by_podcast),
+    )
     
-    result = []
-    for p in podcasts:
-        episodes = await run_sync(db.get_episodes_by_podcast, p.pid)
-        result.append(PodcastResponse(
+    return [
+        PodcastResponse(
             pid=p.pid,
             title=p.title,
             author=p.author,
             description=p.description,
             cover_url=p.cover_url,
-            episode_count=len(episodes),
-        ))
-    
-    return result
+            episode_count=episode_counts.get(p.pid, 0),
+        )
+        for p in podcasts
+    ]
 
 
 @router.post("", response_model=PodcastResponse)
@@ -169,36 +170,34 @@ async def list_podcast_episodes(pid: str, limit: int = 50, user: Optional[User] 
     """List episodes for a podcast."""
     db = get_db(user.id if user else None)
     
-    podcast = await run_sync(db.get_podcast, pid)
+    # Fetch podcast, episodes, and transcript/summary status in parallel (3 queries instead of 2N+2)
+    podcast, episodes, transcript_ids, summary_ids = await asyncio.gather(
+        run_sync(db.get_podcast, pid),
+        run_sync(db.get_episodes_by_podcast, pid),
+        run_sync(db.get_transcript_episode_ids),
+        run_sync(db.get_summary_episode_ids),
+    )
     
     if not podcast:
         raise HTTPException(status_code=404, detail="Podcast not found")
     
-    episodes = await run_sync(db.get_episodes_by_podcast, pid)
-    
-    # Build episode list with transcript/summary status
-    def build_episode_list():
-        result = []
-        for ep in episodes[:limit]:
-            has_transcript = db.has_transcript(ep.eid)
-            has_summary = db.has_summary(ep.eid)
-            
-            result.append(EpisodeResponse(
-                eid=ep.eid,
-                pid=ep.pid,
-                title=ep.title,
-                description=ep.description,
-                duration=ep.duration,
-                pub_date=ep.pub_date,
-                cover_url="",
-                audio_url=ep.audio_url,
-                status=ep.status,
-                has_transcript=has_transcript,
-                has_summary=has_summary,
-            ))
-        return result
-    
-    return await run_sync(build_episode_list)
+    # Build episode list using pre-fetched status sets
+    return [
+        EpisodeResponse(
+            eid=ep.eid,
+            pid=ep.pid,
+            title=ep.title,
+            description=ep.description,
+            duration=ep.duration,
+            pub_date=ep.pub_date,
+            cover_url="",
+            audio_url=ep.audio_url,
+            status=ep.status,
+            has_transcript=ep.eid in transcript_ids,
+            has_summary=ep.eid in summary_ids,
+        )
+        for ep in episodes[:limit]
+    ]
 
 
 @router.post("/{pid}/refresh")
