@@ -13,6 +13,7 @@ import {
   ExternalLink,
 } from 'lucide-react'
 import { fetchSummary, fetchTranscript, type Summary, type Transcript, type KeyPoint, type TranscriptSegment } from '../lib/api'
+import { getAccessToken } from '../lib/auth'
 
 type Tab = 'summary' | 'transcript'
 
@@ -131,7 +132,7 @@ export default function Viewer() {
         {/* Export buttons */}
         <div className="flex items-center gap-2 sm:flex-shrink-0">
           <a
-            href={`/api/summaries/${eid}/html`}
+            href={`/api/summaries/${eid}/html${getAccessToken() ? `?token=${getAccessToken()}` : ''}`}
             target="_blank"
             rel="noopener noreferrer"
             className="flex items-center gap-2 px-3 py-2 bg-dark-surface border border-dark-border rounded-lg hover:bg-dark-hover text-sm transition-colors"

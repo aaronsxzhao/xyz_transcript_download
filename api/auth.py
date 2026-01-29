@@ -107,3 +107,30 @@ def get_auth_header(request: Request) -> Optional[str]:
     if auth_header.startswith("Bearer "):
         return auth_header[7:]
     return None
+
+
+async def get_user_from_token_param(
+    request: Request,
+    token: Optional[str] = None,
+    credentials: Optional[HTTPAuthorizationCredentials] = Depends(security)
+) -> Optional[User]:
+    """
+    Get user from either Authorization header OR query parameter.
+    Useful for endpoints that open in new browser tabs (like HTML export).
+    """
+    if not USE_SUPABASE:
+        return User(id="local", email="local@localhost")
+    
+    # Try header first
+    if credentials:
+        payload = verify_jwt_token(credentials.credentials)
+        if payload:
+            return User(id=payload.get("sub", ""), email=payload.get("email", ""))
+    
+    # Fall back to query parameter
+    if token:
+        payload = verify_jwt_token(token)
+        if payload:
+            return User(id=payload.get("sub", ""), email=payload.get("email", ""))
+    
+    return None

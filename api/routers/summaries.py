@@ -1,11 +1,11 @@
 """Summary endpoints."""
 import asyncio
 from typing import List, Optional
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, HTTPException, Depends, Query
 from fastapi.responses import HTMLResponse
 
 from api.schemas import SummaryResponse, SummaryListItem
-from api.auth import get_current_user, User
+from api.auth import get_current_user, get_user_from_token_param, User
 from api.db import get_db
 
 router = APIRouter()
@@ -56,8 +56,12 @@ async def get_summary(eid: str, user: Optional[User] = Depends(get_current_user)
 
 
 @router.get("/{eid}/html", response_class=HTMLResponse)
-async def get_summary_html(eid: str, user: Optional[User] = Depends(get_current_user)):
-    """Get summary as HTML page."""
+async def get_summary_html(
+    eid: str,
+    token: Optional[str] = Query(None, description="Auth token for browser access"),
+    user: Optional[User] = Depends(get_user_from_token_param)
+):
+    """Get summary as HTML page. Accepts token via query param for browser tabs."""
     from viewer import Summary, KeyPoint, export_html
     
     db = get_db(user.id if user else None)
@@ -92,8 +96,12 @@ async def get_summary_html(eid: str, user: Optional[User] = Depends(get_current_
 
 
 @router.get("/{eid}/markdown")
-async def get_summary_markdown(eid: str, user: Optional[User] = Depends(get_current_user)):
-    """Get summary as Markdown."""
+async def get_summary_markdown(
+    eid: str,
+    token: Optional[str] = Query(None, description="Auth token for browser access"),
+    user: Optional[User] = Depends(get_user_from_token_param)
+):
+    """Get summary as Markdown. Accepts token via query param for browser tabs."""
     from viewer import Summary, KeyPoint, export_markdown
     
     db = get_db(user.id if user else None)
