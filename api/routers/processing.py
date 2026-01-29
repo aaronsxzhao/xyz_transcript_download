@@ -309,16 +309,18 @@ def process_episode_sync(job_id: str, episode_url: str, transcribe_only: bool = 
             return
         
         # ===== PHASE 4: Transcribe (30-70%) =====
-        update_job_status(job_id, "transcribing", 30, "Transcribing audio...")
+        update_job_status(job_id, "transcribing", 30, "Starting transcription...")
         
         last_progress = [30]
         def progress_callback(progress: float):
-            # Map 0-1 progress to 30-70% of job
+            # Map 0-1 progress to 30-70% of job (40% range for transcription)
             job_progress = 30 + (progress * 40)
-            if job_progress >= last_progress[0] + 1:
+            # Update on every 0.5% change for smooth progress bar
+            if job_progress >= last_progress[0] + 0.5:
                 last_progress[0] = job_progress
                 pct = int(progress * 100)
-                update_job_status(job_id, "transcribing", job_progress, f"Transcribing... {pct}%")
+                # Show clear progress message
+                update_job_status(job_id, "transcribing", job_progress, f"Transcribing audio... {pct}%")
         
         # Transcribe (using fast audio if available)
         transcript = transcriber.transcribe(process_path, episode.eid, progress_callback=progress_callback)

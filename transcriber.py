@@ -396,26 +396,81 @@ class APITranscriber:
         language: str,
         progress_callback: Optional[Callable[[float], None]] = None,
     ) -> Optional[Transcript]:
-        """Transcribe a single audio file."""
+        """Transcribe a single audio file with simulated progress updates."""
+        import threading
+        import time
+        
         try:
-            # Signal start of transcription
+            file_size_mb = audio_path.stat().st_size / 1024 / 1024
+            
+            # Estimate processing time: Groq processes ~1 min audio in 2-5 sec
+            # Assume ~10 sec per 25MB file as baseline, with minimum 5 sec
+            estimated_seconds = max(5, file_size_mb * 0.4)
+            
+            logger.info(f"Sending audio to Whisper API ({file_size_mb:.1f} MB, est. {estimated_seconds:.0f}s)...")
+            
+            # Shared state for thread communication
+            result_holder = {"response": None, "error": None, "done": False}
+            
+            def api_call():
+                """Run API call in background thread."""
+                try:
+                    with open(audio_path, "rb") as audio_file:
+                        result_holder["response"] = self.client.audio.transcriptions.create(
+                            model=WHISPER_API_MODEL,
+                            file=audio_file,
+                            language=language,
+                            response_format="verbose_json",
+                            timestamp_granularities=["segment"],
+                        )
+                except Exception as e:
+                    result_holder["error"] = e
+                finally:
+                    result_holder["done"] = True
+            
+            # Start API call in background
+            api_thread = threading.Thread(target=api_call, daemon=True)
+            api_thread.start()
+            
+            # Simulate smooth progress while waiting for API
+            # Progress goes from 0% to 85% during estimated time
+            start_time = time.time()
+            last_progress = 0
+            
+            while not result_holder["done"]:
+                elapsed = time.time() - start_time
+                
+                # Calculate progress: asymptotic curve that approaches 85%
+                # This ensures we never "complete" before the API returns
+                if estimated_seconds > 0:
+                    # Use logarithmic curve for natural feel
+                    ratio = min(elapsed / estimated_seconds, 2.0)  # Cap at 2x estimated time
+                    # Progress curve: starts fast, slows down as it approaches 85%
+                    progress = 0.85 * (1 - 1 / (1 + ratio * 1.5))
+                else:
+                    progress = 0.5
+                
+                # Only update if progress increased by at least 1%
+                if progress_callback and progress >= last_progress + 0.01:
+                    progress_callback(progress)
+                    last_progress = progress
+                
+                time.sleep(0.5)  # Update every 500ms
+            
+            # Wait for thread to finish
+            api_thread.join(timeout=1)
+            
+            # Check for errors
+            if result_holder["error"]:
+                raise result_holder["error"]
+            
+            response = result_holder["response"]
+            if not response:
+                raise ValueError("No response from API")
+            
+            # API call complete - jump to 90%
             if progress_callback:
-                progress_callback(0.1)
-            
-            logger.info(f"Sending audio to Whisper API ({audio_path.stat().st_size / 1024 / 1024:.1f} MB)...")
-            
-            with open(audio_path, "rb") as audio_file:
-                response = self.client.audio.transcriptions.create(
-                    model=WHISPER_API_MODEL,
-                    file=audio_file,
-                    language=language,
-                    response_format="verbose_json",
-                    timestamp_granularities=["segment"],
-                )
-            
-            # API call complete
-            if progress_callback:
-                progress_callback(0.9)
+                progress_callback(0.90)
 
             segments = []
             if hasattr(response, 'segments') and response.segments:
@@ -438,7 +493,8 @@ class APITranscriber:
             if progress_callback:
                 progress_callback(1.0)
             
-            logger.info(f"API transcription complete: {len(segments)} segments")
+            elapsed_total = time.time() - start_time
+            logger.info(f"API transcription complete: {len(segments)} segments in {elapsed_total:.1f}s")
 
             return Transcript(
                 episode_id=episode_id,
