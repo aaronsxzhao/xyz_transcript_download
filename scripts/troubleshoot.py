@@ -4,9 +4,9 @@ Troubleshooting script for Render deploys and Supabase database.
 
 Setup:
 1. Get Render API key: https://dashboard.render.com/u/settings#api-keys
-2. Set environment variables:
-   export RENDER_API_KEY="rnd_xxx..."
-   export RENDER_SERVICE_ID="srv-xxx..."  # From your service URL
+2. Add to .env file:
+   RENDER_API_KEY=rnd_xxx...
+   RENDER_SERVICE_ID=srv-xxx...
 
 Usage:
     python scripts/troubleshoot.py              # Run all checks
@@ -23,7 +23,26 @@ from datetime import datetime
 from pathlib import Path
 
 # Add project root to path
-sys.path.insert(0, str(Path(__file__).parent.parent))
+project_root = Path(__file__).parent.parent
+sys.path.insert(0, str(project_root))
+
+# Load .env file automatically
+def load_env_file():
+    """Load environment variables from .env file."""
+    env_path = project_root / ".env"
+    if env_path.exists():
+        with open(env_path) as f:
+            for line in f:
+                line = line.strip()
+                if line and not line.startswith("#") and "=" in line:
+                    key, _, value = line.partition("=")
+                    key = key.strip()
+                    value = value.strip()
+                    # Don't override existing env vars
+                    if key and key not in os.environ:
+                        os.environ[key] = value
+
+load_env_file()
 
 try:
     import requests
@@ -32,14 +51,69 @@ except ImportError:
     sys.exit(1)
 
 
+def check_render_cli_available():
+    """Check if Render CLI is available."""
+    import subprocess
+    try:
+        result = subprocess.run(["render", "--version"], capture_output=True, text=True, timeout=5)
+        return result.returncode == 0
+    except Exception:
+        return False
+
+
 def check_render_status():
     """Check Render service status and recent deploys."""
-    api_key = os.getenv("RENDER_API_KEY")
+    import subprocess
+    
     service_id = os.getenv("RENDER_SERVICE_ID")
     
+    # Try Render CLI first (doesn't need API key if logged in)
+    if check_render_cli_available():
+        print("\n📡 Checking Render status via CLI...")
+        
+        try:
+            # Get deploys using CLI
+            result = subprocess.run(
+                ["render", "deploys", "list", service_id, "--output", "json", "--confirm"],
+                capture_output=True, text=True, timeout=60
+            )
+            
+            if result.returncode == 0:
+                deploys = json.loads(result.stdout)
+                
+                if deploys:
+                    first = deploys[0].get("deploy", deploys[0])
+                    print(f"   ✅ Service ID: {service_id}")
+                    print(f"   Latest status: {first.get('status', 'unknown')}")
+                
+                print("\n📦 Recent deploys:")
+                for deploy in deploys[:5]:
+                    d = deploy.get("deploy", deploy)
+                    status = d.get("status", "unknown")
+                    created = d.get("createdAt", "")[:19].replace("T", " ")
+                    commit = d.get("commit", {})
+                    commit_msg = commit.get("message", "")[:40] if commit else "N/A"
+                    
+                    status_icon = "✅" if status == "live" else "🔄" if status in ("build_in_progress", "update_in_progress") else "❌" if status == "build_failed" else "⚪"
+                    print(f"   {status_icon} {status:20} | {created} | {commit_msg}")
+                
+                return True
+            else:
+                print(f"   ⚠️ CLI error: {result.stderr[:100]}")
+        except subprocess.TimeoutExpired:
+            print("   ⚠️ CLI timeout")
+        except Exception as e:
+            print(f"   ⚠️ CLI error: {e}")
+    
+    # Fall back to API
+    api_key = os.getenv("RENDER_API_KEY")
+    
     if not api_key:
-        print("❌ RENDER_API_KEY not set")
-        print("   Get one at: https://dashboard.render.com/u/settings#api-keys")
+        if not check_render_cli_available():
+            print("\n📡 Render status:")
+            print("   ❌ Neither RENDER_API_KEY nor Render CLI available")
+            print("   Install CLI: brew install render && render login")
+            print("   Or set API key: https://dashboard.render.com/u/settings#api-keys")
         return False
     
     if not service_id:
@@ -50,7 +124,7 @@ def check_render_status():
     headers = {"Authorization": f"Bearer {api_key}"}
     base_url = "https://api.render.com/v1"
     
-    print("\n📡 Checking Render service status...")
+    print("\n📡 Checking Render service status via API...")
     
     # Get service info
     try:
@@ -95,11 +169,57 @@ def check_render_status():
 
 def get_deploy_logs():
     """Get logs from the latest deploy."""
-    api_key = os.getenv("RENDER_API_KEY")
+    import subprocess
+    
     service_id = os.getenv("RENDER_SERVICE_ID")
     
-    if not api_key or not service_id:
-        print("❌ RENDER_API_KEY and RENDER_SERVICE_ID required")
+    if not service_id:
+        print("❌ RENDER_SERVICE_ID not set")
+        return
+    
+    # Try Render CLI first
+    if check_render_cli_available():
+        print(f"\n📋 Fetching deploy logs for {service_id}...")
+        print("=" * 60)
+        
+        try:
+            # Get latest deploy ID
+            result = subprocess.run(
+                ["render", "deploys", "list", service_id, "--output", "json", "--confirm"],
+                capture_output=True, text=True, timeout=60
+            )
+            
+            if result.returncode == 0:
+                deploys = json.loads(result.stdout)
+                if deploys:
+                    deploy = deploys[0].get("deploy", deploys[0])
+                    deploy_id = deploy.get("id")
+                    status = deploy.get("status")
+                    commit = deploy.get("commit", {})
+                    
+                    print(f"Deploy: {deploy_id}")
+                    print(f"Status: {status}")
+                    print(f"Commit: {commit.get('message', 'N/A')[:60]}")
+                    print("=" * 60)
+                    
+                    # Get logs - use interactive mode workaround
+                    # Note: render CLI doesn't have direct log fetch in non-interactive
+                    print("\n💡 To view full logs, run:")
+                    print(f"   render deploys list {service_id}")
+                    print("   Then select the deploy to view logs")
+                    print("\n   Or visit:")
+                    print(f"   https://dashboard.render.com/web/{service_id}/deploys/{deploy_id}")
+                    return
+                    
+        except Exception as e:
+            print(f"⚠️ CLI error: {e}")
+    
+    # Fall back to API
+    api_key = os.getenv("RENDER_API_KEY")
+    
+    if not api_key:
+        print("❌ RENDER_API_KEY not set (needed for log content)")
+        print("   Get one at: https://dashboard.render.com/u/settings#api-keys")
         return
     
     headers = {"Authorization": f"Bearer {api_key}"}
