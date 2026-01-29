@@ -273,7 +273,7 @@ def get_deploy_logs():
 def check_supabase_status():
     """Check Supabase database connectivity and stats."""
     from config import (
-        USE_SUPABASE, SUPABASE_URL, SUPABASE_KEY
+        USE_SUPABASE, SUPABASE_URL, SUPABASE_KEY, SUPABASE_SERVICE_KEY
     )
     
     print("\n🗄️  Checking Supabase status...")
@@ -291,7 +291,9 @@ def check_supabase_status():
     try:
         from supabase import create_client
         
-        client = create_client(SUPABASE_URL, SUPABASE_KEY)
+        # Use service key to bypass RLS for admin access
+        key = SUPABASE_SERVICE_KEY if SUPABASE_SERVICE_KEY else SUPABASE_KEY
+        client = create_client(SUPABASE_URL, key)
         
         # Test connection with simple queries
         tables = ["podcasts", "episodes", "transcripts", "summaries", "summary_key_points"]
