@@ -357,9 +357,11 @@ class DiscordNotifier:
     
     def _send(self, payload: dict):
         try:
-            self.session.post(self.webhook_url, json=payload, timeout=10)
-        except Exception:
-            pass  # Silently fail
+            response = self.session.post(self.webhook_url, json=payload, timeout=10)
+            if response.status_code >= 400:
+                print(f"[Discord] Webhook failed with status {response.status_code}: {response.text[:200]}")
+        except Exception as e:
+            print(f"[Discord] Failed to send notification: {e}")
 
 
 # Global notifier instance
@@ -405,4 +407,7 @@ def notify_discord(
     """
     notifier = get_discord_notifier()
     if notifier:
+        print(f"[Discord] Sending notification: {title}")
         notifier.notify(title, message, event_type, fields, url)
+    else:
+        print(f"[Discord] Notifier not available (DISCORD_WEBHOOK_URL not set?)")
