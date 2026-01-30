@@ -1,0 +1,8 @@
+{
+  "pid": "test-podcast-123",
+  "title": "Test Podcast",
+  "author": "Test Author",
+  "description": "A test podcast for unit testing purposes. This podcast covers various topics related to technology and software development.",
+  "cover_url": "https://example.com/podcast-cover.jpg",
+  "episode_count": 10
+}

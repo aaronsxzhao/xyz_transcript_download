@@ -1,0 +1,12 @@
+{
+  "eid": "test-episode-456",
+  "pid": "test-podcast-123",
+  "title": "Test Episode: Introduction",
+  "description": "This is the first episode of our test podcast. We discuss the basics of testing and quality assurance.",
+  "duration": 3600,
+  "pub_date": "2024-01-15",
+  "audio_url": "https://example.com/episode-audio.mp3",
+  "status": "pending",
+  "has_transcript": false,
+  "has_summary": false
+}
