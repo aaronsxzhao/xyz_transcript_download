@@ -1,21 +1,80 @@
 """Processing endpoints with WebSocket support."""
 import asyncio
+import json
 import uuid
 from concurrent.futures import ThreadPoolExecutor
+from pathlib import Path
 from typing import Dict, Set, Optional
 from fastapi import APIRouter, HTTPException, WebSocket, WebSocketDisconnect, BackgroundTasks, Depends
 
 from api.schemas import ProcessRequest, BatchProcessRequest, ProcessingStatus
 from api.auth import get_current_user, User
 from api.db import get_db, TranscriptData, SummaryData
+from config import DATA_DIR, BACKGROUND_REFINEMENT_TIMEOUT, WEBSOCKET_HEARTBEAT_INTERVAL
 
 router = APIRouter()
 
-# In-memory job tracking
+# File-based job persistence
+JOBS_FILE = DATA_DIR / "jobs.json"
+
+# In-memory job tracking (loaded from file on startup)
 jobs: Dict[str, ProcessingStatus] = {}
 
 # Track cancelled jobs
 cancelled_jobs: Set[str] = set()
+
+
+def _load_jobs_from_file():
+    """Load jobs from persistent storage on startup."""
+    global jobs
+    if JOBS_FILE.exists():
+        try:
+            with open(JOBS_FILE, "r", encoding="utf-8") as f:
+                data = json.load(f)
+            jobs = {
+                job_id: ProcessingStatus(**job_data)
+                for job_id, job_data in data.items()
+            }
+            # Mark any "in-progress" jobs as failed (they didn't complete before shutdown)
+            for job_id, job in jobs.items():
+                if job.status in ("pending", "fetching", "downloading", "transcribing", "summarizing", "cancelling"):
+                    job.status = "failed"
+                    job.message = "Interrupted by server restart"
+            _save_jobs_to_file()
+        except (json.JSONDecodeError, IOError, TypeError) as e:
+            # If file is corrupted, start fresh
+            jobs = {}
+
+
+def _save_jobs_to_file():
+    """Persist jobs to file."""
+    try:
+        DATA_DIR.mkdir(parents=True, exist_ok=True)
+        data = {job_id: job.model_dump() for job_id, job in jobs.items()}
+        with open(JOBS_FILE, "w", encoding="utf-8") as f:
+            json.dump(data, f, ensure_ascii=False, indent=2)
+    except IOError:
+        pass  # Best effort - don't fail the operation
+
+
+def _cleanup_old_jobs(max_completed_jobs: int = 100):
+    """Remove old completed/failed jobs to prevent unbounded growth."""
+    global jobs
+    terminal_jobs = [
+        (job_id, job) for job_id, job in jobs.items()
+        if job.status in ("completed", "failed", "cancelled")
+    ]
+    if len(terminal_jobs) > max_completed_jobs:
+        # Keep only the most recent jobs (by job_id which has timestamp-like ordering)
+        terminal_jobs.sort(key=lambda x: x[0])
+        jobs_to_remove = terminal_jobs[:-max_completed_jobs]
+        for job_id, _ in jobs_to_remove:
+            del jobs[job_id]
+        _save_jobs_to_file()
+
+
+# Load jobs on module import
+_load_jobs_from_file()
 
 # Limit concurrent episode processing to prevent resource exhaustion
 # When limit reached, jobs queue automatically and wait for a slot
@@ -80,7 +139,7 @@ manager = ConnectionManager()
 
 def update_job_status(job_id: str, status: str, progress: float = 0, message: str = "",
                       episode_id: str = None, episode_title: str = None):
-    """Update job status and notify clients."""
+    """Update job status, persist to file, and notify clients."""
     if job_id in jobs:
         jobs[job_id].status = status
         jobs[job_id].progress = progress
@@ -89,6 +148,10 @@ def update_job_status(job_id: str, status: str, progress: float = 0, message: st
             jobs[job_id].episode_id = episode_id
         if episode_title:
             jobs[job_id].episode_title = episode_title
+        
+        # Persist to file on terminal states or significant progress changes
+        if status in ("completed", "failed", "cancelled") or progress % 10 < 1:
+            _save_jobs_to_file()
         
         # Broadcast update to all connected WebSocket clients
         # Use the cached main event loop for thread-safe broadcasting
@@ -138,19 +201,52 @@ def _background_refinement(audio_path, episode, fast_summary, db_interface, tran
     """
     Background task to process accurate track and silently update summary.
     Runs after job is already marked complete - user doesn't see this.
+    
+    Includes timeout protection to prevent indefinite processing.
+    For 90-minute episodes, transcription + summarization typically takes 1-2 hours.
+    Default timeout is 3 hours (configurable via BACKGROUND_REFINEMENT_TIMEOUT).
     """
-    try:
+    import time
+    from concurrent.futures import ThreadPoolExecutor, TimeoutError as FuturesTimeoutError
+    from logger import get_logger
+    
+    logger = get_logger("background_refinement")
+    start_time = time.time()
+    
+    def do_refinement():
+        """Inner function that does the actual refinement work."""
         from summarizer import merge_summaries
         
         # Transcribe original audio
         accurate_transcript = transcriber.transcribe(audio_path, episode.eid)
         if not accurate_transcript:
-            return  # Keep fast version
+            return None  # Keep fast version
         
         # Generate accurate summary
         accurate_summary = summarizer.summarize(accurate_transcript, episode_title=episode.title)
         if not accurate_summary:
-            return  # Keep fast version
+            return None  # Keep fast version
+        
+        return accurate_transcript, accurate_summary
+    
+    try:
+        # Run refinement with timeout using a single-worker executor
+        with ThreadPoolExecutor(max_workers=1, thread_name_prefix="refinement") as executor:
+            future = executor.submit(do_refinement)
+            try:
+                result = future.result(timeout=BACKGROUND_REFINEMENT_TIMEOUT)
+            except FuturesTimeoutError:
+                logger.warning(
+                    f"Background refinement timed out for episode {episode.eid} "
+                    f"after {BACKGROUND_REFINEMENT_TIMEOUT}s. Keeping fast version."
+                )
+                future.cancel()
+                return
+        
+        if result is None:
+            return  # Transcription or summarization failed, keep fast version
+        
+        accurate_transcript, accurate_summary = result
         
         # Save accurate transcript (better quality)
         transcript_data = TranscriptData(
@@ -163,6 +259,7 @@ def _background_refinement(audio_path, episode, fast_summary, db_interface, tran
         db_interface.save_transcript(transcript_data)
         
         # Merge summaries for best of both
+        from summarizer import merge_summaries
         final_summary = merge_summaries(fast_summary, accurate_summary)
         
         # Save merged summary
@@ -175,6 +272,9 @@ def _background_refinement(audio_path, episode, fast_summary, db_interface, tran
             key_points=[{"topic": kp.topic, "summary": kp.summary, "original_quote": kp.original_quote, "timestamp": kp.timestamp} for kp in final_summary.key_points],
         )
         db_interface.save_summary(summary_data)
+        
+        elapsed = time.time() - start_time
+        logger.info(f"Background refinement completed for {episode.eid} in {elapsed/60:.1f} minutes")
         
     except Exception as e:
         import traceback
@@ -454,6 +554,10 @@ async def process_episode(
         episode_title=episode_title,
     )
     
+    # Persist new job and cleanup old ones
+    _cleanup_old_jobs()
+    _save_jobs_to_file()
+    
     # Broadcast new job to WebSocket clients immediately
     await broadcast_status(job_id)
     
@@ -499,6 +603,7 @@ async def delete_job(job_id: str):
     # Also cancel if still running
     cancelled_jobs.add(job_id)
     del jobs[job_id]
+    _save_jobs_to_file()
     return {"message": "Job deleted"}
 
 
@@ -537,8 +642,24 @@ async def cancel_job(job_id: str):
 
 @router.websocket("/ws/progress")
 async def websocket_progress(websocket: WebSocket):
-    """WebSocket endpoint for real-time progress updates."""
+    """WebSocket endpoint for real-time progress updates with periodic heartbeat."""
     await manager.connect(websocket)
+    
+    # Flag to track if connection is still active
+    connection_active = True
+    
+    async def heartbeat_loop():
+        """Send periodic heartbeats to keep connection alive through proxies/load balancers."""
+        while connection_active:
+            try:
+                await asyncio.sleep(WEBSOCKET_HEARTBEAT_INTERVAL)
+                if connection_active:
+                    await websocket.send_json({"type": "heartbeat"})
+            except Exception:
+                break
+    
+    # Start heartbeat task
+    heartbeat_task = asyncio.create_task(heartbeat_loop())
     
     try:
         # Send current job statuses
@@ -550,7 +671,8 @@ async def websocket_progress(websocket: WebSocket):
         # Keep connection alive and listen for messages
         while True:
             try:
-                data = await asyncio.wait_for(websocket.receive_json(), timeout=30)
+                # Use longer timeout since heartbeat is handled separately
+                data = await asyncio.wait_for(websocket.receive_json(), timeout=60)
                 
                 # Handle ping
                 if data.get("type") == "ping":
@@ -566,12 +688,21 @@ async def websocket_progress(websocket: WebSocket):
                         })
             
             except asyncio.TimeoutError:
-                # Send heartbeat
-                await websocket.send_json({"type": "heartbeat"})
+                # No message received, but heartbeat task handles keep-alive
+                pass
     
     except WebSocketDisconnect:
-        manager.disconnect(websocket)
+        pass
     except Exception:
+        pass
+    finally:
+        # Clean up
+        connection_active = False
+        heartbeat_task.cancel()
+        try:
+            await heartbeat_task
+        except asyncio.CancelledError:
+            pass
         manager.disconnect(websocket)
 
 
@@ -621,6 +752,10 @@ async def batch_process(data: BatchProcessRequest, background_tasks: BackgroundT
             data.transcribe_only,
             not data.skip_existing,
         )
+    
+    # Persist all new jobs
+    _cleanup_old_jobs()
+    _save_jobs_to_file()
     
     return {
         "message": f"Batch processing started for {len(episodes)} episodes",

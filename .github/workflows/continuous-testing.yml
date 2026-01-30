@@ -18,6 +18,7 @@ on:
 
 env:
   PYTHON_VERSION: '3.11'
+  DEFAULT_DEPLOY_URL: 'https://xyz-transcript-download.onrender.com'
 
 jobs:
   test:
@@ -178,7 +179,7 @@ jobs:
         id: health
         run: |
           # Replace with your actual deployed URL
-          DEPLOY_URL="${{ secrets.DEPLOY_URL || 'https://xyz-transcript-download.onrender.com' }}"
+          DEPLOY_URL="${DEPLOY_URL_OVERRIDE:-${{ env.DEFAULT_DEPLOY_URL }}}"
           
           echo "Checking health at: $DEPLOY_URL/api/health"
           

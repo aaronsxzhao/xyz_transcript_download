@@ -188,6 +188,22 @@ RETRY_BACKOFF = _get_env_int("RETRY_BACKOFF", 2, min_val=1)
 # Disk space check (in MB) - warn if less than this available
 MIN_DISK_SPACE_MB = _get_env_int("MIN_DISK_SPACE_MB", 500, min_val=100)
 
+# Processing timeouts and chunk sizes
+# Background refinement timeout (seconds) - for 90 min episodes, allow up to 3 hours
+BACKGROUND_REFINEMENT_TIMEOUT = _get_env_int("BACKGROUND_REFINEMENT_TIMEOUT", 10800, min_val=1800)
+
+# Summarization settings
+# Max characters before chunking (~2-3 tokens per Chinese char, so 30k chars ≈ 60-90k tokens)
+SUMMARIZER_MAX_CHARS = _get_env_int("SUMMARIZER_MAX_CHARS", 30000, min_val=5000)
+# Number of transcript segments per chunk when splitting long transcripts
+SUMMARIZER_CHUNK_SEGMENTS = _get_env_int("SUMMARIZER_CHUNK_SEGMENTS", 100, min_val=20)
+# Characters per chunk when segments aren't available
+SUMMARIZER_CHUNK_CHARS = _get_env_int("SUMMARIZER_CHUNK_CHARS", 25000, min_val=5000)
+
+# WebSocket settings
+# Heartbeat interval in seconds
+WEBSOCKET_HEARTBEAT_INTERVAL = _get_env_int("WEBSOCKET_HEARTBEAT_INTERVAL", 15, min_val=5)
+
 # Xiaoyuzhou API base URL
 XYZ_API_BASE = "https://api.xiaoyuzhoufm.com"
 

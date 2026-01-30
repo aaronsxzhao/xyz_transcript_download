@@ -6,7 +6,7 @@ Generates summaries and extracts key points from transcripts.
 import json
 from dataclasses import dataclass, asdict
 from pathlib import Path
-from typing import List, Optional
+from typing import Dict, List, Optional
 
 from openai import OpenAI
 from tenacity import (
@@ -15,7 +15,10 @@ from tenacity import (
     wait_exponential,
 )
 
-from config import LLM_API_KEY, LLM_BASE_URL, LLM_MODEL, SUMMARIES_DIR, MAX_RETRIES
+from config import (
+    LLM_API_KEY, LLM_BASE_URL, LLM_MODEL, SUMMARIES_DIR, MAX_RETRIES,
+    SUMMARIZER_MAX_CHARS, SUMMARIZER_CHUNK_SEGMENTS, SUMMARIZER_CHUNK_CHARS,
+)
 from transcriber import Transcript
 from logger import get_logger
 
@@ -185,11 +188,11 @@ class Summarizer:
 
         # If transcript is too long, we need to summarize in chunks
         # Chinese characters are typically 2-3 tokens each
-        max_chars = 30000  # ~60,000-90,000 tokens, safe for most models
+        # Use configurable max_chars (default 30000 = ~60,000-90,000 tokens)
         
         logger.info(f"Transcript length: {len(transcript_text):,} characters")
         
-        if len(transcript_text) > max_chars:
+        if len(transcript_text) > SUMMARIZER_MAX_CHARS:
             logger.info(f"Transcript too long ({len(transcript_text):,} chars > {max_chars:,}), using chunked summarization")
             return self._summarize_long_transcript(
                 transcript, podcast_title, episode_title, progress_callback
@@ -310,13 +313,14 @@ class Summarizer:
         Summarize a long transcript by processing in chunks and merging.
         """
         # Split transcript into chunks based on segments
-        chunk_size = 100  # segments per chunk (increased for fewer API calls)
+        # Use configurable chunk sizes for flexibility with different models
+        chunk_size = SUMMARIZER_CHUNK_SEGMENTS  # segments per chunk
         segments = transcript.segments
         
         if not segments:
-            # Fall back to text splitting
+            # Fall back to text splitting with configurable chunk length
             text = transcript.text
-            chunk_length = 25000  # characters per chunk
+            chunk_length = SUMMARIZER_CHUNK_CHARS  # characters per chunk
             chunks = [text[i:i+chunk_length] for i in range(0, len(text), chunk_length)]
         else:
             chunks = []
@@ -500,29 +504,33 @@ def merge_summaries(fast_summary: Summary, accurate_summary: Summary) -> Summary
             seen_topics.add(topic.lower().strip())
     
     # Merge key points - prefer accurate version
-    # Use topic as key to merge
-    topic_to_keypoint = {}
+    # Use topic as key to deduplicate, keeping the more detailed version
+    topic_to_keypoint: Dict[str, KeyPoint] = {}
     
-    # Add accurate key points first (primary)
+    # Add accurate key points first (primary - these are preferred)
     for kp in accurate_summary.key_points:
         topic_key = kp.topic.lower().strip()
         topic_to_keypoint[topic_key] = kp
     
-    # Add fast key points if topic not already covered
+    # Add fast key points only if topic not already covered
+    # For same topics, prefer accurate version (already added) as it has more detail
     for kp in fast_summary.key_points:
         topic_key = kp.topic.lower().strip()
         if topic_key not in topic_to_keypoint:
+            # New topic from fast version - add it
             topic_to_keypoint[topic_key] = kp
         else:
-            # Merge points for same topic - add unique points from fast version
+            # Same topic exists - check if fast version has a longer/better quote
             existing_kp = topic_to_keypoint[topic_key]
-            existing_points = set(p.lower().strip() for p in existing_kp.points)
-            merged_points = list(existing_kp.points)
-            for point in kp.points:
-                if point.lower().strip() not in existing_points:
-                    merged_points.append(point)
-                    existing_points.add(point.lower().strip())
-            topic_to_keypoint[topic_key] = KeyPoint(topic=existing_kp.topic, points=merged_points)
+            # If fast version has more detailed content, merge the best parts
+            if len(kp.original_quote) > len(existing_kp.original_quote) and kp.original_quote:
+                # Fast version has a better quote, use it but keep accurate summary
+                topic_to_keypoint[topic_key] = KeyPoint(
+                    topic=existing_kp.topic,
+                    summary=existing_kp.summary if existing_kp.summary else kp.summary,
+                    original_quote=kp.original_quote,
+                    timestamp=existing_kp.timestamp if existing_kp.timestamp else kp.timestamp,
+                )
     
     merged_key_points = list(topic_to_keypoint.values())
     
