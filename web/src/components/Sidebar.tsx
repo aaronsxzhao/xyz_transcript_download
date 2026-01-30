@@ -19,12 +19,20 @@ const navItems = [
 
 export default function Sidebar() {
   const location = useLocation()
-  const { sidebarOpen, toggleSidebar } = useStore()
+  const { sidebarOpen, toggleSidebar, setSidebarOpen } = useStore()
   const { user, authEnabled, signOut } = useAuth()
   
   const handleSignOut = async () => {
     await signOut()
     // Redirect will happen via AuthContext
+  }
+  
+  // Close sidebar on mobile when clicking nav items
+  const handleNavClick = () => {
+    // Check if we're on mobile (md breakpoint is 768px)
+    if (window.innerWidth < 768) {
+      setSidebarOpen(false)
+    }
   }
   
   return (
@@ -56,6 +64,7 @@ export default function Sidebar() {
             <Link
               key={item.path}
               to={item.path}
+              onClick={handleNavClick}
               className={`flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors ${
                 isActive 
                   ? 'bg-indigo-600 text-white' 
