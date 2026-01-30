@@ -272,3 +272,137 @@ def critical(msg: str, *args, **kwargs):
 def exception(msg: str, *args, **kwargs):
     """Log an exception with traceback."""
     get_logger().exception(msg, *args, **kwargs)
+
+
+# =============================================================================
+# Discord Event Notifications
+# =============================================================================
+
+class DiscordNotifier:
+    """
+    Send specific event notifications to Discord.
+    Unlike the log handler, this sends notifications for specific events
+    regardless of log level.
+    """
+    
+    # Event types with their colors and emojis
+    EVENT_TYPES = {
+        "startup": {"color": 0x2ECC71, "emoji": "🚀"},      # Green - API started
+        "shutdown": {"color": 0x95A5A6, "emoji": "🛑"},     # Gray - API stopped
+        "success": {"color": 0x3498DB, "emoji": "✅"},      # Blue - Processing complete
+        "transcript": {"color": 0x9B59B6, "emoji": "📝"},   # Purple - Transcript ready
+        "summary": {"color": 0xE91E63, "emoji": "📋"},      # Pink - Summary ready
+        "new_episode": {"color": 0x00BCD4, "emoji": "🎙️"},  # Cyan - New episode detected
+        "health": {"color": 0xF39C12, "emoji": "💓"},       # Orange - Health status
+        "info": {"color": 0x3498DB, "emoji": "ℹ️"},         # Blue - General info
+    }
+    
+    def __init__(self, webhook_url: str):
+        self.webhook_url = webhook_url
+        self._session = None
+    
+    @property
+    def session(self):
+        if self._session is None:
+            self._session = requests.Session()
+        return self._session
+    
+    def notify(
+        self,
+        title: str,
+        message: str,
+        event_type: str = "info",
+        fields: Optional[list] = None,
+        url: Optional[str] = None,
+    ):
+        """
+        Send a notification to Discord.
+        
+        Args:
+            title: Notification title
+            message: Main message body
+            event_type: One of: startup, shutdown, success, transcript, summary, 
+                       new_episode, health, info
+            fields: Optional list of {"name": str, "value": str, "inline": bool}
+            url: Optional URL to link in the embed
+        """
+        if not self.webhook_url:
+            return
+        
+        event_config = self.EVENT_TYPES.get(event_type, self.EVENT_TYPES["info"])
+        
+        embed = {
+            "title": f"{event_config['emoji']} {title}",
+            "description": message[:4000] if len(message) > 4000 else message,
+            "color": event_config["color"],
+            "timestamp": datetime.utcnow().isoformat(),
+            "footer": {"text": "Podcast Tool"}
+        }
+        
+        if fields:
+            embed["fields"] = fields[:25]  # Discord limit
+        
+        if url:
+            embed["url"] = url
+        
+        payload = {"embeds": [embed]}
+        
+        # Send asynchronously
+        thread = threading.Thread(
+            target=self._send,
+            args=(payload,),
+            daemon=True
+        )
+        thread.start()
+    
+    def _send(self, payload: dict):
+        try:
+            self.session.post(self.webhook_url, json=payload, timeout=10)
+        except Exception:
+            pass  # Silently fail
+
+
+# Global notifier instance
+_discord_notifier: Optional[DiscordNotifier] = None
+
+
+def get_discord_notifier() -> Optional[DiscordNotifier]:
+    """Get the Discord notifier instance (creates one if needed)."""
+    global _discord_notifier
+    if _discord_notifier is None and DISCORD_WEBHOOK_URL:
+        _discord_notifier = DiscordNotifier(DISCORD_WEBHOOK_URL)
+    return _discord_notifier
+
+
+def notify_discord(
+    title: str,
+    message: str,
+    event_type: str = "info",
+    fields: Optional[list] = None,
+    url: Optional[str] = None,
+):
+    """
+    Send a Discord notification for important events.
+    
+    This is separate from logging - use this for specific events you want
+    to always notify about, regardless of log level.
+    
+    Args:
+        title: Notification title (e.g., "Processing Complete")
+        message: Message body (e.g., "Episode 'My Podcast' has been transcribed")
+        event_type: One of: startup, shutdown, success, transcript, summary, 
+                   new_episode, health, info
+        fields: Optional additional fields for the embed
+        url: Optional URL to include
+    
+    Example:
+        notify_discord(
+            "Transcript Ready",
+            "Episode 'Tech Talk #42' has been transcribed successfully",
+            event_type="transcript",
+            fields=[{"name": "Duration", "value": "45 min", "inline": True}]
+        )
+    """
+    notifier = get_discord_notifier()
+    if notifier:
+        notifier.notify(title, message, event_type, fields, url)

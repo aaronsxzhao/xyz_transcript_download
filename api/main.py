@@ -29,6 +29,27 @@ async def startup_event():
     """Capture the main event loop on startup for thread-safe broadcasting."""
     loop = asyncio.get_running_loop()
     processing.set_main_loop(loop)
+    
+    # Send Discord notification on startup
+    from logger import notify_discord
+    import os
+    
+    # Get environment info
+    env = os.environ.get("RENDER", "local")
+    if env:
+        env_name = "Render (Production)"
+    else:
+        env_name = "Local Development"
+    
+    notify_discord(
+        title="API Started",
+        message=f"Podcast Transcript API is now running",
+        event_type="startup",
+        fields=[
+            {"name": "Environment", "value": env_name, "inline": True},
+            {"name": "Version", "value": "1.0.0", "inline": True},
+        ]
+    )
 
 
 @app.on_event("shutdown")

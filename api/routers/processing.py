@@ -11,6 +11,7 @@ from api.schemas import ProcessRequest, BatchProcessRequest, ProcessingStatus
 from api.auth import get_current_user, User
 from api.db import get_db, TranscriptData, SummaryData
 from config import DATA_DIR, BACKGROUND_REFINEMENT_TIMEOUT, WEBSOCKET_HEARTBEAT_INTERVAL
+from logger import notify_discord
 
 router = APIRouter()
 
@@ -404,6 +405,13 @@ def process_episode_sync(job_id: str, episode_url: str, transcribe_only: bool = 
                 )
                 db_interface.save_summary(summary_data)
                 update_job_status(job_id, "completed", 100, "Processing complete!")
+                
+                # Send Discord notification
+                notify_discord(
+                    title="Summary Generated",
+                    message=f"**{episode.title}**\n\nSummary has been generated from existing transcript.",
+                    event_type="summary",
+                )
             else:
                 update_job_status(job_id, "failed", 0, "Summary generation failed")
             return
@@ -440,6 +448,18 @@ def process_episode_sync(job_id: str, episode_url: str, transcribe_only: bool = 
             )
             db_interface.save_transcript(transcript_data)
             update_job_status(job_id, "completed", 100, "Transcription complete!")
+            
+            # Send Discord notification
+            duration_str = f"{int(transcript.duration // 60)} min" if transcript.duration else "Unknown"
+            notify_discord(
+                title="Transcript Ready",
+                message=f"**{episode.title}**\n\nTranscript has been generated.",
+                event_type="transcript",
+                fields=[
+                    {"name": "Duration", "value": duration_str, "inline": True},
+                    {"name": "Language", "value": transcript.language or "Auto", "inline": True},
+                ]
+            )
             return
         
         # Check for cancellation before summarizing
@@ -478,6 +498,18 @@ def process_episode_sync(job_id: str, episode_url: str, transcribe_only: bool = 
         
         # ===== PHASE 6: Complete! (100%) =====
         update_job_status(job_id, "completed", 100, "Processing complete!")
+        
+        # Send Discord notification
+        duration_str = f"{int(transcript.duration // 60)} min" if transcript.duration else "Unknown"
+        notify_discord(
+            title="Processing Complete",
+            message=f"**{episode.title}**\n\nTranscript and summary are ready!",
+            event_type="success",
+            fields=[
+                {"name": "Duration", "value": duration_str, "inline": True},
+                {"name": "Language", "value": transcript.language or "Auto", "inline": True},
+            ]
+        )
         
         # ===== BACKGROUND: Silently refine with original audio =====
         # Only if we used compressed audio - run accurate track in background
