@@ -204,6 +204,9 @@ SUMMARIZER_CHUNK_CHARS = _get_env_int("SUMMARIZER_CHUNK_CHARS", 25000, min_val=5
 # Heartbeat interval in seconds
 WEBSOCKET_HEARTBEAT_INTERVAL = _get_env_int("WEBSOCKET_HEARTBEAT_INTERVAL", 15, min_val=5)
 
+# Discord webhook for log notifications (warnings and errors)
+DISCORD_WEBHOOK_URL = _get_env("DISCORD_WEBHOOK_URL", "")
+
 # Xiaoyuzhou API base URL
 XYZ_API_BASE = "https://api.xiaoyuzhoufm.com"
 

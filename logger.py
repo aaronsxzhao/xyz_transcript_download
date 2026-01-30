@@ -1,16 +1,20 @@
 """
 Centralized logging configuration for the Xiaoyuzhou podcast tool.
-Provides structured logging with console and file output.
+Provides structured logging with console, file, and Discord webhook output.
 """
 
 import logging
 import sys
+import threading
 from datetime import datetime
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
 from typing import Optional
+import json
 
-from config import DATA_DIR
+import requests
+
+from config import DATA_DIR, DISCORD_WEBHOOK_URL
 
 
 # Create logs directory
@@ -48,6 +52,98 @@ class ColoredFormatter(logging.Formatter):
         record.reset = self.RESET
         
         return super().format(record)
+
+
+class DiscordWebhookHandler(logging.Handler):
+    """
+    Logging handler that sends log messages to a Discord webhook.
+    Sends asynchronously to avoid blocking the main thread.
+    """
+    
+    LEVEL_COLORS = {
+        'DEBUG': 0x36393F,     # Gray
+        'INFO': 0x3498DB,      # Blue
+        'WARNING': 0xF39C12,   # Orange
+        'ERROR': 0xE74C3C,     # Red
+        'CRITICAL': 0x9B59B6,  # Purple
+    }
+    
+    LEVEL_EMOJIS = {
+        'DEBUG': '🔍',
+        'INFO': 'ℹ️',
+        'WARNING': '⚠️',
+        'ERROR': '❌',
+        'CRITICAL': '💥',
+    }
+    
+    def __init__(self, webhook_url: str, level: int = logging.WARNING):
+        super().__init__(level)
+        self.webhook_url = webhook_url
+        self._session = None
+    
+    @property
+    def session(self):
+        """Lazy-load requests session."""
+        if self._session is None:
+            self._session = requests.Session()
+        return self._session
+    
+    def emit(self, record):
+        """Send log record to Discord webhook asynchronously."""
+        try:
+            # Format the log message
+            msg = self.format(record)
+            
+            # Build Discord embed
+            embed = {
+                "title": f"{self.LEVEL_EMOJIS.get(record.levelname, '📝')} {record.levelname}",
+                "description": msg[:4000] if len(msg) > 4000 else msg,  # Discord limit
+                "color": self.LEVEL_COLORS.get(record.levelname, 0x36393F),
+                "fields": [
+                    {"name": "Module", "value": record.name, "inline": True},
+                    {"name": "Function", "value": record.funcName, "inline": True},
+                ],
+                "timestamp": datetime.utcnow().isoformat(),
+                "footer": {"text": "Podcast Tool Logs"}
+            }
+            
+            # Add exception info if present
+            if record.exc_info:
+                import traceback
+                tb = ''.join(traceback.format_exception(*record.exc_info))
+                if len(tb) > 1000:
+                    tb = tb[:1000] + "..."
+                embed["fields"].append({
+                    "name": "Exception",
+                    "value": f"```\n{tb}\n```",
+                    "inline": False
+                })
+            
+            payload = {
+                "embeds": [embed]
+            }
+            
+            # Send asynchronously to avoid blocking
+            thread = threading.Thread(
+                target=self._send_webhook,
+                args=(payload,),
+                daemon=True
+            )
+            thread.start()
+            
+        except Exception:
+            self.handleError(record)
+    
+    def _send_webhook(self, payload: dict):
+        """Actually send the webhook request."""
+        try:
+            self.session.post(
+                self.webhook_url,
+                json=payload,
+                timeout=10
+            )
+        except Exception:
+            pass  # Silently fail - don't want logging to crash the app
 
 
 def setup_logging(
@@ -106,6 +202,18 @@ def setup_logging(
     )
     file_handler.setFormatter(file_format)
     logger.addHandler(file_handler)
+    
+    # Discord webhook handler (for warnings and errors)
+    if DISCORD_WEBHOOK_URL:
+        discord_handler = DiscordWebhookHandler(
+            webhook_url=DISCORD_WEBHOOK_URL,
+            level=logging.WARNING  # Only send warnings and above
+        )
+        discord_format = logging.Formatter(
+            "**%(name)s** in `%(funcName)s` (line %(lineno)d)\n%(message)s"
+        )
+        discord_handler.setFormatter(discord_format)
+        logger.addHandler(discord_handler)
     
     # Prevent propagation to root logger
     logger.propagate = False
