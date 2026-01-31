@@ -2,6 +2,7 @@
 import asyncio
 import json
 import threading
+import time
 import uuid
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
@@ -29,6 +30,10 @@ jobs: Dict[str, ProcessingStatus] = {}
 
 # Track cancelled jobs
 cancelled_jobs: Set[str] = set()
+
+# Cache for /api/jobs responses to reduce lock contention from polling
+_jobs_cache: Dict = {"data": None, "time": 0}
+_JOBS_CACHE_TTL = 0.5  # 500ms cache - multiple polls in same window share response
 
 
 def _load_jobs_from_file():
@@ -191,6 +196,9 @@ def update_job_status(job_id: str, status: str, progress: float = 0, message: st
             # Persist to file on terminal states or significant progress changes
             if status in ("completed", "failed", "cancelled") or progress % 10 < 1:
                 _save_jobs_to_file_unlocked()
+        
+        # Invalidate cache so next poll gets fresh data
+        _jobs_cache["data"] = None
     
     # Broadcast update to all connected WebSocket clients (outside lock to avoid deadlock)
     # Use the cached main event loop for thread-safe broadcasting
@@ -704,9 +712,22 @@ async def process_episode(
 
 @router.get("/jobs")
 async def list_jobs():
-    """List all processing jobs."""
+    """List all processing jobs (cached to reduce lock contention from polling)."""
+    now = time.time()
+    
+    # Return cached response if fresh
+    if _jobs_cache["data"] is not None and (now - _jobs_cache["time"]) < _JOBS_CACHE_TTL:
+        return _jobs_cache["data"]
+    
+    # Build fresh response
     with _jobs_lock:
-        return {"jobs": [job.model_dump() for job in jobs.values()]}
+        response = {"jobs": [job.model_dump() for job in jobs.values()]}
+    
+    # Update cache
+    _jobs_cache["data"] = response
+    _jobs_cache["time"] = now
+    
+    return response
 
 
 @router.get("/jobs/{job_id}")
