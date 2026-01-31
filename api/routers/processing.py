@@ -718,6 +718,88 @@ async def cancel_job(job_id: str):
     return {"message": "Cancellation requested", "job_id": job_id}
 
 
+@router.post("/jobs/{job_id}/retry")
+async def retry_job(
+    job_id: str,
+    background_tasks: BackgroundTasks,
+    user: Optional[User] = Depends(get_current_user)
+):
+    """Retry a failed or cancelled job."""
+    with _jobs_lock:
+        if job_id not in jobs:
+            raise HTTPException(status_code=404, detail="Job not found")
+        
+        old_job = jobs[job_id]
+        
+        # Can only retry failed or cancelled jobs
+        if old_job.status not in ("failed", "cancelled"):
+            raise HTTPException(
+                status_code=400, 
+                detail=f"Cannot retry job with status: {old_job.status}"
+            )
+        
+        episode_id = old_job.episode_id
+        if not episode_id:
+            raise HTTPException(status_code=400, detail="Job has no episode_id to retry")
+    
+    user_id = user.id if user else None
+    
+    # Construct episode URL
+    episode_url = f"https://www.xiaoyuzhoufm.com/episode/{episode_id}"
+    
+    # Delete old cached compressed audio to force re-compression
+    try:
+        from downloader import get_downloader
+        from xyz_client import get_client
+        
+        client = get_client()
+        episode = client.get_episode_by_share_url(episode_url)
+        if episode:
+            downloader = get_downloader()
+            compressed_path = downloader.get_compressed_path(episode)
+            if compressed_path.exists():
+                compressed_path.unlink()
+    except Exception:
+        pass  # Best effort - proceed with retry anyway
+    
+    # Create new job
+    new_job_id = str(uuid.uuid4())[:8]
+    with _jobs_lock:
+        jobs[new_job_id] = ProcessingStatus(
+            job_id=new_job_id,
+            status="pending",
+            progress=0,
+            message="Retrying...",
+            episode_id=episode_id,
+            episode_title=old_job.episode_title,
+        )
+        
+        # Remove old job
+        del jobs[job_id]
+    
+    _save_jobs_to_file()
+    
+    # Broadcast new job
+    await broadcast_status(new_job_id)
+    
+    # Start processing with force=true to bypass any caches
+    background_tasks.add_task(
+        process_episode_async,
+        new_job_id,
+        episode_url,
+        False,  # transcribe_only
+        True,   # force - bypass caches
+        user_id,
+    )
+    
+    return {
+        "message": "Retry started",
+        "old_job_id": job_id,
+        "new_job_id": new_job_id,
+        "episode_id": episode_id,
+    }
+
+
 @router.websocket("/ws/progress")
 async def websocket_progress(websocket: WebSocket):
     """WebSocket endpoint for real-time progress updates with periodic heartbeat."""

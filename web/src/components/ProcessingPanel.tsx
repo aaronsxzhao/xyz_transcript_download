@@ -2,9 +2,9 @@
  * Processing panel that shows active jobs with progress
  */
 import { useState, useEffect, useRef } from 'react'
-import { ChevronUp, ChevronDown, Radio, X, Trash2 } from 'lucide-react'
+import { ChevronUp, ChevronDown, Radio, X, Trash2, RotateCcw } from 'lucide-react'
 import { useStore } from '../lib/store'
-import { cancelJob, deleteJob, type ProcessingJob } from '../lib/api'
+import { cancelJob, deleteJob, retryJob, type ProcessingJob } from '../lib/api'
 import { getStatusIcon, getStatusColor, getStatusText, isActiveStatus } from '../lib/statusUtils'
 
 // Mobile breakpoint (matches Tailwind's sm)
@@ -134,6 +134,8 @@ export default function ProcessingPanel() {
 
 function JobItem({ job, showCancel = false, onDismiss }: { job: ProcessingJob; showCancel?: boolean; onDismiss?: () => void }) {
   const [cancelling, setCancelling] = useState(false)
+  const [retrying, setRetrying] = useState(false)
+  const { removeJob } = useStore()
   
   const handleCancel = async () => {
     setCancelling(true)
@@ -146,7 +148,22 @@ function JobItem({ job, showCancel = false, onDismiss }: { job: ProcessingJob; s
     }
   }
   
+  const handleRetry = async () => {
+    setRetrying(true)
+    try {
+      await retryJob(job.job_id)
+      // Job will be replaced by the new one via WebSocket
+    } catch (err) {
+      console.error('Failed to retry job:', err)
+      // Remove from local store if retry fails (job may already be deleted)
+      removeJob(job.job_id)
+    } finally {
+      setRetrying(false)
+    }
+  }
+  
   const isActive = isActiveStatus(job.status)
+  const canRetry = job.status === 'failed' || job.status === 'cancelled'
   
   return (
     <div className="p-3 space-y-2">
@@ -171,7 +188,18 @@ function JobItem({ job, showCancel = false, onDismiss }: { job: ProcessingJob; s
             <X className="w-5 h-5 sm:w-4 sm:h-4" />
           </button>
         )}
-        {/* Dismiss button for completed jobs - larger touch target on mobile */}
+        {/* Retry button for failed/cancelled jobs */}
+        {canRetry && job.episode_id && (
+          <button
+            onClick={handleRetry}
+            disabled={retrying}
+            className="p-2 sm:p-1 min-w-[40px] min-h-[40px] sm:min-w-0 sm:min-h-0 flex items-center justify-center text-gray-500 hover:text-green-400 hover:bg-green-400/10 rounded transition-colors"
+            title="Retry"
+          >
+            <RotateCcw className={`w-5 h-5 sm:w-4 sm:h-4 ${retrying ? 'animate-spin' : ''}`} />
+          </button>
+        )}
+        {/* Dismiss button for completed/failed jobs - larger touch target on mobile */}
         {onDismiss && !isActive && (
           <button
             onClick={onDismiss}

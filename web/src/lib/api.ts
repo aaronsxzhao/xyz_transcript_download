@@ -231,6 +231,14 @@ export async function deleteJob(jobId: string): Promise<{ message: string }> {
   return res.json()
 }
 
+export async function retryJob(jobId: string): Promise<{ message: string; new_job_id: string }> {
+  const res = await authFetch(`${API_BASE}/jobs/${jobId}/retry`, {
+    method: 'POST',
+  })
+  if (!res.ok) throw new Error('Failed to retry job')
+  return res.json()
+}
+
 export async function deleteEpisode(eid: string): Promise<{ message: string }> {
   const res = await authFetch(`${API_BASE}/episodes/${eid}`, {
     method: 'DELETE',
