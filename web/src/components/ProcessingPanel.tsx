@@ -1,15 +1,22 @@
 /**
  * Processing panel that shows active jobs with progress
  */
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { ChevronUp, ChevronDown, Radio, X, Trash2 } from 'lucide-react'
 import { useStore } from '../lib/store'
 import { cancelJob, type ProcessingJob } from '../lib/api'
 import { getStatusIcon, getStatusColor, getStatusText, isActiveStatus } from '../lib/statusUtils'
 
+// Mobile breakpoint (matches Tailwind's sm)
+const MOBILE_BREAKPOINT = 640
+
 export default function ProcessingPanel() {
   const { jobs, wsConnected, removeJob, clearCompletedJobs } = useStore()
-  const [expanded, setExpanded] = useState(true)
+  // Start collapsed on mobile, expanded on desktop
+  const [expanded, setExpanded] = useState(() => 
+    typeof window !== 'undefined' ? window.innerWidth >= MOBILE_BREAKPOINT : true
+  )
+  const prevActiveCountRef = useRef(0)
   
   // Only show if there are active jobs
   const activeJobs = jobs.filter(job => 
@@ -19,45 +26,77 @@ export default function ProcessingPanel() {
     job.status === 'completed' || job.status === 'failed' || job.status === 'cancelled'
   )
   
+  // Auto-expand when new jobs start on mobile
+  useEffect(() => {
+    if (activeJobs.length > prevActiveCountRef.current && window.innerWidth < MOBILE_BREAKPOINT) {
+      setExpanded(true)
+    }
+    prevActiveCountRef.current = activeJobs.length
+  }, [activeJobs.length])
+  
+  // Auto-collapse on mobile when no active jobs (with delay to show completion)
+  useEffect(() => {
+    if (activeJobs.length === 0 && window.innerWidth < MOBILE_BREAKPOINT) {
+      const timer = setTimeout(() => {
+        setExpanded(false)
+      }, 2000)
+      return () => clearTimeout(timer)
+    }
+  }, [activeJobs.length])
+  
+  // Auto-collapse when window resizes to mobile
+  useEffect(() => {
+    const handleResize = () => {
+      if (window.innerWidth < MOBILE_BREAKPOINT && activeJobs.length === 0) {
+        setExpanded(false)
+      }
+    }
+    window.addEventListener('resize', handleResize)
+    return () => window.removeEventListener('resize', handleResize)
+  }, [activeJobs.length])
+  
   if (jobs.length === 0) {
     return null
   }
   
   return (
     <div className="fixed bottom-4 left-4 right-4 sm:right-auto z-40 sm:w-80 bg-dark-surface border border-dark-border rounded-xl shadow-xl overflow-hidden">
-      {/* Header */}
-      <div className="flex items-center justify-between p-3 bg-dark-hover">
+      {/* Header - larger touch targets on mobile */}
+      <div className="flex items-center justify-between p-2 sm:p-3 bg-dark-hover">
         <button
           onClick={() => setExpanded(!expanded)}
-          className="flex items-center gap-2 flex-1"
+          className="flex items-center gap-2 flex-1 min-h-[44px] sm:min-h-0"
         >
-          <Radio className="w-4 h-4 text-indigo-400" />
+          <Radio className="w-5 h-5 sm:w-4 sm:h-4 text-indigo-400" />
           <span className="font-medium text-sm">
             Processing {activeJobs.length > 0 ? `(${activeJobs.length} active)` : ''}
           </span>
         </button>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1 sm:gap-2">
           {!wsConnected && (
             <span className="text-xs text-yellow-500">Offline</span>
           )}
           {completedJobs.length > 0 && (
             <button
               onClick={clearCompletedJobs}
-              className="p-1 text-gray-500 hover:text-white hover:bg-dark-border rounded transition-colors"
+              className="p-2 sm:p-1 min-w-[44px] min-h-[44px] sm:min-w-0 sm:min-h-0 flex items-center justify-center text-gray-500 hover:text-white hover:bg-dark-border rounded transition-colors"
               title="Clear completed"
             >
-              <Trash2 size={14} />
+              <Trash2 size={16} className="sm:w-3.5 sm:h-3.5" />
             </button>
           )}
-          <button onClick={() => setExpanded(!expanded)} className="p-1">
-            {expanded ? <ChevronDown size={16} /> : <ChevronUp size={16} />}
+          <button 
+            onClick={() => setExpanded(!expanded)} 
+            className="p-2 sm:p-1 min-w-[44px] min-h-[44px] sm:min-w-0 sm:min-h-0 flex items-center justify-center"
+          >
+            {expanded ? <ChevronDown size={20} className="sm:w-4 sm:h-4" /> : <ChevronUp size={20} className="sm:w-4 sm:h-4" />}
           </button>
         </div>
       </div>
       
-      {/* Jobs list */}
+      {/* Jobs list - smaller max-height on mobile */}
       {expanded && (
-        <div className="max-h-64 overflow-y-auto divide-y divide-dark-border">
+        <div className="max-h-48 sm:max-h-64 overflow-y-auto divide-y divide-dark-border">
           {activeJobs.map((job) => (
             <JobItem key={job.job_id} job={job} showCancel />
           ))}
@@ -98,25 +137,25 @@ function JobItem({ job, showCancel = false, onDismiss }: { job: ProcessingJob; s
             {job.message || getStatusText(job.status)}
           </p>
         </div>
-        {/* Cancel button for active jobs */}
+        {/* Cancel button for active jobs - larger touch target on mobile */}
         {showCancel && isActive && job.status !== 'cancelling' && (
           <button
             onClick={handleCancel}
             disabled={cancelling}
-            className="p-1 text-gray-500 hover:text-red-400 hover:bg-red-400/10 rounded transition-colors"
+            className="p-2 sm:p-1 min-w-[40px] min-h-[40px] sm:min-w-0 sm:min-h-0 flex items-center justify-center text-gray-500 hover:text-red-400 hover:bg-red-400/10 rounded transition-colors -mr-1"
             title="Cancel processing"
           >
-            <X className="w-4 h-4" />
+            <X className="w-5 h-5 sm:w-4 sm:h-4" />
           </button>
         )}
-        {/* Dismiss button for completed jobs */}
+        {/* Dismiss button for completed jobs - larger touch target on mobile */}
         {onDismiss && !isActive && (
           <button
             onClick={onDismiss}
-            className="p-1 text-gray-500 hover:text-white hover:bg-dark-border rounded transition-colors"
+            className="p-2 sm:p-1 min-w-[40px] min-h-[40px] sm:min-w-0 sm:min-h-0 flex items-center justify-center text-gray-500 hover:text-white hover:bg-dark-border rounded transition-colors -mr-1"
             title="Dismiss"
           >
-            <X className="w-4 h-4" />
+            <X className="w-5 h-5 sm:w-4 sm:h-4" />
           </button>
         )}
       </div>

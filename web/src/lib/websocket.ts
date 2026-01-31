@@ -109,7 +109,9 @@ export function connectWebSocket() {
       
       switch (data.type) {
         case 'init':
-          useStore.getState().setJobs(data.jobs || [])
+          // Merge with existing jobs to preserve any locally-added jobs
+          // that haven't been synced to server yet
+          useStore.getState().mergeJobs(data.jobs || [])
           break
         
         case 'job_update':

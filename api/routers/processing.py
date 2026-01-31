@@ -1,6 +1,7 @@
 """Processing endpoints with WebSocket support."""
 import asyncio
 import json
+import threading
 import uuid
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
@@ -17,6 +18,11 @@ router = APIRouter()
 
 # File-based job persistence
 JOBS_FILE = DATA_DIR / "jobs.json"
+JOBS_LOCK_FILE = DATA_DIR / "jobs.json.lock"
+
+# Thread-safe lock for jobs dict and cancelled_jobs set
+# Use RLock to allow recursive locking (e.g., update_job_status calling _save_jobs_to_file)
+_jobs_lock = threading.RLock()
 
 # In-memory job tracking (loaded from file on startup)
 jobs: Dict[str, ProcessingStatus] = {}
@@ -28,50 +34,62 @@ cancelled_jobs: Set[str] = set()
 def _load_jobs_from_file():
     """Load jobs from persistent storage on startup."""
     global jobs
-    if JOBS_FILE.exists():
-        try:
-            with open(JOBS_FILE, "r", encoding="utf-8") as f:
-                data = json.load(f)
-            jobs = {
-                job_id: ProcessingStatus(**job_data)
-                for job_id, job_data in data.items()
-            }
-            # Mark any "in-progress" jobs as failed (they didn't complete before shutdown)
-            for job_id, job in jobs.items():
-                if job.status in ("pending", "fetching", "downloading", "transcribing", "summarizing", "cancelling"):
-                    job.status = "failed"
-                    job.message = "Interrupted by server restart"
-            _save_jobs_to_file()
-        except (json.JSONDecodeError, IOError, TypeError) as e:
-            # If file is corrupted, start fresh
-            jobs = {}
+    with _jobs_lock:
+        if JOBS_FILE.exists():
+            try:
+                with open(JOBS_FILE, "r", encoding="utf-8") as f:
+                    data = json.load(f)
+                jobs = {
+                    job_id: ProcessingStatus(**job_data)
+                    for job_id, job_data in data.items()
+                }
+                # Mark any "in-progress" jobs as failed (they didn't complete before shutdown)
+                for job_id, job in jobs.items():
+                    if job.status in ("pending", "fetching", "downloading", "transcribing", "summarizing", "cancelling"):
+                        job.status = "failed"
+                        job.message = "Interrupted by server restart"
+                _save_jobs_to_file_unlocked()
+            except (json.JSONDecodeError, IOError, TypeError) as e:
+                # If file is corrupted, start fresh
+                jobs = {}
 
 
-def _save_jobs_to_file():
-    """Persist jobs to file."""
+def _save_jobs_to_file_unlocked():
+    """Persist jobs to file (caller must hold _jobs_lock)."""
     try:
         DATA_DIR.mkdir(parents=True, exist_ok=True)
         data = {job_id: job.model_dump() for job_id, job in jobs.items()}
-        with open(JOBS_FILE, "w", encoding="utf-8") as f:
+        # Use atomic write: write to temp file then rename
+        temp_file = JOBS_FILE.with_suffix('.json.tmp')
+        with open(temp_file, "w", encoding="utf-8") as f:
             json.dump(data, f, ensure_ascii=False, indent=2)
+        # Atomic rename (on POSIX systems)
+        temp_file.replace(JOBS_FILE)
     except IOError:
         pass  # Best effort - don't fail the operation
+
+
+def _save_jobs_to_file():
+    """Persist jobs to file (thread-safe)."""
+    with _jobs_lock:
+        _save_jobs_to_file_unlocked()
 
 
 def _cleanup_old_jobs(max_completed_jobs: int = 100):
     """Remove old completed/failed jobs to prevent unbounded growth."""
     global jobs
-    terminal_jobs = [
-        (job_id, job) for job_id, job in jobs.items()
-        if job.status in ("completed", "failed", "cancelled")
-    ]
-    if len(terminal_jobs) > max_completed_jobs:
-        # Keep only the most recent jobs (by job_id which has timestamp-like ordering)
-        terminal_jobs.sort(key=lambda x: x[0])
-        jobs_to_remove = terminal_jobs[:-max_completed_jobs]
-        for job_id, _ in jobs_to_remove:
-            del jobs[job_id]
-        _save_jobs_to_file()
+    with _jobs_lock:
+        terminal_jobs = [
+            (job_id, job) for job_id, job in jobs.items()
+            if job.status in ("completed", "failed", "cancelled")
+        ]
+        if len(terminal_jobs) > max_completed_jobs:
+            # Keep only the most recent jobs (by job_id which has timestamp-like ordering)
+            terminal_jobs.sort(key=lambda x: x[0])
+            jobs_to_remove = terminal_jobs[:-max_completed_jobs]
+            for job_id, _ in jobs_to_remove:
+                del jobs[job_id]
+            _save_jobs_to_file_unlocked()
 
 
 # Load jobs on module import
@@ -104,35 +122,52 @@ def get_main_loop() -> Optional[asyncio.AbstractEventLoop]:
 
 def is_job_cancelled(job_id: str) -> bool:
     """Check if a job has been cancelled."""
-    return job_id in cancelled_jobs
+    with _jobs_lock:
+        return job_id in cancelled_jobs
 
 
 def mark_job_cancelled(job_id: str):
     """Mark a job as cancelled and clean up."""
-    if job_id in cancelled_jobs:
+    with _jobs_lock:
         cancelled_jobs.discard(job_id)
 
 
 class ConnectionManager:
-    """Manage WebSocket connections."""
+    """Manage WebSocket connections (thread-safe)."""
     
     def __init__(self):
         self.active_connections: list[WebSocket] = []
+        self._lock = threading.Lock()
     
     async def connect(self, websocket: WebSocket):
         await websocket.accept()
-        self.active_connections.append(websocket)
+        with self._lock:
+            self.active_connections.append(websocket)
     
     def disconnect(self, websocket: WebSocket):
-        if websocket in self.active_connections:
-            self.active_connections.remove(websocket)
+        with self._lock:
+            if websocket in self.active_connections:
+                self.active_connections.remove(websocket)
     
     async def broadcast(self, message: dict):
-        for connection in self.active_connections:
+        # Take a snapshot of connections under lock to avoid race conditions
+        with self._lock:
+            connections = list(self.active_connections)
+        
+        # Send to all connections (outside lock to avoid blocking)
+        dead_connections = []
+        for connection in connections:
             try:
                 await connection.send_json(message)
             except Exception:
-                pass
+                dead_connections.append(connection)
+        
+        # Clean up dead connections
+        if dead_connections:
+            with self._lock:
+                for conn in dead_connections:
+                    if conn in self.active_connections:
+                        self.active_connections.remove(conn)
 
 
 manager = ConnectionManager()
@@ -141,39 +176,44 @@ manager = ConnectionManager()
 def update_job_status(job_id: str, status: str, progress: float = 0, message: str = "",
                       episode_id: str = None, episode_title: str = None):
     """Update job status, persist to file, and notify clients."""
-    if job_id in jobs:
-        jobs[job_id].status = status
-        jobs[job_id].progress = progress
-        jobs[job_id].message = message
-        if episode_id:
-            jobs[job_id].episode_id = episode_id
-        if episode_title:
-            jobs[job_id].episode_title = episode_title
-        
-        # Persist to file on terminal states or significant progress changes
-        if status in ("completed", "failed", "cancelled") or progress % 10 < 1:
-            _save_jobs_to_file()
-        
-        # Broadcast update to all connected WebSocket clients
-        # Use the cached main event loop for thread-safe broadcasting
-        try:
-            loop = get_main_loop()
-            if loop and loop.is_running():
-                # Schedule broadcast from sync context
-                asyncio.run_coroutine_threadsafe(broadcast_status(job_id), loop)
-        except Exception as e:
-            # Log but don't fail - status is still updated in memory
-            import traceback
-            traceback.print_exc()
+    with _jobs_lock:
+        if job_id in jobs:
+            jobs[job_id].status = status
+            jobs[job_id].progress = progress
+            jobs[job_id].message = message
+            if episode_id:
+                jobs[job_id].episode_id = episode_id
+            if episode_title:
+                jobs[job_id].episode_title = episode_title
+            
+            # Persist to file on terminal states or significant progress changes
+            if status in ("completed", "failed", "cancelled") or progress % 10 < 1:
+                _save_jobs_to_file_unlocked()
+    
+    # Broadcast update to all connected WebSocket clients (outside lock to avoid deadlock)
+    # Use the cached main event loop for thread-safe broadcasting
+    try:
+        loop = get_main_loop()
+        if loop and loop.is_running():
+            # Schedule broadcast from sync context
+            asyncio.run_coroutine_threadsafe(broadcast_status(job_id), loop)
+    except Exception as e:
+        # Log but don't fail - status is still updated in memory
+        import traceback
+        traceback.print_exc()
 
 
 async def broadcast_status(job_id: str):
     """Broadcast job status to all connected clients."""
-    if job_id in jobs:
-        await manager.broadcast({
-            "type": "job_update",
-            "job": jobs[job_id].model_dump(),
-        })
+    with _jobs_lock:
+        if job_id in jobs:
+            job_data = jobs[job_id].model_dump()
+        else:
+            return
+    await manager.broadcast({
+        "type": "job_update",
+        "job": job_data,
+    })
 
 
 def _process_track(audio_path, episode_id: str, episode_title: str, 
@@ -577,16 +617,17 @@ async def process_episode(
     
     # Create job with episode info if available
     job_id = str(uuid.uuid4())[:8]
-    jobs[job_id] = ProcessingStatus(
-        job_id=job_id,
-        status="pending",
-        progress=0,
-        message="Starting...",
-        episode_id=episode_id,
-        episode_title=episode_title,
-    )
+    with _jobs_lock:
+        jobs[job_id] = ProcessingStatus(
+            job_id=job_id,
+            status="pending",
+            progress=0,
+            message="Starting...",
+            episode_id=episode_id,
+            episode_title=episode_title,
+        )
     
-    # Persist new job and cleanup old ones
+    # Persist new job and cleanup old ones (these functions acquire their own locks)
     _cleanup_old_jobs()
     _save_jobs_to_file()
     
@@ -614,57 +655,62 @@ async def process_episode(
 @router.get("/jobs")
 async def list_jobs():
     """List all processing jobs."""
-    return {"jobs": [job.model_dump() for job in jobs.values()]}
+    with _jobs_lock:
+        return {"jobs": [job.model_dump() for job in jobs.values()]}
 
 
 @router.get("/jobs/{job_id}")
 async def get_job(job_id: str):
     """Get job status."""
-    if job_id not in jobs:
-        raise HTTPException(status_code=404, detail="Job not found")
-    
-    return jobs[job_id]
+    with _jobs_lock:
+        if job_id not in jobs:
+            raise HTTPException(status_code=404, detail="Job not found")
+        return jobs[job_id].model_dump()
 
 
 @router.delete("/jobs/{job_id}")
 async def delete_job(job_id: str):
     """Delete a job from history."""
-    if job_id not in jobs:
-        raise HTTPException(status_code=404, detail="Job not found")
-    
-    # Also cancel if still running
-    cancelled_jobs.add(job_id)
-    del jobs[job_id]
-    _save_jobs_to_file()
+    with _jobs_lock:
+        if job_id not in jobs:
+            raise HTTPException(status_code=404, detail="Job not found")
+        
+        # Also cancel if still running
+        cancelled_jobs.add(job_id)
+        del jobs[job_id]
+        _save_jobs_to_file_unlocked()
     return {"message": "Job deleted"}
 
 
 @router.post("/jobs/{job_id}/cancel")
 async def cancel_job(job_id: str):
     """Cancel a processing job."""
-    if job_id not in jobs:
-        raise HTTPException(status_code=404, detail="Job not found")
+    with _jobs_lock:
+        if job_id not in jobs:
+            raise HTTPException(status_code=404, detail="Job not found")
+        
+        job = jobs[job_id]
+        
+        # Check if job is still running
+        if job.status in ("completed", "failed", "cancelled"):
+            return {"message": "Job already finished", "status": job.status}
+        
+        # Request cancellation
+        cancelled_jobs.add(job_id)
+        
+        # Give status-specific cancellation message
+        cancel_msg = "Cancellation requested..."
+        if job.status == "transcribing":
+            cancel_msg = "Will cancel after current transcription step..."
+        elif job.status == "summarizing":
+            cancel_msg = "Will cancel after current LLM call..."
+        elif job.status == "downloading":
+            cancel_msg = "Will cancel after download completes..."
+        
+        job_progress = job.progress
     
-    job = jobs[job_id]
-    
-    # Check if job is still running
-    if job.status in ("completed", "failed", "cancelled"):
-        return {"message": "Job already finished", "status": job.status}
-    
-    # Request cancellation
-    cancelled_jobs.add(job_id)
-    
-    # Give status-specific cancellation message
-    cancel_msg = "Cancellation requested..."
-    if job.status == "transcribing":
-        cancel_msg = "Will cancel after current transcription step..."
-    elif job.status == "summarizing":
-        cancel_msg = "Will cancel after current LLM call..."
-    elif job.status == "downloading":
-        cancel_msg = "Will cancel after download completes..."
-    
-    # Update status immediately
-    update_job_status(job_id, "cancelling", job.progress, cancel_msg)
+    # Update status (outside lock since it acquires its own lock)
+    update_job_status(job_id, "cancelling", job_progress, cancel_msg)
     
     # Broadcast update
     await broadcast_status(job_id)
@@ -695,9 +741,11 @@ async def websocket_progress(websocket: WebSocket):
     
     try:
         # Send current job statuses
+        with _jobs_lock:
+            jobs_data = [job.model_dump() for job in jobs.values()]
         await websocket.send_json({
             "type": "init",
-            "jobs": [job.model_dump() for job in jobs.values()],
+            "jobs": jobs_data,
         })
         
         # Keep connection alive and listen for messages
@@ -713,10 +761,15 @@ async def websocket_progress(websocket: WebSocket):
                 # Handle job status request
                 elif data.get("type") == "get_status":
                     job_id = data.get("job_id")
-                    if job_id and job_id in jobs:
+                    with _jobs_lock:
+                        if job_id and job_id in jobs:
+                            job_data = jobs[job_id].model_dump()
+                        else:
+                            job_data = None
+                    if job_data:
                         await websocket.send_json({
                             "type": "job_update",
-                            "job": jobs[job_id].model_dump(),
+                            "job": job_data,
                         })
             
             except asyncio.TimeoutError:
@@ -763,19 +816,21 @@ async def batch_process(data: BatchProcessRequest, background_tasks: BackgroundT
     
     # Create jobs for each episode
     job_ids = []
-    for ep in episodes:
-        job_id = str(uuid.uuid4())[:8]
-        jobs[job_id] = ProcessingStatus(
-            job_id=job_id,
-            status="pending",
-            progress=0,
-            message="Queued",
-            episode_id=ep.eid,
-            episode_title=ep.title,
-        )
-        job_ids.append(job_id)
-        
-        # Queue background task
+    with _jobs_lock:
+        for ep in episodes:
+            job_id = str(uuid.uuid4())[:8]
+            jobs[job_id] = ProcessingStatus(
+                job_id=job_id,
+                status="pending",
+                progress=0,
+                message="Queued",
+                episode_id=ep.eid,
+                episode_title=ep.title,
+            )
+            job_ids.append(job_id)
+    
+    # Queue background tasks (outside lock to avoid holding it during task scheduling)
+    for job_id, ep in zip(job_ids, episodes):
         episode_url = f"https://www.xiaoyuzhoufm.com/episode/{ep.eid}"
         background_tasks.add_task(
             process_episode_async,
@@ -785,7 +840,7 @@ async def batch_process(data: BatchProcessRequest, background_tasks: BackgroundT
             not data.skip_existing,
         )
     
-    # Persist all new jobs
+    # Persist all new jobs (these functions acquire their own locks)
     _cleanup_old_jobs()
     _save_jobs_to_file()
     
