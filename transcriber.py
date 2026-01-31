@@ -243,6 +243,9 @@ class FastLocalTranscriber:
             )
 
         except Exception as e:
+            # Re-raise cancellation exceptions so they propagate to caller
+            if "cancel" in str(e).lower() or "Cancel" in type(e).__name__:
+                raise
             logger.error(f"Transcription failed: {e}")
             import traceback
             logger.debug(traceback.format_exc())
@@ -444,6 +447,9 @@ class MLXTranscriber:
             )
 
         except Exception as e:
+            # Re-raise cancellation exceptions so they propagate to caller
+            if "cancel" in str(e).lower() or "Cancel" in type(e).__name__:
+                raise
             logger.error(f"MLX transcription failed: {e}")
             import traceback
             logger.debug(traceback.format_exc())
@@ -619,6 +625,9 @@ class APITranscriber:
             )
 
         except Exception as e:
+            # Re-raise cancellation exceptions so they propagate to caller
+            if "cancel" in str(e).lower() or "Cancel" in type(e).__name__:
+                raise
             logger.error(f"Transcription failed: {e}")
             return None
 

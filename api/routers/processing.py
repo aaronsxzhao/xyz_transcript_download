@@ -467,8 +467,16 @@ def process_episode_sync(job_id: str, episode_url: str, transcribe_only: bool = 
         # ===== PHASE 4: Transcribe (30-70%) =====
         update_job_status(job_id, "transcribing", 30, "Starting transcription...")
         
+        # Custom exception for cancellation
+        class CancelledException(Exception):
+            pass
+        
         last_progress = [30]
         def progress_callback(progress: float):
+            # Check for cancellation on every progress update - immediate cancel
+            if is_job_cancelled(job_id):
+                raise CancelledException("Job cancelled")
+            
             # Map 0-1 progress to 30-70% of job (40% range for transcription)
             job_progress = 30 + (progress * 40)
             # Update on every 0.5% change for smooth progress bar
@@ -479,9 +487,19 @@ def process_episode_sync(job_id: str, episode_url: str, transcribe_only: bool = 
                 update_job_status(job_id, "transcribing", job_progress, f"Transcribing audio... {pct}%")
         
         # Transcribe (using fast audio if available)
-        transcript = transcriber.transcribe(process_path, episode.eid, progress_callback=progress_callback)
+        try:
+            transcript = transcriber.transcribe(process_path, episode.eid, progress_callback=progress_callback)
+        except CancelledException:
+            update_job_status(job_id, "cancelled", last_progress[0], "Cancelled")
+            mark_job_cancelled(job_id)
+            return
         
         if not transcript:
+            # Check if it was cancelled during transcription
+            if is_job_cancelled(job_id):
+                update_job_status(job_id, "cancelled", last_progress[0], "Cancelled")
+                mark_job_cancelled(job_id)
+                return
             update_job_status(job_id, "failed", 0, "Transcription failed")
             return
         
