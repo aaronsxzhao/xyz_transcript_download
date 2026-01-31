@@ -881,6 +881,73 @@ async def get_truncated_transcripts(
     }
 
 
+@router.get("/transcripts/debug")
+async def debug_transcript_durations(
+    user: Optional[User] = Depends(get_current_user)
+):
+    """
+    Debug endpoint to see all transcript durations vs episode durations.
+    Helps identify why truncation detection might not be working.
+    """
+    from api.db import get_db
+    
+    if not user:
+        raise HTTPException(status_code=401, detail="Authentication required")
+    
+    db = get_db(user.id)
+    
+    # Get all transcripts
+    all_transcripts = []
+    summary_ids = db.get_summary_episode_ids()
+    
+    # Get all podcasts and their episodes
+    podcasts = db.get_all_podcasts()
+    for podcast in podcasts:
+        episodes = db.get_episodes_by_podcast(podcast.pid)
+        for ep in episodes:
+            transcript = db.get_transcript(ep.eid)
+            if transcript:
+                # Calculate max segment time
+                max_segment_time = 0
+                if transcript.segments:
+                    max_segment_time = max((s.get("end", 0) for s in transcript.segments), default=0)
+                
+                # Determine actual transcript duration (use max segment time if duration is 0)
+                actual_duration = transcript.duration if transcript.duration > 0 else max_segment_time
+                
+                # Calculate percentage
+                percentage = (actual_duration / ep.duration * 100) if ep.duration > 0 else 0
+                
+                all_transcripts.append({
+                    "episode_id": ep.eid,
+                    "episode_title": ep.title[:50] + "..." if len(ep.title) > 50 else ep.title,
+                    "episode_duration_sec": ep.duration,
+                    "episode_duration_min": round(ep.duration / 60, 1) if ep.duration else 0,
+                    "transcript_duration_sec": round(transcript.duration, 1),
+                    "transcript_duration_min": round(transcript.duration / 60, 1) if transcript.duration else 0,
+                    "max_segment_time_sec": round(max_segment_time, 1),
+                    "max_segment_time_min": round(max_segment_time / 60, 1),
+                    "percentage": round(percentage, 1),
+                    "has_summary": ep.eid in summary_ids,
+                    "likely_truncated": percentage < 85 and percentage > 0,
+                    "missing_episode_duration": ep.duration <= 0,
+                })
+    
+    # Sort by percentage (lowest first)
+    all_transcripts.sort(key=lambda x: x["percentage"])
+    
+    # Count issues
+    truncated_count = sum(1 for t in all_transcripts if t["likely_truncated"])
+    missing_duration_count = sum(1 for t in all_transcripts if t["missing_episode_duration"])
+    
+    return {
+        "total_transcripts": len(all_transcripts),
+        "truncated_count": truncated_count,
+        "missing_episode_duration_count": missing_duration_count,
+        "transcripts": all_transcripts,
+    }
+
+
 @router.delete("/truncated/{episode_id}")
 async def delete_truncated_data(
     episode_id: str,

@@ -4,14 +4,14 @@
 import { useState, useEffect, useRef } from 'react'
 import { ChevronUp, ChevronDown, Radio, X, Trash2 } from 'lucide-react'
 import { useStore } from '../lib/store'
-import { cancelJob, type ProcessingJob } from '../lib/api'
+import { cancelJob, deleteJob, type ProcessingJob } from '../lib/api'
 import { getStatusIcon, getStatusColor, getStatusText, isActiveStatus } from '../lib/statusUtils'
 
 // Mobile breakpoint (matches Tailwind's sm)
 const MOBILE_BREAKPOINT = 640
 
 export default function ProcessingPanel() {
-  const { jobs, wsConnected, removeJob, clearCompletedJobs } = useStore()
+  const { jobs, wsConnected, removeJob } = useStore()
   // Start collapsed on mobile, expanded on desktop
   const [expanded, setExpanded] = useState(() => 
     typeof window !== 'undefined' ? window.innerWidth >= MOBILE_BREAKPOINT : true
@@ -55,6 +55,29 @@ export default function ProcessingPanel() {
     return () => window.removeEventListener('resize', handleResize)
   }, [activeJobs.length])
   
+  // Delete job from server and remove from local store
+  const handleDismiss = async (jobId: string) => {
+    try {
+      await deleteJob(jobId)
+    } catch (err) {
+      console.error('Failed to delete job:', err)
+    }
+    // Remove from local store regardless (in case server already deleted it)
+    removeJob(jobId)
+  }
+  
+  // Clear all completed jobs from server
+  const handleClearCompleted = async () => {
+    for (const job of completedJobs) {
+      try {
+        await deleteJob(job.job_id)
+      } catch (err) {
+        // Ignore errors for individual jobs
+      }
+      removeJob(job.job_id)
+    }
+  }
+  
   if (jobs.length === 0) {
     return null
   }
@@ -78,7 +101,7 @@ export default function ProcessingPanel() {
           )}
           {completedJobs.length > 0 && (
             <button
-              onClick={clearCompletedJobs}
+              onClick={handleClearCompleted}
               className="p-2 sm:p-1 min-w-[44px] min-h-[44px] sm:min-w-0 sm:min-h-0 flex items-center justify-center text-gray-500 hover:text-white hover:bg-dark-border rounded transition-colors"
               title="Clear completed"
             >
@@ -101,7 +124,7 @@ export default function ProcessingPanel() {
             <JobItem key={job.job_id} job={job} showCancel />
           ))}
           {completedJobs.slice(0, 3).map((job) => (
-            <JobItem key={job.job_id} job={job} onDismiss={() => removeJob(job.job_id)} />
+            <JobItem key={job.job_id} job={job} onDismiss={() => handleDismiss(job.job_id)} />
           ))}
         </div>
       )}

@@ -533,18 +533,30 @@ class SupabaseDatabase:
         if not self.client:
             return []
         
-        # Get all transcripts with duration
+        # Get all transcripts with duration and ID
         transcripts_result = self.client.table("transcripts").select(
-            "episode_id, duration"
+            "id, episode_id, duration"
         ).eq("user_id", user_id).execute()
         
         if not transcripts_result.data:
             return []
         
-        transcript_durations = {
-            r["episode_id"]: r["duration"] 
+        transcript_info = {
+            r["episode_id"]: {"id": r["id"], "duration": r["duration"]} 
             for r in transcripts_result.data
         }
+        
+        # Get max segment end_time for each transcript to verify actual duration
+        # This is more reliable than the duration field
+        segment_max_times = {}
+        for episode_id, info in transcript_info.items():
+            transcript_id = info["id"]
+            segments_result = self.client.table("transcript_segments").select(
+                "end_time"
+            ).eq("transcript_id", transcript_id).order("end_time", desc=True).limit(1).execute()
+            
+            if segments_result.data:
+                segment_max_times[episode_id] = segments_result.data[0]["end_time"]
         
         # Get all episodes with duration
         episodes_result = self.client.table("episodes").select(
@@ -554,11 +566,21 @@ class SupabaseDatabase:
         truncated = []
         for ep in episodes_result.data:
             episode_duration = ep["duration"]
-            if episode_duration <= 0:
+            
+            # Skip episodes without transcripts
+            if ep["eid"] not in transcript_info:
                 continue
             
-            transcript_duration = transcript_durations.get(ep["eid"])
-            if transcript_duration is None:
+            # Get transcript duration - prefer segment max time, fallback to duration field
+            transcript_duration = segment_max_times.get(ep["eid"]) or transcript_info[ep["eid"]]["duration"] or 0
+            
+            if transcript_duration <= 0:
+                continue
+            
+            # If episode duration is 0 or very small, try to detect based on transcript being too short
+            # (less than 10 minutes for a transcript with content suggests truncation if episode should be longer)
+            if episode_duration <= 0:
+                # Can't compare without episode duration, skip
                 continue
             
             percentage = transcript_duration / episode_duration
@@ -568,7 +590,7 @@ class SupabaseDatabase:
                     "pid": ep["pid"],
                     "episode_title": ep["title"],
                     "episode_duration": episode_duration,
-                    "transcript_duration": transcript_duration,
+                    "transcript_duration": round(transcript_duration, 1),
                     "percentage": round(percentage * 100, 1),
                 })
         
