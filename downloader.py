@@ -299,6 +299,19 @@ class AudioDownloader:
         # Check if already downloaded
         if not force and self.is_downloaded(episode):
             return audio_path
+        
+        # If force, delete existing files to start fresh
+        if force:
+            logger.info(f"Force re-download: deleting existing audio files for {episode.title}")
+            try:
+                if audio_path.exists():
+                    audio_path.unlink()
+                # Also delete compressed version
+                compressed_path = self.get_compressed_path(episode)
+                if compressed_path.exists():
+                    compressed_path.unlink()
+            except OSError as e:
+                logger.warning(f"Failed to delete existing files: {e}")
 
         # Create session with retry logic
         session = create_session_with_retries()
