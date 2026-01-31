@@ -532,12 +532,12 @@ class SupabaseDatabase:
         
         return counts
     
-    def get_truncated_transcripts(self, user_id: str, threshold: float = 0.85) -> List[Dict[str, Any]]:
+    def get_truncated_transcripts(self, user_id: str, threshold: float = 0.95) -> List[Dict[str, Any]]:
         """
         Find transcripts that appear to be truncated.
         
         A transcript is considered truncated if its duration is less than
-        threshold (default 85%) of the episode's expected duration.
+        threshold (default 95%) of the episode's expected duration.
         
         Returns list of dicts with episode_id, episode_title, episode_duration, 
         transcript_duration, and percentage.
