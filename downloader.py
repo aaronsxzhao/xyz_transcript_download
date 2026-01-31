@@ -96,7 +96,7 @@ def compress_audio(input_path: Path, output_path: Optional[Path] = None) -> Opti
     try:
         # Stall detection settings
         # If output file hasn't grown for this many seconds, consider it stalled
-        STALL_TIMEOUT_SECONDS = 180  # 3 minutes without progress = stalled
+        STALL_TIMEOUT_SECONDS = 300  # 5 minutes without progress = stalled
         POLL_INTERVAL_SECONDS = 10   # Check file size every 10 seconds
         
         logger.info(f"Compressing audio: {input_path.name} -> {output_path.name} (stall timeout: {STALL_TIMEOUT_SECONDS}s)")

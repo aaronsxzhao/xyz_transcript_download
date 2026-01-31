@@ -467,7 +467,7 @@ def process_episode_sync(job_id: str, episode_url: str, transcribe_only: bool = 
             if job_progress >= last_progress[0] + 0.5:
                 last_progress[0] = job_progress
                 pct = int(progress * 100)
-                # Show clear progress message
+                # Show clear progress message with percentage
                 update_job_status(job_id, "transcribing", job_progress, f"Transcribing audio... {pct}%")
         
         # Transcribe (using fast audio if available)

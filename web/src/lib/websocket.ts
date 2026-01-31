@@ -2,17 +2,18 @@
  * WebSocket client for real-time updates with polling fallback
  */
 import { useStore } from './store'
-import type { ProcessingJob } from './api'
+import { authFetch, type ProcessingJob } from './api'
 
 let ws: WebSocket | null = null
 let reconnectTimeout: number | null = null
 let pollInterval: number | null = null
 let fastPollInterval: number | null = null
 
-// Poll for job updates as fallback
+// Poll for job updates as fallback (with auth)
 async function pollJobs() {
   try {
-    const response = await fetch('/api/jobs')
+    // Use authFetch to include credentials for authenticated users
+    const response = await authFetch('/api/jobs')
     if (response.ok) {
       const data = await response.json()
       const jobs: ProcessingJob[] = data.jobs || []
@@ -35,6 +36,7 @@ async function pollJobs() {
     }
   } catch (e) {
     // Silently fail - polling is just a fallback
+    console.debug('Poll failed:', e)
   }
 }
 
