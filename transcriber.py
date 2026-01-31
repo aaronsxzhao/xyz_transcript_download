@@ -544,8 +544,19 @@ class APITranscriber:
                     chunk_base = i / num_chunks
                     progress_callback(chunk_base + 0.02 / num_chunks)
 
-                if not self._extract_chunk(audio_path, chunk_path, start_time, chunk_duration):
-                    continue
+                # Retry chunk extraction up to 3 times
+                chunk_extracted = False
+                for attempt in range(3):
+                    if self._extract_chunk(audio_path, chunk_path, start_time, chunk_duration):
+                        chunk_extracted = True
+                        break
+                    logger.warning(f"Chunk {i+1} extraction attempt {attempt+1} failed, retrying...")
+                    import time
+                    time.sleep(1)  # Wait before retry
+                
+                if not chunk_extracted:
+                    logger.error(f"Failed to extract chunk {i+1}/{num_chunks} after 3 attempts - aborting transcription")
+                    return None  # Fail the whole transcription instead of skipping chunks
 
                 # Create a sub-callback for this chunk's transcription
                 def chunk_progress(p: float, chunk_idx=i):
@@ -561,16 +572,19 @@ class APITranscriber:
                     chunk_path, f"{episode_id}_chunk_{i}", language, chunk_progress
                 )
 
-                if chunk_transcript:
-                    for seg in chunk_transcript.segments:
-                        adjusted_seg = TranscriptSegment(
-                            start=seg.start + time_offset,
-                            end=seg.end + time_offset,
-                            text=seg.text,
-                        )
-                        all_segments.append(adjusted_seg)
+                if not chunk_transcript:
+                    logger.error(f"Failed to transcribe chunk {i+1}/{num_chunks} - aborting transcription")
+                    return None  # Fail the whole transcription instead of skipping chunks
 
-                    all_text.append(chunk_transcript.text)
+                for seg in chunk_transcript.segments:
+                    adjusted_seg = TranscriptSegment(
+                        start=seg.start + time_offset,
+                        end=seg.end + time_offset,
+                        text=seg.text,
+                    )
+                    all_segments.append(adjusted_seg)
+
+                all_text.append(chunk_transcript.text)
                 
                 logger.info(f"Chunk {i+1}/{num_chunks} complete")
 
@@ -618,6 +632,8 @@ class APITranscriber:
     ) -> bool:
         """Extract a chunk from audio file using ffmpeg."""
         try:
+            # Timeout: allow up to 60 seconds per chunk (generous for slow systems)
+            # This prevents hanging when multiple ffmpeg processes compete for resources
             subprocess.run(
                 [
                     FFMPEG_PATH, "-y", "-v", "quiet",
@@ -629,9 +645,14 @@ class APITranscriber:
                     str(output_path)
                 ],
                 check=True,
+                timeout=60,
             )
             return output_path.exists()
-        except subprocess.SubprocessError:
+        except subprocess.TimeoutExpired:
+            logger.warning(f"Chunk extraction timed out: {start_time}s-{start_time+duration}s")
+            return False
+        except subprocess.SubprocessError as e:
+            logger.warning(f"Chunk extraction failed: {e}")
             return False
 
 

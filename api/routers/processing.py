@@ -97,7 +97,8 @@ _load_jobs_from_file()
 
 # Limit concurrent episode processing to prevent resource exhaustion
 # When limit reached, jobs queue automatically and wait for a slot
-PROCESSING_EXECUTOR = ThreadPoolExecutor(max_workers=3, thread_name_prefix="episode_processor")
+# Reduced from 3 to 2 to prevent ffmpeg resource contention during concurrent processing
+PROCESSING_EXECUTOR = ThreadPoolExecutor(max_workers=2, thread_name_prefix="episode_processor")
 
 # Store reference to the main event loop for thread-safe broadcasting
 _main_loop: Optional[asyncio.AbstractEventLoop] = None
