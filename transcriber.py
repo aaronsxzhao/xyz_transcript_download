@@ -570,14 +570,12 @@ class APITranscriber:
                 """Run API call in background thread."""
                 try:
                     with open(audio_path, "rb") as audio_file:
-                        # Use timeout to allow cancellation (10 min max per file)
                         result_holder["response"] = self.client.audio.transcriptions.create(
                             model=WHISPER_API_MODEL,
                             file=audio_file,
                             language=language,
                             response_format="verbose_json",
                             timestamp_granularities=["segment"],
-                            timeout=600,  # 10 minute timeout
                         )
                 except Exception as e:
                     result_holder["error"] = e
