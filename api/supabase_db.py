@@ -218,9 +218,27 @@ class SupabaseDatabase:
         
         transcript = result.data[0]
         
-        # Get segments
-        segments_result = self.client.table("transcript_segments").select("*").eq("transcript_id", transcript["id"]).order("start_time").execute()
-        segments = [{"start": s["start_time"], "end": s["end_time"], "text": s["text"]} for s in segments_result.data]
+        # Get ALL segments (Supabase default limit is 1000, so we paginate)
+        all_segments = []
+        offset = 0
+        page_size = 1000
+        
+        while True:
+            segments_result = self.client.table("transcript_segments").select("*").eq(
+                "transcript_id", transcript["id"]
+            ).order("start_time").range(offset, offset + page_size - 1).execute()
+            
+            if not segments_result.data:
+                break
+                
+            all_segments.extend(segments_result.data)
+            
+            if len(segments_result.data) < page_size:
+                break  # Last page
+                
+            offset += page_size
+        
+        segments = [{"start": s["start_time"], "end": s["end_time"], "text": s["text"]} for s in all_segments]
         
         return TranscriptRecord(
             id=transcript["id"],
