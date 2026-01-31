@@ -29,6 +29,7 @@ async def startup_event():
     """Capture the main event loop on startup for thread-safe broadcasting."""
     loop = asyncio.get_running_loop()
     processing.set_main_loop(loop)
+    print(f"[WS] Main event loop captured: {loop}")
     
     # Send Discord notification on startup
     from logger import notify_discord

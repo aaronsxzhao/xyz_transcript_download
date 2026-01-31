@@ -144,6 +144,7 @@ class ConnectionManager:
         await websocket.accept()
         with self._lock:
             self.active_connections.append(websocket)
+            print(f"[WS] Client connected. Total connections: {len(self.active_connections)}")
     
     def disconnect(self, websocket: WebSocket):
         with self._lock:
@@ -198,10 +199,11 @@ def update_job_status(job_id: str, status: str, progress: float = 0, message: st
         if loop and loop.is_running():
             # Schedule broadcast from sync context
             asyncio.run_coroutine_threadsafe(broadcast_status(job_id), loop)
+        else:
+            print(f"[WS] Cannot broadcast: loop={'exists' if loop else 'None'}, running={loop.is_running() if loop else 'N/A'}")
     except Exception as e:
         # Log but don't fail - status is still updated in memory
-        import traceback
-        traceback.print_exc()
+        print(f"[WS] Broadcast error: {e}")
 
 
 async def broadcast_status(job_id: str):
@@ -211,6 +213,11 @@ async def broadcast_status(job_id: str):
             job_data = jobs[job_id].model_dump()
         else:
             return
+    
+    num_connections = len(manager.active_connections)
+    if num_connections > 0:
+        print(f"[WS] Broadcasting job {job_id} progress={job_data.get('progress', 0):.1f}% to {num_connections} clients")
+    
     await manager.broadcast({
         "type": "job_update",
         "job": job_data,
