@@ -297,6 +297,9 @@ class MLXTranscriber:
         Returns:
             Transcript object or None on failure
         """
+        import threading
+        import time
+        
         if not audio_path.exists():
             logger.error(f"Audio file not found: {audio_path}")
             return None
@@ -305,14 +308,64 @@ class MLXTranscriber:
             self._setup()
 
             logger.info(f"Transcribing with MLX-Whisper ({self.model_id})...")
-
-            # Run transcription
-            result = self._transcribe_fn(
-                str(audio_path),
-                path_or_hf_repo=self.model_id,
-                language=language,
-                verbose=False,
-            )
+            
+            # Get audio duration for progress estimation
+            audio_duration = self._get_audio_duration(audio_path)
+            # MLX-Whisper typically processes at ~0.5x real-time on M1/M2
+            # So a 60 min audio takes ~120 min to process
+            estimated_seconds = audio_duration * 2 if audio_duration > 0 else 600
+            
+            # Shared state for thread communication
+            result_holder = {"result": None, "error": None, "done": False}
+            
+            def do_transcribe():
+                """Run transcription in background thread."""
+                try:
+                    result_holder["result"] = self._transcribe_fn(
+                        str(audio_path),
+                        path_or_hf_repo=self.model_id,
+                        language=language,
+                        verbose=False,
+                    )
+                except Exception as e:
+                    result_holder["error"] = e
+                finally:
+                    result_holder["done"] = True
+            
+            # Start transcription in background
+            transcribe_thread = threading.Thread(target=do_transcribe, daemon=True)
+            transcribe_thread.start()
+            
+            # Simulate progress while waiting
+            start_time = time.time()
+            last_progress = 0
+            
+            while not result_holder["done"]:
+                elapsed = time.time() - start_time
+                
+                # Progress curve: approaches 90% asymptotically
+                if estimated_seconds > 0:
+                    ratio = min(elapsed / estimated_seconds, 3.0)
+                    progress = 0.90 * (1 - 1 / (1 + ratio * 1.2))
+                else:
+                    progress = min(elapsed / 600, 0.85)
+                
+                # Update every 2%
+                if progress_callback and progress >= last_progress + 0.02:
+                    progress_callback(progress)
+                    last_progress = progress
+                
+                time.sleep(1)
+            
+            # Wait for thread
+            transcribe_thread.join(timeout=5)
+            
+            if result_holder["error"]:
+                raise result_holder["error"]
+            
+            result = result_holder["result"]
+            if not result:
+                raise ValueError("No result from MLX-Whisper")
 
             # Parse results
             segments = []
@@ -324,11 +377,6 @@ class MLXTranscriber:
                     end=seg.get("end", 0),
                     text=seg.get("text", "").strip(),
                 ))
-                
-                # Update progress
-                if progress_callback and segments:
-                    # Estimate progress from segment timing
-                    progress_callback(min(seg.get("end", 0) / max(result.get("duration", 1), 1), 1.0))
 
             if progress_callback:
                 progress_callback(1.0)
@@ -351,6 +399,23 @@ class MLXTranscriber:
             import traceback
             logger.debug(traceback.format_exc())
             return None
+    
+    def _get_audio_duration(self, audio_path: Path) -> float:
+        """Get audio duration using ffprobe."""
+        try:
+            result = subprocess.run(
+                [
+                    "ffprobe", "-v", "quiet",
+                    "-show_entries", "format=duration",
+                    "-of", "default=noprint_wrappers=1:nokey=1",
+                    str(audio_path)
+                ],
+                capture_output=True,
+                text=True,
+            )
+            return float(result.stdout.strip())
+        except (subprocess.SubprocessError, ValueError):
+            return 0
 
 
 class APITranscriber:
