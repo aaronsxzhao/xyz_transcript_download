@@ -692,12 +692,27 @@ class APITranscriber:
         all_text = []
         time_offset = 0
 
+        # Create a cancel check function that uses progress_callback
+        # progress_callback raises CancelledException when cancelled
+        cancelled = [False]
+        def check_cancelled() -> bool:
+            if cancelled[0]:
+                return True
+            if progress_callback:
+                try:
+                    progress_callback(0)  # Dummy call to trigger cancellation check
+                except Exception as e:
+                    if "cancel" in str(e).lower() or "Cancel" in type(e).__name__:
+                        cancelled[0] = True
+                        return True
+            return False
+        
         with tempfile.TemporaryDirectory() as temp_dir:
             for i in range(num_chunks):
                 start_time = i * chunk_duration
                 chunk_path = Path(temp_dir) / f"chunk_{i}.mp3"
                 
-                # Update progress: splitting phase (0-10% of chunk)
+                # Update progress and CHECK CANCELLATION before extraction
                 if progress_callback:
                     chunk_base = i / num_chunks
                     progress_callback(chunk_base + 0.02 / num_chunks)
@@ -705,9 +720,20 @@ class APITranscriber:
                 # Retry chunk extraction up to 3 times
                 chunk_extracted = False
                 for attempt in range(3):
-                    if self._extract_chunk(audio_path, chunk_path, start_time, chunk_duration):
+                    # Check cancellation before each extraction attempt
+                    if check_cancelled():
+                        logger.info("Transcription cancelled during chunk extraction")
+                        return None
+                    
+                    if self._extract_chunk(audio_path, chunk_path, start_time, chunk_duration, cancel_check=check_cancelled):
                         chunk_extracted = True
                         break
+                    
+                    # Check if we were cancelled vs extraction failed
+                    if check_cancelled():
+                        logger.info("Transcription cancelled during chunk extraction")
+                        return None
+                        
                     logger.warning(f"Chunk {i+1} extraction attempt {attempt+1} failed, retrying...")
                     import time
                     time.sleep(1)  # Wait before retry
@@ -787,12 +813,18 @@ class APITranscriber:
         output_path: Path,
         start_time: float,
         duration: float,
+        cancel_check: Optional[Callable[[], bool]] = None,
     ) -> bool:
-        """Extract a chunk from audio file using ffmpeg."""
+        """Extract a chunk from audio file using ffmpeg.
+        
+        Args:
+            cancel_check: Optional function that returns True if cancelled.
+                          Called periodically during extraction.
+        """
+        import time
         try:
-            # Timeout: allow up to 60 seconds per chunk (generous for slow systems)
-            # This prevents hanging when multiple ffmpeg processes compete for resources
-            subprocess.run(
+            # Use Popen for interruptible extraction
+            process = subprocess.Popen(
                 [
                     FFMPEG_PATH, "-y", "-v", "quiet",
                     "-i", str(input_path),
@@ -802,13 +834,39 @@ class APITranscriber:
                     "-ab", "64k",
                     str(output_path)
                 ],
-                check=True,
-                timeout=600,  # 10 minutes - Render's CPU is slow
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
             )
-            return output_path.exists()
-        except subprocess.TimeoutExpired:
+            
+            # Poll with cancellation check every 2 seconds
+            max_wait = 600  # 10 minutes max
+            elapsed = 0
+            while elapsed < max_wait:
+                # Check if cancelled
+                if cancel_check and cancel_check():
+                    logger.info("Chunk extraction cancelled by user")
+                    process.kill()
+                    process.wait()
+                    return False
+                
+                # Check if process finished
+                ret = process.poll()
+                if ret is not None:
+                    if ret == 0:
+                        return output_path.exists()
+                    else:
+                        logger.warning(f"ffmpeg exited with code {ret}")
+                        return False
+                
+                time.sleep(2)
+                elapsed += 2
+            
+            # Timeout - kill process
             logger.warning(f"Chunk extraction timed out after 600s: {start_time}s-{start_time+duration}s")
+            process.kill()
+            process.wait()
             return False
+            
         except subprocess.SubprocessError as e:
             logger.warning(f"Chunk extraction failed: {e}")
             return False
