@@ -866,12 +866,15 @@ class APITranscriber:
         """
         import time
         try:
+            logger.info(f"✓ Extracting chunk at {start_time:.0f}s ({duration:.0f}s duration)...")
+            
             # Use Popen for interruptible extraction
+            # -ss BEFORE -i enables fast input seeking (seeks without decoding)
             process = subprocess.Popen(
                 [
                     FFMPEG_PATH, "-y", "-v", "quiet",
-                    "-i", str(input_path),
                     "-ss", str(start_time),
+                    "-i", str(input_path),
                     "-t", str(duration),
                     "-acodec", "libmp3lame",
                     "-ab", "64k",

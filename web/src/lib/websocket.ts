@@ -16,16 +16,11 @@ let wsWorking = false  // Track if WebSocket is successfully receiving updates
 let lastMessageTime = 0  // Track last message for stale connection detection
 let staleCheckInterval: number | null = null
 
-// Poll for job updates (fallback when WebSocket fails, or backup for active jobs)
+// Poll for job updates (fallback when WebSocket fails)
 async function pollJobs() {
-  const jobs = useStore.getState().jobs
-  const hasActiveJobs = jobs.some(job => 
-    !['completed', 'failed', 'cancelled'].includes(job.status)
-  )
-  
-  // Skip polling if WebSocket is working AND we recently got a message AND no active jobs
-  // Always poll (slowly) if there are active jobs, as backup
-  if (wsWorking && ws?.readyState === WebSocket.OPEN && !hasActiveJobs) {
+  // Skip polling entirely if WebSocket is working
+  // Stale connection detection (30s timeout) handles WebSocket failures
+  if (wsWorking && ws?.readyState === WebSocket.OPEN) {
     return
   }
   
@@ -45,9 +40,9 @@ async function pollJobs() {
         !['completed', 'failed', 'cancelled'].includes(job.status)
       )
       
-      // Switch between fast (2s) and slow (10s) polling
-      // Keep polling faster if we have active jobs (as WebSocket backup)
-      const desiredInterval = stillHasActiveJobs ? 2000 : 10000
+      // Poll faster (3s) if there are active jobs and WebSocket is down
+      // Otherwise slow poll (15s) to check for new jobs
+      const desiredInterval = stillHasActiveJobs ? 3000 : 15000
       if (pollInterval) {
         clearInterval(pollInterval)
         pollInterval = window.setInterval(pollJobs, desiredInterval)
