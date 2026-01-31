@@ -27,7 +27,7 @@ function getAuthHeaders(contentType?: string): HeadersInit {
 /**
  * Authenticated fetch wrapper
  */
-async function authFetch(url: string, options: RequestInit = {}): Promise<Response> {
+export async function authFetch(url: string, options: RequestInit = {}): Promise<Response> {
   const headers = {
     ...getAuthHeaders(),
     ...options.headers,
@@ -43,6 +43,7 @@ export interface Podcast {
   description: string
   cover_url: string
   episode_count: number
+  summarized_count: number
 }
 
 export interface Episode {

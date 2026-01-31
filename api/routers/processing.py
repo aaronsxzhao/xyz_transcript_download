@@ -850,3 +850,111 @@ async def batch_process(data: BatchProcessRequest, background_tasks: BackgroundT
         "episode_count": len(episodes),
         "job_ids": job_ids,
     }
+
+
+@router.get("/truncated")
+async def get_truncated_transcripts(
+    threshold: float = 0.85,
+    user: Optional[User] = Depends(get_current_user)
+):
+    """
+    Find transcripts that appear to be truncated.
+    
+    A transcript is considered truncated if its duration is less than
+    the threshold (default 85%) of the episode's expected duration.
+    
+    Args:
+        threshold: Minimum acceptable ratio of transcript/episode duration (0.0-1.0)
+    
+    Returns:
+        List of truncated transcripts with episode info
+    """
+    from api.db import get_db
+    
+    db = get_db(user.id if user else None)
+    truncated = db.get_truncated_transcripts(threshold)
+    
+    return {
+        "count": len(truncated),
+        "threshold_percent": round(threshold * 100, 1),
+        "truncated": truncated,
+    }
+
+
+@router.delete("/truncated/{episode_id}")
+async def delete_truncated_data(
+    episode_id: str,
+    delete_summary: bool = True,
+    user: Optional[User] = Depends(get_current_user)
+):
+    """
+    Delete truncated transcript (and optionally summary) for an episode.
+    
+    This allows the episode to be reprocessed from scratch.
+    
+    Args:
+        episode_id: The episode ID to clean up
+        delete_summary: Also delete the summary (default: True, since summary is based on truncated transcript)
+    """
+    from api.db import get_db
+    
+    db = get_db(user.id if user else None)
+    
+    deleted_transcript = db.delete_transcript(episode_id)
+    deleted_summary = False
+    
+    if delete_summary:
+        deleted_summary = db.delete_summary(episode_id)
+    
+    return {
+        "episode_id": episode_id,
+        "deleted_transcript": deleted_transcript,
+        "deleted_summary": deleted_summary,
+    }
+
+
+@router.post("/truncated/cleanup")
+async def cleanup_truncated_data(
+    threshold: float = 0.85,
+    delete_summaries: bool = True,
+    user: Optional[User] = Depends(get_current_user)
+):
+    """
+    Find and delete all truncated transcripts (and optionally summaries).
+    
+    This cleans up all incomplete data so episodes can be reprocessed.
+    
+    Args:
+        threshold: Minimum acceptable ratio of transcript/episode duration (0.0-1.0)
+        delete_summaries: Also delete summaries for truncated episodes (default: True)
+    
+    Returns:
+        Summary of deleted items
+    """
+    from api.db import get_db
+    
+    db = get_db(user.id if user else None)
+    truncated = db.get_truncated_transcripts(threshold)
+    
+    deleted = []
+    for item in truncated:
+        episode_id = item["episode_id"]
+        deleted_transcript = db.delete_transcript(episode_id)
+        deleted_summary = False
+        
+        if delete_summaries:
+            deleted_summary = db.delete_summary(episode_id)
+        
+        deleted.append({
+            "episode_id": episode_id,
+            "episode_title": item["episode_title"],
+            "percentage": item["percentage"],
+            "deleted_transcript": deleted_transcript,
+            "deleted_summary": deleted_summary,
+        })
+    
+    return {
+        "message": f"Cleaned up {len(deleted)} truncated transcripts",
+        "threshold_percent": round(threshold * 100, 1),
+        "deleted": deleted,
+    }

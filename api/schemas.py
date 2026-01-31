@@ -18,6 +18,7 @@ class PodcastCreate(BaseModel):
 class PodcastResponse(PodcastBase):
     pid: str
     episode_count: int = 0
+    summarized_count: int = 0
     
     class Config:
         from_attributes = True

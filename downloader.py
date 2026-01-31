@@ -27,6 +27,25 @@ except ImportError:
     FFMPEG_PATH = "ffmpeg"
 
 
+def _get_audio_duration_ffprobe(audio_path: Path) -> float:
+    """Get audio duration in seconds using ffprobe."""
+    try:
+        result = subprocess.run(
+            [
+                "ffprobe", "-v", "quiet",
+                "-show_entries", "format=duration",
+                "-of", "default=noprint_wrappers=1:nokey=1",
+                str(audio_path)
+            ],
+            capture_output=True,
+            text=True,
+            timeout=30
+        )
+        return float(result.stdout.strip())
+    except (subprocess.SubprocessError, ValueError):
+        return 0
+
+
 def compress_audio(input_path: Path, output_path: Optional[Path] = None) -> Optional[Path]:
     """
     Compress audio for fast processing.
@@ -56,11 +75,34 @@ def compress_audio(input_path: Path, output_path: Optional[Path] = None) -> Opti
     # Skip if compressed version already exists and is newer
     if output_path.exists():
         if output_path.stat().st_mtime >= input_path.stat().st_mtime:
-            logger.info(f"Using existing compressed audio: {output_path}")
-            return output_path
+            # Verify the cached compressed file has the same duration as the original
+            # This prevents using truncated files from previous timed-out compressions
+            input_duration = _get_audio_duration_ffprobe(input_path)
+            output_duration = _get_audio_duration_ffprobe(output_path)
+            
+            # Allow 1 second tolerance for duration comparison
+            if input_duration > 0 and output_duration > 0 and abs(input_duration - output_duration) <= 1:
+                logger.info(f"Using existing compressed audio: {output_path} ({output_duration/60:.1f} min)")
+                return output_path
+            elif input_duration > 0 and output_duration > 0:
+                # Compressed file is truncated, delete and re-compress
+                logger.warning(f"Cached compressed audio is truncated ({output_duration/60:.1f}min vs {input_duration/60:.1f}min), re-compressing...")
+                try:
+                    output_path.unlink()
+                except OSError:
+                    pass
+            # If we can't determine duration, proceed with compression to be safe
     
     try:
-        logger.info(f"Compressing audio: {input_path.name} -> {output_path.name}")
+        # Get input file size to estimate timeout
+        # For compression, ffmpeg typically processes at ~10x real-time on slow machines
+        # So a 100 minute audio should complete in ~10 minutes
+        # We use input file size as a proxy: ~1MB per minute of audio at 128kbps
+        input_size_mb = input_path.stat().st_size / (1024 * 1024)
+        # Estimate: 1 minute per 10MB of input, minimum 5 minutes, maximum 60 minutes
+        estimated_timeout = max(300, min(3600, int(input_size_mb * 6)))
+        
+        logger.info(f"Compressing audio: {input_path.name} -> {output_path.name} (timeout: {estimated_timeout}s)")
         
         # ffmpeg command for speech-optimized compression
         cmd = [
@@ -78,12 +120,32 @@ def compress_audio(input_path: Path, output_path: Optional[Path] = None) -> Opti
             cmd,
             capture_output=True,
             text=True,
-            timeout=300  # 5 minute timeout
+            timeout=estimated_timeout
         )
         
         if result.returncode != 0:
             logger.error(f"ffmpeg compression failed: {result.stderr}")
+            # Clean up partial output
+            if output_path.exists():
+                try:
+                    output_path.unlink()
+                except OSError:
+                    pass
             return None
+        
+        # Verify output duration matches input duration
+        input_duration = _get_audio_duration_ffprobe(input_path)
+        output_duration = _get_audio_duration_ffprobe(output_path)
+        
+        if input_duration > 0 and output_duration > 0:
+            if abs(input_duration - output_duration) > 1:
+                logger.error(f"Compressed audio duration mismatch: {output_duration/60:.1f}min vs expected {input_duration/60:.1f}min")
+                # Clean up incomplete file
+                try:
+                    output_path.unlink()
+                except OSError:
+                    pass
+                return None
         
         # Log compression ratio
         original_size = input_path.stat().st_size
@@ -95,10 +157,23 @@ def compress_audio(input_path: Path, output_path: Optional[Path] = None) -> Opti
         return output_path
         
     except subprocess.TimeoutExpired:
-        logger.error("Audio compression timed out")
+        logger.error(f"Audio compression timed out after {estimated_timeout}s")
+        # Clean up partial output file to prevent reuse
+        if output_path.exists():
+            try:
+                output_path.unlink()
+                logger.info("Deleted partial compressed file")
+            except OSError:
+                pass
         return None
     except Exception as e:
         logger.error(f"Audio compression failed: {e}")
+        # Clean up partial output
+        if output_path.exists():
+            try:
+                output_path.unlink()
+            except OSError:
+                pass
         return None
 
 

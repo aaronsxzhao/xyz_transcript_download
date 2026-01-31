@@ -496,6 +496,83 @@ class SupabaseDatabase:
             pid = r["pid"]
             counts[pid] = counts.get(pid, 0) + 1
         return counts
+    
+    def get_summarized_counts_by_podcast(self, user_id: str) -> Dict[str, int]:
+        """Get counts of episodes with summaries for all podcasts."""
+        if not self.client:
+            return {}
+        
+        # Get all episode_ids that have summaries
+        summary_result = self.client.table("summaries").select("episode_id").eq("user_id", user_id).execute()
+        summary_episode_ids = {r["episode_id"] for r in summary_result.data}
+        
+        if not summary_episode_ids:
+            return {}
+        
+        # Get pid for each episode that has a summary
+        episodes_result = self.client.table("episodes").select("eid, pid").eq("user_id", user_id).execute()
+        
+        counts: Dict[str, int] = {}
+        for ep in episodes_result.data:
+            if ep["eid"] in summary_episode_ids:
+                pid = ep["pid"]
+                counts[pid] = counts.get(pid, 0) + 1
+        
+        return counts
+    
+    def get_truncated_transcripts(self, user_id: str, threshold: float = 0.85) -> List[Dict[str, Any]]:
+        """
+        Find transcripts that appear to be truncated.
+        
+        A transcript is considered truncated if its duration is less than
+        threshold (default 85%) of the episode's expected duration.
+        
+        Returns list of dicts with episode_id, episode_title, episode_duration, 
+        transcript_duration, and percentage.
+        """
+        if not self.client:
+            return []
+        
+        # Get all transcripts with duration
+        transcripts_result = self.client.table("transcripts").select(
+            "episode_id, duration"
+        ).eq("user_id", user_id).execute()
+        
+        if not transcripts_result.data:
+            return []
+        
+        transcript_durations = {
+            r["episode_id"]: r["duration"] 
+            for r in transcripts_result.data
+        }
+        
+        # Get all episodes with duration
+        episodes_result = self.client.table("episodes").select(
+            "eid, pid, title, duration"
+        ).eq("user_id", user_id).execute()
+        
+        truncated = []
+        for ep in episodes_result.data:
+            episode_duration = ep["duration"]
+            if episode_duration <= 0:
+                continue
+            
+            transcript_duration = transcript_durations.get(ep["eid"])
+            if transcript_duration is None:
+                continue
+            
+            percentage = transcript_duration / episode_duration
+            if percentage < threshold:
+                truncated.append({
+                    "episode_id": ep["eid"],
+                    "pid": ep["pid"],
+                    "episode_title": ep["title"],
+                    "episode_duration": episode_duration,
+                    "transcript_duration": transcript_duration,
+                    "percentage": round(percentage * 100, 1),
+                })
+        
+        return truncated
 
 
 # Singleton instance

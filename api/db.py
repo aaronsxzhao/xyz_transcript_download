@@ -475,6 +475,76 @@ class DatabaseInterface:
             if not summaries_dir.exists():
                 return set()
             return {f.stem for f in summaries_dir.glob("*.json") if not f.stem.startswith(".")}
+    
+    def get_summarized_counts_by_podcast(self) -> Dict[str, int]:
+        """Get counts of episodes with summaries for all podcasts."""
+        if self.use_supabase:
+            return self.db.get_summarized_counts_by_podcast(self.user_id)
+        else:
+            # Local: count summaries per podcast
+            summary_ids = self.get_summary_episode_ids()
+            podcasts = self.db.get_all_podcasts()
+            counts: Dict[str, int] = {}
+            for p in podcasts:
+                episodes = self.db.get_episodes_by_podcast(p.pid)
+                count = sum(1 for ep in episodes if ep.eid in summary_ids)
+                if count > 0:
+                    counts[p.pid] = count
+            return counts
+    
+    def get_truncated_transcripts(self, threshold: float = 0.85) -> List[Dict[str, Any]]:
+        """
+        Find transcripts that appear to be truncated.
+        
+        A transcript is considered truncated if its duration is less than
+        threshold (default 85%) of the episode's expected duration.
+        
+        Returns list of dicts with episode_id, episode_title, episode_duration, 
+        transcript_duration, and percentage.
+        """
+        if self.use_supabase:
+            return self.db.get_truncated_transcripts(self.user_id, threshold)
+        else:
+            # Local: check transcript files against episode durations
+            truncated = []
+            podcasts = self.db.get_all_podcasts()
+            transcripts_dir = DATA_DIR / "transcripts"
+            
+            if not transcripts_dir.exists():
+                return []
+            
+            for p in podcasts:
+                episodes = self.db.get_episodes_by_podcast(p.pid)
+                for ep in episodes:
+                    if ep.duration <= 0:
+                        continue
+                    
+                    transcript_path = transcripts_dir / f"{ep.eid}.json"
+                    if not transcript_path.exists():
+                        continue
+                    
+                    try:
+                        with open(transcript_path, "r", encoding="utf-8") as f:
+                            data = json.load(f)
+                        transcript_duration = data.get("duration", 0)
+                        
+                        if transcript_duration <= 0:
+                            continue
+                        
+                        percentage = transcript_duration / ep.duration
+                        if percentage < threshold:
+                            truncated.append({
+                                "episode_id": ep.eid,
+                                "pid": ep.pid,
+                                "episode_title": ep.title,
+                                "episode_duration": ep.duration,
+                                "transcript_duration": transcript_duration,
+                                "percentage": round(percentage * 100, 1),
+                            })
+                    except (json.JSONDecodeError, IOError):
+                        continue
+            
+            return truncated
 
 
 def get_db(user_id: Optional[str] = None) -> DatabaseInterface:

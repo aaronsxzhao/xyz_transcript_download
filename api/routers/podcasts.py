@@ -25,10 +25,11 @@ async def list_podcasts(user: Optional[User] = Depends(get_current_user)):
     
     db = get_db(user.id if user else None)
     
-    # Fetch podcasts and episode counts in parallel (2 queries instead of N+1)
-    podcasts, episode_counts = await asyncio.gather(
+    # Fetch podcasts, episode counts, and summarized counts in parallel (3 queries instead of N+1)
+    podcasts, episode_counts, summarized_counts = await asyncio.gather(
         run_sync(db.get_all_podcasts),
         run_sync(db.get_episode_counts_by_podcast),
+        run_sync(db.get_summarized_counts_by_podcast),
     )
     
     return [
@@ -39,6 +40,7 @@ async def list_podcasts(user: Optional[User] = Depends(get_current_user)):
             description=p.description,
             cover_url=p.cover_url,
             episode_count=episode_counts.get(p.pid, 0),
+            summarized_count=summarized_counts.get(p.pid, 0),
         )
         for p in podcasts
     ]
@@ -121,6 +123,7 @@ async def add_podcast(data: PodcastCreate, user: Optional[User] = Depends(get_cu
         description=podcast.description,
         cover_url=podcast.cover_url,
         episode_count=len(episodes),
+        summarized_count=0,  # New podcast, no summaries yet
     )
 
 
@@ -134,7 +137,14 @@ async def get_podcast(pid: str, user: Optional[User] = Depends(get_current_user)
     if not podcast:
         raise HTTPException(status_code=404, detail="Podcast not found")
     
-    episodes = await run_sync(db.get_episodes_by_podcast, pid)
+    # Fetch episodes and summary IDs in parallel
+    episodes, summary_ids = await asyncio.gather(
+        run_sync(db.get_episodes_by_podcast, pid),
+        run_sync(db.get_summary_episode_ids),
+    )
+    
+    # Count episodes with summaries
+    summarized_count = sum(1 for ep in episodes if ep.eid in summary_ids)
     
     return PodcastResponse(
         pid=podcast.pid,
@@ -143,6 +153,7 @@ async def get_podcast(pid: str, user: Optional[User] = Depends(get_current_user)
         description=podcast.description,
         cover_url=podcast.cover_url,
         episode_count=len(episodes),
+        summarized_count=summarized_count,
     )
 
 

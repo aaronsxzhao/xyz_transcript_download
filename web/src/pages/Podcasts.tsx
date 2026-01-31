@@ -186,7 +186,10 @@ export default function Podcasts() {
                       {podcast.description || 'No description'}
                     </p>
                     <p className="text-sm text-indigo-400 mt-1 md:mt-2">
-                      {podcast.episode_count} episodes
+                      {podcast.summarized_count > 0 
+                        ? `${podcast.summarized_count} / ${podcast.episode_count} summarized`
+                        : `${podcast.episode_count} episodes`
+                      }
                     </p>
                   </div>
                 </div>
