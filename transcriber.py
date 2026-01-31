@@ -252,6 +252,69 @@ class FastLocalTranscriber:
             return None
 
 
+def _mlx_transcribe_process(audio_path_str: str, model_id: str, language: str, result_dict):
+    """
+    Module-level function for MLX transcription in subprocess.
+    Must be at module level for pickling to work with multiprocessing.
+    """
+    import sys
+    import re
+    
+    try:
+        import mlx_whisper
+    except ImportError:
+        result_dict["error"] = "mlx-whisper not installed"
+        result_dict["done"] = True
+        return
+    
+    # Capture tqdm progress from stderr/stdout
+    class ProgressCapture:
+        def __init__(self, original):
+            self.original = original
+            self.progress_pattern = re.compile(r'\s*(\d+)%\|')
+        
+        def write(self, text):
+            if self.original:
+                self.original.write(text)
+                self.original.flush()
+            
+            match = self.progress_pattern.search(text)
+            if match:
+                try:
+                    pct = int(match.group(1))
+                    if pct < 100:
+                        result_dict["progress"] = pct / 100.0
+                except ValueError:
+                    pass
+        
+        def flush(self):
+            if self.original:
+                self.original.flush()
+        
+        def isatty(self):
+            return self.original.isatty() if self.original else False
+    
+    original_stderr = sys.stderr
+    original_stdout = sys.stdout
+    sys.stderr = ProgressCapture(original_stderr)
+    sys.stdout = ProgressCapture(original_stdout)
+    
+    try:
+        result = mlx_whisper.transcribe(
+            audio_path_str,
+            path_or_hf_repo=model_id,
+            language=language,
+            verbose=False,
+        )
+        result_dict["result"] = result
+    except Exception as e:
+        result_dict["error"] = str(e)
+    finally:
+        sys.stderr = original_stderr
+        sys.stdout = original_stdout
+        result_dict["done"] = True
+
+
 class MLXTranscriber:
     """
     Fast transcription using mlx-whisper on Apple Silicon.
@@ -323,64 +386,10 @@ class MLXTranscriber:
             result_dict["done"] = False
             result_dict["progress"] = 0.0
             
-            def do_transcribe(audio_path_str, model_id, lang, result_dict):
-                """Run transcription in subprocess."""
-                import sys
-                import re
-                
-                # Import mlx_whisper in the subprocess
-                import mlx_whisper
-                
-                # Create a custom stream wrapper to capture tqdm output
-                class ProgressCapture:
-                    def __init__(self, original):
-                        self.original = original
-                        self.progress_pattern = re.compile(r'\s*(\d+)%\|')
-                    
-                    def write(self, text):
-                        if self.original:
-                            self.original.write(text)
-                            self.original.flush()
-                        
-                        match = self.progress_pattern.search(text)
-                        if match:
-                            try:
-                                pct = int(match.group(1))
-                                if pct < 100:
-                                    result_dict["progress"] = pct / 100.0
-                            except ValueError:
-                                pass
-                    
-                    def flush(self):
-                        if self.original:
-                            self.original.flush()
-                    
-                    def isatty(self):
-                        return self.original.isatty() if self.original else False
-                
-                original_stderr = sys.stderr
-                original_stdout = sys.stdout
-                sys.stderr = ProgressCapture(original_stderr)
-                sys.stdout = ProgressCapture(original_stdout)
-                
-                try:
-                    result = mlx_whisper.transcribe(
-                        audio_path_str,
-                        path_or_hf_repo=model_id,
-                        language=lang,
-                        verbose=False,
-                    )
-                    result_dict["result"] = result
-                except Exception as e:
-                    result_dict["error"] = str(e)
-                finally:
-                    sys.stderr = original_stderr
-                    sys.stdout = original_stdout
-                    result_dict["done"] = True
-            
             # Start transcription in subprocess (can be killed!)
+            # Uses module-level function for pickling compatibility
             process = multiprocessing.Process(
-                target=do_transcribe,
+                target=_mlx_transcribe_process,
                 args=(str(audio_path), self.model_id, language, result_dict),
                 daemon=True
             )
