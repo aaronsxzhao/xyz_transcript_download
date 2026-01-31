@@ -420,10 +420,13 @@ class MLXTranscriber:
                     else:
                         progress = min(elapsed / 600, 0.90)
                 
-                # Update every 2% - this will raise CancelledException if cancelled
-                if progress_callback and progress >= last_reported + 0.02:
+                # ALWAYS call progress_callback on every iteration
+                # This ensures cancellation is checked even if progress isn't advancing
+                # The callback itself handles rate-limiting status updates
+                if progress_callback:
                     progress_callback(progress)
-                    last_reported = progress
+                    if progress >= last_reported + 0.02:
+                        last_reported = progress
                 
                 time.sleep(0.5)
             
