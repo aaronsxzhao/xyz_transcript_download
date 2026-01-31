@@ -309,17 +309,42 @@ class MLXTranscriber:
 
             logger.info(f"Transcribing with MLX-Whisper ({self.model_id})...")
             
-            # Get audio duration for progress estimation
-            audio_duration = self._get_audio_duration(audio_path)
-            # MLX-Whisper typically processes at ~0.5x real-time on M1/M2
-            # So a 60 min audio takes ~120 min to process
-            estimated_seconds = audio_duration * 2 if audio_duration > 0 else 600
-            
             # Shared state for thread communication
-            result_holder = {"result": None, "error": None, "done": False}
+            result_holder = {"result": None, "error": None, "done": False, "progress": 0.0}
             
             def do_transcribe():
-                """Run transcription in background thread."""
+                """Run transcription in background thread with progress capture."""
+                import sys
+                import io
+                import re
+                
+                # Create a custom stderr wrapper to capture tqdm output
+                class ProgressCapture:
+                    def __init__(self, original):
+                        self.original = original
+                        self.progress_pattern = re.compile(r'(\d+)%\|')
+                    
+                    def write(self, text):
+                        # Write to original stderr so user still sees it
+                        self.original.write(text)
+                        self.original.flush()
+                        
+                        # Try to parse progress percentage from tqdm output
+                        match = self.progress_pattern.search(text)
+                        if match:
+                            try:
+                                pct = int(match.group(1))
+                                result_holder["progress"] = pct / 100.0
+                            except ValueError:
+                                pass
+                    
+                    def flush(self):
+                        self.original.flush()
+                
+                # Capture stderr to parse tqdm progress
+                original_stderr = sys.stderr
+                sys.stderr = ProgressCapture(original_stderr)
+                
                 try:
                     result_holder["result"] = self._transcribe_fn(
                         str(audio_path),
@@ -330,32 +355,26 @@ class MLXTranscriber:
                 except Exception as e:
                     result_holder["error"] = e
                 finally:
+                    sys.stderr = original_stderr
                     result_holder["done"] = True
             
             # Start transcription in background
             transcribe_thread = threading.Thread(target=do_transcribe, daemon=True)
             transcribe_thread.start()
             
-            # Simulate progress while waiting
-            start_time = time.time()
+            # Report real progress from captured tqdm output
             last_progress = 0
             
             while not result_holder["done"]:
-                elapsed = time.time() - start_time
+                # Get real progress from tqdm capture
+                progress = result_holder["progress"]
                 
-                # Progress curve: approaches 90% asymptotically
-                if estimated_seconds > 0:
-                    ratio = min(elapsed / estimated_seconds, 3.0)
-                    progress = 0.90 * (1 - 1 / (1 + ratio * 1.2))
-                else:
-                    progress = min(elapsed / 600, 0.85)
-                
-                # Update every 2%
-                if progress_callback and progress >= last_progress + 0.02:
+                # Update every 1% change
+                if progress_callback and progress > last_progress + 0.01:
                     progress_callback(progress)
                     last_progress = progress
                 
-                time.sleep(1)
+                time.sleep(0.5)  # Check more frequently for smoother updates
             
             # Wait for thread
             transcribe_thread.join(timeout=5)
