@@ -1,5 +1,10 @@
 /**
  * WebSocket client for real-time updates with polling fallback
+ * 
+ * Strategy:
+ * - WebSocket is primary for real-time updates
+ * - Polling is fallback only when WebSocket fails
+ * - Only ONE polling interval runs at a time (fast OR regular, not both)
  */
 import { useStore } from './store'
 import { authFetch, type ProcessingJob } from './api'
@@ -7,12 +12,16 @@ import { authFetch, type ProcessingJob } from './api'
 let ws: WebSocket | null = null
 let reconnectTimeout: number | null = null
 let pollInterval: number | null = null
-let fastPollInterval: number | null = null
+let wsWorking = false  // Track if WebSocket is successfully receiving updates
 
-// Poll for job updates as fallback (with auth)
+// Poll for job updates (fallback when WebSocket fails)
 async function pollJobs() {
+  // Skip polling if WebSocket is working
+  if (wsWorking && ws?.readyState === WebSocket.OPEN) {
+    return
+  }
+  
   try {
-    // Use authFetch to include credentials for authenticated users
     const response = await authFetch('/api/jobs')
     if (response.ok) {
       const data = await response.json()
@@ -23,51 +32,33 @@ async function pollJobs() {
         useStore.getState().updateJob(job)
       })
       
-      // Manage fast polling based on active jobs
+      // Adjust polling speed based on active jobs
       const hasActiveJobs = jobs.some(job => 
         !['completed', 'failed', 'cancelled'].includes(job.status)
       )
       
-      if (hasActiveJobs && !fastPollInterval) {
-        startFastPolling()
-      } else if (!hasActiveJobs && fastPollInterval) {
-        stopFastPolling()
+      // Switch between fast (1s) and slow (5s) polling
+      const desiredInterval = hasActiveJobs ? 1000 : 5000
+      if (pollInterval) {
+        // Update interval if needed by restarting
+        clearInterval(pollInterval)
+        pollInterval = window.setInterval(pollJobs, desiredInterval)
       }
     }
   } catch (e) {
-    // Silently fail - polling is just a fallback
     console.debug('Poll failed:', e)
-  }
-}
-
-// Fast polling (every 500ms) for smooth progress updates during active jobs
-function startFastPolling() {
-  if (fastPollInterval) return
-  
-  fastPollInterval = window.setInterval(() => {
-    pollJobs()
-  }, 500)
-}
-
-function stopFastPolling() {
-  if (fastPollInterval) {
-    clearInterval(fastPollInterval)
-    fastPollInterval = null
   }
 }
 
 function startPolling() {
   if (pollInterval) return
   
-  // Poll immediately, then every 3 seconds for checking new jobs
+  // Start with slow polling (5s), will speed up if active jobs detected
   pollJobs()
-  pollInterval = window.setInterval(() => {
-    pollJobs()
-  }, 3000)
+  pollInterval = window.setInterval(pollJobs, 5000)
 }
 
 function stopPolling() {
-  stopFastPolling()
   if (pollInterval) {
     clearInterval(pollInterval)
     pollInterval = null
@@ -77,11 +68,10 @@ function stopPolling() {
 export function connectWebSocket() {
   if (ws?.readyState === WebSocket.OPEN) return
   
-  // Start polling as fallback
+  // Start polling as fallback (will stop if WebSocket works)
   startPolling()
   
   const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
-  // Use current host and port (works for both dev and production)
   const wsUrl = `${protocol}//${window.location.host}/api/ws/progress`
   
   ws = new WebSocket(wsUrl)
@@ -94,6 +84,7 @@ export function connectWebSocket() {
   ws.onclose = () => {
     console.log('WebSocket disconnected')
     useStore.getState().setWsConnected(false)
+    wsWorking = false
     
     // Reconnect after 3 seconds
     reconnectTimeout = window.setTimeout(() => {
@@ -103,16 +94,21 @@ export function connectWebSocket() {
   
   ws.onerror = (error) => {
     console.error('WebSocket error:', error)
+    wsWorking = false
   }
   
   ws.onmessage = (event) => {
     try {
       const data = JSON.parse(event.data)
       
+      // Mark WebSocket as working on first successful message
+      if (!wsWorking) {
+        wsWorking = true
+        console.log('WebSocket receiving updates, polling paused')
+      }
+      
       switch (data.type) {
         case 'init':
-          // Merge with existing jobs to preserve any locally-added jobs
-          // that haven't been synced to server yet
           useStore.getState().mergeJobs(data.jobs || [])
           break
         
@@ -123,7 +119,6 @@ export function connectWebSocket() {
           break
         
         case 'heartbeat':
-          // Send pong
           if (ws?.readyState === WebSocket.OPEN) {
             ws.send(JSON.stringify({ type: 'ping' }))
           }
