@@ -803,11 +803,11 @@ class APITranscriber:
                     str(output_path)
                 ],
                 check=True,
-                timeout=60,
+                timeout=600,  # 10 minutes - Render's CPU is slow
             )
             return output_path.exists()
         except subprocess.TimeoutExpired:
-            logger.warning(f"Chunk extraction timed out: {start_time}s-{start_time+duration}s")
+            logger.warning(f"Chunk extraction timed out after 600s: {start_time}s-{start_time+duration}s")
             return False
         except subprocess.SubprocessError as e:
             logger.warning(f"Chunk extraction failed: {e}")
