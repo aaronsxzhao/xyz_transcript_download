@@ -13,11 +13,19 @@ let ws: WebSocket | null = null
 let reconnectTimeout: number | null = null
 let pollInterval: number | null = null
 let wsWorking = false  // Track if WebSocket is successfully receiving updates
+let lastMessageTime = 0  // Track last message for stale connection detection
+let staleCheckInterval: number | null = null
 
-// Poll for job updates (fallback when WebSocket fails)
+// Poll for job updates (fallback when WebSocket fails, or backup for active jobs)
 async function pollJobs() {
-  // Skip polling if WebSocket is working
-  if (wsWorking && ws?.readyState === WebSocket.OPEN) {
+  const jobs = useStore.getState().jobs
+  const hasActiveJobs = jobs.some(job => 
+    !['completed', 'failed', 'cancelled'].includes(job.status)
+  )
+  
+  // Skip polling if WebSocket is working AND we recently got a message AND no active jobs
+  // Always poll (slowly) if there are active jobs, as backup
+  if (wsWorking && ws?.readyState === WebSocket.OPEN && !hasActiveJobs) {
     return
   }
   
@@ -25,22 +33,22 @@ async function pollJobs() {
     const response = await authFetch('/api/jobs')
     if (response.ok) {
       const data = await response.json()
-      const jobs: ProcessingJob[] = data.jobs || []
+      const serverJobs: ProcessingJob[] = data.jobs || []
       
       // Update each job in the store
-      jobs.forEach(job => {
+      serverJobs.forEach(job => {
         useStore.getState().updateJob(job)
       })
       
-      // Adjust polling speed based on active jobs
-      const hasActiveJobs = jobs.some(job => 
+      // Check if any jobs are active after update
+      const stillHasActiveJobs = serverJobs.some(job => 
         !['completed', 'failed', 'cancelled'].includes(job.status)
       )
       
-      // Switch between fast (1s) and slow (5s) polling
-      const desiredInterval = hasActiveJobs ? 1000 : 5000
+      // Switch between fast (2s) and slow (10s) polling
+      // Keep polling faster if we have active jobs (as WebSocket backup)
+      const desiredInterval = stillHasActiveJobs ? 2000 : 10000
       if (pollInterval) {
-        // Update interval if needed by restarting
         clearInterval(pollInterval)
         pollInterval = window.setInterval(pollJobs, desiredInterval)
       }
@@ -100,6 +108,7 @@ export function connectWebSocket() {
   ws.onmessage = (event) => {
     try {
       const data = JSON.parse(event.data)
+      lastMessageTime = Date.now()
       
       // Mark WebSocket as working on first successful message
       if (!wsWorking) {
@@ -109,11 +118,13 @@ export function connectWebSocket() {
       
       switch (data.type) {
         case 'init':
+          console.log('WebSocket init:', data.jobs?.length || 0, 'jobs')
           useStore.getState().mergeJobs(data.jobs || [])
           break
         
         case 'job_update':
           if (data.job) {
+            console.log('WebSocket job_update:', data.job.job_id, data.job.progress?.toFixed(1) + '%')
             useStore.getState().updateJob(data.job)
           }
           break
@@ -128,6 +139,25 @@ export function connectWebSocket() {
       console.error('Failed to parse WebSocket message:', e)
     }
   }
+  
+  // Check for stale connection every 15 seconds
+  // If we have active jobs but no message for 30s, reconnect
+  if (staleCheckInterval) clearInterval(staleCheckInterval)
+  staleCheckInterval = window.setInterval(() => {
+    const jobs = useStore.getState().jobs
+    const hasActiveJobs = jobs.some(job => 
+      !['completed', 'failed', 'cancelled'].includes(job.status)
+    )
+    
+    if (hasActiveJobs && wsWorking && lastMessageTime > 0) {
+      const timeSinceLastMessage = Date.now() - lastMessageTime
+      if (timeSinceLastMessage > 30000) {
+        console.log('WebSocket appears stale (no message for 30s), reconnecting...')
+        wsWorking = false
+        ws?.close()
+      }
+    }
+  }, 15000)
 }
 
 export function disconnectWebSocket() {
@@ -135,9 +165,16 @@ export function disconnectWebSocket() {
   
   if (reconnectTimeout) {
     clearTimeout(reconnectTimeout)
+    reconnectTimeout = null
+  }
+  if (staleCheckInterval) {
+    clearInterval(staleCheckInterval)
+    staleCheckInterval = null
   }
   if (ws) {
     ws.close()
     ws = null
   }
+  wsWorking = false
+  lastMessageTime = 0
 }
