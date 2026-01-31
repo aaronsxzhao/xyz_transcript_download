@@ -607,10 +607,10 @@ class APITranscriber:
                 # ALWAYS call progress_callback on every iteration for cancellation check
                 if progress_callback:
                     progress_callback(progress)
-                    if progress >= last_progress + 0.01:
+                    if progress >= last_progress + 0.005:  # Update every 0.5%
                         last_progress = progress
                 
-                time.sleep(0.5)  # Update every 500ms
+                time.sleep(0.3)  # Check more frequently (300ms)
             
             # Wait for thread to finish
             api_thread.join(timeout=1)
