@@ -509,6 +509,10 @@ class MLXTranscriber:
 
 class APITranscriber:
     """Handles audio transcription using Whisper API (OpenAI or Groq)."""
+    
+    # Rate limiting for free tier (Groq: ~20 requests/min)
+    _last_api_call: float = 0
+    _min_interval: float = 3.0  # Minimum 3 seconds between API calls for safety
 
     def __init__(self, api_key: Optional[str] = None, base_url: Optional[str] = None):
         from openai import OpenAI
@@ -523,6 +527,17 @@ class APITranscriber:
         self.max_size = MAX_AUDIO_SIZE_MB * 1024 * 1024
         
         logger.info(f"Using Whisper API: {self.base_url}")
+    
+    def _wait_for_rate_limit(self):
+        """Wait if needed to respect rate limits."""
+        import time
+        now = time.time()
+        elapsed = now - APITranscriber._last_api_call
+        if elapsed < self._min_interval:
+            wait_time = self._min_interval - elapsed
+            logger.debug(f"Rate limiting: waiting {wait_time:.1f}s before next API call")
+            time.sleep(wait_time)
+        APITranscriber._last_api_call = time.time()
 
     def transcribe(
         self,
@@ -567,20 +582,36 @@ class APITranscriber:
             result_holder = {"response": None, "error": None, "done": False}
             
             def api_call():
-                """Run API call in background thread."""
-                try:
-                    with open(audio_path, "rb") as audio_file:
-                        result_holder["response"] = self.client.audio.transcriptions.create(
-                            model=WHISPER_API_MODEL,
-                            file=audio_file,
-                            language=language,
-                            response_format="verbose_json",
-                            timestamp_granularities=["segment"],
-                        )
-                except Exception as e:
-                    result_holder["error"] = e
-                finally:
-                    result_holder["done"] = True
+                """Run API call in background thread with retry for rate limits."""
+                max_retries = 3
+                for attempt in range(max_retries):
+                    try:
+                        # Rate limit before API call
+                        self._wait_for_rate_limit()
+                        
+                        with open(audio_path, "rb") as audio_file:
+                            result_holder["response"] = self.client.audio.transcriptions.create(
+                                model=WHISPER_API_MODEL,
+                                file=audio_file,
+                                language=language,
+                                response_format="verbose_json",
+                                timestamp_granularities=["segment"],
+                            )
+                        break  # Success
+                    except Exception as e:
+                        error_str = str(e).lower()
+                        # Check for rate limit errors
+                        if "rate" in error_str or "limit" in error_str or "429" in error_str:
+                            wait_time = 10 * (attempt + 1)  # 10s, 20s, 30s backoff
+                            logger.warning(f"Rate limited, waiting {wait_time}s before retry {attempt + 1}/{max_retries}")
+                            import time
+                            time.sleep(wait_time)
+                            continue
+                        result_holder["error"] = e
+                        break
+                else:
+                    result_holder["error"] = Exception("Rate limit exceeded after retries")
+                result_holder["done"] = True
             
             # Start API call in background
             api_thread = threading.Thread(target=api_call, daemon=True)

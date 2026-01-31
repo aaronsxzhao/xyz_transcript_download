@@ -155,7 +155,8 @@ GROQ_WHISPER_URL = "https://api.groq.com/openai/v1"
 if WHISPER_API_PROVIDER == "groq":
     WHISPER_BASE_URL = GROQ_WHISPER_URL
     WHISPER_API_KEY = GROQ_API_KEY
-    WHISPER_API_MODEL = "whisper-large-v3"  # Groq's model
+    # Use turbo model - faster and cheaper ($0.04/hr vs $0.111/hr), good for free tier
+    WHISPER_API_MODEL = _get_env("WHISPER_API_MODEL", "whisper-large-v3-turbo")
 else:
     WHISPER_BASE_URL = _get_env("WHISPER_BASE_URL", OPENAI_WHISPER_URL)
     WHISPER_API_KEY = OPENAI_API_KEY
