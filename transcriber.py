@@ -583,7 +583,10 @@ class APITranscriber:
             
             def api_call():
                 """Run API call in background thread with retry for rate limits."""
-                max_retries = 3
+                import time
+                import re
+                max_retries = 5
+                
                 for attempt in range(max_retries):
                     try:
                         # Rate limit before API call
@@ -600,11 +603,20 @@ class APITranscriber:
                         break  # Success
                     except Exception as e:
                         error_str = str(e).lower()
-                        # Check for rate limit errors
-                        if "rate" in error_str or "limit" in error_str or "429" in error_str:
-                            wait_time = 10 * (attempt + 1)  # 10s, 20s, 30s backoff
-                            logger.warning(f"Rate limited, waiting {wait_time}s before retry {attempt + 1}/{max_retries}")
-                            import time
+                        # Check for rate limit errors (429)
+                        if "rate" in error_str or "limit" in error_str or "429" in error_str or "too many" in error_str:
+                            # Try to extract retry-after from error message or use default backoff
+                            wait_time = 10  # Default
+                            
+                            # Look for retry-after value in error
+                            retry_match = re.search(r'retry.?after[:\s]+(\d+)', error_str)
+                            if retry_match:
+                                wait_time = int(retry_match.group(1))
+                            else:
+                                # Exponential backoff: 10s, 20s, 40s, 60s, 60s
+                                wait_time = min(60, 10 * (2 ** attempt))
+                            
+                            logger.warning(f"Rate limited (429), waiting {wait_time}s before retry {attempt + 1}/{max_retries}")
                             time.sleep(wait_time)
                             continue
                         result_holder["error"] = e
