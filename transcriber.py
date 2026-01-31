@@ -604,10 +604,11 @@ class APITranscriber:
                 else:
                     progress = 0.5
                 
-                # Only update if progress increased by at least 1%
-                if progress_callback and progress >= last_progress + 0.01:
+                # ALWAYS call progress_callback on every iteration for cancellation check
+                if progress_callback:
                     progress_callback(progress)
-                    last_progress = progress
+                    if progress >= last_progress + 0.01:
+                        last_progress = progress
                 
                 time.sleep(0.5)  # Update every 500ms
             
