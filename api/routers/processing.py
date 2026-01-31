@@ -424,27 +424,36 @@ def process_episode_sync(job_id: str, episode_url: str, transcribe_only: bool = 
             return
         
         # ===== PHASE 3: Prepare optimized audio (25-30%) =====
-        update_job_status(job_id, "transcribing", 28, "Preparing audio...")
-        compressed_path = compress_audio(audio_path)
+        # Skip compression for API mode (cloud) - Groq API is fast, compression is slow on cloud
+        from config import WHISPER_MODE
         
-        # If compression failed, the original audio might be truncated
-        # Try to re-download and compress again
-        if compressed_path is None:
-            update_job_status(job_id, "downloading", 20, "Re-downloading audio (compression failed)...")
-            
-            # Force re-download (deletes existing and downloads fresh)
-            audio_path = downloader.download(episode, force=True)
-            if not audio_path:
-                update_job_status(job_id, "failed", 0, "Re-download failed")
-                return
-            
-            # Try compression again
-            update_job_status(job_id, "transcribing", 28, "Compressing audio (retry)...")
+        if WHISPER_MODE == "api":
+            # Cloud mode: skip compression, use original audio directly
+            update_job_status(job_id, "transcribing", 30, "Using original audio (API mode)...")
+            process_path = audio_path
+        else:
+            # Local mode: compress audio for faster transcription
+            update_job_status(job_id, "transcribing", 28, "Preparing audio...")
             compressed_path = compress_audio(audio_path)
-        
-        # Determine processing mode
-        use_fast_track = compressed_path is not None and compressed_path != audio_path
-        process_path = compressed_path if use_fast_track else audio_path
+            
+            # If compression failed, the original audio might be truncated
+            # Try to re-download and compress again
+            if compressed_path is None:
+                update_job_status(job_id, "downloading", 20, "Re-downloading audio (compression failed)...")
+                
+                # Force re-download (deletes existing and downloads fresh)
+                audio_path = downloader.download(episode, force=True)
+                if not audio_path:
+                    update_job_status(job_id, "failed", 0, "Re-download failed")
+                    return
+                
+                # Try compression again
+                update_job_status(job_id, "transcribing", 28, "Compressing audio (retry)...")
+                compressed_path = compress_audio(audio_path)
+            
+            # Determine processing mode
+            use_fast_track = compressed_path is not None and compressed_path != audio_path
+            process_path = compressed_path if use_fast_track else audio_path
         
         # If we have existing transcript, just summarize
         if existing_transcript and not force:
