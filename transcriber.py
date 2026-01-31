@@ -315,35 +315,45 @@ class MLXTranscriber:
             def do_transcribe():
                 """Run transcription in background thread with progress capture."""
                 import sys
-                import io
                 import re
                 
-                # Create a custom stderr wrapper to capture tqdm output
+                # Create a custom stream wrapper to capture tqdm output
                 class ProgressCapture:
-                    def __init__(self, original):
+                    def __init__(self, original, name=""):
                         self.original = original
-                        self.progress_pattern = re.compile(r'(\d+)%\|')
+                        self.name = name
+                        # Match patterns like "  6%|" or " 16%|" or "100%|"
+                        self.progress_pattern = re.compile(r'\s*(\d+)%\|')
                     
                     def write(self, text):
-                        # Write to original stderr so user still sees it
-                        self.original.write(text)
-                        self.original.flush()
+                        # Write to original so user still sees it
+                        if self.original:
+                            self.original.write(text)
+                            self.original.flush()
                         
                         # Try to parse progress percentage from tqdm output
                         match = self.progress_pattern.search(text)
                         if match:
                             try:
                                 pct = int(match.group(1))
-                                result_holder["progress"] = pct / 100.0
+                                # Only update if this is actual progress (not 100% from completion message)
+                                if pct < 100:
+                                    result_holder["progress"] = pct / 100.0
                             except ValueError:
                                 pass
                     
                     def flush(self):
-                        self.original.flush()
+                        if self.original:
+                            self.original.flush()
+                    
+                    def isatty(self):
+                        return self.original.isatty() if self.original else False
                 
-                # Capture stderr to parse tqdm progress
+                # Capture both stderr and stdout (tqdm can use either)
                 original_stderr = sys.stderr
-                sys.stderr = ProgressCapture(original_stderr)
+                original_stdout = sys.stdout
+                sys.stderr = ProgressCapture(original_stderr, "stderr")
+                sys.stdout = ProgressCapture(original_stdout, "stdout")
                 
                 try:
                     result_holder["result"] = self._transcribe_fn(
@@ -356,25 +366,45 @@ class MLXTranscriber:
                     result_holder["error"] = e
                 finally:
                     sys.stderr = original_stderr
+                    sys.stdout = original_stdout
                     result_holder["done"] = True
             
             # Start transcription in background
             transcribe_thread = threading.Thread(target=do_transcribe, daemon=True)
             transcribe_thread.start()
             
-            # Report real progress from captured tqdm output
+            # Report progress - use captured tqdm if available, otherwise estimate
+            audio_duration = self._get_audio_duration(audio_path)
+            # MLX-Whisper ~0.5x real-time on Apple Silicon
+            estimated_seconds = audio_duration * 2 if audio_duration > 0 else 600
+            
+            start_time = time.time()
             last_progress = 0
+            last_reported = 0
             
             while not result_holder["done"]:
-                # Get real progress from tqdm capture
-                progress = result_holder["progress"]
+                # Try to get real progress from tqdm capture
+                captured_progress = result_holder["progress"]
                 
-                # Update every 1% change
-                if progress_callback and progress > last_progress + 0.01:
+                # If tqdm progress is available and advancing, use it
+                if captured_progress > last_progress:
+                    progress = captured_progress
+                    last_progress = captured_progress
+                else:
+                    # Fallback: estimate based on elapsed time
+                    elapsed = time.time() - start_time
+                    if estimated_seconds > 0:
+                        ratio = min(elapsed / estimated_seconds, 3.0)
+                        progress = 0.95 * (1 - 1 / (1 + ratio * 1.2))
+                    else:
+                        progress = min(elapsed / 600, 0.90)
+                
+                # Update every 2% change
+                if progress_callback and progress >= last_reported + 0.02:
                     progress_callback(progress)
-                    last_progress = progress
+                    last_reported = progress
                 
-                time.sleep(0.5)  # Check more frequently for smoother updates
+                time.sleep(0.5)
             
             # Wait for thread
             transcribe_thread.join(timeout=5)
