@@ -307,6 +307,9 @@ def _mlx_transcribe_process(audio_path_str: str, model_id: str, language: str, r
             verbose=False,
         )
         result_dict["result"] = result
+    except KeyboardInterrupt:
+        # This happens when process.terminate() is called - expected for cancellation
+        pass
     except Exception as e:
         result_dict["error"] = str(e)
     finally:
