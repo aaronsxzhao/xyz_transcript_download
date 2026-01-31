@@ -453,10 +453,22 @@ class SupabaseDatabase:
             return {"podcasts": 0, "episodes": 0, "transcripts": 0, "summaries": 0}
         
         from concurrent.futures import ThreadPoolExecutor, as_completed
+        import time
         
         def count_table(table: str) -> int:
-            result = self.client.table(table).select("id", count="exact").eq("user_id", user_id).execute()
-            return result.count or 0
+            # Retry logic for transient connection errors
+            max_retries = 3
+            for attempt in range(max_retries):
+                try:
+                    result = self.client.table(table).select("id", count="exact").eq("user_id", user_id).execute()
+                    return result.count or 0
+                except Exception as e:
+                    if attempt < max_retries - 1:
+                        time.sleep(0.5 * (attempt + 1))  # Exponential backoff
+                        continue
+                    # Log but don't crash - return 0 for this table
+                    print(f"[Stats] Failed to count {table} after {max_retries} attempts: {e}")
+                    return 0
         
         # Execute all count queries in parallel
         tables = ["podcasts", "episodes", "transcripts", "summaries"]
