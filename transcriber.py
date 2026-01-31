@@ -312,36 +312,42 @@ class MLXTranscriber:
 
             logger.info(f"Transcribing with MLX-Whisper ({self.model_id})...")
             
-            # Shared state for thread communication
-            result_holder = {"result": None, "error": None, "done": False, "progress": 0.0}
+            import multiprocessing
             
-            def do_transcribe():
-                """Run transcription in background thread with progress capture."""
+            # Use multiprocessing for killable transcription
+            # Shared state via Manager for cross-process communication
+            manager_mp = multiprocessing.Manager()
+            result_dict = manager_mp.dict()
+            result_dict["result"] = None
+            result_dict["error"] = None
+            result_dict["done"] = False
+            result_dict["progress"] = 0.0
+            
+            def do_transcribe(audio_path_str, model_id, lang, result_dict):
+                """Run transcription in subprocess."""
                 import sys
                 import re
                 
+                # Import mlx_whisper in the subprocess
+                import mlx_whisper
+                
                 # Create a custom stream wrapper to capture tqdm output
                 class ProgressCapture:
-                    def __init__(self, original, name=""):
+                    def __init__(self, original):
                         self.original = original
-                        self.name = name
-                        # Match patterns like "  6%|" or " 16%|" or "100%|"
                         self.progress_pattern = re.compile(r'\s*(\d+)%\|')
                     
                     def write(self, text):
-                        # Write to original so user still sees it
                         if self.original:
                             self.original.write(text)
                             self.original.flush()
                         
-                        # Try to parse progress percentage from tqdm output
                         match = self.progress_pattern.search(text)
                         if match:
                             try:
                                 pct = int(match.group(1))
-                                # Only update if this is actual progress (not 100% from completion message)
                                 if pct < 100:
-                                    result_holder["progress"] = pct / 100.0
+                                    result_dict["progress"] = pct / 100.0
                             except ValueError:
                                 pass
                     
@@ -352,49 +358,49 @@ class MLXTranscriber:
                     def isatty(self):
                         return self.original.isatty() if self.original else False
                 
-                # Capture both stderr and stdout (tqdm can use either)
                 original_stderr = sys.stderr
                 original_stdout = sys.stdout
-                sys.stderr = ProgressCapture(original_stderr, "stderr")
-                sys.stdout = ProgressCapture(original_stdout, "stdout")
+                sys.stderr = ProgressCapture(original_stderr)
+                sys.stdout = ProgressCapture(original_stdout)
                 
                 try:
-                    result_holder["result"] = self._transcribe_fn(
-                        str(audio_path),
-                        path_or_hf_repo=self.model_id,
-                        language=language,
+                    result = mlx_whisper.transcribe(
+                        audio_path_str,
+                        path_or_hf_repo=model_id,
+                        language=lang,
                         verbose=False,
                     )
+                    result_dict["result"] = result
                 except Exception as e:
-                    result_holder["error"] = e
+                    result_dict["error"] = str(e)
                 finally:
                     sys.stderr = original_stderr
                     sys.stdout = original_stdout
-                    result_holder["done"] = True
+                    result_dict["done"] = True
             
-            # Start transcription in background
-            transcribe_thread = threading.Thread(target=do_transcribe, daemon=True)
-            transcribe_thread.start()
+            # Start transcription in subprocess (can be killed!)
+            process = multiprocessing.Process(
+                target=do_transcribe,
+                args=(str(audio_path), self.model_id, language, result_dict),
+                daemon=True
+            )
+            process.start()
             
-            # Report progress - use captured tqdm if available, otherwise estimate
+            # Report progress
             audio_duration = self._get_audio_duration(audio_path)
-            # MLX-Whisper ~0.5x real-time on Apple Silicon
             estimated_seconds = audio_duration * 2 if audio_duration > 0 else 600
             
             start_time = time.time()
             last_progress = 0
             last_reported = 0
             
-            while not result_holder["done"]:
-                # Try to get real progress from tqdm capture
-                captured_progress = result_holder["progress"]
+            while process.is_alive() and not result_dict["done"]:
+                captured_progress = result_dict["progress"]
                 
-                # If tqdm progress is available and advancing, use it
                 if captured_progress > last_progress:
                     progress = captured_progress
                     last_progress = captured_progress
                 else:
-                    # Fallback: estimate based on elapsed time
                     elapsed = time.time() - start_time
                     if estimated_seconds > 0:
                         ratio = min(elapsed / estimated_seconds, 3.0)
@@ -402,20 +408,25 @@ class MLXTranscriber:
                     else:
                         progress = min(elapsed / 600, 0.90)
                 
-                # Update every 2% change
+                # Update every 2% - this will raise CancelledException if cancelled
                 if progress_callback and progress >= last_reported + 0.02:
                     progress_callback(progress)
                     last_reported = progress
                 
                 time.sleep(0.5)
             
-            # Wait for thread
-            transcribe_thread.join(timeout=5)
+            # Wait for process to finish
+            process.join(timeout=5)
             
-            if result_holder["error"]:
-                raise result_holder["error"]
+            # If process still running (shouldn't happen normally), terminate it
+            if process.is_alive():
+                process.terminate()
+                process.join(timeout=2)
             
-            result = result_holder["result"]
+            if result_dict["error"]:
+                raise RuntimeError(result_dict["error"])
+            
+            result = result_dict["result"]
             if not result:
                 raise ValueError("No result from MLX-Whisper")
 
@@ -447,6 +458,14 @@ class MLXTranscriber:
             )
 
         except Exception as e:
+            # Terminate the subprocess if it's still running
+            if 'process' in dir() and process.is_alive():
+                logger.info("Terminating MLX-Whisper subprocess...")
+                process.terminate()
+                process.join(timeout=2)
+                if process.is_alive():
+                    process.kill()  # Force kill if terminate didn't work
+            
             # Re-raise cancellation exceptions so they propagate to caller
             if "cancel" in str(e).lower() or "Cancel" in type(e).__name__:
                 raise
