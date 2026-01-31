@@ -94,15 +94,12 @@ def compress_audio(input_path: Path, output_path: Optional[Path] = None) -> Opti
             # If we can't determine duration, proceed with compression to be safe
     
     try:
-        # Get input file size to estimate timeout
-        # For compression, ffmpeg typically processes at ~10x real-time on slow machines
-        # So a 100 minute audio should complete in ~10 minutes
-        # We use input file size as a proxy: ~1MB per minute of audio at 128kbps
-        input_size_mb = input_path.stat().st_size / (1024 * 1024)
-        # Estimate: 1 minute per 10MB of input, minimum 5 minutes, maximum 60 minutes
-        estimated_timeout = max(300, min(3600, int(input_size_mb * 6)))
+        # Stall detection settings
+        # If output file hasn't grown for this many seconds, consider it stalled
+        STALL_TIMEOUT_SECONDS = 180  # 3 minutes without progress = stalled
+        POLL_INTERVAL_SECONDS = 10   # Check file size every 10 seconds
         
-        logger.info(f"Compressing audio: {input_path.name} -> {output_path.name} (timeout: {estimated_timeout}s)")
+        logger.info(f"Compressing audio: {input_path.name} -> {output_path.name} (stall timeout: {STALL_TIMEOUT_SECONDS}s)")
         
         # ffmpeg command for speech-optimized compression
         cmd = [
@@ -116,15 +113,58 @@ def compress_audio(input_path: Path, output_path: Optional[Path] = None) -> Opti
             str(output_path)
         ]
         
-        result = subprocess.run(
+        # Use Popen for stall detection instead of run with fixed timeout
+        process = subprocess.Popen(
             cmd,
-            capture_output=True,
-            text=True,
-            timeout=estimated_timeout
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE
         )
         
-        if result.returncode != 0:
-            logger.error(f"ffmpeg compression failed: {result.stderr}")
+        last_size = 0
+        last_progress_time = time.time()
+        stalled = False
+        
+        while process.poll() is None:
+            time.sleep(POLL_INTERVAL_SECONDS)
+            
+            # Check if output file exists and has grown
+            current_size = 0
+            if output_path.exists():
+                try:
+                    current_size = output_path.stat().st_size
+                except OSError:
+                    pass
+            
+            if current_size > last_size:
+                # Progress! Reset stall timer
+                last_size = current_size
+                last_progress_time = time.time()
+                logger.debug(f"Compression progress: {current_size / (1024*1024):.1f}MB")
+            else:
+                # No progress - check if stalled
+                stall_duration = time.time() - last_progress_time
+                if stall_duration > STALL_TIMEOUT_SECONDS:
+                    logger.error(f"Compression stalled - no progress for {stall_duration:.0f}s")
+                    stalled = True
+                    process.kill()
+                    process.wait()
+                    break
+        
+        if stalled:
+            # Clean up partial output file
+            if output_path.exists():
+                try:
+                    output_path.unlink()
+                    logger.info("Deleted stalled compression output")
+                except OSError:
+                    pass
+            return None
+        
+        # Process finished - check return code
+        _, stderr = process.communicate()
+        
+        if process.returncode != 0:
+            logger.error(f"ffmpeg compression failed: {stderr.decode() if stderr else 'unknown error'}")
             # Clean up partial output
             if output_path.exists():
                 try:
@@ -156,16 +196,6 @@ def compress_audio(input_path: Path, output_path: Optional[Path] = None) -> Opti
         
         return output_path
         
-    except subprocess.TimeoutExpired:
-        logger.error(f"Audio compression timed out after {estimated_timeout}s")
-        # Clean up partial output file to prevent reuse
-        if output_path.exists():
-            try:
-                output_path.unlink()
-                logger.info("Deleted partial compressed file")
-            except OSError:
-                pass
-        return None
     except Exception as e:
         logger.error(f"Audio compression failed: {e}")
         # Clean up partial output
