@@ -184,12 +184,12 @@ export default function Settings() {
         <div className="space-y-4">
           <SettingRow label="Mode" value={settings?.whisper_mode || '-'} />
           
-          <div className="flex items-center justify-between py-2 border-b border-dark-border">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 py-2 border-b border-dark-border">
             <span className="text-gray-400">Model</span>
             <select
               value={whisperModel}
               onChange={(e) => setWhisperModel(e.target.value)}
-              className="bg-dark-hover border border-dark-border text-white text-sm rounded-lg px-3 py-1.5 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="bg-dark-hover border border-dark-border text-white text-sm rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent w-full sm:w-auto"
             >
               {WHISPER_MODELS.map((model) => (
                 <option key={model.value} value={model.value}>
@@ -214,12 +214,12 @@ export default function Settings() {
         </h2>
         
         <div className="space-y-4">
-          <div className="flex items-center justify-between py-2 border-b border-dark-border">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 py-2 border-b border-dark-border">
             <span className="text-gray-400">Model</span>
             <select
               value={llmModel}
               onChange={(e) => setLlmModel(e.target.value)}
-              className="bg-dark-hover border border-dark-border text-white text-sm rounded-lg px-3 py-1.5 focus:ring-2 focus:ring-purple-500 focus:border-transparent max-w-xs"
+              className="bg-dark-hover border border-dark-border text-white text-sm rounded-lg px-3 py-2 focus:ring-2 focus:ring-purple-500 focus:border-transparent w-full sm:w-auto sm:max-w-[220px] truncate"
             >
               {LLM_MODELS.map((model) => (
                 <option key={model} value={model}>
@@ -232,11 +232,11 @@ export default function Settings() {
       </div>
       
       {/* Save Button */}
-      <div className="flex items-center gap-4">
+      <div className="flex flex-wrap items-center gap-3">
         <button
           onClick={saveSettings}
           disabled={saving}
-          className="flex items-center gap-2 px-6 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-colors disabled:opacity-50"
+          className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm rounded-lg transition-colors disabled:opacity-50"
         >
           {saving ? (
             <Loader2 size={16} className="animate-spin" />
