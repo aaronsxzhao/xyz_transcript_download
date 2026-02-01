@@ -239,6 +239,14 @@ export async function retryJob(jobId: string): Promise<{ message: string; new_jo
   return res.json()
 }
 
+export async function resummarizeEpisode(episodeId: string): Promise<{ message: string; job_id: string }> {
+  const res = await authFetch(`${API_BASE}/episodes/${episodeId}/resummarize`, {
+    method: 'POST',
+  })
+  if (!res.ok) throw new Error('Failed to start re-summarization')
+  return res.json()
+}
+
 export async function deleteEpisode(eid: string): Promise<{ message: string }> {
   const res = await authFetch(`${API_BASE}/episodes/${eid}`, {
     method: 'DELETE',

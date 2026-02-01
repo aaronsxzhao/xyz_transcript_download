@@ -13,7 +13,9 @@ from api.schemas import ProcessRequest, BatchProcessRequest, ProcessingStatus
 from api.auth import get_current_user, User
 from api.db import get_db, TranscriptData, SummaryData
 from config import DATA_DIR, BACKGROUND_REFINEMENT_TIMEOUT, WEBSOCKET_HEARTBEAT_INTERVAL
-from logger import notify_discord
+from logger import notify_discord, get_logger
+
+logger = get_logger("processing")
 
 router = APIRouter()
 
@@ -405,9 +407,23 @@ def process_episode_sync(job_id: str, episode_url: str, transcribe_only: bool = 
         existing_transcript = db_interface.get_transcript(episode.eid)
         existing_summary = db_interface.get_summary(episode.eid)
         
+        # Quick check: if both exist and transcript is not truncated, skip processing
         if existing_transcript and existing_summary and not force:
-            update_job_status(job_id, "completed", 100, "Already processed")
-            return
+            transcript_duration = existing_transcript.duration or 0
+            episode_duration = episode.duration or 0
+            
+            # Check if transcript is complete (>= 85% of episode duration)
+            if episode_duration > 0 and transcript_duration > 0:
+                coverage = transcript_duration / episode_duration
+                if coverage >= 0.85:
+                    update_job_status(job_id, "completed", 100, "Already processed")
+                    return
+                else:
+                    logger.warning(f"Existing transcript is truncated ({coverage*100:.1f}%), will reprocess")
+            elif transcript_duration > 0:
+                # No episode duration to compare, assume valid
+                update_job_status(job_id, "completed", 100, "Already processed")
+                return
         
         # Check for cancellation before downloading
         if is_job_cancelled(job_id):
@@ -439,6 +455,7 @@ def process_episode_sync(job_id: str, episode_url: str, transcribe_only: bool = 
             # Cloud mode: skip compression, use original audio directly
             update_job_status(job_id, "transcribing", 30, "Using original audio (API mode)...")
             process_path = audio_path
+            use_fast_track = False  # No background refinement in API mode
         else:
             # Local mode: compress audio for faster transcription
             update_job_status(job_id, "transcribing", 28, "Preparing audio...")
@@ -463,9 +480,28 @@ def process_episode_sync(job_id: str, episode_url: str, transcribe_only: bool = 
             use_fast_track = compressed_path is not None and compressed_path != audio_path
             process_path = compressed_path if use_fast_track else audio_path
         
-        # If we have existing transcript, just summarize
+        # If we have existing transcript, check if it's complete (not truncated)
+        # A transcript is considered truncated if duration < 85% of episode duration
+        transcript_is_valid = False
         if existing_transcript and not force:
-            update_job_status(job_id, "summarizing", 70, "Generating summary...")
+            transcript_duration = existing_transcript.duration or 0
+            episode_duration = episode.duration or 0
+            
+            if episode_duration > 0 and transcript_duration > 0:
+                coverage = transcript_duration / episode_duration
+                if coverage >= 0.85:
+                    transcript_is_valid = True
+                    logger.info(f"Existing transcript is valid ({coverage*100:.1f}% coverage)")
+                else:
+                    logger.warning(f"Existing transcript is truncated ({coverage*100:.1f}% coverage < 85%), will re-transcribe")
+            elif transcript_duration > 0:
+                # No episode duration to compare, assume valid if transcript has content
+                transcript_is_valid = True
+                logger.info(f"Existing transcript found ({transcript_duration/60:.1f} min), episode duration unknown - assuming valid")
+        
+        # If we have a valid existing transcript, just summarize
+        if transcript_is_valid and existing_transcript:
+            update_job_status(job_id, "summarizing", 70, "Using existing transcript...")
             transcript = Transcript(
                 episode_id=existing_transcript.episode_id,
                 language=existing_transcript.language,
@@ -537,14 +573,18 @@ def process_episode_sync(job_id: str, episode_url: str, transcribe_only: bool = 
         
         update_job_status(job_id, "transcribing", 70, "Transcription complete")
         
+        # Save transcript immediately after transcription (before summarization)
+        # This ensures we don't lose work if summarization fails
+        transcript_data = TranscriptData(
+            episode_id=transcript.episode_id, language=transcript.language,
+            duration=transcript.duration, text=transcript.text,
+            segments=[{"start": s.start, "end": s.end, "text": s.text} for s in transcript.segments],
+        )
+        db_interface.save_transcript(transcript_data)
+        logger.info(f"Transcript saved for {episode.eid} ({len(transcript.segments)} segments)")
+        
         if transcribe_only:
-            # Save and finish
-            transcript_data = TranscriptData(
-                episode_id=transcript.episode_id, language=transcript.language,
-                duration=transcript.duration, text=transcript.text,
-                segments=[{"start": s.start, "end": s.end, "text": s.text} for s in transcript.segments],
-            )
-            db_interface.save_transcript(transcript_data)
+            # Transcript already saved above, just finish
             update_job_status(job_id, "completed", 100, "Transcription complete!")
             
             # Send Discord notification
@@ -575,16 +615,9 @@ def process_episode_sync(job_id: str, episode_url: str, transcribe_only: bool = 
             update_job_status(job_id, "failed", 0, "Summary generation failed")
             return
         
-        update_job_status(job_id, "summarizing", 95, "Saving results...")
+        update_job_status(job_id, "summarizing", 95, "Saving summary...")
         
-        # Save transcript
-        transcript_data = TranscriptData(
-            episode_id=transcript.episode_id, language=transcript.language,
-            duration=transcript.duration, text=transcript.text,
-            segments=[{"start": s.start, "end": s.end, "text": s.text} for s in transcript.segments],
-        )
-        db_interface.save_transcript(transcript_data)
-        
+        # Transcript already saved after transcription
         # Save summary
         summary_data = SummaryData(
             episode_id=summary.episode_id, title=summary.title,
@@ -867,6 +900,75 @@ async def retry_job(
         "message": "Retry started",
         "old_job_id": job_id,
         "new_job_id": new_job_id,
+        "episode_id": episode_id,
+    }
+
+
+@router.post("/episodes/{episode_id}/resummarize")
+async def resummarize_episode(
+    episode_id: str,
+    background_tasks: BackgroundTasks,
+    user: Optional[User] = Depends(get_current_user)
+):
+    """
+    Re-process an episode to regenerate its summary.
+    
+    - Uses existing audio if valid (>= 85% of episode duration), otherwise re-downloads
+    - Uses existing transcript if valid (>= 85% coverage), otherwise re-transcribes
+    - Always regenerates the summary
+    
+    Use this when you want to improve the summary without re-transcribing.
+    """
+    from api.db import get_db
+    
+    user_id = user.id if user else None
+    db = get_db(user_id)
+    
+    # Check if episode exists
+    existing_transcript = db.get_transcript(episode_id)
+    if not existing_transcript:
+        raise HTTPException(
+            status_code=404, 
+            detail="Episode transcript not found. Use normal processing instead."
+        )
+    
+    # Delete existing summary to force regeneration
+    db.delete_summary(episode_id)
+    
+    # Construct episode URL
+    episode_url = f"https://www.xiaoyuzhoufm.com/episode/{episode_id}"
+    
+    # Create new job
+    job_id = str(uuid.uuid4())[:8]
+    with _jobs_lock:
+        jobs[job_id] = ProcessingStatus(
+            job_id=job_id,
+            status="pending",
+            progress=0,
+            message="Re-summarizing...",
+            episode_id=episode_id,
+            episode_title=None,  # Will be filled during processing
+        )
+    
+    _save_jobs_to_file()
+    
+    # Broadcast new job
+    try:
+        loop = get_main_loop()
+        if loop and loop.is_running():
+            asyncio.run_coroutine_threadsafe(broadcast_status(job_id), loop)
+    except Exception:
+        pass
+    
+    # Start processing in background (will use existing transcript if valid)
+    background_tasks.add_task(
+        process_episode_async, job_id, episode_url, 
+        transcribe_only=False, force=False, user_id=user_id
+    )
+    
+    return {
+        "message": "Re-summarization started",
+        "job_id": job_id,
         "episode_id": episode_id,
     }
 

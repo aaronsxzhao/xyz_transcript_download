@@ -193,7 +193,7 @@ class Summarizer:
         logger.info(f"Transcript length: {len(transcript_text):,} characters")
         
         if len(transcript_text) > SUMMARIZER_MAX_CHARS:
-            logger.info(f"Transcript too long ({len(transcript_text):,} chars > {max_chars:,}), using chunked summarization")
+            logger.info(f"Transcript too long ({len(transcript_text):,} chars > {SUMMARIZER_MAX_CHARS:,}), using chunked summarization")
             return self._summarize_long_transcript(
                 transcript, podcast_title, episode_title, progress_callback
             )

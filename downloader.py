@@ -269,9 +269,22 @@ class AudioDownloader:
             return ".m4a"
 
     def is_downloaded(self, episode: Episode) -> bool:
-        """Check if episode audio is already downloaded."""
+        """Check if episode audio is already downloaded and complete."""
         audio_path = self.get_audio_path(episode)
-        return audio_path.exists() and audio_path.stat().st_size > 0
+        if not audio_path.exists() or audio_path.stat().st_size == 0:
+            return False
+        
+        # Verify audio duration matches episode duration (truncation check)
+        episode_duration = episode.duration or 0
+        if episode_duration > 0:
+            audio_duration = _get_audio_duration_ffprobe(audio_path)
+            if audio_duration > 0:
+                coverage = audio_duration / episode_duration
+                if coverage < 0.85:
+                    logger.warning(f"Audio file is truncated ({coverage*100:.1f}% of expected {episode_duration/60:.1f}min)")
+                    return False
+        
+        return True
 
     def download(
         self,
@@ -296,12 +309,24 @@ class AudioDownloader:
 
         audio_path = self.get_audio_path(episode)
 
-        # Check if already downloaded
+        # Check if already downloaded and complete (includes truncation check)
         if not force and self.is_downloaded(episode):
+            logger.info(f"Using existing audio: {audio_path}")
             return audio_path
         
+        # Delete truncated file if exists (also delete compressed version)
+        if audio_path.exists() and not force:
+            logger.info(f"Deleting truncated audio file: {audio_path}")
+            try:
+                audio_path.unlink()
+                compressed_path = self.get_compressed_path(episode)
+                if compressed_path.exists():
+                    compressed_path.unlink()
+            except OSError:
+                pass
+        
         # If force, delete existing files to start fresh
-        if force:
+        elif force:
             logger.info(f"Force re-download: deleting existing audio files for {episode.title}")
             try:
                 if audio_path.exists():

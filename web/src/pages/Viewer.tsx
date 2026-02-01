@@ -11,8 +11,9 @@ import {
   ChevronUp,
   Loader2,
   ExternalLink,
+  RefreshCw,
 } from 'lucide-react'
-import { fetchSummary, fetchTranscript, type Summary, type Transcript, type KeyPoint, type TranscriptSegment } from '../lib/api'
+import { fetchSummary, fetchTranscript, resummarizeEpisode, type Summary, type Transcript, type KeyPoint, type TranscriptSegment } from '../lib/api'
 import { getAccessToken } from '../lib/auth'
 
 type Tab = 'summary' | 'transcript'
@@ -23,6 +24,7 @@ export default function Viewer() {
   const [summary, setSummary] = useState<Summary | null>(null)
   const [transcript, setTranscript] = useState<Transcript | null>(null)
   const [loading, setLoading] = useState(true)
+  const [resummarizing, setResummarizing] = useState(false)
   const [expandedTopics, setExpandedTopics] = useState<Set<string>>(new Set())
   
   useEffect(() => {
@@ -51,6 +53,22 @@ export default function Viewer() {
       console.error('Failed to load data:', err)
     } finally {
       setLoading(false)
+    }
+  }
+  
+  async function handleResummarize() {
+    if (!eid || resummarizing) return
+    
+    try {
+      setResummarizing(true)
+      await resummarizeEpisode(eid)
+      // Redirect to dashboard to see progress
+      window.location.href = '/'
+    } catch (err) {
+      console.error('Failed to start re-summarization:', err)
+      alert('Failed to start re-summarization')
+    } finally {
+      setResummarizing(false)
     }
   }
   
@@ -129,8 +147,17 @@ export default function Viewer() {
           </div>
         </div>
         
-        {/* Export buttons */}
+        {/* Action buttons */}
         <div className="flex items-center gap-2 sm:flex-shrink-0">
+          <button
+            onClick={handleResummarize}
+            disabled={resummarizing || !transcript}
+            className="flex items-center gap-2 px-3 py-2 bg-indigo-600 hover:bg-indigo-700 disabled:bg-gray-600 disabled:cursor-not-allowed rounded-lg text-sm transition-colors text-white"
+            title="Regenerate summary using existing transcript"
+          >
+            <RefreshCw size={16} className={resummarizing ? 'animate-spin' : ''} />
+            <span className="hidden sm:inline">{resummarizing ? 'Processing...' : 'Re-summarize'}</span>
+          </button>
           <a
             href={`/api/summaries/${eid}/html${getAccessToken() ? `?token=${getAccessToken()}` : ''}`}
             target="_blank"
