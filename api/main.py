@@ -1,6 +1,7 @@
 """FastAPI application for Podcast Transcript Tool."""
 import asyncio
 import sys
+from datetime import datetime, timedelta
 from pathlib import Path
 
 # Add parent directory to path for imports
@@ -15,6 +16,9 @@ from fastapi.responses import FileResponse
 from api.routers import podcasts, episodes, transcripts, summaries, processing
 from api.routers import auth_router
 from api.auth import get_current_user, User
+from logger import get_logger
+
+logger = get_logger("api.main")
 
 # Create FastAPI app
 app = FastAPI(
@@ -24,12 +28,104 @@ app = FastAPI(
 )
 
 
+# Background task for checking podcast updates
+_podcast_check_task: Optional[asyncio.Task] = None
+_new_episodes_cache: dict = {"episodes": [], "last_check": None}
+
+
+async def check_podcasts_for_updates():
+    """Background task that periodically checks podcasts for new episodes."""
+    from config import CHECK_INTERVAL
+    from xyz_client import get_client
+    from api.db import get_db
+    
+    check_interval = max(CHECK_INTERVAL, 600)  # At least 10 minutes
+    
+    logger.info(f"[PodcastChecker] Started background podcast checker (interval: {check_interval}s)")
+    
+    while True:
+        try:
+            await asyncio.sleep(check_interval)
+            
+            logger.info("[PodcastChecker] Checking podcasts for updates...")
+            
+            # Get all podcasts (for local mode, no user_id)
+            db = get_db(None)
+            all_podcasts = db.get_all_podcasts()
+            
+            if not all_podcasts:
+                logger.debug("[PodcastChecker] No podcasts to check")
+                continue
+            
+            client = get_client()
+            total_new = 0
+            new_episodes_list = []
+            
+            for podcast in all_podcasts:
+                try:
+                    # Fetch latest episodes from web
+                    episodes = client.get_episodes_from_page(podcast.pid, limit=10)
+                    
+                    new_count = 0
+                    for ep in episodes:
+                        if not db.episode_exists(ep.eid):
+                            # Add new episode
+                            db.add_episode(
+                                eid=ep.eid,
+                                pid=ep.pid,
+                                podcast_id=podcast.id,
+                                title=ep.title,
+                                description=ep.description,
+                                duration=ep.duration,
+                                pub_date=ep.pub_date,
+                                audio_url=ep.audio_url,
+                            )
+                            new_count += 1
+                            new_episodes_list.append({
+                                "eid": ep.eid,
+                                "title": ep.title,
+                                "podcast_title": podcast.title,
+                                "podcast_pid": podcast.pid,
+                            })
+                    
+                    if new_count > 0:
+                        logger.info(f"[PodcastChecker] Found {new_count} new episode(s) for '{podcast.title}'")
+                        total_new += new_count
+                    
+                    # Update last checked timestamp
+                    db.update_podcast_checked(podcast.pid)
+                    
+                except Exception as e:
+                    logger.warning(f"[PodcastChecker] Error checking '{podcast.title}': {e}")
+                
+                # Small delay between podcasts to avoid rate limiting
+                await asyncio.sleep(2)
+            
+            # Update cache with new episodes
+            if new_episodes_list:
+                _new_episodes_cache["episodes"] = new_episodes_list[:20]  # Keep last 20
+                _new_episodes_cache["last_check"] = datetime.now().isoformat()
+                logger.info(f"[PodcastChecker] Total: {total_new} new episodes found")
+            
+        except asyncio.CancelledError:
+            logger.info("[PodcastChecker] Background checker stopped")
+            break
+        except Exception as e:
+            logger.error(f"[PodcastChecker] Error in background checker: {e}")
+            await asyncio.sleep(60)  # Wait before retry on error
+
+
 @app.on_event("startup")
 async def startup_event():
     """Capture the main event loop on startup for thread-safe broadcasting."""
+    global _podcast_check_task
+    
     loop = asyncio.get_running_loop()
     processing.set_main_loop(loop)
     print(f"[WS] Main event loop captured: {loop}")
+    
+    # Start background podcast checker
+    _podcast_check_task = asyncio.create_task(check_podcasts_for_updates())
     
     # Send Discord notification on startup
     from logger import notify_discord
@@ -56,6 +152,16 @@ async def startup_event():
 @app.on_event("shutdown")
 async def shutdown_event():
     """Clean up resources on shutdown."""
+    global _podcast_check_task
+    
+    # Cancel background podcast checker
+    if _podcast_check_task:
+        _podcast_check_task.cancel()
+        try:
+            await _podcast_check_task
+        except asyncio.CancelledError:
+            pass
+    
     # Shutdown the processing thread pool executor
     processing.PROCESSING_EXECUTOR.shutdown(wait=False, cancel_futures=True)
 
@@ -92,6 +198,72 @@ if frontend_dist.exists():
 async def health_check():
     """Health check endpoint."""
     return {"status": "ok"}
+
+
+@app.get("/api/new-episodes")
+async def get_new_episodes(user: Optional[User] = Depends(get_current_user)):
+    """Get recently discovered new episodes from subscribed podcasts."""
+    return {
+        "episodes": _new_episodes_cache.get("episodes", []),
+        "last_check": _new_episodes_cache.get("last_check"),
+    }
+
+
+@app.post("/api/check-podcasts")
+async def trigger_podcast_check(user: Optional[User] = Depends(get_current_user)):
+    """Manually trigger a podcast update check."""
+    from xyz_client import get_client
+    from api.db import get_db
+    
+    db = get_db(user.id if user else None)
+    all_podcasts = db.get_all_podcasts()
+    
+    if not all_podcasts:
+        return {"message": "No podcasts subscribed", "new_episodes": 0}
+    
+    client = get_client()
+    total_new = 0
+    new_episodes_list = []
+    
+    for podcast in all_podcasts:
+        try:
+            episodes = client.get_episodes_from_page(podcast.pid, limit=10)
+            
+            for ep in episodes:
+                if not db.episode_exists(ep.eid):
+                    db.add_episode(
+                        eid=ep.eid,
+                        pid=ep.pid,
+                        podcast_id=podcast.id,
+                        title=ep.title,
+                        description=ep.description,
+                        duration=ep.duration,
+                        pub_date=ep.pub_date,
+                        audio_url=ep.audio_url,
+                    )
+                    total_new += 1
+                    new_episodes_list.append({
+                        "eid": ep.eid,
+                        "title": ep.title,
+                        "podcast_title": podcast.title,
+                        "podcast_pid": podcast.pid,
+                    })
+            
+            db.update_podcast_checked(podcast.pid)
+            
+        except Exception as e:
+            logger.warning(f"Error checking '{podcast.title}': {e}")
+    
+    # Update cache
+    if new_episodes_list:
+        _new_episodes_cache["episodes"] = new_episodes_list[:20]
+        _new_episodes_cache["last_check"] = datetime.now().isoformat()
+    
+    return {
+        "message": f"Found {total_new} new episode(s)",
+        "new_episodes": total_new,
+        "episodes": new_episodes_list[:10],
+    }
 
 
 @app.get("/api/image-proxy")

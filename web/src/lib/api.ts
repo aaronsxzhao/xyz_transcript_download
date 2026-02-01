@@ -286,3 +286,33 @@ export async function deleteEpisode(eid: string): Promise<{ message: string }> {
   if (!res.ok) throw new Error('Failed to delete episode')
   return res.json()
 }
+
+export interface NewEpisode {
+  eid: string
+  title: string
+  podcast_title: string
+  podcast_pid: string
+}
+
+export interface NewEpisodesResponse {
+  episodes: NewEpisode[]
+  last_check: string | null
+}
+
+export async function fetchNewEpisodes(): Promise<NewEpisodesResponse> {
+  const res = await authFetch(`${API_BASE}/new-episodes`)
+  if (!res.ok) throw new Error('Failed to fetch new episodes')
+  return res.json()
+}
+
+export async function checkPodcastsForUpdates(): Promise<{
+  message: string
+  new_episodes: number
+  episodes: NewEpisode[]
+}> {
+  const res = await authFetch(`${API_BASE}/check-podcasts`, {
+    method: 'POST',
+  })
+  if (!res.ok) throw new Error('Failed to check for updates')
+  return res.json()
+}

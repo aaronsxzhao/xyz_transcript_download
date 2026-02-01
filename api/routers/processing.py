@@ -395,23 +395,69 @@ def process_episode_sync(job_id: str, episode_url: str, transcribe_only: bool = 
         update_job_status(job_id, "fetching", 10, f"Found: {episode.title}", 
                          episode.eid, episode.title)
         
-        # Auto-subscribe to podcast if episode has a podcast ID
-        if episode.pid:
-            podcast = db.get_podcast(episode.pid)
+        # Auto-subscribe to podcast and add episode to database
+        # This ensures episodes added via URL have a podcast page to view them
+        podcast_id_for_db = None
+        
+        # Try to get podcast ID from episode, or fetch it separately
+        pid = episode.pid
+        if not pid:
+            # Try to get podcast ID from the episode API
+            logger.info(f"Episode missing pid, trying to fetch podcast ID for {episode.eid}")
+            pid = client.get_episode_podcast_id(episode.eid)
+            if pid:
+                episode.pid = pid
+        
+        if pid:
+            podcast = db.get_podcast(pid)
+            is_new_subscription = False
+            
             if not podcast:
-                podcast_info = client.get_podcast(episode.pid)
+                # Podcast not in DB - subscribe to it
+                podcast_info = client.get_podcast(pid)
                 if podcast_info:
-                    db.add_podcast(podcast_info.pid, podcast_info.title, podcast_info.author, podcast_info.description, podcast_info.cover_url)
+                    db.add_podcast(
+                        podcast_info.pid, podcast_info.title, podcast_info.author,
+                        podcast_info.description, podcast_info.cover_url
+                    )
                     update_job_status(job_id, "fetching", 12, f"Subscribed to: {podcast_info.title}")
-                    podcast = db.get_podcast(episode.pid)
+                    podcast = db.get_podcast(pid)
+                    is_new_subscription = True
+                    logger.info(f"Auto-subscribed to podcast: {podcast_info.title}")
             
             if podcast:
-                db.add_episode(
-                    eid=episode.eid, pid=episode.pid, podcast_id=podcast.id,
-                    title=episode.title, description=episode.description,
-                    duration=episode.duration, pub_date=episode.pub_date,
-                    audio_url=episode.audio_url,
-                )
+                podcast_id_for_db = podcast.id
+                
+                # If this is a new subscription, fetch all episodes (same as podcasts page)
+                if is_new_subscription:
+                    try:
+                        all_episodes = client.get_episodes_from_page(pid, limit=50)
+                        added_count = 0
+                        for ep in all_episodes:
+                            if not db.episode_exists(ep.eid):
+                                db.add_episode(
+                                    eid=ep.eid, pid=ep.pid, podcast_id=podcast.id,
+                                    title=ep.title, description=ep.description,
+                                    duration=ep.duration, pub_date=ep.pub_date,
+                                    audio_url=ep.audio_url,
+                                )
+                                added_count += 1
+                        logger.info(f"Added {added_count} episodes from podcast to database")
+                    except Exception as e:
+                        logger.warning(f"Failed to fetch all episodes: {e}")
+                
+                # ALWAYS ensure the current episode is in the database
+                # (it might be older than the latest 50 episodes we just fetched)
+                if not db.episode_exists(episode.eid):
+                    db.add_episode(
+                        eid=episode.eid, pid=pid, podcast_id=podcast.id,
+                        title=episode.title, description=episode.description,
+                        duration=episode.duration, pub_date=episode.pub_date,
+                        audio_url=episode.audio_url,
+                    )
+                    logger.info(f"Added current episode to database: {episode.title}")
+        else:
+            logger.warning(f"Could not find podcast ID for episode {episode.eid} - episode won't appear in podcast page")
         
         # Check for existing transcript/summary
         existing_transcript = db_interface.get_transcript(episode.eid)

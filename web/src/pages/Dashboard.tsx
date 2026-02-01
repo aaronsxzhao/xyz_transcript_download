@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
-import { Radio, FileText, MessageSquare, Loader2, Plus, ArrowRight } from 'lucide-react'
-import { fetchStats, fetchSummaries, processEpisode, type Stats, type SummaryListItem, type ProcessingJob } from '../lib/api'
+import { Radio, FileText, MessageSquare, Loader2, Plus, ArrowRight, Bell, RefreshCw, X } from 'lucide-react'
+import { fetchStats, fetchSummaries, processEpisode, fetchNewEpisodes, checkPodcastsForUpdates, type Stats, type SummaryListItem, type ProcessingJob, type NewEpisode } from '../lib/api'
 import { useStore } from '../lib/store'
 import { getCache, setCache, CacheKeys } from '../lib/cache'
 import { useToast } from '../components/Toast'
@@ -14,12 +14,16 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true)
   const [episodeUrl, setEpisodeUrl] = useState('')
   const [processing, setProcessing] = useState(false)
+  const [newEpisodes, setNewEpisodes] = useState<NewEpisode[]>([])
+  const [checkingUpdates, setCheckingUpdates] = useState(false)
+  const [showNewEpisodes, setShowNewEpisodes] = useState(true)
   
   const { jobs, updateJob } = useStore()
   const { addToast } = useToast()
   
   useEffect(() => {
     loadData()
+    loadNewEpisodes()
   }, [])
   
   async function loadData() {
@@ -47,6 +51,48 @@ export default function Dashboard() {
       console.error('Failed to load data:', err)
     } finally {
       setLoading(false)
+    }
+  }
+  
+  async function loadNewEpisodes() {
+    try {
+      const data = await fetchNewEpisodes()
+      setNewEpisodes(data.episodes || [])
+    } catch (err) {
+      console.error('Failed to load new episodes:', err)
+    }
+  }
+  
+  async function handleCheckUpdates() {
+    setCheckingUpdates(true)
+    try {
+      const result = await checkPodcastsForUpdates()
+      if (result.new_episodes > 0) {
+        setNewEpisodes(result.episodes)
+        setShowNewEpisodes(true)
+        addToast({
+          type: 'success',
+          title: 'New episodes found',
+          message: `Found ${result.new_episodes} new episode(s)`,
+        })
+        // Refresh stats
+        loadData()
+      } else {
+        addToast({
+          type: 'info',
+          title: 'All caught up',
+          message: 'No new episodes from subscribed podcasts',
+        })
+      }
+    } catch (err) {
+      console.error('Failed to check for updates:', err)
+      addToast({
+        type: 'error',
+        title: 'Failed to check updates',
+        message: err instanceof Error ? err.message : 'Unknown error',
+      })
+    } finally {
+      setCheckingUpdates(false)
     }
   }
   
@@ -96,10 +142,59 @@ export default function Dashboard() {
   
   return (
     <div className="space-y-8">
-      <div>
-        <h1 className="text-2xl font-bold text-white mb-2">Dashboard</h1>
-        <p className="text-gray-400">Manage your podcast transcripts and summaries</p>
+      <div className="flex items-start justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-white mb-2">Dashboard</h1>
+          <p className="text-gray-400">Manage your podcast transcripts and summaries</p>
+        </div>
+        <button
+          onClick={handleCheckUpdates}
+          disabled={checkingUpdates}
+          className="flex items-center gap-2 px-3 py-2 bg-dark-surface border border-dark-border rounded-lg hover:bg-dark-hover transition-colors text-sm text-gray-300"
+          title="Check subscribed podcasts for new episodes"
+        >
+          <RefreshCw size={16} className={checkingUpdates ? 'animate-spin' : ''} />
+          <span className="hidden sm:inline">{checkingUpdates ? 'Checking...' : 'Check Updates'}</span>
+        </button>
       </div>
+      
+      {/* New episodes notification */}
+      {showNewEpisodes && newEpisodes.length > 0 && (
+        <div className="p-4 bg-indigo-900/30 border border-indigo-500/30 rounded-xl">
+          <div className="flex items-start justify-between gap-4">
+            <div className="flex items-start gap-3">
+              <Bell className="w-5 h-5 text-indigo-400 mt-0.5 flex-shrink-0" />
+              <div>
+                <h3 className="font-medium text-white mb-2">
+                  {newEpisodes.length} New Episode{newEpisodes.length > 1 ? 's' : ''} Available
+                </h3>
+                <div className="space-y-1">
+                  {newEpisodes.slice(0, 5).map((ep) => (
+                    <Link
+                      key={ep.eid}
+                      to={`/podcasts/${ep.podcast_pid}/episodes`}
+                      className="block text-sm text-gray-300 hover:text-indigo-300 transition-colors"
+                    >
+                      <span className="text-indigo-400">{ep.podcast_title}:</span> {ep.title}
+                    </Link>
+                  ))}
+                  {newEpisodes.length > 5 && (
+                    <p className="text-sm text-gray-500">
+                      +{newEpisodes.length - 5} more episode(s)
+                    </p>
+                  )}
+                </div>
+              </div>
+            </div>
+            <button
+              onClick={() => setShowNewEpisodes(false)}
+              className="p-1 text-gray-400 hover:text-white transition-colors"
+            >
+              <X size={16} />
+            </button>
+          </div>
+        </div>
+      )}
       
       {/* Quick process form */}
       <div className="p-4 md:p-6 bg-dark-surface border border-dark-border rounded-xl">

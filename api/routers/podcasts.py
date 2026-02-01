@@ -71,15 +71,22 @@ async def add_podcast(data: PodcastCreate, user: Optional[User] = Depends(get_cu
         if not episode:
             raise HTTPException(status_code=404, detail="Could not fetch episode from URL")
         
-        if not episode.pid:
-            raise HTTPException(status_code=400, detail="Episode has no parent podcast")
+        # Try to get podcast ID, with fallback
+        pid = episode.pid
+        if not pid:
+            # Try to fetch podcast ID separately
+            pid = await run_sync(client.get_episode_podcast_id, episode.eid)
+        
+        if not pid:
+            raise HTTPException(status_code=400, detail="Could not find parent podcast for this episode")
         
         # Now fetch the parent podcast
-        podcast = await run_sync(client.get_podcast, episode.pid)
+        podcast = await run_sync(client.get_podcast, pid)
         if not podcast:
             raise HTTPException(status_code=404, detail="Could not fetch parent podcast")
     else:
         # Normal podcast URL
+        episode = None  # Not applicable for podcast URLs
         podcast = await run_sync(client.get_podcast_by_url, url)
         if not podcast:
             raise HTTPException(status_code=404, detail="Could not fetch podcast from URL")
@@ -102,6 +109,9 @@ async def add_podcast(data: PodcastCreate, user: Optional[User] = Depends(get_cu
         return client.get_episodes_from_page(podcast.pid, limit=50)
     episodes = await run_sync(fetch_episodes)
     
+    # Track episode count for response
+    episode_count = len(episodes)
+    
     def save_episodes():
         for ep in episodes:
             db.add_episode(
@@ -116,13 +126,32 @@ async def add_podcast(data: PodcastCreate, user: Optional[User] = Depends(get_cu
             )
     await run_sync(save_episodes)
     
+    # If subscribed via episode URL, ensure that episode is also in the database
+    # (it might be older than the latest 50 episodes we fetched)
+    if is_episode_url and episode:
+        episode_eids = {ep.eid for ep in episodes}
+        if episode.eid not in episode_eids:
+            def save_original_episode():
+                db.add_episode(
+                    eid=episode.eid,
+                    pid=episode.pid or podcast.pid,
+                    podcast_id=podcast_id,
+                    title=episode.title,
+                    description=episode.description,
+                    duration=episode.duration,
+                    pub_date=episode.pub_date,
+                    audio_url=episode.audio_url,
+                )
+            await run_sync(save_original_episode)
+            episode_count += 1
+    
     return PodcastResponse(
         pid=podcast.pid,
         title=podcast.title,
         author=podcast.author,
         description=podcast.description,
         cover_url=podcast.cover_url,
-        episode_count=len(episodes),
+        episode_count=episode_count,
         summarized_count=0,  # New podcast, no summaries yet
     )
 
