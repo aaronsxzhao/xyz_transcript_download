@@ -753,7 +753,7 @@ class APITranscriber:
         with tempfile.TemporaryDirectory() as temp_dir:
             for i in range(num_chunks):
                 start_time = i * chunk_duration
-                chunk_path = Path(temp_dir) / f"chunk_{i}.mp3"
+                chunk_path = Path(temp_dir) / f"chunk_{i}.ogg"
                 
                 # Update progress and CHECK CANCELLATION before extraction
                 if progress_callback:
@@ -870,14 +870,18 @@ class APITranscriber:
             
             # Use Popen for interruptible extraction
             # -ss BEFORE -i enables fast input seeking (seeks without decoding)
+            # Output to OGG/Opus - much faster to encode than MP3, small file size
             process = subprocess.Popen(
                 [
                     FFMPEG_PATH, "-y", "-v", "quiet",
                     "-ss", str(start_time),
                     "-i", str(input_path),
                     "-t", str(duration),
-                    "-acodec", "libmp3lame",
-                    "-ab", "64k",
+                    "-ar", "16000",           # 16kHz sample rate (Whisper native)
+                    "-ac", "1",               # Mono
+                    "-c:a", "libopus",        # Opus codec - very fast encoder
+                    "-b:a", "32k",            # 32kbps is plenty for speech
+                    "-application", "voip",   # Optimized for speech
                     str(output_path)
                 ],
                 stdout=subprocess.PIPE,
