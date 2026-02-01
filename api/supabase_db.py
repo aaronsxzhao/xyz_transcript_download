@@ -160,6 +160,14 @@ class SupabaseDatabase:
             return EpisodeRecord(**result.data[0])
         return None
     
+    def episode_exists(self, user_id: str, eid: str) -> bool:
+        """Check if an episode exists in the database."""
+        if not self.client:
+            return False
+        
+        result = self.client.table("episodes").select("eid").eq("user_id", user_id).eq("eid", eid).limit(1).execute()
+        return len(result.data) > 0
+    
     def add_episode(self, user_id: str, podcast_id: int, eid: str, pid: str, title: str,
                     description: str = "", duration: int = 0, pub_date: str = "",
                     audio_url: str = "", status: str = "pending") -> Optional[int]:

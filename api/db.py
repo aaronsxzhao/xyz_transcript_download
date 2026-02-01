@@ -206,6 +206,13 @@ class DatabaseInterface:
             user_id=self.user_id,
         )
     
+    def episode_exists(self, eid: str) -> bool:
+        """Check if an episode exists in the database."""
+        if self.use_supabase:
+            return self.db.episode_exists(self.user_id, eid)
+        else:
+            return self.db.episode_exists(eid)
+    
     def add_episode(self, eid: str, pid: str, podcast_id: int, title: str,
                     description: str = "", duration: int = 0, pub_date: str = "",
                     audio_url: str = "") -> Optional[int]:
