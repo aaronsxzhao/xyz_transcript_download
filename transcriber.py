@@ -751,9 +751,12 @@ class APITranscriber:
             return False
         
         with tempfile.TemporaryDirectory() as temp_dir:
+            # Use same extension as input for stream copy compatibility
+            input_ext = audio_path.suffix.lower() or ".mp3"
+            
             for i in range(num_chunks):
                 start_time = i * chunk_duration
-                chunk_path = Path(temp_dir) / f"chunk_{i}.mp3"
+                chunk_path = Path(temp_dir) / f"chunk_{i}{input_ext}"
                 
                 # Update progress and CHECK CANCELLATION before extraction
                 if progress_callback:
@@ -785,6 +788,13 @@ class APITranscriber:
                     logger.error(f"Failed to extract chunk {i+1}/{num_chunks} after 3 attempts - aborting transcription")
                     return None  # Fail the whole transcription instead of skipping chunks
 
+                # Find the actual chunk file (might be .mp3 if fallback was used)
+                actual_chunk_path = chunk_path
+                if not chunk_path.exists():
+                    mp3_path = chunk_path.with_suffix(".mp3")
+                    if mp3_path.exists():
+                        actual_chunk_path = mp3_path
+
                 # Create a sub-callback for this chunk's transcription
                 def chunk_progress(p: float, chunk_idx=i):
                     if progress_callback:
@@ -796,7 +806,7 @@ class APITranscriber:
                         progress_callback(min(overall, 0.95))
 
                 chunk_transcript = self._transcribe_file(
-                    chunk_path, f"{episode_id}_chunk_{i}", language, chunk_progress
+                    actual_chunk_path, f"{episode_id}_chunk_{i}", language, chunk_progress
                 )
 
                 if not chunk_transcript:
@@ -860,63 +870,111 @@ class APITranscriber:
     ) -> bool:
         """Extract a chunk from audio file using ffmpeg.
         
+        Tries stream copy first (fast), falls back to re-encoding if codec/container mismatch.
+        
         Args:
             cancel_check: Optional function that returns True if cancelled.
                           Called periodically during extraction.
         """
         import time
-        try:
-            logger.info(f"✓ Extracting chunk at {start_time:.0f}s ({duration:.0f}s duration)...")
+        
+        def run_extraction(args: list, method_name: str) -> bool:
+            """Run ffmpeg with given args, return True on success."""
+            cmd = [
+                FFMPEG_PATH, "-y", "-v", "error",
+                "-ss", str(start_time),
+                "-i", str(input_path),
+                "-t", str(duration),
+            ] + args + [str(output_path)]
             
-            # Use Popen for interruptible extraction
-            # -ss BEFORE -i enables fast input seeking (seeks without decoding)
-            # Stream copy (-c:a copy) is 25-35x faster than re-encoding
-            # Trade-off: larger files (~23MB vs 11MB) but still under Whisper's 25MB limit
-            process = subprocess.Popen(
-                [
-                    FFMPEG_PATH, "-y", "-v", "quiet",
-                    "-ss", str(start_time),
-                    "-i", str(input_path),
-                    "-t", str(duration),
-                    "-c:a", "copy",           # Stream copy - no re-encoding, ~0.2s vs 30s
-                    str(output_path)
-                ],
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-            )
+            process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
             
-            # Poll with cancellation check every 2 seconds
-            max_wait = 600  # 10 minutes max
+            max_wait = 600
             elapsed = 0
+            poll_interval = 0.5
+            
             while elapsed < max_wait:
-                # Check if cancelled
                 if cancel_check and cancel_check():
                     logger.info("Chunk extraction cancelled by user")
                     process.kill()
                     process.wait()
                     return False
                 
-                # Check if process finished
                 ret = process.poll()
                 if ret is not None:
-                    if ret == 0:
-                        return output_path.exists()
+                    if ret == 0 and output_path.exists() and output_path.stat().st_size > 0:
+                        return True
                     else:
-                        logger.warning(f"ffmpeg exited with code {ret}")
+                        # Get stderr for debugging
+                        _, stderr = process.communicate()
+                        err_msg = stderr.decode()[:200] if stderr else "no error output"
+                        logger.debug(f"{method_name} failed with code {ret}: {err_msg}")
                         return False
                 
-                time.sleep(2)
-                elapsed += 2
+                time.sleep(poll_interval)
+                elapsed += poll_interval
+                if elapsed > 1:
+                    poll_interval = 2
             
-            # Timeout - kill process
-            logger.warning(f"Chunk extraction timed out after 600s: {start_time}s-{start_time+duration}s")
+            logger.warning(f"Extraction timed out after 600s")
             process.kill()
             process.wait()
             return False
+        
+        # Method 1: Stream copy (25-35x faster, but requires codec/container match)
+        logger.info(f"✓ Extracting chunk at {start_time:.0f}s ({duration:.0f}s duration)...")
+        if run_extraction(["-c:a", "copy"], "stream copy"):
+            return True
+        
+        # Method 2: Fast MP3 re-encode (works with any input format)
+        # Delete failed output first
+        if output_path.exists():
+            output_path.unlink()
+        
+        # Change extension to .mp3 for re-encoding
+        mp3_output = output_path.with_suffix(".mp3")
+        output_path = mp3_output  # Update for this attempt
+        
+        logger.info(f"  Falling back to re-encode...")
+        cmd_args = ["-ar", "16000", "-ac", "1", "-c:a", "libmp3lame", "-q:a", "5"]
+        
+        cmd = [
+            FFMPEG_PATH, "-y", "-v", "error",
+            "-ss", str(start_time),
+            "-i", str(input_path),
+            "-t", str(duration),
+        ] + cmd_args + [str(mp3_output)]
+        
+        process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        
+        max_wait = 600
+        elapsed = 0
+        poll_interval = 2
+        
+        while elapsed < max_wait:
+            if cancel_check and cancel_check():
+                logger.info("Chunk extraction cancelled by user")
+                process.kill()
+                process.wait()
+                return False
             
-        except subprocess.SubprocessError as e:
-            logger.warning(f"Chunk extraction failed: {e}")
-            return False
+            ret = process.poll()
+            if ret is not None:
+                if ret == 0 and mp3_output.exists() and mp3_output.stat().st_size > 0:
+                    return True
+                else:
+                    _, stderr = process.communicate()
+                    err_msg = stderr.decode()[:300] if stderr else "no error output"
+                    logger.warning(f"Re-encode failed with code {ret}: {err_msg}")
+                    return False
+            
+            time.sleep(poll_interval)
+            elapsed += poll_interval
+        
+        logger.warning(f"Extraction timed out after 600s")
+        process.kill()
+        process.wait()
+        return False
 
 
 class Transcriber:
