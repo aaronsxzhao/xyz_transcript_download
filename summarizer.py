@@ -185,15 +185,19 @@ class Summarizer:
         """
         # Prepare the transcript text
         transcript_text = transcript.text
-
-        # If transcript is too long, we need to summarize in chunks
-        # Chinese characters are typically 2-3 tokens each
-        # Use configurable max_chars (default 30000 = ~60,000-90,000 tokens)
+        duration = transcript.duration or 0
+        duration_hours = duration / 3600
         
-        logger.info(f"Transcript length: {len(transcript_text):,} characters")
+        logger.info(f"Transcript: {len(transcript_text):,} chars, {duration/60:.0f} min")
         
-        if len(transcript_text) > SUMMARIZER_MAX_CHARS:
-            logger.info(f"Transcript too long ({len(transcript_text):,} chars > {SUMMARIZER_MAX_CHARS:,}), using chunked summarization")
+        # Use chunked summarization if:
+        # 1. Duration > 1 hour (1 chunk per hour), OR
+        # 2. Text exceeds max chars (fallback for unknown duration)
+        use_chunking = duration_hours > 1.0 or len(transcript_text) > SUMMARIZER_MAX_CHARS
+        
+        if use_chunking:
+            num_chunks = max(1, int(duration_hours + 0.5)) if duration > 0 else None  # Round to nearest hour
+            logger.info(f"Using chunked summarization ({num_chunks or '?'} chunks for {duration_hours:.1f} hours)")
             return self._summarize_long_transcript(
                 transcript, podcast_title, episode_title, progress_callback
             )
@@ -311,25 +315,41 @@ class Summarizer:
     ) -> Optional[Summary]:
         """
         Summarize a long transcript by processing in chunks and merging.
+        Uses duration-based chunking: 1 hour = 1 chunk.
         """
-        # Split transcript into chunks based on segments
-        # Use configurable chunk sizes for flexibility with different models
-        chunk_size = SUMMARIZER_CHUNK_SEGMENTS  # segments per chunk
         segments = transcript.segments
+        duration = transcript.duration or 0
         
         if not segments:
-            # Fall back to text splitting with configurable chunk length
+            # Fall back to text splitting - estimate 1 hour ≈ 15000 chars
             text = transcript.text
-            chunk_length = SUMMARIZER_CHUNK_CHARS  # characters per chunk
+            chunk_length = SUMMARIZER_CHUNK_CHARS
             chunks = [text[i:i+chunk_length] for i in range(0, len(text), chunk_length)]
         else:
+            # Duration-based chunking: 1 hour = 1 chunk
+            chunk_duration = 3600  # 1 hour in seconds
+            num_chunks = max(1, int((duration + chunk_duration - 1) // chunk_duration))  # Round up
+            
             chunks = []
-            for i in range(0, len(segments), chunk_size):
-                chunk_segments = segments[i:i+chunk_size]
-                chunk_text = " ".join(seg.text for seg in chunk_segments)
-                chunks.append(chunk_text)
+            for chunk_idx in range(num_chunks):
+                start_time = chunk_idx * chunk_duration
+                end_time = (chunk_idx + 1) * chunk_duration
+                
+                # Collect segments that fall within this time range
+                chunk_segments = [
+                    seg for seg in segments 
+                    if seg.start >= start_time and seg.start < end_time
+                ]
+                
+                if chunk_segments:
+                    chunk_text = " ".join(seg.text for seg in chunk_segments)
+                    chunks.append(chunk_text)
+            
+            # Handle edge case: if no chunks created, use all segments
+            if not chunks:
+                chunks = [" ".join(seg.text for seg in segments)]
         
-        logger.info(f"Split transcript into {len(chunks)} chunks for processing")
+        logger.info(f"Split transcript ({duration/60:.0f} min) into {len(chunks)} chunks (1 hour each)")
 
         # Summarize each chunk
         chunk_summaries = []

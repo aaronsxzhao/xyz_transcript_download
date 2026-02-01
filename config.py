@@ -194,12 +194,16 @@ MIN_DISK_SPACE_MB = _get_env_int("MIN_DISK_SPACE_MB", 500, min_val=100)
 BACKGROUND_REFINEMENT_TIMEOUT = _get_env_int("BACKGROUND_REFINEMENT_TIMEOUT", 10800, min_val=1800)
 
 # Summarization settings
-# Max characters before chunking (~2-3 tokens per Chinese char, so 30k chars ≈ 60-90k tokens)
-SUMMARIZER_MAX_CHARS = _get_env_int("SUMMARIZER_MAX_CHARS", 30000, min_val=5000)
-# Number of transcript segments per chunk when splitting long transcripts
-SUMMARIZER_CHUNK_SEGMENTS = _get_env_int("SUMMARIZER_CHUNK_SEGMENTS", 100, min_val=20)
+# Max characters before chunking
+# GPT-4o has 128k token context, Chinese chars ≈ 1.5-2 tokens each
+# 120k chars ≈ 180-240k tokens input, but we need room for output
+# 100k chars safely fits most 2-3 hour podcasts in a single call
+SUMMARIZER_MAX_CHARS = _get_env_int("SUMMARIZER_MAX_CHARS", 100000, min_val=5000)
+# Number of transcript segments per chunk when splitting very long transcripts (4+ hours)
+# 1000 segments ≈ 30-40 minutes of audio
+SUMMARIZER_CHUNK_SEGMENTS = _get_env_int("SUMMARIZER_CHUNK_SEGMENTS", 1000, min_val=100)
 # Characters per chunk when segments aren't available
-SUMMARIZER_CHUNK_CHARS = _get_env_int("SUMMARIZER_CHUNK_CHARS", 25000, min_val=5000)
+SUMMARIZER_CHUNK_CHARS = _get_env_int("SUMMARIZER_CHUNK_CHARS", 80000, min_val=10000)
 
 # WebSocket settings
 # Heartbeat interval in seconds
