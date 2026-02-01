@@ -26,6 +26,33 @@ export interface AuthTokens {
 const ACCESS_TOKEN_KEY = 'xyz_access_token'
 const REFRESH_TOKEN_KEY = 'xyz_refresh_token'
 const USER_KEY = 'xyz_user'
+const REMEMBER_ME_KEY = 'xyz_remember_me'
+
+/**
+ * Get the appropriate storage based on "Remember Me" setting
+ */
+function getStorage(): Storage {
+  const rememberMe = localStorage.getItem(REMEMBER_ME_KEY) === 'true'
+  return rememberMe ? localStorage : sessionStorage
+}
+
+/**
+ * Set the "Remember Me" preference
+ */
+export function setRememberMe(remember: boolean): void {
+  if (remember) {
+    localStorage.setItem(REMEMBER_ME_KEY, 'true')
+  } else {
+    localStorage.removeItem(REMEMBER_ME_KEY)
+  }
+}
+
+/**
+ * Get the "Remember Me" preference
+ */
+export function getRememberMe(): boolean {
+  return localStorage.getItem(REMEMBER_ME_KEY) === 'true'
+}
 
 /**
  * Get the authentication configuration from the server
@@ -167,21 +194,22 @@ export async function refreshToken(): Promise<AuthTokens | null> {
  * Get the stored access token
  */
 export function getAccessToken(): string | null {
-  return localStorage.getItem(ACCESS_TOKEN_KEY)
+  // Check both storages (for migration and flexibility)
+  return localStorage.getItem(ACCESS_TOKEN_KEY) || sessionStorage.getItem(ACCESS_TOKEN_KEY)
 }
 
 /**
  * Get the stored refresh token
  */
 export function getRefreshToken(): string | null {
-  return localStorage.getItem(REFRESH_TOKEN_KEY)
+  return localStorage.getItem(REFRESH_TOKEN_KEY) || sessionStorage.getItem(REFRESH_TOKEN_KEY)
 }
 
 /**
  * Get the stored user
  */
 export function getStoredUser(): AuthUser | null {
-  const stored = localStorage.getItem(USER_KEY)
+  const stored = localStorage.getItem(USER_KEY) || sessionStorage.getItem(USER_KEY)
   if (!stored) return null
   try {
     return JSON.parse(stored)
@@ -191,12 +219,13 @@ export function getStoredUser(): AuthUser | null {
 }
 
 /**
- * Save tokens to localStorage
+ * Save tokens to storage based on "Remember Me" setting
  */
 function saveTokens(tokens: AuthTokens): void {
-  localStorage.setItem(ACCESS_TOKEN_KEY, tokens.access_token)
-  localStorage.setItem(REFRESH_TOKEN_KEY, tokens.refresh_token)
-  localStorage.setItem(USER_KEY, JSON.stringify({
+  const storage = getStorage()
+  storage.setItem(ACCESS_TOKEN_KEY, tokens.access_token)
+  storage.setItem(REFRESH_TOKEN_KEY, tokens.refresh_token)
+  storage.setItem(USER_KEY, JSON.stringify({
     id: tokens.user_id,
     email: tokens.email,
     authenticated: true,
@@ -204,12 +233,16 @@ function saveTokens(tokens: AuthTokens): void {
 }
 
 /**
- * Clear all stored tokens
+ * Clear all stored tokens from both storages
  */
 export function clearTokens(): void {
+  // Clear from both storages
   localStorage.removeItem(ACCESS_TOKEN_KEY)
   localStorage.removeItem(REFRESH_TOKEN_KEY)
   localStorage.removeItem(USER_KEY)
+  sessionStorage.removeItem(ACCESS_TOKEN_KEY)
+  sessionStorage.removeItem(REFRESH_TOKEN_KEY)
+  sessionStorage.removeItem(USER_KEY)
 }
 
 /**

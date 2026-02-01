@@ -514,11 +514,12 @@ class APITranscriber:
     _last_api_call: float = 0
     _min_interval: float = 3.0  # Minimum 3 seconds between API calls for safety
 
-    def __init__(self, api_key: Optional[str] = None, base_url: Optional[str] = None):
+    def __init__(self, api_key: Optional[str] = None, base_url: Optional[str] = None, model: Optional[str] = None):
         from openai import OpenAI
 
         self.api_key = api_key or WHISPER_API_KEY
         self.base_url = base_url or WHISPER_BASE_URL
+        self.model = model or WHISPER_API_MODEL  # Allow dynamic model override
 
         if not self.api_key:
             raise ValueError("API key is required for API transcription. Set GROQ_API_KEY or OPENAI_API_KEY.")
@@ -526,7 +527,7 @@ class APITranscriber:
         self.client = OpenAI(api_key=self.api_key, base_url=self.base_url)
         self.max_size = MAX_AUDIO_SIZE_MB * 1024 * 1024
         
-        logger.info(f"Using Whisper API: {self.base_url}")
+        logger.info(f"Using Whisper API: {self.base_url}, model: {self.model}")
     
     def _wait_for_rate_limit(self):
         """Wait if needed to respect rate limits."""
@@ -594,7 +595,7 @@ class APITranscriber:
                         
                         with open(audio_path, "rb") as audio_file:
                             result_holder["response"] = self.client.audio.transcriptions.create(
-                                model=WHISPER_API_MODEL,
+                                model=self.model,
                                 file=audio_file,
                                 language=language,
                                 response_format="verbose_json",
@@ -983,7 +984,13 @@ class Transcriber:
     Automatically selects the best backend for the current system.
     """
 
-    def __init__(self):
+    def __init__(self, model: Optional[str] = None):
+        """
+        Initialize transcriber.
+        
+        Args:
+            model: Optional model name to use for API mode (e.g., 'whisper-large-v3-turbo')
+        """
         if WHISPER_MODE == "local":
             # Determine which backend to use
             backend = WHISPER_BACKEND
@@ -997,7 +1004,7 @@ class Transcriber:
                 logger.info("Using faster-whisper (CTranslate2)")
                 self._transcriber = FastLocalTranscriber(model_name=WHISPER_LOCAL_MODEL)
         else:
-            self._transcriber = APITranscriber()
+            self._transcriber = APITranscriber(model=model)
 
     def transcribe(
         self,
@@ -1064,9 +1071,24 @@ class Transcriber:
 _transcriber: Optional[Transcriber] = None
 
 
-def get_transcriber() -> Transcriber:
-    """Get or create the global Transcriber instance."""
+def get_transcriber(model: Optional[str] = None) -> Transcriber:
+    """
+    Get or create a Transcriber instance.
+    
+    Args:
+        model: Optional model name for API mode. If provided, creates a new instance
+               with this model. If None, uses/creates the global instance.
+    
+    Returns:
+        Transcriber instance
+    """
     global _transcriber
+    
+    # If a specific model is requested, create a new instance
+    if model is not None:
+        return Transcriber(model=model)
+    
+    # Otherwise use the global instance
     if _transcriber is None:
         _transcriber = Transcriber()
     return _transcriber

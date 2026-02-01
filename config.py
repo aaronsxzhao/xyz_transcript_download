@@ -272,3 +272,33 @@ Configuration Summary:
   Check Interval: {CHECK_INTERVAL}s
   Max Retries: {MAX_RETRIES}
 """
+
+
+# Runtime configurable settings (can be changed without restart)
+_RUNTIME_SETTINGS: dict = {
+    "whisper_model": WHISPER_API_MODEL,
+    "llm_model": LLM_MODEL,
+}
+
+
+def get_runtime_settings() -> dict:
+    """Get current runtime settings."""
+    return _RUNTIME_SETTINGS.copy()
+
+
+def set_runtime_settings(settings: dict) -> None:
+    """Update runtime settings."""
+    global _RUNTIME_SETTINGS
+    for key, value in settings.items():
+        if key in _RUNTIME_SETTINGS:
+            _RUNTIME_SETTINGS[key] = value
+
+
+def get_whisper_model() -> str:
+    """Get the current whisper model to use."""
+    return _RUNTIME_SETTINGS.get("whisper_model", WHISPER_API_MODEL)
+
+
+def get_llm_model() -> str:
+    """Get the current LLM model to use."""
+    return _RUNTIME_SETTINGS.get("llm_model", LLM_MODEL)

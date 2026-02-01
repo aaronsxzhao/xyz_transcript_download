@@ -150,9 +150,18 @@ Accuracy, depth, and evidence fidelity are more important than brevity or stylis
 class Summarizer:
     """Handles transcript summarization using LLM with retry logic."""
 
-    def __init__(self, api_key: Optional[str] = None, base_url: Optional[str] = None):
+    def __init__(self, api_key: Optional[str] = None, base_url: Optional[str] = None, model: Optional[str] = None):
+        """
+        Initialize summarizer.
+        
+        Args:
+            api_key: Optional API key (defaults to LLM_API_KEY)
+            base_url: Optional base URL (defaults to LLM_BASE_URL)
+            model: Optional model name (defaults to LLM_MODEL from config)
+        """
         self.api_key = api_key or LLM_API_KEY
         self.base_url = base_url or LLM_BASE_URL
+        self.model = model or LLM_MODEL  # Allow dynamic model override
         
         if not self.api_key:
             raise ValueError("LLM API key is required for summarization")
@@ -163,6 +172,8 @@ class Summarizer:
             timeout=600.0,  # 10 minute timeout for long summaries
             max_retries=MAX_RETRIES,
         )
+        
+        logger.info(f"Summarizer initialized with model: {self.model}")
 
     def summarize(
         self,
@@ -270,7 +281,7 @@ class Summarizer:
         if progress_callback:
             # Use streaming for progress updates
             stream = self.client.chat.completions.create(
-                model=LLM_MODEL,
+                model=self.model,
                 messages=[
                     {"role": "system", "content": SYSTEM_PROMPT},
                     {"role": "user", "content": user_prompt},
@@ -297,7 +308,7 @@ class Summarizer:
             return StreamedResponse("".join(collected_content))
         else:
             return self.client.chat.completions.create(
-                model=LLM_MODEL,
+                model=self.model,
                 messages=[
                     {"role": "system", "content": SYSTEM_PROMPT},
                     {"role": "user", "content": user_prompt},
@@ -576,9 +587,24 @@ def merge_summaries(fast_summary: Summary, accurate_summary: Summary) -> Summary
 _summarizer: Optional[Summarizer] = None
 
 
-def get_summarizer() -> Summarizer:
-    """Get or create the global Summarizer instance."""
+def get_summarizer(model: Optional[str] = None) -> Summarizer:
+    """
+    Get or create a Summarizer instance.
+    
+    Args:
+        model: Optional model name. If provided, creates a new instance
+               with this model. If None, uses/creates the global instance.
+    
+    Returns:
+        Summarizer instance
+    """
     global _summarizer
+    
+    # If a specific model is requested, create a new instance
+    if model is not None:
+        return Summarizer(model=model)
+    
+    # Otherwise use the global instance
     if _summarizer is None:
         _summarizer = Summarizer()
     return _summarizer

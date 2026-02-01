@@ -149,18 +149,33 @@ async def get_stats(user: Optional["User"] = Depends(get_current_user)):
 async def get_settings():
     """Get current settings."""
     from config import (
-        WHISPER_MODE, WHISPER_LOCAL_MODEL, WHISPER_BACKEND,
-        WHISPER_DEVICE, LLM_MODEL, CHECK_INTERVAL
+        WHISPER_MODE, WHISPER_BACKEND,
+        WHISPER_DEVICE, CHECK_INTERVAL, get_runtime_settings
     )
+    
+    runtime = get_runtime_settings()
     
     return {
         "whisper_mode": WHISPER_MODE,
-        "whisper_model": WHISPER_LOCAL_MODEL,
+        "whisper_model": runtime.get("whisper_model", "whisper-large-v3-turbo"),
         "whisper_backend": WHISPER_BACKEND,
         "whisper_device": WHISPER_DEVICE,
-        "llm_model": LLM_MODEL,
+        "llm_model": runtime.get("llm_model", "openrouter/openai/gpt-4o"),
         "check_interval": CHECK_INTERVAL,
     }
+
+
+@app.post("/api/settings")
+async def update_settings(settings: dict):
+    """Update runtime settings."""
+    from config import set_runtime_settings
+    
+    allowed_keys = {"whisper_model", "llm_model"}
+    filtered = {k: v for k, v in settings.items() if k in allowed_keys}
+    
+    set_runtime_settings(filtered)
+    
+    return {"message": "Settings updated successfully"}
 
 
 # Serve React frontend for all non-API routes (must be last)

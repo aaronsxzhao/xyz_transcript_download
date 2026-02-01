@@ -181,6 +181,7 @@ export async function processEpisode(
   episodeUrl: string,
   options: { transcribeOnly?: boolean; force?: boolean } = {}
 ): Promise<{ job_id: string; episode_id?: string; episode_title?: string }> {
+  const modelSettings = getUserModelSettings()
   const res = await authFetch(`${API_BASE}/process`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -188,6 +189,8 @@ export async function processEpisode(
       episode_url: episodeUrl,
       transcribe_only: options.transcribeOnly || false,
       force: options.force || false,
+      whisper_model: modelSettings.whisper_model,
+      llm_model: modelSettings.llm_model,
     }),
   })
   if (!res.ok) throw new Error('Failed to start processing')
@@ -215,6 +218,30 @@ export async function fetchSettings(): Promise<{
   return res.json()
 }
 
+export async function updateSettings(settings: {
+  whisper_model?: string
+  llm_model?: string
+}): Promise<{ message: string }> {
+  const res = await authFetch(`${API_BASE}/settings`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(settings),
+  })
+  if (!res.ok) throw new Error('Failed to update settings')
+  return res.json()
+}
+
+/**
+ * Get user's selected models from localStorage
+ * Used by processing functions to pass to API
+ */
+export function getUserModelSettings(): { whisper_model: string; llm_model: string } {
+  return {
+    whisper_model: localStorage.getItem('whisper_model') || 'whisper-large-v3-turbo',
+    llm_model: localStorage.getItem('llm_model') || 'openrouter/openai/gpt-4o',
+  }
+}
+
 export async function cancelJob(jobId: string): Promise<{ message: string }> {
   const res = await authFetch(`${API_BASE}/jobs/${jobId}/cancel`, {
     method: 'POST',
@@ -240,8 +267,13 @@ export async function retryJob(jobId: string): Promise<{ message: string; new_jo
 }
 
 export async function resummarizeEpisode(episodeId: string): Promise<{ message: string; job_id: string }> {
+  const modelSettings = getUserModelSettings()
   const res = await authFetch(`${API_BASE}/episodes/${episodeId}/resummarize`, {
     method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      llm_model: modelSettings.llm_model,
+    }),
   })
   if (!res.ok) throw new Error('Failed to start re-summarization')
   return res.json()

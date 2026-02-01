@@ -89,6 +89,12 @@ class ProcessRequest(BaseModel):
     episode_url: Optional[str] = None
     transcribe_only: bool = False
     force: bool = False
+    whisper_model: Optional[str] = None  # Model to use for transcription
+    llm_model: Optional[str] = None  # Model to use for summarization
+
+
+class ResummarizeRequest(BaseModel):
+    llm_model: Optional[str] = None  # Model to use for summarization
 
 
 class BatchProcessRequest(BaseModel):

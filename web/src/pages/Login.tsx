@@ -5,6 +5,7 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Loader2, Radio, Mail, Lock, AlertCircle } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
+import { setRememberMe, getRememberMe } from '../lib/auth'
 
 type AuthMode = 'signin' | 'signup'
 
@@ -19,6 +20,7 @@ export default function Login() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [message, setMessage] = useState('')
+  const [rememberMe, setRememberMeState] = useState(getRememberMe())
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -43,6 +45,9 @@ export default function Login() {
     setLoading(true)
 
     try {
+      // Set remember me preference before signing in
+      setRememberMe(rememberMe)
+      
       if (mode === 'signin') {
         await signIn(email, password)
         navigate('/')
@@ -126,6 +131,22 @@ export default function Login() {
                     className="w-full pl-10 pr-4 py-2.5 bg-dark-bg border border-dark-border rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
                   />
                 </div>
+              </div>
+            )}
+
+            {/* Remember Me (signin only) */}
+            {mode === 'signin' && (
+              <div className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  id="rememberMe"
+                  checked={rememberMe}
+                  onChange={(e) => setRememberMeState(e.target.checked)}
+                  className="w-4 h-4 rounded border-dark-border bg-dark-bg text-indigo-600 focus:ring-indigo-500 focus:ring-offset-0"
+                />
+                <label htmlFor="rememberMe" className="text-sm text-gray-300 cursor-pointer">
+                  Remember me
+                </label>
               </div>
             )}
 

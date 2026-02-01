@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
-import { Cpu, MessageSquare, Clock, Loader2, CheckCircle, Trash2, AlertTriangle, Search } from 'lucide-react'
-import { fetchSettings, authFetch } from '../lib/api'
+import { Cpu, MessageSquare, Clock, Loader2, CheckCircle, Trash2, AlertTriangle, Search, Save } from 'lucide-react'
+import { fetchSettings, updateSettings, authFetch } from '../lib/api'
 
 interface SettingsData {
   whisper_mode: string
@@ -20,9 +20,45 @@ interface TruncatedItem {
   percentage: number
 }
 
+// Whisper model options
+const WHISPER_MODELS = [
+  { value: 'whisper-large-v3', label: 'whisper-large-v3', description: 'More accurate, slower' },
+  { value: 'whisper-large-v3-turbo', label: 'whisper-large-v3-turbo', description: 'Faster, slightly less accurate' },
+]
+
+// LLM model options
+const LLM_MODELS = [
+  'openrouter/openai/gpt-4o',
+  'openrouter/openai/gpt-5-chat',
+  'openrouter/openai/gpt-5-mini',
+  'openrouter/openai/o3-mini',
+  'openrouter/anthropic/claude-sonnet-4',
+  'openrouter/anthropic/claude-sonnet-4.5',
+  'openrouter/google/gemini-2.5-flash',
+  'openrouter/google/gemini-2.5-pro',
+  'openrouter/x-ai/grok-3-mini',
+  'openrouter/x-ai/grok-4',
+  'openrouter/x-ai/grok-4-fast',
+  'vertex_ai/gemini-2.5-flash',
+  'vertex_ai/gemini-2.5-flash-image',
+  'vertex_ai/gemini-2.5-flash-lite',
+  'vertex_ai/gemini-2.5-flash-lite-preview-09-2025',
+  'vertex_ai/gemini-2.5-pro',
+  'vertex_ai/gemini-3-pro-preview',
+  'vertex_ai/gemini-3-flash-preview',
+  'gemini-2.5-flash-fb',
+  'gemini-2.5-pro-fb',
+]
+
 export default function Settings() {
   const [settings, setSettings] = useState<SettingsData | null>(null)
   const [loading, setLoading] = useState(true)
+  
+  // Editable settings state
+  const [whisperModel, setWhisperModel] = useState<string>('')
+  const [llmModel, setLlmModel] = useState<string>('')
+  const [saving, setSaving] = useState(false)
+  const [saveResult, setSaveResult] = useState<string | null>(null)
   
   // Data maintenance state
   const [truncatedItems, setTruncatedItems] = useState<TruncatedItem[]>([])
@@ -34,6 +70,17 @@ export default function Settings() {
     loadSettings()
   }, [])
   
+  // Initialize editable settings when settings are loaded
+  useEffect(() => {
+    if (settings) {
+      // Load from localStorage first, then fall back to server settings
+      const savedWhisperModel = localStorage.getItem('whisper_model') || settings.whisper_model
+      const savedLlmModel = localStorage.getItem('llm_model') || settings.llm_model
+      setWhisperModel(savedWhisperModel)
+      setLlmModel(savedLlmModel)
+    }
+  }, [settings])
+  
   async function loadSettings() {
     try {
       const data = await fetchSettings()
@@ -42,6 +89,27 @@ export default function Settings() {
       console.error('Failed to load settings:', err)
     } finally {
       setLoading(false)
+    }
+  }
+  
+  async function saveSettings() {
+    setSaving(true)
+    setSaveResult(null)
+    try {
+      // Save to localStorage for persistence
+      localStorage.setItem('whisper_model', whisperModel)
+      localStorage.setItem('llm_model', llmModel)
+      
+      // Also update server settings
+      await updateSettings({ whisper_model: whisperModel, llm_model: llmModel })
+      
+      setSaveResult('Settings saved successfully!')
+      setTimeout(() => setSaveResult(null), 3000)
+    } catch (err) {
+      console.error('Failed to save settings:', err)
+      setSaveResult('Failed to save settings')
+    } finally {
+      setSaving(false)
     }
   }
   
@@ -115,14 +183,27 @@ export default function Settings() {
         
         <div className="space-y-4">
           <SettingRow label="Mode" value={settings?.whisper_mode || '-'} />
-          <SettingRow label="Backend" value={settings?.whisper_backend || '-'} />
-          <SettingRow label="Model" value={settings?.whisper_model || '-'} />
-          <SettingRow label="Device" value={settings?.whisper_device || '-'} />
+          
+          <div className="flex items-center justify-between py-2 border-b border-dark-border">
+            <span className="text-gray-400">Model</span>
+            <select
+              value={whisperModel}
+              onChange={(e) => setWhisperModel(e.target.value)}
+              className="bg-dark-hover border border-dark-border text-white text-sm rounded-lg px-3 py-1.5 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            >
+              {WHISPER_MODELS.map((model) => (
+                <option key={model.value} value={model.value}>
+                  {model.label}
+                </option>
+              ))}
+            </select>
+          </div>
+          
+          <p className="text-xs text-gray-500">
+            {WHISPER_MODELS.find(m => m.value === whisperModel)?.description || 'Select a model'}
+          </p>
         </div>
         
-        <p className="mt-4 text-sm text-gray-500">
-          To change these settings, edit the <code className="text-indigo-400">.env</code> file and restart the server.
-        </p>
       </div>
       
       {/* LLM Settings */}
@@ -133,12 +214,43 @@ export default function Settings() {
         </h2>
         
         <div className="space-y-4">
-          <SettingRow label="Model" value={settings?.llm_model || '-'} />
+          <div className="flex items-center justify-between py-2 border-b border-dark-border">
+            <span className="text-gray-400">Model</span>
+            <select
+              value={llmModel}
+              onChange={(e) => setLlmModel(e.target.value)}
+              className="bg-dark-hover border border-dark-border text-white text-sm rounded-lg px-3 py-1.5 focus:ring-2 focus:ring-purple-500 focus:border-transparent max-w-xs"
+            >
+              {LLM_MODELS.map((model) => (
+                <option key={model} value={model}>
+                  {model}
+                </option>
+              ))}
+            </select>
+          </div>
         </div>
+      </div>
+      
+      {/* Save Button */}
+      <div className="flex items-center gap-4">
+        <button
+          onClick={saveSettings}
+          disabled={saving}
+          className="flex items-center gap-2 px-6 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-colors disabled:opacity-50"
+        >
+          {saving ? (
+            <Loader2 size={16} className="animate-spin" />
+          ) : (
+            <Save size={16} />
+          )}
+          Save Settings
+        </button>
         
-        <p className="mt-4 text-sm text-gray-500">
-          Configure LLM API in <code className="text-indigo-400">.env</code> with LLM_API_KEY, LLM_BASE_URL, and LLM_MODEL.
-        </p>
+        {saveResult && (
+          <span className={`text-sm ${saveResult.includes('Failed') ? 'text-red-400' : 'text-green-400'}`}>
+            {saveResult}
+          </span>
+        )}
       </div>
       
       {/* Daemon Settings */}
@@ -231,20 +343,6 @@ export default function Settings() {
             ))}
           </div>
         )}
-      </div>
-      
-      {/* Info */}
-      <div className="p-4 bg-indigo-500/10 border border-indigo-500/30 rounded-xl">
-        <div className="flex items-start gap-3">
-          <CheckCircle className="text-indigo-500 flex-shrink-0 mt-0.5" size={20} />
-          <div>
-            <p className="text-indigo-200 font-medium">Configuration via .env file</p>
-            <p className="text-sm text-indigo-300/70 mt-1">
-              All settings are configured through the <code>.env</code> file in the project root. 
-              Changes require a server restart to take effect.
-            </p>
-          </div>
-        </div>
       </div>
     </div>
   )
