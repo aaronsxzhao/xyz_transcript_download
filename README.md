@@ -18,7 +18,17 @@ Works locally or in the cloud with multi-user support.
 
 ## Quick Start
 
-### 1. Setup (One-time)
+### Option A: Use the Cloud Version
+
+1. Visit the deployed web service
+2. Sign in with your account
+3. Paste a Xiaoyuzhou episode URL
+4. Click "Process" and wait for results
+5. Read online or export to HTML
+
+### Option B: Run Locally
+
+#### 1. Setup (One-time)
 
 ```bash
 # Clone and enter the project
@@ -36,7 +46,7 @@ brew install ffmpeg  # macOS
 # or: sudo apt install ffmpeg  # Ubuntu
 ```
 
-### 2. Configure
+#### 2. Configure
 
 ```bash
 cp .env.example .env
@@ -55,7 +65,7 @@ WHISPER_MODE=local
 WHISPER_LOCAL_MODEL=small
 ```
 
-### 3. Process Your First Episode
+#### 3. Process Your First Episode
 
 ```bash
 # Paste any episode URL from Xiaoyuzhou
@@ -68,7 +78,7 @@ This will:
 3. Generate an AI summary
 4. Auto-subscribe to the podcast
 
-### 4. View Results
+#### 4. View Results
 
 **Option A: Command Line**
 ```bash
@@ -94,10 +104,95 @@ Open http://localhost:5173 in your browser.
 | **Podcast Subscription** | Subscribe to podcasts, auto-detect new episodes |
 | **Audio Transcription** | Whisper-powered (local or cloud API) |
 | **AI Summarization** | Key points, topics, takeaways, quotes |
-| **Web UI** | Modern React interface for browsing |
+| **Web UI** | Modern React interface with dark theme |
+| **Model Selection** | Choose Whisper and LLM models in settings |
+| **Real-time Progress** | WebSocket-based live progress updates |
 | **Cloud Deployment** | Deploy to Render.com with Supabase storage |
 | **Multi-User** | Each user has isolated data (Supabase) |
 | **Export** | HTML, Markdown, JSON formats |
+
+---
+
+## Web Interface
+
+The web UI provides a visual way to manage podcasts and view summaries.
+
+```bash
+python main.py serve
+```
+
+### Pages
+
+| Page | Features |
+|------|----------|
+| **Dashboard** | Stats, quick process form, recent summaries |
+| **Podcasts** | Subscribe/unsubscribe, refresh episodes |
+| **Episodes** | View all episodes, process individually |
+| **Viewer** | Read summaries with topic grouping, export HTML |
+| **Settings** | Configure models, data maintenance |
+
+### Settings Page
+
+The Settings page allows you to configure:
+
+- **Whisper Model** - Choose transcription model:
+  - `whisper-large-v3` - More accurate, slower
+  - `whisper-large-v3-turbo` - Faster, slightly less accurate
+
+- **LLM Model** - Choose from 20+ summarization models (see below)
+
+- **Data Maintenance** - Check for and clean up incomplete transcripts
+
+**URLs:**
+- Frontend: http://localhost:5173
+- API Docs: http://localhost:8000/docs
+
+---
+
+## Supported Models
+
+### Whisper Models (Transcription)
+
+| Model | Description |
+|-------|-------------|
+| `whisper-large-v3` | Higher accuracy, recommended for important content |
+| `whisper-large-v3-turbo` | Faster processing, good for daily use |
+
+### LLM Models (Summarization)
+
+Select any of these models in the Settings page:
+
+#### OpenRouter
+| Model | Description |
+|-------|-------------|
+| `openrouter/openai/gpt-4o` | GPT-4o |
+| `openrouter/openai/gpt-5-chat` | GPT-5 |
+| `openrouter/openai/gpt-5-mini` | GPT-5 Mini |
+| `openrouter/openai/o3-mini` | O3 Mini |
+| `openrouter/anthropic/claude-sonnet-4` | Claude Sonnet 4 |
+| `openrouter/anthropic/claude-sonnet-4.5` | Claude Sonnet 4.5 |
+| `openrouter/google/gemini-2.5-flash` | Gemini 2.5 Flash |
+| `openrouter/google/gemini-2.5-pro` | Gemini 2.5 Pro |
+| `openrouter/x-ai/grok-3-mini` | Grok 3 Mini |
+| `openrouter/x-ai/grok-4` | Grok 4 |
+| `openrouter/x-ai/grok-4-fast` | Grok 4 Fast |
+
+#### Vertex AI
+| Model | Description |
+|-------|-------------|
+| `vertex_ai/gemini-2.5-flash` | Gemini 2.5 Flash |
+| `vertex_ai/gemini-2.5-flash-image` | Gemini 2.5 Flash Image |
+| `vertex_ai/gemini-2.5-flash-lite` | Gemini 2.5 Flash Lite |
+| `vertex_ai/gemini-2.5-flash-lite-preview-09-2025` | Flash Lite Preview |
+| `vertex_ai/gemini-2.5-pro` | Gemini 2.5 Pro |
+| `vertex_ai/gemini-3-pro-preview` | Gemini 3 Pro Preview |
+| `vertex_ai/gemini-3-flash-preview` | Gemini 3 Flash Preview |
+
+#### Firebase Direct
+| Model | Description |
+|-------|-------------|
+| `gemini-2.5-flash-fb` | Gemini 2.5 Flash |
+| `gemini-2.5-pro-fb` | Gemini 2.5 Pro |
 
 ---
 
@@ -140,28 +235,6 @@ Open http://localhost:5173 in your browser.
 
 ---
 
-## Web Interface
-
-The web UI provides a visual way to manage podcasts and view summaries.
-
-```bash
-python main.py serve
-```
-
-**Features:**
-- Dashboard with stats and recent summaries
-- Podcast subscription management
-- Episode list with processing status
-- Summary viewer with topic grouping
-- Real-time processing progress
-- HTML export for sharing
-
-**URLs:**
-- Frontend: http://localhost:5173
-- API Docs: http://localhost:8000/docs
-
----
-
 ## Configuration
 
 ### Whisper (Transcription)
@@ -170,7 +243,7 @@ python main.py serve
 |---------|---------|-------------|
 | `WHISPER_MODE` | `local`, `api` | Use local Whisper or cloud API (Groq) |
 | `WHISPER_BACKEND` | `auto`, `mlx-whisper`, `faster-whisper` | Transcription engine |
-| `WHISPER_LOCAL_MODEL` | `tiny`, `small`, `medium`, `large-v3` | Model size |
+| `WHISPER_LOCAL_MODEL` | `tiny`, `small`, `medium`, `large-v3` | Model size (local mode) |
 
 **Recommended for Apple Silicon (M1/M2/M3):**
 ```bash
@@ -192,7 +265,7 @@ LLM_BASE_URL=https://api.openai.com/v1
 LLM_MODEL=gpt-4o
 ```
 
-Compatible with any OpenAI-compatible API (OpenAI, Azure, LiteLLM, etc.)
+Compatible with any OpenAI-compatible API (OpenAI, Azure, LiteLLM, OpenRouter, etc.)
 
 ---
 
@@ -267,6 +340,8 @@ data/
 | Summary fails | Check LLM API key and network |
 | Cloud data lost | Enable Supabase for persistence |
 | Slow Render deploy | Use `WHISPER_MODE=api` to skip torch |
+| Incomplete transcript | Use Settings > Data Maintenance to clean up |
+| Summary quality poor | Try a different LLM model in Settings |
 
 ### Stopping the Server
 
@@ -286,9 +361,9 @@ fg %1      # Bring back to foreground
 
 ```
 ┌─────────────────────────────────────────────┐
-│          React Frontend (Vite)              │
+│       React Frontend (Vite + Tailwind)      │
 ├─────────────────────────────────────────────┤
-│           FastAPI Backend                   │
+│            FastAPI Backend                  │
 ├─────────────────────────────────────────────┤
 │         Database Abstraction Layer          │
 │              (api/db.py)                    │
@@ -299,10 +374,10 @@ fg %1      # Bring back to foreground
 
 **Key Components:**
 - `main.py` - CLI entry point
-- `transcriber.py` - Whisper integration
-- `summarizer.py` - LLM summarization
+- `transcriber.py` - Whisper integration (local + API)
+- `summarizer.py` - LLM summarization (20+ models)
 - `api/db.py` - Unified database interface
-- `web/` - React frontend
+- `web/` - React frontend with settings UI
 
 ---
 
@@ -315,3 +390,9 @@ MIT
 ## Contributing
 
 Issues and PRs welcome! This tool is actively maintained.
+
+---
+
+## 中文文档
+
+查看 [README_CN.md](README_CN.md) 获取中文版说明文档。
