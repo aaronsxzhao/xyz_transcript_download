@@ -195,9 +195,18 @@ if frontend_dist.exists():
 
 
 @app.get("/api/health")
+@app.head("/api/health")
 async def health_check():
     """Health check endpoint."""
     return {"status": "ok"}
+
+
+@app.head("/")
+@app.head("/{path:path}")
+async def head_request(path: str = ""):
+    """Handle HEAD requests for health checks and load balancers."""
+    from fastapi.responses import Response
+    return Response(status_code=200)
 
 
 @app.get("/api/new-episodes")

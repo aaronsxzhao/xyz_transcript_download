@@ -24,6 +24,12 @@ async def list_summaries(user: Optional[User] = Depends(get_current_user)):
     
     summaries = await run_sync(db.get_all_summaries)
     
+    # Debug logging
+    for s in summaries[:3]:  # Log first 3
+        print(f"[DEBUG] Summary {s.episode_id}: topics={len(s.topics)}, key_points={len(s.key_points)}")
+        if s.key_points:
+            print(f"[DEBUG]   First key point: {s.key_points[0].get('topic', 'N/A')[:50]}")
+    
     return [
         SummaryListItem(
             episode_id=s.episode_id,
@@ -147,3 +153,29 @@ async def delete_summary(eid: str, user: Optional[User] = Depends(get_current_us
     await run_sync(db.delete_summary, eid)
     
     return {"message": "Summary deleted"}
+
+
+@router.get("/debug/raw")
+async def debug_raw_summaries(user: Optional[User] = Depends(get_current_user)):
+    """Debug endpoint to see raw summary data with key point counts."""
+    db = get_db(user.id if user else None)
+    
+    summaries = await run_sync(db.get_all_summaries)
+    
+    return {
+        "count": len(summaries),
+        "summaries": [
+            {
+                "episode_id": s.episode_id,
+                "title": s.title[:50] if s.title else "",
+                "topics_count": len(s.topics),
+                "topics": s.topics[:3] if s.topics else [],
+                "key_points_count": len(s.key_points),
+                "key_points_sample": [
+                    {"topic": kp.get("topic", "")[:30]} 
+                    for kp in (s.key_points[:3] if s.key_points else [])
+                ],
+            }
+            for s in summaries[:10]  # Limit to first 10
+        ]
+    }

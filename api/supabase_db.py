@@ -368,21 +368,29 @@ class SupabaseDatabase:
         # Get all summary IDs
         summary_ids = [s["id"] for s in result.data]
         
-        # Fetch ALL key points in ONE query instead of N queries
-        kp_result = self.client.table("summary_key_points").select("*").in_("summary_id", summary_ids).execute()
+        print(f"[DEBUG] get_all_summaries: Found {len(summary_ids)} summaries, fetching key points...")
         
-        # Group key points by summary_id
+        # Fetch ALL key points in ONE query instead of N queries
         kp_by_summary: Dict[int, List[Dict[str, Any]]] = {}
-        for kp in kp_result.data:
-            sid = kp["summary_id"]
-            if sid not in kp_by_summary:
-                kp_by_summary[sid] = []
-            kp_by_summary[sid].append({
-                "topic": kp["topic"],
-                "summary": kp["summary"],
-                "original_quote": kp["original_quote"],
-                "timestamp": kp["timestamp"]
-            })
+        
+        if summary_ids:
+            try:
+                kp_result = self.client.table("summary_key_points").select("*").in_("summary_id", summary_ids).execute()
+                print(f"[DEBUG] get_all_summaries: Fetched {len(kp_result.data) if kp_result.data else 0} key points total")
+                
+                # Group key points by summary_id
+                for kp in (kp_result.data or []):
+                    sid = kp["summary_id"]
+                    if sid not in kp_by_summary:
+                        kp_by_summary[sid] = []
+                    kp_by_summary[sid].append({
+                        "topic": kp["topic"],
+                        "summary": kp["summary"],
+                        "original_quote": kp["original_quote"],
+                        "timestamp": kp["timestamp"]
+                    })
+            except Exception as e:
+                print(f"[DEBUG] get_all_summaries: Error fetching key points: {e}")
         
         summaries = []
         for summary in result.data:
@@ -392,6 +400,7 @@ class SupabaseDatabase:
             # Fallback: check if key_points stored directly in summaries table (old format)
             if not kp_list and summary.get("key_points"):
                 kp_list = summary["key_points"]
+                print(f"[DEBUG] get_all_summaries: Using fallback key_points for {summary['episode_id']}")
             
             summaries.append(SummaryRecord(
                 id=summary["id"],
@@ -413,6 +422,8 @@ class SupabaseDatabase:
         if not self.client:
             return False
         
+        print(f"[DEBUG] save_summary: episode_id={episode_id}, topics={len(topics)}, key_points={len(key_points)}")
+        
         # Upsert summary
         result = self.client.table("summaries").upsert({
             "user_id": user_id,
@@ -424,9 +435,11 @@ class SupabaseDatabase:
         }, on_conflict="user_id,episode_id").execute()
         
         if not result.data:
+            print(f"[DEBUG] save_summary: Failed to upsert summary")
             return False
         
         summary_id = result.data[0]["id"]
+        print(f"[DEBUG] save_summary: summary_id={summary_id}")
         
         # Delete old key points
         self.client.table("summary_key_points").delete().eq("summary_id", summary_id).execute()
@@ -443,7 +456,13 @@ class SupabaseDatabase:
                 }
                 for kp in key_points
             ]
-            self.client.table("summary_key_points").insert(kp_rows).execute()
+            try:
+                insert_result = self.client.table("summary_key_points").insert(kp_rows).execute()
+                print(f"[DEBUG] save_summary: Inserted {len(insert_result.data) if insert_result.data else 0} key points")
+            except Exception as e:
+                print(f"[DEBUG] save_summary: Failed to insert key points: {e}")
+        else:
+            print(f"[DEBUG] save_summary: No key points to insert")
         
         return True
     
