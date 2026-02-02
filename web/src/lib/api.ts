@@ -58,6 +58,8 @@ export interface Episode {
   status: string
   has_transcript: boolean
   has_summary: boolean
+  topics_count: number
+  key_points_count: number
 }
 
 export interface Summary {

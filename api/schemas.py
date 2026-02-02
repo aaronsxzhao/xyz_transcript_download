@@ -40,6 +40,8 @@ class EpisodeResponse(EpisodeBase):
     status: str = "pending"
     has_transcript: bool = False
     has_summary: bool = False
+    topics_count: int = 0
+    key_points_count: int = 0
     
     class Config:
         from_attributes = True

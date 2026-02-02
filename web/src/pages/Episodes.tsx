@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useParams, Link } from 'react-router-dom'
-import { ArrowLeft, Play, FileText, MessageSquare, Loader2, CheckCircle, Trash2 } from 'lucide-react'
-import { fetchPodcast, fetchEpisodes, processEpisode, deleteEpisode, type Podcast, type Episode } from '../lib/api'
+import { ArrowLeft, Play, FileText, MessageSquare, Loader2, CheckCircle, Trash2, RefreshCw, Tag } from 'lucide-react'
+import { fetchPodcast, fetchEpisodes, processEpisode, deleteEpisode, resummarizeEpisode, type Podcast, type Episode } from '../lib/api'
 import { useToast } from '../components/Toast'
 import { useStore } from '../lib/store'
 import { getStatusColor } from '../lib/statusUtils'
@@ -12,6 +12,7 @@ export default function Episodes() {
   const [episodes, setEpisodes] = useState<Episode[]>([])
   const [loading, setLoading] = useState(true)
   const [processingEid, setProcessingEid] = useState<string | null>(null)
+  const [regeneratingEid, setRegeneratingEid] = useState<string | null>(null)
   const [deletingEid, setDeletingEid] = useState<string | null>(null)
   const { addToast } = useToast()
   const { jobs, updateJob } = useStore()
@@ -72,6 +73,37 @@ export default function Episodes() {
       })
     } finally {
       setProcessingEid(null)
+    }
+  }
+  
+  async function handleRegenerate(episode: Episode) {
+    setRegeneratingEid(episode.eid)
+    try {
+      const result = await resummarizeEpisode(episode.eid)
+      
+      // Add job to store for instant UI feedback
+      updateJob({
+        job_id: result.job_id,
+        status: 'pending',
+        progress: 0,
+        message: 'Re-summarizing...',
+        episode_id: episode.eid,
+        episode_title: episode.title,
+      })
+      
+      addToast({
+        type: 'success',
+        title: 'Re-summarization started',
+        message: episode.title,
+      })
+    } catch (err) {
+      console.error('Failed to start re-summarization:', err)
+      addToast({
+        type: 'error',
+        title: 'Failed to start re-summarization',
+      })
+    } finally {
+      setRegeneratingEid(null)
     }
   }
   
@@ -155,6 +187,9 @@ export default function Episodes() {
                     <span className="flex items-center gap-1 text-purple-500">
                       <MessageSquare size={12} className="md:w-3.5 md:h-3.5" />
                       <span className="hidden sm:inline">Summary</span>
+                      <span className="text-gray-400 ml-1">
+                        ({episode.topics_count} <Tag size={10} className="inline" />, {episode.key_points_count} pts)
+                      </span>
                     </span>
                   )}
                 </div>
@@ -166,13 +201,28 @@ export default function Episodes() {
                   
                   if (episode.has_summary) {
                     return (
-                      <Link
-                        to={`/viewer/${episode.eid}`}
-                        className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-colors"
-                      >
-                        <CheckCircle size={16} />
-                        View
-                      </Link>
+                      <>
+                        <button
+                          onClick={() => handleRegenerate(episode)}
+                          disabled={regeneratingEid === episode.eid || !!activeJob}
+                          className="flex items-center gap-2 px-3 py-2 bg-dark-hover hover:bg-dark-border text-gray-300 rounded-lg transition-colors disabled:opacity-50"
+                          title="Re-process episode"
+                        >
+                          {regeneratingEid === episode.eid ? (
+                            <Loader2 size={16} className="animate-spin" />
+                          ) : (
+                            <RefreshCw size={16} />
+                          )}
+                          <span className="hidden sm:inline">Re-Process</span>
+                        </button>
+                        <Link
+                          to={`/viewer/${episode.eid}`}
+                          className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-colors"
+                        >
+                          <CheckCircle size={16} />
+                          View
+                        </Link>
+                      </>
                     )
                   }
                   
