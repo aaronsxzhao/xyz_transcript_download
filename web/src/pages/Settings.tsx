@@ -57,7 +57,7 @@ export default function Settings() {
   // Editable settings state
   const [whisperModel, setWhisperModel] = useState<string>('')
   const [llmModel, setLlmModel] = useState<string>('')
-  const [maxOutputTokens, setMaxOutputTokens] = useState<number>(16000)
+  const [maxOutputTokens, setMaxOutputTokens] = useState<string>('16000')
   const [saving, setSaving] = useState(false)
   const [saveResult, setSaveResult] = useState<string | null>(null)
   
@@ -80,7 +80,7 @@ export default function Settings() {
       const savedMaxTokens = localStorage.getItem('max_output_tokens')
       setWhisperModel(savedWhisperModel)
       setLlmModel(savedLlmModel)
-      setMaxOutputTokens(savedMaxTokens ? parseInt(savedMaxTokens, 10) : 16000)
+      setMaxOutputTokens(savedMaxTokens || '16000')
     }
   }, [settings])
   
@@ -100,7 +100,8 @@ export default function Settings() {
     setSaveResult(null)
     try {
       // Validate max tokens
-      const validTokens = Math.max(4000, Math.min(32000, maxOutputTokens))
+      const parsedTokens = parseInt(maxOutputTokens, 10) || 16000
+      const validTokens = Math.max(4000, Math.min(32000, parsedTokens))
       
       // Save to localStorage for persistence
       localStorage.setItem('whisper_model', whisperModel)
@@ -247,12 +248,12 @@ export default function Settings() {
             </div>
             <div className="flex items-center gap-2">
               <input
-                type="number"
+                type="text"
+                inputMode="numeric"
+                pattern="[0-9]*"
                 value={maxOutputTokens}
-                onChange={(e) => setMaxOutputTokens(parseInt(e.target.value, 10) || 16000)}
-                min={4000}
-                max={32000}
-                step={1000}
+                onChange={(e) => setMaxOutputTokens(e.target.value.replace(/[^0-9]/g, ''))}
+                placeholder="16000"
                 className="bg-dark-hover border border-dark-border text-white text-sm rounded-lg px-3 py-2 focus:ring-2 focus:ring-purple-500 focus:border-transparent w-28 text-right"
               />
               <span className="text-xs text-gray-500 hidden sm:inline">tokens</span>
