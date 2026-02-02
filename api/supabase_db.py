@@ -328,7 +328,7 @@ class SupabaseDatabase:
         
         summary = result.data[0]
         
-        # Get key points
+        # Get key points from summary_key_points table
         kp_result = self.client.table("summary_key_points").select("*").eq("summary_id", summary["id"]).execute()
         key_points = [
             {
@@ -339,6 +339,10 @@ class SupabaseDatabase:
             }
             for kp in kp_result.data
         ]
+        
+        # Fallback: check if key_points stored directly in summaries table (old format)
+        if not key_points and summary.get("key_points"):
+            key_points = summary["key_points"]
         
         return SummaryRecord(
             id=summary["id"],
@@ -382,6 +386,13 @@ class SupabaseDatabase:
         
         summaries = []
         for summary in result.data:
+            # Get key_points from summary_key_points table first
+            kp_list = kp_by_summary.get(summary["id"], [])
+            
+            # Fallback: check if key_points stored directly in summaries table (old format)
+            if not kp_list and summary.get("key_points"):
+                kp_list = summary["key_points"]
+            
             summaries.append(SummaryRecord(
                 id=summary["id"],
                 user_id=summary["user_id"],
@@ -390,7 +401,7 @@ class SupabaseDatabase:
                 overview=summary["overview"],
                 topics=summary.get("topics", []),
                 takeaways=summary.get("takeaways", []),
-                key_points=kp_by_summary.get(summary["id"], [])
+                key_points=kp_list
             ))
         
         return summaries
