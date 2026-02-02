@@ -340,9 +340,11 @@ class SupabaseDatabase:
             for kp in kp_result.data
         ]
         
-        # Fallback: check if key_points stored directly in summaries table (old format)
-        if not key_points and summary.get("key_points"):
-            key_points = summary["key_points"]
+        # Check if key_points stored directly in summaries table (old format)
+        # Use whichever source has more key_points
+        old_key_points = summary.get("key_points", []) or []
+        if isinstance(old_key_points, list) and len(old_key_points) > len(key_points):
+            key_points = old_key_points
         
         return SummaryRecord(
             id=summary["id"],
@@ -397,14 +399,11 @@ class SupabaseDatabase:
             # Get key_points from summary_key_points table first
             kp_list = kp_by_summary.get(summary["id"], [])
             
-            # Fallback: check if key_points stored directly in summaries table (old format)
-            if not kp_list and summary.get("key_points"):
-                kp_list = summary["key_points"]
-                print(f"[DEBUG] get_all_summaries: Using fallback key_points for {summary['episode_id']}: {len(kp_list)} points")
-            
-            # Debug: log what we got
-            if not kp_list:
-                print(f"[DEBUG] get_all_summaries: No key_points for {summary['episode_id']}, summary keys: {list(summary.keys())}")
+            # Check if key_points stored directly in summaries table (old format)
+            # Use whichever source has more key_points
+            old_kp_list = summary.get("key_points", []) or []
+            if isinstance(old_kp_list, list) and len(old_kp_list) > len(kp_list):
+                kp_list = old_kp_list
             
             summaries.append(SummaryRecord(
                 id=summary["id"],
