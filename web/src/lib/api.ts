@@ -191,6 +191,7 @@ export async function processEpisode(
       force: options.force || false,
       whisper_model: modelSettings.whisper_model,
       llm_model: modelSettings.llm_model,
+      max_output_tokens: modelSettings.max_output_tokens,
     }),
   })
   if (!res.ok) throw new Error('Failed to start processing')
@@ -221,6 +222,7 @@ export async function fetchSettings(): Promise<{
 export async function updateSettings(settings: {
   whisper_model?: string
   llm_model?: string
+  max_output_tokens?: number
 }): Promise<{ message: string }> {
   const res = await authFetch(`${API_BASE}/settings`, {
     method: 'POST',
@@ -235,10 +237,16 @@ export async function updateSettings(settings: {
  * Get user's selected models from localStorage
  * Used by processing functions to pass to API
  */
-export function getUserModelSettings(): { whisper_model: string; llm_model: string } {
+export function getUserModelSettings(): { 
+  whisper_model: string
+  llm_model: string
+  max_output_tokens: number 
+} {
+  const savedTokens = localStorage.getItem('max_output_tokens')
   return {
     whisper_model: localStorage.getItem('whisper_model') || 'whisper-large-v3-turbo',
     llm_model: localStorage.getItem('llm_model') || 'openrouter/openai/gpt-4o',
+    max_output_tokens: savedTokens ? parseInt(savedTokens, 10) : 16000,
   }
 }
 
@@ -273,6 +281,7 @@ export async function resummarizeEpisode(episodeId: string): Promise<{ message: 
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       llm_model: modelSettings.llm_model,
+      max_output_tokens: modelSettings.max_output_tokens,
     }),
   })
   if (!res.ok) throw new Error('Failed to start re-summarization')

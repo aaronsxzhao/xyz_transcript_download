@@ -342,7 +342,8 @@ def _background_refinement(audio_path, episode, fast_summary, db_interface, tran
 
 
 def process_episode_sync(job_id: str, episode_url: str, transcribe_only: bool = False, force: bool = False, 
-                         user_id: Optional[str] = None, whisper_model: Optional[str] = None, llm_model: Optional[str] = None):
+                         user_id: Optional[str] = None, whisper_model: Optional[str] = None, 
+                         llm_model: Optional[str] = None, max_output_tokens: Optional[int] = None):
     """
     Synchronous episode processing with optimized dual-track processing.
     
@@ -360,6 +361,7 @@ def process_episode_sync(job_id: str, episode_url: str, transcribe_only: bool = 
         user_id: Optional user ID for database isolation
         whisper_model: Optional whisper model to use (e.g., 'whisper-large-v3-turbo')
         llm_model: Optional LLM model to use for summarization
+        max_output_tokens: Optional max tokens for LLM output
     """
     import threading
     from xyz_client import get_client
@@ -372,7 +374,7 @@ def process_episode_sync(job_id: str, episode_url: str, transcribe_only: bool = 
     db = get_database()
     downloader = get_downloader()
     transcriber = get_transcriber(model=whisper_model)  # Pass whisper model
-    summarizer = get_summarizer(model=llm_model)  # Pass LLM model
+    summarizer = get_summarizer(model=llm_model, max_output_tokens=max_output_tokens)  # Pass LLM settings
     
     # Get database interface for saving (supports both local and Supabase)
     db_interface = get_db(user_id)
@@ -720,7 +722,8 @@ def process_episode_sync(job_id: str, episode_url: str, transcribe_only: bool = 
 
 
 async def process_episode_async(job_id: str, episode_url: str, transcribe_only: bool = False, force: bool = False, 
-                                user_id: Optional[str] = None, whisper_model: Optional[str] = None, llm_model: Optional[str] = None):
+                                user_id: Optional[str] = None, whisper_model: Optional[str] = None, 
+                                llm_model: Optional[str] = None, max_output_tokens: Optional[int] = None):
     """Async wrapper for episode processing.
     
     Uses PROCESSING_EXECUTOR with limited workers to prevent resource exhaustion.
@@ -731,7 +734,7 @@ async def process_episode_async(job_id: str, episode_url: str, transcribe_only: 
     # Run in limited thread pool (max 3 concurrent heavy processing jobs)
     await loop.run_in_executor(
         PROCESSING_EXECUTOR,
-        lambda: process_episode_sync(job_id, episode_url, transcribe_only, force, user_id, whisper_model, llm_model)
+        lambda: process_episode_sync(job_id, episode_url, transcribe_only, force, user_id, whisper_model, llm_model, max_output_tokens)
     )
     
     # Broadcast final status
@@ -793,6 +796,7 @@ async def process_episode(
         user_id,
         data.whisper_model,  # Pass whisper model from request
         data.llm_model,  # Pass LLM model from request
+        data.max_output_tokens,  # Pass max output tokens from request
     )
     
     return {
@@ -999,8 +1003,9 @@ async def resummarize_episode(
     # Construct episode URL
     episode_url = f"https://www.xiaoyuzhoufm.com/episode/{episode_id}"
     
-    # Get LLM model from request if provided
+    # Get LLM settings from request if provided
     llm_model = data.llm_model if data else None
+    max_output_tokens = data.max_output_tokens if data else None
     
     # Create new job
     job_id = str(uuid.uuid4())[:8]
@@ -1028,7 +1033,7 @@ async def resummarize_episode(
     background_tasks.add_task(
         process_episode_async, job_id, episode_url, 
         transcribe_only=False, force=False, user_id=user_id,
-        whisper_model=None, llm_model=llm_model  # Pass LLM model
+        whisper_model=None, llm_model=llm_model, max_output_tokens=max_output_tokens
     )
     
     return {

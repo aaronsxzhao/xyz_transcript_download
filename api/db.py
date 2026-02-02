@@ -149,6 +149,14 @@ class DatabaseInterface:
         else:
             return self.db.update_podcast_cover(pid, cover_url)
     
+    def update_podcast_checked(self, pid: str) -> bool:
+        """Update the last checked timestamp for a podcast."""
+        if self.use_supabase:
+            return self.db.update_podcast_checked(self.user_id, pid)
+        else:
+            self.db.update_podcast_checked(pid)
+            return True
+    
     def force_delete_podcast(self, pid: str) -> bool:
         """Force delete a podcast by pid."""
         if self.use_supabase:

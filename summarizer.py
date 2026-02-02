@@ -18,6 +18,7 @@ from tenacity import (
 from config import (
     LLM_API_KEY, LLM_BASE_URL, LLM_MODEL, SUMMARIES_DIR, MAX_RETRIES,
     SUMMARIZER_MAX_CHARS, SUMMARIZER_CHUNK_SEGMENTS, SUMMARIZER_CHUNK_CHARS,
+    SUMMARIZER_MAX_OUTPUT_TOKENS,
 )
 from transcriber import Transcript
 from logger import get_logger
@@ -150,7 +151,8 @@ Accuracy, depth, and evidence fidelity are more important than brevity or stylis
 class Summarizer:
     """Handles transcript summarization using LLM with retry logic."""
 
-    def __init__(self, api_key: Optional[str] = None, base_url: Optional[str] = None, model: Optional[str] = None):
+    def __init__(self, api_key: Optional[str] = None, base_url: Optional[str] = None, 
+                 model: Optional[str] = None, max_output_tokens: Optional[int] = None):
         """
         Initialize summarizer.
         
@@ -158,10 +160,12 @@ class Summarizer:
             api_key: Optional API key (defaults to LLM_API_KEY)
             base_url: Optional base URL (defaults to LLM_BASE_URL)
             model: Optional model name (defaults to LLM_MODEL from config)
+            max_output_tokens: Optional max tokens for output (defaults to SUMMARIZER_MAX_OUTPUT_TOKENS)
         """
         self.api_key = api_key or LLM_API_KEY
         self.base_url = base_url or LLM_BASE_URL
         self.model = model or LLM_MODEL  # Allow dynamic model override
+        self.max_output_tokens = max_output_tokens or SUMMARIZER_MAX_OUTPUT_TOKENS
         
         if not self.api_key:
             raise ValueError("LLM API key is required for summarization")
@@ -173,7 +177,7 @@ class Summarizer:
             max_retries=MAX_RETRIES,
         )
         
-        logger.info(f"Summarizer initialized with model: {self.model}")
+        logger.info(f"Summarizer initialized with model: {self.model}, max_tokens: {self.max_output_tokens}")
 
     def summarize(
         self,
@@ -278,16 +282,24 @@ class Summarizer:
     )
     def _call_llm_with_retry(self, user_prompt: str, progress_callback=None):
         """Call LLM API with retry logic and optional streaming progress."""
+        # Common parameters for all calls
+        common_params = {
+            "model": self.model,
+            "messages": [
+                {"role": "system", "content": SYSTEM_PROMPT},
+                {"role": "user", "content": user_prompt},
+            ],
+            "response_format": {"type": "json_object"},
+            "temperature": 0.3,
+            "max_tokens": self.max_output_tokens,  # Prevent output cutoff
+        }
+        
+        logger.debug(f"LLM call with max_tokens={self.max_output_tokens}")
+        
         if progress_callback:
             # Use streaming for progress updates
             stream = self.client.chat.completions.create(
-                model=self.model,
-                messages=[
-                    {"role": "system", "content": SYSTEM_PROMPT},
-                    {"role": "user", "content": user_prompt},
-                ],
-                response_format={"type": "json_object"},
-                temperature=0.3,
+                **common_params,
                 stream=True,
             )
             
@@ -305,17 +317,14 @@ class Summarizer:
                 def __init__(self, content):
                     self.choices = [type('Choice', (), {'message': type('Message', (), {'content': content})()})]
             
-            return StreamedResponse("".join(collected_content))
+            final_content = "".join(collected_content)
+            logger.info(f"LLM response: {len(final_content):,} chars generated")
+            return StreamedResponse(final_content)
         else:
-            return self.client.chat.completions.create(
-                model=self.model,
-                messages=[
-                    {"role": "system", "content": SYSTEM_PROMPT},
-                    {"role": "user", "content": user_prompt},
-                ],
-                response_format={"type": "json_object"},
-                temperature=0.3,
-            )
+            response = self.client.chat.completions.create(**common_params)
+            if response.choices[0].message.content:
+                logger.info(f"LLM response: {len(response.choices[0].message.content):,} chars generated")
+            return response
 
     def _summarize_long_transcript(
         self,
@@ -587,22 +596,24 @@ def merge_summaries(fast_summary: Summary, accurate_summary: Summary) -> Summary
 _summarizer: Optional[Summarizer] = None
 
 
-def get_summarizer(model: Optional[str] = None) -> Summarizer:
+def get_summarizer(model: Optional[str] = None, max_output_tokens: Optional[int] = None) -> Summarizer:
     """
     Get or create a Summarizer instance.
     
     Args:
         model: Optional model name. If provided, creates a new instance
                with this model. If None, uses/creates the global instance.
+        max_output_tokens: Optional max tokens for output. If provided,
+               creates a new instance with this setting.
     
     Returns:
         Summarizer instance
     """
     global _summarizer
     
-    # If a specific model is requested, create a new instance
-    if model is not None:
-        return Summarizer(model=model)
+    # If specific settings are requested, create a new instance
+    if model is not None or max_output_tokens is not None:
+        return Summarizer(model=model, max_output_tokens=max_output_tokens)
     
     # Otherwise use the global instance
     if _summarizer is None:

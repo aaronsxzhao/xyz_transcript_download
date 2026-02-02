@@ -140,6 +140,17 @@ class SupabaseDatabase:
         }).eq("user_id", user_id).eq("pid", pid).execute()
         return True
     
+    def update_podcast_checked(self, user_id: str, pid: str) -> bool:
+        """Update the last checked timestamp for a podcast."""
+        if not self.client:
+            return False
+        
+        from datetime import datetime
+        self.client.table("podcasts").update({
+            "last_checked": datetime.now().isoformat()
+        }).eq("user_id", user_id).eq("pid", pid).execute()
+        return True
+    
     # ==================== Episodes ====================
     
     def get_episodes_by_podcast(self, user_id: str, pid: str) -> List[EpisodeRecord]:

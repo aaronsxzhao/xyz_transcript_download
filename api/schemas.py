@@ -91,10 +91,12 @@ class ProcessRequest(BaseModel):
     force: bool = False
     whisper_model: Optional[str] = None  # Model to use for transcription
     llm_model: Optional[str] = None  # Model to use for summarization
+    max_output_tokens: Optional[int] = None  # Max tokens for LLM output
 
 
 class ResummarizeRequest(BaseModel):
     llm_model: Optional[str] = None  # Model to use for summarization
+    max_output_tokens: Optional[int] = None  # Max tokens for LLM output
 
 
 class BatchProcessRequest(BaseModel):

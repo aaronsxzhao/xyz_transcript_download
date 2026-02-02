@@ -57,6 +57,7 @@ export default function Settings() {
   // Editable settings state
   const [whisperModel, setWhisperModel] = useState<string>('')
   const [llmModel, setLlmModel] = useState<string>('')
+  const [maxOutputTokens, setMaxOutputTokens] = useState<number>(16000)
   const [saving, setSaving] = useState(false)
   const [saveResult, setSaveResult] = useState<string | null>(null)
   
@@ -76,8 +77,10 @@ export default function Settings() {
       // Load from localStorage first, then fall back to server settings
       const savedWhisperModel = localStorage.getItem('whisper_model') || settings.whisper_model
       const savedLlmModel = localStorage.getItem('llm_model') || settings.llm_model
+      const savedMaxTokens = localStorage.getItem('max_output_tokens')
       setWhisperModel(savedWhisperModel)
       setLlmModel(savedLlmModel)
+      setMaxOutputTokens(savedMaxTokens ? parseInt(savedMaxTokens, 10) : 16000)
     }
   }, [settings])
   
@@ -96,12 +99,20 @@ export default function Settings() {
     setSaving(true)
     setSaveResult(null)
     try {
+      // Validate max tokens
+      const validTokens = Math.max(4000, Math.min(32000, maxOutputTokens))
+      
       // Save to localStorage for persistence
       localStorage.setItem('whisper_model', whisperModel)
       localStorage.setItem('llm_model', llmModel)
+      localStorage.setItem('max_output_tokens', validTokens.toString())
       
       // Also update server settings
-      await updateSettings({ whisper_model: whisperModel, llm_model: llmModel })
+      await updateSettings({ 
+        whisper_model: whisperModel, 
+        llm_model: llmModel,
+        max_output_tokens: validTokens,
+      })
       
       setSaveResult('Settings saved successfully!')
       setTimeout(() => setSaveResult(null), 3000)
@@ -228,6 +239,29 @@ export default function Settings() {
               ))}
             </select>
           </div>
+          
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 py-2 border-b border-dark-border">
+            <div className="flex flex-col">
+              <span className="text-gray-400">Max Output Tokens</span>
+              <span className="text-xs text-gray-500">Higher = more detailed summaries</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <input
+                type="number"
+                value={maxOutputTokens}
+                onChange={(e) => setMaxOutputTokens(parseInt(e.target.value, 10) || 16000)}
+                min={4000}
+                max={32000}
+                step={1000}
+                className="bg-dark-hover border border-dark-border text-white text-sm rounded-lg px-3 py-2 focus:ring-2 focus:ring-purple-500 focus:border-transparent w-28 text-right"
+              />
+              <span className="text-xs text-gray-500 hidden sm:inline">tokens</span>
+            </div>
+          </div>
+          
+          <p className="text-xs text-gray-500">
+            Recommended: 16,000 for 1-2hr podcasts, 24,000+ for longer episodes
+          </p>
         </div>
       </div>
       
