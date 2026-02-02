@@ -4,9 +4,71 @@ Generates summaries and extracts key points from transcripts.
 """
 
 import json
+import re
 from dataclasses import dataclass, asdict
 from pathlib import Path
 from typing import Dict, List, Optional
+
+
+def extract_json_from_response(content: str) -> dict:
+    """
+    Extract JSON object from LLM response, handling extra text before/after.
+    
+    Args:
+        content: Raw LLM response content
+        
+    Returns:
+        Parsed JSON dict
+        
+    Raises:
+        json.JSONDecodeError: If no valid JSON found
+    """
+    # First, try direct parsing
+    try:
+        return json.loads(content)
+    except json.JSONDecodeError:
+        pass
+    
+    # Try to find JSON object boundaries
+    # Look for the first { and last }
+    first_brace = content.find('{')
+    last_brace = content.rfind('}')
+    
+    if first_brace != -1 and last_brace != -1 and last_brace > first_brace:
+        json_str = content[first_brace:last_brace + 1]
+        try:
+            return json.loads(json_str)
+        except json.JSONDecodeError:
+            pass
+    
+    # Try to extract JSON using regex (handles markdown code blocks)
+    json_pattern = r'```(?:json)?\s*(\{[\s\S]*?\})\s*```'
+    matches = re.findall(json_pattern, content)
+    for match in matches:
+        try:
+            return json.loads(match)
+        except json.JSONDecodeError:
+            continue
+    
+    # Last resort: try to find balanced braces
+    if first_brace != -1:
+        depth = 0
+        end_pos = -1
+        for i, char in enumerate(content[first_brace:], first_brace):
+            if char == '{':
+                depth += 1
+            elif char == '}':
+                depth -= 1
+                if depth == 0:
+                    end_pos = i
+                    break
+        
+        if end_pos != -1:
+            json_str = content[first_brace:end_pos + 1]
+            return json.loads(json_str)
+    
+    # If nothing works, raise the original error
+    raise json.JSONDecodeError("No valid JSON found in response", content, 0)
 
 from openai import OpenAI
 from tenacity import (
@@ -271,7 +333,7 @@ class Summarizer:
             response = self._call_llm_with_retry(user_prompt, progress_callback)
 
             content = response.choices[0].message.content
-            data = json.loads(content)
+            data = extract_json_from_response(content)
 
             key_points = [
                 KeyPoint(
