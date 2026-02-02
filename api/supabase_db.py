@@ -400,7 +400,11 @@ class SupabaseDatabase:
             # Fallback: check if key_points stored directly in summaries table (old format)
             if not kp_list and summary.get("key_points"):
                 kp_list = summary["key_points"]
-                print(f"[DEBUG] get_all_summaries: Using fallback key_points for {summary['episode_id']}")
+                print(f"[DEBUG] get_all_summaries: Using fallback key_points for {summary['episode_id']}: {len(kp_list)} points")
+            
+            # Debug: log what we got
+            if not kp_list:
+                print(f"[DEBUG] get_all_summaries: No key_points for {summary['episode_id']}, summary keys: {list(summary.keys())}")
             
             summaries.append(SummaryRecord(
                 id=summary["id"],
