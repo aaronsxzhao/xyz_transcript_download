@@ -484,6 +484,20 @@ def process_episode_sync(job_id: str, episode_url: str, transcribe_only: bool = 
         existing_transcript = db_interface.get_transcript(episode.eid)
         existing_summary = db_interface.get_summary(episode.eid)
         
+        # If user doesn't have a transcript, check for shared transcript from other users
+        # Transcripts can be shared since audio content is the same for all users
+        shared_transcript_used = False
+        if not existing_transcript and not force:
+            episode_duration = episode.duration or 0
+            min_duration = episode_duration * 0.85 if episode_duration > 0 else 0
+            
+            shared_transcript = db_interface.copy_shared_transcript(episode.eid, min_duration)
+            if shared_transcript:
+                existing_transcript = shared_transcript
+                shared_transcript_used = True
+                logger.info(f"Using shared transcript for {episode.eid} ({shared_transcript.duration/60:.1f} min)")
+                update_job_status(job_id, "fetching", 12, "Found shared transcript, reusing...")
+        
         # Quick check: if both exist and transcript is not truncated, skip processing
         if existing_transcript and existing_summary and not force:
             transcript_duration = existing_transcript.duration or 0
@@ -578,7 +592,8 @@ def process_episode_sync(job_id: str, episode_url: str, transcribe_only: bool = 
         
         # If we have a valid existing transcript, just summarize
         if transcript_is_valid and existing_transcript:
-            update_job_status(job_id, "summarizing", 70, "Using existing transcript...")
+            status_msg = "Using shared transcript..." if shared_transcript_used else "Using existing transcript..."
+            update_job_status(job_id, "summarizing", 70, status_msg)
             transcript = Transcript(
                 episode_id=existing_transcript.episode_id,
                 language=existing_transcript.language,

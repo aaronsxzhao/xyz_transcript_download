@@ -315,6 +315,84 @@ class SupabaseDatabase:
         result = self.client.table("transcripts").select("id").eq("user_id", user_id).eq("episode_id", episode_id).execute()
         return len(result.data) > 0
     
+    def find_shared_transcript(self, episode_id: str, min_duration: float = 0) -> Optional[TranscriptRecord]:
+        """
+        Find any valid transcript for an episode from any user (shared pool).
+        
+        This allows reusing transcripts across users since transcript content
+        is the same regardless of who requested it.
+        
+        Args:
+            episode_id: The episode ID to find a transcript for
+            min_duration: Minimum transcript duration to consider valid (optional)
+            
+        Returns:
+            TranscriptRecord if a valid shared transcript exists, None otherwise
+        """
+        if not self.client:
+            return None
+        
+        # Find any transcript for this episode, ordered by duration (prefer longest/most complete)
+        query = self.client.table("transcripts").select("*").eq("episode_id", episode_id)
+        if min_duration > 0:
+            query = query.gte("duration", min_duration)
+        result = query.order("duration", desc=True).limit(1).execute()
+        
+        if not result.data:
+            return None
+        
+        transcript = result.data[0]
+        
+        # Get segments
+        segments_result = self.client.table("transcript_segments").select("*").eq("transcript_id", transcript["id"]).order("start_time").execute()
+        segments = [
+            {
+                "start": seg["start_time"],
+                "end": seg["end_time"],
+                "text": seg["text"]
+            }
+            for seg in segments_result.data
+        ] if segments_result.data else []
+        
+        return TranscriptRecord(
+            id=transcript["id"],
+            user_id=transcript["user_id"],
+            episode_id=transcript["episode_id"],
+            language=transcript["language"],
+            duration=transcript["duration"],
+            text=transcript.get("text", ""),
+            segments=segments
+        )
+    
+    def copy_transcript_to_user(self, source_transcript: TranscriptRecord, target_user_id: str) -> bool:
+        """
+        Copy a transcript from one user to another (for sharing).
+        
+        Args:
+            source_transcript: The transcript to copy
+            target_user_id: The user ID to copy the transcript to
+            
+        Returns:
+            True if successful, False otherwise
+        """
+        if not self.client:
+            return False
+        
+        # Check if target user already has this transcript
+        existing = self.client.table("transcripts").select("id").eq("user_id", target_user_id).eq("episode_id", source_transcript.episode_id).execute()
+        if existing.data:
+            return True  # Already exists
+        
+        # Copy the transcript
+        return self.save_transcript(
+            target_user_id,
+            source_transcript.episode_id,
+            source_transcript.language,
+            source_transcript.duration,
+            source_transcript.text,
+            source_transcript.segments
+        )
+    
     # ==================== Summaries ====================
     
     def get_summary(self, user_id: str, episode_id: str) -> Optional[SummaryRecord]:

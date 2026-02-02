@@ -3,6 +3,33 @@ Database abstraction layer.
 
 Provides a unified interface for database operations that works with both
 SQLite (local) and Supabase (cloud) backends.
+
+Resource Sharing Model:
+=======================
+Some resources can be shared between users to avoid redundant processing,
+while others are user-specific.
+
+SHARED RESOURCES (can be reused across users):
+- **Transcripts**: Same audio = same transcript. When user B requests a 
+  transcript that user A already processed, the system checks for a valid
+  existing transcript (>= 85% coverage) and copies it to user B's data.
+  This saves Whisper API calls and processing time.
+  
+- **Audio files**: Stored by episode ID, shared across all users. Audio
+  content is identical regardless of who downloads it.
+
+USER-SPECIFIC RESOURCES (not shared):
+- **Summaries**: Users may have different LLM settings (model, max_output_tokens,
+  language preferences), so summaries are generated per-user even if using
+  a shared transcript.
+  
+- **Podcast/Episode subscriptions**: Each user manages their own podcast
+  subscriptions and episode lists.
+  
+- **Processing jobs**: Job status and history are scoped per-user.
+
+- **New episode notifications**: Each user sees new episodes only from
+  their subscribed podcasts.
 """
 from typing import Optional, List, Dict, Any
 from dataclasses import dataclass
@@ -317,6 +344,76 @@ class DatabaseInterface:
                 transcript_path.unlink()
                 return True
             return False
+    
+    def find_shared_transcript(self, episode_id: str, min_duration: float = 0) -> Optional[TranscriptData]:
+        """
+        Find any valid transcript for an episode from any user (shared pool).
+        
+        Transcripts can be shared because the audio content is the same
+        regardless of who requested the transcription.
+        
+        Args:
+            episode_id: The episode ID to find a transcript for
+            min_duration: Minimum transcript duration to consider valid
+            
+        Returns:
+            TranscriptData if found, None otherwise
+        """
+        if self.use_supabase:
+            record = self.db.find_shared_transcript(episode_id, min_duration)
+            if record:
+                return TranscriptData(
+                    episode_id=record.episode_id,
+                    language=record.language,
+                    duration=record.duration,
+                    text=record.text,
+                    segments=record.segments,
+                )
+        else:
+            # In local mode, transcripts are already shared (single user)
+            return self.get_transcript(episode_id)
+        return None
+    
+    def copy_shared_transcript(self, episode_id: str, min_duration: float = 0) -> Optional[TranscriptData]:
+        """
+        Find and copy a shared transcript to the current user's data.
+        
+        This allows reusing transcripts across users to avoid redundant
+        Whisper API calls for the same episode.
+        
+        Args:
+            episode_id: The episode ID
+            min_duration: Minimum duration to consider valid
+            
+        Returns:
+            TranscriptData if found and copied, None otherwise
+        """
+        if self.use_supabase:
+            # Find shared transcript
+            record = self.db.find_shared_transcript(episode_id, min_duration)
+            if record and record.user_id != self.user_id:
+                # Copy to current user
+                if self.db.copy_transcript_to_user(record, self.user_id):
+                    return TranscriptData(
+                        episode_id=record.episode_id,
+                        language=record.language,
+                        duration=record.duration,
+                        text=record.text,
+                        segments=record.segments,
+                    )
+            elif record:
+                # Already owned by current user
+                return TranscriptData(
+                    episode_id=record.episode_id,
+                    language=record.language,
+                    duration=record.duration,
+                    text=record.text,
+                    segments=record.segments,
+                )
+        else:
+            # Local mode - transcripts already shared
+            return self.get_transcript(episode_id)
+        return None
     
     # ==================== Summaries ====================
     
