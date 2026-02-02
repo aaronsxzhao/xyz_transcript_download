@@ -1,6 +1,18 @@
 """
 Authentication middleware for FastAPI with Supabase.
 Validates JWT tokens and extracts user information.
+
+Security Model:
+- Local mode (USE_SUPABASE=False): No authentication required, single user
+- Supabase mode (USE_SUPABASE=True): Authentication provides user_id for data isolation
+  - All database queries filter by user_id
+  - Unauthenticated requests get user_id=None, resulting in empty query results
+  - Jobs, WebSocket broadcasts, and caches are all user-scoped
+  - This ensures complete data isolation between users
+
+Usage:
+- get_current_user: Returns Optional[User], use for endpoints supporting both modes
+- require_auth: Raises 401 if not authenticated, use for auth-only endpoints
 """
 
 from typing import Optional

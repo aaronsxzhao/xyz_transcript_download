@@ -30,7 +30,8 @@ app = FastAPI(
 
 # Background task for checking podcast updates
 _podcast_check_task: Optional[asyncio.Task] = None
-_new_episodes_cache: dict = {"episodes": [], "last_check": None}
+# User-scoped cache: {user_id: {"episodes": [...], "last_check": ...}}
+_new_episodes_cache: dict = {}
 
 
 async def check_podcasts_for_updates():
@@ -101,10 +102,12 @@ async def check_podcasts_for_updates():
                 # Small delay between podcasts to avoid rate limiting
                 await asyncio.sleep(2)
             
-            # Update cache with new episodes
+            # Update cache with new episodes (for local/anonymous mode)
             if new_episodes_list:
-                _new_episodes_cache["episodes"] = new_episodes_list[:20]  # Keep last 20
-                _new_episodes_cache["last_check"] = datetime.now().isoformat()
+                _new_episodes_cache["_anonymous"] = {
+                    "episodes": new_episodes_list[:20],  # Keep last 20
+                    "last_check": datetime.now().isoformat(),
+                }
                 logger.info(f"[PodcastChecker] Total: {total_new} new episodes found")
             
         except asyncio.CancelledError:
@@ -211,10 +214,12 @@ async def head_request(path: str = ""):
 
 @app.get("/api/new-episodes")
 async def get_new_episodes(user: Optional[User] = Depends(get_current_user)):
-    """Get recently discovered new episodes from subscribed podcasts."""
+    """Get recently discovered new episodes from subscribed podcasts (user-scoped)."""
+    user_id = user.id if user else "_anonymous"
+    user_cache = _new_episodes_cache.get(user_id, {})
     return {
-        "episodes": _new_episodes_cache.get("episodes", []),
-        "last_check": _new_episodes_cache.get("last_check"),
+        "episodes": user_cache.get("episodes", []),
+        "last_check": user_cache.get("last_check"),
     }
 
 
@@ -263,10 +268,13 @@ async def trigger_podcast_check(user: Optional[User] = Depends(get_current_user)
         except Exception as e:
             logger.warning(f"Error checking '{podcast.title}': {e}")
     
-    # Update cache
+    # Update user-specific cache
+    user_id = user.id if user else "_anonymous"
     if new_episodes_list:
-        _new_episodes_cache["episodes"] = new_episodes_list[:20]
-        _new_episodes_cache["last_check"] = datetime.now().isoformat()
+        _new_episodes_cache[user_id] = {
+            "episodes": new_episodes_list[:20],
+            "last_check": datetime.now().isoformat(),
+        }
     
     return {
         "message": f"Found {total_new} new episode(s)",

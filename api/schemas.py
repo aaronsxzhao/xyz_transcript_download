@@ -110,6 +110,7 @@ class BatchProcessRequest(BaseModel):
 
 class ProcessingStatus(BaseModel):
     job_id: str
+    user_id: Optional[str] = None  # User who owns this job (for isolation)
     # Status values:
     # - pending: Job queued
     # - fetching: Getting episode info

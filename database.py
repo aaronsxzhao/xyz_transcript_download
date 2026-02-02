@@ -197,8 +197,8 @@ class Database:
                 )
             return None
 
-    def get_podcast_by_id(self, podcast_id: int) -> Optional[PodcastRecord]:
-        """Get a podcast by its database ID."""
+    def get_podcast_by_id(self, podcast_id: int, user_id: Optional[str] = None) -> Optional[PodcastRecord]:
+        """Get a podcast by its database ID. user_id is ignored in local mode (single-user)."""
         with self._get_connection() as conn:
             cursor = conn.cursor()
             cursor.execute("SELECT * FROM podcasts WHERE id = ?", (podcast_id,))

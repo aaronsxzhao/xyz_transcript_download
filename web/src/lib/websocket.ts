@@ -8,6 +8,7 @@
  */
 import { useStore } from './store'
 import { authFetch, type ProcessingJob } from './api'
+import { getAccessToken } from './auth'
 
 let ws: WebSocket | null = null
 let reconnectTimeout: number | null = null
@@ -75,7 +76,12 @@ export function connectWebSocket() {
   startPolling()
   
   const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
-  const wsUrl = `${protocol}//${window.location.host}/api/ws/progress`
+  
+  // Include auth token in WebSocket URL for user isolation
+  const token = getAccessToken()
+  const wsUrl = token 
+    ? `${protocol}//${window.location.host}/api/ws/progress?token=${encodeURIComponent(token)}`
+    : `${protocol}//${window.location.host}/api/ws/progress`
   
   ws = new WebSocket(wsUrl)
   

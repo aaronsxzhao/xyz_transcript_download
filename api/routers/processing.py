@@ -34,7 +34,8 @@ jobs: Dict[str, ProcessingStatus] = {}
 cancelled_jobs: Set[str] = set()
 
 # Cache for /api/jobs responses to reduce lock contention from polling
-_jobs_cache: Dict = {"data": None, "time": 0}
+# Now user-scoped: {"user_id_or_anonymous": {"data": ..., "time": ...}}
+_jobs_cache: Dict = {}
 _JOBS_CACHE_TTL = 0.5  # 500ms cache - multiple polls in same window share response
 
 
@@ -141,31 +142,32 @@ def mark_job_cancelled(job_id: str):
 
 
 class ConnectionManager:
-    """Manage WebSocket connections (thread-safe)."""
+    """Manage WebSocket connections with user isolation (thread-safe)."""
     
     def __init__(self):
-        self.active_connections: list[WebSocket] = []
+        # Store (websocket, user_id) tuples for user isolation
+        self.active_connections: list[tuple[WebSocket, Optional[str]]] = []
         self._lock = threading.Lock()
     
-    async def connect(self, websocket: WebSocket):
+    async def connect(self, websocket: WebSocket, user_id: Optional[str] = None):
         await websocket.accept()
         with self._lock:
-            self.active_connections.append(websocket)
-            print(f"[WS] Client connected. Total connections: {len(self.active_connections)}")
+            self.active_connections.append((websocket, user_id))
+            print(f"[WS] Client connected (user={user_id}). Total connections: {len(self.active_connections)}")
     
     def disconnect(self, websocket: WebSocket):
         with self._lock:
-            if websocket in self.active_connections:
-                self.active_connections.remove(websocket)
+            self.active_connections = [(ws, uid) for ws, uid in self.active_connections if ws != websocket]
     
-    async def broadcast(self, message: dict):
-        # Take a snapshot of connections under lock to avoid race conditions
+    async def broadcast_to_user(self, message: dict, target_user_id: Optional[str]):
+        """Broadcast message only to connections belonging to the specified user."""
+        # Take a snapshot of matching connections under lock
         with self._lock:
-            connections = list(self.active_connections)
+            matching_connections = [ws for ws, uid in self.active_connections if uid == target_user_id]
         
-        # Send to all connections (outside lock to avoid blocking)
+        # Send to matching connections (outside lock to avoid blocking)
         dead_connections = []
-        for connection in connections:
+        for connection in matching_connections:
             try:
                 await connection.send_json(message)
             except Exception:
@@ -174,9 +176,23 @@ class ConnectionManager:
         # Clean up dead connections
         if dead_connections:
             with self._lock:
-                for conn in dead_connections:
-                    if conn in self.active_connections:
-                        self.active_connections.remove(conn)
+                self.active_connections = [(ws, uid) for ws, uid in self.active_connections if ws not in dead_connections]
+    
+    async def broadcast(self, message: dict):
+        """Broadcast to all connections (legacy - use broadcast_to_user for user isolation)."""
+        with self._lock:
+            connections = [ws for ws, uid in self.active_connections]
+        
+        dead_connections = []
+        for connection in connections:
+            try:
+                await connection.send_json(message)
+            except Exception:
+                dead_connections.append(connection)
+        
+        if dead_connections:
+            with self._lock:
+                self.active_connections = [(ws, uid) for ws, uid in self.active_connections if ws not in dead_connections]
 
 
 manager = ConnectionManager()
@@ -199,8 +215,8 @@ def update_job_status(job_id: str, status: str, progress: float = 0, message: st
             if status in ("completed", "failed", "cancelled") or progress % 10 < 1:
                 _save_jobs_to_file_unlocked()
         
-        # Invalidate cache so next poll gets fresh data
-        _jobs_cache["data"] = None
+        # Invalidate all user caches so next poll gets fresh data
+        _jobs_cache.clear()
     
     # Broadcast update to all connected WebSocket clients (outside lock to avoid deadlock)
     # Use the cached main event loop for thread-safe broadcasting
@@ -217,21 +233,24 @@ def update_job_status(job_id: str, status: str, progress: float = 0, message: st
 
 
 async def broadcast_status(job_id: str):
-    """Broadcast job status to all connected clients."""
+    """Broadcast job status only to the user who owns the job."""
     with _jobs_lock:
         if job_id in jobs:
-            job_data = jobs[job_id].model_dump()
+            job = jobs[job_id]
+            job_data = job.model_dump()
+            job_user_id = job.user_id
         else:
             return
     
     num_connections = len(manager.active_connections)
     if num_connections > 0:
-        print(f"[WS] Broadcasting job {job_id} progress={job_data.get('progress', 0):.1f}% to {num_connections} clients")
+        print(f"[WS] Broadcasting job {job_id} progress={job_data.get('progress', 0):.1f}% to user={job_user_id}")
     
-    await manager.broadcast({
+    # Only broadcast to connections belonging to the job's owner
+    await manager.broadcast_to_user({
         "type": "job_update",
         "job": job_data,
-    })
+    }, job_user_id)
 
 
 def _process_track(audio_path, episode_id: str, episode_title: str, 
@@ -771,6 +790,7 @@ async def process_episode(
     with _jobs_lock:
         jobs[job_id] = ProcessingStatus(
             job_id=job_id,
+            user_id=user_id,  # Track job ownership for user isolation
             status="pending",
             progress=0,
             message="Starting...",
@@ -808,39 +828,62 @@ async def process_episode(
 
 
 @router.get("/jobs")
-async def list_jobs():
-    """List all processing jobs (cached to reduce lock contention from polling)."""
+async def list_jobs(user: Optional[User] = Depends(get_current_user)):
+    """List processing jobs for the current user (cached to reduce lock contention from polling)."""
+    user_id = user.id if user else None
     now = time.time()
     
-    # Return cached response if fresh
-    if _jobs_cache["data"] is not None and (now - _jobs_cache["time"]) < _JOBS_CACHE_TTL:
-        return _jobs_cache["data"]
+    # Use user-specific cache key
+    cache_key = user_id or "_anonymous"
     
-    # Build fresh response
+    # Check if we have user-specific cache
+    if cache_key in _jobs_cache and _jobs_cache[cache_key].get("data") is not None:
+        if (now - _jobs_cache[cache_key].get("time", 0)) < _JOBS_CACHE_TTL:
+            return _jobs_cache[cache_key]["data"]
+    
+    # Build fresh response filtered by user_id
     with _jobs_lock:
-        response = {"jobs": [job.model_dump() for job in jobs.values()]}
+        if user_id:
+            # Return only jobs belonging to this user
+            user_jobs = [job.model_dump() for job in jobs.values() if job.user_id == user_id]
+        else:
+            # Anonymous users only see jobs with no user_id (local mode)
+            user_jobs = [job.model_dump() for job in jobs.values() if job.user_id is None]
+        response = {"jobs": user_jobs}
     
-    # Update cache
-    _jobs_cache["data"] = response
-    _jobs_cache["time"] = now
+    # Update user-specific cache
+    if cache_key not in _jobs_cache:
+        _jobs_cache[cache_key] = {}
+    _jobs_cache[cache_key]["data"] = response
+    _jobs_cache[cache_key]["time"] = now
     
     return response
 
 
 @router.get("/jobs/{job_id}")
-async def get_job(job_id: str):
-    """Get job status."""
+async def get_job(job_id: str, user: Optional[User] = Depends(get_current_user)):
+    """Get job status (only if user owns the job)."""
+    user_id = user.id if user else None
     with _jobs_lock:
         if job_id not in jobs:
             raise HTTPException(status_code=404, detail="Job not found")
-        return jobs[job_id].model_dump()
+        job = jobs[job_id]
+        # Verify user ownership
+        if job.user_id != user_id:
+            raise HTTPException(status_code=404, detail="Job not found")
+        return job.model_dump()
 
 
 @router.delete("/jobs/{job_id}")
-async def delete_job(job_id: str):
-    """Delete a job from history."""
+async def delete_job(job_id: str, user: Optional[User] = Depends(get_current_user)):
+    """Delete a job from history (only if user owns the job)."""
+    user_id = user.id if user else None
     with _jobs_lock:
         if job_id not in jobs:
+            raise HTTPException(status_code=404, detail="Job not found")
+        
+        # Verify user ownership
+        if jobs[job_id].user_id != user_id:
             raise HTTPException(status_code=404, detail="Job not found")
         
         # Also cancel if still running
@@ -851,13 +894,18 @@ async def delete_job(job_id: str):
 
 
 @router.post("/jobs/{job_id}/cancel")
-async def cancel_job(job_id: str):
-    """Cancel a processing job."""
+async def cancel_job(job_id: str, user: Optional[User] = Depends(get_current_user)):
+    """Cancel a processing job (only if user owns the job)."""
+    user_id = user.id if user else None
     with _jobs_lock:
         if job_id not in jobs:
             raise HTTPException(status_code=404, detail="Job not found")
         
         job = jobs[job_id]
+        
+        # Verify user ownership
+        if job.user_id != user_id:
+            raise HTTPException(status_code=404, detail="Job not found")
         
         # Check if job is still running
         if job.status in ("completed", "failed", "cancelled"):
@@ -892,12 +940,18 @@ async def retry_job(
     background_tasks: BackgroundTasks,
     user: Optional[User] = Depends(get_current_user)
 ):
-    """Retry a failed or cancelled job."""
+    """Retry a failed or cancelled job (only if user owns the job)."""
+    user_id = user.id if user else None
+    
     with _jobs_lock:
         if job_id not in jobs:
             raise HTTPException(status_code=404, detail="Job not found")
         
         old_job = jobs[job_id]
+        
+        # Verify user ownership
+        if old_job.user_id != user_id:
+            raise HTTPException(status_code=404, detail="Job not found")
         
         # Can only retry failed or cancelled jobs
         if old_job.status not in ("failed", "cancelled"):
@@ -909,8 +963,6 @@ async def retry_job(
         episode_id = old_job.episode_id
         if not episode_id:
             raise HTTPException(status_code=400, detail="Job has no episode_id to retry")
-    
-    user_id = user.id if user else None
     
     # Construct episode URL
     episode_url = f"https://www.xiaoyuzhoufm.com/episode/{episode_id}"
@@ -1044,9 +1096,20 @@ async def resummarize_episode(
 
 
 @router.websocket("/ws/progress")
-async def websocket_progress(websocket: WebSocket):
-    """WebSocket endpoint for real-time progress updates with periodic heartbeat."""
-    await manager.connect(websocket)
+async def websocket_progress(websocket: WebSocket, token: Optional[str] = None):
+    """WebSocket endpoint for real-time progress updates with periodic heartbeat and user isolation."""
+    # Extract user_id from token query parameter for user isolation
+    user_id = None
+    if token:
+        try:
+            from api.auth import verify_jwt_token
+            payload = verify_jwt_token(token)
+            if payload:
+                user_id = payload.get("sub")
+        except Exception:
+            pass  # Anonymous connection if token invalid
+    
+    await manager.connect(websocket, user_id)
     
     # Flag to track if connection is still active
     connection_active = True
@@ -1065,9 +1128,12 @@ async def websocket_progress(websocket: WebSocket):
     heartbeat_task = asyncio.create_task(heartbeat_loop())
     
     try:
-        # Send current job statuses
+        # Send current job statuses (filtered by user_id)
         with _jobs_lock:
-            jobs_data = [job.model_dump() for job in jobs.values()]
+            if user_id:
+                jobs_data = [job.model_dump() for job in jobs.values() if job.user_id == user_id]
+            else:
+                jobs_data = [job.model_dump() for job in jobs.values() if job.user_id is None]
         await websocket.send_json({
             "type": "init",
             "jobs": jobs_data,
@@ -1083,12 +1149,17 @@ async def websocket_progress(websocket: WebSocket):
                 if data.get("type") == "ping":
                     await websocket.send_json({"type": "pong"})
                 
-                # Handle job status request
+                # Handle job status request (verify user ownership)
                 elif data.get("type") == "get_status":
                     job_id = data.get("job_id")
                     with _jobs_lock:
                         if job_id and job_id in jobs:
-                            job_data = jobs[job_id].model_dump()
+                            job = jobs[job_id]
+                            # Only return if user owns the job
+                            if job.user_id == user_id:
+                                job_data = job.model_dump()
+                            else:
+                                job_data = None
                         else:
                             job_data = None
                     if job_data:
@@ -1117,10 +1188,15 @@ async def websocket_progress(websocket: WebSocket):
 
 
 @router.post("/batch")
-async def batch_process(data: BatchProcessRequest, background_tasks: BackgroundTasks):
-    """Start batch processing for a podcast."""
+async def batch_process(
+    data: BatchProcessRequest, 
+    background_tasks: BackgroundTasks,
+    user: Optional[User] = Depends(get_current_user)
+):
+    """Start batch processing for a podcast (user-scoped)."""
     from xyz_client import get_client
     
+    user_id = user.id if user else None
     client = get_client()
     
     # Get podcast and episodes
@@ -1139,13 +1215,14 @@ async def batch_process(data: BatchProcessRequest, background_tasks: BackgroundT
     if not episodes:
         raise HTTPException(status_code=404, detail="No episodes found")
     
-    # Create jobs for each episode
+    # Create jobs for each episode (with user_id for isolation)
     job_ids = []
     with _jobs_lock:
         for ep in episodes:
             job_id = str(uuid.uuid4())[:8]
             jobs[job_id] = ProcessingStatus(
                 job_id=job_id,
+                user_id=user_id,  # Track job ownership
                 status="pending",
                 progress=0,
                 message="Queued",
@@ -1163,6 +1240,7 @@ async def batch_process(data: BatchProcessRequest, background_tasks: BackgroundT
             episode_url,
             data.transcribe_only,
             not data.skip_existing,
+            user_id,  # Pass user_id for data isolation
         )
     
     # Persist all new jobs (these functions acquire their own locks)

@@ -93,12 +93,12 @@ class SupabaseDatabase:
             return PodcastRecord(**result.data[0])
         return None
     
-    def get_podcast_by_id(self, podcast_id: int) -> Optional[PodcastRecord]:
-        """Get a podcast by database ID."""
+    def get_podcast_by_id(self, user_id: str, podcast_id: int) -> Optional[PodcastRecord]:
+        """Get a podcast by database ID, filtered by user_id for security."""
         if not self.client:
             return None
         
-        result = self.client.table("podcasts").select("*").eq("id", podcast_id).execute()
+        result = self.client.table("podcasts").select("*").eq("user_id", user_id).eq("id", podcast_id).execute()
         if result.data:
             return PodcastRecord(**result.data[0])
         return None
