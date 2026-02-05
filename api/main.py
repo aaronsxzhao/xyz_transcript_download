@@ -20,6 +20,7 @@ from logger import get_logger
 
 logger = get_logger("api.main")
 
+
 # Create FastAPI app
 app = FastAPI(
     title="Podcast Transcript API",

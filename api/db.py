@@ -97,7 +97,10 @@ class DatabaseInterface:
     
     def __init__(self, user_id: Optional[str] = None):
         self.user_id = user_id
-        self.use_supabase = USE_SUPABASE and user_id is not None
+        # In cloud mode (USE_SUPABASE=True), ALWAYS use Supabase even without user_id
+        # This prevents falling back to SQLite which causes "database is locked" errors
+        # When user_id is None with Supabase, RLS will filter all results (empty data)
+        self.use_supabase = USE_SUPABASE
         self._db = None
     
     @property

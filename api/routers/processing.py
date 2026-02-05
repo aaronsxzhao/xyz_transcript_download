@@ -385,18 +385,17 @@ def process_episode_sync(job_id: str, episode_url: str, transcribe_only: bool = 
     """
     import threading
     from xyz_client import get_client
-    from database import get_database
     from downloader import get_downloader, compress_audio
     from transcriber import get_transcriber, Transcript, TranscriptSegment as TSeg
     from summarizer import get_summarizer
     
     client = get_client()
-    db = get_database()
     downloader = get_downloader()
     transcriber = get_transcriber(model=whisper_model)  # Pass whisper model
     summarizer = get_summarizer(model=llm_model, max_output_tokens=max_output_tokens)  # Pass LLM settings
     
-    # Get database interface for saving (supports both local and Supabase)
+    # Use unified database interface (routes to SQLite or Supabase based on config)
+    # IMPORTANT: Don't use local database.py directly - always use db interface
     db_interface = get_db(user_id)
     
     try:
@@ -431,19 +430,19 @@ def process_episode_sync(job_id: str, episode_url: str, transcribe_only: bool = 
                 episode.pid = pid
         
         if pid:
-            podcast = db.get_podcast(pid)
+            podcast = db_interface.get_podcast(pid)
             is_new_subscription = False
             
             if not podcast:
                 # Podcast not in DB - subscribe to it
                 podcast_info = client.get_podcast(pid)
                 if podcast_info:
-                    db.add_podcast(
+                    db_interface.add_podcast(
                         podcast_info.pid, podcast_info.title, podcast_info.author,
                         podcast_info.description, podcast_info.cover_url
                     )
                     update_job_status(job_id, "fetching", 12, f"Subscribed to: {podcast_info.title}")
-                    podcast = db.get_podcast(pid)
+                    podcast = db_interface.get_podcast(pid)
                     is_new_subscription = True
                     logger.info(f"Auto-subscribed to podcast: {podcast_info.title}")
             
@@ -456,8 +455,8 @@ def process_episode_sync(job_id: str, episode_url: str, transcribe_only: bool = 
                         all_episodes = client.get_episodes_from_page(pid, limit=50)
                         added_count = 0
                         for ep in all_episodes:
-                            if not db.episode_exists(ep.eid):
-                                db.add_episode(
+                            if not db_interface.episode_exists(ep.eid):
+                                db_interface.add_episode(
                                     eid=ep.eid, pid=ep.pid, podcast_id=podcast.id,
                                     title=ep.title, description=ep.description,
                                     duration=ep.duration, pub_date=ep.pub_date,
@@ -470,8 +469,8 @@ def process_episode_sync(job_id: str, episode_url: str, transcribe_only: bool = 
                 
                 # ALWAYS ensure the current episode is in the database
                 # (it might be older than the latest 50 episodes we just fetched)
-                if not db.episode_exists(episode.eid):
-                    db.add_episode(
+                if not db_interface.episode_exists(episode.eid):
+                    db_interface.add_episode(
                         eid=episode.eid, pid=pid, podcast_id=podcast.id,
                         title=episode.title, description=episode.description,
                         duration=episode.duration, pub_date=episode.pub_date,
@@ -593,6 +592,12 @@ def process_episode_sync(job_id: str, episode_url: str, transcribe_only: bool = 
         
         # If we have a valid existing transcript, just summarize
         if transcript_is_valid and existing_transcript:
+            # Check for cancellation before starting
+            if is_job_cancelled(job_id):
+                update_job_status(job_id, "cancelled", 70, "Cancelled")
+                mark_job_cancelled(job_id)
+                return
+            
             status_msg = "Using shared transcript..." if shared_transcript_used else "Using existing transcript..."
             update_job_status(job_id, "summarizing", 70, status_msg)
             transcript = Transcript(
@@ -603,7 +608,33 @@ def process_episode_sync(job_id: str, episode_url: str, transcribe_only: bool = 
                 segments=[TSeg(start=s.get("start", 0), end=s.get("end", 0), text=s.get("text", "")) 
                          for s in existing_transcript.segments],
             )
-            summary = summarizer.summarize(transcript, episode_title=episode.title)
+            
+            # Progress callback with cancellation for existing transcript path
+            last_progress = [70]
+            def existing_summary_progress(*args):
+                if is_job_cancelled(job_id):
+                    raise CancelledException("Job cancelled during summarization")
+                if len(args) == 3:
+                    chars, chunk_num, total_chunks = args
+                    job_progress = 70 + (chunk_num / total_chunks) * 25
+                else:
+                    chars = args[0]
+                    progress_ratio = min(chars / 5000, 1.0)
+                    job_progress = 70 + (progress_ratio * 20)
+                if job_progress - last_progress[0] >= 1:
+                    last_progress[0] = job_progress
+                    update_job_status(job_id, "summarizing", job_progress, f"Generating summary ({int(chars)} chars)...")
+            
+            try:
+                summary = summarizer.summarize(
+                    transcript, 
+                    episode_title=episode.title,
+                    progress_callback=existing_summary_progress
+                )
+            except CancelledException:
+                update_job_status(job_id, "cancelled", last_progress[0], "Cancelled during summarization")
+                mark_job_cancelled(job_id)
+                return
             
             if summary:
                 summary_data = SummaryData(
@@ -622,7 +653,11 @@ def process_episode_sync(job_id: str, episode_url: str, transcribe_only: bool = 
                     event_type="summary",
                 )
             else:
-                update_job_status(job_id, "failed", 0, "Summary generation failed")
+                if is_job_cancelled(job_id):
+                    update_job_status(job_id, "cancelled", last_progress[0], "Cancelled")
+                    mark_job_cancelled(job_id)
+                else:
+                    update_job_status(job_id, "failed", 0, "Summary generation failed")
             return
         
         # ===== PHASE 4: Transcribe (30-70%) =====
@@ -702,9 +737,49 @@ def process_episode_sync(job_id: str, episode_url: str, transcribe_only: bool = 
         # ===== PHASE 5: Summarize (70-95%) =====
         update_job_status(job_id, "summarizing", 75, "Generating summary...")
         
-        summary = summarizer.summarize(transcript, episode_title=episode.title)
+        # Progress callback for summarization with cancellation check
+        last_summary_progress = [75]
+        def summary_progress_callback(*args):
+            """Progress callback for summarization - supports both single and chunked mode."""
+            # Check for cancellation on every progress update
+            if is_job_cancelled(job_id):
+                raise CancelledException("Job cancelled during summarization")
+            
+            # args can be: (chars) for single, or (chars, chunk_num, total_chunks) for chunked
+            if len(args) == 3:
+                chars, chunk_num, total_chunks = args
+                # Map chunk progress to 75-95% range
+                chunk_progress = (chunk_num / total_chunks) * 20
+                job_progress = 75 + chunk_progress
+            else:
+                chars = args[0]
+                # Estimate progress based on chars (typical summary is ~5000 chars)
+                estimated_chars = 5000
+                progress_ratio = min(chars / estimated_chars, 1.0)
+                job_progress = 75 + (progress_ratio * 15)  # 75-90%
+            
+            # Update on every 1% change
+            if job_progress - last_summary_progress[0] >= 1:
+                last_summary_progress[0] = job_progress
+                update_job_status(job_id, "summarizing", job_progress, f"Generating summary ({int(chars)} chars)...")
+        
+        try:
+            summary = summarizer.summarize(
+                transcript, 
+                episode_title=episode.title,
+                progress_callback=summary_progress_callback
+            )
+        except CancelledException:
+            update_job_status(job_id, "cancelled", last_summary_progress[0], "Cancelled during summarization")
+            mark_job_cancelled(job_id)
+            return
         
         if not summary:
+            # Check if it was cancelled
+            if is_job_cancelled(job_id):
+                update_job_status(job_id, "cancelled", last_summary_progress[0], "Cancelled")
+                mark_job_cancelled(job_id)
+                return
             update_job_status(job_id, "failed", 0, "Summary generation failed")
             return
         
@@ -1112,33 +1187,58 @@ async def resummarize_episode(
 
 
 @router.websocket("/ws/progress")
-async def websocket_progress(websocket: WebSocket):
+async def websocket_progress(websocket: WebSocket, token: Optional[str] = None):
     """WebSocket endpoint for real-time progress updates with periodic heartbeat and user isolation.
     
-    Authentication is handled via first message to avoid tokens appearing in access logs.
-    Client should send {"type": "auth", "token": "..."} as first message.
+    Authentication methods (in order of preference):
+    1. First message: {"type": "auth", "token": "..."} - preferred, token not logged
+    2. URL query param: ?token=... - fallback for compatibility, token appears in logs
     """
-    # Accept connection first (no token in URL to avoid logging sensitive data)
+    from api.auth import verify_jwt_token
+    
+    # Log if token was provided in URL (for debugging)
+    if token:
+        logger.info(f"[WS] Token provided in URL (length={len(token)})")
+    else:
+        logger.info("[WS] No token in URL")
+    
+    # Accept connection first
     await websocket.accept()
     
-    # Wait for auth message with token (timeout after 10 seconds)
     user_id = None
+    first_message = None  # Store first message if it wasn't auth
+    
+    # Try to get auth from first message (preferred - doesn't appear in logs)
     try:
-        auth_data = await asyncio.wait_for(websocket.receive_json(), timeout=10)
+        auth_data = await asyncio.wait_for(websocket.receive_json(), timeout=5)
         if auth_data.get("type") == "auth" and auth_data.get("token"):
             try:
-                from api.auth import verify_jwt_token
                 payload = verify_jwt_token(auth_data["token"])
                 if payload:
                     user_id = payload.get("sub")
             except Exception:
-                pass  # Anonymous connection if token invalid
+                pass
+        else:
+            # Not an auth message - store it for later processing
+            first_message = auth_data
     except asyncio.TimeoutError:
-        pass  # No auth message received, continue as anonymous
+        pass  # No message received, will try URL token
     except Exception:
-        pass  # Invalid message format, continue as anonymous
+        pass
     
-    # Now register with manager (after extracting user_id)
+    # Fallback: try URL token if no auth message worked
+    if not user_id and token:
+        try:
+            payload = verify_jwt_token(token)
+            if payload:
+                user_id = payload.get("sub")
+                logger.info(f"[WS] Auth via URL token: user={user_id}")
+            else:
+                logger.warning("[WS] URL token verification returned None")
+        except Exception as e:
+            logger.warning(f"[WS] URL token verification failed: {e}")
+    
+    # Register with manager
     await manager.connect(websocket, user_id, already_accepted=True)
     
     # Flag to track if connection is still active
@@ -1157,6 +1257,35 @@ async def websocket_progress(websocket: WebSocket):
     # Start heartbeat task
     heartbeat_task = asyncio.create_task(heartbeat_loop())
     
+    async def handle_message(data: dict):
+        """Handle a single WebSocket message."""
+        # Handle ping
+        if data.get("type") == "ping":
+            await websocket.send_json({"type": "pong"})
+        
+        # Handle auth (ignore if already authenticated)
+        elif data.get("type") == "auth":
+            pass  # Already handled during connection setup
+        
+        # Handle job status request (verify user ownership)
+        elif data.get("type") == "get_status":
+            job_id = data.get("job_id")
+            with _jobs_lock:
+                if job_id and job_id in jobs:
+                    job = jobs[job_id]
+                    # Only return if user owns the job
+                    if job.user_id == user_id:
+                        job_data = job.model_dump()
+                    else:
+                        job_data = None
+                else:
+                    job_data = None
+            if job_data:
+                await websocket.send_json({
+                    "type": "job_update",
+                    "job": job_data,
+                })
+    
     try:
         # Send current job statuses (filtered by user_id)
         with _jobs_lock:
@@ -1169,34 +1298,16 @@ async def websocket_progress(websocket: WebSocket):
             "jobs": jobs_data,
         })
         
+        # Process any first message that wasn't an auth message
+        if first_message:
+            await handle_message(first_message)
+        
         # Keep connection alive and listen for messages
         while True:
             try:
                 # Use longer timeout since heartbeat is handled separately
                 data = await asyncio.wait_for(websocket.receive_json(), timeout=60)
-                
-                # Handle ping
-                if data.get("type") == "ping":
-                    await websocket.send_json({"type": "pong"})
-                
-                # Handle job status request (verify user ownership)
-                elif data.get("type") == "get_status":
-                    job_id = data.get("job_id")
-                    with _jobs_lock:
-                        if job_id and job_id in jobs:
-                            job = jobs[job_id]
-                            # Only return if user owns the job
-                            if job.user_id == user_id:
-                                job_data = job.model_dump()
-                            else:
-                                job_data = None
-                        else:
-                            job_data = None
-                    if job_data:
-                        await websocket.send_json({
-                            "type": "job_update",
-                            "job": job_data,
-                        })
+                await handle_message(data)
             
             except asyncio.TimeoutError:
                 # No message received, but heartbeat task handles keep-alive
