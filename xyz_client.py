@@ -471,6 +471,150 @@ class XyzClient:
 
         return None
 
+    def get_user_subscriptions(self, user_id: str) -> List[Podcast]:
+        """
+        Fetch all podcasts a user is subscribed to.
+        Requires the user's profile to be public on Xiaoyuzhou.
+        
+        Args:
+            user_id: The Xiaoyuzhou user ID (from profile URL)
+            
+        Returns:
+            List of Podcast objects the user subscribes to
+            
+        Note:
+            This only works if the user has set their profile to public.
+            Private profiles will return an empty list.
+        """
+        url = f"https://www.xiaoyuzhoufm.com/user/{user_id}"
+        podcasts = []
+        
+        try:
+            logger.info(f"Fetching user subscriptions from: {url}")
+            response = self.session.get(url)
+            response.raise_for_status()
+            soup = BeautifulSoup(response.content, 'html.parser')
+            
+            # Check if profile is private or not found
+            page_text = soup.get_text().lower()
+            if "用户不存在" in page_text or "页面不存在" in page_text:
+                logger.warning(f"User not found: {user_id}")
+                return []
+            
+            if "私密" in page_text or "隐私" in page_text:
+                logger.warning(f"User profile is private: {user_id}")
+                return []
+            
+            # Try to extract subscription data from __NEXT_DATA__ JSON
+            script_tag = soup.find('script', {'id': '__NEXT_DATA__'})
+            if script_tag and script_tag.string:
+                try:
+                    data = json.loads(script_tag.string)
+                    props = data.get('props', {}).get('pageProps', {})
+                    
+                    # Look for subscriptions in various possible locations
+                    subscriptions = (
+                        props.get('subscriptions') or 
+                        props.get('subscribedPodcasts') or
+                        props.get('user', {}).get('subscriptions') or
+                        props.get('podcasts') or
+                        []
+                    )
+                    
+                    for sub in subscriptions:
+                        if isinstance(sub, dict):
+                            podcast = sub.get('podcast') or sub
+                            pid = podcast.get('pid') or podcast.get('id') or ''
+                            if pid:
+                                podcasts.append(Podcast(
+                                    pid=pid,
+                                    title=podcast.get('title', ''),
+                                    author=podcast.get('author', '') or podcast.get('nickname', ''),
+                                    description=podcast.get('description', '') or podcast.get('brief', ''),
+                                    cover_url=podcast.get('image', {}).get('picUrl', '') if isinstance(podcast.get('image'), dict) else podcast.get('coverUrl', ''),
+                                    episode_count=podcast.get('episodeCount', 0) or podcast.get('latestEpisodeCount', 0),
+                                ))
+                    
+                    if podcasts:
+                        logger.info(f"Found {len(podcasts)} subscribed podcasts from JSON data")
+                        return podcasts
+                        
+                except (json.JSONDecodeError, KeyError, TypeError) as e:
+                    logger.debug(f"Failed to parse __NEXT_DATA__: {e}")
+            
+            # Fallback: scrape podcast links from the page
+            podcast_links = soup.find_all('a', href=re.compile(r'/podcast/[a-zA-Z0-9]+'))
+            seen_pids = set()
+            
+            for link in podcast_links:
+                href = link.get('href', '')
+                pid = self._extract_id_from_url(href, "podcast")
+                
+                if pid and pid not in seen_pids:
+                    seen_pids.add(pid)
+                    
+                    # Try to get title from link content or nearby elements
+                    title = link.get_text(strip=True)
+                    if not title:
+                        # Look for title in parent or sibling elements
+                        parent = link.find_parent()
+                        if parent:
+                            title_elem = parent.find(['h2', 'h3', 'h4', 'span', 'div'], class_=re.compile(r'title|name', re.I))
+                            if title_elem:
+                                title = title_elem.get_text(strip=True)
+                    
+                    # Try to get cover image
+                    cover_url = ''
+                    img = link.find('img') or (link.find_parent() and link.find_parent().find('img'))
+                    if img:
+                        cover_url = img.get('src', '') or img.get('data-src', '')
+                    
+                    podcasts.append(Podcast(
+                        pid=pid,
+                        title=title or f"Podcast {pid}",
+                        author='',
+                        description='',
+                        cover_url=cover_url,
+                        episode_count=0,
+                    ))
+            
+            if podcasts:
+                logger.info(f"Found {len(podcasts)} podcasts from page scraping")
+            else:
+                logger.warning(f"No subscribed podcasts found for user: {user_id}")
+                
+        except requests.exceptions.HTTPError as e:
+            if e.response.status_code == 404:
+                logger.warning(f"User not found: {user_id}")
+            else:
+                logger.error(f"HTTP error fetching user subscriptions: {e}")
+        except Exception as e:
+            logger.error(f"Failed to fetch user subscriptions: {e}")
+        
+        return podcasts
+
+    def extract_user_id(self, input_str: str) -> Optional[str]:
+        """
+        Extract user ID from various input formats.
+        
+        Args:
+            input_str: Could be a profile URL, username, or user ID
+            
+        Returns:
+            User ID or the input if it looks like an ID
+        """
+        # If it's a URL, extract the user ID
+        if "xiaoyuzhoufm.com/user/" in input_str:
+            match = re.search(r'/user/([a-zA-Z0-9]+)', input_str)
+            if match:
+                return match.group(1)
+        
+        # If it looks like an ID (alphanumeric, reasonable length)
+        if re.match(r'^[a-zA-Z0-9_-]+$', input_str) and 5 <= len(input_str) <= 50:
+            return input_str
+        
+        return None
+
 
 # Global client instance
 _client: Optional[XyzClient] = None

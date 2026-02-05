@@ -153,3 +153,16 @@ class SettingsUpdate(BaseModel):
     whisper_device: Optional[str] = None
     llm_model: Optional[str] = None
     check_interval: Optional[int] = None
+
+
+# Import subscriptions schemas
+class ImportSubscriptionsRequest(BaseModel):
+    username: str  # Xiaoyuzhou username or user ID
+
+
+class ImportSubscriptionsResponse(BaseModel):
+    total_found: int
+    newly_added: int
+    already_subscribed: int
+    failed: int
+    podcasts: List[str]  # Names of imported podcasts

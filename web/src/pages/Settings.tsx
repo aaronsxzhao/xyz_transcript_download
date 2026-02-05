@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
-import { Cpu, MessageSquare, Clock, Loader2, CheckCircle, Trash2, AlertTriangle, Search, Save } from 'lucide-react'
-import { fetchSettings, updateSettings, authFetch } from '../lib/api'
+import { Cpu, MessageSquare, Clock, Loader2, CheckCircle, Trash2, AlertTriangle, Search, Save, Download, X } from 'lucide-react'
+import { fetchSettings, updateSettings, authFetch, importUserSubscriptions, ImportSubscriptionsResult } from '../lib/api'
 
 interface SettingsData {
   whisper_mode: string
@@ -66,6 +66,12 @@ export default function Settings() {
   const [checking, setChecking] = useState(false)
   const [cleaning, setCleaning] = useState(false)
   const [cleanupResult, setCleanupResult] = useState<string | null>(null)
+  
+  // Import subscriptions state
+  const [importUsername, setImportUsername] = useState('')
+  const [importing, setImporting] = useState(false)
+  const [importResult, setImportResult] = useState<ImportSubscriptionsResult | null>(null)
+  const [importError, setImportError] = useState<string | null>(null)
   
   useEffect(() => {
     loadSettings()
@@ -169,6 +175,30 @@ export default function Settings() {
   function formatDuration(seconds: number): string {
     const mins = Math.floor(seconds / 60)
     return `${mins} min`
+  }
+  
+  async function handleImportSubscriptions() {
+    if (!importUsername.trim()) return
+    
+    setImporting(true)
+    setImportError(null)
+    setImportResult(null)
+    
+    try {
+      const result = await importUserSubscriptions(importUsername.trim())
+      setImportResult(result)
+      setImportUsername('')  // Clear input on success
+    } catch (err) {
+      console.error('Failed to import subscriptions:', err)
+      setImportError(err instanceof Error ? err.message : 'Failed to import subscriptions')
+    } finally {
+      setImporting(false)
+    }
+  }
+  
+  function clearImportResults() {
+    setImportResult(null)
+    setImportError(null)
   }
   
   if (loading) {
@@ -378,6 +408,114 @@ export default function Settings() {
             ))}
           </div>
         )}
+      </div>
+      
+      {/* Import Subscriptions */}
+      <div className="p-6 bg-dark-surface border border-dark-border rounded-xl">
+        <h2 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+          <Download className="text-cyan-500" size={20} />
+          Import Xiaoyuzhou Subscriptions
+        </h2>
+        
+        <p className="text-sm text-gray-400 mb-4">
+          Import all podcasts you subscribe to on Xiaoyuzhou (小宇宙). Enter your username or 
+          profile URL below. <span className="text-yellow-400">Your profile must be set to public</span> for 
+          this to work. No login tokens are required.
+        </p>
+        
+        <div className="flex gap-3 mb-4">
+          <input
+            type="text"
+            value={importUsername}
+            onChange={(e) => setImportUsername(e.target.value)}
+            placeholder="Username or profile URL"
+            className="flex-1 bg-dark-hover border border-dark-border text-white text-sm rounded-lg px-3 py-2 focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
+            onKeyDown={(e) => e.key === 'Enter' && !importing && handleImportSubscriptions()}
+          />
+          <button
+            onClick={handleImportSubscriptions}
+            disabled={importing || !importUsername.trim()}
+            className="flex items-center gap-2 px-4 py-2 bg-cyan-600 hover:bg-cyan-700 text-white rounded-lg transition-colors disabled:opacity-50"
+          >
+            {importing ? (
+              <Loader2 size={16} className="animate-spin" />
+            ) : (
+              <Download size={16} />
+            )}
+            Import
+          </button>
+        </div>
+        
+        {/* Import Error */}
+        {importError && (
+          <div className="p-3 rounded-lg mb-4 bg-red-500/10 border border-red-500/30 text-red-300">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <AlertTriangle size={16} />
+                {importError}
+              </div>
+              <button onClick={clearImportResults} className="text-red-400 hover:text-red-300">
+                <X size={16} />
+              </button>
+            </div>
+          </div>
+        )}
+        
+        {/* Import Results */}
+        {importResult && (
+          <div className="space-y-3">
+            <div className="p-3 rounded-lg bg-green-500/10 border border-green-500/30 text-green-300">
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-2">
+                  <CheckCircle size={16} />
+                  Import Complete
+                </div>
+                <button onClick={clearImportResults} className="text-green-400 hover:text-green-300">
+                  <X size={16} />
+                </button>
+              </div>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-sm">
+                <div>
+                  <span className="text-gray-400">Found:</span>{' '}
+                  <span className="text-white font-medium">{importResult.total_found}</span>
+                </div>
+                <div>
+                  <span className="text-gray-400">Added:</span>{' '}
+                  <span className="text-green-400 font-medium">{importResult.newly_added}</span>
+                </div>
+                <div>
+                  <span className="text-gray-400">Existing:</span>{' '}
+                  <span className="text-yellow-400 font-medium">{importResult.already_subscribed}</span>
+                </div>
+                {importResult.failed > 0 && (
+                  <div>
+                    <span className="text-gray-400">Failed:</span>{' '}
+                    <span className="text-red-400 font-medium">{importResult.failed}</span>
+                  </div>
+                )}
+              </div>
+            </div>
+            
+            {/* List of imported podcasts */}
+            {importResult.podcasts.length > 0 && (
+              <div className="max-h-48 overflow-y-auto">
+                <p className="text-sm text-gray-400 mb-2">Newly imported podcasts:</p>
+                <div className="space-y-1">
+                  {importResult.podcasts.map((name, idx) => (
+                    <div key={idx} className="text-sm text-white py-1 px-2 bg-dark-hover rounded">
+                      {name}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+        
+        <p className="text-xs text-gray-500 mt-4">
+          Tip: Find your username in your Xiaoyuzhou profile URL 
+          (e.g., xiaoyuzhoufm.com/user/<span className="text-cyan-400">your_username</span>)
+        </p>
       </div>
     </div>
   )

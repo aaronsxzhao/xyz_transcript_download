@@ -1,12 +1,19 @@
 """Podcast management endpoints."""
 import asyncio
+import time
 from typing import List, Optional
 from fastapi import APIRouter, HTTPException, Depends
 
-from api.schemas import PodcastResponse, PodcastCreate, EpisodeResponse
+from api.schemas import (
+    PodcastResponse, PodcastCreate, EpisodeResponse,
+    ImportSubscriptionsRequest, ImportSubscriptionsResponse
+)
 from api.auth import get_current_user, User
 from api.db import get_db
 from config import USE_SUPABASE
+from logger import get_logger
+
+logger = get_logger("podcasts")
 
 router = APIRouter()
 
@@ -294,3 +301,118 @@ async def refresh_podcast_episodes(pid: str, user: Optional[User] = Depends(get_
     new_count = await run_sync(save_new_episodes)
     
     return {"message": f"Found {new_count} new episodes", "total": len(episodes)}
+
+
+@router.post("/import-subscriptions", response_model=ImportSubscriptionsResponse)
+async def import_user_subscriptions(
+    data: ImportSubscriptionsRequest,
+    user: Optional[User] = Depends(get_current_user)
+):
+    """
+    Import all podcasts from a Xiaoyuzhou user's subscription list.
+    The target user's profile must be public.
+    
+    This will:
+    1. Fetch the user's subscribed podcasts from their public profile
+    2. Add each podcast to the database if not already subscribed
+    3. Fetch up to 20 recent episodes for each new podcast
+    4. Return a summary of the import results
+    """
+    from xyz_client import get_client
+    
+    if USE_SUPABASE and not user:
+        raise HTTPException(status_code=401, detail="Authentication required")
+    
+    client = get_client()
+    db = get_db(user.id if user else None)
+    
+    username = data.username.strip()
+    if not username:
+        raise HTTPException(status_code=400, detail="Username is required")
+    
+    # Extract user ID from input (could be URL or username)
+    user_id = client.extract_user_id(username)
+    if not user_id:
+        raise HTTPException(status_code=400, detail="Invalid username or user URL")
+    
+    logger.info(f"Importing subscriptions for user: {user_id}")
+    
+    # Fetch user's subscribed podcasts
+    subscribed_podcasts = await run_sync(client.get_user_subscriptions, user_id)
+    
+    if not subscribed_podcasts:
+        raise HTTPException(
+            status_code=404, 
+            detail="No podcasts found. The user profile may be private or the username may be incorrect."
+        )
+    
+    total_found = len(subscribed_podcasts)
+    newly_added = 0
+    already_subscribed = 0
+    failed = 0
+    imported_names = []
+    
+    logger.info(f"Found {total_found} subscribed podcasts for user {user_id}")
+    
+    for podcast in subscribed_podcasts:
+        try:
+            # Check if already subscribed
+            existing = await run_sync(db.get_podcast, podcast.pid)
+            if existing:
+                already_subscribed += 1
+                logger.debug(f"Already subscribed to: {podcast.title}")
+                continue
+            
+            # If podcast data is incomplete, fetch full details
+            if not podcast.title or podcast.title.startswith("Podcast "):
+                full_podcast = await run_sync(client.get_podcast, podcast.pid)
+                if full_podcast:
+                    podcast = full_podcast
+            
+            # Save podcast to database
+            def save_podcast():
+                return db.add_podcast(
+                    podcast.pid, podcast.title, podcast.author,
+                    podcast.description, podcast.cover_url
+                )
+            podcast_id = await run_sync(save_podcast)
+            
+            # Fetch and save episodes (limit to 20 for faster import)
+            def fetch_episodes():
+                return client.get_episodes_from_page(podcast.pid, limit=20)
+            episodes = await run_sync(fetch_episodes)
+            
+            def save_episodes():
+                for ep in episodes:
+                    db.add_episode(
+                        eid=ep.eid,
+                        pid=ep.pid,
+                        podcast_id=podcast_id,
+                        title=ep.title,
+                        description=ep.description,
+                        duration=ep.duration,
+                        pub_date=ep.pub_date,
+                        audio_url=ep.audio_url,
+                    )
+            await run_sync(save_episodes)
+            
+            newly_added += 1
+            imported_names.append(podcast.title)
+            logger.info(f"Imported podcast: {podcast.title} ({len(episodes)} episodes)")
+            
+            # Small delay to avoid rate limiting
+            await asyncio.sleep(0.5)
+            
+        except Exception as e:
+            failed += 1
+            logger.error(f"Failed to import podcast {podcast.pid}: {e}")
+    
+    logger.info(f"Import complete: {newly_added} added, {already_subscribed} existing, {failed} failed")
+    
+    return ImportSubscriptionsResponse(
+        total_found=total_found,
+        newly_added=newly_added,
+        already_subscribed=already_subscribed,
+        failed=failed,
+        podcasts=imported_names,
+    )

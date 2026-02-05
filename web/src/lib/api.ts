@@ -327,3 +327,24 @@ export async function checkPodcastsForUpdates(): Promise<{
   if (!res.ok) throw new Error('Failed to check for updates')
   return res.json()
 }
+
+export interface ImportSubscriptionsResult {
+  total_found: number
+  newly_added: number
+  already_subscribed: number
+  failed: number
+  podcasts: string[]
+}
+
+export async function importUserSubscriptions(username: string): Promise<ImportSubscriptionsResult> {
+  const res = await authFetch(`${API_BASE}/podcasts/import-subscriptions`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ username }),
+  })
+  if (!res.ok) {
+    const error = await res.json()
+    throw new Error(error.detail || 'Failed to import subscriptions')
+  }
+  return res.json()
+}
