@@ -149,8 +149,9 @@ class ConnectionManager:
         self.active_connections: list[tuple[WebSocket, Optional[str]]] = []
         self._lock = threading.Lock()
     
-    async def connect(self, websocket: WebSocket, user_id: Optional[str] = None):
-        await websocket.accept()
+    async def connect(self, websocket: WebSocket, user_id: Optional[str] = None, already_accepted: bool = False):
+        if not already_accepted:
+            await websocket.accept()
         with self._lock:
             self.active_connections.append((websocket, user_id))
             print(f"[WS] Client connected (user={user_id}). Total connections: {len(self.active_connections)}")
@@ -1111,20 +1112,34 @@ async def resummarize_episode(
 
 
 @router.websocket("/ws/progress")
-async def websocket_progress(websocket: WebSocket, token: Optional[str] = None):
-    """WebSocket endpoint for real-time progress updates with periodic heartbeat and user isolation."""
-    # Extract user_id from token query parameter for user isolation
-    user_id = None
-    if token:
-        try:
-            from api.auth import verify_jwt_token
-            payload = verify_jwt_token(token)
-            if payload:
-                user_id = payload.get("sub")
-        except Exception:
-            pass  # Anonymous connection if token invalid
+async def websocket_progress(websocket: WebSocket):
+    """WebSocket endpoint for real-time progress updates with periodic heartbeat and user isolation.
     
-    await manager.connect(websocket, user_id)
+    Authentication is handled via first message to avoid tokens appearing in access logs.
+    Client should send {"type": "auth", "token": "..."} as first message.
+    """
+    # Accept connection first (no token in URL to avoid logging sensitive data)
+    await websocket.accept()
+    
+    # Wait for auth message with token (timeout after 10 seconds)
+    user_id = None
+    try:
+        auth_data = await asyncio.wait_for(websocket.receive_json(), timeout=10)
+        if auth_data.get("type") == "auth" and auth_data.get("token"):
+            try:
+                from api.auth import verify_jwt_token
+                payload = verify_jwt_token(auth_data["token"])
+                if payload:
+                    user_id = payload.get("sub")
+            except Exception:
+                pass  # Anonymous connection if token invalid
+    except asyncio.TimeoutError:
+        pass  # No auth message received, continue as anonymous
+    except Exception:
+        pass  # Invalid message format, continue as anonymous
+    
+    # Now register with manager (after extracting user_id)
+    await manager.connect(websocket, user_id, already_accepted=True)
     
     # Flag to track if connection is still active
     connection_active = True

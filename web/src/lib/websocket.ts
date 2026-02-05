@@ -77,17 +77,24 @@ export function connectWebSocket() {
   
   const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
   
-  // Include auth token in WebSocket URL for user isolation
-  const token = getAccessToken()
-  const wsUrl = token 
-    ? `${protocol}//${window.location.host}/api/ws/progress?token=${encodeURIComponent(token)}`
-    : `${protocol}//${window.location.host}/api/ws/progress`
+  // Don't include token in URL to avoid it appearing in server logs
+  // Token is sent via first message after connection
+  const wsUrl = `${protocol}//${window.location.host}/api/ws/progress`
   
   ws = new WebSocket(wsUrl)
   
   ws.onopen = () => {
     console.log('WebSocket connected')
     useStore.getState().setWsConnected(true)
+    
+    // Send auth token as first message (not in URL to avoid logging)
+    const token = getAccessToken()
+    if (token && ws?.readyState === WebSocket.OPEN) {
+      ws.send(JSON.stringify({ type: 'auth', token }))
+    } else if (ws?.readyState === WebSocket.OPEN) {
+      // Send empty auth to trigger anonymous mode
+      ws.send(JSON.stringify({ type: 'auth' }))
+    }
   }
   
   ws.onclose = () => {
