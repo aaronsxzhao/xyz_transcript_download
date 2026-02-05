@@ -39,4 +39,5 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
     CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:${PORT:-8080}/api/health')" || exit 1
 
 # Run the server (uses PORT env var if set, defaults to 8080)
-CMD python -m uvicorn api.main:app --host 0.0.0.0 --port ${PORT:-8080}
+# Use custom access log format that excludes query strings (to avoid logging tokens)
+CMD python -m uvicorn api.main:app --host 0.0.0.0 --port ${PORT:-8080} --access-log --log-config /app/uvicorn_log_config.json
