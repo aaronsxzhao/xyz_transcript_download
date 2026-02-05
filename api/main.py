@@ -131,10 +131,21 @@ async def startup_event():
     
     # Log auth configuration
     if USE_SUPABASE:
+        from api.auth import _get_jwks_url, _get_cached_jwks
+        jwks_url = _get_jwks_url()
+        logger.info(f"[Auth] Supabase mode enabled")
+        logger.info(f"[Auth] JWKS URL: {jwks_url}")
         if SUPABASE_JWT_SECRET:
-            logger.info(f"[Auth] Supabase mode: JWT secret configured (length={len(SUPABASE_JWT_SECRET)})")
+            logger.info(f"[Auth] Legacy JWT secret: configured (length={len(SUPABASE_JWT_SECRET)})")
         else:
-            logger.warning("[Auth] Supabase mode: NO JWT secret configured - will use Supabase API fallback for token verification (slower)")
+            logger.info("[Auth] Legacy JWT secret: not configured")
+        # Pre-fetch JWKS for faster first request
+        logger.info("[Auth] Pre-fetching JWKS keys...")
+        jwks = _get_cached_jwks()
+        if jwks:
+            logger.info(f"[Auth] JWKS keys cached ({len(jwks.get('keys', []))} keys)")
+        else:
+            logger.warning("[Auth] Failed to pre-fetch JWKS - will retry on first auth request")
     else:
         logger.info("[Auth] Local mode: No authentication required")
     

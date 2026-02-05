@@ -1211,19 +1211,25 @@ async def websocket_progress(websocket: WebSocket, token: Optional[str] = None):
     # Try to get auth from first message (preferred - doesn't appear in logs)
     try:
         auth_data = await asyncio.wait_for(websocket.receive_json(), timeout=5)
-        if auth_data.get("type") == "auth" and auth_data.get("token"):
-            try:
-                payload = verify_jwt_token(auth_data["token"])
+        if auth_data.get("type") == "auth":
+            auth_token = auth_data.get("token")
+            if auth_token:
+                logger.info(f"[WS] Auth message received (token length={len(auth_token)})")
+                payload = verify_jwt_token(auth_token)
                 if payload:
                     user_id = payload.get("sub")
-            except Exception:
-                pass
+                    logger.info(f"[WS] Auth message verified: user={user_id}")
+                else:
+                    logger.warning("[WS] Auth message token verification failed")
+            else:
+                logger.info("[WS] Auth message with no token (anonymous)")
         else:
             # Not an auth message - store it for later processing
+            logger.info(f"[WS] First message is not auth: type={auth_data.get('type')}")
             first_message = auth_data
     except asyncio.TimeoutError:
-        pass  # No message received, will try URL token
-    except Exception:
+        logger.info("[WS] No auth message received (timeout)")
+    except Exception as e:
         pass
     
     # Fallback: try URL token if no auth message worked
