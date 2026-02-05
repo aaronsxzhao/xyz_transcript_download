@@ -38,7 +38,11 @@ def verify_jwt_token(token: str) -> Optional[dict]:
     Verify a Supabase JWT token and return the payload.
     Returns None if verification fails.
     """
+    from logger import get_logger
+    logger = get_logger("api.auth")
+    
     if not USE_SUPABASE:
+        logger.debug("verify_jwt_token: USE_SUPABASE is False, returning None")
         return None
     
     try:
@@ -47,26 +51,35 @@ def verify_jwt_token(token: str) -> Optional[dict]:
         # Supabase uses HS256 algorithm with JWT secret
         # If JWT secret not provided, we verify via Supabase API
         if SUPABASE_JWT_SECRET:
+            logger.debug(f"verify_jwt_token: Using JWT secret (length={len(SUPABASE_JWT_SECRET)})")
             payload = jwt.decode(
                 token,
                 SUPABASE_JWT_SECRET,
                 algorithms=["HS256"],
                 audience="authenticated"
             )
+            logger.debug(f"verify_jwt_token: Success, sub={payload.get('sub', 'N/A')}")
             return payload
         else:
+            logger.debug("verify_jwt_token: No JWT secret, using Supabase API fallback")
             # Fallback: verify via Supabase auth API
             from api.supabase_client import get_supabase_client
             client = get_supabase_client()
             if client:
                 user = client.auth.get_user(token)
                 if user and user.user:
+                    logger.debug(f"verify_jwt_token: Supabase API success, user_id={user.user.id}")
                     return {
                         "sub": user.user.id,
                         "email": user.user.email
                     }
+                else:
+                    logger.warning("verify_jwt_token: Supabase API returned no user")
+            else:
+                logger.warning("verify_jwt_token: No Supabase client available")
             return None
-    except Exception:
+    except Exception as e:
+        logger.warning(f"verify_jwt_token: Failed with error: {type(e).__name__}: {e}")
         return None
 
 

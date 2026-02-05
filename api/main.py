@@ -123,10 +123,20 @@ async def check_podcasts_for_updates():
 async def startup_event():
     """Capture the main event loop on startup for thread-safe broadcasting."""
     global _podcast_check_task
+    from config import USE_SUPABASE, SUPABASE_JWT_SECRET
     
     loop = asyncio.get_running_loop()
     processing.set_main_loop(loop)
     print(f"[WS] Main event loop captured: {loop}")
+    
+    # Log auth configuration
+    if USE_SUPABASE:
+        if SUPABASE_JWT_SECRET:
+            logger.info(f"[Auth] Supabase mode: JWT secret configured (length={len(SUPABASE_JWT_SECRET)})")
+        else:
+            logger.warning("[Auth] Supabase mode: NO JWT secret configured - will use Supabase API fallback for token verification (slower)")
+    else:
+        logger.info("[Auth] Local mode: No authentication required")
     
     # Start background podcast checker
     _podcast_check_task = asyncio.create_task(check_podcasts_for_updates())

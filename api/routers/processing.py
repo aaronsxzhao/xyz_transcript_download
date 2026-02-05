@@ -1234,9 +1234,9 @@ async def websocket_progress(websocket: WebSocket, token: Optional[str] = None):
                 user_id = payload.get("sub")
                 logger.info(f"[WS] Auth via URL token: user={user_id}")
             else:
-                logger.warning("[WS] URL token verification returned None")
+                logger.warning(f"[WS] URL token verification returned None (check auth.py logs for details)")
         except Exception as e:
-            logger.warning(f"[WS] URL token verification failed: {e}")
+            logger.warning(f"[WS] URL token verification exception: {type(e).__name__}: {e}")
     
     # Register with manager
     await manager.connect(websocket, user_id, already_accepted=True)
