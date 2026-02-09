@@ -4,11 +4,113 @@ This guide will help you deploy the app so you can access it from your iPhone an
 
 ## Choose a Platform
 
-| Platform | Credit Card Required | Free Tier |
-|----------|---------------------|-----------|
-| **Render.com** | No | 750 hours/month |
-| **Zeabur** | No | Limited |
-| Fly.io | Yes | 3 VMs |
+| Platform | Credit Card Required | Free Tier | Best For |
+|----------|---------------------|-----------|----------|
+| **Oracle Cloud** | Yes (no charge) | 4 ARM cores + 24GB RAM forever | Long-running tasks, custom domain |
+| **Render.com** | No | 750 hours/month | Quick setup, simple hosting |
+| **Zeabur** | No | Limited | Quick testing |
+| Fly.io | Yes | 3 VMs | Asia-Pacific region |
+
+---
+
+# Option 0: Oracle Cloud (Recommended - Free Tier with Custom Domain)
+
+Oracle Cloud provides the most generous free tier, ideal for long-running audio processing.
+
+## Phase 1: Create ARM VM
+
+1. Go to [Oracle Cloud Console](https://cloud.oracle.com) -> Compute -> Instances
+2. Click **Create Instance**
+3. Configure:
+   - **Name**: podcast-tool
+   - **Image**: Ubuntu 22.04 (Canonical)
+   - **Shape**: VM.Standard.A1.Flex (ARM Ampere)
+   - **OCPUs**: 2 (or up to 4 if no other ARM VMs)
+   - **Memory**: 12GB (or up to 24GB if no other ARM VMs)
+   - **Boot volume**: 50GB
+   - **Networking**: Default VCN with public subnet
+   - **SSH Key**: Upload your public key or generate new
+4. Click **Create**
+
+### Open Firewall Ports
+
+In Oracle Console -> Networking -> Virtual Cloud Networks -> Your VCN -> Security Lists -> Default:
+
+Add **Ingress Rules**:
+- Source: `0.0.0.0/0`, Protocol: TCP, Port: **80** (HTTP)
+- Source: `0.0.0.0/0`, Protocol: TCP, Port: **443** (HTTPS)
+
+## Phase 2: Server Setup
+
+SSH into your VM:
+```bash
+ssh ubuntu@<your-vm-public-ip>
+```
+
+Clone and set up:
+```bash
+git clone https://github.com/YOUR_USERNAME/xyz-podcast.git podcast-tool
+cd podcast-tool
+bash deploy/setup-server.sh
+```
+
+Log out and back in (for Docker group), then configure:
+```bash
+cd podcast-tool
+cp deploy/.env.production .env
+nano .env   # Fill in your API keys
+```
+
+## Phase 3: Deploy
+
+```bash
+bash deploy/deploy.sh
+```
+
+Verify: `curl http://localhost:8080/api/health`
+
+## Phase 4: Custom Domain + SSL
+
+### DNS Setup (Aliyun or your registrar)
+
+Add A records pointing to your Oracle VM IP:
+- `@` -> `xxx.xxx.xxx.xxx` (for yourdomain.com)
+- `www` -> `xxx.xxx.xxx.xxx` (for www.yourdomain.com)
+
+### Nginx + SSL
+
+```bash
+# Edit the nginx config with your domain
+sudo nano /etc/nginx/sites-available/podcast
+# (replace YOUR_DOMAIN.COM with your actual domain)
+
+# Or use sed:
+sudo cp deploy/nginx-podcast.conf /etc/nginx/sites-available/podcast
+sudo sed -i 's/YOUR_DOMAIN.COM/yourdomain.com/g' /etc/nginx/sites-available/podcast
+
+# Enable and test
+sudo ln -s /etc/nginx/sites-available/podcast /etc/nginx/sites-enabled/
+sudo rm -f /etc/nginx/sites-enabled/default
+sudo nginx -t && sudo systemctl reload nginx
+
+# Add SSL
+sudo certbot --nginx -d yourdomain.com -d www.yourdomain.com
+```
+
+### Update Supabase
+
+Go to Supabase Dashboard -> Authentication -> URL Configuration:
+- Add redirect URL: `https://yourdomain.com/**`
+- Update Site URL: `https://yourdomain.com`
+
+## Updating
+
+```bash
+cd ~/podcast-tool
+bash deploy/deploy.sh
+```
+
+---
 
 ## Prerequisites
 
