@@ -97,11 +97,10 @@ class DatabaseInterface:
     
     def __init__(self, user_id: Optional[str] = None):
         self.user_id = user_id
-        # In cloud mode (USE_SUPABASE=True), ALWAYS use Supabase even without user_id
-        # This prevents falling back to SQLite which causes "database is locked" errors
-        # When user_id is None with Supabase, RLS will filter all results (empty data)
         self.use_supabase = USE_SUPABASE
         self._db = None
+        # Supabase queries with user_id=None will fail; flag to return empty results
+        self._anonymous_supabase = USE_SUPABASE and user_id is None
     
     @property
     def db(self):
@@ -119,6 +118,8 @@ class DatabaseInterface:
     
     def get_all_podcasts(self) -> List[PodcastData]:
         """Get all podcasts."""
+        if self._anonymous_supabase:
+            return []
         if self.use_supabase:
             records = self.db.get_all_podcasts(self.user_id)
         else:
@@ -139,6 +140,8 @@ class DatabaseInterface:
     
     def get_podcast(self, pid: str) -> Optional[PodcastData]:
         """Get a podcast by pid."""
+        if self._anonymous_supabase:
+            return None
         if self.use_supabase:
             r = self.db.get_podcast(self.user_id, pid)
         else:
@@ -198,6 +201,8 @@ class DatabaseInterface:
     
     def get_episodes_by_podcast(self, pid: str) -> List[EpisodeData]:
         """Get all episodes for a podcast."""
+        if self._anonymous_supabase:
+            return []
         if self.use_supabase:
             records = self.db.get_episodes_by_podcast(self.user_id, pid)
         else:
@@ -222,6 +227,8 @@ class DatabaseInterface:
     
     def get_episode(self, eid: str) -> Optional[EpisodeData]:
         """Get an episode by eid."""
+        if self._anonymous_supabase:
+            return None
         if self.use_supabase:
             r = self.db.get_episode(self.user_id, eid)
         else:
@@ -277,6 +284,8 @@ class DatabaseInterface:
     
     def get_transcript(self, episode_id: str) -> Optional[TranscriptData]:
         """Get transcript for an episode."""
+        if self._anonymous_supabase:
+            return None
         if self.use_supabase:
             r = self.db.get_transcript(self.user_id, episode_id)
             if r:
@@ -422,6 +431,8 @@ class DatabaseInterface:
     
     def get_summary(self, episode_id: str) -> Optional[SummaryData]:
         """Get summary for an episode."""
+        if self._anonymous_supabase:
+            return None
         if self.use_supabase:
             r = self.db.get_summary(self.user_id, episode_id)
             if r:
@@ -451,6 +462,8 @@ class DatabaseInterface:
     
     def get_all_summaries(self) -> List[SummaryData]:
         """Get all summaries."""
+        if self._anonymous_supabase:
+            return []
         if self.use_supabase:
             records = self.db.get_all_summaries(self.user_id)
             return [
@@ -487,6 +500,8 @@ class DatabaseInterface:
     
     def has_summary(self, episode_id: str) -> bool:
         """Check if episode has a summary."""
+        if self._anonymous_supabase:
+            return False
         if self.use_supabase:
             return self.db.has_summary(self.user_id, episode_id)
         else:
@@ -495,6 +510,8 @@ class DatabaseInterface:
     
     def save_summary(self, summary_data: SummaryData) -> bool:
         """Save a summary."""
+        if self._anonymous_supabase:
+            return False
         if self.use_supabase:
             return self.db.save_summary(
                 self.user_id,
@@ -524,6 +541,8 @@ class DatabaseInterface:
     
     def delete_summary(self, episode_id: str) -> bool:
         """Delete summary for an episode."""
+        if self._anonymous_supabase:
+            return False
         if self.use_supabase:
             return self.db.delete_summary(self.user_id, episode_id)
         else:
@@ -537,6 +556,8 @@ class DatabaseInterface:
     
     def get_stats(self) -> Dict[str, int]:
         """Get statistics."""
+        if self._anonymous_supabase:
+            return {"podcasts": 0, "episodes": 0, "transcripts": 0, "summaries": 0}
         if self.use_supabase:
             return self.db.get_stats(self.user_id)
         else:
@@ -559,6 +580,8 @@ class DatabaseInterface:
     
     def get_episode_counts_by_podcast(self) -> Dict[str, int]:
         """Get episode counts for all podcasts in one query."""
+        if self._anonymous_supabase:
+            return {}
         if self.use_supabase:
             return self.db.get_all_episode_counts_by_podcast(self.user_id)
         else:
@@ -571,6 +594,8 @@ class DatabaseInterface:
     
     def get_transcript_episode_ids(self) -> set:
         """Get set of episode IDs that have transcripts."""
+        if self._anonymous_supabase:
+            return set()
         if self.use_supabase:
             return self.db.get_transcript_episode_ids(self.user_id)
         else:
@@ -582,6 +607,8 @@ class DatabaseInterface:
     
     def get_summary_episode_ids(self) -> set:
         """Get set of episode IDs that have summaries."""
+        if self._anonymous_supabase:
+            return set()
         if self.use_supabase:
             return self.db.get_summary_episode_ids(self.user_id)
         else:
@@ -593,6 +620,8 @@ class DatabaseInterface:
     
     def get_summarized_counts_by_podcast(self) -> Dict[str, int]:
         """Get counts of episodes with summaries for all podcasts."""
+        if self._anonymous_supabase:
+            return {}
         if self.use_supabase:
             return self.db.get_summarized_counts_by_podcast(self.user_id)
         else:
