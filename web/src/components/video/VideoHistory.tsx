@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from 'react'
-import { Trash2, RefreshCw, Search, CheckCircle, XCircle, Loader2, Clock, RotateCcw } from 'lucide-react'
-import { fetchVideoTasks, deleteVideoTask, retryVideoTask, type VideoTask } from '../../lib/api'
+import { Trash2, RefreshCw, Search, CheckCircle, XCircle, Loader2, Clock, RotateCcw, Square } from 'lucide-react'
+import { fetchVideoTasks, deleteVideoTask, retryVideoTask, cancelVideoTask, type VideoTask } from '../../lib/api'
 import { useStore } from '../../lib/store'
 
 interface Props {
@@ -53,6 +53,16 @@ export default function VideoHistory({ onSelect }: Props) {
     }
   }
 
+  const handleCancel = async (taskId: string, e: React.MouseEvent) => {
+    e.stopPropagation()
+    try {
+      await cancelVideoTask(taskId)
+      loadTasks()
+    } catch (e) {
+      console.error('Cancel failed:', e)
+    }
+  }
+
   const handleSelect = (task: VideoTask) => {
     setSelectedVideoTaskId(task.id)
     onSelect?.(task)
@@ -69,6 +79,7 @@ export default function VideoHistory({ onSelect }: Props) {
     switch (status) {
       case 'success': return <CheckCircle size={14} className="text-green-500" />
       case 'failed': return <XCircle size={14} className="text-red-500" />
+      case 'cancelled': return <Square size={14} className="text-orange-400" />
       case 'pending': return <Clock size={14} className="text-gray-500" />
       default: return <Loader2 size={14} className="text-indigo-400 animate-spin" />
     }
@@ -84,6 +95,7 @@ export default function VideoHistory({ onSelect }: Props) {
       saving: 'Saving',
       success: 'Done',
       failed: 'Failed',
+      cancelled: 'Cancelled',
     }
     return labels[status] || status
   }
@@ -161,7 +173,21 @@ export default function VideoHistory({ onSelect }: Props) {
                   <div className="flex items-center gap-1.5 mt-1">
                     {getStatusIcon(task.status)}
                     <span className="text-xs text-gray-500">
-                      {getStatusLabel(task.status)}
+                      {task.status === 'failed' && task.error
+                        ? ({
+                            BILIBILI_LOGIN_REQUIRED: 'Login required',
+                            LOGIN_REQUIRED: 'Login required',
+                            COOKIES_REQUIRED: 'Cookies needed',
+                            AGE_RESTRICTED: 'Age restricted',
+                            VIDEO_PRIVATE: 'Private video',
+                            VIDEO_UNAVAILABLE: 'Unavailable',
+                            GEO_RESTRICTED: 'Region blocked',
+                            COPYRIGHT_BLOCKED: 'Copyright blocked',
+                            RATE_LIMITED: 'Rate limited',
+                            FFMPEG_MISSING: 'FFmpeg missing',
+                            UNSUPPORTED_URL: 'Bad URL',
+                          }[task.error] || getStatusLabel(task.status))
+                        : getStatusLabel(task.status)}
                     </span>
                     {task.status !== 'success' && task.status !== 'failed' && task.progress > 0 && (
                       <span className="text-xs text-gray-500">
@@ -171,7 +197,16 @@ export default function VideoHistory({ onSelect }: Props) {
                   </div>
                 </div>
                 <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-all">
-                  {(task.status === 'failed' || task.status === 'downloading' || task.status === 'parsing' || task.status === 'transcribing' || task.status === 'summarizing') && (
+                  {!['success', 'failed', 'cancelled', 'pending'].includes(task.status) && (
+                    <button
+                      onClick={e => handleCancel(task.id, e)}
+                      className="p-1 text-gray-600 hover:text-orange-400 transition-colors"
+                      title="Cancel"
+                    >
+                      <Square size={13} className="fill-current" />
+                    </button>
+                  )}
+                  {(task.status === 'failed' || task.status === 'cancelled') && (
                     <button
                       onClick={e => handleRetry(task.id, e)}
                       className="p-1 text-gray-600 hover:text-indigo-400 transition-colors"

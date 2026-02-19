@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import remarkMath from 'remark-math'
@@ -6,7 +7,7 @@ import rehypeKatex from 'rehype-katex'
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter'
 import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism'
 import {
-  Copy, Download, Check, FileText, AlertCircle, Loader2, RotateCcw,
+  Copy, Download, Check, FileText, AlertCircle, Loader2, RotateCcw, Square,
 } from 'lucide-react'
 import StepBar from './StepBar'
 import type { VideoTask } from '../../lib/api'
@@ -17,6 +18,7 @@ interface Props {
 
 export default function MarkdownPreview({ task }: Props) {
   const [copied, setCopied] = useState(false)
+  const navigate = useNavigate()
 
   if (!task) {
     return (
@@ -28,8 +30,9 @@ export default function MarkdownPreview({ task }: Props) {
     )
   }
 
-  const isActive = !['success', 'failed', 'pending'].includes(task.status) && task.status !== ''
+  const isActive = !['success', 'failed', 'cancelled', 'pending'].includes(task.status) && task.status !== ''
   const isFailed = task.status === 'failed'
+  const isCancelled = task.status === 'cancelled'
   const isSuccess = task.status === 'success'
 
   const handleCopy = async () => {
@@ -94,9 +97,25 @@ export default function MarkdownPreview({ task }: Props) {
               style={{ width: `${task.progress}%` }}
             />
           </div>
-          <p className="text-xs text-gray-500 mt-1.5 text-center">
-            {task.message || 'Processing...'}
-          </p>
+          <div className="flex items-center justify-center gap-3 mt-2">
+            <p className="text-xs text-gray-500">
+              {task.message || 'Processing...'}
+            </p>
+            <button
+              onClick={async () => {
+                try {
+                  const { cancelVideoTask } = await import('../../lib/api')
+                  await cancelVideoTask(task.id)
+                } catch (e) {
+                  console.error('Cancel failed:', e)
+                }
+              }}
+              className="flex items-center gap-1 px-2 py-0.5 text-xs text-orange-400 hover:text-orange-300 border border-orange-500/30 hover:border-orange-400/50 rounded transition-colors"
+            >
+              <Square size={10} className="fill-current" />
+              Cancel
+            </button>
+          </div>
         </div>
       )}
 
@@ -113,7 +132,65 @@ export default function MarkdownPreview({ task }: Props) {
         <div className="flex flex-col items-center justify-center flex-1 text-gray-500">
           <AlertCircle size={32} className="mb-3 text-red-400" />
           <p className="text-red-400">Processing failed</p>
-          <p className="text-sm mt-1">{task.error || task.message}</p>
+          {(() => {
+            const needsSettings = [
+              'BILIBILI_LOGIN_REQUIRED', 'LOGIN_REQUIRED', 'COOKIES_REQUIRED', 'AGE_RESTRICTED',
+            ].includes(task.error || '')
+            const errorMessages: Record<string, string> = {
+              BILIBILI_LOGIN_REQUIRED: 'BiliBili requires login. Please scan the QR code in Settings → BiliBili Login.',
+              LOGIN_REQUIRED: 'This video requires login. Please set cookies in Settings → Platform Cookies.',
+              COOKIES_REQUIRED: 'Server rejected the request. Please set cookies in Settings → Platform Cookies.',
+              AGE_RESTRICTED: 'This video is age-restricted. Please set cookies from a logged-in browser in Settings.',
+              VIDEO_PRIVATE: 'This video is private and cannot be accessed.',
+              VIDEO_UNAVAILABLE: 'This video has been removed or is no longer available.',
+              GEO_RESTRICTED: 'This video is not available in your region.',
+              COPYRIGHT_BLOCKED: 'This video is blocked due to copyright restrictions.',
+              RATE_LIMITED: 'Rate limited by the platform. Please wait a few minutes and try again.',
+              FFMPEG_MISSING: 'FFmpeg is required but not installed on the server.',
+              UNSUPPORTED_URL: 'This URL is not supported. Please check the URL and try again.',
+            }
+            const displayMsg = errorMessages[task.error || ''] || task.message || task.error || 'Unknown error'
+
+            return (
+              <>
+                <p className="text-sm mt-2 text-center text-gray-400 max-w-md">
+                  {displayMsg}
+                </p>
+                <div className="flex items-center gap-3 mt-4">
+                  {needsSettings && (
+                    <button
+                      onClick={() => navigate('/settings')}
+                      className="flex items-center gap-2 px-4 py-2 bg-pink-600 hover:bg-pink-700 text-white text-sm rounded-lg transition-colors"
+                    >
+                      Go to Settings
+                    </button>
+                  )}
+                  <button
+                    onClick={async () => {
+                      try {
+                        const { retryVideoTask } = await import('../../lib/api')
+                        await retryVideoTask(task.id)
+                      } catch (e) {
+                        console.error('Retry failed:', e)
+                      }
+                    }}
+                    className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm rounded-lg transition-colors"
+                  >
+                    <RotateCcw size={14} />
+                    Retry
+                  </button>
+                </div>
+              </>
+            )
+          })()}
+        </div>
+      )}
+
+      {/* Cancelled state */}
+      {isCancelled && (
+        <div className="flex flex-col items-center justify-center flex-1 text-gray-500">
+          <Square size={32} className="mb-3 text-orange-400" />
+          <p className="text-orange-400">Processing cancelled</p>
           <button
             onClick={async () => {
               try {

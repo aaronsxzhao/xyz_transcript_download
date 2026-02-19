@@ -2,10 +2,11 @@
 import asyncio
 import json
 import shutil
+import threading
 import uuid
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Set
 
 from fastapi import APIRouter, HTTPException, BackgroundTasks, Depends, UploadFile, File, Form
 
@@ -21,6 +22,23 @@ logger = get_logger("video_notes")
 router = APIRouter()
 
 VIDEO_EXECUTOR = ThreadPoolExecutor(max_workers=2, thread_name_prefix="video_processor")
+
+_cancel_lock = threading.Lock()
+_cancelled_tasks: Set[str] = set()
+
+
+class VideoCancelledException(Exception):
+    pass
+
+
+def is_video_task_cancelled(task_id: str) -> bool:
+    with _cancel_lock:
+        return task_id in _cancelled_tasks
+
+
+def _clear_cancelled(task_id: str):
+    with _cancel_lock:
+        _cancelled_tasks.discard(task_id)
 
 UPLOAD_DIR = DATA_DIR / "uploads"
 UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
@@ -75,7 +93,7 @@ def process_video_note_sync(
 ):
     """Synchronous video note processing pipeline."""
     from video_task_db import get_video_task_db
-    from video_downloader import get_downloader, detect_platform
+    from video_downloader import get_downloader, detect_platform, VideoDownloadError
     from cookie_manager import get_cookie_manager
     from note_summarizer import get_note_summarizer
     from screenshot_extractor import (
@@ -88,6 +106,11 @@ def process_video_note_sync(
     cookie_mgr = get_cookie_manager()
 
     try:
+        if is_video_task_cancelled(task_id):
+            _update_task_status(db, task_id, "cancelled", 0, "Cancelled", user_id)
+            _clear_cancelled(task_id)
+            return
+
         # Phase 1: Parse / metadata (0-10%)
         _update_task_status(db, task_id, "parsing", 5, "Fetching video info...", user_id)
 
@@ -99,6 +122,16 @@ def process_video_note_sync(
             return
 
         cookies = cookie_mgr.get_cookie(platform)
+
+        if platform == "bilibili" and not cookies:
+            _update_task_status(
+                db, task_id, "failed", 0,
+                "BiliBili requires login. Go to Settings → BiliBili Login to scan the QR code first.",
+                user_id,
+                error="BILIBILI_LOGIN_REQUIRED",
+            )
+            return
+
         downloader = get_downloader(platform, cookies)
 
         metadata = downloader.get_metadata(url)
@@ -114,14 +147,26 @@ def process_video_note_sync(
         })
         _update_task_status(db, task_id, "parsing", 10, f"Found: {title}", user_id)
 
+        if is_video_task_cancelled(task_id):
+            _update_task_status(db, task_id, "cancelled", 0, "Cancelled", user_id)
+            _clear_cancelled(task_id)
+            return
+
         # Phase 2: Download audio (10-25%)
         _update_task_status(db, task_id, "downloading", 12, "Downloading audio...", user_id)
 
         def audio_progress(pct: float, msg: str):
+            if is_video_task_cancelled(task_id):
+                raise VideoCancelledException("Cancelled during download")
             job_pct = 12 + pct * 13
             _update_task_status(db, task_id, "downloading", job_pct, msg, user_id)
 
-        audio_path = downloader.download_audio(url, task_id, quality, progress_callback=audio_progress)
+        try:
+            audio_path = downloader.download_audio(url, task_id, quality, progress_callback=audio_progress)
+        except VideoDownloadError as e:
+            _update_task_status(db, task_id, "failed", 0, str(e), user_id,
+                                error=e.error_code)
+            return
         if not audio_path:
             _update_task_status(db, task_id, "failed", 0, "Audio download failed", user_id,
                                 error="Download failed")
@@ -146,6 +191,11 @@ def process_video_note_sync(
 
         _update_task_status(db, task_id, "downloading", 25, "Audio downloaded", user_id)
 
+        if is_video_task_cancelled(task_id):
+            _update_task_status(db, task_id, "cancelled", 0, "Cancelled", user_id)
+            _clear_cancelled(task_id)
+            return
+
         # Phase 2b: Download video if needed for screenshots or video understanding
         video_path = None
         needs_video = "screenshot" in formats or video_understanding
@@ -153,10 +203,21 @@ def process_video_note_sync(
             _update_task_status(db, task_id, "downloading", 27, "Downloading video...", user_id)
 
             def video_progress(pct: float, msg: str):
+                if is_video_task_cancelled(task_id):
+                    raise VideoCancelledException("Cancelled during video download")
                 job_pct = 27 + pct * 3
                 _update_task_status(db, task_id, "downloading", job_pct, msg, user_id)
 
-            video_path = downloader.download_video(url, task_id, progress_callback=video_progress)
+            try:
+                video_path = downloader.download_video(url, task_id, progress_callback=video_progress)
+            except VideoDownloadError as e:
+                logger.warning(f"Video download failed ({e.error_code}), continuing without video: {e}")
+                video_path = None
+
+        if is_video_task_cancelled(task_id):
+            _update_task_status(db, task_id, "cancelled", 0, "Cancelled", user_id)
+            _clear_cancelled(task_id)
+            return
 
         # Phase 3: Transcribe (25-60%)
         _update_task_status(db, task_id, "transcribing", 30, "Starting transcription...", user_id)
@@ -178,6 +239,8 @@ def process_video_note_sync(
             last_progress = [30]
 
             def transcribe_progress(progress: float):
+                if is_video_task_cancelled(task_id):
+                    raise VideoCancelledException("Cancelled during transcription")
                 job_progress = 30 + (progress * 30)
                 if job_progress - last_progress[0] >= 1:
                     last_progress[0] = job_progress
@@ -192,6 +255,10 @@ def process_video_note_sync(
                 progress_callback=transcribe_progress,
             )
             if not transcript:
+                if is_video_task_cancelled(task_id):
+                    _update_task_status(db, task_id, "cancelled", 0, "Cancelled", user_id)
+                    _clear_cancelled(task_id)
+                    return
                 _update_task_status(db, task_id, "failed", 0, "Transcription failed", user_id,
                                     error="Transcription failed")
                 return
@@ -231,6 +298,11 @@ def process_video_note_sync(
             except Exception as e:
                 logger.warning(f"Video understanding failed: {e}")
 
+        if is_video_task_cancelled(task_id):
+            _update_task_status(db, task_id, "cancelled", 0, "Cancelled", user_id)
+            _clear_cancelled(task_id)
+            return
+
         _update_task_status(db, task_id, "summarizing", 70, "Generating notes...", user_id)
 
         # Phase 4: Generate notes (70-90%)
@@ -242,6 +314,8 @@ def process_video_note_sync(
         last_summarize_progress = [70]
 
         def summarize_progress(chars):
+            if is_video_task_cancelled(task_id):
+                raise VideoCancelledException("Cancelled during summarization")
             progress_ratio = min(chars / 8000, 1.0)
             job_progress = 70 + (progress_ratio * 20)
             if job_progress - last_summarize_progress[0] >= 1:
@@ -286,11 +360,19 @@ def process_video_note_sync(
         _update_task_status(db, task_id, "success", 100, "Notes generated!", user_id)
         logger.info(f"Video note completed: {task_id} ({title})")
 
+    except VideoCancelledException:
+        _update_task_status(db, task_id, "cancelled", 0, "Cancelled", user_id)
+        _clear_cancelled(task_id)
+        logger.info(f"Video task cancelled: {task_id}")
     except Exception as e:
         import traceback
         traceback.print_exc()
-        _update_task_status(db, task_id, "failed", 0, f"Error: {str(e)}", user_id,
-                            error=str(e))
+        if is_video_task_cancelled(task_id):
+            _update_task_status(db, task_id, "cancelled", 0, "Cancelled", user_id)
+            _clear_cancelled(task_id)
+        else:
+            _update_task_status(db, task_id, "failed", 0, f"Error: {str(e)}", user_id,
+                                error=str(e))
 
 
 async def process_video_note_async(task_id: str, **kwargs):
@@ -467,7 +549,7 @@ async def retry_task(
     task = db.get_task(task_id, user_id)
     if not task:
         raise HTTPException(status_code=404, detail="Task not found")
-    retryable = ("failed", "downloading", "parsing", "transcribing", "summarizing", "saving", "pending")
+    retryable = ("failed", "cancelled", "downloading", "parsing", "transcribing", "summarizing", "saving", "pending")
     if task["status"] not in retryable:
         raise HTTPException(status_code=400, detail=f"Cannot retry task in '{task['status']}' status")
 
@@ -491,6 +573,32 @@ async def retry_task(
     )
 
     return {"message": "Retry started", "task_id": task_id}
+
+
+@router.post("/tasks/{task_id}/cancel")
+async def cancel_task(
+    task_id: str,
+    user: Optional[User] = Depends(get_current_user),
+):
+    """Cancel an in-progress video note task."""
+    from video_task_db import get_video_task_db
+    db = get_video_task_db()
+    user_id = user.id if user else None
+    task = db.get_task(task_id, user_id)
+    if not task:
+        raise HTTPException(status_code=404, detail="Task not found")
+
+    terminal = ("success", "failed", "cancelled")
+    if task["status"] in terminal:
+        return {"message": f"Task already {task['status']}", "status": task["status"]}
+
+    with _cancel_lock:
+        _cancelled_tasks.add(task_id)
+
+    _update_task_status(db, task_id, "cancelled", task.get("progress", 0),
+                        "Cancelling...", user_id)
+    logger.info(f"Cancel requested for video task: {task_id}")
+    return {"message": "Cancel requested", "task_id": task_id}
 
 
 @router.post("/upload")

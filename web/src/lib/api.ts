@@ -446,6 +446,14 @@ export async function retryVideoTask(taskId: string): Promise<{ task_id: string 
   return res.json()
 }
 
+export async function cancelVideoTask(taskId: string): Promise<{ message: string }> {
+  const res = await authFetch(`${API_BASE}/video-notes/tasks/${taskId}/cancel`, {
+    method: 'POST',
+  })
+  if (!res.ok) throw new Error('Failed to cancel video task')
+  return res.json()
+}
+
 export async function uploadVideoFile(file: File): Promise<{ file_id: string; path: string }> {
   const formData = new FormData()
   formData.append('file', file)

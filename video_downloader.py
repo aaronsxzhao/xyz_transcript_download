@@ -62,6 +62,89 @@ class VideoMetadata:
         return asdict(self)
 
 
+class VideoDownloadError(Exception):
+    """Raised when a download fails with a user-facing reason."""
+
+    def __init__(self, message: str, error_code: str = "DOWNLOAD_FAILED"):
+        super().__init__(message)
+        self.error_code = error_code
+
+
+def _classify_ytdlp_error(e: Exception, platform: str) -> VideoDownloadError:
+    """Classify a yt-dlp exception into an actionable user-facing error."""
+    msg = str(e).lower()
+
+    if "412" in msg or "precondition" in msg:
+        if platform == "bilibili":
+            return VideoDownloadError(
+                "BiliBili returned 412 (anti-bot). Please log in via Settings → BiliBili Login.",
+                "BILIBILI_LOGIN_REQUIRED",
+            )
+        return VideoDownloadError(
+            f"Server rejected the request (412). You may need to set cookies for {platform} in Settings.",
+            "COOKIES_REQUIRED",
+        )
+
+    if "sign in" in msg or "login" in msg or "need to log in" in msg:
+        return VideoDownloadError(
+            f"This video requires login on {platform}. Please set cookies in Settings → Platform Cookies.",
+            "LOGIN_REQUIRED",
+        )
+
+    if "private" in msg:
+        return VideoDownloadError(
+            "This video is private and cannot be accessed.",
+            "VIDEO_PRIVATE",
+        )
+
+    if "removed" in msg or "deleted" in msg or "not available" in msg or "not found" in msg:
+        return VideoDownloadError(
+            "This video has been removed or is no longer available.",
+            "VIDEO_UNAVAILABLE",
+        )
+
+    if "age" in msg and ("restrict" in msg or "verif" in msg or "gate" in msg):
+        return VideoDownloadError(
+            f"This video is age-restricted on {platform}. Please set cookies from a logged-in browser in Settings.",
+            "AGE_RESTRICTED",
+        )
+
+    if "geo" in msg or "country" in msg or "region" in msg or "not available in your" in msg:
+        return VideoDownloadError(
+            "This video is not available in your region.",
+            "GEO_RESTRICTED",
+        )
+
+    if "copyright" in msg or "blocked" in msg:
+        return VideoDownloadError(
+            "This video is blocked due to copyright restrictions.",
+            "COPYRIGHT_BLOCKED",
+        )
+
+    if "rate limit" in msg or "too many" in msg or "429" in msg:
+        return VideoDownloadError(
+            f"Rate limited by {platform}. Please wait a few minutes and try again.",
+            "RATE_LIMITED",
+        )
+
+    if "ffmpeg" in msg or "ffprobe" in msg:
+        return VideoDownloadError(
+            "FFmpeg is not installed or not found. It is required for audio extraction.",
+            "FFMPEG_MISSING",
+        )
+
+    if "unsupported url" in msg or "no suitable" in msg:
+        return VideoDownloadError(
+            "This URL is not supported. Please check the URL and try again.",
+            "UNSUPPORTED_URL",
+        )
+
+    return VideoDownloadError(
+        f"Download failed: {e}",
+        "DOWNLOAD_FAILED",
+    )
+
+
 def detect_platform(url: str) -> str:
     """Auto-detect the video platform from a URL."""
     url_lower = url.lower()
@@ -218,9 +301,11 @@ class YtdlpDownloader(BaseDownloader):
                 if f.suffix in (".mp3", ".m4a", ".wav", ".ogg"):
                     return f
             return None
+        except VideoDownloadError:
+            raise
         except Exception as e:
             logger.error(f"Audio download failed: {e}")
-            return None
+            raise _classify_ytdlp_error(e, self.platform)
 
     def get_last_download_info(self) -> Optional[VideoMetadata]:
         """Get metadata from the last download (useful when get_metadata fails)."""
@@ -260,9 +345,11 @@ class YtdlpDownloader(BaseDownloader):
                 if f.suffix in (".mp4", ".mkv", ".webm"):
                     return f
             return None
+        except VideoDownloadError:
+            raise
         except Exception as e:
             logger.error(f"Video download failed: {e}")
-            return None
+            raise _classify_ytdlp_error(e, self.platform)
 
     def get_subtitles(self, url: str, task_id: str) -> Optional[list]:
         """Try to extract subtitles from the video platform."""
@@ -456,8 +543,11 @@ class DouyinDownloader(BaseDownloader):
             for f in VIDEO_DIR.glob(f"{task_id}.*"):
                 if f.suffix in (".mp4", ".mkv", ".webm"):
                     return f
+        except VideoDownloadError:
+            raise
         except Exception as e:
             logger.error(f"Douyin video download failed: {e}")
+            raise _classify_ytdlp_error(e, "douyin")
         return None
 
     def _extract_audio(self, video_path: Path, task_id: str, quality: str) -> Optional[Path]:
@@ -519,8 +609,11 @@ class KuaishouDownloader(BaseDownloader):
             for f in VIDEO_DIR.glob(f"{task_id}.*"):
                 if f.suffix in (".mp4", ".mkv", ".webm"):
                     return f
+        except VideoDownloadError:
+            raise
         except Exception as e:
             logger.error(f"Kuaishou video download failed: {e}")
+            raise _classify_ytdlp_error(e, "kuaishou")
         return None
 
     def _extract_audio(self, video_path: Path, task_id: str, quality: str) -> Optional[Path]:
