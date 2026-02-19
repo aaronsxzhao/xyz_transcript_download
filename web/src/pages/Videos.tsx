@@ -11,6 +11,31 @@ export default function Videos() {
   const selectedTask = videoTasks.find(t => t.id === selectedVideoTaskId) || null
 
   const handleTaskCreated = (taskId: string) => {
+    updateVideoTask({
+      id: taskId,
+      url: '',
+      platform: '',
+      title: '',
+      thumbnail: '',
+      status: 'pending',
+      progress: 0,
+      message: 'Queued for processing...',
+      markdown: '',
+      transcript: null,
+      style: '',
+      model: '',
+      formats: [],
+      quality: '',
+      extras: '',
+      video_understanding: false,
+      video_interval: 4,
+      grid_cols: 3,
+      grid_rows: 3,
+      duration: 0,
+      error: '',
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    })
     setSelectedVideoTaskId(taskId)
   }
 

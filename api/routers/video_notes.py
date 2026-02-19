@@ -602,12 +602,17 @@ async def get_task(task_id: str, user: Optional[User] = Depends(get_current_user
 
 @router.delete("/tasks/{task_id}")
 async def delete_task(task_id: str, user: Optional[User] = Depends(get_current_user)):
-    """Delete a video note task."""
+    """Delete a video note task and cancel any in-progress processing."""
     from video_task_db import get_video_task_db
     db = get_video_task_db()
     user_id = user.id if user else None
+
+    with _cancel_lock:
+        _cancelled_tasks.add(task_id)
+
     deleted = db.delete_task(task_id, user_id)
     if not deleted:
+        _clear_cancelled(task_id)
         raise HTTPException(status_code=404, detail="Task not found")
     return {"message": "Task deleted"}
 

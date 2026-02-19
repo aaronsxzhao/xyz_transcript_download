@@ -91,8 +91,11 @@ export default function VideoNoteForm({ onTaskCreated }: Props) {
     }
   }
 
+  const submittingRef = useRef(false)
+
   const handleSubmit = async () => {
-    if (!url.trim()) return
+    if (!url.trim() || submittingRef.current) return
+    submittingRef.current = true
     setLoading(true)
     setError('')
 
@@ -146,6 +149,7 @@ export default function VideoNoteForm({ onTaskCreated }: Props) {
       setError(msg)
     } finally {
       setLoading(false)
+      submittingRef.current = false
     }
   }
 

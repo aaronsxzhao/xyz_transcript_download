@@ -24,11 +24,15 @@ export default function VideoHistory({ onSelect }: Props) {
     }
   }, [setVideoTasks])
 
+  const hasActiveTasks = videoTasks.some(t =>
+    !['success', 'failed', 'cancelled'].includes(t.status)
+  )
+
   useEffect(() => {
     loadTasks()
-    const interval = setInterval(loadTasks, 10000)
+    const interval = setInterval(loadTasks, hasActiveTasks ? 3000 : 15000)
     return () => clearInterval(interval)
-  }, [loadTasks])
+  }, [loadTasks, hasActiveTasks])
 
   const handleDelete = async (taskId: string, e: React.MouseEvent) => {
     e.stopPropagation()
