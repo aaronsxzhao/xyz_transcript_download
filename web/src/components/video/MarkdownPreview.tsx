@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react'
+import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
@@ -21,7 +21,6 @@ export default function MarkdownPreview({ task }: Props) {
   const [copied, setCopied] = useState(false)
   const [zoomedImg, setZoomedImg] = useState<string | null>(null)
   const [pdfLoading, setPdfLoading] = useState(false)
-  const articleRef = useRef<HTMLDivElement>(null)
   const navigate = useNavigate()
 
   if (!task) {
@@ -58,51 +57,59 @@ export default function MarkdownPreview({ task }: Props) {
   }
 
   const handleDownloadPdf = async () => {
-    if (!articleRef.current || !task?.markdown || pdfLoading) return
+    if (!task?.markdown || pdfLoading) return
     setPdfLoading(true)
     try {
-      const html2pdf = (await import('html2pdf.js')).default
+      const [html2pdfModule, markedModule] = await Promise.all([
+        import('html2pdf.js'),
+        import('marked'),
+      ])
+      const html2pdf = html2pdfModule.default
+      const { marked } = markedModule
 
-      const clone = articleRef.current.cloneNode(true) as HTMLElement
-      clone.style.color = '#1a1a2e'
-      clone.style.background = '#ffffff'
-      clone.style.padding = '32px'
-      clone.querySelectorAll('*').forEach((el) => {
-        const style = (el as HTMLElement).style
-        if (!style) return
-        const computed = window.getComputedStyle(el as HTMLElement)
-        if (computed.color) style.color = '#1a1a2e'
-        if (computed.backgroundColor && computed.backgroundColor !== 'rgba(0, 0, 0, 0)')
-          style.backgroundColor = '#f3f4f6'
-        if (computed.borderColor) style.borderColor = '#d1d5db'
-      })
-      clone.querySelectorAll('h1, h2, h3, h4, h5, h6').forEach((el) => {
-        ;(el as HTMLElement).style.color = '#111827'
-      })
-      clone.querySelectorAll('a').forEach((el) => {
-        ;(el as HTMLElement).style.color = '#4f46e5'
-      })
-      clone.querySelectorAll('code').forEach((el) => {
-        ;(el as HTMLElement).style.color = '#6366f1'
-        ;(el as HTMLElement).style.backgroundColor = '#f3f4f6'
-      })
-      clone.querySelectorAll('blockquote').forEach((el) => {
-        ;(el as HTMLElement).style.borderLeftColor = '#6366f1'
-        ;(el as HTMLElement).style.backgroundColor = '#eef2ff'
-        ;(el as HTMLElement).style.color = '#374151'
-      })
-      clone.querySelectorAll('th').forEach((el) => {
-        ;(el as HTMLElement).style.backgroundColor = '#f3f4f6'
-      })
+      marked.setOptions({ gfm: true, breaks: false })
+      const body = await marked.parse(task.markdown)
+
+      const wrapper = document.createElement('div')
+      wrapper.innerHTML = `
+        <style>
+          * { box-sizing: border-box; }
+          body, div { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto Sans SC", "PingFang SC", "Microsoft YaHei", sans-serif; }
+          h1 { font-size: 22px; font-weight: 700; color: #111827; border-bottom: 2px solid #e5e7eb; padding-bottom: 8px; margin: 24px 0 16px; }
+          h2 { font-size: 18px; font-weight: 700; color: #1e40af; margin: 28px 0 12px; }
+          h3 { font-size: 15px; font-weight: 600; color: #1f2937; margin: 20px 0 8px; }
+          h4, h5, h6 { font-size: 14px; font-weight: 600; color: #374151; margin: 16px 0 6px; }
+          p { font-size: 13px; line-height: 1.75; color: #374151; margin: 8px 0; }
+          li { font-size: 13px; line-height: 1.75; color: #374151; }
+          ul, ol { padding-left: 20px; margin: 6px 0; }
+          strong { color: #111827; }
+          a { color: #4f46e5; text-decoration: none; }
+          blockquote { border-left: 3px solid #6366f1; background: #eef2ff; color: #374151; padding: 10px 16px; margin: 12px 0; border-radius: 0 6px 6px 0; font-size: 13px; }
+          blockquote p { margin: 4px 0; }
+          code { font-family: "SF Mono", "Fira Code", monospace; font-size: 12px; color: #6366f1; background: #f3f4f6; padding: 1px 5px; border-radius: 3px; }
+          pre { background: #f8fafc; border: 1px solid #e5e7eb; border-radius: 6px; padding: 12px; overflow-x: auto; margin: 12px 0; }
+          pre code { background: none; padding: 0; color: #1f2937; font-size: 12px; }
+          table { width: 100%; border-collapse: collapse; margin: 12px 0; font-size: 12.5px; }
+          th { background: #f3f4f6; font-weight: 600; color: #111827; text-align: left; padding: 8px 10px; border: 1px solid #d1d5db; }
+          td { padding: 8px 10px; border: 1px solid #d1d5db; color: #374151; }
+          hr { border: none; border-top: 1px solid #e5e7eb; margin: 24px 0; }
+          img { max-width: 100%; height: auto; border-radius: 6px; border: 1px solid #e5e7eb; margin: 10px 0; }
+          table, img, blockquote, pre { page-break-inside: avoid; }
+          h1, h2, h3 { page-break-after: avoid; }
+        </style>
+        <div style="color:#1f2937; background:#fff; padding:0; font-size:13px; line-height:1.75;">
+          ${body}
+        </div>
+      `
 
       const filename = `${(task.title || 'notes').replace(/[^\w\s-]/g, '').trim()}.pdf`
       await html2pdf().set({
-        margin: [10, 10, 10, 10],
+        margin: [12, 14, 12, 14],
         filename,
-        image: { type: 'jpeg', quality: 0.95 },
+        image: { type: 'jpeg', quality: 0.98 },
         html2canvas: { scale: 2, useCORS: true, logging: false },
         jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
-      }).from(clone).save()
+      }).from(wrapper).save()
     } catch (e) {
       console.error('PDF generation failed:', e)
     } finally {
@@ -276,7 +283,7 @@ export default function MarkdownPreview({ task }: Props) {
       {/* Markdown content */}
       {isSuccess && task.markdown && (
         <div className="flex-1 overflow-y-auto custom-scrollbar">
-          <article ref={articleRef} className="prose prose-invert max-w-none
+          <article className="prose prose-invert max-w-none
             prose-headings:text-gray-100 prose-headings:font-bold
             prose-h1:text-2xl prose-h1:border-b prose-h1:border-dark-border prose-h1:pb-2 prose-h1:mb-6
             prose-h2:text-xl prose-h2:mt-8 prose-h2:mb-4 prose-h2:text-indigo-300
