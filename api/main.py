@@ -210,18 +210,12 @@ app.include_router(processing.router, prefix="/api", tags=["Processing"])
 app.include_router(video_notes.router, prefix="/api/video-notes", tags=["Video Notes"])
 app.include_router(cookies.router, prefix="/api/cookies", tags=["Cookies"])
 
-# Mount static files for data
-data_dir = Path(__file__).parent.parent / "data"
-if data_dir.exists():
-    app.mount("/data", StaticFiles(directory=str(data_dir)), name="data")
-
-# Mount screenshots directory
-screenshots_dir = data_dir / "screenshots"
-screenshots_dir.mkdir(parents=True, exist_ok=True)
-
-# Mount uploads directory
-uploads_dir = data_dir / "uploads"
-uploads_dir.mkdir(parents=True, exist_ok=True)
+# Mount static files for data — use the same DATA_DIR that the rest of the app uses
+from config import DATA_DIR as _data_dir
+_data_dir.mkdir(parents=True, exist_ok=True)
+(_data_dir / "screenshots").mkdir(parents=True, exist_ok=True)
+(_data_dir / "uploads").mkdir(parents=True, exist_ok=True)
+app.mount("/data", StaticFiles(directory=str(_data_dir)), name="data")
 
 # Check for pre-built frontend
 frontend_dist = Path(__file__).parent.parent / "web" / "dist"
@@ -404,6 +398,12 @@ async def update_settings(settings: dict):
 @app.get("/{path:path}")
 async def serve_frontend(path: str):
     """Serve React frontend for client-side routing."""
+    # Serve files from the data directory (screenshots, uploads, etc.)
+    if path.startswith("data/"):
+        data_file = _data_dir / path[len("data/"):]
+        if data_file.exists() and data_file.is_file():
+            return FileResponse(data_file)
+
     frontend_dist = Path(__file__).parent.parent / "web" / "dist"
     
     if not frontend_dist.exists():
