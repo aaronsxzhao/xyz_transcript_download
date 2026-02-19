@@ -155,11 +155,8 @@ def _extract_cookies_from_headers(headers) -> dict:
 
 
 def _cookies_to_netscape(cookies: dict) -> str:
-    """Convert a cookie dict to Netscape cookies.txt format for yt-dlp."""
-    lines = ["# Netscape HTTP Cookie File", ""]
-    for name, value in cookies.items():
-        lines.append(f".bilibili.com\tTRUE\t/\tFALSE\t0\t{name}\t{value}")
-    return "\n".join(lines) + "\n"
+    """Convert a cookie dict to Netscape cookies.txt format for yt-dlp (BiliBili)."""
+    return _cookies_dict_to_netscape(cookies, ".bilibili.com")
 
 
 @router.get("/bilibili/validate")
@@ -201,6 +198,200 @@ def _netscape_to_header(netscape_str: str) -> str:
         if len(parts) >= 7:
             pairs.append(f"{parts[5]}={parts[6]}")
     return "; ".join(pairs)
+
+
+def _cookies_dict_to_netscape(cookies: dict, domain: str) -> str:
+    """Convert a cookie dict to Netscape cookies.txt format for yt-dlp."""
+    lines = ["# Netscape HTTP Cookie File", ""]
+    for name, value in cookies.items():
+        lines.append(f"{domain}\tTRUE\t/\tFALSE\t0\t{name}\t{value}")
+    return "\n".join(lines) + "\n"
+
+
+def _simple_cookie_to_netscape(cookie_str: str, domain: str) -> str:
+    """Convert a simple 'key=val; key=val' cookie string to Netscape format."""
+    cookies = {}
+    for pair in cookie_str.split(";"):
+        pair = pair.strip()
+        if "=" in pair:
+            key, val = pair.split("=", 1)
+            cookies[key.strip()] = val.strip()
+    return _cookies_dict_to_netscape(cookies, domain)
+
+
+# ==================== Douyin QR Code Login ====================
+
+DOUYIN_HEADERS = {
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                  "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+    "Referer": "https://www.douyin.com/",
+    "Accept": "application/json, text/plain, */*",
+}
+
+_douyin_sessions: dict[str, dict] = {}
+
+
+@router.get("/douyin/qr/generate")
+async def douyin_qr_generate(user: Optional[User] = Depends(get_current_user)):
+    """Generate a Douyin QR code for login."""
+    try:
+        async with httpx.AsyncClient(
+            headers=DOUYIN_HEADERS,
+            timeout=httpx.Timeout(30.0, connect=15.0),
+            follow_redirects=True,
+        ) as client:
+            resp = await client.get(
+                "https://sso.douyin.com/get_qrcode/",
+                params={
+                    "aid": "6383",
+                    "service": "https://www.douyin.com",
+                },
+            )
+            data = resp.json()
+    except httpx.TimeoutException:
+        raise HTTPException(status_code=504, detail="Douyin API timed out")
+    except Exception as e:
+        logger.error(f"Douyin QR generate error: {e}")
+        raise HTTPException(status_code=502, detail=f"Failed to reach Douyin: {type(e).__name__}")
+
+    inner = data.get("data", {})
+    token = inner.get("token", "")
+    qr_url = inner.get("qrcode_index_url", "")
+
+    if not token or not qr_url:
+        logger.error(f"Douyin QR unexpected response: {data}")
+        raise HTTPException(status_code=502, detail="Failed to generate Douyin QR code")
+
+    session_cookies = {}
+    for header_val in resp.headers.get_list("set-cookie"):
+        parts = header_val.split(";")[0].strip()
+        if "=" in parts:
+            k, v = parts.split("=", 1)
+            session_cookies[k.strip()] = v.strip()
+
+    _douyin_sessions[token] = {
+        "created_at": time.time(),
+        "session_cookies": session_cookies,
+    }
+
+    return {"qr_url": qr_url, "token": token}
+
+
+@router.get("/douyin/qr/poll")
+async def douyin_qr_poll(
+    token: str,
+    user: Optional[User] = Depends(get_current_user),
+):
+    """Poll Douyin QR code login status."""
+    if token not in _douyin_sessions:
+        raise HTTPException(status_code=404, detail="QR session not found")
+
+    session = _douyin_sessions[token]
+    if time.time() - session["created_at"] > 180:
+        _douyin_sessions.pop(token, None)
+        return {"status": "expired", "message": "QR code expired"}
+
+    sess_cookies = session.get("session_cookies", {})
+    cookie_header = "; ".join(f"{k}={v}" for k, v in sess_cookies.items())
+
+    try:
+        headers = {**DOUYIN_HEADERS, "Cookie": cookie_header}
+        async with httpx.AsyncClient(
+            headers=headers,
+            timeout=httpx.Timeout(15.0, connect=10.0),
+            follow_redirects=False,
+        ) as client:
+            resp = await client.get(
+                "https://sso.douyin.com/check_qrconnect/",
+                params={
+                    "aid": "6383",
+                    "token": token,
+                    "service": "https://www.douyin.com",
+                },
+            )
+            data = resp.json()
+    except httpx.TimeoutException:
+        return {"status": "waiting", "message": "Douyin API slow, retrying..."}
+    except Exception as e:
+        logger.warning(f"Douyin QR poll error: {e}")
+        return {"status": "waiting", "message": "Network error, retrying..."}
+
+    inner = data.get("data", {})
+    status_code = str(inner.get("status", ""))
+
+    if status_code == "3":
+        redirect_url = inner.get("redirect_url", "")
+        all_cookies = dict(sess_cookies)
+
+        for header_val in resp.headers.get_list("set-cookie"):
+            parts = header_val.split(";")[0].strip()
+            if "=" in parts:
+                k, v = parts.split("=", 1)
+                all_cookies[k.strip()] = v.strip()
+
+        if redirect_url:
+            try:
+                redir_headers = {**DOUYIN_HEADERS, "Cookie": "; ".join(f"{k}={v}" for k, v in all_cookies.items())}
+                async with httpx.AsyncClient(
+                    headers=redir_headers,
+                    timeout=10.0,
+                    follow_redirects=True,
+                ) as redir_client:
+                    redir_resp = await redir_client.get(redirect_url)
+                    for header_val in redir_resp.headers.get_list("set-cookie"):
+                        parts = header_val.split(";")[0].strip()
+                        if "=" in parts:
+                            k, v = parts.split("=", 1)
+                            all_cookies[k.strip()] = v.strip()
+            except Exception as e:
+                logger.warning(f"Douyin redirect follow failed: {e}")
+
+        if all_cookies:
+            cookie_str = _cookies_dict_to_netscape(all_cookies, ".douyin.com")
+            from cookie_manager import get_cookie_manager
+            get_cookie_manager().set_cookie("douyin", cookie_str)
+            logger.info(f"Douyin QR login success, saved {len(all_cookies)} cookies")
+
+        _douyin_sessions.pop(token, None)
+        return {"status": "success", "message": "Login successful, cookies saved"}
+
+    elif status_code == "2":
+        return {"status": "scanned", "message": "Scanned, waiting for confirmation"}
+    elif status_code == "5":
+        _douyin_sessions.pop(token, None)
+        return {"status": "expired", "message": "QR code expired"}
+    else:
+        return {"status": "waiting", "message": "Waiting for scan"}
+
+
+# ==================== Cookie Helper (simple string conversion) ====================
+
+PLATFORM_DOMAINS = {
+    "bilibili": ".bilibili.com",
+    "youtube": ".youtube.com",
+    "douyin": ".douyin.com",
+    "kuaishou": ".kuaishou.com",
+}
+
+
+class SimpleCookieUpdate(BaseModel):
+    platform: str
+    cookie_string: str
+
+
+@router.post("/save-simple")
+async def save_simple_cookie(data: SimpleCookieUpdate, user: Optional[User] = Depends(get_current_user)):
+    """Accept a simple 'key=val; key=val' cookie string and save it in Netscape format."""
+    domain = PLATFORM_DOMAINS.get(data.platform)
+    if not domain:
+        raise HTTPException(status_code=400, detail=f"Unknown platform: {data.platform}")
+    if not data.cookie_string.strip():
+        raise HTTPException(status_code=400, detail="Cookie string is empty")
+
+    netscape = _simple_cookie_to_netscape(data.cookie_string, domain)
+    from cookie_manager import get_cookie_manager
+    get_cookie_manager().set_cookie(data.platform, netscape)
+    return {"message": f"Cookies saved for {data.platform}"}
 
 
 @router.get("/{platform}")

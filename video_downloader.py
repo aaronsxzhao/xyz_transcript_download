@@ -503,6 +503,12 @@ class DouyinDownloader(BaseDownloader):
     """Downloader for Douyin/TikTok videos using HTTP requests."""
 
     def __init__(self, cookies: str = ""):
+        if not cookies:
+            try:
+                from cookie_manager import get_cookie_manager
+                cookies = get_cookie_manager().get_cookie("douyin")
+            except Exception:
+                pass
         self.cookies = cookies
         self.headers = {
             "User-Agent": "Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X) "
@@ -611,6 +617,12 @@ class KuaishouDownloader(BaseDownloader):
     """Downloader for Kuaishou videos."""
 
     def __init__(self, cookies: str = ""):
+        if not cookies:
+            try:
+                from cookie_manager import get_cookie_manager
+                cookies = get_cookie_manager().get_cookie("kuaishou")
+            except Exception:
+                pass
         self.cookies = cookies
         self.headers = {
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",

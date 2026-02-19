@@ -551,3 +551,25 @@ export async function bilibiliQrPoll(qrcodeKey: string): Promise<{ status: strin
   if (!res.ok) throw new Error('Failed to poll QR status')
   return res.json()
 }
+
+export async function douyinQrGenerate(): Promise<{ qr_url: string; token: string }> {
+  const res = await authFetch(`${API_BASE}/cookies/douyin/qr/generate`)
+  if (!res.ok) throw new Error('Failed to generate Douyin QR code')
+  return res.json()
+}
+
+export async function douyinQrPoll(token: string): Promise<{ status: string; message: string }> {
+  const res = await authFetch(`${API_BASE}/cookies/douyin/qr/poll?token=${encodeURIComponent(token)}`)
+  if (!res.ok) throw new Error('Failed to poll Douyin QR status')
+  return res.json()
+}
+
+export async function saveSimpleCookie(platform: string, cookieString: string): Promise<{ message: string }> {
+  const res = await authFetch(`${API_BASE}/cookies/save-simple`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ platform, cookie_string: cookieString }),
+  })
+  if (!res.ok) throw new Error('Failed to save cookie')
+  return res.json()
+}

@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { Cpu, MessageSquare, Clock, Loader2, CheckCircle, Trash2, AlertTriangle, Search, Save, Download, X, Activity, Cookie, QrCode, Smartphone } from 'lucide-react'
+import { Cpu, MessageSquare, Clock, Loader2, CheckCircle, Trash2, AlertTriangle, Search, Save, Download, X, Activity, QrCode, Smartphone, Clipboard, ExternalLink } from 'lucide-react'
 import { QRCodeSVG } from 'qrcode.react'
-import { fetchSettings, updateSettings, authFetch, importUserSubscriptions, ImportSubscriptionsResult, fetchSysHealth, fetchAllCookies, updateCookie, bilibiliQrGenerate, bilibiliQrPoll } from '../lib/api'
+import { fetchSettings, updateSettings, authFetch, importUserSubscriptions, ImportSubscriptionsResult, fetchSysHealth, fetchAllCookies, bilibiliQrGenerate, bilibiliQrPoll, douyinQrGenerate, douyinQrPoll, saveSimpleCookie } from '../lib/api'
 
 interface SettingsData {
   whisper_mode: string
@@ -88,13 +88,13 @@ export default function Settings() {
   } | null>(null)
   const [checkingHealth, setCheckingHealth] = useState(false)
   
-  // Cookie management state
+  // Platform accounts state
+  const PLATFORMS = ['bilibili', 'youtube', 'douyin', 'kuaishou'] as const
+  type Platform = typeof PLATFORMS[number]
+  const [activePlatform, setActivePlatform] = useState<Platform>('bilibili')
   const [cookies, setCookies] = useState<{ platform: string; has_cookie: boolean; updated_at: string }[]>([])
-  const [cookiePlatform, setCookiePlatform] = useState('bilibili')
-  const [cookieData, setCookieData] = useState('')
-  const [savingCookie, setSavingCookie] = useState(false)
-  
-  // BiliBili QR code login state
+
+  // QR login state (shared for bilibili & douyin)
   const QR_LIFETIME = 120
   const [qrUrl, setQrUrl] = useState('')
   const [qrStatus, setQrStatus] = useState<'idle' | 'loading' | 'waiting' | 'scanned' | 'success' | 'expired' | 'error'>('idle')
@@ -104,6 +104,13 @@ export default function Settings() {
   const qrTimerRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const qrAutoRef = useRef(0)
   const qrScannedRef = useRef(false)
+  const qrPlatformRef = useRef<Platform>('bilibili')
+
+  // Cookie helper state (for youtube & kuaishou)
+  const [helperCookie, setHelperCookie] = useState('')
+  const [helperSaving, setHelperSaving] = useState(false)
+  const [helperMessage, setHelperMessage] = useState('')
+  const [snippetCopied, setSnippetCopied] = useState(false)
 
   const stopQrPolling = useCallback(() => {
     if (qrPollRef.current) { clearInterval(qrPollRef.current); qrPollRef.current = null }
@@ -112,51 +119,59 @@ export default function Settings() {
     qrScannedRef.current = false
   }, [])
 
-  const startBilibiliQrLogin = useCallback(async () => {
+  const startQrLogin = useCallback(async (platform: 'bilibili' | 'douyin') => {
     stopQrPolling()
     setQrStatus('loading')
     setQrMessage('')
     qrScannedRef.current = false
+    qrPlatformRef.current = platform
     const autoId = ++qrAutoRef.current
+
+    const generateFn = platform === 'bilibili' ? bilibiliQrGenerate : douyinQrGenerate
+    const pollFn = platform === 'bilibili'
+      ? (key: string) => bilibiliQrPoll(key)
+      : (key: string) => douyinQrPoll(key)
+    const appName = platform === 'bilibili' ? 'BiliBili' : 'Douyin'
 
     const generate = async (): Promise<boolean> => {
       if (qrAutoRef.current !== autoId) return false
       try {
-        const { qr_url, qrcode_key } = await bilibiliQrGenerate()
+        const result = await generateFn()
         if (qrAutoRef.current !== autoId) return false
-        setQrUrl(qr_url)
+        const url = 'qr_url' in result ? result.qr_url : ''
+        const key = platform === 'bilibili'
+          ? (result as { qrcode_key: string }).qrcode_key
+          : (result as { token: string }).token
+        setQrUrl(url)
         setQrStatus('waiting')
-        setQrMessage('Open BiliBili app and scan the QR code')
+        setQrMessage(`Open ${appName} app and scan the QR code`)
         setQrCountdown(QR_LIFETIME)
         qrScannedRef.current = false
 
         if (qrTimerRef.current) clearInterval(qrTimerRef.current)
         qrTimerRef.current = setInterval(() => {
-          setQrCountdown(prev => {
-            if (prev <= 1) return 0
-            return prev - 1
-          })
+          setQrCountdown(prev => prev <= 1 ? 0 : prev - 1)
         }, 1000)
 
         if (qrPollRef.current) clearInterval(qrPollRef.current)
         qrPollRef.current = setInterval(async () => {
           if (qrAutoRef.current !== autoId) return
           try {
-            const result = await bilibiliQrPoll(qrcode_key)
+            const poll = await pollFn(key)
             if (qrAutoRef.current !== autoId) return
-            if (result.status === 'success') {
+            if (poll.status === 'success') {
               setQrStatus('success')
-              setQrMessage('Login successful! BiliBili cookies saved.')
+              setQrMessage(`Login successful! ${appName} cookies saved.`)
               stopQrPolling()
               const data = await fetchAllCookies()
               setCookies(data.cookies)
-            } else if (result.status === 'scanned') {
+            } else if (poll.status === 'scanned') {
               qrScannedRef.current = true
               setQrStatus('scanned')
               setQrMessage('Scanned! Please confirm on your phone...')
               if (qrTimerRef.current) { clearInterval(qrTimerRef.current); qrTimerRef.current = null }
               setQrCountdown(0)
-            } else if (result.status === 'expired') {
+            } else if (poll.status === 'expired') {
               if (qrScannedRef.current) {
                 setQrStatus('error')
                 setQrMessage('Confirmation timed out. Please try again.')
@@ -167,9 +182,7 @@ export default function Settings() {
                 generate()
               }
             }
-          } catch {
-            // ignore transient errors, keep polling
-          }
+          } catch { /* keep polling */ }
         }, 2000)
         return true
       } catch {
@@ -182,6 +195,16 @@ export default function Settings() {
     }
 
     await generate()
+  }, [stopQrPolling])
+
+  const handleSwitchPlatform = useCallback((p: Platform) => {
+    stopQrPolling()
+    setQrStatus('idle')
+    setQrUrl('')
+    setQrMessage('')
+    setHelperCookie('')
+    setHelperMessage('')
+    setActivePlatform(p)
   }, [stopQrPolling])
 
   useEffect(() => {
@@ -699,178 +722,228 @@ export default function Settings() {
         )}
       </div>
       
-      {/* BiliBili QR Code Login */}
+      {/* Platform Accounts */}
       <div className="p-6 bg-dark-surface border border-dark-border rounded-xl">
         <h2 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
           <QrCode className="text-pink-500" size={20} />
-          BiliBili Login
+          Platform Accounts
         </h2>
-        
-        <p className="text-sm text-gray-400 mb-4">
-          Scan the QR code with the BiliBili mobile app to authenticate.
-          This is required for downloading BiliBili video content.
-        </p>
 
-        <div className="space-y-4">
-          {qrStatus === 'idle' || qrStatus === 'error' ? (
-            <div>
+        {/* Platform tabs */}
+        <div className="flex gap-1 mb-5 p-1 bg-dark-hover rounded-lg">
+          {PLATFORMS.map(p => {
+            const cookieInfo = cookies.find(c => c.platform === p)
+            const loggedIn = cookieInfo?.has_cookie
+            return (
               <button
-                onClick={startBilibiliQrLogin}
-                className="flex items-center gap-2 px-4 py-2 bg-pink-600 hover:bg-pink-700 text-white rounded-lg transition-colors"
+                key={p}
+                onClick={() => handleSwitchPlatform(p)}
+                className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-2 text-sm rounded-md transition-colors ${
+                  activePlatform === p
+                    ? 'bg-indigo-600 text-white'
+                    : 'text-gray-400 hover:text-white hover:bg-dark-border'
+                }`}
               >
-                <Smartphone size={16} />
-                Generate QR Code
+                <span className="capitalize">{p === 'bilibili' ? 'BiliBili' : p === 'youtube' ? 'YouTube' : p.charAt(0).toUpperCase() + p.slice(1)}</span>
+                {loggedIn && <span className="w-1.5 h-1.5 rounded-full bg-green-400 flex-shrink-0" />}
               </button>
-              {qrStatus === 'error' && qrMessage && (
-                <p className="text-sm text-amber-400 mt-2">{qrMessage}</p>
-              )}
-            </div>
-          ) : qrStatus === 'loading' ? (
-            <div className="flex items-center gap-2 text-gray-400">
-              <Loader2 size={16} className="animate-spin" />
-              Generating QR code...
-            </div>
-          ) : qrStatus === 'success' ? (
-            <div className="space-y-2">
-              <div className="flex items-center gap-2 text-green-400">
-                <CheckCircle size={16} />
-                {qrMessage}
-              </div>
-              <button
-                onClick={startBilibiliQrLogin}
-                className="text-xs text-gray-500 hover:text-gray-300 transition-colors"
-              >
-                Re-login
-              </button>
-            </div>
-          ) : (
-            <div className="space-y-3">
-              <div className="flex flex-col items-center gap-3 p-4 bg-white rounded-xl w-fit mx-auto relative">
-                <QRCodeSVG value={qrUrl} size={200} level="M" />
-              </div>
-              <div className="text-center space-y-1">
-                <p className={`text-sm ${qrStatus === 'scanned' ? 'text-cyan-400' : 'text-gray-400'}`}>
-                  {qrStatus === 'scanned' ? (
-                    <span className="flex items-center justify-center gap-2">
-                      <Smartphone size={14} />
-                      Scanned! Confirm on your phone...
-                    </span>
-                  ) : (
-                    <span className="flex items-center justify-center gap-2">
-                      <Loader2 size={14} className="animate-spin" />
-                      Waiting for scan...
-                    </span>
-                  )}
-                </p>
-                {qrStatus === 'waiting' && qrCountdown > 0 && (
-                  <p className="text-xs text-gray-500">
-                    {qrCountdown > 10
-                      ? `Auto-refreshes in ${qrCountdown}s`
-                      : <span className="text-amber-400">Refreshing in {qrCountdown}s...</span>
-                    }
-                  </p>
+            )
+          })}
+        </div>
+
+        {/* QR Code Login (BiliBili / Douyin) */}
+        {(activePlatform === 'bilibili' || activePlatform === 'douyin') && (
+          <div className="space-y-4">
+            <p className="text-sm text-gray-400">
+              Scan the QR code with the <strong className="text-white">{activePlatform === 'bilibili' ? 'BiliBili' : 'Douyin'}</strong> mobile app to log in.
+            </p>
+
+            {qrStatus === 'idle' || qrStatus === 'error' ? (
+              <div>
+                <button
+                  onClick={() => startQrLogin(activePlatform)}
+                  className="flex items-center gap-2 px-4 py-2 bg-pink-600 hover:bg-pink-700 text-white rounded-lg transition-colors"
+                >
+                  <Smartphone size={16} />
+                  Generate QR Code
+                </button>
+                {qrStatus === 'error' && qrMessage && (
+                  <p className="text-sm text-amber-400 mt-2">{qrMessage}</p>
                 )}
               </div>
-              <div className="flex items-center justify-center gap-3">
+            ) : qrStatus === 'loading' ? (
+              <div className="flex items-center gap-2 text-gray-400">
+                <Loader2 size={16} className="animate-spin" />
+                Generating QR code...
+              </div>
+            ) : qrStatus === 'success' ? (
+              <div className="space-y-2">
+                <div className="flex items-center gap-2 text-green-400">
+                  <CheckCircle size={16} />
+                  {qrMessage}
+                </div>
                 <button
-                  onClick={startBilibiliQrLogin}
+                  onClick={() => startQrLogin(activePlatform)}
                   className="text-xs text-gray-500 hover:text-gray-300 transition-colors"
                 >
-                  Refresh now
-                </button>
-                <button
-                  onClick={() => { stopQrPolling(); setQrStatus('idle'); setQrUrl('') }}
-                  className="text-xs text-gray-500 hover:text-red-400 transition-colors"
-                >
-                  Cancel
+                  Re-login
                 </button>
               </div>
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* Cookie Management */}
-      <div className="p-6 bg-dark-surface border border-dark-border rounded-xl">
-        <h2 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
-          <Cookie className="text-amber-500" size={20} />
-          Platform Cookies (Manual)
-        </h2>
-        
-        <p className="text-sm text-gray-400 mb-4">
-          For other platforms or manual cookie setup. Paste Netscape-format cookies here.
-        </p>
-        
-        <div className="space-y-3">
-          <div className="flex gap-2">
-            <select
-              value={cookiePlatform}
-              onChange={e => setCookiePlatform(e.target.value)}
-              className="bg-dark-hover border border-dark-border text-white text-sm rounded-lg px-3 py-2"
-            >
-              <option value="bilibili">Bilibili</option>
-              <option value="youtube">YouTube</option>
-              <option value="douyin">Douyin</option>
-              <option value="kuaishou">Kuaishou</option>
-            </select>
-            <button
-              onClick={async () => {
-                try {
-                  const data = await fetchAllCookies()
-                  setCookies(data.cookies)
-                } catch (e) {
-                  console.error('Failed to fetch cookies:', e)
-                }
-              }}
-              className="px-3 py-2 bg-dark-hover hover:bg-dark-border text-sm text-gray-300 rounded-lg transition-colors"
-            >
-              Refresh
-            </button>
+            ) : (
+              <div className="space-y-3">
+                <div className="flex flex-col items-center gap-3 p-4 bg-white rounded-xl w-fit mx-auto">
+                  <QRCodeSVG value={qrUrl} size={200} level="M" />
+                </div>
+                <div className="text-center space-y-1">
+                  <p className={`text-sm ${qrStatus === 'scanned' ? 'text-cyan-400' : 'text-gray-400'}`}>
+                    {qrStatus === 'scanned' ? (
+                      <span className="flex items-center justify-center gap-2">
+                        <Smartphone size={14} />
+                        Scanned! Confirm on your phone...
+                      </span>
+                    ) : (
+                      <span className="flex items-center justify-center gap-2">
+                        <Loader2 size={14} className="animate-spin" />
+                        Waiting for scan...
+                      </span>
+                    )}
+                  </p>
+                  {qrStatus === 'waiting' && qrCountdown > 0 && (
+                    <p className="text-xs text-gray-500">
+                      {qrCountdown > 10
+                        ? `Auto-refreshes in ${qrCountdown}s`
+                        : <span className="text-amber-400">Refreshing in {qrCountdown}s...</span>
+                      }
+                    </p>
+                  )}
+                </div>
+                <div className="flex items-center justify-center gap-3">
+                  <button
+                    onClick={() => startQrLogin(activePlatform)}
+                    className="text-xs text-gray-500 hover:text-gray-300 transition-colors"
+                  >
+                    Refresh now
+                  </button>
+                  <button
+                    onClick={() => { stopQrPolling(); setQrStatus('idle'); setQrUrl('') }}
+                    className="text-xs text-gray-500 hover:text-red-400 transition-colors"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
-          
-          <textarea
-            value={cookieData}
-            onChange={e => setCookieData(e.target.value)}
-            placeholder="Paste cookie string here..."
-            rows={3}
-            className="w-full px-3 py-2 bg-dark-hover border border-dark-border rounded-lg text-sm text-white placeholder-gray-500 focus:outline-none focus:border-amber-500 resize-none font-mono"
-          />
-          
-          <button
-            onClick={async () => {
-              setSavingCookie(true)
-              try {
-                await updateCookie(cookiePlatform, cookieData)
-                setCookieData('')
-                const data = await fetchAllCookies()
-                setCookies(data.cookies)
-              } catch (e) {
-                console.error('Failed to save cookie:', e)
-              } finally {
-                setSavingCookie(false)
-              }
-            }}
-            disabled={savingCookie || !cookieData.trim()}
-            className="flex items-center gap-2 px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-lg transition-colors disabled:opacity-50"
-          >
-            {savingCookie ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
-            Save Cookie
-          </button>
-          
-          {cookies.length > 0 && (
-            <div className="space-y-1 mt-2">
-              <p className="text-xs text-gray-500">Stored cookies:</p>
+        )}
+
+        {/* Cookie Helper (YouTube / Kuaishou) */}
+        {(activePlatform === 'youtube' || activePlatform === 'kuaishou') && (() => {
+          const platformName = activePlatform === 'youtube' ? 'YouTube' : 'Kuaishou'
+          const siteUrl = activePlatform === 'youtube' ? 'https://www.youtube.com' : 'https://www.kuaishou.com'
+          const snippet = `copy(document.cookie)`
+          return (
+            <div className="space-y-4">
+              <p className="text-sm text-gray-400">
+                {platformName} does not support QR code login. Follow these steps to import your login cookies:
+              </p>
+
+              {/* Step 1 */}
+              <div className="flex gap-3">
+                <div className="flex-shrink-0 w-6 h-6 rounded-full bg-indigo-600 text-white text-xs flex items-center justify-center font-bold">1</div>
+                <div className="space-y-1">
+                  <p className="text-sm text-white">Open {platformName} and make sure you are logged in</p>
+                  <a href={siteUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-xs text-indigo-400 hover:underline">
+                    Open {platformName} <ExternalLink size={10} />
+                  </a>
+                </div>
+              </div>
+
+              {/* Step 2 */}
+              <div className="flex gap-3">
+                <div className="flex-shrink-0 w-6 h-6 rounded-full bg-indigo-600 text-white text-xs flex items-center justify-center font-bold">2</div>
+                <div className="space-y-2">
+                  <p className="text-sm text-white">Press <kbd className="px-1.5 py-0.5 bg-dark-hover border border-dark-border rounded text-xs font-mono">F12</kbd> to open DevTools, go to <strong>Console</strong> tab, paste this snippet and press Enter:</p>
+                  <div className="flex items-center gap-2">
+                    <code className="flex-1 px-3 py-2 bg-dark-hover border border-dark-border rounded-lg text-sm text-indigo-300 font-mono select-all">
+                      {snippet}
+                    </code>
+                    <button
+                      onClick={() => {
+                        navigator.clipboard.writeText(snippet)
+                        setSnippetCopied(true)
+                        setTimeout(() => setSnippetCopied(false), 2000)
+                      }}
+                      className="p-2 text-gray-400 hover:text-white transition-colors"
+                      title="Copy snippet"
+                    >
+                      {snippetCopied ? <CheckCircle size={14} className="text-green-400" /> : <Clipboard size={14} />}
+                    </button>
+                  </div>
+                  <p className="text-xs text-gray-500">This copies your cookies to clipboard. It does not send any data.</p>
+                </div>
+              </div>
+
+              {/* Step 3 */}
+              <div className="flex gap-3">
+                <div className="flex-shrink-0 w-6 h-6 rounded-full bg-indigo-600 text-white text-xs flex items-center justify-center font-bold">3</div>
+                <div className="space-y-2 flex-1">
+                  <p className="text-sm text-white">Paste the cookies here and save:</p>
+                  <textarea
+                    value={helperCookie}
+                    onChange={e => setHelperCookie(e.target.value)}
+                    placeholder="Paste cookies here (e.g. key1=val1; key2=val2; ...)"
+                    rows={3}
+                    className="w-full px-3 py-2 bg-dark-hover border border-dark-border rounded-lg text-sm text-white placeholder-gray-500 focus:outline-none focus:border-indigo-500 resize-none font-mono"
+                  />
+                  <button
+                    onClick={async () => {
+                      setHelperSaving(true)
+                      setHelperMessage('')
+                      try {
+                        await saveSimpleCookie(activePlatform, helperCookie)
+                        setHelperCookie('')
+                        setHelperMessage('Cookies saved successfully!')
+                        const data = await fetchAllCookies()
+                        setCookies(data.cookies)
+                      } catch {
+                        setHelperMessage('Failed to save cookies. Please try again.')
+                      } finally {
+                        setHelperSaving(false)
+                      }
+                    }}
+                    disabled={helperSaving || !helperCookie.trim()}
+                    className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-colors disabled:opacity-50"
+                  >
+                    {helperSaving ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
+                    Save Cookies
+                  </button>
+                  {helperMessage && (
+                    <p className={`text-sm ${helperMessage.includes('success') ? 'text-green-400' : 'text-amber-400'}`}>
+                      {helperMessage}
+                    </p>
+                  )}
+                </div>
+              </div>
+            </div>
+          )
+        })()}
+
+        {/* Cookie status for all platforms */}
+        {cookies.length > 0 && (
+          <div className="mt-5 pt-4 border-t border-dark-border">
+            <p className="text-xs text-gray-500 mb-2">All platforms:</p>
+            <div className="grid grid-cols-2 gap-2">
               {cookies.map(c => (
                 <div key={c.platform} className="flex items-center justify-between p-2 bg-dark-hover rounded text-sm">
-                  <span className="text-white capitalize">{c.platform}</span>
+                  <span className="text-white capitalize">{c.platform === 'bilibili' ? 'BiliBili' : c.platform === 'youtube' ? 'YouTube' : c.platform.charAt(0).toUpperCase() + c.platform.slice(1)}</span>
                   <span className={`text-xs ${c.has_cookie ? 'text-green-400' : 'text-gray-500'}`}>
-                    {c.has_cookie ? 'Configured' : 'Not set'}
+                    {c.has_cookie ? 'Logged in' : 'Not set'}
                   </span>
                 </div>
               ))}
             </div>
-          )}
-        </div>
+          </div>
+        )}
       </div>
     </div>
   )
