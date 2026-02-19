@@ -325,11 +325,11 @@ export default function Settings() {
       <div className="p-6 bg-dark-surface border border-dark-border rounded-xl">
         <h2 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
           <Cpu className="text-blue-500" size={20} />
-          Whisper Configuration
+          Transcription (Whisper)
         </h2>
         
         <div className="space-y-4">
-          <SettingRow label="Mode" value={settings?.whisper_mode || '-'} />
+          <SettingRow label="Provider" value={settings?.whisper_mode === 'api' ? 'Groq API (cloud)' : 'Local model'} />
           
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 py-2 border-b border-dark-border">
             <span className="text-gray-400">Model</span>

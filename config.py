@@ -83,12 +83,12 @@ LLM_MODEL = _get_env("LLM_MODEL", "gpt-4o")
 if not LLM_API_KEY:
     print("Warning: LLM_API_KEY not set. Summarization will not work.")
 
-# Whisper Configuration
+# Whisper Configuration — defaults to API mode (Groq) for both local and cloud
 WHISPER_MODE = _validate_choice(
     "WHISPER_MODE",
-    _get_env("WHISPER_MODE", "local"),
+    _get_env("WHISPER_MODE", "api"),
     ["local", "api"],
-    "local"
+    "api"
 )
 
 VALID_WHISPER_MODELS = ["tiny", "base", "small", "medium", "large", "large-v2", "large-v3", "turbo"]

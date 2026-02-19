@@ -20,6 +20,7 @@ from config import (
     WHISPER_API_KEY,
     WHISPER_BASE_URL,
     WHISPER_API_MODEL,
+    WHISPER_API_PROVIDER,
     MAX_AUDIO_SIZE_MB,
     TRANSCRIPTS_DIR,
 )
@@ -980,30 +981,24 @@ class APITranscriber:
 
 class Transcriber:
     """
-    Unified transcriber that supports local (faster-whisper, mlx-whisper) and API modes.
-    Automatically selects the best backend for the current system.
+    Unified transcriber. Defaults to Groq API for both local dev and cloud.
+    Local whisper backends (faster-whisper, mlx-whisper) are still supported
+    as a fallback via WHISPER_MODE=local in .env.
     """
 
     def __init__(self, model: Optional[str] = None):
-        """
-        Initialize transcriber.
-        
-        Args:
-            model: Optional model name to use for API mode (e.g., 'whisper-large-v3-turbo')
-        """
         if WHISPER_MODE == "local":
-            # Determine which backend to use
             backend = WHISPER_BACKEND
             if backend == "auto":
                 backend = _detect_best_backend()
-            
             if backend == "mlx-whisper":
-                logger.info("Using MLX-Whisper (Apple Silicon GPU)")
+                logger.info("Using MLX-Whisper (Apple Silicon GPU) — local mode")
                 self._transcriber = MLXTranscriber(model_name=WHISPER_LOCAL_MODEL)
             else:
-                logger.info("Using faster-whisper (CTranslate2)")
+                logger.info("Using faster-whisper (CTranslate2) — local mode")
                 self._transcriber = FastLocalTranscriber(model_name=WHISPER_LOCAL_MODEL)
         else:
+            logger.info(f"Using Whisper API ({WHISPER_API_PROVIDER})")
             self._transcriber = APITranscriber(model=model)
 
     def transcribe(
