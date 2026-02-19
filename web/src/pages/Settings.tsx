@@ -1,6 +1,7 @@
-import { useState, useEffect } from 'react'
-import { Cpu, MessageSquare, Clock, Loader2, CheckCircle, Trash2, AlertTriangle, Search, Save, Download, X, Activity, Cookie } from 'lucide-react'
-import { fetchSettings, updateSettings, authFetch, importUserSubscriptions, ImportSubscriptionsResult, fetchSysHealth, fetchAllCookies, updateCookie } from '../lib/api'
+import { useState, useEffect, useRef, useCallback } from 'react'
+import { Cpu, MessageSquare, Clock, Loader2, CheckCircle, Trash2, AlertTriangle, Search, Save, Download, X, Activity, Cookie, QrCode, Smartphone } from 'lucide-react'
+import { QRCodeSVG } from 'qrcode.react'
+import { fetchSettings, updateSettings, authFetch, importUserSubscriptions, ImportSubscriptionsResult, fetchSysHealth, fetchAllCookies, updateCookie, bilibiliQrGenerate, bilibiliQrPoll } from '../lib/api'
 
 interface SettingsData {
   whisper_mode: string
@@ -85,6 +86,64 @@ export default function Settings() {
   const [cookiePlatform, setCookiePlatform] = useState('bilibili')
   const [cookieData, setCookieData] = useState('')
   const [savingCookie, setSavingCookie] = useState(false)
+  
+  // BiliBili QR code login state
+  const [qrUrl, setQrUrl] = useState('')
+  const [, setQrKey] = useState('')
+  const [qrStatus, setQrStatus] = useState<'idle' | 'loading' | 'waiting' | 'scanned' | 'success' | 'expired' | 'error'>('idle')
+  const [qrMessage, setQrMessage] = useState('')
+  const qrPollRef = useRef<ReturnType<typeof setInterval> | null>(null)
+
+  const stopQrPolling = useCallback(() => {
+    if (qrPollRef.current) {
+      clearInterval(qrPollRef.current)
+      qrPollRef.current = null
+    }
+  }, [])
+
+  const startBilibiliQrLogin = useCallback(async () => {
+    stopQrPolling()
+    setQrStatus('loading')
+    setQrMessage('')
+    try {
+      const { qr_url, qrcode_key } = await bilibiliQrGenerate()
+      setQrUrl(qr_url)
+      setQrKey(qrcode_key)
+      setQrStatus('waiting')
+      setQrMessage('Open BiliBili app and scan the QR code')
+
+      qrPollRef.current = setInterval(async () => {
+        try {
+          const result = await bilibiliQrPoll(qrcode_key)
+          if (result.status === 'success') {
+            setQrStatus('success')
+            setQrMessage(result.message)
+            stopQrPolling()
+            const data = await fetchAllCookies()
+            setCookies(data.cookies)
+          } else if (result.status === 'scanned') {
+            setQrStatus('scanned')
+            setQrMessage(result.message)
+          } else if (result.status === 'expired') {
+            setQrStatus('expired')
+            setQrMessage(result.message)
+            stopQrPolling()
+          }
+        } catch {
+          setQrStatus('error')
+          setQrMessage('Polling failed')
+          stopQrPolling()
+        }
+      }, 2000)
+    } catch (e) {
+      setQrStatus('error')
+      setQrMessage('Failed to generate QR code')
+    }
+  }, [stopQrPolling])
+
+  useEffect(() => {
+    return () => stopQrPolling()
+  }, [stopQrPolling])
   
   useEffect(() => {
     loadSettings()
@@ -597,16 +656,81 @@ export default function Settings() {
         )}
       </div>
       
+      {/* BiliBili QR Code Login */}
+      <div className="p-6 bg-dark-surface border border-dark-border rounded-xl">
+        <h2 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+          <QrCode className="text-pink-500" size={20} />
+          BiliBili Login
+        </h2>
+        
+        <p className="text-sm text-gray-400 mb-4">
+          Scan the QR code with the BiliBili mobile app to authenticate.
+          This is required for downloading BiliBili video content.
+        </p>
+
+        <div className="space-y-4">
+          {qrStatus === 'idle' || qrStatus === 'expired' || qrStatus === 'error' ? (
+            <button
+              onClick={startBilibiliQrLogin}
+              className="flex items-center gap-2 px-4 py-2 bg-pink-600 hover:bg-pink-700 text-white rounded-lg transition-colors"
+            >
+              <Smartphone size={16} />
+              Generate QR Code
+            </button>
+          ) : qrStatus === 'loading' ? (
+            <div className="flex items-center gap-2 text-gray-400">
+              <Loader2 size={16} className="animate-spin" />
+              Generating QR code...
+            </div>
+          ) : qrStatus === 'success' ? (
+            <div className="flex items-center gap-2 text-green-400">
+              <CheckCircle size={16} />
+              {qrMessage}
+            </div>
+          ) : (
+            <div className="space-y-3">
+              <div className="flex flex-col items-center gap-3 p-4 bg-white rounded-xl w-fit mx-auto">
+                <QRCodeSVG value={qrUrl} size={200} level="M" />
+              </div>
+              <div className="text-center">
+                <p className={`text-sm ${qrStatus === 'scanned' ? 'text-cyan-400' : 'text-gray-400'}`}>
+                  {qrStatus === 'scanned' ? (
+                    <span className="flex items-center justify-center gap-2">
+                      <Smartphone size={14} />
+                      Scanned! Confirm on your phone...
+                    </span>
+                  ) : (
+                    <span className="flex items-center justify-center gap-2">
+                      <Loader2 size={14} className="animate-spin" />
+                      Waiting for scan...
+                    </span>
+                  )}
+                </p>
+              </div>
+              <button
+                onClick={startBilibiliQrLogin}
+                className="text-xs text-gray-500 hover:text-gray-300 transition-colors"
+              >
+                Regenerate QR Code
+              </button>
+            </div>
+          )}
+
+          {(qrStatus === 'expired' || qrStatus === 'error') && qrMessage && (
+            <p className="text-sm text-amber-400">{qrMessage}</p>
+          )}
+        </div>
+      </div>
+
       {/* Cookie Management */}
       <div className="p-6 bg-dark-surface border border-dark-border rounded-xl">
         <h2 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
           <Cookie className="text-amber-500" size={20} />
-          Platform Cookies
+          Platform Cookies (Manual)
         </h2>
         
         <p className="text-sm text-gray-400 mb-4">
-          Some video platforms (Bilibili, Douyin) may require cookies for downloading certain content.
-          Paste your browser cookies here if needed.
+          For other platforms or manual cookie setup. Paste Netscape-format cookies here.
         </p>
         
         <div className="space-y-3">

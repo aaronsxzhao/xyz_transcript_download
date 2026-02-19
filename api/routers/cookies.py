@@ -1,15 +1,138 @@
 """Cookie management endpoints for video platform authentication."""
+import asyncio
+import time
 from typing import Optional
+
+import httpx
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
 from api.auth import get_current_user, User
+from logger import get_logger
+
+logger = get_logger("cookies")
 
 router = APIRouter()
+
+_qr_sessions: dict[str, dict] = {}
+
+BILIBILI_HEADERS = {
+    "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
+                  "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+    "Referer": "https://www.bilibili.com",
+}
+
 
 class CookieUpdate(BaseModel):
     platform: str
     cookie_data: str
+
+
+@router.get("/bilibili/qr/generate")
+async def bilibili_qr_generate(user: Optional[User] = Depends(get_current_user)):
+    """Generate a BiliBili QR code for login."""
+    async with httpx.AsyncClient(headers=BILIBILI_HEADERS) as client:
+        resp = await client.get(
+            "https://passport.bilibili.com/x/passport-login/web/qrcode/generate"
+        )
+        data = resp.json()
+
+    if data.get("code") != 0:
+        raise HTTPException(status_code=502, detail="Failed to generate BiliBili QR code")
+
+    qr_data = data["data"]
+    qr_url = qr_data["url"]
+    qrcode_key = qr_data["qrcode_key"]
+
+    _qr_sessions[qrcode_key] = {"created_at": time.time(), "status": "pending"}
+
+    return {
+        "qr_url": qr_url,
+        "qrcode_key": qrcode_key,
+    }
+
+
+@router.get("/bilibili/qr/poll")
+async def bilibili_qr_poll(
+    qrcode_key: str,
+    user: Optional[User] = Depends(get_current_user),
+):
+    """Poll BiliBili QR code login status."""
+    if qrcode_key not in _qr_sessions:
+        raise HTTPException(status_code=404, detail="QR session not found")
+
+    session = _qr_sessions[qrcode_key]
+    if time.time() - session["created_at"] > 180:
+        _qr_sessions.pop(qrcode_key, None)
+        return {"status": "expired", "message": "QR code expired, please generate a new one"}
+
+    async with httpx.AsyncClient(headers=BILIBILI_HEADERS) as client:
+        resp = await client.get(
+            "https://passport.bilibili.com/x/passport-login/web/qrcode/poll",
+            params={"qrcode_key": qrcode_key},
+        )
+        data = resp.json()
+
+    poll_data = data.get("data", {})
+    code = poll_data.get("code")
+
+    # code: 0=success, 86038=not scanned, 86090=scanned waiting confirm, 86101=expired
+    if code == 0:
+        refresh_url = poll_data.get("url", "")
+        cookies_from_url = _extract_cookies_from_url(refresh_url)
+        cookies_from_headers = _extract_cookies_from_headers(resp.headers)
+        all_cookies = {**cookies_from_url, **cookies_from_headers}
+
+        if all_cookies:
+            cookie_str = _cookies_to_netscape(all_cookies)
+            from cookie_manager import get_cookie_manager
+            mgr = get_cookie_manager()
+            mgr.set_cookie("bilibili", cookie_str)
+            logger.info(f"BiliBili QR login success, saved {len(all_cookies)} cookies")
+
+        _qr_sessions.pop(qrcode_key, None)
+        return {"status": "success", "message": "Login successful, cookies saved"}
+
+    elif code == 86090:
+        return {"status": "scanned", "message": "QR code scanned, waiting for confirmation"}
+    elif code == 86101:
+        _qr_sessions.pop(qrcode_key, None)
+        return {"status": "expired", "message": "QR code expired"}
+    else:
+        return {"status": "waiting", "message": "Waiting for scan"}
+
+
+def _extract_cookies_from_url(url: str) -> dict:
+    """Extract cookie key-value pairs from BiliBili's redirect URL query params."""
+    from urllib.parse import urlparse, parse_qs
+    if not url:
+        return {}
+    parsed = urlparse(url)
+    params = parse_qs(parsed.query)
+    cookies = {}
+    for key, values in params.items():
+        if values:
+            cookies[key] = values[0]
+    return cookies
+
+
+def _extract_cookies_from_headers(headers) -> dict:
+    """Extract cookies from Set-Cookie response headers."""
+    cookies = {}
+    for header_val in headers.get_list("set-cookie"):
+        parts = header_val.split(";")[0].strip()
+        if "=" in parts:
+            key, val = parts.split("=", 1)
+            cookies[key.strip()] = val.strip()
+    return cookies
+
+
+def _cookies_to_netscape(cookies: dict) -> str:
+    """Convert a cookie dict to Netscape cookies.txt format for yt-dlp."""
+    lines = ["# Netscape HTTP Cookie File", ""]
+    for name, value in cookies.items():
+        lines.append(f".bilibili.com\tTRUE\t/\tFALSE\t0\t{name}\t{value}")
+    return "\n".join(lines) + "\n"
 
 
 @router.get("/{platform}")

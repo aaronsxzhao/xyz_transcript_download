@@ -1,6 +1,6 @@
 """
 Video downloader supporting multiple platforms: Bilibili, YouTube, Douyin, Kuaishou, and local files.
-Uses yt-dlp for Bilibili/YouTube and custom HTTP for Douyin/Kuaishou.
+Uses yt-dlp Python library for Bilibili/YouTube and custom HTTP for Douyin/Kuaishou.
 """
 
 import json
@@ -13,6 +13,8 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass, asdict
 from pathlib import Path
 from typing import Optional
+
+import yt_dlp
 
 from config import DATA_DIR
 from logger import get_logger
@@ -94,36 +96,76 @@ class BaseDownloader(ABC):
         return None
 
 
+BROWSER_COOKIE_ORDER = ["chrome", "edge", "firefox", "safari"]
+
+
 class YtdlpDownloader(BaseDownloader):
-    """Base downloader using yt-dlp (for Bilibili and YouTube)."""
+    """Downloader using yt-dlp Python library (for Bilibili, YouTube, etc.)."""
 
     def __init__(self, platform: str, cookies: str = ""):
         self.platform = platform
         self.cookies = cookies
+        self._browser_cookie_name: Optional[str] = None
 
-    def _get_cookie_args(self) -> list:
-        if not self.cookies:
-            return []
-        cookie_file = DATA_DIR / f"{self.platform}_cookies.txt"
-        cookie_file.write_text(self.cookies, encoding="utf-8")
-        return ["--cookies", str(cookie_file)]
+    def _detect_browser_for_cookies(self) -> Optional[str]:
+        """Try each browser to find one with accessible cookies."""
+        if self._browser_cookie_name is not None:
+            return self._browser_cookie_name or None
+
+        for browser in BROWSER_COOKIE_ORDER:
+            try:
+                test_opts = {
+                    "quiet": True,
+                    "no_warnings": True,
+                    "skip_download": True,
+                    "cookiesfrombrowser": (browser,),
+                    "extract_flat": True,
+                }
+                with yt_dlp.YoutubeDL(test_opts) as ydl:
+                    ydl.extract_info("https://www.bilibili.com", download=False)
+                self._browser_cookie_name = browser
+                logger.info(f"Using {browser} browser cookies for {self.platform}")
+                return browser
+            except Exception:
+                continue
+
+        self._browser_cookie_name = ""
+        return None
+
+    def _get_base_opts(self) -> dict:
+        """Build base yt-dlp options with cookie support."""
+        opts = {
+            "noplaylist": True,
+            "quiet": True,
+            "no_warnings": True,
+        }
+        if self.cookies:
+            cookie_file = DATA_DIR / f"{self.platform}_cookies.txt"
+            cookie_file.write_text(self.cookies, encoding="utf-8")
+            opts["cookiefile"] = str(cookie_file)
+            logger.info(f"Using cookies file for {self.platform}")
+        else:
+            browser = self._detect_browser_for_cookies()
+            if browser:
+                opts["cookiesfrombrowser"] = (browser,)
+        return opts
 
     def get_metadata(self, url: str) -> Optional[VideoMetadata]:
         try:
-            cmd = ["yt-dlp", "--dump-json", "--no-download"] + self._get_cookie_args() + [url]
-            result = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
-            if result.returncode != 0:
-                logger.error(f"yt-dlp metadata failed: {result.stderr[:500]}")
+            opts = self._get_base_opts()
+            opts["skip_download"] = True
+            with yt_dlp.YoutubeDL(opts) as ydl:
+                info = ydl.extract_info(url, download=False)
+            if not info:
                 return None
-            data = json.loads(result.stdout)
             return VideoMetadata(
-                title=data.get("title", ""),
-                description=data.get("description", ""),
-                thumbnail=data.get("thumbnail", ""),
-                duration=data.get("duration", 0) or 0,
+                title=info.get("title", ""),
+                description=info.get("description", ""),
+                thumbnail=info.get("thumbnail", ""),
+                duration=info.get("duration", 0) or 0,
                 platform=self.platform,
                 url=url,
-                tags=data.get("tags", []) or [],
+                tags=info.get("tags", []) or [],
             )
         except Exception as e:
             logger.error(f"Failed to get metadata: {e}")
@@ -136,20 +178,21 @@ class YtdlpDownloader(BaseDownloader):
 
         bitrate = QUALITY_MAP.get(quality, "64")
         try:
-            cmd = [
-                "yt-dlp",
-                "-x", "--audio-format", "mp3",
-                "--audio-quality", f"{bitrate}K",
-                "-o", str(output_path),
-                "--no-playlist",
-            ] + self._get_cookie_args() + [url]
-            result = subprocess.run(cmd, capture_output=True, text=True, timeout=600)
-            if result.returncode != 0:
-                logger.error(f"yt-dlp audio download failed: {result.stderr[:500]}")
-                return None
+            opts = self._get_base_opts()
+            opts.update({
+                "format": "bestaudio[ext=m4a]/bestaudio/best",
+                "outtmpl": str(VIDEO_AUDIO_DIR / f"{task_id}.%(ext)s"),
+                "postprocessors": [{
+                    "key": "FFmpegExtractAudio",
+                    "preferredcodec": "mp3",
+                    "preferredquality": bitrate,
+                }],
+            })
+            with yt_dlp.YoutubeDL(opts) as ydl:
+                ydl.download([url])
+
             if output_path.exists():
                 return output_path
-            # yt-dlp may add extension
             for f in VIDEO_AUDIO_DIR.glob(f"{task_id}.*"):
                 if f.suffix in (".mp3", ".m4a", ".wav", ".ogg"):
                     return f
@@ -164,17 +207,15 @@ class YtdlpDownloader(BaseDownloader):
             return output_path
 
         try:
-            cmd = [
-                "yt-dlp",
-                "-f", "bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best",
-                "--merge-output-format", "mp4",
-                "-o", str(output_path),
-                "--no-playlist",
-            ] + self._get_cookie_args() + [url]
-            result = subprocess.run(cmd, capture_output=True, text=True, timeout=1200)
-            if result.returncode != 0:
-                logger.error(f"yt-dlp video download failed: {result.stderr[:500]}")
-                return None
+            opts = self._get_base_opts()
+            opts.update({
+                "format": "bv*[ext=mp4]+ba[ext=m4a]/best[ext=mp4]/best",
+                "outtmpl": str(VIDEO_DIR / f"{task_id}.%(ext)s"),
+                "merge_output_format": "mp4",
+            })
+            with yt_dlp.YoutubeDL(opts) as ydl:
+                ydl.download([url])
+
             if output_path.exists():
                 return output_path
             for f in VIDEO_DIR.glob(f"{task_id}.*"):
@@ -190,39 +231,103 @@ class YtdlpDownloader(BaseDownloader):
         try:
             sub_dir = DATA_DIR / "subtitles"
             sub_dir.mkdir(exist_ok=True)
-            cmd = [
-                "yt-dlp",
-                "--write-subs", "--write-auto-subs",
-                "--sub-langs", "zh-Hans,zh,en",
-                "--sub-format", "json3",
-                "--skip-download",
-                "-o", str(sub_dir / task_id),
-            ] + self._get_cookie_args() + [url]
-            result = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
-            if result.returncode != 0:
+
+            opts = self._get_base_opts()
+            opts.update({
+                "writesubtitles": True,
+                "writeautomaticsub": True,
+                "subtitleslangs": ["zh-Hans", "zh", "zh-CN", "ai-zh", "en"],
+                "subtitlesformat": "json3/srt/best",
+                "skip_download": True,
+                "outtmpl": str(sub_dir / f"{task_id}.%(ext)s"),
+            })
+            with yt_dlp.YoutubeDL(opts) as ydl:
+                info = ydl.extract_info(url, download=True)
+
+            subtitles = info.get("requested_subtitles") or {}
+            if not subtitles:
                 return None
 
-            for sub_file in sub_dir.glob(f"{task_id}*.json3"):
-                with open(sub_file, "r", encoding="utf-8") as f:
-                    data = json.load(f)
-                events = data.get("events", [])
-                segments = []
-                for event in events:
-                    segs = event.get("segs", [])
-                    text = "".join(s.get("utf8", "") for s in segs).strip()
-                    if text and text != "\n":
-                        start_ms = event.get("tStartMs", 0)
-                        dur_ms = event.get("dDurationMs", 0)
-                        segments.append({
-                            "start": start_ms / 1000.0,
-                            "end": (start_ms + dur_ms) / 1000.0,
-                            "text": text,
-                        })
-                if segments:
-                    return segments
+            priority_langs = ["zh-Hans", "zh", "zh-CN", "ai-zh", "en"]
+            sub_info = None
+            detected_lang = None
+            for lang in priority_langs:
+                if lang in subtitles:
+                    detected_lang = lang
+                    sub_info = subtitles[lang]
+                    break
+            if not sub_info:
+                for lang, info_item in subtitles.items():
+                    if lang != "danmaku":
+                        detected_lang = lang
+                        sub_info = info_item
+                        break
+
+            if not sub_info:
+                return None
+
+            ext = sub_info.get("ext", "json3")
+            subtitle_file = sub_dir / f"{task_id}.{detected_lang}.{ext}"
+
+            if not subtitle_file.exists():
+                for f in sub_dir.glob(f"{task_id}*.json3"):
+                    subtitle_file = f
+                    ext = "json3"
+                    break
+                else:
+                    for f in sub_dir.glob(f"{task_id}*.srt"):
+                        subtitle_file = f
+                        ext = "srt"
+                        break
+
+            if not subtitle_file.exists():
+                return None
+
+            if ext == "json3":
+                return self._parse_json3(subtitle_file)
+            else:
+                return self._parse_srt(subtitle_file)
+        except Exception as e:
+            logger.warning(f"Subtitle extraction failed: {e}")
             return None
-        except Exception:
-            return None
+
+    def _parse_json3(self, path: Path) -> Optional[list]:
+        with open(path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+        segments = []
+        for event in data.get("events", []):
+            segs = event.get("segs", [])
+            text = "".join(s.get("utf8", "") for s in segs).strip()
+            if text and text != "\n":
+                start_ms = event.get("tStartMs", 0)
+                dur_ms = event.get("dDurationMs", 0)
+                segments.append({
+                    "start": start_ms / 1000.0,
+                    "end": (start_ms + dur_ms) / 1000.0,
+                    "text": text,
+                })
+        return segments if segments else None
+
+    def _parse_srt(self, path: Path) -> Optional[list]:
+        content = path.read_text(encoding="utf-8")
+        pattern = r"(\d+)\n(\d{2}:\d{2}:\d{2},\d{3})\s*-->\s*(\d{2}:\d{2}:\d{2},\d{3})\n(.*?)(?=\n\n|\n\d+\n|$)"
+        matches = re.findall(pattern, content, re.DOTALL)
+        segments = []
+        for _, start_time, end_time, text in matches:
+            text = text.strip()
+            if not text:
+                continue
+
+            def time_to_seconds(t):
+                parts = t.replace(",", ".").split(":")
+                return float(parts[0]) * 3600 + float(parts[1]) * 60 + float(parts[2])
+
+            segments.append({
+                "start": time_to_seconds(start_time),
+                "end": time_to_seconds(end_time),
+                "text": text,
+            })
+        return segments if segments else None
 
 
 class BilibiliDownloader(YtdlpDownloader):
@@ -297,20 +402,22 @@ class DouyinDownloader(BaseDownloader):
         output_path = VIDEO_DIR / f"{task_id}.mp4"
         if output_path.exists():
             return output_path
-        # Fall back to yt-dlp for Douyin
         try:
-            cmd = [
-                "yt-dlp",
-                "-f", "best",
-                "-o", str(output_path),
-                "--no-playlist",
-                url,
-            ]
-            result = subprocess.run(cmd, capture_output=True, text=True, timeout=600)
-            if result.returncode == 0 and output_path.exists():
+            opts = {
+                "format": "best",
+                "outtmpl": str(VIDEO_DIR / f"{task_id}.%(ext)s"),
+                "noplaylist": True,
+                "quiet": True,
+            }
+            with yt_dlp.YoutubeDL(opts) as ydl:
+                ydl.download([url])
+            if output_path.exists():
                 return output_path
-        except Exception:
-            pass
+            for f in VIDEO_DIR.glob(f"{task_id}.*"):
+                if f.suffix in (".mp4", ".mkv", ".webm"):
+                    return f
+        except Exception as e:
+            logger.error(f"Douyin video download failed: {e}")
         return None
 
     def _extract_audio(self, video_path: Path, task_id: str, quality: str) -> Optional[Path]:
@@ -357,16 +464,21 @@ class KuaishouDownloader(BaseDownloader):
         if output_path.exists():
             return output_path
         try:
-            cmd = [
-                "yt-dlp", "-f", "best",
-                "-o", str(output_path),
-                "--no-playlist", url,
-            ]
-            result = subprocess.run(cmd, capture_output=True, text=True, timeout=600)
-            if result.returncode == 0 and output_path.exists():
+            opts = {
+                "format": "best",
+                "outtmpl": str(VIDEO_DIR / f"{task_id}.%(ext)s"),
+                "noplaylist": True,
+                "quiet": True,
+            }
+            with yt_dlp.YoutubeDL(opts) as ydl:
+                ydl.download([url])
+            if output_path.exists():
                 return output_path
-        except Exception:
-            pass
+            for f in VIDEO_DIR.glob(f"{task_id}.*"):
+                if f.suffix in (".mp4", ".mkv", ".webm"):
+                    return f
+        except Exception as e:
+            logger.error(f"Kuaishou video download failed: {e}")
         return None
 
     def _extract_audio(self, video_path: Path, task_id: str, quality: str) -> Optional[Path]:
@@ -482,14 +594,6 @@ def check_ffmpeg() -> dict:
 def check_ytdlp() -> dict:
     """Check if yt-dlp is available."""
     try:
-        result = subprocess.run(
-            ["yt-dlp", "--version"],
-            capture_output=True, text=True, timeout=10,
-        )
-        if result.returncode == 0:
-            return {"available": True, "version": result.stdout.strip()}
-        return {"available": False, "error": result.stderr[:200]}
-    except FileNotFoundError:
-        return {"available": False, "error": "yt-dlp not found in PATH"}
+        return {"available": True, "version": yt_dlp.version.__version__}
     except Exception as e:
         return {"available": False, "error": str(e)}

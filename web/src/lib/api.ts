@@ -495,3 +495,15 @@ export async function fetchAllCookies(): Promise<{ cookies: { platform: string; 
   if (!res.ok) throw new Error('Failed to fetch cookies')
   return res.json()
 }
+
+export async function bilibiliQrGenerate(): Promise<{ qr_url: string; qrcode_key: string }> {
+  const res = await authFetch(`${API_BASE}/cookies/bilibili/qr/generate`)
+  if (!res.ok) throw new Error('Failed to generate QR code')
+  return res.json()
+}
+
+export async function bilibiliQrPoll(qrcodeKey: string): Promise<{ status: string; message: string }> {
+  const res = await authFetch(`${API_BASE}/cookies/bilibili/qr/poll?qrcode_key=${encodeURIComponent(qrcodeKey)}`)
+  if (!res.ok) throw new Error('Failed to poll QR status')
+  return res.json()
+}
