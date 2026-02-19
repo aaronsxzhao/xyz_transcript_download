@@ -31,11 +31,21 @@ class CookieUpdate(BaseModel):
 @router.get("/bilibili/qr/generate")
 async def bilibili_qr_generate(user: Optional[User] = Depends(get_current_user)):
     """Generate a BiliBili QR code for login."""
-    async with httpx.AsyncClient(headers=BILIBILI_HEADERS) as client:
-        resp = await client.get(
-            "https://passport.bilibili.com/x/passport-login/web/qrcode/generate"
-        )
-        data = resp.json()
+    try:
+        async with httpx.AsyncClient(
+            headers=BILIBILI_HEADERS,
+            timeout=httpx.Timeout(30.0, connect=15.0),
+            follow_redirects=True,
+        ) as client:
+            resp = await client.get(
+                "https://passport.bilibili.com/x/passport-login/web/qrcode/generate"
+            )
+            data = resp.json()
+    except httpx.TimeoutException:
+        raise HTTPException(status_code=504, detail="BiliBili API timed out. Check your network or try again.")
+    except Exception as e:
+        logger.error(f"BiliBili QR generate error: {e}")
+        raise HTTPException(status_code=502, detail=f"Failed to reach BiliBili: {type(e).__name__}")
 
     if data.get("code") != 0:
         raise HTTPException(status_code=502, detail="Failed to generate BiliBili QR code")
@@ -66,17 +76,34 @@ async def bilibili_qr_poll(
         _qr_sessions.pop(qrcode_key, None)
         return {"status": "expired", "message": "QR code expired, please generate a new one"}
 
-    async with httpx.AsyncClient(headers=BILIBILI_HEADERS) as client:
-        resp = await client.get(
-            "https://passport.bilibili.com/x/passport-login/web/qrcode/poll",
-            params={"qrcode_key": qrcode_key},
-        )
-        data = resp.json()
+    try:
+        async with httpx.AsyncClient(
+            headers=BILIBILI_HEADERS,
+            timeout=httpx.Timeout(15.0, connect=10.0),
+            follow_redirects=True,
+        ) as client:
+            resp = await client.get(
+                "https://passport.bilibili.com/x/passport-login/web/qrcode/poll",
+                params={"qrcode_key": qrcode_key},
+            )
+            data = resp.json()
+    except httpx.TimeoutException:
+        return {"status": "waiting", "message": "BiliBili API slow, retrying..."}
+    except Exception as e:
+        logger.warning(f"BiliBili QR poll error: {e}")
+        return {"status": "waiting", "message": "Network error, retrying..."}
 
     poll_data = data.get("data", {})
     code = poll_data.get("code")
+    logger.info(f"BiliBili QR poll: code={code}, message={poll_data.get('message', '')}")
 
-    # code: 0=success, 86038=not scanned, 86090=scanned waiting confirm, 86101=expired
+    # BiliBili QR poll codes:
+    #   0     = login confirmed (success)
+    #   86090 = scanned, waiting for user to confirm on phone
+    #   86101 = not scanned yet (waiting)
+    #   86038 = QR code expired
+    msg = poll_data.get("message", "")
+
     if code == 0:
         refresh_url = poll_data.get("url", "")
         cookies_from_url = _extract_cookies_from_url(refresh_url)
@@ -95,7 +122,7 @@ async def bilibili_qr_poll(
 
     elif code == 86090:
         return {"status": "scanned", "message": "QR code scanned, waiting for confirmation"}
-    elif code == 86101:
+    elif code == 86038 or "过期" in msg or "expired" in msg.lower():
         _qr_sessions.pop(qrcode_key, None)
         return {"status": "expired", "message": "QR code expired"}
     else:

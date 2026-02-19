@@ -6,7 +6,7 @@ import rehypeKatex from 'rehype-katex'
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter'
 import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism'
 import {
-  Copy, Download, Check, FileText, AlertCircle, Loader2,
+  Copy, Download, Check, FileText, AlertCircle, Loader2, RotateCcw,
 } from 'lucide-react'
 import StepBar from './StepBar'
 import type { VideoTask } from '../../lib/api'
@@ -114,6 +114,20 @@ export default function MarkdownPreview({ task }: Props) {
           <AlertCircle size={32} className="mb-3 text-red-400" />
           <p className="text-red-400">Processing failed</p>
           <p className="text-sm mt-1">{task.error || task.message}</p>
+          <button
+            onClick={async () => {
+              try {
+                const { retryVideoTask } = await import('../../lib/api')
+                await retryVideoTask(task.id)
+              } catch (e) {
+                console.error('Retry failed:', e)
+              }
+            }}
+            className="mt-4 flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm rounded-lg transition-colors"
+          >
+            <RotateCcw size={14} />
+            Retry
+          </button>
         </div>
       )}
 

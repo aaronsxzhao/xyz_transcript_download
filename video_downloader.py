@@ -12,7 +12,7 @@ import uuid
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, asdict
 from pathlib import Path
-from typing import Optional
+from typing import Callable, Optional
 
 import yt_dlp
 
@@ -76,6 +76,9 @@ def detect_platform(url: str) -> str:
     return ""
 
 
+ProgressCallback = Optional["Callable[[float, str], None]"]
+
+
 class BaseDownloader(ABC):
     """Base class for platform-specific downloaders."""
 
@@ -84,19 +87,18 @@ class BaseDownloader(ABC):
         pass
 
     @abstractmethod
-    def download_audio(self, url: str, task_id: str, quality: str = "medium") -> Optional[Path]:
+    def download_audio(self, url: str, task_id: str, quality: str = "medium",
+                       progress_callback: ProgressCallback = None) -> Optional[Path]:
         pass
 
     @abstractmethod
-    def download_video(self, url: str, task_id: str) -> Optional[Path]:
+    def download_video(self, url: str, task_id: str,
+                       progress_callback: ProgressCallback = None) -> Optional[Path]:
         pass
 
     def get_subtitles(self, url: str, task_id: str) -> Optional[list]:
         """Try to extract platform subtitles. Returns list of segments or None."""
         return None
-
-
-BROWSER_COOKIE_ORDER = ["chrome", "edge", "firefox", "safari"]
 
 
 class YtdlpDownloader(BaseDownloader):
@@ -105,49 +107,27 @@ class YtdlpDownloader(BaseDownloader):
     def __init__(self, platform: str, cookies: str = ""):
         self.platform = platform
         self.cookies = cookies
-        self._browser_cookie_name: Optional[str] = None
-
-    def _detect_browser_for_cookies(self) -> Optional[str]:
-        """Try each browser to find one with accessible cookies."""
-        if self._browser_cookie_name is not None:
-            return self._browser_cookie_name or None
-
-        for browser in BROWSER_COOKIE_ORDER:
-            try:
-                test_opts = {
-                    "quiet": True,
-                    "no_warnings": True,
-                    "skip_download": True,
-                    "cookiesfrombrowser": (browser,),
-                    "extract_flat": True,
-                }
-                with yt_dlp.YoutubeDL(test_opts) as ydl:
-                    ydl.extract_info("https://www.bilibili.com", download=False)
-                self._browser_cookie_name = browser
-                logger.info(f"Using {browser} browser cookies for {self.platform}")
-                return browser
-            except Exception:
-                continue
-
-        self._browser_cookie_name = ""
-        return None
 
     def _get_base_opts(self) -> dict:
-        """Build base yt-dlp options with cookie support."""
+        """Build base yt-dlp options with cookie support from QR login or manual input."""
         opts = {
             "noplaylist": True,
             "quiet": True,
             "no_warnings": True,
         }
-        if self.cookies:
+        cookie_str = self.cookies
+        if not cookie_str:
+            try:
+                from cookie_manager import get_cookie_manager
+                cookie_str = get_cookie_manager().get_cookie(self.platform)
+            except Exception:
+                pass
+
+        if cookie_str:
             cookie_file = DATA_DIR / f"{self.platform}_cookies.txt"
-            cookie_file.write_text(self.cookies, encoding="utf-8")
+            cookie_file.write_text(cookie_str, encoding="utf-8")
             opts["cookiefile"] = str(cookie_file)
-            logger.info(f"Using cookies file for {self.platform}")
-        else:
-            browser = self._detect_browser_for_cookies()
-            if browser:
-                opts["cookiesfrombrowser"] = (browser,)
+            logger.info(f"Using saved cookies for {self.platform}")
         return opts
 
     def get_metadata(self, url: str) -> Optional[VideoMetadata]:
@@ -171,7 +151,35 @@ class YtdlpDownloader(BaseDownloader):
             logger.error(f"Failed to get metadata: {e}")
             return None
 
-    def download_audio(self, url: str, task_id: str, quality: str = "medium") -> Optional[Path]:
+    def _make_progress_hook(self, progress_callback: ProgressCallback, label: str = "Downloading"):
+        """Create a yt-dlp progress hook that calls our callback."""
+        if not progress_callback:
+            return []
+        last_pct = [-1.0]
+
+        def hook(d):
+            if d.get("status") == "downloading":
+                total = d.get("total_bytes") or d.get("total_bytes_estimate") or 0
+                downloaded = d.get("downloaded_bytes", 0)
+                if total > 0:
+                    pct = downloaded / total
+                    if pct - last_pct[0] >= 0.02:
+                        last_pct[0] = pct
+                        speed = d.get("speed")
+                        eta = d.get("eta")
+                        parts = [f"{label}... {pct:.0%}"]
+                        if speed and speed > 0:
+                            parts.append(f"{speed / 1024 / 1024:.1f} MB/s")
+                        if eta and eta > 0:
+                            parts.append(f"ETA {eta}s")
+                        progress_callback(pct, " | ".join(parts))
+            elif d.get("status") == "finished":
+                progress_callback(1.0, f"{label} complete, processing...")
+
+        return [hook]
+
+    def download_audio(self, url: str, task_id: str, quality: str = "medium",
+                       progress_callback: ProgressCallback = None) -> Optional[Path]:
         output_path = VIDEO_AUDIO_DIR / f"{task_id}.mp3"
         if output_path.exists():
             return output_path
@@ -187,6 +195,7 @@ class YtdlpDownloader(BaseDownloader):
                     "preferredcodec": "mp3",
                     "preferredquality": bitrate,
                 }],
+                "progress_hooks": self._make_progress_hook(progress_callback, "Downloading audio"),
             })
             with yt_dlp.YoutubeDL(opts) as ydl:
                 ydl.download([url])
@@ -201,7 +210,8 @@ class YtdlpDownloader(BaseDownloader):
             logger.error(f"Audio download failed: {e}")
             return None
 
-    def download_video(self, url: str, task_id: str) -> Optional[Path]:
+    def download_video(self, url: str, task_id: str,
+                       progress_callback: ProgressCallback = None) -> Optional[Path]:
         output_path = VIDEO_DIR / f"{task_id}.mp4"
         if output_path.exists():
             return output_path
@@ -212,6 +222,7 @@ class YtdlpDownloader(BaseDownloader):
                 "format": "bv*[ext=mp4]+ba[ext=m4a]/best[ext=mp4]/best",
                 "outtmpl": str(VIDEO_DIR / f"{task_id}.%(ext)s"),
                 "merge_output_format": "mp4",
+                "progress_hooks": self._make_progress_hook(progress_callback, "Downloading video"),
             })
             with yt_dlp.YoutubeDL(opts) as ydl:
                 ydl.download([url])
@@ -392,13 +403,15 @@ class DouyinDownloader(BaseDownloader):
             logger.error(f"Douyin metadata error: {e}")
             return VideoMetadata(title="Douyin Video", platform="douyin", url=url)
 
-    def download_audio(self, url: str, task_id: str, quality: str = "medium") -> Optional[Path]:
-        video_path = self.download_video(url, task_id)
+    def download_audio(self, url: str, task_id: str, quality: str = "medium",
+                       progress_callback: ProgressCallback = None) -> Optional[Path]:
+        video_path = self.download_video(url, task_id, progress_callback)
         if not video_path:
             return None
         return self._extract_audio(video_path, task_id, quality)
 
-    def download_video(self, url: str, task_id: str) -> Optional[Path]:
+    def download_video(self, url: str, task_id: str,
+                       progress_callback: ProgressCallback = None) -> Optional[Path]:
         output_path = VIDEO_DIR / f"{task_id}.mp4"
         if output_path.exists():
             return output_path
@@ -453,13 +466,15 @@ class KuaishouDownloader(BaseDownloader):
     def get_metadata(self, url: str) -> Optional[VideoMetadata]:
         return VideoMetadata(title="Kuaishou Video", platform="kuaishou", url=url)
 
-    def download_audio(self, url: str, task_id: str, quality: str = "medium") -> Optional[Path]:
-        video_path = self.download_video(url, task_id)
+    def download_audio(self, url: str, task_id: str, quality: str = "medium",
+                       progress_callback: ProgressCallback = None) -> Optional[Path]:
+        video_path = self.download_video(url, task_id, progress_callback)
         if not video_path:
             return None
         return self._extract_audio(video_path, task_id, quality)
 
-    def download_video(self, url: str, task_id: str) -> Optional[Path]:
+    def download_video(self, url: str, task_id: str,
+                       progress_callback: ProgressCallback = None) -> Optional[Path]:
         output_path = VIDEO_DIR / f"{task_id}.mp4"
         if output_path.exists():
             return output_path
@@ -527,7 +542,8 @@ class LocalVideoHandler(BaseDownloader):
             url=str(file_path),
         )
 
-    def download_audio(self, url: str, task_id: str, quality: str = "medium") -> Optional[Path]:
+    def download_audio(self, url: str, task_id: str, quality: str = "medium",
+                       progress_callback: ProgressCallback = None) -> Optional[Path]:
         file_path = Path(url)
         if not file_path.exists():
             return None
@@ -547,7 +563,8 @@ class LocalVideoHandler(BaseDownloader):
             logger.error(f"Audio extraction failed: {e}")
             return None
 
-    def download_video(self, url: str, task_id: str) -> Optional[Path]:
+    def download_video(self, url: str, task_id: str,
+                       progress_callback: ProgressCallback = None) -> Optional[Path]:
         file_path = Path(url)
         if not file_path.exists():
             return None

@@ -115,8 +115,13 @@ def process_video_note_sync(
         _update_task_status(db, task_id, "parsing", 10, f"Found: {title}", user_id)
 
         # Phase 2: Download audio (10-25%)
-        _update_task_status(db, task_id, "downloading", 15, "Downloading audio...", user_id)
-        audio_path = downloader.download_audio(url, task_id, quality)
+        _update_task_status(db, task_id, "downloading", 12, "Downloading audio...", user_id)
+
+        def audio_progress(pct: float, msg: str):
+            job_pct = 12 + pct * 13
+            _update_task_status(db, task_id, "downloading", job_pct, msg, user_id)
+
+        audio_path = downloader.download_audio(url, task_id, quality, progress_callback=audio_progress)
         if not audio_path:
             _update_task_status(db, task_id, "failed", 0, "Audio download failed", user_id,
                                 error="Download failed")
@@ -128,7 +133,12 @@ def process_video_note_sync(
         needs_video = "screenshot" in formats or video_understanding
         if needs_video:
             _update_task_status(db, task_id, "downloading", 27, "Downloading video...", user_id)
-            video_path = downloader.download_video(url, task_id)
+
+            def video_progress(pct: float, msg: str):
+                job_pct = 27 + pct * 3
+                _update_task_status(db, task_id, "downloading", job_pct, msg, user_id)
+
+            video_path = downloader.download_video(url, task_id, progress_callback=video_progress)
 
         # Phase 3: Transcribe (25-60%)
         _update_task_status(db, task_id, "transcribing", 30, "Starting transcription...", user_id)
@@ -439,8 +449,9 @@ async def retry_task(
     task = db.get_task(task_id, user_id)
     if not task:
         raise HTTPException(status_code=404, detail="Task not found")
-    if task["status"] not in ("failed",):
-        raise HTTPException(status_code=400, detail="Can only retry failed tasks")
+    retryable = ("failed", "downloading", "parsing", "transcribing", "summarizing", "saving", "pending")
+    if task["status"] not in retryable:
+        raise HTTPException(status_code=400, detail=f"Cannot retry task in '{task['status']}' status")
 
     db.update_task(task_id, {"status": "pending", "progress": 0, "message": "Retrying...", "error": ""})
 

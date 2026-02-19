@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from 'react'
-import { Trash2, RefreshCw, Search, CheckCircle, XCircle, Loader2, Clock } from 'lucide-react'
-import { fetchVideoTasks, deleteVideoTask, type VideoTask } from '../../lib/api'
+import { Trash2, RefreshCw, Search, CheckCircle, XCircle, Loader2, Clock, RotateCcw } from 'lucide-react'
+import { fetchVideoTasks, deleteVideoTask, retryVideoTask, type VideoTask } from '../../lib/api'
 import { useStore } from '../../lib/store'
 
 interface Props {
@@ -40,6 +40,16 @@ export default function VideoHistory({ onSelect }: Props) {
       }
     } catch (e) {
       console.error('Delete failed:', e)
+    }
+  }
+
+  const handleRetry = async (taskId: string, e: React.MouseEvent) => {
+    e.stopPropagation()
+    try {
+      await retryVideoTask(taskId)
+      loadTasks()
+    } catch (e) {
+      console.error('Retry failed:', e)
     }
   }
 
@@ -160,12 +170,24 @@ export default function VideoHistory({ onSelect }: Props) {
                     )}
                   </div>
                 </div>
-                <button
-                  onClick={e => handleDelete(task.id, e)}
-                  className="p-1 text-gray-600 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-all"
-                >
-                  <Trash2 size={13} />
-                </button>
+                <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-all">
+                  {(task.status === 'failed' || task.status === 'downloading' || task.status === 'parsing' || task.status === 'transcribing' || task.status === 'summarizing') && (
+                    <button
+                      onClick={e => handleRetry(task.id, e)}
+                      className="p-1 text-gray-600 hover:text-indigo-400 transition-colors"
+                      title="Retry"
+                    >
+                      <RotateCcw size={13} />
+                    </button>
+                  )}
+                  <button
+                    onClick={e => handleDelete(task.id, e)}
+                    className="p-1 text-gray-600 hover:text-red-400 transition-colors"
+                    title="Delete"
+                  >
+                    <Trash2 size={13} />
+                  </button>
+                </div>
               </div>
 
               {/* Progress bar for active tasks */}

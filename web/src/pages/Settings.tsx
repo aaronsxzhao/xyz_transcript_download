@@ -88,57 +88,93 @@ export default function Settings() {
   const [savingCookie, setSavingCookie] = useState(false)
   
   // BiliBili QR code login state
+  const QR_LIFETIME = 120
   const [qrUrl, setQrUrl] = useState('')
-  const [, setQrKey] = useState('')
   const [qrStatus, setQrStatus] = useState<'idle' | 'loading' | 'waiting' | 'scanned' | 'success' | 'expired' | 'error'>('idle')
   const [qrMessage, setQrMessage] = useState('')
+  const [qrCountdown, setQrCountdown] = useState(0)
   const qrPollRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const qrTimerRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const qrAutoRef = useRef(0)
+  const qrScannedRef = useRef(false)
 
   const stopQrPolling = useCallback(() => {
-    if (qrPollRef.current) {
-      clearInterval(qrPollRef.current)
-      qrPollRef.current = null
-    }
+    if (qrPollRef.current) { clearInterval(qrPollRef.current); qrPollRef.current = null }
+    if (qrTimerRef.current) { clearInterval(qrTimerRef.current); qrTimerRef.current = null }
+    qrAutoRef.current = 0
+    qrScannedRef.current = false
   }, [])
 
   const startBilibiliQrLogin = useCallback(async () => {
     stopQrPolling()
     setQrStatus('loading')
     setQrMessage('')
-    try {
-      const { qr_url, qrcode_key } = await bilibiliQrGenerate()
-      setQrUrl(qr_url)
-      setQrKey(qrcode_key)
-      setQrStatus('waiting')
-      setQrMessage('Open BiliBili app and scan the QR code')
+    qrScannedRef.current = false
+    const autoId = ++qrAutoRef.current
 
-      qrPollRef.current = setInterval(async () => {
-        try {
-          const result = await bilibiliQrPoll(qrcode_key)
-          if (result.status === 'success') {
-            setQrStatus('success')
-            setQrMessage(result.message)
-            stopQrPolling()
-            const data = await fetchAllCookies()
-            setCookies(data.cookies)
-          } else if (result.status === 'scanned') {
-            setQrStatus('scanned')
-            setQrMessage(result.message)
-          } else if (result.status === 'expired') {
-            setQrStatus('expired')
-            setQrMessage(result.message)
-            stopQrPolling()
+    const generate = async (): Promise<boolean> => {
+      if (qrAutoRef.current !== autoId) return false
+      try {
+        const { qr_url, qrcode_key } = await bilibiliQrGenerate()
+        if (qrAutoRef.current !== autoId) return false
+        setQrUrl(qr_url)
+        setQrStatus('waiting')
+        setQrMessage('Open BiliBili app and scan the QR code')
+        setQrCountdown(QR_LIFETIME)
+        qrScannedRef.current = false
+
+        if (qrTimerRef.current) clearInterval(qrTimerRef.current)
+        qrTimerRef.current = setInterval(() => {
+          setQrCountdown(prev => {
+            if (prev <= 1) return 0
+            return prev - 1
+          })
+        }, 1000)
+
+        if (qrPollRef.current) clearInterval(qrPollRef.current)
+        qrPollRef.current = setInterval(async () => {
+          if (qrAutoRef.current !== autoId) return
+          try {
+            const result = await bilibiliQrPoll(qrcode_key)
+            if (qrAutoRef.current !== autoId) return
+            if (result.status === 'success') {
+              setQrStatus('success')
+              setQrMessage('Login successful! BiliBili cookies saved.')
+              stopQrPolling()
+              const data = await fetchAllCookies()
+              setCookies(data.cookies)
+            } else if (result.status === 'scanned') {
+              qrScannedRef.current = true
+              setQrStatus('scanned')
+              setQrMessage('Scanned! Please confirm on your phone...')
+              if (qrTimerRef.current) { clearInterval(qrTimerRef.current); qrTimerRef.current = null }
+              setQrCountdown(0)
+            } else if (result.status === 'expired') {
+              if (qrScannedRef.current) {
+                setQrStatus('error')
+                setQrMessage('Confirmation timed out. Please try again.')
+                stopQrPolling()
+              } else {
+                if (qrPollRef.current) clearInterval(qrPollRef.current)
+                if (qrTimerRef.current) clearInterval(qrTimerRef.current)
+                generate()
+              }
+            }
+          } catch {
+            // ignore transient errors, keep polling
           }
-        } catch {
+        }, 2000)
+        return true
+      } catch {
+        if (qrAutoRef.current === autoId) {
           setQrStatus('error')
-          setQrMessage('Polling failed')
-          stopQrPolling()
+          setQrMessage('Failed to generate QR code. Check your network connection.')
         }
-      }, 2000)
-    } catch (e) {
-      setQrStatus('error')
-      setQrMessage('Failed to generate QR code')
+        return false
+      }
     }
+
+    await generate()
   }, [stopQrPolling])
 
   useEffect(() => {
@@ -669,30 +705,43 @@ export default function Settings() {
         </p>
 
         <div className="space-y-4">
-          {qrStatus === 'idle' || qrStatus === 'expired' || qrStatus === 'error' ? (
-            <button
-              onClick={startBilibiliQrLogin}
-              className="flex items-center gap-2 px-4 py-2 bg-pink-600 hover:bg-pink-700 text-white rounded-lg transition-colors"
-            >
-              <Smartphone size={16} />
-              Generate QR Code
-            </button>
+          {qrStatus === 'idle' || qrStatus === 'error' ? (
+            <div>
+              <button
+                onClick={startBilibiliQrLogin}
+                className="flex items-center gap-2 px-4 py-2 bg-pink-600 hover:bg-pink-700 text-white rounded-lg transition-colors"
+              >
+                <Smartphone size={16} />
+                Generate QR Code
+              </button>
+              {qrStatus === 'error' && qrMessage && (
+                <p className="text-sm text-amber-400 mt-2">{qrMessage}</p>
+              )}
+            </div>
           ) : qrStatus === 'loading' ? (
             <div className="flex items-center gap-2 text-gray-400">
               <Loader2 size={16} className="animate-spin" />
               Generating QR code...
             </div>
           ) : qrStatus === 'success' ? (
-            <div className="flex items-center gap-2 text-green-400">
-              <CheckCircle size={16} />
-              {qrMessage}
+            <div className="space-y-2">
+              <div className="flex items-center gap-2 text-green-400">
+                <CheckCircle size={16} />
+                {qrMessage}
+              </div>
+              <button
+                onClick={startBilibiliQrLogin}
+                className="text-xs text-gray-500 hover:text-gray-300 transition-colors"
+              >
+                Re-login
+              </button>
             </div>
           ) : (
             <div className="space-y-3">
-              <div className="flex flex-col items-center gap-3 p-4 bg-white rounded-xl w-fit mx-auto">
+              <div className="flex flex-col items-center gap-3 p-4 bg-white rounded-xl w-fit mx-auto relative">
                 <QRCodeSVG value={qrUrl} size={200} level="M" />
               </div>
-              <div className="text-center">
+              <div className="text-center space-y-1">
                 <p className={`text-sm ${qrStatus === 'scanned' ? 'text-cyan-400' : 'text-gray-400'}`}>
                   {qrStatus === 'scanned' ? (
                     <span className="flex items-center justify-center gap-2">
@@ -706,18 +755,30 @@ export default function Settings() {
                     </span>
                   )}
                 </p>
+                {qrStatus === 'waiting' && qrCountdown > 0 && (
+                  <p className="text-xs text-gray-500">
+                    {qrCountdown > 10
+                      ? `Auto-refreshes in ${qrCountdown}s`
+                      : <span className="text-amber-400">Refreshing in {qrCountdown}s...</span>
+                    }
+                  </p>
+                )}
               </div>
-              <button
-                onClick={startBilibiliQrLogin}
-                className="text-xs text-gray-500 hover:text-gray-300 transition-colors"
-              >
-                Regenerate QR Code
-              </button>
+              <div className="flex items-center justify-center gap-3">
+                <button
+                  onClick={startBilibiliQrLogin}
+                  className="text-xs text-gray-500 hover:text-gray-300 transition-colors"
+                >
+                  Refresh now
+                </button>
+                <button
+                  onClick={() => { stopQrPolling(); setQrStatus('idle'); setQrUrl('') }}
+                  className="text-xs text-gray-500 hover:text-red-400 transition-colors"
+                >
+                  Cancel
+                </button>
+              </div>
             </div>
-          )}
-
-          {(qrStatus === 'expired' || qrStatus === 'error') && qrMessage && (
-            <p className="text-sm text-amber-400">{qrMessage}</p>
           )}
         </div>
       </div>
