@@ -698,6 +698,7 @@ class SupabaseDatabase:
             "model": task_data.get("model", ""),
             "formats": task_data.get("formats", []),
             "quality": task_data.get("quality", "medium"),
+            "video_quality": task_data.get("video_quality", "720"),
             "extras": task_data.get("extras", ""),
             "video_understanding": bool(task_data.get("video_understanding")),
             "video_interval": task_data.get("video_interval", 4),

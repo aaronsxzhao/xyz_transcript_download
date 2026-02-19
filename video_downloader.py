@@ -175,7 +175,7 @@ class BaseDownloader(ABC):
         pass
 
     @abstractmethod
-    def download_video(self, url: str, task_id: str,
+    def download_video(self, url: str, task_id: str, video_quality: str = "720",
                        progress_callback: ProgressCallback = None) -> Optional[Path]:
         pass
 
@@ -343,7 +343,7 @@ class YtdlpDownloader(BaseDownloader):
             tags=info.get("tags", []) or [],
         )
 
-    def download_video(self, url: str, task_id: str,
+    def download_video(self, url: str, task_id: str, video_quality: str = "720",
                        progress_callback: ProgressCallback = None) -> Optional[Path]:
         output_path = VIDEO_DIR / f"{task_id}.mp4"
         if output_path.exists():
@@ -351,8 +351,13 @@ class YtdlpDownloader(BaseDownloader):
 
         try:
             opts = self._get_base_opts()
+            if video_quality == "best":
+                vfmt = "bv*[ext=mp4]+ba[ext=m4a]/best[ext=mp4]/best"
+            else:
+                h = int(video_quality) if video_quality.isdigit() else 720
+                vfmt = f"bv*[height<={h}][ext=mp4]+ba[ext=m4a]/bv*[height<={h}]+ba/best[height<={h}]/best[ext=mp4]/best"
             opts.update({
-                "format": "bv*[height<=720][ext=mp4]+ba[ext=m4a]/bv*[height<=720]+ba/best[height<=720]/best[ext=mp4]/best",
+                "format": vfmt,
                 "outtmpl": str(VIDEO_DIR / f"{task_id}.%(ext)s"),
                 "merge_output_format": "mp4",
                 "progress_hooks": self._make_progress_hook(progress_callback, "Downloading video"),
@@ -540,12 +545,12 @@ class DouyinDownloader(BaseDownloader):
 
     def download_audio(self, url: str, task_id: str, quality: str = "medium",
                        progress_callback: ProgressCallback = None) -> Optional[Path]:
-        video_path = self.download_video(url, task_id, progress_callback)
+        video_path = self.download_video(url, task_id, progress_callback=progress_callback)
         if not video_path:
             return None
         return self._extract_audio(video_path, task_id, quality)
 
-    def download_video(self, url: str, task_id: str,
+    def download_video(self, url: str, task_id: str, video_quality: str = "720",
                        progress_callback: ProgressCallback = None) -> Optional[Path]:
         output_path = VIDEO_DIR / f"{task_id}.mp4"
         if output_path.exists():
@@ -606,12 +611,12 @@ class KuaishouDownloader(BaseDownloader):
 
     def download_audio(self, url: str, task_id: str, quality: str = "medium",
                        progress_callback: ProgressCallback = None) -> Optional[Path]:
-        video_path = self.download_video(url, task_id, progress_callback)
+        video_path = self.download_video(url, task_id, progress_callback=progress_callback)
         if not video_path:
             return None
         return self._extract_audio(video_path, task_id, quality)
 
-    def download_video(self, url: str, task_id: str,
+    def download_video(self, url: str, task_id: str, video_quality: str = "720",
                        progress_callback: ProgressCallback = None) -> Optional[Path]:
         output_path = VIDEO_DIR / f"{task_id}.mp4"
         if output_path.exists():
@@ -704,7 +709,7 @@ class LocalVideoHandler(BaseDownloader):
             logger.error(f"Audio extraction failed: {e}")
             return None
 
-    def download_video(self, url: str, task_id: str,
+    def download_video(self, url: str, task_id: str, video_quality: str = "720",
                        progress_callback: ProgressCallback = None) -> Optional[Path]:
         file_path = Path(url)
         if not file_path.exists():

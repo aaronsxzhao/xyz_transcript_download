@@ -394,6 +394,7 @@ export interface VideoNoteRequest {
   style?: string
   formats?: string[]
   quality?: string
+  video_quality?: string
   llm_model?: string
   extras?: string
   video_understanding?: boolean

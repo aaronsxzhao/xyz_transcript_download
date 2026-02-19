@@ -54,6 +54,7 @@ class _SQLiteVideoTaskDB:
                     model TEXT DEFAULT '',
                     formats TEXT DEFAULT '[]',
                     quality TEXT DEFAULT 'medium',
+                    video_quality TEXT DEFAULT '720',
                     extras TEXT DEFAULT '',
                     video_understanding INTEGER DEFAULT 0,
                     video_interval INTEGER DEFAULT 4,
@@ -77,6 +78,10 @@ class _SQLiteVideoTaskDB:
                     FOREIGN KEY (task_id) REFERENCES video_tasks(id) ON DELETE CASCADE
                 )
             """)
+            try:
+                conn.execute("ALTER TABLE video_tasks ADD COLUMN video_quality TEXT DEFAULT '720'")
+            except sqlite3.OperationalError:
+                pass
             conn.execute("""
                 CREATE INDEX IF NOT EXISTS idx_vtasks_user ON video_tasks(user_id)
             """)
@@ -91,8 +96,9 @@ class _SQLiteVideoTaskDB:
             conn.execute(
                 """INSERT INTO video_tasks
                    (id, url, platform, title, status, style, model, formats, quality,
-                    extras, video_understanding, video_interval, grid_cols, grid_rows, user_id)
-                   VALUES (?, ?, ?, ?, 'pending', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                    video_quality, extras, video_understanding, video_interval,
+                    grid_cols, grid_rows, user_id)
+                   VALUES (?, ?, ?, ?, 'pending', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
                 (
                     task_id,
                     task_data.get("url", ""),
@@ -102,6 +108,7 @@ class _SQLiteVideoTaskDB:
                     task_data.get("model", ""),
                     json.dumps(task_data.get("formats", [])),
                     task_data.get("quality", "medium"),
+                    task_data.get("video_quality", "720"),
                     task_data.get("extras", ""),
                     1 if task_data.get("video_understanding") else 0,
                     task_data.get("video_interval", 4),

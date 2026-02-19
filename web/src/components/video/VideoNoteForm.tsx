@@ -31,10 +31,18 @@ const FORMATS = [
   { id: 'summary', label: 'AI Summary' },
 ]
 
-const QUALITIES = [
+const AUDIO_QUALITIES = [
   { id: 'fast', label: 'Fast (32kbps)' },
   { id: 'medium', label: 'Medium (64kbps)' },
   { id: 'slow', label: 'High (128kbps)' },
+]
+
+const VIDEO_QUALITIES = [
+  { id: '360', label: '360p' },
+  { id: '480', label: '480p' },
+  { id: '720', label: '720p' },
+  { id: '1080', label: '1080p' },
+  { id: 'best', label: 'Best' },
 ]
 
 interface Props {
@@ -47,6 +55,7 @@ export default function VideoNoteForm({ onTaskCreated }: Props) {
   const [style, setStyle] = useState('detailed')
   const [formats, setFormats] = useState<string[]>(['toc', 'summary'])
   const [quality, setQuality] = useState('medium')
+  const [videoQuality, setVideoQuality] = useState('720')
   const [extras, setExtras] = useState('')
   const [videoUnderstanding, setVideoUnderstanding] = useState(false)
   const [videoInterval, setVideoInterval] = useState(4)
@@ -86,6 +95,7 @@ export default function VideoNoteForm({ onTaskCreated }: Props) {
         style,
         formats,
         quality,
+        video_quality: videoQuality,
         llm_model: modelSettings.llm_model,
         extras,
         video_understanding: videoUnderstanding,
@@ -198,29 +208,56 @@ export default function VideoNoteForm({ onTaskCreated }: Props) {
       </div>
 
       {/* Quality */}
-      <div>
-        <label className="block text-sm text-gray-400 mb-1.5">Audio Quality</label>
-        <div className="flex gap-2">
-          {QUALITIES.map(q => (
-            <label
-              key={q.id}
-              className={`flex-1 text-center px-2 py-1.5 rounded-lg text-sm cursor-pointer transition-colors ${
-                quality === q.id
-                  ? 'bg-indigo-600 text-white'
-                  : 'bg-dark-hover text-gray-400 hover:text-white'
-              }`}
-            >
-              <input
-                type="radio"
-                name="quality"
-                value={q.id}
-                checked={quality === q.id}
-                onChange={() => setQuality(q.id)}
-                className="hidden"
-              />
-              {q.label}
-            </label>
-          ))}
+      <div className="grid grid-cols-2 gap-4">
+        <div>
+          <label className="block text-sm text-gray-400 mb-1.5">Audio Quality</label>
+          <div className="flex gap-1.5">
+            {AUDIO_QUALITIES.map(q => (
+              <label
+                key={q.id}
+                className={`flex-1 text-center px-1.5 py-1.5 rounded-lg text-xs cursor-pointer transition-colors ${
+                  quality === q.id
+                    ? 'bg-indigo-600 text-white'
+                    : 'bg-dark-hover text-gray-400 hover:text-white'
+                }`}
+              >
+                <input
+                  type="radio"
+                  name="quality"
+                  value={q.id}
+                  checked={quality === q.id}
+                  onChange={() => setQuality(q.id)}
+                  className="hidden"
+                />
+                {q.label}
+              </label>
+            ))}
+          </div>
+        </div>
+        <div>
+          <label className="block text-sm text-gray-400 mb-1.5">Video Quality</label>
+          <div className="flex gap-1.5">
+            {VIDEO_QUALITIES.map(q => (
+              <label
+                key={q.id}
+                className={`flex-1 text-center px-1.5 py-1.5 rounded-lg text-xs cursor-pointer transition-colors ${
+                  videoQuality === q.id
+                    ? 'bg-indigo-600 text-white'
+                    : 'bg-dark-hover text-gray-400 hover:text-white'
+                }`}
+              >
+                <input
+                  type="radio"
+                  name="videoQuality"
+                  value={q.id}
+                  checked={videoQuality === q.id}
+                  onChange={() => setVideoQuality(q.id)}
+                  className="hidden"
+                />
+                {q.label}
+              </label>
+            ))}
+          </div>
         </div>
       </div>
 

@@ -90,6 +90,7 @@ def process_video_note_sync(
     grid_rows: int,
     user_id: Optional[str],
     max_output_tokens: int = 0,
+    video_quality: str = "720",
 ):
     """Synchronous video note processing pipeline."""
     from video_task_db import get_video_task_db
@@ -243,7 +244,7 @@ def process_video_note_sync(
                     _update_task_status(db, task_id, "downloading", job_pct, msg, user_id)
 
                 try:
-                    video_path = downloader.download_video(url, task_id, progress_callback=video_progress)
+                    video_path = downloader.download_video(url, task_id, video_quality=video_quality, progress_callback=video_progress)
                 except VideoDownloadError as e:
                     logger.warning(f"Video download failed ({e.error_code}), continuing without video: {e}")
                     video_path = None
@@ -415,6 +416,7 @@ async def generate_note(
     style: str = Form("detailed"),
     formats: str = Form("[]"),
     quality: str = Form("medium"),
+    video_quality: str = Form("720"),
     llm_model: str = Form(""),
     extras: str = Form(""),
     video_understanding: bool = Form(False),
@@ -443,6 +445,7 @@ async def generate_note(
         "style": style,
         "formats": fmt_list,
         "quality": quality,
+        "video_quality": video_quality,
         "model": llm_model,
         "extras": extras,
         "video_understanding": video_understanding,
@@ -468,6 +471,7 @@ async def generate_note(
         grid_rows=grid_rows,
         user_id=user_id,
         max_output_tokens=max_output_tokens,
+        video_quality=video_quality,
     )
 
     return {"task_id": task_id, "message": "Processing started"}
@@ -495,6 +499,7 @@ async def generate_note_json(
         "style": data.get("style", "detailed"),
         "formats": data.get("formats", []),
         "quality": data.get("quality", "medium"),
+        "video_quality": data.get("video_quality", "720"),
         "model": data.get("llm_model", ""),
         "extras": data.get("extras", ""),
         "video_understanding": data.get("video_understanding", False),
@@ -520,6 +525,7 @@ async def generate_note_json(
         grid_rows=data.get("grid_rows", 3),
         user_id=user_id,
         max_output_tokens=data.get("max_output_tokens", 0),
+        video_quality=data.get("video_quality", "720"),
     )
 
     return {"task_id": task_id, "message": "Processing started"}
@@ -594,6 +600,7 @@ async def retry_task(
         grid_cols=task["grid_cols"],
         grid_rows=task["grid_rows"],
         user_id=user_id,
+        video_quality=task.get("video_quality", "720"),
     )
 
     return {"message": "Retry started", "task_id": task_id}

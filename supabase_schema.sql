@@ -176,6 +176,7 @@ CREATE TABLE IF NOT EXISTS video_tasks (
     model TEXT DEFAULT '',
     formats JSONB DEFAULT '[]',
     quality TEXT DEFAULT 'medium',
+    video_quality TEXT DEFAULT '720',
     extras TEXT DEFAULT '',
     video_understanding BOOLEAN DEFAULT FALSE,
     video_interval INTEGER DEFAULT 4,
