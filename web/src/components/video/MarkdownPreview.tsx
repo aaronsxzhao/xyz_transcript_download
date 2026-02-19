@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
@@ -8,7 +8,7 @@ import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter'
 import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism'
 import {
   Copy, Download, Check, FileText, AlertCircle, Loader2, RotateCcw, Square,
-  Play, ExternalLink, X,
+  Play, ExternalLink, X, FileDown,
 } from 'lucide-react'
 import StepBar from './StepBar'
 import type { VideoTask } from '../../lib/api'
@@ -20,6 +20,8 @@ interface Props {
 export default function MarkdownPreview({ task }: Props) {
   const [copied, setCopied] = useState(false)
   const [zoomedImg, setZoomedImg] = useState<string | null>(null)
+  const [pdfLoading, setPdfLoading] = useState(false)
+  const articleRef = useRef<HTMLDivElement>(null)
   const navigate = useNavigate()
 
   if (!task) {
@@ -55,6 +57,59 @@ export default function MarkdownPreview({ task }: Props) {
     URL.revokeObjectURL(url)
   }
 
+  const handleDownloadPdf = async () => {
+    if (!articleRef.current || !task?.markdown || pdfLoading) return
+    setPdfLoading(true)
+    try {
+      const html2pdf = (await import('html2pdf.js')).default
+
+      const clone = articleRef.current.cloneNode(true) as HTMLElement
+      clone.style.color = '#1a1a2e'
+      clone.style.background = '#ffffff'
+      clone.style.padding = '32px'
+      clone.querySelectorAll('*').forEach((el) => {
+        const style = (el as HTMLElement).style
+        if (!style) return
+        const computed = window.getComputedStyle(el as HTMLElement)
+        if (computed.color) style.color = '#1a1a2e'
+        if (computed.backgroundColor && computed.backgroundColor !== 'rgba(0, 0, 0, 0)')
+          style.backgroundColor = '#f3f4f6'
+        if (computed.borderColor) style.borderColor = '#d1d5db'
+      })
+      clone.querySelectorAll('h1, h2, h3, h4, h5, h6').forEach((el) => {
+        ;(el as HTMLElement).style.color = '#111827'
+      })
+      clone.querySelectorAll('a').forEach((el) => {
+        ;(el as HTMLElement).style.color = '#4f46e5'
+      })
+      clone.querySelectorAll('code').forEach((el) => {
+        ;(el as HTMLElement).style.color = '#6366f1'
+        ;(el as HTMLElement).style.backgroundColor = '#f3f4f6'
+      })
+      clone.querySelectorAll('blockquote').forEach((el) => {
+        ;(el as HTMLElement).style.borderLeftColor = '#6366f1'
+        ;(el as HTMLElement).style.backgroundColor = '#eef2ff'
+        ;(el as HTMLElement).style.color = '#374151'
+      })
+      clone.querySelectorAll('th').forEach((el) => {
+        ;(el as HTMLElement).style.backgroundColor = '#f3f4f6'
+      })
+
+      const filename = `${(task.title || 'notes').replace(/[^\w\s-]/g, '').trim()}.pdf`
+      await html2pdf().set({
+        margin: [10, 10, 10, 10],
+        filename,
+        image: { type: 'jpeg', quality: 0.95 },
+        html2canvas: { scale: 2, useCORS: true, logging: false },
+        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
+      }).from(clone).save()
+    } catch (e) {
+      console.error('PDF generation failed:', e)
+    } finally {
+      setPdfLoading(false)
+    }
+  }
+
   return (
     <div className="flex flex-col h-full">
       {/* Header */}
@@ -81,9 +136,17 @@ export default function MarkdownPreview({ task }: Props) {
             <button
               onClick={handleDownload}
               className="p-1.5 text-gray-400 hover:text-white transition-colors"
-              title="Download .md"
+              title="Download Markdown"
             >
               <Download size={15} />
+            </button>
+            <button
+              onClick={handleDownloadPdf}
+              disabled={pdfLoading}
+              className="p-1.5 text-gray-400 hover:text-white transition-colors disabled:opacity-50"
+              title="Download PDF"
+            >
+              {pdfLoading ? <Loader2 size={15} className="animate-spin" /> : <FileDown size={15} />}
             </button>
           </div>
         )}
@@ -213,7 +276,7 @@ export default function MarkdownPreview({ task }: Props) {
       {/* Markdown content */}
       {isSuccess && task.markdown && (
         <div className="flex-1 overflow-y-auto custom-scrollbar">
-          <article className="prose prose-invert max-w-none
+          <article ref={articleRef} className="prose prose-invert max-w-none
             prose-headings:text-gray-100 prose-headings:font-bold
             prose-h1:text-2xl prose-h1:border-b prose-h1:border-dark-border prose-h1:pb-2 prose-h1:mb-6
             prose-h2:text-xl prose-h2:mt-8 prose-h2:mb-4 prose-h2:text-indigo-300

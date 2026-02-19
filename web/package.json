@@ -11,6 +11,7 @@
   "dependencies": {
     "@tailwindcss/typography": "^0.5.19",
     "d3": "^7.9.0",
+    "html2pdf.js": "^0.14.0",
     "lucide-react": "^0.303.0",
     "markmap-lib": "^0.18.12",
     "markmap-view": "^0.18.12",
