@@ -234,14 +234,14 @@ export default function VideoNoteForm({ onTaskCreated }: Props) {
       </div>
 
       {/* Quality */}
-      <div className="grid grid-cols-2 gap-4">
+      <div className="space-y-3">
         <div>
           <label className="block text-sm text-gray-400 mb-1.5">Audio Quality</label>
           <div className="flex gap-1.5">
             {AUDIO_QUALITIES.map(q => (
               <label
                 key={q.id}
-                className={`flex-1 text-center px-1.5 py-1.5 rounded-lg text-xs cursor-pointer transition-colors ${
+                className={`px-3 py-1.5 rounded-lg text-xs cursor-pointer transition-colors whitespace-nowrap ${
                   quality === q.id
                     ? 'bg-indigo-600 text-white'
                     : 'bg-dark-hover text-gray-400 hover:text-white'
@@ -266,7 +266,7 @@ export default function VideoNoteForm({ onTaskCreated }: Props) {
             {VIDEO_QUALITIES.map(q => (
               <label
                 key={q.id}
-                className={`flex-1 text-center px-1.5 py-1.5 rounded-lg text-xs cursor-pointer transition-colors ${
+                className={`px-3 py-1.5 rounded-lg text-xs cursor-pointer transition-colors whitespace-nowrap ${
                   videoQuality === q.id
                     ? 'bg-indigo-600 text-white'
                     : 'bg-dark-hover text-gray-400 hover:text-white'
