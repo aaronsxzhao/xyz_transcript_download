@@ -452,6 +452,7 @@ async def generate_note(
         "video_interval": video_interval,
         "grid_cols": grid_cols,
         "grid_rows": grid_rows,
+        "max_output_tokens": max_output_tokens,
         "user_id": user_id,
     })
 
@@ -506,6 +507,7 @@ async def generate_note_json(
         "video_interval": data.get("video_interval", 4),
         "grid_cols": data.get("grid_cols", 3),
         "grid_rows": data.get("grid_rows", 3),
+        "max_output_tokens": data.get("max_output_tokens", 0),
         "user_id": user_id,
     })
 
@@ -601,6 +603,7 @@ async def retry_task(
         grid_rows=task["grid_rows"],
         user_id=user_id,
         video_quality=task.get("video_quality", "720"),
+        max_output_tokens=task.get("max_output_tokens", 0),
     )
 
     return {"message": "Retry started", "task_id": task_id}

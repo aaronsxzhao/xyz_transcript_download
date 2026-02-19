@@ -704,6 +704,7 @@ class SupabaseDatabase:
             "video_interval": task_data.get("video_interval", 4),
             "grid_cols": task_data.get("grid_cols", 3),
             "grid_rows": task_data.get("grid_rows", 3),
+            "max_output_tokens": task_data.get("max_output_tokens", 0),
         }
         self.client.table("video_tasks").insert(row).execute()
         return task_id

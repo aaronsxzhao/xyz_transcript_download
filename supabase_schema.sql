@@ -183,6 +183,7 @@ CREATE TABLE IF NOT EXISTS video_tasks (
     grid_cols INTEGER DEFAULT 3,
     grid_rows INTEGER DEFAULT 3,
     duration REAL DEFAULT 0,
+    max_output_tokens INTEGER DEFAULT 0,
     error TEXT DEFAULT '',
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()

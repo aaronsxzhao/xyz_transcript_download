@@ -556,8 +556,13 @@ class DouyinDownloader(BaseDownloader):
         if output_path.exists():
             return output_path
         try:
+            if video_quality == "best":
+                vfmt = "best"
+            else:
+                h = int(video_quality) if video_quality.isdigit() else 720
+                vfmt = f"best[height<={h}]/best"
             opts = {
-                "format": "best",
+                "format": vfmt,
                 "outtmpl": str(VIDEO_DIR / f"{task_id}.%(ext)s"),
                 "noplaylist": True,
                 "quiet": True,
@@ -622,8 +627,13 @@ class KuaishouDownloader(BaseDownloader):
         if output_path.exists():
             return output_path
         try:
+            if video_quality == "best":
+                vfmt = "best"
+            else:
+                h = int(video_quality) if video_quality.isdigit() else 720
+                vfmt = f"best[height<={h}]/best"
             opts = {
-                "format": "best",
+                "format": vfmt,
                 "outtmpl": str(VIDEO_DIR / f"{task_id}.%(ext)s"),
                 "noplaylist": True,
                 "quiet": True,

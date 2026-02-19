@@ -61,6 +61,7 @@ class _SQLiteVideoTaskDB:
                     grid_cols INTEGER DEFAULT 3,
                     grid_rows INTEGER DEFAULT 3,
                     duration REAL DEFAULT 0,
+                    max_output_tokens INTEGER DEFAULT 0,
                     error TEXT DEFAULT '',
                     user_id TEXT,
                     created_at TEXT DEFAULT CURRENT_TIMESTAMP,
@@ -78,10 +79,14 @@ class _SQLiteVideoTaskDB:
                     FOREIGN KEY (task_id) REFERENCES video_tasks(id) ON DELETE CASCADE
                 )
             """)
-            try:
-                conn.execute("ALTER TABLE video_tasks ADD COLUMN video_quality TEXT DEFAULT '720'")
-            except sqlite3.OperationalError:
-                pass
+            for col, default in [
+                ("video_quality TEXT", "'720'"),
+                ("max_output_tokens INTEGER", "0"),
+            ]:
+                try:
+                    conn.execute(f"ALTER TABLE video_tasks ADD COLUMN {col} DEFAULT {default}")
+                except sqlite3.OperationalError:
+                    pass
             conn.execute("""
                 CREATE INDEX IF NOT EXISTS idx_vtasks_user ON video_tasks(user_id)
             """)
@@ -97,8 +102,8 @@ class _SQLiteVideoTaskDB:
                 """INSERT INTO video_tasks
                    (id, url, platform, title, status, style, model, formats, quality,
                     video_quality, extras, video_understanding, video_interval,
-                    grid_cols, grid_rows, user_id)
-                   VALUES (?, ?, ?, ?, 'pending', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                    grid_cols, grid_rows, max_output_tokens, user_id)
+                   VALUES (?, ?, ?, ?, 'pending', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
                 (
                     task_id,
                     task_data.get("url", ""),
@@ -114,6 +119,7 @@ class _SQLiteVideoTaskDB:
                     task_data.get("video_interval", 4),
                     task_data.get("grid_cols", 3),
                     task_data.get("grid_rows", 3),
+                    task_data.get("max_output_tokens", 0),
                     task_data.get("user_id"),
                 ),
             )
