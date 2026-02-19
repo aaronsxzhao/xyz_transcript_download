@@ -27,28 +27,25 @@ const WHISPER_MODELS = [
   { value: 'whisper-large-v3-turbo', label: 'whisper-large-v3-turbo', description: 'Faster, slightly less accurate' },
 ]
 
-// LLM model options
+// LLM model options — these are LiteLLM model identifiers routed through the proxy
 const LLM_MODELS = [
-  'openrouter/openai/gpt-4o',
-  'openrouter/openai/gpt-5-chat',
-  'openrouter/openai/gpt-5-mini',
-  'openrouter/openai/o3-mini',
-  'openrouter/anthropic/claude-sonnet-4',
-  'openrouter/anthropic/claude-sonnet-4.5',
-  'openrouter/google/gemini-2.5-flash',
-  'openrouter/google/gemini-2.5-pro',
-  'openrouter/x-ai/grok-3-mini',
-  'openrouter/x-ai/grok-4',
-  'openrouter/x-ai/grok-4-fast',
-  'vertex_ai/gemini-2.5-flash',
-  'vertex_ai/gemini-2.5-flash-image',
-  'vertex_ai/gemini-2.5-flash-lite',
-  'vertex_ai/gemini-2.5-flash-lite-preview-09-2025',
-  'vertex_ai/gemini-2.5-pro',
-  'vertex_ai/gemini-3-pro-preview',
-  'vertex_ai/gemini-3-flash-preview',
-  'gemini-2.5-flash-fb',
-  'gemini-2.5-pro-fb',
+  { value: '', label: 'Server Default' },
+  { value: 'vertex_ai/gemini-3-pro-preview', label: 'Gemini 3 Pro' },
+  { value: 'vertex_ai/gemini-3-flash-preview', label: 'Gemini 3 Flash' },
+  { value: 'vertex_ai/gemini-2.5-pro', label: 'Gemini 2.5 Pro' },
+  { value: 'vertex_ai/gemini-2.5-flash', label: 'Gemini 2.5 Flash' },
+  { value: 'vertex_ai/gemini-2.5-flash-lite', label: 'Gemini 2.5 Flash Lite' },
+  { value: 'openrouter/openai/gpt-4o', label: 'GPT-4o (OpenRouter)' },
+  { value: 'openrouter/openai/gpt-5-chat', label: 'GPT-5 (OpenRouter)' },
+  { value: 'openrouter/openai/gpt-5-mini', label: 'GPT-5 Mini (OpenRouter)' },
+  { value: 'openrouter/openai/o3-mini', label: 'o3-mini (OpenRouter)' },
+  { value: 'openrouter/anthropic/claude-sonnet-4', label: 'Claude Sonnet 4 (OpenRouter)' },
+  { value: 'openrouter/anthropic/claude-sonnet-4.5', label: 'Claude Sonnet 4.5 (OpenRouter)' },
+  { value: 'openrouter/google/gemini-2.5-flash', label: 'Gemini 2.5 Flash (OpenRouter)' },
+  { value: 'openrouter/google/gemini-2.5-pro', label: 'Gemini 2.5 Pro (OpenRouter)' },
+  { value: 'openrouter/x-ai/grok-3-mini', label: 'Grok 3 Mini (OpenRouter)' },
+  { value: 'openrouter/x-ai/grok-4', label: 'Grok 4 (OpenRouter)' },
+  { value: 'openrouter/x-ai/grok-4-fast', label: 'Grok 4 Fast (OpenRouter)' },
 ]
 
 export default function Settings() {
@@ -371,9 +368,9 @@ export default function Settings() {
               onChange={(e) => setLlmModel(e.target.value)}
               className="bg-dark-hover border border-dark-border text-white text-sm rounded-lg px-3 py-2 focus:ring-2 focus:ring-purple-500 focus:border-transparent w-full sm:w-auto sm:max-w-[220px] truncate"
             >
-              {LLM_MODELS.map((model) => (
-                <option key={model} value={model}>
-                  {model}
+              {LLM_MODELS.map((m) => (
+                <option key={m.value} value={m.value}>
+                  {m.label}
                 </option>
               ))}
             </select>

@@ -247,7 +247,7 @@ export function getUserModelSettings(): {
   const savedTokens = localStorage.getItem('max_output_tokens')
   return {
     whisper_model: localStorage.getItem('whisper_model') || 'whisper-large-v3-turbo',
-    llm_model: localStorage.getItem('llm_model') || 'openrouter/openai/gpt-4o',
+    llm_model: localStorage.getItem('llm_model') || '',
     max_output_tokens: savedTokens ? parseInt(savedTokens, 10) : 16000,
   }
 }

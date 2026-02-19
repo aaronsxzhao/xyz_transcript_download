@@ -11,7 +11,7 @@ import subprocess
 from pathlib import Path
 from typing import List, Optional, Tuple
 
-from config import DATA_DIR, LLM_API_KEY, LLM_BASE_URL
+from config import DATA_DIR, LLM_API_KEY, LLM_BASE_URL, LLM_MODEL
 from logger import get_logger
 
 logger = get_logger("video_understanding")
@@ -222,7 +222,7 @@ def analyze_grids(
 
     api_key = api_key or LLM_API_KEY
     base_url = base_url or LLM_BASE_URL
-    model = model or "gpt-4o"
+    model = model or LLM_MODEL
 
     if not api_key:
         logger.error("No API key for vision analysis")
