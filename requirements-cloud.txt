@@ -36,5 +36,8 @@ email-validator>=2.0.0
 # Audio processing (still needed for duration detection)
 pydub>=0.25.1
 
+# Video/audio downloading
+yt-dlp>=2024.0.0
+
 # Note: torch, faster-whisper, mlx-whisper are NOT included
 # Cloud deployment uses Groq API for transcription (WHISPER_MODE=api)
