@@ -130,6 +130,16 @@ class YtdlpDownloader(BaseDownloader):
             logger.info(f"Using saved cookies for {self.platform}")
         return opts
 
+    def _best_thumbnail(self, info: dict) -> str:
+        thumb = info.get("thumbnail", "")
+        if thumb:
+            return thumb
+        thumbnails = info.get("thumbnails")
+        if thumbnails:
+            best = max(thumbnails, key=lambda t: t.get("preference", 0))
+            return best.get("url", "")
+        return ""
+
     def get_metadata(self, url: str) -> Optional[VideoMetadata]:
         try:
             opts = self._get_base_opts()
@@ -141,7 +151,7 @@ class YtdlpDownloader(BaseDownloader):
             return VideoMetadata(
                 title=info.get("title", ""),
                 description=info.get("description", ""),
-                thumbnail=info.get("thumbnail", ""),
+                thumbnail=self._best_thumbnail(info),
                 duration=info.get("duration", 0) or 0,
                 platform=self.platform,
                 url=url,
@@ -198,7 +208,9 @@ class YtdlpDownloader(BaseDownloader):
                 "progress_hooks": self._make_progress_hook(progress_callback, "Downloading audio"),
             })
             with yt_dlp.YoutubeDL(opts) as ydl:
-                ydl.download([url])
+                info = ydl.extract_info(url, download=True)
+                if info:
+                    self._last_info = info
 
             if output_path.exists():
                 return output_path
@@ -209,6 +221,21 @@ class YtdlpDownloader(BaseDownloader):
         except Exception as e:
             logger.error(f"Audio download failed: {e}")
             return None
+
+    def get_last_download_info(self) -> Optional[VideoMetadata]:
+        """Get metadata from the last download (useful when get_metadata fails)."""
+        info = getattr(self, "_last_info", None)
+        if not info:
+            return None
+        return VideoMetadata(
+            title=info.get("title", ""),
+            description=info.get("description", ""),
+            thumbnail=self._best_thumbnail(info),
+            duration=info.get("duration", 0) or 0,
+            platform=self.platform,
+            url=info.get("webpage_url", ""),
+            tags=info.get("tags", []) or [],
+        )
 
     def download_video(self, url: str, task_id: str,
                        progress_callback: ProgressCallback = None) -> Optional[Path]:

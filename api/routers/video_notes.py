@@ -126,6 +126,24 @@ def process_video_note_sync(
             _update_task_status(db, task_id, "failed", 0, "Audio download failed", user_id,
                                 error="Download failed")
             return
+
+        # Fill in missing metadata from download info (e.g. BiliBili thumbnail)
+        dl_info = getattr(downloader, 'get_last_download_info', lambda: None)()
+        if dl_info:
+            if not title or title == "Untitled":
+                title = dl_info.title or title
+            if not thumbnail:
+                thumbnail = dl_info.thumbnail
+            if not duration and dl_info.duration:
+                duration = dl_info.duration
+            if not tags and dl_info.tags:
+                tags = dl_info.tags
+            db.update_task(task_id, {
+                "title": title,
+                "thumbnail": thumbnail,
+                "duration": duration,
+            })
+
         _update_task_status(db, task_id, "downloading", 25, "Audio downloaded", user_id)
 
         # Phase 2b: Download video if needed for screenshots or video understanding
