@@ -197,6 +197,11 @@ class YtdlpDownloader(BaseDownloader):
             "noplaylist": True,
             "quiet": True,
             "no_warnings": True,
+            "concurrent_fragment_downloads": 4,
+            "retries": 5,
+            "fragment_retries": 5,
+            "socket_timeout": 30,
+            "http_chunk_size": 10485760,
         }
         cookie_str = self.cookies
         if not cookie_str:
@@ -280,8 +285,15 @@ class YtdlpDownloader(BaseDownloader):
         bitrate = QUALITY_MAP.get(quality, "64")
         try:
             opts = self._get_base_opts()
+            # Prefer smaller audio: worst acceptable quality first, fall back to best
+            if quality == "fast":
+                audio_fmt = "worstaudio[ext=m4a]/worstaudio/bestaudio[ext=m4a]/bestaudio/best"
+            elif quality == "medium":
+                audio_fmt = "bestaudio[ext=m4a][abr<=128]/bestaudio[abr<=128]/bestaudio[ext=m4a]/bestaudio/best"
+            else:
+                audio_fmt = "bestaudio[ext=m4a]/bestaudio/best"
             opts.update({
-                "format": "bestaudio[ext=m4a]/bestaudio/best",
+                "format": audio_fmt,
                 "outtmpl": str(VIDEO_AUDIO_DIR / f"{task_id}.%(ext)s"),
                 "postprocessors": [{
                     "key": "FFmpegExtractAudio",

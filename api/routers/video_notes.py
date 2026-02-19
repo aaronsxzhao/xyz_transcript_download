@@ -111,172 +111,196 @@ def process_video_note_sync(
             _clear_cancelled(task_id)
             return
 
-        # Phase 1: Parse / metadata (0-10%)
-        _update_task_status(db, task_id, "parsing", 5, "Fetching video info...", user_id)
+        # Check if we already have a transcript from a previous run (for retry)
+        existing_task = db.get_task(task_id, user_id)
+        existing_transcript = existing_task.get("transcript") if existing_task else None
+        has_saved_transcript = (
+            existing_transcript
+            and existing_transcript.get("text")
+            and len(existing_transcript["text"]) > 50
+        )
 
-        if not platform:
-            platform = detect_platform(url)
-        if not platform:
-            _update_task_status(db, task_id, "failed", 0, "Could not detect platform", user_id,
-                                error="Unsupported URL")
-            return
+        title = (existing_task or {}).get("title", "")
+        thumbnail = (existing_task or {}).get("thumbnail", "")
+        duration = (existing_task or {}).get("duration", 0)
+        tags = []
+        transcript_text = ""
+        transcript_segments = []
+        audio_path = None
+        video_path = None
 
-        cookies = cookie_mgr.get_cookie(platform)
+        if has_saved_transcript:
+            logger.info(f"Reusing saved transcript for {task_id} ({len(existing_transcript['text'])} chars), skipping download+transcribe")
+            _update_task_status(db, task_id, "transcribing", 60, "Reusing existing transcript...", user_id)
+            transcript_text = existing_transcript["text"]
+            transcript_segments = existing_transcript.get("segments", [])
+        else:
+            # Full pipeline: metadata → download → transcribe
 
-        if platform == "bilibili" and not cookies:
-            _update_task_status(
-                db, task_id, "failed", 0,
-                "BiliBili requires login. Go to Settings → BiliBili Login to scan the QR code first.",
-                user_id,
-                error="BILIBILI_LOGIN_REQUIRED",
-            )
-            return
+            # Phase 1: Parse / metadata (0-10%)
+            _update_task_status(db, task_id, "parsing", 5, "Fetching video info...", user_id)
 
-        downloader = get_downloader(platform, cookies)
+            if not platform:
+                platform = detect_platform(url)
+            if not platform:
+                _update_task_status(db, task_id, "failed", 0, "Could not detect platform", user_id,
+                                    error="Unsupported URL")
+                return
 
-        metadata = downloader.get_metadata(url)
-        title = metadata.title if metadata else "Untitled"
-        thumbnail = metadata.thumbnail if metadata else ""
-        duration = metadata.duration if metadata else 0
-        tags = metadata.tags if metadata else []
+            cookies = cookie_mgr.get_cookie(platform)
 
-        db.update_task(task_id, {
-            "title": title,
-            "thumbnail": thumbnail,
-            "duration": duration,
-        })
-        _update_task_status(db, task_id, "parsing", 10, f"Found: {title}", user_id)
+            if platform == "bilibili" and not cookies:
+                _update_task_status(
+                    db, task_id, "failed", 0,
+                    "BiliBili requires login. Go to Settings → BiliBili Login to scan the QR code first.",
+                    user_id,
+                    error="BILIBILI_LOGIN_REQUIRED",
+                )
+                return
 
-        if is_video_task_cancelled(task_id):
-            _update_task_status(db, task_id, "cancelled", 0, "Cancelled", user_id)
-            _clear_cancelled(task_id)
-            return
+            downloader = get_downloader(platform, cookies)
 
-        # Phase 2: Download audio (10-25%)
-        _update_task_status(db, task_id, "downloading", 12, "Downloading audio...", user_id)
+            metadata = downloader.get_metadata(url)
+            if metadata:
+                title = metadata.title or title
+                thumbnail = metadata.thumbnail or thumbnail
+                duration = metadata.duration or duration
+                tags = metadata.tags or []
 
-        def audio_progress(pct: float, msg: str):
-            if is_video_task_cancelled(task_id):
-                raise VideoCancelledException("Cancelled during download")
-            job_pct = 12 + pct * 13
-            _update_task_status(db, task_id, "downloading", job_pct, msg, user_id)
-
-        try:
-            audio_path = downloader.download_audio(url, task_id, quality, progress_callback=audio_progress)
-        except VideoDownloadError as e:
-            _update_task_status(db, task_id, "failed", 0, str(e), user_id,
-                                error=e.error_code)
-            return
-        if not audio_path:
-            _update_task_status(db, task_id, "failed", 0, "Audio download failed", user_id,
-                                error="Download failed")
-            return
-
-        # Fill in missing metadata from download info (e.g. BiliBili thumbnail)
-        dl_info = getattr(downloader, 'get_last_download_info', lambda: None)()
-        if dl_info:
-            if not title or title == "Untitled":
-                title = dl_info.title or title
-            if not thumbnail:
-                thumbnail = dl_info.thumbnail
-            if not duration and dl_info.duration:
-                duration = dl_info.duration
-            if not tags and dl_info.tags:
-                tags = dl_info.tags
             db.update_task(task_id, {
                 "title": title,
                 "thumbnail": thumbnail,
                 "duration": duration,
             })
+            _update_task_status(db, task_id, "parsing", 10, f"Found: {title}", user_id)
 
-        _update_task_status(db, task_id, "downloading", 25, "Audio downloaded", user_id)
-
-        if is_video_task_cancelled(task_id):
-            _update_task_status(db, task_id, "cancelled", 0, "Cancelled", user_id)
-            _clear_cancelled(task_id)
-            return
-
-        # Phase 2b: Download video if needed for screenshots or video understanding
-        video_path = None
-        needs_video = "screenshot" in formats or video_understanding
-        if needs_video:
-            _update_task_status(db, task_id, "downloading", 27, "Downloading video...", user_id)
-
-            def video_progress(pct: float, msg: str):
-                if is_video_task_cancelled(task_id):
-                    raise VideoCancelledException("Cancelled during video download")
-                job_pct = 27 + pct * 3
-                _update_task_status(db, task_id, "downloading", job_pct, msg, user_id)
-
-            try:
-                video_path = downloader.download_video(url, task_id, progress_callback=video_progress)
-            except VideoDownloadError as e:
-                logger.warning(f"Video download failed ({e.error_code}), continuing without video: {e}")
-                video_path = None
-
-        if is_video_task_cancelled(task_id):
-            _update_task_status(db, task_id, "cancelled", 0, "Cancelled", user_id)
-            _clear_cancelled(task_id)
-            return
-
-        # Phase 3: Transcribe (25-60%)
-        _update_task_status(db, task_id, "transcribing", 30, "Starting transcription...", user_id)
-
-        # Try platform subtitles first
-        subtitles = downloader.get_subtitles(url, task_id)
-        transcript_text = ""
-        transcript_segments = []
-
-        if subtitles:
-            _update_task_status(db, task_id, "transcribing", 50, "Using platform subtitles...", user_id)
-            transcript_segments = subtitles
-            transcript_text = " ".join(s["text"] for s in subtitles)
-        else:
-            # Use existing transcriber
-            from transcriber import get_transcriber
-            transcriber = get_transcriber()
-
-            last_progress = [30]
-
-            def transcribe_progress(progress: float):
-                if is_video_task_cancelled(task_id):
-                    raise VideoCancelledException("Cancelled during transcription")
-                job_progress = 30 + (progress * 30)
-                if job_progress - last_progress[0] >= 1:
-                    last_progress[0] = job_progress
-                    pct = int(progress * 100)
-                    _update_task_status(
-                        db, task_id, "transcribing", job_progress,
-                        f"Transcribing... {pct}%", user_id,
-                    )
-
-            transcript = transcriber.transcribe(
-                audio_path, task_id,
-                progress_callback=transcribe_progress,
-            )
-            if not transcript:
-                if is_video_task_cancelled(task_id):
-                    _update_task_status(db, task_id, "cancelled", 0, "Cancelled", user_id)
-                    _clear_cancelled(task_id)
-                    return
-                _update_task_status(db, task_id, "failed", 0, "Transcription failed", user_id,
-                                    error="Transcription failed")
+            if is_video_task_cancelled(task_id):
+                _update_task_status(db, task_id, "cancelled", 0, "Cancelled", user_id)
+                _clear_cancelled(task_id)
                 return
-            transcript_text = transcript.text
-            transcript_segments = [
-                {"start": s.start, "end": s.end, "text": s.text}
-                for s in transcript.segments
-            ]
 
-        # Save transcript
-        db.update_task(task_id, {
-            "transcript_json": json.dumps({
-                "text": transcript_text,
-                "segments": transcript_segments,
-                "duration": duration,
-            }, ensure_ascii=False),
-        })
-        _update_task_status(db, task_id, "transcribing", 60, "Transcription complete", user_id)
+            # Phase 2: Check for subtitles first (avoids downloading audio entirely)
+            _update_task_status(db, task_id, "downloading", 12, "Checking for subtitles...", user_id)
+            subtitles = downloader.get_subtitles(url, task_id)
+
+            if subtitles:
+                _update_task_status(db, task_id, "transcribing", 50, "Using platform subtitles...", user_id)
+                transcript_segments = subtitles
+                transcript_text = " ".join(s["text"] for s in subtitles)
+                logger.info(f"Using platform subtitles for {task_id}, skipping audio download")
+            else:
+                _update_task_status(db, task_id, "downloading", 14, "Downloading audio...", user_id)
+
+                def audio_progress(pct: float, msg: str):
+                    if is_video_task_cancelled(task_id):
+                        raise VideoCancelledException("Cancelled during download")
+                    job_pct = 14 + pct * 11
+                    _update_task_status(db, task_id, "downloading", job_pct, msg, user_id)
+
+                try:
+                    audio_path = downloader.download_audio(url, task_id, quality, progress_callback=audio_progress)
+                except VideoDownloadError as e:
+                    _update_task_status(db, task_id, "failed", 0, str(e), user_id,
+                                        error=e.error_code)
+                    return
+                if not audio_path:
+                    _update_task_status(db, task_id, "failed", 0, "Audio download failed", user_id,
+                                        error="Download failed")
+                    return
+
+                dl_info = getattr(downloader, 'get_last_download_info', lambda: None)()
+                if dl_info:
+                    if not title or title == "Untitled":
+                        title = dl_info.title or title
+                    if not thumbnail:
+                        thumbnail = dl_info.thumbnail
+                    if not duration and dl_info.duration:
+                        duration = dl_info.duration
+                    if not tags and dl_info.tags:
+                        tags = dl_info.tags
+                    db.update_task(task_id, {
+                        "title": title,
+                        "thumbnail": thumbnail,
+                        "duration": duration,
+                    })
+
+            _update_task_status(db, task_id, "downloading", 25, "Audio ready", user_id)
+
+            if is_video_task_cancelled(task_id):
+                _update_task_status(db, task_id, "cancelled", 0, "Cancelled", user_id)
+                _clear_cancelled(task_id)
+                return
+
+            # Phase 2b: Download video if needed
+            needs_video = "screenshot" in formats or video_understanding
+            if needs_video:
+                _update_task_status(db, task_id, "downloading", 27, "Downloading video...", user_id)
+
+                def video_progress(pct: float, msg: str):
+                    if is_video_task_cancelled(task_id):
+                        raise VideoCancelledException("Cancelled during video download")
+                    job_pct = 27 + pct * 3
+                    _update_task_status(db, task_id, "downloading", job_pct, msg, user_id)
+
+                try:
+                    video_path = downloader.download_video(url, task_id, progress_callback=video_progress)
+                except VideoDownloadError as e:
+                    logger.warning(f"Video download failed ({e.error_code}), continuing without video: {e}")
+                    video_path = None
+
+            if is_video_task_cancelled(task_id):
+                _update_task_status(db, task_id, "cancelled", 0, "Cancelled", user_id)
+                _clear_cancelled(task_id)
+                return
+
+            # Phase 3: Transcribe (25-60%) — only if subtitles weren't found
+            if not transcript_text:
+                _update_task_status(db, task_id, "transcribing", 30, "Starting transcription...", user_id)
+
+                from transcriber import get_transcriber
+                transcriber = get_transcriber()
+
+                last_progress = [30]
+
+                def transcribe_progress(progress: float):
+                    if is_video_task_cancelled(task_id):
+                        raise VideoCancelledException("Cancelled during transcription")
+                    job_progress = 30 + (progress * 30)
+                    if job_progress - last_progress[0] >= 1:
+                        last_progress[0] = job_progress
+                        pct = int(progress * 100)
+                        _update_task_status(
+                            db, task_id, "transcribing", job_progress,
+                            f"Transcribing... {pct}%", user_id,
+                        )
+
+                transcript = transcriber.transcribe(
+                    audio_path, task_id,
+                    progress_callback=transcribe_progress,
+                )
+                if not transcript:
+                    if is_video_task_cancelled(task_id):
+                        _update_task_status(db, task_id, "cancelled", 0, "Cancelled", user_id)
+                        _clear_cancelled(task_id)
+                        return
+                    _update_task_status(db, task_id, "failed", 0, "Transcription failed", user_id,
+                                        error="Transcription failed")
+                    return
+                transcript_text = transcript.text
+                transcript_segments = [
+                    {"start": s.start, "end": s.end, "text": s.text}
+                    for s in transcript.segments
+                ]
+
+            # Save transcript
+            db.update_task(task_id, {
+                "transcript_json": json.dumps({
+                    "text": transcript_text,
+                    "segments": transcript_segments,
+                    "duration": duration,
+                }, ensure_ascii=False),
+            })
+            _update_task_status(db, task_id, "transcribing", 60, "Transcription complete", user_id)
 
         # Phase 3b: Video understanding (60-70%)
         visual_context = ""
