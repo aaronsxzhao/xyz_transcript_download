@@ -415,7 +415,14 @@ export async function generateVideoNote(data: VideoNoteRequest): Promise<{ task_
       max_output_tokens: data.max_output_tokens || modelSettings.max_output_tokens,
     }),
   })
-  if (!res.ok) throw new Error('Failed to start video note generation')
+  if (!res.ok) {
+    let detail = `Server error ${res.status}`
+    try {
+      const body = await res.json()
+      detail = body.detail || body.message || detail
+    } catch { /* ignore parse errors */ }
+    throw new Error(detail)
+  }
   return res.json()
 }
 

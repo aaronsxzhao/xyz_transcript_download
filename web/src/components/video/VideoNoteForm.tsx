@@ -63,6 +63,7 @@ export default function VideoNoteForm({ onTaskCreated }: Props) {
   const [gridRows, setGridRows] = useState(3)
   const [showAdvanced, setShowAdvanced] = useState(false)
   const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
   const [uploadProgress, setUploadProgress] = useState('')
   const fileInputRef = useRef<HTMLInputElement>(null)
 
@@ -87,6 +88,7 @@ export default function VideoNoteForm({ onTaskCreated }: Props) {
   const handleSubmit = async () => {
     if (!url.trim()) return
     setLoading(true)
+    setError('')
     try {
       const modelSettings = getUserModelSettings()
       const result = await generateVideoNote({
@@ -107,8 +109,10 @@ export default function VideoNoteForm({ onTaskCreated }: Props) {
       onTaskCreated?.(result.task_id)
       setUrl('')
       setUploadProgress('')
-    } catch (e) {
-      console.error('Failed to generate note:', e)
+    } catch (e: any) {
+      const msg = e?.message || 'Unknown error'
+      console.error('Failed to generate note:', msg)
+      setError(msg)
     } finally {
       setLoading(false)
     }
@@ -333,6 +337,13 @@ export default function VideoNoteForm({ onTaskCreated }: Props) {
               className="w-full px-2 py-1.5 bg-dark-hover border border-dark-border rounded text-sm text-white placeholder-gray-500 focus:outline-none focus:border-indigo-500 resize-none"
             />
           </div>
+        </div>
+      )}
+
+      {/* Error display */}
+      {error && (
+        <div className="p-3 bg-red-900/30 border border-red-500/50 rounded-lg text-sm text-red-300">
+          {error}
         </div>
       )}
 
