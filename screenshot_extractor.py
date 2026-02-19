@@ -100,15 +100,25 @@ def extract_screenshots_batch(
     return results
 
 
+def _parse_timestamp_str(time_str: str) -> float:
+    """Parse a timestamp string (H:MM:SS, MM:SS, or SS) into total seconds."""
+    parts = time_str.split(":")
+    if len(parts) == 3:
+        return int(parts[0]) * 3600 + int(parts[1]) * 60 + int(parts[2])
+    elif len(parts) == 2:
+        return int(parts[0]) * 60 + int(parts[1])
+    return float(parts[0])
+
+
+# Matches *Screenshot-[MM:SS] or *Screenshot-[H:MM:SS] with optional trailing *
+_SCREENSHOT_PATTERN = re.compile(r'\*?Screenshot-\[(\d+(?::\d+){1,2})\]\*?')
+
+
 def extract_timestamps_from_markdown(markdown: str) -> List[float]:
-    """
-    Parse *Screenshot-[mm:ss] markers from generated markdown and return timestamps.
-    """
-    pattern = r'\*Screenshot-\[(\d+):(\d+)\]'
+    """Parse Screenshot-[timestamp] markers from generated markdown and return timestamps."""
     timestamps = []
-    for match in re.finditer(pattern, markdown):
-        minutes, seconds = int(match.group(1)), int(match.group(2))
-        timestamps.append(minutes * 60 + seconds)
+    for match in _SCREENSHOT_PATTERN.finditer(markdown):
+        timestamps.append(_parse_timestamp_str(match.group(1)))
     return timestamps
 
 
@@ -117,20 +127,19 @@ def replace_screenshot_markers(
     task_id: str,
     base_url: str = "/data/screenshots",
 ) -> str:
-    """
-    Replace *Screenshot-[mm:ss] markers in markdown with actual image tags.
-    """
+    """Replace Screenshot-[timestamp] markers in markdown with actual image tags."""
     def replacer(match):
-        minutes, seconds = int(match.group(1)), int(match.group(2))
-        ts_str = f"{minutes:02d}-{seconds:02d}"
+        total_seconds = _parse_timestamp_str(match.group(1))
+        m = int(total_seconds // 60)
+        s = int(total_seconds % 60)
+        ts_str = f"{m:02d}-{s:02d}"
         filename = f"{task_id}_{ts_str}.jpg"
         screenshot_path = SCREENSHOTS_DIR / filename
         if screenshot_path.exists():
-            return f"![Screenshot at {minutes:02d}:{seconds:02d}]({base_url}/{filename})"
+            return f"![Screenshot at {m:02d}:{s:02d}]({base_url}/{filename})"
         return match.group(0)
 
-    pattern = r'\*Screenshot-\[(\d+):(\d+)\]'
-    return re.sub(pattern, replacer, markdown)
+    return _SCREENSHOT_PATTERN.sub(replacer, markdown)
 
 
 def get_video_duration(video_path: str) -> float:

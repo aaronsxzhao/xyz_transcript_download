@@ -80,8 +80,9 @@ def _build_system_prompt(style: str, formats: List[str]) -> str:
         )
     if "screenshot" in formats:
         format_instructions.append(
-            "在适当位置插入截图标记，格式为 `*Screenshot-[mm:ss]`，"
-            "其中 mm:ss 是建议截取的视频时间戳。每个主要段落可插入1-2个截图标记。"
+            "在适当位置插入截图标记，格式严格为 `Screenshot-[MM:SS]`，"
+            "其中 MM:SS 是建议截取的视频时间戳（用两位数分钟和秒，如 05:30、75:00）。"
+            "注意：不要在前面加 * 号，不要用 H:MM:SS 格式。每个主要段落可插入1-2个截图标记。"
         )
     if "summary" in formats:
         format_instructions.append(

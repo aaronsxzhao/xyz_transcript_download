@@ -211,13 +211,20 @@ export default function MarkdownPreview({ task }: Props) {
       {/* Markdown content */}
       {isSuccess && task.markdown && (
         <div className="flex-1 overflow-y-auto custom-scrollbar">
-          <article className="prose prose-invert prose-sm max-w-none
-            prose-headings:text-gray-100 prose-p:text-gray-300 prose-li:text-gray-300
-            prose-strong:text-white prose-a:text-indigo-400 prose-a:no-underline hover:prose-a:underline
-            prose-blockquote:border-l-indigo-500 prose-blockquote:text-gray-400
+          <article className="prose prose-invert max-w-none
+            prose-headings:text-gray-100 prose-headings:font-bold
+            prose-h1:text-2xl prose-h1:border-b prose-h1:border-dark-border prose-h1:pb-2 prose-h1:mb-6
+            prose-h2:text-xl prose-h2:mt-8 prose-h2:mb-4 prose-h2:text-indigo-300
+            prose-h3:text-lg prose-h3:mt-6 prose-h3:mb-3
+            prose-p:text-gray-300 prose-p:leading-7
+            prose-li:text-gray-300
+            prose-strong:text-white
+            prose-a:text-indigo-400 prose-a:no-underline hover:prose-a:underline
+            prose-blockquote:border-l-indigo-500 prose-blockquote:bg-indigo-950/30 prose-blockquote:text-gray-300 prose-blockquote:py-1 prose-blockquote:rounded-r
             prose-code:text-indigo-300 prose-code:bg-dark-hover prose-code:px-1 prose-code:py-0.5 prose-code:rounded
             prose-pre:bg-transparent prose-pre:p-0
             prose-img:rounded-lg prose-img:border prose-img:border-dark-border
+            prose-hr:border-dark-border prose-hr:my-8
             prose-table:border-collapse prose-th:bg-dark-hover prose-th:border prose-th:border-dark-border prose-th:px-3 prose-th:py-2
             prose-td:border prose-td:border-dark-border prose-td:px-3 prose-td:py-2
           ">
