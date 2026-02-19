@@ -159,12 +159,87 @@ CREATE POLICY "Users can delete own summary key points" ON summary_key_points
         EXISTS (SELECT 1 FROM summaries s WHERE s.id = summary_key_points.summary_id AND s.user_id = auth.uid())
     );
 
+-- Video tasks table (video note generation tasks)
+CREATE TABLE IF NOT EXISTS video_tasks (
+    id TEXT PRIMARY KEY,
+    user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+    url TEXT NOT NULL DEFAULT '',
+    platform TEXT NOT NULL DEFAULT '',
+    title TEXT NOT NULL DEFAULT '',
+    thumbnail TEXT DEFAULT '',
+    status TEXT NOT NULL DEFAULT 'pending',
+    progress REAL DEFAULT 0,
+    message TEXT DEFAULT '',
+    markdown TEXT DEFAULT '',
+    transcript_json TEXT DEFAULT '',
+    style TEXT DEFAULT 'detailed',
+    model TEXT DEFAULT '',
+    formats JSONB DEFAULT '[]',
+    quality TEXT DEFAULT 'medium',
+    extras TEXT DEFAULT '',
+    video_understanding BOOLEAN DEFAULT FALSE,
+    video_interval INTEGER DEFAULT 4,
+    grid_cols INTEGER DEFAULT 3,
+    grid_rows INTEGER DEFAULT 3,
+    duration REAL DEFAULT 0,
+    error TEXT DEFAULT '',
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Video task versions (multiple note versions per task)
+CREATE TABLE IF NOT EXISTS video_task_versions (
+    id TEXT PRIMARY KEY,
+    task_id TEXT NOT NULL REFERENCES video_tasks(id) ON DELETE CASCADE,
+    content TEXT NOT NULL DEFAULT '',
+    style TEXT DEFAULT '',
+    model_name TEXT DEFAULT '',
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Enable RLS on video tables
+ALTER TABLE video_tasks ENABLE ROW LEVEL SECURITY;
+ALTER TABLE video_task_versions ENABLE ROW LEVEL SECURITY;
+
+-- Video tasks policies
+CREATE POLICY "Users can view own video tasks" ON video_tasks
+    FOR SELECT USING (auth.uid() = user_id);
+CREATE POLICY "Users can insert own video tasks" ON video_tasks
+    FOR INSERT WITH CHECK (auth.uid() = user_id);
+CREATE POLICY "Users can update own video tasks" ON video_tasks
+    FOR UPDATE USING (auth.uid() = user_id);
+CREATE POLICY "Users can delete own video tasks" ON video_tasks
+    FOR DELETE USING (auth.uid() = user_id);
+
+-- Video task versions policies (through task ownership)
+CREATE POLICY "Users can view own video task versions" ON video_task_versions
+    FOR SELECT USING (
+        EXISTS (SELECT 1 FROM video_tasks t WHERE t.id = video_task_versions.task_id AND t.user_id = auth.uid())
+    );
+CREATE POLICY "Users can insert own video task versions" ON video_task_versions
+    FOR INSERT WITH CHECK (
+        EXISTS (SELECT 1 FROM video_tasks t WHERE t.id = video_task_versions.task_id AND t.user_id = auth.uid())
+    );
+CREATE POLICY "Users can delete own video task versions" ON video_task_versions
+    FOR DELETE USING (
+        EXISTS (SELECT 1 FROM video_tasks t WHERE t.id = video_task_versions.task_id AND t.user_id = auth.uid())
+    );
+
+-- Service role policies for server-side operations
+CREATE POLICY "Service role full access video_tasks" ON video_tasks
+    FOR ALL USING (auth.role() = 'service_role');
+CREATE POLICY "Service role full access video_task_versions" ON video_task_versions
+    FOR ALL USING (auth.role() = 'service_role');
+
 -- Create indexes for better performance
 CREATE INDEX IF NOT EXISTS idx_podcasts_user_id ON podcasts(user_id);
 CREATE INDEX IF NOT EXISTS idx_episodes_user_id ON episodes(user_id);
 CREATE INDEX IF NOT EXISTS idx_episodes_podcast_id ON episodes(podcast_id);
 CREATE INDEX IF NOT EXISTS idx_transcripts_user_id ON transcripts(user_id);
 CREATE INDEX IF NOT EXISTS idx_summaries_user_id ON summaries(user_id);
+CREATE INDEX IF NOT EXISTS idx_video_tasks_user_id ON video_tasks(user_id);
+CREATE INDEX IF NOT EXISTS idx_video_tasks_status ON video_tasks(user_id, status);
+CREATE INDEX IF NOT EXISTS idx_video_task_versions_task ON video_task_versions(task_id);
 
 -- Storage bucket for audio files (optional, for future use)
 -- Run this in the Supabase Dashboard under Storage:

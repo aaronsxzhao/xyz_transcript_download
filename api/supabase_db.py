@@ -680,6 +680,143 @@ class SupabaseDatabase:
         
         return counts
     
+    # ==================== Video Tasks ====================
+
+    def create_video_task(self, user_id: str, task_id: str, task_data: dict) -> str:
+        """Create a new video task."""
+        if not self.client:
+            return task_id
+
+        row = {
+            "id": task_id,
+            "user_id": user_id,
+            "url": task_data.get("url", ""),
+            "platform": task_data.get("platform", ""),
+            "title": task_data.get("title", ""),
+            "status": "pending",
+            "style": task_data.get("style", "detailed"),
+            "model": task_data.get("model", ""),
+            "formats": task_data.get("formats", []),
+            "quality": task_data.get("quality", "medium"),
+            "extras": task_data.get("extras", ""),
+            "video_understanding": bool(task_data.get("video_understanding")),
+            "video_interval": task_data.get("video_interval", 4),
+            "grid_cols": task_data.get("grid_cols", 3),
+            "grid_rows": task_data.get("grid_rows", 3),
+        }
+        self.client.table("video_tasks").insert(row).execute()
+        return task_id
+
+    def update_video_task(self, task_id: str, updates: dict):
+        """Update video task fields."""
+        if not self.client:
+            return
+
+        allowed = {
+            "status", "progress", "message", "markdown", "transcript_json",
+            "title", "thumbnail", "duration", "error", "model",
+        }
+        fields = {k: v for k, v in updates.items() if k in allowed}
+        if not fields:
+            return
+        fields["updated_at"] = datetime.utcnow().isoformat()
+        self.client.table("video_tasks").update(fields).eq("id", task_id).execute()
+
+    def get_video_task(self, task_id: str, user_id: str = None) -> Optional[dict]:
+        """Get a video task by ID."""
+        if not self.client:
+            return None
+
+        query = self.client.table("video_tasks").select("*").eq("id", task_id)
+        if user_id:
+            query = query.eq("user_id", user_id)
+        result = query.execute()
+        if not result.data:
+            return None
+        return self._video_task_to_dict(result.data[0])
+
+    def list_video_tasks(self, user_id: str, limit: int = 100) -> List[dict]:
+        """List all video tasks for a user."""
+        if not self.client:
+            return []
+
+        result = (
+            self.client.table("video_tasks")
+            .select("*")
+            .eq("user_id", user_id)
+            .order("created_at", desc=True)
+            .limit(limit)
+            .execute()
+        )
+        return [self._video_task_to_dict(r) for r in result.data]
+
+    def delete_video_task(self, task_id: str, user_id: str = None) -> bool:
+        """Delete a video task and its versions."""
+        if not self.client:
+            return False
+
+        # Versions are CASCADE deleted via FK
+        query = self.client.table("video_tasks").delete().eq("id", task_id)
+        if user_id:
+            query = query.eq("user_id", user_id)
+        result = query.execute()
+        return bool(result.data)
+
+    def add_video_task_version(self, task_id: str, version_id: str,
+                               content: str, style: str = "", model_name: str = "") -> str:
+        """Add a version to a video task."""
+        if not self.client:
+            return version_id
+
+        self.client.table("video_task_versions").insert({
+            "id": version_id,
+            "task_id": task_id,
+            "content": content,
+            "style": style,
+            "model_name": model_name,
+        }).execute()
+        return version_id
+
+    def get_video_task_versions(self, task_id: str) -> List[dict]:
+        """Get all versions for a video task."""
+        if not self.client:
+            return []
+
+        result = (
+            self.client.table("video_task_versions")
+            .select("*")
+            .eq("task_id", task_id)
+            .order("created_at", desc=True)
+            .execute()
+        )
+        return [dict(r) for r in result.data]
+
+    @staticmethod
+    def _video_task_to_dict(row: dict) -> dict:
+        """Convert a Supabase video_tasks row to the dict format expected by the app."""
+        d = dict(row)
+        # formats is already JSONB in Supabase, comes back as list
+        if isinstance(d.get("formats"), str):
+            import json as _json
+            try:
+                d["formats"] = _json.loads(d["formats"])
+            except (ValueError, TypeError):
+                d["formats"] = []
+        # Parse transcript_json
+        transcript_json = d.get("transcript_json", "")
+        if transcript_json:
+            import json as _json
+            try:
+                d["transcript"] = _json.loads(transcript_json)
+            except (ValueError, TypeError):
+                d["transcript"] = None
+        else:
+            d["transcript"] = None
+        d.pop("transcript_json", None)
+        # Ensure boolean
+        d["video_understanding"] = bool(d.get("video_understanding"))
+        return d
+
     def get_truncated_transcripts(self, user_id: str, threshold: float = 0.95) -> List[Dict[str, Any]]:
         """
         Find transcripts that appear to be truncated.
