@@ -7,6 +7,7 @@ FROM python:3.11-slim
 # Install minimal system dependencies (no Node.js needed)
 RUN apt-get update && apt-get install -y --no-install-recommends \
     ffmpeg \
+    aria2 \
     && rm -rf /var/lib/apt/lists/*
 
 # Set working directory

@@ -197,12 +197,21 @@ class YtdlpDownloader(BaseDownloader):
             "noplaylist": True,
             "quiet": True,
             "no_warnings": True,
-            "concurrent_fragment_downloads": 4,
-            "retries": 5,
-            "fragment_retries": 5,
+            "concurrent_fragment_downloads": 8,
+            "retries": 10,
+            "fragment_retries": 10,
             "socket_timeout": 30,
             "http_chunk_size": 10485760,
+            "throttled_rate": 100_000,
+            "buffersize": 1024 * 1024,
         }
+        # Use aria2c if available for multi-connection downloads
+        import shutil
+        if shutil.which("aria2c"):
+            opts["external_downloader"] = "aria2c"
+            opts["external_downloader_args"] = {
+                "default": ["-x", "16", "-s", "16", "-k", "1M", "--min-split-size=1M"],
+            }
         cookie_str = self.cookies
         if not cookie_str:
             try:
@@ -343,7 +352,7 @@ class YtdlpDownloader(BaseDownloader):
         try:
             opts = self._get_base_opts()
             opts.update({
-                "format": "bv*[ext=mp4]+ba[ext=m4a]/best[ext=mp4]/best",
+                "format": "bv*[height<=720][ext=mp4]+ba[ext=m4a]/bv*[height<=720]+ba/best[height<=720]/best[ext=mp4]/best",
                 "outtmpl": str(VIDEO_DIR / f"{task_id}.%(ext)s"),
                 "merge_output_format": "mp4",
                 "progress_hooks": self._make_progress_hook(progress_callback, "Downloading video"),
