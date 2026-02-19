@@ -48,13 +48,14 @@ const VIDEO_QUALITIES = [
 
 interface Props {
   onTaskCreated?: (taskId: string) => void
+  hideTitle?: boolean
 }
 
 function isBilibiliUrl(url: string): boolean {
   return /bilibili\.com|b23\.tv/i.test(url)
 }
 
-export default function VideoNoteForm({ onTaskCreated }: Props) {
+export default function VideoNoteForm({ onTaskCreated, hideTitle }: Props) {
   const navigate = useNavigate()
   const [url, setUrl] = useState('')
   const [platform, setPlatform] = useState('')
@@ -116,9 +117,6 @@ export default function VideoNoteForm({ onTaskCreated }: Props) {
 
     try {
       const modelSettings = getUserModelSettings()
-      // #region agent log
-      fetch('http://127.0.0.1:7244/ingest/93158d3a-ec2c-4e4b-8a82-57bf6bb6df56',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'VideoNoteForm.tsx:handleSubmit',message:'before_generateVideoNote',data:{url:url.trim().substring(0,80),platform,style,quality,videoQuality,formatsLen:formats.length},timestamp:Date.now(),hypothesisId:'D'})}).catch(()=>{});
-      // #endregion
       const result = await generateVideoNote({
         url: url.trim(),
         platform,
@@ -134,17 +132,11 @@ export default function VideoNoteForm({ onTaskCreated }: Props) {
         grid_rows: gridRows,
         max_output_tokens: modelSettings.max_output_tokens,
       })
-      // #region agent log
-      fetch('http://127.0.0.1:7244/ingest/93158d3a-ec2c-4e4b-8a82-57bf6bb6df56',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'VideoNoteForm.tsx:handleSubmit',message:'generateVideoNote_ok',data:{taskId:result.task_id},timestamp:Date.now(),hypothesisId:'D'})}).catch(()=>{});
-      // #endregion
       onTaskCreated?.(result.task_id)
       setUrl('')
       setUploadProgress('')
     } catch (e: any) {
       const msg = e?.message || 'Unknown error'
-      // #region agent log
-      fetch('http://127.0.0.1:7244/ingest/93158d3a-ec2c-4e4b-8a82-57bf6bb6df56',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'VideoNoteForm.tsx:handleSubmit',message:'generateVideoNote_error',data:{error:msg},timestamp:Date.now(),hypothesisId:'A,B,D'})}).catch(()=>{});
-      // #endregion
       console.error('Failed to generate note:', msg)
       setError(msg)
     } finally {
@@ -154,8 +146,8 @@ export default function VideoNoteForm({ onTaskCreated }: Props) {
   }
 
   return (
-    <div className="space-y-4">
-      <h3 className="text-base font-semibold text-white">Generate Video Notes</h3>
+    <div className="space-y-3">
+      {!hideTitle && <h3 className="text-base font-semibold text-white">Generate Video Notes</h3>}
 
       {/* Platform */}
       <div>
