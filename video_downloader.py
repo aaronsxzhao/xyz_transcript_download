@@ -85,7 +85,13 @@ def _classify_ytdlp_error(e: Exception, platform: str) -> VideoDownloadError:
             "COOKIES_REQUIRED",
         )
 
-    if "sign in" in msg or "login" in msg or "need to log in" in msg:
+    if "sign in" in msg or "login" in msg or "need to log in" in msg or "confirm your age" in msg:
+        if platform == "youtube":
+            return VideoDownloadError(
+                "YouTube bot detection triggered. This is usually temporary — please try again in a minute. "
+                "If it persists, you can set YouTube cookies in Settings.",
+                "LOGIN_REQUIRED",
+            )
         return VideoDownloadError(
             f"This video requires login on {platform}. Please set cookies in Settings → Platform Cookies.",
             "LOGIN_REQUIRED",
@@ -204,8 +210,10 @@ class YtdlpDownloader(BaseDownloader):
             "http_chunk_size": 10485760,
             "throttled_rate": 100_000,
             "buffersize": 1024 * 1024,
+            "js_runtimes": {"deno": {}, "node": {}, "bun": {}},
+            "remote_components": {"ejs:github"},
         }
-        # Use aria2c if available for multi-connection downloads
+
         import shutil
         if shutil.which("aria2c"):
             opts["external_downloader"] = "aria2c"

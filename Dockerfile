@@ -15,7 +15,11 @@ FROM python:3.11-slim
 RUN apt-get update && apt-get install -y --no-install-recommends \
     ffmpeg \
     aria2 \
+    curl \
     && rm -rf /var/lib/apt/lists/*
+
+# Install Node.js (required by yt-dlp for YouTube JS challenge solving)
+COPY --from=frontend-build /usr/local/bin/node /usr/local/bin/node
 
 WORKDIR /app
 
