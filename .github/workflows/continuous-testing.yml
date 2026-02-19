@@ -18,7 +18,7 @@ on:
 
 env:
   PYTHON_VERSION: '3.11'
-  DEFAULT_DEPLOY_URL: 'https://xyz-transcript-download.onrender.com'
+  DEFAULT_DEPLOY_URL: 'https://aipodcastsummary.online'
 
 jobs:
   test:

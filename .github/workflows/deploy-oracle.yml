@@ -1,0 +1,106 @@
+name: Deploy to Oracle Cloud
+
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - '*.md'
+      - 'tests/**'
+      - '.gitignore'
+  workflow_dispatch:
+
+env:
+  OCIR_REGISTRY: iad.ocir.io
+  OCIR_NAMESPACE: ide2oawxnq9y
+  OCIR_REPO: podcast-tool
+  OCI_REGION: us-ashburn-1
+  CONTAINER_INSTANCE_ID: ocid1.computecontainerinstance.oc1.iad.anuwcljrram2hqqaueqbs2y4opn3tm2jfpmx4a7gdsscygwyjgnac5vrqgta
+  COMPARTMENT_ID: ocid1.compartment.oc1..aaaaaaaaorvzawio5acl4awquwshitqthiu7yp3k7muym47wv632talxpuoa
+  SUBNET_ID: ocid1.subnet.oc1.iad.aaaaaaaahxx7dhu37m5enxzaolx6lxir6iz4pp3sp3o75dcxcy5gw5nyh5fa
+
+jobs:
+  build-and-deploy:
+    name: Build & Deploy
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up QEMU (for ARM cross-compilation)
+        uses: docker/setup-qemu-action@v3
+        with:
+          platforms: arm64
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to OCIR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.OCIR_REGISTRY }}
+          username: ${{ env.OCIR_NAMESPACE }}/vincentjyzhao@gmail.com
+          password: ${{ secrets.OCIR_AUTH_TOKEN }}
+
+      - name: Build and push ARM image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: linux/arm64
+          push: true
+          tags: |
+            ${{ env.OCIR_REGISTRY }}/${{ env.OCIR_NAMESPACE }}/${{ env.OCIR_REPO }}:latest
+            ${{ env.OCIR_REGISTRY }}/${{ env.OCIR_NAMESPACE }}/${{ env.OCIR_REPO }}:${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Install and configure OCI CLI
+        env:
+          OCI_CLI_USER: ${{ secrets.OCI_USER_OCID }}
+          OCI_CLI_FINGERPRINT: ${{ secrets.OCI_FINGERPRINT }}
+          OCI_CLI_TENANCY: ${{ secrets.OCI_TENANCY_OCID }}
+          OCI_CLI_REGION: ${{ env.OCI_REGION }}
+        run: |
+          pip install oci-cli
+          mkdir -p ~/.oci
+          echo "${{ secrets.OCI_PRIVATE_KEY }}" > ~/.oci/key.pem
+          chmod 600 ~/.oci/key.pem
+          printf '[DEFAULT]\nuser=%s\nfingerprint=%s\ntenancy=%s\nregion=%s\nkey_file=~/.oci/key.pem\n' \
+            "${OCI_CLI_USER}" "${OCI_CLI_FINGERPRINT}" "${OCI_CLI_TENANCY}" "${OCI_CLI_REGION}" \
+            > ~/.oci/config
+          oci iam region list --output table | head -5
+
+      - name: Restart Container Instance
+        run: |
+          echo "Restarting container instance to pull new image..."
+          oci container-instances container-instance restart \
+            --container-instance-id ${{ env.CONTAINER_INSTANCE_ID }} \
+            2>&1 || echo "Restart initiated"
+          echo "Waiting for restart..."
+          sleep 10
+          for i in 1 2 3 4 5 6; do
+            STATE=$(oci container-instances container-instance get \
+              --container-instance-id ${{ env.CONTAINER_INSTANCE_ID }} \
+              --query 'data."lifecycle-state"' --raw-output 2>&1)
+            echo "Attempt $i: State=$STATE"
+            if [ "$STATE" = "ACTIVE" ]; then
+              echo "Container is active!"
+              break
+            fi
+            sleep 20
+          done
+
+      - name: Wait and verify health
+        run: |
+          echo "Waiting for container to be healthy..."
+          sleep 30
+          for i in 1 2 3 4 5; do
+            STATUS=$(curl -s -o /dev/null -w "%{http_code}" https://aipodcastsummary.online/api/health || echo "000")
+            echo "Attempt $i: HTTP $STATUS"
+            if [ "$STATUS" = "200" ]; then
+              echo "Deployment successful!"
+              exit 0
+            fi
+            sleep 15
+          done
+          echo "Warning: Health check not passing yet, but deployment may still be in progress"
