@@ -496,6 +496,12 @@ export async function fetchCookieStatus(platform: string): Promise<{ platform: s
   return res.json()
 }
 
+export async function validateBilibiliCookie(): Promise<{ valid: boolean; reason: string; message: string }> {
+  const res = await authFetch(`${API_BASE}/cookies/bilibili/validate`)
+  if (!res.ok) return { valid: false, reason: 'error', message: 'Server error' }
+  return res.json()
+}
+
 export async function updateCookie(platform: string, cookieData: string): Promise<{ message: string }> {
   const res = await authFetch(`${API_BASE}/cookies`, {
     method: 'POST',

@@ -162,6 +162,47 @@ def _cookies_to_netscape(cookies: dict) -> str:
     return "\n".join(lines) + "\n"
 
 
+@router.get("/bilibili/validate")
+async def bilibili_validate_cookie(user: Optional[User] = Depends(get_current_user)):
+    """Check if saved BiliBili cookies are still valid by calling a lightweight API."""
+    from cookie_manager import get_cookie_manager
+    mgr = get_cookie_manager()
+    cookie_str = mgr.get_cookie("bilibili")
+    if not cookie_str:
+        return {"valid": False, "reason": "no_cookie", "message": "Not logged in"}
+
+    # Parse Netscape cookie file into a header string
+    cookie_header = _netscape_to_header(cookie_str)
+    if not cookie_header:
+        return {"valid": False, "reason": "bad_format", "message": "Cookie format invalid"}
+
+    try:
+        headers = {**BILIBILI_HEADERS, "Cookie": cookie_header}
+        async with httpx.AsyncClient(headers=headers, timeout=10.0) as client:
+            resp = await client.get("https://api.bilibili.com/x/web-interface/nav")
+            data = resp.json()
+        if data.get("code") == 0 and data.get("data", {}).get("isLogin"):
+            uname = data["data"].get("uname", "")
+            return {"valid": True, "reason": "ok", "message": f"Logged in as {uname}"}
+        return {"valid": False, "reason": "expired", "message": "Cookie expired, please re-login"}
+    except Exception as e:
+        logger.warning(f"BiliBili cookie validation error: {e}")
+        return {"valid": False, "reason": "error", "message": f"Validation failed: {type(e).__name__}"}
+
+
+def _netscape_to_header(netscape_str: str) -> str:
+    """Convert Netscape cookie file format to a Cookie header string."""
+    pairs = []
+    for line in netscape_str.splitlines():
+        line = line.strip()
+        if not line or line.startswith("#"):
+            continue
+        parts = line.split("\t")
+        if len(parts) >= 7:
+            pairs.append(f"{parts[5]}={parts[6]}")
+    return "; ".join(pairs)
+
+
 @router.get("/{platform}")
 async def get_cookie(platform: str, user: Optional[User] = Depends(get_current_user)):
     """Get cookie status for a platform (does not return actual cookie data for security)."""

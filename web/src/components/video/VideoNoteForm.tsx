@@ -1,8 +1,9 @@
 import { useState, useRef } from 'react'
+import { useNavigate } from 'react-router-dom'
 import {
   Play, Loader2, Settings2, ChevronDown, ChevronUp,
 } from 'lucide-react'
-import { generateVideoNote, uploadVideoFile, getUserModelSettings } from '../../lib/api'
+import { generateVideoNote, uploadVideoFile, getUserModelSettings, validateBilibiliCookie } from '../../lib/api'
 
 const PLATFORMS = [
   { id: 'bilibili', label: 'Bilibili', icon: '📺' },
@@ -49,7 +50,12 @@ interface Props {
   onTaskCreated?: (taskId: string) => void
 }
 
+function isBilibiliUrl(url: string): boolean {
+  return /bilibili\.com|b23\.tv/i.test(url)
+}
+
 export default function VideoNoteForm({ onTaskCreated }: Props) {
+  const navigate = useNavigate()
   const [url, setUrl] = useState('')
   const [platform, setPlatform] = useState('')
   const [style, setStyle] = useState('detailed')
@@ -89,6 +95,22 @@ export default function VideoNoteForm({ onTaskCreated }: Props) {
     if (!url.trim()) return
     setLoading(true)
     setError('')
+
+    if (isBilibiliUrl(url.trim())) {
+      try {
+        const cookieCheck = await validateBilibiliCookie()
+        if (!cookieCheck.valid) {
+          setError('BiliBili login required. Please go to Settings → BiliBili Login to scan the QR code first.')
+          setLoading(false)
+          return
+        }
+      } catch {
+        setError('Could not verify BiliBili login status. Please check Settings → BiliBili Login.')
+        setLoading(false)
+        return
+      }
+    }
+
     try {
       const modelSettings = getUserModelSettings()
       const result = await generateVideoNote({
@@ -343,7 +365,15 @@ export default function VideoNoteForm({ onTaskCreated }: Props) {
       {/* Error display */}
       {error && (
         <div className="p-3 bg-red-900/30 border border-red-500/50 rounded-lg text-sm text-red-300">
-          {error}
+          <p>{error}</p>
+          {error.includes('Settings') && (
+            <button
+              onClick={() => navigate('/settings')}
+              className="mt-2 text-indigo-400 hover:text-indigo-300 underline text-xs"
+            >
+              Open Settings
+            </button>
+          )}
         </div>
       )}
 
