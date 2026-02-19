@@ -16,7 +16,6 @@ export default function Videos() {
 
   const handleSelect = useCallback(async (task: VideoTask) => {
     setSelectedVideoTaskId(task.id)
-    // Fetch full task data including transcript and versions
     if (task.status === 'success' && !task.markdown) {
       try {
         const full = await fetchVideoTask(task.id)
@@ -29,14 +28,14 @@ export default function Videos() {
 
   return (
     <div className="h-[calc(100vh-2rem)] flex gap-4 p-4">
-      {/* Left: Form */}
-      <div className="w-80 flex-shrink-0 overflow-y-auto custom-scrollbar bg-dark-surface rounded-xl border border-dark-border p-4">
-        <VideoNoteForm onTaskCreated={handleTaskCreated} />
-      </div>
-
-      {/* Center: History */}
-      <div className="w-64 flex-shrink-0 overflow-hidden bg-dark-surface rounded-xl border border-dark-border p-4">
-        <VideoHistory onSelect={handleSelect} />
+      {/* Left panel: Form + History stacked */}
+      <div className="w-[380px] flex-shrink-0 flex flex-col gap-4 min-h-0">
+        <div className="overflow-y-auto custom-scrollbar bg-dark-surface rounded-xl border border-dark-border p-5">
+          <VideoNoteForm onTaskCreated={handleTaskCreated} />
+        </div>
+        <div className="flex-1 min-h-0 overflow-hidden bg-dark-surface rounded-xl border border-dark-border p-4">
+          <VideoHistory onSelect={handleSelect} />
+        </div>
       </div>
 
       {/* Right: Preview */}

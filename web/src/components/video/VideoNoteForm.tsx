@@ -33,9 +33,9 @@ const FORMATS = [
 ]
 
 const AUDIO_QUALITIES = [
-  { id: 'fast', label: 'Fast', sub: '32kbps' },
-  { id: 'medium', label: 'Medium', sub: '64kbps' },
-  { id: 'slow', label: 'High', sub: '128kbps' },
+  { id: 'fast', label: 'Fast', sub: '32k' },
+  { id: 'medium', label: 'Medium', sub: '64k' },
+  { id: 'slow', label: 'High', sub: '128k' },
 ]
 
 const VIDEO_QUALITIES = [
@@ -113,6 +113,9 @@ export default function VideoNoteForm({ onTaskCreated }: Props) {
 
     try {
       const modelSettings = getUserModelSettings()
+      // #region agent log
+      fetch('http://127.0.0.1:7244/ingest/93158d3a-ec2c-4e4b-8a82-57bf6bb6df56',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'VideoNoteForm.tsx:handleSubmit',message:'before_generateVideoNote',data:{url:url.trim().substring(0,80),platform,style,quality,videoQuality,formatsLen:formats.length},timestamp:Date.now(),hypothesisId:'D'})}).catch(()=>{});
+      // #endregion
       const result = await generateVideoNote({
         url: url.trim(),
         platform,
@@ -128,11 +131,17 @@ export default function VideoNoteForm({ onTaskCreated }: Props) {
         grid_rows: gridRows,
         max_output_tokens: modelSettings.max_output_tokens,
       })
+      // #region agent log
+      fetch('http://127.0.0.1:7244/ingest/93158d3a-ec2c-4e4b-8a82-57bf6bb6df56',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'VideoNoteForm.tsx:handleSubmit',message:'generateVideoNote_ok',data:{taskId:result.task_id},timestamp:Date.now(),hypothesisId:'D'})}).catch(()=>{});
+      // #endregion
       onTaskCreated?.(result.task_id)
       setUrl('')
       setUploadProgress('')
     } catch (e: any) {
       const msg = e?.message || 'Unknown error'
+      // #region agent log
+      fetch('http://127.0.0.1:7244/ingest/93158d3a-ec2c-4e4b-8a82-57bf6bb6df56',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'VideoNoteForm.tsx:handleSubmit',message:'generateVideoNote_error',data:{error:msg},timestamp:Date.now(),hypothesisId:'A,B,D'})}).catch(()=>{});
+      // #endregion
       console.error('Failed to generate note:', msg)
       setError(msg)
     } finally {
@@ -141,12 +150,12 @@ export default function VideoNoteForm({ onTaskCreated }: Props) {
   }
 
   return (
-    <div className="space-y-5">
-      <h3 className="text-lg font-semibold text-white">Generate Video Notes</h3>
+    <div className="space-y-4">
+      <h3 className="text-base font-semibold text-white">Generate Video Notes</h3>
 
-      {/* URL & Platform Card */}
-      <div className="p-4 bg-dark-surface border border-dark-border rounded-xl space-y-3">
-        <label className="block text-xs font-medium text-gray-500 uppercase tracking-wider">Platform</label>
+      {/* Platform */}
+      <div>
+        <label className="block text-xs font-medium text-gray-500 uppercase tracking-wider mb-1.5">Platform</label>
         <div className="flex flex-wrap gap-1.5">
           {PLATFORMS.map(p => (
             <button
@@ -176,113 +185,98 @@ export default function VideoNoteForm({ onTaskCreated }: Props) {
           }}
         />
         {uploadProgress && (
-          <p className="text-xs text-gray-500">{uploadProgress}</p>
-        )}
-
-        {platform !== 'local' && (
-          <input
-            type="text"
-            value={url}
-            onChange={e => setUrl(e.target.value)}
-            placeholder="Paste video URL here..."
-            className="w-full px-3 py-2.5 bg-dark-hover border border-dark-border rounded-lg text-white text-sm placeholder-gray-500 focus:outline-none focus:border-indigo-500"
-          />
+          <p className="text-xs text-gray-500 mt-1">{uploadProgress}</p>
         )}
       </div>
 
-      {/* Style & Format Card */}
-      <div className="p-4 bg-dark-surface border border-dark-border rounded-xl space-y-4">
-        <div>
-          <label className="block text-xs font-medium text-gray-500 uppercase tracking-wider mb-2">Note Style</label>
-          <select
-            value={style}
-            onChange={e => setStyle(e.target.value)}
-            className="w-full px-3 py-2 bg-dark-hover border border-dark-border rounded-lg text-white text-sm focus:outline-none focus:border-indigo-500"
-          >
-            {STYLES.map(s => (
-              <option key={s.id} value={s.id}>{s.label}</option>
-            ))}
-          </select>
-        </div>
+      {/* URL */}
+      {platform !== 'local' && (
+        <input
+          type="text"
+          value={url}
+          onChange={e => setUrl(e.target.value)}
+          placeholder="Paste video URL here..."
+          className="w-full px-3 py-2.5 bg-dark-hover border border-dark-border rounded-lg text-white text-sm placeholder-gray-500 focus:outline-none focus:border-indigo-500"
+        />
+      )}
 
-        <div>
-          <label className="block text-xs font-medium text-gray-500 uppercase tracking-wider mb-2">Include</label>
-          <div className="grid grid-cols-2 gap-1.5">
-            {FORMATS.map(f => (
-              <label
-                key={f.id}
-                className={`flex items-center justify-center px-2 py-1.5 rounded-lg text-xs cursor-pointer transition-colors ${
-                  formats.includes(f.id)
-                    ? 'bg-indigo-600/20 text-indigo-400 border border-indigo-500/50'
-                    : 'bg-dark-hover text-gray-400 border border-transparent'
-                }`}
-              >
-                <input
-                  type="checkbox"
-                  checked={formats.includes(f.id)}
-                  onChange={() => toggleFormat(f.id)}
-                  className="hidden"
-                />
-                {f.label}
-              </label>
-            ))}
-          </div>
+      {/* Note Style */}
+      <div>
+        <label className="block text-xs font-medium text-gray-500 uppercase tracking-wider mb-1.5">Note Style</label>
+        <select
+          value={style}
+          onChange={e => setStyle(e.target.value)}
+          className="w-full px-3 py-2 bg-dark-hover border border-dark-border rounded-lg text-white text-sm focus:outline-none focus:border-indigo-500"
+        >
+          {STYLES.map(s => (
+            <option key={s.id} value={s.id}>{s.label}</option>
+          ))}
+        </select>
+      </div>
+
+      {/* Include Formats */}
+      <div>
+        <label className="block text-xs font-medium text-gray-500 uppercase tracking-wider mb-1.5">Include</label>
+        <div className="flex flex-wrap gap-1.5">
+          {FORMATS.map(f => (
+            <label
+              key={f.id}
+              className={`px-3 py-1.5 rounded-lg text-xs cursor-pointer transition-colors whitespace-nowrap ${
+                formats.includes(f.id)
+                  ? 'bg-indigo-600/20 text-indigo-400 border border-indigo-500/50'
+                  : 'bg-dark-hover text-gray-400 border border-transparent hover:text-white'
+              }`}
+            >
+              <input
+                type="checkbox"
+                checked={formats.includes(f.id)}
+                onChange={() => toggleFormat(f.id)}
+                className="hidden"
+              />
+              {f.label}
+            </label>
+          ))}
         </div>
       </div>
 
-      {/* Quality Card */}
-      <div className="p-4 bg-dark-surface border border-dark-border rounded-xl space-y-4">
-        <div>
-          <label className="block text-xs font-medium text-gray-500 uppercase tracking-wider mb-2">Audio Quality</label>
-          <div className="grid grid-cols-3 gap-1.5">
-            {AUDIO_QUALITIES.map(q => (
-              <label
-                key={q.id}
-                className={`flex flex-col items-center py-2 rounded-lg text-xs cursor-pointer transition-colors ${
-                  quality === q.id
-                    ? 'bg-indigo-600 text-white'
-                    : 'bg-dark-hover text-gray-400 hover:text-white'
-                }`}
-              >
-                <input
-                  type="radio"
-                  name="quality"
-                  value={q.id}
-                  checked={quality === q.id}
-                  onChange={() => setQuality(q.id)}
-                  className="hidden"
-                />
-                <span className="font-medium">{q.label}</span>
-                <span className={`text-[10px] ${quality === q.id ? 'text-indigo-200' : 'text-gray-500'}`}>{q.sub}</span>
-              </label>
-            ))}
-          </div>
+      {/* Audio Quality */}
+      <div>
+        <label className="block text-xs font-medium text-gray-500 uppercase tracking-wider mb-1.5">Audio Quality</label>
+        <div className="flex gap-1.5">
+          {AUDIO_QUALITIES.map(q => (
+            <button
+              key={q.id}
+              onClick={() => setQuality(q.id)}
+              className={`flex-1 flex flex-col items-center py-2 rounded-lg text-xs transition-colors ${
+                quality === q.id
+                  ? 'bg-indigo-600 text-white'
+                  : 'bg-dark-hover text-gray-400 hover:text-white'
+              }`}
+            >
+              <span className="font-medium">{q.label}</span>
+              <span className={`text-[10px] mt-0.5 ${quality === q.id ? 'text-indigo-200' : 'text-gray-500'}`}>{q.sub}</span>
+            </button>
+          ))}
         </div>
+      </div>
 
-        <div>
-          <label className="block text-xs font-medium text-gray-500 uppercase tracking-wider mb-2">Video Quality</label>
-          <div className="grid grid-cols-5 gap-1.5">
-            {VIDEO_QUALITIES.map(q => (
-              <label
-                key={q.id}
-                className={`flex items-center justify-center py-2 rounded-lg text-xs cursor-pointer transition-colors ${
-                  videoQuality === q.id
-                    ? 'bg-indigo-600 text-white font-medium'
-                    : 'bg-dark-hover text-gray-400 hover:text-white'
-                }`}
-              >
-                <input
-                  type="radio"
-                  name="videoQuality"
-                  value={q.id}
-                  checked={videoQuality === q.id}
-                  onChange={() => setVideoQuality(q.id)}
-                  className="hidden"
-                />
-                {q.label}
-              </label>
-            ))}
-          </div>
+      {/* Video Quality */}
+      <div>
+        <label className="block text-xs font-medium text-gray-500 uppercase tracking-wider mb-1.5">Video Quality</label>
+        <div className="flex gap-1.5">
+          {VIDEO_QUALITIES.map(q => (
+            <button
+              key={q.id}
+              onClick={() => setVideoQuality(q.id)}
+              className={`flex-1 py-2 rounded-lg text-xs text-center transition-colors ${
+                videoQuality === q.id
+                  ? 'bg-indigo-600 text-white font-medium'
+                  : 'bg-dark-hover text-gray-400 hover:text-white'
+              }`}
+            >
+              {q.label}
+            </button>
+          ))}
         </div>
       </div>
 
@@ -297,7 +291,7 @@ export default function VideoNoteForm({ onTaskCreated }: Props) {
       </button>
 
       {showAdvanced && (
-        <div className="p-4 bg-dark-surface border border-dark-border rounded-xl space-y-4">
+        <div className="p-3 bg-dark-hover/50 border border-dark-border rounded-lg space-y-3">
           <label className="flex items-center gap-2 cursor-pointer">
             <input
               type="checkbox"
@@ -305,55 +299,55 @@ export default function VideoNoteForm({ onTaskCreated }: Props) {
               onChange={e => setVideoUnderstanding(e.target.checked)}
               className="rounded bg-dark-hover border-dark-border text-indigo-600 focus:ring-indigo-500"
             />
-            <span className="text-sm text-gray-300">Multimodal Video Understanding</span>
+            <span className="text-xs text-gray-300">Multimodal Video Understanding</span>
           </label>
 
           {videoUnderstanding && (
             <div className="grid grid-cols-3 gap-2">
               <div>
-                <label className="block text-xs text-gray-500 mb-1">Interval (s)</label>
+                <label className="block text-[10px] text-gray-500 mb-1">Interval (s)</label>
                 <input
                   type="number"
                   min={1}
                   max={30}
                   value={videoInterval}
                   onChange={e => setVideoInterval(parseInt(e.target.value) || 4)}
-                  className="w-full px-2 py-1.5 bg-dark-hover border border-dark-border rounded-lg text-sm text-white"
+                  className="w-full px-2 py-1.5 bg-dark-hover border border-dark-border rounded-lg text-xs text-white"
                 />
               </div>
               <div>
-                <label className="block text-xs text-gray-500 mb-1">Grid Cols</label>
+                <label className="block text-[10px] text-gray-500 mb-1">Grid Cols</label>
                 <input
                   type="number"
                   min={1}
                   max={5}
                   value={gridCols}
                   onChange={e => setGridCols(parseInt(e.target.value) || 3)}
-                  className="w-full px-2 py-1.5 bg-dark-hover border border-dark-border rounded-lg text-sm text-white"
+                  className="w-full px-2 py-1.5 bg-dark-hover border border-dark-border rounded-lg text-xs text-white"
                 />
               </div>
               <div>
-                <label className="block text-xs text-gray-500 mb-1">Grid Rows</label>
+                <label className="block text-[10px] text-gray-500 mb-1">Grid Rows</label>
                 <input
                   type="number"
                   min={1}
                   max={5}
                   value={gridRows}
                   onChange={e => setGridRows(parseInt(e.target.value) || 3)}
-                  className="w-full px-2 py-1.5 bg-dark-hover border border-dark-border rounded-lg text-sm text-white"
+                  className="w-full px-2 py-1.5 bg-dark-hover border border-dark-border rounded-lg text-xs text-white"
                 />
               </div>
             </div>
           )}
 
           <div>
-            <label className="block text-xs text-gray-500 mb-1">Extra Instructions</label>
+            <label className="block text-[10px] text-gray-500 mb-1">Extra Instructions</label>
             <textarea
               value={extras}
               onChange={e => setExtras(e.target.value)}
               placeholder="Additional instructions for the AI..."
               rows={2}
-              className="w-full px-3 py-2 bg-dark-hover border border-dark-border rounded-lg text-sm text-white placeholder-gray-500 focus:outline-none focus:border-indigo-500 resize-none"
+              className="w-full px-2 py-1.5 bg-dark-hover border border-dark-border rounded-lg text-xs text-white placeholder-gray-500 focus:outline-none focus:border-indigo-500 resize-none"
             />
           </div>
         </div>
@@ -361,12 +355,12 @@ export default function VideoNoteForm({ onTaskCreated }: Props) {
 
       {/* Error display */}
       {error && (
-        <div className="p-3 bg-red-900/30 border border-red-500/50 rounded-xl text-sm text-red-300">
+        <div className="p-3 bg-red-900/30 border border-red-500/50 rounded-lg text-xs text-red-300">
           <p>{error}</p>
           {error.includes('Settings') && (
             <button
               onClick={() => navigate('/settings')}
-              className="mt-2 text-indigo-400 hover:text-indigo-300 underline text-xs"
+              className="mt-1.5 text-indigo-400 hover:text-indigo-300 underline text-xs"
             >
               Open Settings
             </button>
@@ -378,16 +372,16 @@ export default function VideoNoteForm({ onTaskCreated }: Props) {
       <button
         onClick={handleSubmit}
         disabled={loading || !url.trim()}
-        className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-indigo-600 hover:bg-indigo-700 disabled:bg-gray-700 disabled:text-gray-500 text-white rounded-xl font-medium transition-colors"
+        className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 disabled:bg-gray-700 disabled:text-gray-500 text-white rounded-lg font-medium text-sm transition-colors"
       >
         {loading ? (
           <>
-            <Loader2 size={18} className="animate-spin" />
+            <Loader2 size={16} className="animate-spin" />
             Processing...
           </>
         ) : (
           <>
-            <Play size={18} />
+            <Play size={16} />
             Generate Notes
           </>
         )}

@@ -30,19 +30,29 @@ const WHISPER_MODELS = [
 // LLM model options — these are LiteLLM model identifiers routed through the proxy
 const LLM_MODELS = [
   { value: '', label: 'Server Default' },
+  // Vertex AI (direct)
   { value: 'vertex_ai/gemini-3-pro-preview', label: 'Gemini 3 Pro' },
   { value: 'vertex_ai/gemini-3-flash-preview', label: 'Gemini 3 Flash' },
   { value: 'vertex_ai/gemini-2.5-pro', label: 'Gemini 2.5 Pro' },
   { value: 'vertex_ai/gemini-2.5-flash', label: 'Gemini 2.5 Flash' },
+  { value: 'vertex_ai/gemini-2.5-flash-image', label: 'Gemini 2.5 Flash Image' },
   { value: 'vertex_ai/gemini-2.5-flash-lite', label: 'Gemini 2.5 Flash Lite' },
+  { value: 'vertex_ai/gemini-2.5-flash-lite-preview-09-2025', label: 'Gemini 2.5 Flash Lite (09-2025)' },
+  // Gemini (Firebase)
+  { value: 'gemini-2.5-flash-fb', label: 'Gemini 2.5 Flash (Firebase)' },
+  { value: 'gemini-2.5-pro-fb', label: 'Gemini 2.5 Pro (Firebase)' },
+  // OpenRouter — OpenAI
   { value: 'openrouter/openai/gpt-4o', label: 'GPT-4o (OpenRouter)' },
   { value: 'openrouter/openai/gpt-5-chat', label: 'GPT-5 (OpenRouter)' },
   { value: 'openrouter/openai/gpt-5-mini', label: 'GPT-5 Mini (OpenRouter)' },
   { value: 'openrouter/openai/o3-mini', label: 'o3-mini (OpenRouter)' },
+  // OpenRouter — Anthropic
   { value: 'openrouter/anthropic/claude-sonnet-4', label: 'Claude Sonnet 4 (OpenRouter)' },
   { value: 'openrouter/anthropic/claude-sonnet-4.5', label: 'Claude Sonnet 4.5 (OpenRouter)' },
+  // OpenRouter — Google
   { value: 'openrouter/google/gemini-2.5-flash', label: 'Gemini 2.5 Flash (OpenRouter)' },
   { value: 'openrouter/google/gemini-2.5-pro', label: 'Gemini 2.5 Pro (OpenRouter)' },
+  // OpenRouter — xAI
   { value: 'openrouter/x-ai/grok-3-mini', label: 'Grok 3 Mini (OpenRouter)' },
   { value: 'openrouter/x-ai/grok-4', label: 'Grok 4 (OpenRouter)' },
   { value: 'openrouter/x-ai/grok-4-fast', label: 'Grok 4 Fast (OpenRouter)' },

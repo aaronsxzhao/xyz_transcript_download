@@ -215,23 +215,47 @@ async def get_current_user(
     Dependency to get the current authenticated user.
     Returns None if not authenticated (for optional auth).
     """
+    # #region agent log
+    import json as _json, time as _time; _log_path = __import__("pathlib").Path(__file__).resolve().parents[1] / ".cursor" / "debug.log"
+    def _dbg(msg, dat=None, hyp=""): _log_path.parent.mkdir(parents=True,exist_ok=True); f=open(_log_path,"a"); f.write(_json.dumps({"timestamp":int(_time.time()*1000),"location":"auth.py:get_current_user","message":msg,"data":dat or {},"hypothesisId":hyp})+"\n"); f.close()
+    # #endregion
+
     if not USE_SUPABASE:
-        # If Supabase not configured, return a default user for local mode
         return User(id="local", email="local@localhost")
     
     if not credentials:
+        # #region agent log
+        _dbg("no_credentials", {"path": str(request.url.path)}, "A,C")
+        # #endregion
         return None
     
     token = credentials.credentials
-    payload = verify_jwt_token(token)
-    
-    if not payload:
+    # #region agent log
+    _dbg("has_token", {"token_len": len(token), "token_prefix": token[:20] + "...", "path": str(request.url.path)}, "A,C")
+    # #endregion
+
+    try:
+        payload = verify_jwt_token(token)
+    except Exception as e:
+        # #region agent log
+        _dbg("verify_exception", {"error": str(e), "error_type": type(e).__name__}, "C")
+        # #endregion
         return None
     
-    return User(
+    if not payload:
+        # #region agent log
+        _dbg("verify_failed", {"payload": None}, "A")
+        # #endregion
+        return None
+    
+    user = User(
         id=payload.get("sub", ""),
         email=payload.get("email", "")
     )
+    # #region agent log
+    _dbg("verify_ok", {"user_id": user.id, "email": user.email}, "A")
+    # #endregion
+    return user
 
 
 async def require_auth(

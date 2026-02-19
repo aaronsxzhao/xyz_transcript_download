@@ -76,8 +76,8 @@ LOG_LEVEL = _validate_choice(
 
 # LLM API Configuration (for summarization)
 LLM_API_KEY = _get_env("LLM_API_KEY", "")
-LLM_BASE_URL = _get_env("LLM_BASE_URL", "https://api.openai.com/v1")
-LLM_MODEL = _get_env("LLM_MODEL", "gpt-4o")
+LLM_BASE_URL = _get_env("LLM_BASE_URL", "https://duet-litellm-api.winktech.net/v1")
+LLM_MODEL = _get_env("LLM_MODEL", "vertex_ai/gemini-3-pro-preview")
 
 # Validate LLM config
 if not LLM_API_KEY:

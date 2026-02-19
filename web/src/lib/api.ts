@@ -2,19 +2,19 @@
  * API client for backend communication
  */
 
-import { getAccessToken } from './auth'
+import { getAccessToken, refreshToken } from './auth'
 
 const API_BASE = '/api'
 
 /**
  * Helper to create headers with auth token
  */
-function getAuthHeaders(contentType?: string): HeadersInit {
+function getAuthHeaders(token?: string | null, contentType?: string): HeadersInit {
   const headers: HeadersInit = {}
   
-  const token = getAccessToken()
-  if (token) {
-    headers['Authorization'] = `Bearer ${token}`
+  const t = token ?? getAccessToken()
+  if (t) {
+    headers['Authorization'] = `Bearer ${t}`
   }
   
   if (contentType) {
@@ -25,7 +25,7 @@ function getAuthHeaders(contentType?: string): HeadersInit {
 }
 
 /**
- * Authenticated fetch wrapper
+ * Authenticated fetch wrapper with automatic token refresh on 401.
  */
 export async function authFetch(url: string, options: RequestInit = {}): Promise<Response> {
   const headers = {
@@ -33,7 +33,29 @@ export async function authFetch(url: string, options: RequestInit = {}): Promise
     ...options.headers,
   }
   
-  return fetch(url, { ...options, headers })
+  const res = await fetch(url, { ...options, headers })
+
+  if (res.status === 401) {
+    // #region agent log
+    fetch('http://127.0.0.1:7244/ingest/93158d3a-ec2c-4e4b-8a82-57bf6bb6df56',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'api.ts:authFetch',message:'got_401_attempting_refresh',data:{url,hasToken:!!getAccessToken()},timestamp:Date.now(),hypothesisId:'A'})}).catch(()=>{});
+    // #endregion
+    const tokens = await refreshToken()
+    if (tokens) {
+      // #region agent log
+      fetch('http://127.0.0.1:7244/ingest/93158d3a-ec2c-4e4b-8a82-57bf6bb6df56',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'api.ts:authFetch',message:'refresh_ok_retrying',data:{url},timestamp:Date.now(),hypothesisId:'A'})}).catch(()=>{});
+      // #endregion
+      const retryHeaders = {
+        ...getAuthHeaders(tokens.access_token),
+        ...options.headers,
+      }
+      return fetch(url, { ...options, headers: retryHeaders })
+    }
+    // #region agent log
+    fetch('http://127.0.0.1:7244/ingest/93158d3a-ec2c-4e4b-8a82-57bf6bb6df56',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'api.ts:authFetch',message:'refresh_failed',data:{url},timestamp:Date.now(),hypothesisId:'A'})}).catch(()=>{});
+    // #endregion
+  }
+
+  return res
 }
 
 export interface Podcast {

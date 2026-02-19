@@ -14,7 +14,7 @@ from api.auth import get_current_user, User
 from api.routers.processing import (
     manager, get_main_loop, ConnectionManager,
 )
-from config import DATA_DIR
+from config import DATA_DIR, USE_SUPABASE
 from logger import get_logger
 
 logger = get_logger("video_notes")
@@ -436,6 +436,10 @@ async def generate_note(
         raise HTTPException(status_code=400, detail="url is required")
 
     user_id = user.id if user else None
+
+    if not user_id and USE_SUPABASE:
+        raise HTTPException(status_code=401, detail="Authentication required. Please log in and try again.")
+
     try:
         fmt_list = json.loads(formats) if isinstance(formats, str) else formats
     except (json.JSONDecodeError, TypeError):
@@ -444,22 +448,26 @@ async def generate_note(
     from video_task_db import get_video_task_db
     db = get_video_task_db()
 
-    task_id = db.create_task({
-        "url": url,
-        "platform": platform,
-        "style": style,
-        "formats": fmt_list,
-        "quality": quality,
-        "video_quality": video_quality,
-        "model": llm_model,
-        "extras": extras,
-        "video_understanding": video_understanding,
-        "video_interval": video_interval,
-        "grid_cols": grid_cols,
-        "grid_rows": grid_rows,
-        "max_output_tokens": max_output_tokens,
-        "user_id": user_id,
-    })
+    try:
+        task_id = db.create_task({
+            "url": url,
+            "platform": platform,
+            "style": style,
+            "formats": fmt_list,
+            "quality": quality,
+            "video_quality": video_quality,
+            "model": llm_model,
+            "extras": extras,
+            "video_understanding": video_understanding,
+            "video_interval": video_interval,
+            "grid_cols": grid_cols,
+            "grid_rows": grid_rows,
+            "max_output_tokens": max_output_tokens,
+            "user_id": user_id,
+        })
+    except Exception as e:
+        logger.error(f"[generate] create_task failed: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Failed to create task: {type(e).__name__}: {e}")
 
     background_tasks.add_task(
         process_video_note_async,
@@ -490,16 +498,32 @@ async def generate_note_json(
     user: Optional[User] = Depends(get_current_user),
 ):
     """Start video note generation (JSON body)."""
+    # #region agent log
+    import json as _json, time as _time; _log_path = __import__("pathlib").Path(__file__).resolve().parents[2] / ".cursor" / "debug.log"
+    def _dbg(msg, dat=None, hyp=""): _log_path.parent.mkdir(parents=True,exist_ok=True); f=open(_log_path,"a"); f.write(_json.dumps({"timestamp":int(_time.time()*1000),"location":"video_notes.py:generate_note_json","message":msg,"data":dat or {},"hypothesisId":hyp})+"\n"); f.close()
+    # #endregion
     url = data.get("url", "")
     if not url:
         raise HTTPException(status_code=400, detail="url is required")
 
     user_id = user.id if user else None
+    # #region agent log
+    _dbg("entry", {"user_repr": repr(user), "user_id": user_id, "url": url[:80], "USE_SUPABASE": USE_SUPABASE, "data_keys": list(data.keys())}, "A,B,C")
+    # #endregion
+
+    if not user_id and USE_SUPABASE:
+        # #region agent log
+        _dbg("auth_rejected", {"reason": "user_id is None in Supabase mode"}, "A")
+        # #endregion
+        raise HTTPException(
+            status_code=401,
+            detail="Authentication required. Please log in and try again."
+        )
 
     from video_task_db import get_video_task_db
     db = get_video_task_db()
 
-    task_id = db.create_task({
+    task_payload = {
         "url": url,
         "platform": data.get("platform", ""),
         "style": data.get("style", "detailed"),
@@ -514,7 +538,22 @@ async def generate_note_json(
         "grid_rows": data.get("grid_rows", 3),
         "max_output_tokens": data.get("max_output_tokens", 0),
         "user_id": user_id,
-    })
+    }
+    # #region agent log
+    _dbg("before_create_task", {"task_payload_keys": list(task_payload.keys()), "user_id": user_id, "platform": task_payload["platform"]}, "B")
+    # #endregion
+
+    try:
+        task_id = db.create_task(task_payload)
+        # #region agent log
+        _dbg("create_task_ok", {"task_id": task_id}, "B")
+        # #endregion
+    except Exception as e:
+        # #region agent log
+        _dbg("create_task_failed", {"error": str(e), "error_type": type(e).__name__}, "B")
+        # #endregion
+        logger.error(f"[generate-json] create_task failed: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Failed to create task: {type(e).__name__}: {e}")
 
     background_tasks.add_task(
         process_video_note_async,
