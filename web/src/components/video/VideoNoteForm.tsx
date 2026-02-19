@@ -33,9 +33,9 @@ const FORMATS = [
 ]
 
 const AUDIO_QUALITIES = [
-  { id: 'fast', label: 'Fast (32kbps)' },
-  { id: 'medium', label: 'Medium (64kbps)' },
-  { id: 'slow', label: 'High (128kbps)' },
+  { id: 'fast', label: 'Fast', sub: '32kbps' },
+  { id: 'medium', label: 'Medium', sub: '64kbps' },
+  { id: 'slow', label: 'High', sub: '128kbps' },
 ]
 
 const VIDEO_QUALITIES = [
@@ -141,13 +141,13 @@ export default function VideoNoteForm({ onTaskCreated }: Props) {
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-5">
       <h3 className="text-lg font-semibold text-white">Generate Video Notes</h3>
 
-      {/* Platform selector */}
-      <div>
-        <label className="block text-sm text-gray-400 mb-1.5">Platform</label>
-        <div className="flex flex-wrap gap-2">
+      {/* URL & Platform Card */}
+      <div className="p-4 bg-dark-surface border border-dark-border rounded-xl space-y-3">
+        <label className="block text-xs font-medium text-gray-500 uppercase tracking-wider">Platform</label>
+        <div className="flex flex-wrap gap-1.5">
           {PLATFORMS.map(p => (
             <button
               key={p.id}
@@ -155,7 +155,7 @@ export default function VideoNoteForm({ onTaskCreated }: Props) {
                 setPlatform(p.id)
                 if (p.id === 'local') fileInputRef.current?.click()
               }}
-              className={`px-3 py-1.5 rounded-lg text-sm transition-colors ${
+              className={`px-2.5 py-1 rounded-md text-xs transition-colors ${
                 platform === p.id
                   ? 'bg-indigo-600 text-white'
                   : 'bg-dark-hover text-gray-400 hover:text-white'
@@ -176,72 +176,69 @@ export default function VideoNoteForm({ onTaskCreated }: Props) {
           }}
         />
         {uploadProgress && (
-          <p className="text-xs text-gray-500 mt-1">{uploadProgress}</p>
+          <p className="text-xs text-gray-500">{uploadProgress}</p>
         )}
-      </div>
 
-      {/* URL input */}
-      {platform !== 'local' && (
-        <div>
-          <label className="block text-sm text-gray-400 mb-1.5">Video URL</label>
+        {platform !== 'local' && (
           <input
             type="text"
             value={url}
             onChange={e => setUrl(e.target.value)}
             placeholder="Paste video URL here..."
-            className="w-full px-3 py-2 bg-dark-hover border border-dark-border rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-indigo-500"
+            className="w-full px-3 py-2.5 bg-dark-hover border border-dark-border rounded-lg text-white text-sm placeholder-gray-500 focus:outline-none focus:border-indigo-500"
           />
-        </div>
-      )}
-
-      {/* Style */}
-      <div>
-        <label className="block text-sm text-gray-400 mb-1.5">Note Style</label>
-        <select
-          value={style}
-          onChange={e => setStyle(e.target.value)}
-          className="w-full px-3 py-2 bg-dark-hover border border-dark-border rounded-lg text-white focus:outline-none focus:border-indigo-500"
-        >
-          {STYLES.map(s => (
-            <option key={s.id} value={s.id}>{s.label}</option>
-          ))}
-        </select>
+        )}
       </div>
 
-      {/* Format options */}
-      <div>
-        <label className="block text-sm text-gray-400 mb-1.5">Include</label>
-        <div className="flex flex-wrap gap-2">
-          {FORMATS.map(f => (
-            <label
-              key={f.id}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm cursor-pointer transition-colors ${
-                formats.includes(f.id)
-                  ? 'bg-indigo-600/20 text-indigo-400 border border-indigo-500/50'
-                  : 'bg-dark-hover text-gray-400 border border-dark-border'
-              }`}
-            >
-              <input
-                type="checkbox"
-                checked={formats.includes(f.id)}
-                onChange={() => toggleFormat(f.id)}
-                className="hidden"
-              />
-              {f.label}
-            </label>
-          ))}
-        </div>
-      </div>
-
-      {/* Quality */}
-      <div className="space-y-3">
+      {/* Style & Format Card */}
+      <div className="p-4 bg-dark-surface border border-dark-border rounded-xl space-y-4">
         <div>
-          <label className="block text-sm text-gray-400 mb-1.5">Audio Quality</label>
-          <div className="flex gap-1.5">
+          <label className="block text-xs font-medium text-gray-500 uppercase tracking-wider mb-2">Note Style</label>
+          <select
+            value={style}
+            onChange={e => setStyle(e.target.value)}
+            className="w-full px-3 py-2 bg-dark-hover border border-dark-border rounded-lg text-white text-sm focus:outline-none focus:border-indigo-500"
+          >
+            {STYLES.map(s => (
+              <option key={s.id} value={s.id}>{s.label}</option>
+            ))}
+          </select>
+        </div>
+
+        <div>
+          <label className="block text-xs font-medium text-gray-500 uppercase tracking-wider mb-2">Include</label>
+          <div className="grid grid-cols-2 gap-1.5">
+            {FORMATS.map(f => (
+              <label
+                key={f.id}
+                className={`flex items-center justify-center px-2 py-1.5 rounded-lg text-xs cursor-pointer transition-colors ${
+                  formats.includes(f.id)
+                    ? 'bg-indigo-600/20 text-indigo-400 border border-indigo-500/50'
+                    : 'bg-dark-hover text-gray-400 border border-transparent'
+                }`}
+              >
+                <input
+                  type="checkbox"
+                  checked={formats.includes(f.id)}
+                  onChange={() => toggleFormat(f.id)}
+                  className="hidden"
+                />
+                {f.label}
+              </label>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Quality Card */}
+      <div className="p-4 bg-dark-surface border border-dark-border rounded-xl space-y-4">
+        <div>
+          <label className="block text-xs font-medium text-gray-500 uppercase tracking-wider mb-2">Audio Quality</label>
+          <div className="grid grid-cols-3 gap-1.5">
             {AUDIO_QUALITIES.map(q => (
               <label
                 key={q.id}
-                className={`px-3 py-1.5 rounded-lg text-xs cursor-pointer transition-colors whitespace-nowrap ${
+                className={`flex flex-col items-center py-2 rounded-lg text-xs cursor-pointer transition-colors ${
                   quality === q.id
                     ? 'bg-indigo-600 text-white'
                     : 'bg-dark-hover text-gray-400 hover:text-white'
@@ -255,20 +252,22 @@ export default function VideoNoteForm({ onTaskCreated }: Props) {
                   onChange={() => setQuality(q.id)}
                   className="hidden"
                 />
-                {q.label}
+                <span className="font-medium">{q.label}</span>
+                <span className={`text-[10px] ${quality === q.id ? 'text-indigo-200' : 'text-gray-500'}`}>{q.sub}</span>
               </label>
             ))}
           </div>
         </div>
+
         <div>
-          <label className="block text-sm text-gray-400 mb-1.5">Video Quality</label>
-          <div className="flex gap-1.5">
+          <label className="block text-xs font-medium text-gray-500 uppercase tracking-wider mb-2">Video Quality</label>
+          <div className="grid grid-cols-5 gap-1.5">
             {VIDEO_QUALITIES.map(q => (
               <label
                 key={q.id}
-                className={`px-3 py-1.5 rounded-lg text-xs cursor-pointer transition-colors whitespace-nowrap ${
+                className={`flex items-center justify-center py-2 rounded-lg text-xs cursor-pointer transition-colors ${
                   videoQuality === q.id
-                    ? 'bg-indigo-600 text-white'
+                    ? 'bg-indigo-600 text-white font-medium'
                     : 'bg-dark-hover text-gray-400 hover:text-white'
                 }`}
               >
@@ -287,19 +286,18 @@ export default function VideoNoteForm({ onTaskCreated }: Props) {
         </div>
       </div>
 
-      {/* Advanced toggle */}
+      {/* Advanced Options */}
       <button
         onClick={() => setShowAdvanced(!showAdvanced)}
-        className="flex items-center gap-1 text-sm text-gray-400 hover:text-white transition-colors"
+        className="flex items-center gap-1.5 text-xs text-gray-500 hover:text-white transition-colors"
       >
-        <Settings2 size={14} />
+        <Settings2 size={12} />
         Advanced Options
-        {showAdvanced ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+        {showAdvanced ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
       </button>
 
       {showAdvanced && (
-        <div className="space-y-3 pl-2 border-l-2 border-dark-border">
-          {/* Video Understanding */}
+        <div className="p-4 bg-dark-surface border border-dark-border rounded-xl space-y-4">
           <label className="flex items-center gap-2 cursor-pointer">
             <input
               type="checkbox"
@@ -320,7 +318,7 @@ export default function VideoNoteForm({ onTaskCreated }: Props) {
                   max={30}
                   value={videoInterval}
                   onChange={e => setVideoInterval(parseInt(e.target.value) || 4)}
-                  className="w-full px-2 py-1 bg-dark-hover border border-dark-border rounded text-sm text-white"
+                  className="w-full px-2 py-1.5 bg-dark-hover border border-dark-border rounded-lg text-sm text-white"
                 />
               </div>
               <div>
@@ -331,7 +329,7 @@ export default function VideoNoteForm({ onTaskCreated }: Props) {
                   max={5}
                   value={gridCols}
                   onChange={e => setGridCols(parseInt(e.target.value) || 3)}
-                  className="w-full px-2 py-1 bg-dark-hover border border-dark-border rounded text-sm text-white"
+                  className="w-full px-2 py-1.5 bg-dark-hover border border-dark-border rounded-lg text-sm text-white"
                 />
               </div>
               <div>
@@ -342,13 +340,12 @@ export default function VideoNoteForm({ onTaskCreated }: Props) {
                   max={5}
                   value={gridRows}
                   onChange={e => setGridRows(parseInt(e.target.value) || 3)}
-                  className="w-full px-2 py-1 bg-dark-hover border border-dark-border rounded text-sm text-white"
+                  className="w-full px-2 py-1.5 bg-dark-hover border border-dark-border rounded-lg text-sm text-white"
                 />
               </div>
             </div>
           )}
 
-          {/* Extras */}
           <div>
             <label className="block text-xs text-gray-500 mb-1">Extra Instructions</label>
             <textarea
@@ -356,7 +353,7 @@ export default function VideoNoteForm({ onTaskCreated }: Props) {
               onChange={e => setExtras(e.target.value)}
               placeholder="Additional instructions for the AI..."
               rows={2}
-              className="w-full px-2 py-1.5 bg-dark-hover border border-dark-border rounded text-sm text-white placeholder-gray-500 focus:outline-none focus:border-indigo-500 resize-none"
+              className="w-full px-3 py-2 bg-dark-hover border border-dark-border rounded-lg text-sm text-white placeholder-gray-500 focus:outline-none focus:border-indigo-500 resize-none"
             />
           </div>
         </div>
@@ -364,7 +361,7 @@ export default function VideoNoteForm({ onTaskCreated }: Props) {
 
       {/* Error display */}
       {error && (
-        <div className="p-3 bg-red-900/30 border border-red-500/50 rounded-lg text-sm text-red-300">
+        <div className="p-3 bg-red-900/30 border border-red-500/50 rounded-xl text-sm text-red-300">
           <p>{error}</p>
           {error.includes('Settings') && (
             <button
@@ -381,7 +378,7 @@ export default function VideoNoteForm({ onTaskCreated }: Props) {
       <button
         onClick={handleSubmit}
         disabled={loading || !url.trim()}
-        className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 disabled:bg-gray-700 disabled:text-gray-500 text-white rounded-lg font-medium transition-colors"
+        className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-indigo-600 hover:bg-indigo-700 disabled:bg-gray-700 disabled:text-gray-500 text-white rounded-xl font-medium transition-colors"
       >
         {loading ? (
           <>
