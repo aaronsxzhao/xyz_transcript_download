@@ -46,5 +46,14 @@ torch>=2.0.0
 imageio-ffmpeg>=0.4.9
 pydub>=0.25.1
 
+# Video downloading
+yt-dlp>=2024.0.0
+
+# Image processing (for video grids / screenshots)
+Pillow>=10.0.0
+
+# File upload support
+python-multipart>=0.0.6
+
 # Optional: Flash Attention for faster inference (CUDA only)
 # flash-attn>=2.3.0  # Uncomment if using CUDA GPU

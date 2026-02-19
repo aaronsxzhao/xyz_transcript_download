@@ -348,3 +348,150 @@ export async function importUserSubscriptions(username: string): Promise<ImportS
   }
   return res.json()
 }
+
+
+// ===== Video Notes API =====
+
+export interface VideoTask {
+  id: string
+  url: string
+  platform: string
+  title: string
+  thumbnail: string
+  status: string
+  progress: number
+  message: string
+  markdown: string
+  transcript: { text: string; segments: { start: number; end: number; text: string }[]; duration: number } | null
+  style: string
+  model: string
+  formats: string[]
+  quality: string
+  extras: string
+  video_understanding: boolean
+  video_interval: number
+  grid_cols: number
+  grid_rows: number
+  duration: number
+  error: string
+  created_at: string
+  updated_at: string
+  versions?: VideoTaskVersion[]
+}
+
+export interface VideoTaskVersion {
+  id: string
+  task_id: string
+  content: string
+  style: string
+  model_name: string
+  created_at: string
+}
+
+export interface VideoNoteRequest {
+  url: string
+  platform?: string
+  style?: string
+  formats?: string[]
+  quality?: string
+  llm_model?: string
+  extras?: string
+  video_understanding?: boolean
+  video_interval?: number
+  grid_cols?: number
+  grid_rows?: number
+  max_output_tokens?: number
+}
+
+export async function generateVideoNote(data: VideoNoteRequest): Promise<{ task_id: string }> {
+  const modelSettings = getUserModelSettings()
+  const res = await authFetch(`${API_BASE}/video-notes/generate-json`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      ...data,
+      llm_model: data.llm_model || modelSettings.llm_model,
+      max_output_tokens: data.max_output_tokens || modelSettings.max_output_tokens,
+    }),
+  })
+  if (!res.ok) throw new Error('Failed to start video note generation')
+  return res.json()
+}
+
+export async function fetchVideoTasks(): Promise<{ tasks: VideoTask[] }> {
+  const res = await authFetch(`${API_BASE}/video-notes/tasks`)
+  if (!res.ok) throw new Error('Failed to fetch video tasks')
+  return res.json()
+}
+
+export async function fetchVideoTask(taskId: string): Promise<VideoTask> {
+  const res = await authFetch(`${API_BASE}/video-notes/tasks/${taskId}`)
+  if (!res.ok) throw new Error('Failed to fetch video task')
+  return res.json()
+}
+
+export async function deleteVideoTask(taskId: string): Promise<{ message: string }> {
+  const res = await authFetch(`${API_BASE}/video-notes/tasks/${taskId}`, {
+    method: 'DELETE',
+  })
+  if (!res.ok) throw new Error('Failed to delete video task')
+  return res.json()
+}
+
+export async function retryVideoTask(taskId: string): Promise<{ task_id: string }> {
+  const res = await authFetch(`${API_BASE}/video-notes/tasks/${taskId}/retry`, {
+    method: 'POST',
+  })
+  if (!res.ok) throw new Error('Failed to retry video task')
+  return res.json()
+}
+
+export async function uploadVideoFile(file: File): Promise<{ file_id: string; path: string }> {
+  const formData = new FormData()
+  formData.append('file', file)
+  const res = await authFetch(`${API_BASE}/video-notes/upload`, {
+    method: 'POST',
+    body: formData,
+  })
+  if (!res.ok) throw new Error('Failed to upload video')
+  return res.json()
+}
+
+export async function fetchVideoNoteStyles(): Promise<{ styles: Record<string, string> }> {
+  const res = await authFetch(`${API_BASE}/video-notes/styles`)
+  if (!res.ok) throw new Error('Failed to fetch styles')
+  return res.json()
+}
+
+export async function fetchSysHealth(): Promise<{
+  ffmpeg: { available: boolean; version?: string; error?: string }
+  ytdlp: { available: boolean; version?: string; error?: string }
+}> {
+  const res = await authFetch(`${API_BASE}/video-notes/sys-health`)
+  if (!res.ok) throw new Error('Failed to fetch system health')
+  return res.json()
+}
+
+// ===== Cookie Management API =====
+
+export async function fetchCookieStatus(platform: string): Promise<{ platform: string; has_cookie: boolean }> {
+  const res = await authFetch(`${API_BASE}/cookies/${platform}`)
+  if (!res.ok) throw new Error('Failed to fetch cookie status')
+  return res.json()
+}
+
+export async function updateCookie(platform: string, cookieData: string): Promise<{ message: string }> {
+  const res = await authFetch(`${API_BASE}/cookies`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ platform, cookie_data: cookieData }),
+  })
+  if (!res.ok) throw new Error('Failed to update cookie')
+  return res.json()
+}
+
+export async function fetchAllCookies(): Promise<{ cookies: { platform: string; has_cookie: boolean; updated_at: string }[] }> {
+  const res = await authFetch(`${API_BASE}/cookies`)
+  if (!res.ok) throw new Error('Failed to fetch cookies')
+  return res.json()
+}

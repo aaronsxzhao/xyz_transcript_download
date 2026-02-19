@@ -2,7 +2,7 @@
  * Global state management with Zustand
  */
 import { create } from 'zustand'
-import type { ProcessingJob } from './api'
+import type { ProcessingJob, VideoTask } from './api'
 
 interface AppState {
   // Processing jobs
@@ -12,6 +12,14 @@ interface AppState {
   updateJob: (job: ProcessingJob) => void
   removeJob: (jobId: string) => void
   clearCompletedJobs: () => void
+  
+  // Video tasks
+  videoTasks: VideoTask[]
+  setVideoTasks: (tasks: VideoTask[]) => void
+  updateVideoTask: (task: VideoTask) => void
+  removeVideoTask: (taskId: string) => void
+  selectedVideoTaskId: string | null
+  setSelectedVideoTaskId: (id: string | null) => void
   
   // WebSocket connection
   wsConnected: boolean
@@ -82,6 +90,26 @@ export const useStore = create<AppState>((set) => ({
         !['completed', 'failed', 'cancelled'].includes(j.status)
       ),
     })),
+  
+  // Video tasks
+  videoTasks: [],
+  setVideoTasks: (tasks) => set({ videoTasks: tasks }),
+  updateVideoTask: (task) =>
+    set((state) => {
+      const idx = state.videoTasks.findIndex((t) => t.id === task.id)
+      if (idx >= 0) {
+        const newTasks = [...state.videoTasks]
+        newTasks[idx] = { ...newTasks[idx], ...task }
+        return { videoTasks: newTasks }
+      }
+      return { videoTasks: [task, ...state.videoTasks] }
+    }),
+  removeVideoTask: (taskId) =>
+    set((state) => ({
+      videoTasks: state.videoTasks.filter((t) => t.id !== taskId),
+    })),
+  selectedVideoTaskId: null,
+  setSelectedVideoTaskId: (id) => set({ selectedVideoTaskId: id }),
   
   // WebSocket
   wsConnected: false,

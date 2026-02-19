@@ -5,6 +5,8 @@ import Dashboard from './pages/Dashboard'
 import Podcasts from './pages/Podcasts'
 import Episodes from './pages/Episodes'
 import Viewer from './pages/Viewer'
+import Videos from './pages/Videos'
+import VideoViewer from './pages/VideoViewer'
 import Settings from './pages/Settings'
 import Login from './pages/Login'
 import { Loader2 } from 'lucide-react'
@@ -95,6 +97,26 @@ function AppRoutes() {
           <ProtectedRoute>
             <Layout>
               <Viewer />
+            </Layout>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/videos"
+        element={
+          <ProtectedRoute>
+            <Layout>
+              <Videos />
+            </Layout>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/videos/:taskId"
+        element={
+          <ProtectedRoute>
+            <Layout>
+              <VideoViewer />
             </Layout>
           </ProtectedRoute>
         }

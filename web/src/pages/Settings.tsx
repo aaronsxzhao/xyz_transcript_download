@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
-import { Cpu, MessageSquare, Clock, Loader2, CheckCircle, Trash2, AlertTriangle, Search, Save, Download, X } from 'lucide-react'
-import { fetchSettings, updateSettings, authFetch, importUserSubscriptions, ImportSubscriptionsResult } from '../lib/api'
+import { Cpu, MessageSquare, Clock, Loader2, CheckCircle, Trash2, AlertTriangle, Search, Save, Download, X, Activity, Cookie } from 'lucide-react'
+import { fetchSettings, updateSettings, authFetch, importUserSubscriptions, ImportSubscriptionsResult, fetchSysHealth, fetchAllCookies, updateCookie } from '../lib/api'
 
 interface SettingsData {
   whisper_mode: string
@@ -72,6 +72,19 @@ export default function Settings() {
   const [importing, setImporting] = useState(false)
   const [importResult, setImportResult] = useState<ImportSubscriptionsResult | null>(null)
   const [importError, setImportError] = useState<string | null>(null)
+  
+  // System health state
+  const [sysHealth, setSysHealth] = useState<{
+    ffmpeg: { available: boolean; version?: string; error?: string }
+    ytdlp: { available: boolean; version?: string; error?: string }
+  } | null>(null)
+  const [checkingHealth, setCheckingHealth] = useState(false)
+  
+  // Cookie management state
+  const [cookies, setCookies] = useState<{ platform: string; has_cookie: boolean; updated_at: string }[]>([])
+  const [cookiePlatform, setCookiePlatform] = useState('bilibili')
+  const [cookieData, setCookieData] = useState('')
+  const [savingCookie, setSavingCookie] = useState(false)
   
   useEffect(() => {
     loadSettings()
@@ -516,6 +529,156 @@ export default function Settings() {
           Tip: Find your username in your Xiaoyuzhou profile URL 
           (e.g., xiaoyuzhoufm.com/user/<span className="text-cyan-400">your_username</span>)
         </p>
+      </div>
+      
+      {/* System Health (for Video Notes) */}
+      <div className="p-6 bg-dark-surface border border-dark-border rounded-xl">
+        <h2 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+          <Activity className="text-emerald-500" size={20} />
+          Video Tools Health
+        </h2>
+        
+        <p className="text-sm text-gray-400 mb-4">
+          Check system dependencies required for video note generation.
+        </p>
+        
+        <button
+          onClick={async () => {
+            setCheckingHealth(true)
+            try {
+              const data = await fetchSysHealth()
+              setSysHealth(data)
+            } catch (e) {
+              console.error('Health check failed:', e)
+            } finally {
+              setCheckingHealth(false)
+            }
+          }}
+          disabled={checkingHealth}
+          className="flex items-center gap-2 px-4 py-2 bg-dark-hover hover:bg-dark-border text-white rounded-lg transition-colors disabled:opacity-50 mb-4"
+        >
+          {checkingHealth ? <Loader2 size={16} className="animate-spin" /> : <Activity size={16} />}
+          Check Health
+        </button>
+        
+        {sysHealth && (
+          <div className="space-y-3">
+            <div className={`p-3 rounded-lg flex items-center gap-3 ${
+              sysHealth.ffmpeg.available ? 'bg-green-500/10 border border-green-500/30' : 'bg-red-500/10 border border-red-500/30'
+            }`}>
+              <span className={sysHealth.ffmpeg.available ? 'text-green-400' : 'text-red-400'}>
+                {sysHealth.ffmpeg.available ? <CheckCircle size={16} /> : <AlertTriangle size={16} />}
+              </span>
+              <div>
+                <p className={`text-sm font-medium ${sysHealth.ffmpeg.available ? 'text-green-300' : 'text-red-300'}`}>
+                  FFmpeg
+                </p>
+                <p className="text-xs text-gray-400">
+                  {sysHealth.ffmpeg.available ? sysHealth.ffmpeg.version : sysHealth.ffmpeg.error}
+                </p>
+              </div>
+            </div>
+            <div className={`p-3 rounded-lg flex items-center gap-3 ${
+              sysHealth.ytdlp.available ? 'bg-green-500/10 border border-green-500/30' : 'bg-red-500/10 border border-red-500/30'
+            }`}>
+              <span className={sysHealth.ytdlp.available ? 'text-green-400' : 'text-red-400'}>
+                {sysHealth.ytdlp.available ? <CheckCircle size={16} /> : <AlertTriangle size={16} />}
+              </span>
+              <div>
+                <p className={`text-sm font-medium ${sysHealth.ytdlp.available ? 'text-green-300' : 'text-red-300'}`}>
+                  yt-dlp
+                </p>
+                <p className="text-xs text-gray-400">
+                  {sysHealth.ytdlp.available ? `v${sysHealth.ytdlp.version}` : sysHealth.ytdlp.error}
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+      
+      {/* Cookie Management */}
+      <div className="p-6 bg-dark-surface border border-dark-border rounded-xl">
+        <h2 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+          <Cookie className="text-amber-500" size={20} />
+          Platform Cookies
+        </h2>
+        
+        <p className="text-sm text-gray-400 mb-4">
+          Some video platforms (Bilibili, Douyin) may require cookies for downloading certain content.
+          Paste your browser cookies here if needed.
+        </p>
+        
+        <div className="space-y-3">
+          <div className="flex gap-2">
+            <select
+              value={cookiePlatform}
+              onChange={e => setCookiePlatform(e.target.value)}
+              className="bg-dark-hover border border-dark-border text-white text-sm rounded-lg px-3 py-2"
+            >
+              <option value="bilibili">Bilibili</option>
+              <option value="youtube">YouTube</option>
+              <option value="douyin">Douyin</option>
+              <option value="kuaishou">Kuaishou</option>
+            </select>
+            <button
+              onClick={async () => {
+                try {
+                  const data = await fetchAllCookies()
+                  setCookies(data.cookies)
+                } catch (e) {
+                  console.error('Failed to fetch cookies:', e)
+                }
+              }}
+              className="px-3 py-2 bg-dark-hover hover:bg-dark-border text-sm text-gray-300 rounded-lg transition-colors"
+            >
+              Refresh
+            </button>
+          </div>
+          
+          <textarea
+            value={cookieData}
+            onChange={e => setCookieData(e.target.value)}
+            placeholder="Paste cookie string here..."
+            rows={3}
+            className="w-full px-3 py-2 bg-dark-hover border border-dark-border rounded-lg text-sm text-white placeholder-gray-500 focus:outline-none focus:border-amber-500 resize-none font-mono"
+          />
+          
+          <button
+            onClick={async () => {
+              setSavingCookie(true)
+              try {
+                await updateCookie(cookiePlatform, cookieData)
+                setCookieData('')
+                const data = await fetchAllCookies()
+                setCookies(data.cookies)
+              } catch (e) {
+                console.error('Failed to save cookie:', e)
+              } finally {
+                setSavingCookie(false)
+              }
+            }}
+            disabled={savingCookie || !cookieData.trim()}
+            className="flex items-center gap-2 px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-lg transition-colors disabled:opacity-50"
+          >
+            {savingCookie ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
+            Save Cookie
+          </button>
+          
+          {cookies.length > 0 && (
+            <div className="space-y-1 mt-2">
+              <p className="text-xs text-gray-500">Stored cookies:</p>
+              {cookies.map(c => (
+                <div key={c.platform} className="flex items-center justify-between p-2 bg-dark-hover rounded text-sm">
+                  <span className="text-white capitalize">{c.platform}</span>
+                  <span className={`text-xs ${c.has_cookie ? 'text-green-400' : 'text-gray-500'}`}>
+                    {c.has_cookie ? 'Configured' : 'Not set'}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
     </div>
   )

@@ -14,7 +14,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 
 from api.routers import podcasts, episodes, transcripts, summaries, processing
-from api.routers import auth_router
+from api.routers import auth_router, video_notes, cookies
 from api.auth import get_current_user, User
 from logger import get_logger
 
@@ -187,8 +187,9 @@ async def shutdown_event():
         except asyncio.CancelledError:
             pass
     
-    # Shutdown the processing thread pool executor
+    # Shutdown the processing thread pool executors
     processing.PROCESSING_EXECUTOR.shutdown(wait=False, cancel_futures=True)
+    video_notes.VIDEO_EXECUTOR.shutdown(wait=False, cancel_futures=True)
 
 # CORS middleware for frontend
 app.add_middleware(
@@ -206,11 +207,21 @@ app.include_router(episodes.router, prefix="/api/episodes", tags=["Episodes"])
 app.include_router(transcripts.router, prefix="/api/transcripts", tags=["Transcripts"])
 app.include_router(summaries.router, prefix="/api/summaries", tags=["Summaries"])
 app.include_router(processing.router, prefix="/api", tags=["Processing"])
+app.include_router(video_notes.router, prefix="/api/video-notes", tags=["Video Notes"])
+app.include_router(cookies.router, prefix="/api/cookies", tags=["Cookies"])
 
 # Mount static files for data
 data_dir = Path(__file__).parent.parent / "data"
 if data_dir.exists():
     app.mount("/data", StaticFiles(directory=str(data_dir)), name="data")
+
+# Mount screenshots directory
+screenshots_dir = data_dir / "screenshots"
+screenshots_dir.mkdir(parents=True, exist_ok=True)
+
+# Mount uploads directory
+uploads_dir = data_dir / "uploads"
+uploads_dir.mkdir(parents=True, exist_ok=True)
 
 # Check for pre-built frontend
 frontend_dist = Path(__file__).parent.parent / "web" / "dist"

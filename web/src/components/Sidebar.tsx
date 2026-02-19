@@ -2,6 +2,7 @@ import { Link, useLocation } from 'react-router-dom'
 import { 
   LayoutDashboard, 
   Radio, 
+  Video,
   Settings, 
   ChevronLeft,
   ChevronRight,
@@ -14,6 +15,7 @@ import { useAuth } from '../contexts/AuthContext'
 const navItems = [
   { path: '/', icon: LayoutDashboard, label: 'Dashboard' },
   { path: '/podcasts', icon: Radio, label: 'Podcasts' },
+  { path: '/videos', icon: Video, label: 'Videos' },
   { path: '/settings', icon: Settings, label: 'Settings' },
 ]
 
@@ -57,7 +59,9 @@ export default function Sidebar() {
       {/* Navigation */}
       <nav className="p-4 space-y-2">
         {navItems.map((item) => {
-          const isActive = location.pathname === item.path
+          const isActive = item.path === '/'
+            ? location.pathname === '/'
+            : location.pathname.startsWith(item.path)
           const Icon = item.icon
           
           return (

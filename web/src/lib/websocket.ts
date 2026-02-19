@@ -137,6 +137,13 @@ export function connectWebSocket() {
           }
           break
         
+        case 'video_job_update':
+          if (data.task) {
+            console.log('WebSocket video_job_update:', data.task.id, data.task.progress?.toFixed(1) + '%')
+            useStore.getState().updateVideoTask(data.task)
+          }
+          break
+        
         case 'heartbeat':
           if (ws?.readyState === WebSocket.OPEN) {
             ws.send(JSON.stringify({ type: 'ping' }))
