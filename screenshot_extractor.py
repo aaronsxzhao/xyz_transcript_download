@@ -142,6 +142,56 @@ def replace_screenshot_markers(
     return _SCREENSHOT_PATTERN.sub(replacer, markdown)
 
 
+_CONTENT_LINK_PATTERN = re.compile(r'\*Content-\[(\d+(?::\d+){1,2})\]')
+
+_PLATFORM_URL_TEMPLATES = {
+    "bilibili": "https://www.bilibili.com/video/{video_id}?t={seconds}",
+    "youtube": "https://www.youtube.com/watch?v={video_id}&t={seconds}s",
+    "douyin": "https://www.douyin.com/video/{video_id}",
+    "kuaishou": "https://www.kuaishou.com/short-video/{video_id}",
+}
+
+
+def _extract_video_id(url: str, platform: str) -> str:
+    """Best-effort extraction of video ID from URL."""
+    if platform == "bilibili":
+        m = re.search(r'/(BV[\w]+)', url)
+        return m.group(1) if m else ""
+    elif platform == "youtube":
+        m = re.search(r'(?:v=|youtu\.be/)([\w-]+)', url)
+        return m.group(1) if m else ""
+    elif platform == "douyin":
+        m = re.search(r'/video/(\d+)', url)
+        return m.group(1) if m else ""
+    elif platform == "kuaishou":
+        m = re.search(r'/short-video/([\w]+)', url)
+        return m.group(1) if m else ""
+    return ""
+
+
+def replace_content_markers(
+    markdown: str,
+    video_url: str,
+    platform: str,
+) -> str:
+    """Replace *Content-[mm:ss] markers with clickable links to the original video."""
+    video_id = _extract_video_id(video_url, platform)
+    url_template = _PLATFORM_URL_TEMPLATES.get(platform)
+
+    def replacer(match):
+        total_seconds = int(_parse_timestamp_str(match.group(1)))
+        m = int(total_seconds // 60)
+        s = int(total_seconds % 60)
+        display = f"{m:02d}:{s:02d}"
+
+        if url_template and video_id:
+            link = url_template.format(video_id=video_id, seconds=total_seconds)
+            return f"[▶ 原片 @ {display}]({link})"
+        return f"[▶ {display}]"
+
+    return _CONTENT_LINK_PATTERN.sub(replacer, markdown)
+
+
 def get_video_duration(video_path: str) -> float:
     """Get the duration of a video file in seconds."""
     try:

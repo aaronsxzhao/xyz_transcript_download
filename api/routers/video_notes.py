@@ -101,6 +101,7 @@ def process_video_note_sync(
         extract_timestamps_from_markdown,
         extract_screenshots_batch,
         replace_screenshot_markers,
+        replace_content_markers,
     )
 
     db = get_video_task_db()
@@ -368,6 +369,10 @@ def process_video_note_sync(
 
         # Phase 5: Post-processing (90-100%)
         _update_task_status(db, task_id, "saving", 92, "Post-processing...", user_id)
+
+        # Replace *Content-[mm:ss] markers with clickable links to original video
+        if "link" in formats:
+            markdown = replace_content_markers(markdown, url, platform)
 
         # Extract and capture screenshots if needed
         if "screenshot" in formats and video_path:

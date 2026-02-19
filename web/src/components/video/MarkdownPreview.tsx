@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
@@ -8,6 +8,7 @@ import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter'
 import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism'
 import {
   Copy, Download, Check, FileText, AlertCircle, Loader2, RotateCcw, Square,
+  Play, ExternalLink, X,
 } from 'lucide-react'
 import StepBar from './StepBar'
 import type { VideoTask } from '../../lib/api'
@@ -18,6 +19,7 @@ interface Props {
 
 export default function MarkdownPreview({ task }: Props) {
   const [copied, setCopied] = useState(false)
+  const [zoomedImg, setZoomedImg] = useState<string | null>(null)
   const navigate = useNavigate()
 
   if (!task) {
@@ -264,7 +266,36 @@ export default function MarkdownPreview({ task }: Props) {
                       alt={alt || ''}
                       className="max-w-full rounded-lg border border-dark-border cursor-pointer hover:opacity-90 transition-opacity"
                       loading="lazy"
+                      onClick={() => src && setZoomedImg(src)}
                     />
+                  )
+                },
+                a({ href, children }) {
+                  const text = String(children)
+                  const isTimestamp = /^▶/.test(text) || /原片/.test(text)
+                  if (isTimestamp && href) {
+                    return (
+                      <a
+                        href={href}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1 px-2 py-0.5 bg-indigo-600/20 border border-indigo-500/30 rounded-full text-xs text-indigo-300 hover:bg-indigo-600/40 hover:text-indigo-200 transition-colors no-underline"
+                      >
+                        <Play size={10} className="fill-current" />
+                        {text.replace(/^▶\s*/, '')}
+                      </a>
+                    )
+                  }
+                  return (
+                    <a
+                      href={href}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-indigo-400 hover:underline inline-flex items-center gap-0.5"
+                    >
+                      {children}
+                      <ExternalLink size={11} className="opacity-50" />
+                    </a>
                   )
                 },
               }}
@@ -272,6 +303,26 @@ export default function MarkdownPreview({ task }: Props) {
               {task.markdown}
             </ReactMarkdown>
           </article>
+        </div>
+      )}
+
+      {/* Image zoom overlay */}
+      {zoomedImg && (
+        <div
+          className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center cursor-zoom-out"
+          onClick={() => setZoomedImg(null)}
+        >
+          <button
+            onClick={() => setZoomedImg(null)}
+            className="absolute top-4 right-4 text-white/70 hover:text-white p-2"
+          >
+            <X size={24} />
+          </button>
+          <img
+            src={zoomedImg}
+            alt="Zoomed screenshot"
+            className="max-w-[90vw] max-h-[90vh] rounded-lg shadow-2xl"
+          />
         </div>
       )}
 
