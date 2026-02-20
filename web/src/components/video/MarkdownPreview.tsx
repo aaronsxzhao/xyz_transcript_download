@@ -165,14 +165,8 @@ export default function MarkdownPreview({ task }: Props) {
       {/* Progress bar for active tasks */}
       {isActive && (
         <div className="mb-4 flex-shrink-0">
-          <StepBar currentStatus={task.status} />
-          <div className="mt-3 h-1.5 bg-dark-border rounded-full overflow-hidden">
-            <div
-              className="h-full bg-indigo-500 rounded-full"
-              style={{ width: `${task.progress}%`, transition: 'width 1.2s ease-out' }}
-            />
-          </div>
-          <div className="flex items-center justify-center gap-3 mt-2">
+          <StepBar currentStatus={task.status} progress={task.progress} />
+          <div className="flex items-center justify-center gap-3 mt-3">
             <p className="text-xs text-gray-500">
               {task.message || 'Processing...'}
             </p>
@@ -442,8 +436,24 @@ export default function MarkdownPreview({ task }: Props) {
       {/* Loading state for active but no markdown yet */}
       {isActive && !task.markdown && task.status !== 'pending' && (
         <div className="flex flex-col items-center justify-center flex-1 text-gray-500">
-          <Loader2 size={32} className="animate-spin mb-3 text-indigo-400" />
-          <p className="text-sm">{task.message || 'Processing...'}</p>
+          {/* Circular progress */}
+          <div className="relative w-16 h-16 mb-4">
+            <svg className="w-full h-full -rotate-90" viewBox="0 0 64 64">
+              <circle cx="32" cy="32" r="28" fill="none" stroke="currentColor" strokeWidth="3" className="text-dark-border" />
+              <circle
+                cx="32" cy="32" r="28" fill="none" strokeWidth="3"
+                className="text-indigo-500"
+                strokeLinecap="round"
+                strokeDasharray={`${2 * Math.PI * 28}`}
+                strokeDashoffset={`${2 * Math.PI * 28 * (1 - task.progress / 100)}`}
+                style={{ transition: 'stroke-dashoffset 1.2s ease-out' }}
+              />
+            </svg>
+            <span className="absolute inset-0 flex items-center justify-center text-xs font-medium text-gray-300">
+              {Math.round(task.progress)}%
+            </span>
+          </div>
+          <p className="text-sm text-gray-400">{task.message || 'Processing...'}</p>
         </div>
       )}
     </div>
