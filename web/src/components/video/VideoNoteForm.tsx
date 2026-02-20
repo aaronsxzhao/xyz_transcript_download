@@ -4,6 +4,7 @@ import {
   Play, Loader2, Settings2, ChevronDown, ChevronUp,
 } from 'lucide-react'
 import { generateVideoNote, uploadVideoFile, getUserModelSettings, validateBilibiliCookie } from '../../lib/api'
+import YouTubeCookieGuide from './YouTubeCookieGuide'
 
 const PLATFORMS = [
   { id: 'bilibili', label: 'Bilibili', icon: '📺' },
@@ -53,6 +54,10 @@ interface Props {
 
 function isBilibiliUrl(url: string): boolean {
   return /bilibili\.com|b23\.tv/i.test(url)
+}
+
+function isYoutubeUrl(url: string): boolean {
+  return /youtube\.com|youtu\.be/i.test(url)
 }
 
 export default function VideoNoteForm({ onTaskCreated, hideTitle }: Props) {
@@ -351,6 +356,11 @@ export default function VideoNoteForm({ onTaskCreated, hideTitle }: Props) {
       {error && (
         <div className="p-3 bg-red-900/30 border border-red-500/50 rounded-lg text-xs text-red-300">
           <p>{error}</p>
+          {error.toLowerCase().includes('login') && isYoutubeUrl(url) && (
+            <div className="mt-3 p-3 bg-dark-hover rounded-lg border border-dark-border">
+              <YouTubeCookieGuide compact />
+            </div>
+          )}
           {error.includes('Settings') && (
             <button
               onClick={() => navigate('/settings')}

@@ -4,6 +4,7 @@ import {
   Search, Save, Download, X, Activity, Smartphone, Chrome,
   ExternalLink, Settings2, UserCircle, Wrench, Upload, FileText, Info,
 } from 'lucide-react'
+import YouTubeCookieGuide from '../components/video/YouTubeCookieGuide'
 import { QRCodeSVG } from 'qrcode.react'
 import {
   fetchSettings, updateSettings, authFetch, importUserSubscriptions,
@@ -536,27 +537,90 @@ export default function Settings() {
             })}
           </div>
 
-          {/* ── Unified login section for all platforms ── */}
+          {/* ── Platform login sections ── */}
           {(() => {
             const name = platformLabel(activePlatform)
             const hasQr = activePlatform === 'bilibili' || activePlatform === 'douyin'
             const isYT = activePlatform === 'youtube'
-            return (
-              <div className="space-y-4">
-                {/* Info banner for YouTube */}
-                {isYT && (
+
+            if (isYT) {
+              const ytLoggedIn = cookies.find(c => c.platform === 'youtube')?.has_cookie
+              return (
+                <div className="space-y-4">
                   <div className="p-3 bg-blue-500/10 border border-blue-500/30 rounded-lg">
                     <div className="flex items-start gap-2.5">
                       <Info size={16} className="text-blue-400 mt-0.5 flex-shrink-0" />
                       <p className="text-xs text-gray-400">
                         Most public YouTube videos work <strong className="text-blue-300">without login</strong>.
-                        Login is only needed for age-restricted or private videos.
+                        Only need this for age-restricted or members-only videos.
                       </p>
                     </div>
                   </div>
-                )}
 
-                {/* ─── Method 1: Auto-import from browser (same for all platforms) ─── */}
+                  {ytLoggedIn && (
+                    <div className="flex items-center gap-2 p-3 bg-green-500/10 border border-green-500/30 rounded-lg">
+                      <CheckCircle size={16} className="text-green-400" />
+                      <span className="text-sm text-green-400">YouTube cookies are set! You're good to go.</span>
+                    </div>
+                  )}
+
+                  <YouTubeCookieGuide onCookiesSaved={async () => {
+                    const data = await fetchAllCookies()
+                    setCookies(data.cookies)
+                  }} />
+
+                  {/* Quick import for local users */}
+                  <div className="border-t border-dark-border pt-4">
+                    <button
+                      onClick={() => setShowFileUpload(!showFileUpload)}
+                      className="flex items-center gap-1.5 text-xs text-gray-500 hover:text-gray-300 transition-colors"
+                    >
+                      <Chrome size={12} />
+                      {showFileUpload ? '▾ Hide auto-import (local app only)' : '▸ Running locally? Try auto-import instead'}
+                    </button>
+                    {showFileUpload && (
+                      <div className="mt-3 space-y-2 pl-1">
+                        <p className="text-xs text-gray-500">
+                          If this app is running on your own computer, we can read cookies directly from your browser.
+                        </p>
+                        <div className="flex items-center gap-2">
+                          <select
+                            value={selectedBrowser}
+                            onChange={e => setSelectedBrowser(e.target.value)}
+                            className="bg-dark-hover border border-dark-border text-white text-sm rounded-lg px-3 py-2"
+                          >
+                            {BROWSERS.map(b => (
+                              <option key={b.value} value={b.value}>{b.label}</option>
+                            ))}
+                          </select>
+                          <button
+                            onClick={() => handleAutoImport('youtube')}
+                            disabled={cookieLoading}
+                            className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-colors font-medium disabled:opacity-50 text-sm"
+                          >
+                            {cookieLoading ? <Loader2 size={16} className="animate-spin" /> : <Download size={16} />}
+                            {cookieLoading ? 'Importing...' : 'Auto-import'}
+                          </button>
+                        </div>
+                        {cookieMessage && (
+                          <div className={`p-2 rounded-lg text-xs ${
+                            cookieMessage.includes('✅') ? 'bg-green-500/10 border border-green-500/30 text-green-400'
+                              : cookieMessage.includes('❌') ? 'bg-red-500/10 border border-red-500/30 text-red-400'
+                              : 'bg-amber-500/10 border border-amber-500/30 text-amber-400'
+                          }`}>
+                            {cookieMessage}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )
+            }
+
+            return (
+              <div className="space-y-4">
+                {/* ─── Method 1: Auto-import from browser ─── */}
                 <div className="space-y-3">
                   <p className="text-sm text-gray-300 font-medium flex items-center gap-2">
                     <Chrome size={15} className="text-blue-400" />
@@ -687,7 +751,7 @@ export default function Settings() {
                   </div>
                 )}
 
-                {/* ─── Method 3: Upload cookies.txt file (fallback, same for all) ─── */}
+                {/* ─── Method 3: Upload cookies.txt file (fallback) ─── */}
                 <div className={`${hasQr || showFileUpload ? 'border-t border-dark-border pt-4' : ''} space-y-3`}>
                   <button
                     onClick={() => setShowFileUpload(!showFileUpload)}

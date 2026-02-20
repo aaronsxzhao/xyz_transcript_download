@@ -101,9 +101,8 @@ def _classify_ytdlp_error(e: Exception, platform: str) -> VideoDownloadError:
             )
         if platform == "youtube":
             return VideoDownloadError(
-                "YouTube requires login for this video (age-restricted or private). "
-                "Go to Settings → Platform Accounts → YouTube and upload a cookies.txt file "
-                "exported from your browser using the 'Get cookies.txt LOCALLY' extension.",
+                "YouTube requires login for this video. "
+                "Go to Settings → Platform Accounts → YouTube and follow the 4-step guide to upload your cookies.",
                 "LOGIN_REQUIRED",
             )
         return VideoDownloadError(

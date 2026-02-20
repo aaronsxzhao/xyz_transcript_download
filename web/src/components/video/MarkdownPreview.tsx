@@ -11,6 +11,7 @@ import {
   Play, ExternalLink, X, FileDown,
 } from 'lucide-react'
 import StepBar from './StepBar'
+import YouTubeCookieGuide from './YouTubeCookieGuide'
 import type { VideoTask } from '../../lib/api'
 
 interface Props {
@@ -205,14 +206,16 @@ export default function MarkdownPreview({ task }: Props) {
           <AlertCircle size={32} className="mb-3 text-red-400" />
           <p className="text-red-400">Processing failed</p>
           {(() => {
+            const isYouTubeLogin = (task.error === 'LOGIN_REQUIRED' || task.error === 'AGE_RESTRICTED' || task.error === 'COOKIES_REQUIRED')
+              && task.platform === 'youtube'
             const needsSettings = [
               'BILIBILI_LOGIN_REQUIRED', 'LOGIN_REQUIRED', 'COOKIES_REQUIRED', 'AGE_RESTRICTED',
-            ].includes(task.error || '')
+            ].includes(task.error || '') && !isYouTubeLogin
             const errorMessages: Record<string, string> = {
               BILIBILI_LOGIN_REQUIRED: 'BiliBili requires login. Please scan the QR code in Settings → BiliBili Login.',
-              LOGIN_REQUIRED: 'This video requires login. Please set cookies in Settings → Platform Cookies.',
-              COOKIES_REQUIRED: 'Server rejected the request. Please set cookies in Settings → Platform Cookies.',
-              AGE_RESTRICTED: 'This video is age-restricted. Please set cookies from a logged-in browser in Settings.',
+              LOGIN_REQUIRED: 'This video requires login.',
+              COOKIES_REQUIRED: 'Server rejected the request.',
+              AGE_RESTRICTED: 'This video is age-restricted and requires login.',
               VIDEO_PRIVATE: 'This video is private and cannot be accessed.',
               VIDEO_UNAVAILABLE: 'This video has been removed or is no longer available.',
               GEO_RESTRICTED: 'This video is not available in your region.',
@@ -228,13 +231,20 @@ export default function MarkdownPreview({ task }: Props) {
                 <p className="text-sm mt-2 text-center text-gray-400 max-w-md">
                   {displayMsg}
                 </p>
+
+                {isYouTubeLogin && (
+                  <div className="mt-4 p-4 bg-dark-hover rounded-xl border border-dark-border max-w-md w-full">
+                    <YouTubeCookieGuide compact />
+                  </div>
+                )}
+
                 <div className="flex items-center gap-3 mt-4">
-                  {needsSettings && (
+                  {(needsSettings || isYouTubeLogin) && (
                     <button
                       onClick={() => navigate('/settings')}
                       className="flex items-center gap-2 px-4 py-2 bg-pink-600 hover:bg-pink-700 text-white text-sm rounded-lg transition-colors"
                     >
-                      Go to Settings
+                      {isYouTubeLogin ? 'Upload Cookies in Settings' : 'Go to Settings'}
                     </button>
                   )}
                   <button
