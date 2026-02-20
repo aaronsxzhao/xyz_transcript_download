@@ -73,11 +73,14 @@ class VideoDownloadError(Exception):
 def _classify_ytdlp_error(e: Exception, platform: str) -> VideoDownloadError:
     """Classify a yt-dlp exception into an actionable user-facing error."""
     msg = str(e).lower()
+    raw = str(e)
+    logger.error(f"[yt-dlp error] platform={platform}, error={raw[:500]}")
 
     if "412" in msg or "precondition" in msg:
         if platform == "bilibili":
             return VideoDownloadError(
-                "BiliBili returned 412 (anti-bot). Please log in via Settings → BiliBili Login.",
+                "BiliBili returned 412 (anti-bot). Your cookies may have expired. "
+                "Please go to Settings → Platform Accounts → BiliBili and re-login via QR code.",
                 "BILIBILI_LOGIN_REQUIRED",
             )
         return VideoDownloadError(
@@ -85,7 +88,17 @@ def _classify_ytdlp_error(e: Exception, platform: str) -> VideoDownloadError:
             "COOKIES_REQUIRED",
         )
 
-    if "sign in" in msg or "login" in msg or "need to log in" in msg or "confirm your age" in msg:
+    # Chinese: 登录 = login, 请先 = please first, 未登录 = not logged in, 需要 = need
+    auth_patterns = ["sign in", "login", "need to log in", "confirm your age",
+                     "登录", "请先", "未登录", "需要登录", "cookie", "banned",
+                     "403", "unauthorized", "authentication"]
+    if any(p in msg for p in auth_patterns):
+        if platform == "bilibili":
+            return VideoDownloadError(
+                "BiliBili login expired or invalid. "
+                "Please go to Settings → Platform Accounts → BiliBili and re-login via QR code.",
+                "BILIBILI_LOGIN_REQUIRED",
+            )
         if platform == "youtube":
             return VideoDownloadError(
                 "YouTube requires login for this video (age-restricted or private). "
@@ -94,7 +107,8 @@ def _classify_ytdlp_error(e: Exception, platform: str) -> VideoDownloadError:
                 "LOGIN_REQUIRED",
             )
         return VideoDownloadError(
-            f"This video requires login on {platform}. Please set cookies in Settings → Platform Cookies.",
+            f"This video requires login on {platform}. "
+            f"Please go to Settings → Platform Accounts → {platform} and import cookies.",
             "LOGIN_REQUIRED",
         )
 

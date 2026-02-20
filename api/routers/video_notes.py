@@ -150,11 +150,12 @@ def process_video_note_sync(
                 return
 
             cookies = cookie_mgr.get_cookie(platform)
+            logger.info(f"[{task_id}] Platform={platform}, has_cookies={bool(cookies)}, cookie_len={len(cookies) if cookies else 0}")
 
             if platform == "bilibili" and not cookies:
                 _update_task_status(
                     db, task_id, "failed", 0,
-                    "BiliBili requires login. Go to Settings → BiliBili Login to scan the QR code first.",
+                    "BiliBili requires login. Go to Settings → Platform Accounts → BiliBili to scan QR code.",
                     user_id,
                     error="BILIBILI_LOGIN_REQUIRED",
                 )
