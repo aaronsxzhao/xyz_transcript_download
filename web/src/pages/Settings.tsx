@@ -11,6 +11,7 @@ import {
   bilibiliQrGenerate, bilibiliQrPoll, douyinQrGenerate, douyinQrPoll,
   saveSimpleCookie,
 } from '../lib/api'
+import { getAccessToken } from '../lib/auth'
 
 interface SettingsData {
   whisper_mode: string
@@ -114,6 +115,54 @@ export default function Settings() {
   const [helperSaving, setHelperSaving] = useState(false)
   const [helperMessage, setHelperMessage] = useState('')
   const [snippetCopied, setSnippetCopied] = useState(false)
+  const [showManualPaste, setShowManualPaste] = useState(false)
+  const [autoDetecting, setAutoDetecting] = useState(false)
+  const autoDetectRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const autoDetectPlatformRef = useRef<Platform | null>(null)
+
+  const stopAutoDetect = useCallback(() => {
+    if (autoDetectRef.current) { clearInterval(autoDetectRef.current); autoDetectRef.current = null }
+    autoDetectPlatformRef.current = null
+    setAutoDetecting(false)
+  }, [])
+
+  const buildAutoScript = useCallback((platform: string) => {
+    const apiBase = window.location.origin
+    const token = getAccessToken() || ''
+    const authHeader = token ? `,'Authorization':'Bearer ${token}'` : ''
+    return `fetch('${apiBase}/api/cookies/save-simple',{method:'POST',headers:{'Content-Type':'application/json'${authHeader}},body:JSON.stringify({platform:'${platform}',cookie_string:document.cookie})}).then(r=>r.ok?r.json():Promise.reject('Server error')).then(()=>{document.title='✅ Cookies saved!';alert('✅ Cookies saved! You can close this tab.')}).catch(e=>alert('❌ Failed: '+e))`
+  }, [])
+
+  const handleOpenAndCopy = useCallback(async (platform: Platform) => {
+    const siteUrl = platform === 'youtube' ? 'https://www.youtube.com' : 'https://www.kuaishou.com'
+    const script = buildAutoScript(platform)
+    try {
+      await navigator.clipboard.writeText(script)
+      setHelperMessage('Script copied to clipboard!')
+    } catch {
+      setHelperMessage('Could not auto-copy — please copy the script below manually.')
+    }
+    window.open(siteUrl, '_blank')
+
+    stopAutoDetect()
+    setAutoDetecting(true)
+    autoDetectPlatformRef.current = platform
+    autoDetectRef.current = setInterval(async () => {
+      try {
+        const data = await fetchAllCookies()
+        const c = data.cookies.find(x => x.platform === platform)
+        if (c?.has_cookie) {
+          const prev = cookies.find(x => x.platform === platform)
+          if (!prev?.has_cookie || prev.updated_at !== c.updated_at) {
+            setCookies(data.cookies)
+            setHelperMessage(`✅ ${platformLabel(platform)} cookies imported successfully!`)
+            stopAutoDetect()
+          }
+        }
+      } catch {}
+    }, 3000)
+    setTimeout(() => stopAutoDetect(), 300_000)
+  }, [buildAutoScript, cookies, stopAutoDetect])
 
   const stopQrPolling = useCallback(() => {
     if (qrPollRef.current) { clearInterval(qrPollRef.current); qrPollRef.current = null }
@@ -202,17 +251,19 @@ export default function Settings() {
 
   const handleSwitchPlatform = useCallback((p: Platform) => {
     stopQrPolling()
+    stopAutoDetect()
     setQrStatus('idle')
     setQrUrl('')
     setQrMessage('')
     setHelperCookie('')
     setHelperMessage('')
+    setShowManualPaste(false)
     setActivePlatform(p)
-  }, [stopQrPolling])
+  }, [stopQrPolling, stopAutoDetect])
 
   useEffect(() => {
-    return () => stopQrPolling()
-  }, [stopQrPolling])
+    return () => { stopQrPolling(); stopAutoDetect() }
+  }, [stopQrPolling, stopAutoDetect])
 
   useEffect(() => { loadSettings() }, [])
 
@@ -569,90 +620,107 @@ export default function Settings() {
             </div>
           )}
 
-          {/* Cookie Helper (YouTube / Kuaishou) */}
+          {/* Cookie Import (YouTube / Kuaishou) */}
           {(activePlatform === 'youtube' || activePlatform === 'kuaishou') && (() => {
             const name = platformLabel(activePlatform)
-            const siteUrl = activePlatform === 'youtube' ? 'https://www.youtube.com' : 'https://www.kuaishou.com'
-            const snippet = `copy(document.cookie)`
+            const script = buildAutoScript(activePlatform)
             return (
               <div className="space-y-4">
                 <p className="text-sm text-gray-400">
-                  {name} does not support QR code login. Follow these steps to import your login cookies:
+                  {name} does not support QR code login. Click the button below to open {name}, log in, then paste the auto-import script in your browser console.
                 </p>
 
-                <div className="flex gap-3">
-                  <div className="flex-shrink-0 w-6 h-6 rounded-full bg-indigo-600 text-white text-xs flex items-center justify-center font-bold">1</div>
-                  <div className="space-y-1">
-                    <p className="text-sm text-white">Open {name} and make sure you are logged in</p>
-                    <a href={siteUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-xs text-indigo-400 hover:underline">
-                      Open {name} <ExternalLink size={10} />
-                    </a>
-                  </div>
+                {/* Primary action: open site + copy script */}
+                <button
+                  onClick={() => handleOpenAndCopy(activePlatform)}
+                  className="flex items-center gap-2 px-4 py-2.5 bg-pink-600 hover:bg-pink-700 text-white rounded-lg transition-colors font-medium"
+                >
+                  <ExternalLink size={16} />
+                  Open {name} &amp; Copy Login Script
+                </button>
+
+                {/* Instructions */}
+                <div className="p-3.5 bg-dark-hover/60 border border-dark-border rounded-lg space-y-2.5">
+                  <p className="text-xs font-medium text-gray-300 uppercase tracking-wider">After logging in on {name}:</p>
+                  <ol className="list-decimal list-inside text-sm text-gray-400 space-y-1.5">
+                    <li>Press <kbd className="px-1.5 py-0.5 bg-dark-hover border border-dark-border rounded text-xs font-mono text-gray-300">F12</kbd> to open Developer Tools</li>
+                    <li>Click the <strong className="text-white">Console</strong> tab</li>
+                    <li>Press <kbd className="px-1.5 py-0.5 bg-dark-hover border border-dark-border rounded text-xs font-mono text-gray-300">Ctrl+V</kbd> (or <kbd className="px-1.5 py-0.5 bg-dark-hover border border-dark-border rounded text-xs font-mono text-gray-300">⌘V</kbd>) to paste the script</li>
+                    <li>Press <strong className="text-white">Enter</strong> — cookies are saved automatically</li>
+                  </ol>
                 </div>
 
-                <div className="flex gap-3">
-                  <div className="flex-shrink-0 w-6 h-6 rounded-full bg-indigo-600 text-white text-xs flex items-center justify-center font-bold">2</div>
-                  <div className="space-y-2">
-                    <p className="text-sm text-white">Press <kbd className="px-1.5 py-0.5 bg-dark-hover border border-dark-border rounded text-xs font-mono">F12</kbd> → <strong>Console</strong> tab, paste this snippet and press Enter:</p>
-                    <div className="flex items-center gap-2">
-                      <code className="flex-1 px-3 py-2 bg-dark-hover border border-dark-border rounded-lg text-sm text-indigo-300 font-mono select-all">
-                        {snippet}
-                      </code>
+                {/* Auto-detect indicator */}
+                {autoDetecting && (
+                  <div className="flex items-center gap-2 text-sm text-gray-400">
+                    <Loader2 size={14} className="animate-spin text-indigo-400" />
+                    Listening for cookies...
+                  </div>
+                )}
+
+                {/* Status message */}
+                {helperMessage && (
+                  <p className={`text-sm ${helperMessage.includes('✅') || helperMessage.includes('success') ? 'text-green-400' : helperMessage.includes('❌') || helperMessage.includes('Failed') ? 'text-red-400' : 'text-gray-400'}`}>
+                    {helperMessage}
+                  </p>
+                )}
+
+                {/* Copy script manually (fallback) */}
+                <div className="space-y-2">
+                  <button
+                    onClick={() => {
+                      navigator.clipboard.writeText(script)
+                      setSnippetCopied(true)
+                      setTimeout(() => setSnippetCopied(false), 2000)
+                    }}
+                    className="flex items-center gap-1.5 text-xs text-gray-500 hover:text-gray-300 transition-colors"
+                  >
+                    {snippetCopied ? <CheckCircle size={12} className="text-green-400" /> : <Clipboard size={12} />}
+                    {snippetCopied ? 'Copied!' : 'Copy script again'}
+                  </button>
+                </div>
+
+                {/* Manual paste fallback */}
+                <div className="border-t border-dark-border pt-3">
+                  <button
+                    onClick={() => setShowManualPaste(!showManualPaste)}
+                    className="text-xs text-gray-500 hover:text-gray-300 transition-colors"
+                  >
+                    {showManualPaste ? '▾ Hide manual paste' : '▸ Or paste cookies manually'}
+                  </button>
+                  {showManualPaste && (
+                    <div className="mt-2 space-y-2">
+                      <textarea
+                        value={helperCookie}
+                        onChange={e => setHelperCookie(e.target.value)}
+                        placeholder="key1=val1; key2=val2; ..."
+                        rows={3}
+                        className="w-full px-3 py-2 bg-dark-hover border border-dark-border rounded-lg text-sm text-white placeholder-gray-500 focus:outline-none focus:border-indigo-500 resize-none font-mono"
+                      />
                       <button
-                        onClick={() => {
-                          navigator.clipboard.writeText(snippet)
-                          setSnippetCopied(true)
-                          setTimeout(() => setSnippetCopied(false), 2000)
+                        onClick={async () => {
+                          setHelperSaving(true)
+                          setHelperMessage('')
+                          try {
+                            await saveSimpleCookie(activePlatform, helperCookie)
+                            setHelperCookie('')
+                            setHelperMessage('✅ Cookies saved successfully!')
+                            const data = await fetchAllCookies()
+                            setCookies(data.cookies)
+                          } catch {
+                            setHelperMessage('❌ Failed to save cookies. Please try again.')
+                          } finally {
+                            setHelperSaving(false)
+                          }
                         }}
-                        className="p-2 text-gray-400 hover:text-white transition-colors"
-                        title="Copy snippet"
+                        disabled={helperSaving || !helperCookie.trim()}
+                        className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-colors disabled:opacity-50"
                       >
-                        {snippetCopied ? <CheckCircle size={14} className="text-green-400" /> : <Clipboard size={14} />}
+                        {helperSaving ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
+                        Save Cookies
                       </button>
                     </div>
-                    <p className="text-xs text-gray-500">This copies your cookies to clipboard. Nothing is sent.</p>
-                  </div>
-                </div>
-
-                <div className="flex gap-3">
-                  <div className="flex-shrink-0 w-6 h-6 rounded-full bg-indigo-600 text-white text-xs flex items-center justify-center font-bold">3</div>
-                  <div className="space-y-2 flex-1">
-                    <p className="text-sm text-white">Paste the cookies here and save:</p>
-                    <textarea
-                      value={helperCookie}
-                      onChange={e => setHelperCookie(e.target.value)}
-                      placeholder="key1=val1; key2=val2; ..."
-                      rows={3}
-                      className="w-full px-3 py-2 bg-dark-hover border border-dark-border rounded-lg text-sm text-white placeholder-gray-500 focus:outline-none focus:border-indigo-500 resize-none font-mono"
-                    />
-                    <button
-                      onClick={async () => {
-                        setHelperSaving(true)
-                        setHelperMessage('')
-                        try {
-                          await saveSimpleCookie(activePlatform, helperCookie)
-                          setHelperCookie('')
-                          setHelperMessage('Cookies saved successfully!')
-                          const data = await fetchAllCookies()
-                          setCookies(data.cookies)
-                        } catch {
-                          setHelperMessage('Failed to save cookies. Please try again.')
-                        } finally {
-                          setHelperSaving(false)
-                        }
-                      }}
-                      disabled={helperSaving || !helperCookie.trim()}
-                      className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-colors disabled:opacity-50"
-                    >
-                      {helperSaving ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
-                      Save Cookies
-                    </button>
-                    {helperMessage && (
-                      <p className={`text-sm ${helperMessage.includes('success') ? 'text-green-400' : 'text-amber-400'}`}>
-                        {helperMessage}
-                      </p>
-                    )}
-                  </div>
+                  )}
                 </div>
               </div>
             )
