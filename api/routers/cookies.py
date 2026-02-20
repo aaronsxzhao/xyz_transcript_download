@@ -364,6 +364,104 @@ async def douyin_qr_poll(
         return {"status": "waiting", "message": "Waiting for scan"}
 
 
+# ==================== Auto-import from browser ====================
+
+SUPPORTED_BROWSERS = ["chrome", "firefox", "edge", "safari", "opera", "brave", "chromium", "vivaldi"]
+
+
+class BrowserImportRequest(BaseModel):
+    platform: str
+    browser: str = "chrome"
+
+
+@router.post("/import-browser")
+async def import_browser_cookies(data: BrowserImportRequest, user: Optional[User] = Depends(get_current_user)):
+    """Extract cookies from a local browser using yt-dlp's cookies_from_browser.
+
+    Works when the server runs on the same machine as the browser (local mode).
+    On cloud/Docker deployments, returns a clear error suggesting file upload instead.
+    """
+    domain = PLATFORM_DOMAINS.get(data.platform)
+    if not domain:
+        raise HTTPException(status_code=400, detail=f"Unknown platform: {data.platform}")
+    if data.browser.lower() not in SUPPORTED_BROWSERS:
+        raise HTTPException(status_code=400, detail=f"Unsupported browser: {data.browser}")
+
+    import tempfile
+    import os
+    cookie_file = tempfile.mktemp(suffix=".txt")
+
+    try:
+        import yt_dlp
+        opts = {
+            "cookiesfrombrowser": (data.browser.lower(),),
+            "cookiefile": cookie_file,
+            "quiet": True,
+            "no_warnings": True,
+        }
+        with yt_dlp.YoutubeDL(opts) as ydl:
+            pass
+
+        if not os.path.exists(cookie_file):
+            raise HTTPException(status_code=500, detail="Cookie extraction produced no output")
+
+        raw = open(cookie_file, "r", encoding="utf-8").read()
+        raw_lines = raw.strip().splitlines()
+
+        filtered = ["# Netscape HTTP Cookie File", ""]
+        count = 0
+        bare_domain = domain.lstrip(".")
+        for line in raw_lines:
+            if not line.strip() or line.startswith("#"):
+                continue
+            parts = line.split("\t")
+            if len(parts) >= 7:
+                ld = parts[0].lstrip(".")
+                if bare_domain in ld or ld in bare_domain:
+                    filtered.append(line)
+                    count += 1
+
+        if count == 0:
+            return {
+                "success": False,
+                "message": f"No {data.platform} cookies found in {data.browser}. "
+                           f"Make sure you are logged in to {data.platform} in {data.browser}.",
+                "cookie_count": 0,
+            }
+
+        netscape = "\n".join(filtered) + "\n"
+        from cookie_manager import get_cookie_manager
+        get_cookie_manager().set_cookie(data.platform, netscape)
+        logger.info(f"Browser import ({data.browser}) for {data.platform}: {count} cookies saved")
+        return {
+            "success": True,
+            "message": f"Imported {count} cookies for {data.platform} from {data.browser}",
+            "cookie_count": count,
+        }
+
+    except ImportError:
+        raise HTTPException(status_code=500, detail="yt-dlp not available")
+    except Exception as e:
+        err = str(e)
+        if "no suitable" in err.lower() or "could not find" in err.lower() or "browser" in err.lower():
+            return {
+                "success": False,
+                "message": f"Could not access {data.browser} cookies. "
+                           f"If running on a remote server, use 'Upload cookies.txt' instead. "
+                           f"If running locally, make sure {data.browser} is installed.",
+                "cookie_count": 0,
+            }
+        logger.error(f"Browser cookie import failed: {type(e).__name__}: {e}")
+        return {
+            "success": False,
+            "message": f"Failed to extract cookies: {type(e).__name__}: {str(e)[:200]}",
+            "cookie_count": 0,
+        }
+    finally:
+        if os.path.exists(cookie_file):
+            os.unlink(cookie_file)
+
+
 # ==================== Cookie Helper (simple string conversion) ====================
 
 PLATFORM_DOMAINS = {

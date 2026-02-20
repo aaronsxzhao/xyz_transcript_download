@@ -579,3 +579,19 @@ export async function uploadCookieFile(platform: string, file: File): Promise<{ 
   }
   return res.json()
 }
+
+export async function importBrowserCookies(
+  platform: string,
+  browser: string = 'chrome',
+): Promise<{ success: boolean; message: string; cookie_count: number }> {
+  const res = await authFetch(`${API_BASE}/cookies/import-browser`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ platform, browser }),
+  })
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ detail: 'Import failed' }))
+    throw new Error(err.detail || 'Failed to import browser cookies')
+  }
+  return res.json()
+}

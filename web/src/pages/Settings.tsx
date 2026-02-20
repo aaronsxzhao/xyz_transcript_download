@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import {
   Cpu, MessageSquare, Clock, Loader2, CheckCircle, Trash2, AlertTriangle,
-  Search, Save, Download, X, Activity, Smartphone,
+  Search, Save, Download, X, Activity, Smartphone, Chrome,
   ExternalLink, Settings2, UserCircle, Wrench, Upload, FileText, Info,
 } from 'lucide-react'
 import { QRCodeSVG } from 'qrcode.react'
@@ -9,7 +9,7 @@ import {
   fetchSettings, updateSettings, authFetch, importUserSubscriptions,
   ImportSubscriptionsResult, fetchSysHealth, fetchAllCookies,
   bilibiliQrGenerate, bilibiliQrPoll, douyinQrGenerate, douyinQrPoll,
-  uploadCookieFile,
+  uploadCookieFile, importBrowserCookies,
 } from '../lib/api'
 
 interface SettingsData {
@@ -110,25 +110,53 @@ export default function Settings() {
   const qrScannedRef = useRef(false)
   const qrPlatformRef = useRef<Platform>('bilibili')
 
-  const [helperCookie, setHelperCookie] = useState('')
-  const [helperSaving, setHelperSaving] = useState(false)
-  const [helperMessage, setHelperMessage] = useState('')
-  const [showManualPaste, setShowManualPaste] = useState(false)
-  const [fileUploading, setFileUploading] = useState(false)
+  const [cookieMessage, setCookieMessage] = useState('')
+  const [cookieLoading, setCookieLoading] = useState(false)
+  const [showFileUpload, setShowFileUpload] = useState(false)
+  const [selectedBrowser, setSelectedBrowser] = useState('chrome')
   const fileInputRef = useRef<HTMLInputElement>(null)
 
+  const BROWSERS = [
+    { value: 'chrome', label: 'Chrome' },
+    { value: 'firefox', label: 'Firefox' },
+    { value: 'edge', label: 'Edge' },
+    { value: 'safari', label: 'Safari' },
+    { value: 'brave', label: 'Brave' },
+  ]
+
+  const handleAutoImport = useCallback(async (platform: Platform) => {
+    setCookieLoading(true)
+    setCookieMessage('')
+    try {
+      const result = await importBrowserCookies(platform, selectedBrowser)
+      if (result.success) {
+        setCookieMessage(`✅ ${result.message}`)
+        const data = await fetchAllCookies()
+        setCookies(data.cookies)
+      } else {
+        setCookieMessage(`⚠️ ${result.message}`)
+        setShowFileUpload(true)
+      }
+    } catch (err) {
+      setCookieMessage(`❌ ${err instanceof Error ? err.message : 'Import failed'}`)
+      setShowFileUpload(true)
+    } finally {
+      setCookieLoading(false)
+    }
+  }, [selectedBrowser])
+
   const handleCookieFileUpload = useCallback(async (platform: Platform, file: File) => {
-    setFileUploading(true)
-    setHelperMessage('')
+    setCookieLoading(true)
+    setCookieMessage('')
     try {
       const result = await uploadCookieFile(platform, file)
-      setHelperMessage(`✅ ${result.message}`)
+      setCookieMessage(`✅ ${result.message}`)
       const data = await fetchAllCookies()
       setCookies(data.cookies)
     } catch (err) {
-      setHelperMessage(`❌ ${err instanceof Error ? err.message : 'Upload failed'}`)
+      setCookieMessage(`❌ ${err instanceof Error ? err.message : 'Upload failed'}`)
     } finally {
-      setFileUploading(false)
+      setCookieLoading(false)
       if (fileInputRef.current) fileInputRef.current.value = ''
     }
   }, [])
@@ -223,9 +251,8 @@ export default function Settings() {
     setQrStatus('idle')
     setQrUrl('')
     setQrMessage('')
-    setHelperCookie('')
-    setHelperMessage('')
-    setShowManualPaste(false)
+    setCookieMessage('')
+    setShowFileUpload(false)
     setActivePlatform(p)
   }, [stopQrPolling])
 
@@ -509,230 +536,197 @@ export default function Settings() {
             })}
           </div>
 
-          {/* QR Code Login (BiliBili / Douyin) */}
-          {(activePlatform === 'bilibili' || activePlatform === 'douyin') && (
-            <div className="space-y-4">
-              <p className="text-sm text-gray-400">
-                Scan the QR code with the <strong className="text-white">{platformLabel(activePlatform)}</strong> mobile app to log in.
-              </p>
-
-              {qrStatus === 'idle' || qrStatus === 'error' ? (
-                <div>
-                  <button
-                    onClick={() => startQrLogin(activePlatform)}
-                    className="flex items-center gap-2 px-4 py-2 bg-pink-600 hover:bg-pink-700 text-white rounded-lg transition-colors"
-                  >
-                    <Smartphone size={16} />
-                    Generate QR Code
-                  </button>
-                  {qrStatus === 'error' && qrMessage && (
-                    <p className="text-sm text-amber-400 mt-2">{qrMessage}</p>
-                  )}
-                </div>
-              ) : qrStatus === 'loading' ? (
-                <div className="flex items-center gap-2 text-gray-400">
-                  <Loader2 size={16} className="animate-spin" />
-                  Generating QR code...
-                </div>
-              ) : qrStatus === 'success' ? (
-                <div className="space-y-2">
-                  <div className="flex items-center gap-2 text-green-400">
-                    <CheckCircle size={16} />
-                    {qrMessage}
-                  </div>
-                  <button
-                    onClick={() => startQrLogin(activePlatform)}
-                    className="text-xs text-gray-500 hover:text-gray-300 transition-colors"
-                  >
-                    Re-login
-                  </button>
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  <div className="flex flex-col items-center gap-3 p-4 bg-white rounded-xl w-fit mx-auto">
-                    <QRCodeSVG value={qrUrl} size={180} level="M" />
-                  </div>
-                  <div className="text-center space-y-1">
-                    <p className={`text-sm ${qrStatus === 'scanned' ? 'text-cyan-400' : 'text-gray-400'}`}>
-                      {qrStatus === 'scanned' ? (
-                        <span className="flex items-center justify-center gap-2">
-                          <Smartphone size={14} />
-                          Scanned! Confirm on your phone...
-                        </span>
-                      ) : (
-                        <span className="flex items-center justify-center gap-2">
-                          <Loader2 size={14} className="animate-spin" />
-                          Waiting for scan...
-                        </span>
-                      )}
-                    </p>
-                    {qrStatus === 'waiting' && qrCountdown > 0 && (
-                      <p className="text-xs text-gray-500">
-                        {qrCountdown > 10
-                          ? `Auto-refreshes in ${qrCountdown}s`
-                          : <span className="text-amber-400">Refreshing in {qrCountdown}s...</span>
-                        }
-                      </p>
-                    )}
-                  </div>
-                  <div className="flex items-center justify-center gap-3">
-                    <button
-                      onClick={() => startQrLogin(activePlatform)}
-                      className="text-xs text-gray-500 hover:text-gray-300 transition-colors"
-                    >
-                      Refresh now
-                    </button>
-                    <button
-                      onClick={() => { stopQrPolling(); setQrStatus('idle'); setQrUrl('') }}
-                      className="text-xs text-gray-500 hover:text-red-400 transition-colors"
-                    >
-                      Cancel
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* Cookie Import (YouTube / Kuaishou) */}
-          {(activePlatform === 'youtube' || activePlatform === 'kuaishou') && (() => {
+          {/* ── Unified login section for all platforms ── */}
+          {(() => {
             const name = platformLabel(activePlatform)
+            const hasQr = activePlatform === 'bilibili' || activePlatform === 'douyin'
             const isYT = activePlatform === 'youtube'
             return (
               <div className="space-y-4">
-                {/* Info banner */}
-                <div className="p-3.5 bg-blue-500/10 border border-blue-500/30 rounded-lg">
-                  <div className="flex items-start gap-2.5">
-                    <Info size={16} className="text-blue-400 mt-0.5 flex-shrink-0" />
-                    <div className="space-y-1.5">
-                      <p className="text-sm text-blue-300 font-medium">
-                        {isYT ? 'Most YouTube videos work without login' : `${name} login`}
-                      </p>
+                {/* Info banner for YouTube */}
+                {isYT && (
+                  <div className="p-3 bg-blue-500/10 border border-blue-500/30 rounded-lg">
+                    <div className="flex items-start gap-2.5">
+                      <Info size={16} className="text-blue-400 mt-0.5 flex-shrink-0" />
                       <p className="text-xs text-gray-400">
-                        {isYT
-                          ? 'The app automatically bypasses YouTube\'s bot detection. Login is only needed for age-restricted or private videos.'
-                          : `${name} requires login for most videos.`}
+                        Most public YouTube videos work <strong className="text-blue-300">without login</strong>.
+                        Login is only needed for age-restricted or private videos.
                       </p>
                     </div>
                   </div>
+                )}
+
+                {/* ─── Method 1: Auto-import from browser (same for all platforms) ─── */}
+                <div className="space-y-3">
+                  <p className="text-sm text-gray-300 font-medium flex items-center gap-2">
+                    <Chrome size={15} className="text-blue-400" />
+                    Auto-import from browser
+                  </p>
+                  <p className="text-xs text-gray-500">
+                    Reads cookies directly from your browser — no extensions, no manual steps.
+                    {hasQr ? ' Or use QR code below.' : ''}
+                  </p>
+                  <div className="flex items-center gap-2">
+                    <select
+                      value={selectedBrowser}
+                      onChange={e => setSelectedBrowser(e.target.value)}
+                      className="bg-dark-hover border border-dark-border text-white text-sm rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-500"
+                    >
+                      {BROWSERS.map(b => (
+                        <option key={b.value} value={b.value}>{b.label}</option>
+                      ))}
+                    </select>
+                    <button
+                      onClick={() => handleAutoImport(activePlatform)}
+                      disabled={cookieLoading}
+                      className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-colors font-medium disabled:opacity-50"
+                    >
+                      {cookieLoading ? <Loader2 size={16} className="animate-spin" /> : <Download size={16} />}
+                      {cookieLoading ? 'Importing...' : `Import ${name} Cookies`}
+                    </button>
+                  </div>
+                  <p className="text-xs text-gray-600">
+                    Make sure you are logged in to {name} in your browser first. A system permission dialog may appear.
+                  </p>
                 </div>
 
-                {/* Primary method: cookies.txt file upload */}
-                <div className="space-y-3">
-                  <p className="text-sm text-gray-300 font-medium">
-                    {isYT ? 'For age-restricted / private videos:' : 'How to log in:'}
-                  </p>
-                  <p className="text-sm text-gray-400">
-                    Export your cookies using a browser extension and upload the <code className="px-1.5 py-0.5 bg-dark-hover border border-dark-border rounded text-xs font-mono text-gray-300">cookies.txt</code> file.
-                  </p>
+                {/* Status message */}
+                {cookieMessage && (
+                  <div className={`p-3 rounded-lg text-sm ${
+                    cookieMessage.includes('✅') ? 'bg-green-500/10 border border-green-500/30 text-green-400'
+                      : cookieMessage.includes('❌') ? 'bg-red-500/10 border border-red-500/30 text-red-400'
+                      : 'bg-amber-500/10 border border-amber-500/30 text-amber-400'
+                  }`}>
+                    {cookieMessage}
+                  </div>
+                )}
 
-                  {/* Step-by-step */}
-                  <div className="p-3.5 bg-dark-hover/60 border border-dark-border rounded-lg space-y-2.5">
-                    <p className="text-xs font-medium text-gray-300 uppercase tracking-wider">Steps</p>
-                    <ol className="list-decimal list-inside text-sm text-gray-400 space-y-2">
-                      <li>
-                        Install a cookie export extension:
+                {/* ─── Method 2: QR Code (BiliBili / Douyin only) ─── */}
+                {hasQr && (
+                  <div className="border-t border-dark-border pt-4 space-y-3">
+                    <p className="text-sm text-gray-300 font-medium flex items-center gap-2">
+                      <Smartphone size={15} className="text-pink-400" />
+                      Or scan QR code with {name} app
+                    </p>
+
+                    {qrStatus === 'idle' || qrStatus === 'error' ? (
+                      <div>
+                        <button
+                          onClick={() => startQrLogin(activePlatform as 'bilibili' | 'douyin')}
+                          className="flex items-center gap-2 px-4 py-2 bg-pink-600 hover:bg-pink-700 text-white rounded-lg transition-colors"
+                        >
+                          <Smartphone size={16} />
+                          Generate QR Code
+                        </button>
+                        {qrStatus === 'error' && qrMessage && (
+                          <p className="text-sm text-amber-400 mt-2">{qrMessage}</p>
+                        )}
+                      </div>
+                    ) : qrStatus === 'loading' ? (
+                      <div className="flex items-center gap-2 text-gray-400">
+                        <Loader2 size={16} className="animate-spin" />
+                        Generating QR code...
+                      </div>
+                    ) : qrStatus === 'success' ? (
+                      <div className="space-y-2">
+                        <div className="flex items-center gap-2 text-green-400">
+                          <CheckCircle size={16} />
+                          {qrMessage}
+                        </div>
+                        <button
+                          onClick={() => startQrLogin(activePlatform as 'bilibili' | 'douyin')}
+                          className="text-xs text-gray-500 hover:text-gray-300 transition-colors"
+                        >
+                          Re-login
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="space-y-3">
+                        <div className="flex flex-col items-center gap-3 p-4 bg-white rounded-xl w-fit mx-auto">
+                          <QRCodeSVG value={qrUrl} size={180} level="M" />
+                        </div>
+                        <div className="text-center space-y-1">
+                          <p className={`text-sm ${qrStatus === 'scanned' ? 'text-cyan-400' : 'text-gray-400'}`}>
+                            {qrStatus === 'scanned' ? (
+                              <span className="flex items-center justify-center gap-2">
+                                <Smartphone size={14} />
+                                Scanned! Confirm on your phone...
+                              </span>
+                            ) : (
+                              <span className="flex items-center justify-center gap-2">
+                                <Loader2 size={14} className="animate-spin" />
+                                Waiting for scan...
+                              </span>
+                            )}
+                          </p>
+                          {qrStatus === 'waiting' && qrCountdown > 0 && (
+                            <p className="text-xs text-gray-500">
+                              {qrCountdown > 10
+                                ? `Auto-refreshes in ${qrCountdown}s`
+                                : <span className="text-amber-400">Refreshing in {qrCountdown}s...</span>
+                              }
+                            </p>
+                          )}
+                        </div>
+                        <div className="flex items-center justify-center gap-3">
+                          <button
+                            onClick={() => startQrLogin(activePlatform as 'bilibili' | 'douyin')}
+                            className="text-xs text-gray-500 hover:text-gray-300 transition-colors"
+                          >
+                            Refresh now
+                          </button>
+                          <button
+                            onClick={() => { stopQrPolling(); setQrStatus('idle'); setQrUrl('') }}
+                            className="text-xs text-gray-500 hover:text-red-400 transition-colors"
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* ─── Method 3: Upload cookies.txt file (fallback, same for all) ─── */}
+                <div className={`${hasQr || showFileUpload ? 'border-t border-dark-border pt-4' : ''} space-y-3`}>
+                  <button
+                    onClick={() => setShowFileUpload(!showFileUpload)}
+                    className="flex items-center gap-1.5 text-xs text-gray-500 hover:text-gray-300 transition-colors"
+                  >
+                    <FileText size={12} />
+                    {showFileUpload ? '▾ Hide file upload' : '▸ Or upload cookies.txt file'}
+                  </button>
+                  {showFileUpload && (
+                    <div className="space-y-3 pl-1">
+                      <p className="text-xs text-gray-500">
+                        Export cookies using a browser extension like{' '}
                         <a
                           href="https://chromewebstore.google.com/detail/get-cookiestxt-locally/cclelndahbckbenkjhflpdbgdldlbecc"
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="inline-flex items-center gap-1 ml-1.5 text-indigo-400 hover:text-indigo-300"
+                          className="text-indigo-400 hover:text-indigo-300 inline-flex items-center gap-0.5"
                         >
-                          Get cookies.txt LOCALLY <ExternalLink size={11} />
+                          Get cookies.txt LOCALLY <ExternalLink size={10} />
                         </a>
-                      </li>
-                      <li>
-                        Go to{' '}
-                        <a
-                          href={isYT ? 'https://www.youtube.com' : 'https://www.kuaishou.com'}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-indigo-400 hover:text-indigo-300"
-                        >
-                          {isYT ? 'youtube.com' : 'kuaishou.com'}
-                        </a>
-                        {' '}and log in to your account
-                      </li>
-                      <li>Click the extension icon → <strong className="text-white">Export</strong> to download <code className="px-1 py-0.5 bg-dark-hover border border-dark-border rounded text-xs font-mono text-gray-300">cookies.txt</code></li>
-                      <li>Upload the file below</li>
-                    </ol>
-                  </div>
-
-                  {/* File upload area */}
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    accept=".txt,.cookie,.cookies"
-                    className="hidden"
-                    onChange={e => {
-                      const f = e.target.files?.[0]
-                      if (f) handleCookieFileUpload(activePlatform, f)
-                    }}
-                  />
-                  <button
-                    onClick={() => fileInputRef.current?.click()}
-                    disabled={fileUploading}
-                    className="flex items-center gap-2 px-4 py-2.5 bg-pink-600 hover:bg-pink-700 text-white rounded-lg transition-colors font-medium disabled:opacity-50"
-                  >
-                    {fileUploading ? <Loader2 size={16} className="animate-spin" /> : <Upload size={16} />}
-                    {fileUploading ? 'Uploading...' : 'Upload cookies.txt'}
-                  </button>
-                </div>
-
-                {/* Status message */}
-                {helperMessage && (
-                  <p className={`text-sm ${helperMessage.includes('✅') || helperMessage.includes('success') ? 'text-green-400' : helperMessage.includes('❌') || helperMessage.includes('Failed') ? 'text-red-400' : 'text-gray-400'}`}>
-                    {helperMessage}
-                  </p>
-                )}
-
-                {/* Manual paste fallback */}
-                <div className="border-t border-dark-border pt-3">
-                  <button
-                    onClick={() => setShowManualPaste(!showManualPaste)}
-                    className="flex items-center gap-1.5 text-xs text-gray-500 hover:text-gray-300 transition-colors"
-                  >
-                    <FileText size={12} />
-                    {showManualPaste ? '▾ Hide manual paste' : '▸ Or paste Netscape cookie text manually'}
-                  </button>
-                  {showManualPaste && (
-                    <div className="mt-2 space-y-2">
-                      <p className="text-xs text-gray-500">
-                        Paste the full content of your exported cookies.txt file (Netscape format):
+                        , then upload the file.
                       </p>
-                      <textarea
-                        value={helperCookie}
-                        onChange={e => setHelperCookie(e.target.value)}
-                        placeholder={"# Netscape HTTP Cookie File\n.youtube.com\tTRUE\t/\tTRUE\t0\tSID\tvalue..."}
-                        rows={4}
-                        className="w-full px-3 py-2 bg-dark-hover border border-dark-border rounded-lg text-sm text-white placeholder-gray-500 focus:outline-none focus:border-indigo-500 resize-none font-mono"
+                      <input
+                        ref={fileInputRef}
+                        type="file"
+                        accept=".txt,.cookie,.cookies"
+                        className="hidden"
+                        onChange={e => {
+                          const f = e.target.files?.[0]
+                          if (f) handleCookieFileUpload(activePlatform, f)
+                        }}
                       />
                       <button
-                        onClick={async () => {
-                          setHelperSaving(true)
-                          setHelperMessage('')
-                          try {
-                            const res = await authFetch('/api/cookies', {
-                              method: 'POST',
-                              headers: { 'Content-Type': 'application/json' },
-                              body: JSON.stringify({ platform: activePlatform, cookie_data: helperCookie }),
-                            })
-                            if (!res.ok) throw new Error('Save failed')
-                            setHelperCookie('')
-                            setHelperMessage('✅ Cookies saved successfully!')
-                            const data = await fetchAllCookies()
-                            setCookies(data.cookies)
-                          } catch {
-                            setHelperMessage('❌ Failed to save cookies. Check the format and try again.')
-                          } finally {
-                            setHelperSaving(false)
-                          }
-                        }}
-                        disabled={helperSaving || !helperCookie.trim()}
-                        className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-colors disabled:opacity-50"
+                        onClick={() => fileInputRef.current?.click()}
+                        disabled={cookieLoading}
+                        className="flex items-center gap-2 px-4 py-2 bg-dark-hover hover:bg-dark-border text-white rounded-lg transition-colors disabled:opacity-50"
                       >
-                        {helperSaving ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
-                        Save Cookies
+                        {cookieLoading ? <Loader2 size={16} className="animate-spin" /> : <Upload size={16} />}
+                        Upload cookies.txt
                       </button>
                     </div>
                   )}
