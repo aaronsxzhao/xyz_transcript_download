@@ -268,6 +268,12 @@ export default function Settings() {
   useEffect(() => { loadSettings() }, [])
 
   useEffect(() => {
+    fetchAllCookies()
+      .then(data => setCookies(data.cookies))
+      .catch(() => {})
+  }, [])
+
+  useEffect(() => {
     if (settings) {
       const savedWhisperModel = localStorage.getItem('whisper_model') || settings.whisper_model
       const savedLlmModel = localStorage.getItem('llm_model') || settings.llm_model
