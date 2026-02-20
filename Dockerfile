@@ -16,10 +16,12 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     ffmpeg \
     aria2 \
     curl \
+    libstdc++6 \
     && rm -rf /var/lib/apt/lists/*
 
-# Install Node.js (required by yt-dlp for YouTube JS challenge solving)
+# Install Node.js binary (for yt-dlp YouTube JS challenge solving)
 COPY --from=frontend-build /usr/local/bin/node /usr/local/bin/node
+RUN node --version
 
 WORKDIR /app
 
