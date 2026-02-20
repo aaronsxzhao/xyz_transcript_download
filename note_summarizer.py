@@ -275,7 +275,8 @@ class NoteSummarizer:
                 if delta:
                     collected.append(delta)
                     char_count += len(delta)
-                    progress_callback(char_count)
+                    partial_text = "".join(collected)
+                    progress_callback(char_count, partial_text)
             result = "".join(collected)
         else:
             response = self.client.chat.completions.create(**params)

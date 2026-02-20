@@ -176,7 +176,7 @@ export default function VideoHistory({ onSelect }: Props) {
                   </p>
                   <div className="flex items-center gap-1.5 mt-1">
                     {getStatusIcon(task.status)}
-                    <span className="text-xs text-gray-500">
+                    <span className="text-xs text-gray-500 truncate">
                       {task.status === 'failed' && task.error
                         ? ({
                             BILIBILI_LOGIN_REQUIRED: 'Login required',
@@ -191,13 +191,10 @@ export default function VideoHistory({ onSelect }: Props) {
                             FFMPEG_MISSING: 'FFmpeg missing',
                             UNSUPPORTED_URL: 'Bad URL',
                           }[task.error] || getStatusLabel(task.status))
-                        : getStatusLabel(task.status)}
+                        : !['success', 'failed', 'pending', 'cancelled'].includes(task.status) && task.progress > 0
+                          ? `${getStatusLabel(task.status)} ${Math.round(task.progress)}%`
+                          : getStatusLabel(task.status)}
                     </span>
-                    {task.status !== 'success' && task.status !== 'failed' && task.progress > 0 && (
-                      <span className="text-xs text-gray-500">
-                        {Math.round(task.progress)}%
-                      </span>
-                    )}
                   </div>
                 </div>
                 <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-all">
@@ -233,8 +230,8 @@ export default function VideoHistory({ onSelect }: Props) {
               {!['success', 'failed', 'pending'].includes(task.status) && (
                 <div className="mt-2 h-1 bg-dark-border rounded-full overflow-hidden">
                   <div
-                    className="h-full bg-indigo-500 transition-all duration-300"
-                    style={{ width: `${task.progress}%` }}
+                    className="h-full bg-indigo-500 rounded-full"
+                    style={{ width: `${task.progress}%`, transition: 'width 1s ease-out' }}
                   />
                 </div>
               )}

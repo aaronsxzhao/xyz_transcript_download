@@ -132,7 +132,7 @@ export default function MarkdownPreview({ task }: Props) {
             </span>
           )}
         </div>
-        {isSuccess && task.markdown && (
+        {task.markdown && (
           <div className="flex items-center gap-1 flex-shrink-0">
             <button
               onClick={handleCopy}
@@ -148,14 +148,16 @@ export default function MarkdownPreview({ task }: Props) {
             >
               <Download size={15} />
             </button>
-            <button
-              onClick={handleDownloadPdf}
-              disabled={pdfLoading}
-              className="p-1.5 text-gray-400 hover:text-white transition-colors disabled:opacity-50"
-              title="Download PDF"
-            >
-              {pdfLoading ? <Loader2 size={15} className="animate-spin" /> : <FileDown size={15} />}
-            </button>
+            {isSuccess && (
+              <button
+                onClick={handleDownloadPdf}
+                disabled={pdfLoading}
+                className="p-1.5 text-gray-400 hover:text-white transition-colors disabled:opacity-50"
+                title="Download PDF"
+              >
+                {pdfLoading ? <Loader2 size={15} className="animate-spin" /> : <FileDown size={15} />}
+              </button>
+            )}
           </div>
         )}
       </div>
@@ -166,8 +168,8 @@ export default function MarkdownPreview({ task }: Props) {
           <StepBar currentStatus={task.status} />
           <div className="mt-3 h-1.5 bg-dark-border rounded-full overflow-hidden">
             <div
-              className="h-full bg-indigo-500 transition-all duration-500 rounded-full"
-              style={{ width: `${task.progress}%` }}
+              className="h-full bg-indigo-500 rounded-full"
+              style={{ width: `${task.progress}%`, transition: 'width 1.2s ease-out' }}
             />
           </div>
           <div className="flex items-center justify-center gap-3 mt-2">
@@ -290,9 +292,15 @@ export default function MarkdownPreview({ task }: Props) {
         </div>
       )}
 
-      {/* Markdown content */}
-      {isSuccess && task.markdown && (
+      {/* Markdown content (finished or streaming) */}
+      {(isSuccess || (isActive && task.markdown)) && task.markdown && (
         <div className="flex-1 overflow-y-auto custom-scrollbar">
+          {isActive && (
+            <div className="flex items-center gap-2 mb-3 px-1 text-xs text-indigo-400">
+              <Loader2 size={12} className="animate-spin" />
+              <span>Writing notes...</span>
+            </div>
+          )}
           <article className="prose prose-invert max-w-none
             prose-headings:text-gray-100 prose-headings:font-bold
             prose-h1:text-2xl prose-h1:border-b prose-h1:border-dark-border prose-h1:pb-2 prose-h1:mb-6
@@ -410,7 +418,7 @@ export default function MarkdownPreview({ task }: Props) {
       {isActive && !task.markdown && task.status !== 'pending' && (
         <div className="flex flex-col items-center justify-center flex-1 text-gray-500">
           <Loader2 size={32} className="animate-spin mb-3 text-indigo-400" />
-          <p>{task.message || 'Processing...'}</p>
+          <p className="text-sm">{task.message || 'Processing...'}</p>
         </div>
       )}
     </div>

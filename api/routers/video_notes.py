@@ -303,7 +303,7 @@ def process_video_note_sync(
                     "duration": duration,
                 }, ensure_ascii=False),
             })
-            _update_task_status(db, task_id, "transcribing", 60, "Transcription complete", user_id)
+            _update_task_status(db, task_id, "transcribing", 60, "Transcription done, preparing notes...", user_id)
 
         # Phase 3b: Video understanding (60-70%)
         visual_context = ""
@@ -339,18 +339,34 @@ def process_video_note_sync(
         )
 
         last_summarize_progress = [70]
+        import time as _time
+        _last_stream_broadcast = [0.0]
 
-        def summarize_progress(chars):
+        def summarize_progress(chars, partial_text=""):
             if is_video_task_cancelled(task_id):
                 raise VideoCancelledException("Cancelled during summarization")
             progress_ratio = min(chars / 8000, 1.0)
             job_progress = 70 + (progress_ratio * 20)
-            if job_progress - last_summarize_progress[0] >= 1:
+
+            now = _time.monotonic()
+            should_broadcast = (
+                job_progress - last_summarize_progress[0] >= 1
+                or (partial_text and now - _last_stream_broadcast[0] >= 0.6)
+            )
+            if should_broadcast:
                 last_summarize_progress[0] = job_progress
-                _update_task_status(
-                    db, task_id, "summarizing", job_progress,
-                    f"Generating notes ({chars} chars)...", user_id,
-                )
+                _last_stream_broadcast[0] = now
+                updates = {
+                    "status": "summarizing",
+                    "progress": job_progress,
+                    "message": f"Generating notes ({chars} chars)...",
+                }
+                if partial_text:
+                    updates["markdown"] = partial_text
+                db.update_task(task_id, updates)
+                task = db.get_task(task_id, user_id)
+                if task:
+                    _broadcast_from_thread(task_id, task, user_id)
 
         markdown = note_summarizer.generate_note(
             title=title,
