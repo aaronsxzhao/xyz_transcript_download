@@ -37,7 +37,7 @@ email-validator>=2.0.0
 pydub>=0.25.1
 
 # Video/audio downloading
-yt-dlp>=2025.11.12
+yt-dlp>=2026.1.1
 
 # Note: torch, faster-whisper, mlx-whisper are NOT included
 # Cloud deployment uses Groq API for transcription (WHISPER_MODE=api)

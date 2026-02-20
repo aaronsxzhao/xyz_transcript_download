@@ -4,7 +4,7 @@ import time
 from typing import Optional
 
 import httpx
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form
 from pydantic import BaseModel
 
 from api.auth import get_current_user, User
@@ -392,6 +392,63 @@ async def save_simple_cookie(data: SimpleCookieUpdate, user: Optional[User] = De
     from cookie_manager import get_cookie_manager
     get_cookie_manager().set_cookie(data.platform, netscape)
     return {"message": f"Cookies saved for {data.platform}"}
+
+
+@router.post("/upload-file")
+async def upload_cookie_file(
+    platform: str = Form(...),
+    file: UploadFile = File(...),
+    user: Optional[User] = Depends(get_current_user),
+):
+    """Accept a Netscape cookies.txt file upload and save it for the given platform.
+
+    Browser extensions like 'Get cookies.txt LOCALLY' export this format,
+    which includes httpOnly cookies that document.cookie cannot access.
+    """
+    domain = PLATFORM_DOMAINS.get(platform)
+    if not domain:
+        raise HTTPException(status_code=400, detail=f"Unknown platform: {platform}")
+
+    content = await file.read()
+    try:
+        text = content.decode("utf-8")
+    except UnicodeDecodeError:
+        raise HTTPException(status_code=400, detail="File must be a text file (cookies.txt)")
+
+    if not text.strip():
+        raise HTTPException(status_code=400, detail="Cookie file is empty")
+
+    lines = text.strip().splitlines()
+    filtered_lines = ["# Netscape HTTP Cookie File", ""]
+    cookie_count = 0
+    for line in lines:
+        line = line.strip()
+        if not line:
+            continue
+        # #HttpOnly_ prefix marks httpOnly cookies — these are valid entries, not comments
+        if line.startswith("#HttpOnly_"):
+            line = line[len("#HttpOnly_"):]
+        elif line.startswith("#"):
+            continue
+        parts = line.split("\t")
+        if len(parts) >= 7:
+            line_domain = parts[0]
+            if domain.lstrip(".") in line_domain or line_domain.lstrip(".") in domain.lstrip("."):
+                filtered_lines.append(line)
+                cookie_count += 1
+
+    if cookie_count == 0:
+        raise HTTPException(
+            status_code=400,
+            detail=f"No cookies found for {platform} (domain {domain}) in the uploaded file. "
+                   f"Make sure you exported cookies from the correct website.",
+        )
+
+    netscape = "\n".join(filtered_lines) + "\n"
+    from cookie_manager import get_cookie_manager
+    get_cookie_manager().set_cookie(platform, netscape)
+    logger.info(f"Uploaded cookies.txt for {platform}: {cookie_count} cookies saved")
+    return {"message": f"Saved {cookie_count} cookies for {platform}", "cookie_count": cookie_count}
 
 
 @router.get("/{platform}")

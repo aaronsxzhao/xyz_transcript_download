@@ -36,23 +36,14 @@ export async function authFetch(url: string, options: RequestInit = {}): Promise
   const res = await fetch(url, { ...options, headers })
 
   if (res.status === 401) {
-    // #region agent log
-    fetch('http://127.0.0.1:7244/ingest/93158d3a-ec2c-4e4b-8a82-57bf6bb6df56',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'api.ts:authFetch',message:'got_401_attempting_refresh',data:{url,hasToken:!!getAccessToken()},timestamp:Date.now(),hypothesisId:'A'})}).catch(()=>{});
-    // #endregion
     const tokens = await refreshToken()
     if (tokens) {
-      // #region agent log
-      fetch('http://127.0.0.1:7244/ingest/93158d3a-ec2c-4e4b-8a82-57bf6bb6df56',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'api.ts:authFetch',message:'refresh_ok_retrying',data:{url},timestamp:Date.now(),hypothesisId:'A'})}).catch(()=>{});
-      // #endregion
       const retryHeaders = {
         ...getAuthHeaders(tokens.access_token),
         ...options.headers,
       }
       return fetch(url, { ...options, headers: retryHeaders })
     }
-    // #region agent log
-    fetch('http://127.0.0.1:7244/ingest/93158d3a-ec2c-4e4b-8a82-57bf6bb6df56',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'api.ts:authFetch',message:'refresh_failed',data:{url},timestamp:Date.now(),hypothesisId:'A'})}).catch(()=>{});
-    // #endregion
   }
 
   return res
@@ -571,5 +562,20 @@ export async function saveSimpleCookie(platform: string, cookieString: string): 
     body: JSON.stringify({ platform, cookie_string: cookieString }),
   })
   if (!res.ok) throw new Error('Failed to save cookie')
+  return res.json()
+}
+
+export async function uploadCookieFile(platform: string, file: File): Promise<{ message: string; cookie_count: number }> {
+  const form = new FormData()
+  form.append('platform', platform)
+  form.append('file', file)
+  const res = await authFetch(`${API_BASE}/cookies/upload-file`, {
+    method: 'POST',
+    body: form,
+  })
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ detail: 'Upload failed' }))
+    throw new Error(err.detail || 'Failed to upload cookie file')
+  }
   return res.json()
 }

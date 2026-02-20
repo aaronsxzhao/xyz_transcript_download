@@ -1,17 +1,16 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import {
   Cpu, MessageSquare, Clock, Loader2, CheckCircle, Trash2, AlertTriangle,
-  Search, Save, Download, X, Activity, Smartphone, Clipboard,
-  ExternalLink, Settings2, UserCircle, Wrench,
+  Search, Save, Download, X, Activity, Smartphone,
+  ExternalLink, Settings2, UserCircle, Wrench, Upload, FileText, Info,
 } from 'lucide-react'
 import { QRCodeSVG } from 'qrcode.react'
 import {
   fetchSettings, updateSettings, authFetch, importUserSubscriptions,
   ImportSubscriptionsResult, fetchSysHealth, fetchAllCookies,
   bilibiliQrGenerate, bilibiliQrPoll, douyinQrGenerate, douyinQrPoll,
-  saveSimpleCookie,
+  uploadCookieFile,
 } from '../lib/api'
-import { getAccessToken } from '../lib/auth'
 
 interface SettingsData {
   whisper_mode: string
@@ -114,55 +113,25 @@ export default function Settings() {
   const [helperCookie, setHelperCookie] = useState('')
   const [helperSaving, setHelperSaving] = useState(false)
   const [helperMessage, setHelperMessage] = useState('')
-  const [snippetCopied, setSnippetCopied] = useState(false)
   const [showManualPaste, setShowManualPaste] = useState(false)
-  const [autoDetecting, setAutoDetecting] = useState(false)
-  const autoDetectRef = useRef<ReturnType<typeof setInterval> | null>(null)
-  const autoDetectPlatformRef = useRef<Platform | null>(null)
+  const [fileUploading, setFileUploading] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
-  const stopAutoDetect = useCallback(() => {
-    if (autoDetectRef.current) { clearInterval(autoDetectRef.current); autoDetectRef.current = null }
-    autoDetectPlatformRef.current = null
-    setAutoDetecting(false)
-  }, [])
-
-  const buildAutoScript = useCallback((platform: string) => {
-    const apiBase = window.location.origin
-    const token = getAccessToken() || ''
-    const authHeader = token ? `,'Authorization':'Bearer ${token}'` : ''
-    return `fetch('${apiBase}/api/cookies/save-simple',{method:'POST',headers:{'Content-Type':'application/json'${authHeader}},body:JSON.stringify({platform:'${platform}',cookie_string:document.cookie})}).then(r=>r.ok?r.json():Promise.reject('Server error')).then(()=>{document.title='✅ Cookies saved!';alert('✅ Cookies saved! You can close this tab.')}).catch(e=>alert('❌ Failed: '+e))`
-  }, [])
-
-  const handleOpenAndCopy = useCallback(async (platform: Platform) => {
-    const siteUrl = platform === 'youtube' ? 'https://www.youtube.com' : 'https://www.kuaishou.com'
-    const script = buildAutoScript(platform)
+  const handleCookieFileUpload = useCallback(async (platform: Platform, file: File) => {
+    setFileUploading(true)
+    setHelperMessage('')
     try {
-      await navigator.clipboard.writeText(script)
-      setHelperMessage('Script copied to clipboard!')
-    } catch {
-      setHelperMessage('Could not auto-copy — please copy the script below manually.')
+      const result = await uploadCookieFile(platform, file)
+      setHelperMessage(`✅ ${result.message}`)
+      const data = await fetchAllCookies()
+      setCookies(data.cookies)
+    } catch (err) {
+      setHelperMessage(`❌ ${err instanceof Error ? err.message : 'Upload failed'}`)
+    } finally {
+      setFileUploading(false)
+      if (fileInputRef.current) fileInputRef.current.value = ''
     }
-    window.open(siteUrl, '_blank')
-
-    stopAutoDetect()
-    setAutoDetecting(true)
-    autoDetectPlatformRef.current = platform
-    autoDetectRef.current = setInterval(async () => {
-      try {
-        const data = await fetchAllCookies()
-        const c = data.cookies.find(x => x.platform === platform)
-        if (c?.has_cookie) {
-          const prev = cookies.find(x => x.platform === platform)
-          if (!prev?.has_cookie || prev.updated_at !== c.updated_at) {
-            setCookies(data.cookies)
-            setHelperMessage(`✅ ${platformLabel(platform)} cookies imported successfully!`)
-            stopAutoDetect()
-          }
-        }
-      } catch {}
-    }, 3000)
-    setTimeout(() => stopAutoDetect(), 300_000)
-  }, [buildAutoScript, cookies, stopAutoDetect])
+  }, [])
 
   const stopQrPolling = useCallback(() => {
     if (qrPollRef.current) { clearInterval(qrPollRef.current); qrPollRef.current = null }
@@ -251,7 +220,6 @@ export default function Settings() {
 
   const handleSwitchPlatform = useCallback((p: Platform) => {
     stopQrPolling()
-    stopAutoDetect()
     setQrStatus('idle')
     setQrUrl('')
     setQrMessage('')
@@ -259,11 +227,11 @@ export default function Settings() {
     setHelperMessage('')
     setShowManualPaste(false)
     setActivePlatform(p)
-  }, [stopQrPolling, stopAutoDetect])
+  }, [stopQrPolling])
 
   useEffect(() => {
-    return () => { stopQrPolling(); stopAutoDetect() }
-  }, [stopQrPolling, stopAutoDetect])
+    return () => { stopQrPolling() }
+  }, [stopQrPolling])
 
   useEffect(() => { loadSettings() }, [])
 
@@ -629,40 +597,87 @@ export default function Settings() {
           {/* Cookie Import (YouTube / Kuaishou) */}
           {(activePlatform === 'youtube' || activePlatform === 'kuaishou') && (() => {
             const name = platformLabel(activePlatform)
-            const script = buildAutoScript(activePlatform)
+            const isYT = activePlatform === 'youtube'
             return (
               <div className="space-y-4">
-                <p className="text-sm text-gray-400">
-                  {name} does not support QR code login. Click the button below to open {name}, log in, then paste the auto-import script in your browser console.
-                </p>
-
-                {/* Primary action: open site + copy script */}
-                <button
-                  onClick={() => handleOpenAndCopy(activePlatform)}
-                  className="flex items-center gap-2 px-4 py-2.5 bg-pink-600 hover:bg-pink-700 text-white rounded-lg transition-colors font-medium"
-                >
-                  <ExternalLink size={16} />
-                  Open {name} &amp; Copy Login Script
-                </button>
-
-                {/* Instructions */}
-                <div className="p-3.5 bg-dark-hover/60 border border-dark-border rounded-lg space-y-2.5">
-                  <p className="text-xs font-medium text-gray-300 uppercase tracking-wider">After logging in on {name}:</p>
-                  <ol className="list-decimal list-inside text-sm text-gray-400 space-y-1.5">
-                    <li>Press <kbd className="px-1.5 py-0.5 bg-dark-hover border border-dark-border rounded text-xs font-mono text-gray-300">F12</kbd> to open Developer Tools</li>
-                    <li>Click the <strong className="text-white">Console</strong> tab</li>
-                    <li>Press <kbd className="px-1.5 py-0.5 bg-dark-hover border border-dark-border rounded text-xs font-mono text-gray-300">Ctrl+V</kbd> (or <kbd className="px-1.5 py-0.5 bg-dark-hover border border-dark-border rounded text-xs font-mono text-gray-300">⌘V</kbd>) to paste the script</li>
-                    <li>Press <strong className="text-white">Enter</strong> — cookies are saved automatically</li>
-                  </ol>
+                {/* Info banner */}
+                <div className="p-3.5 bg-blue-500/10 border border-blue-500/30 rounded-lg">
+                  <div className="flex items-start gap-2.5">
+                    <Info size={16} className="text-blue-400 mt-0.5 flex-shrink-0" />
+                    <div className="space-y-1.5">
+                      <p className="text-sm text-blue-300 font-medium">
+                        {isYT ? 'Most YouTube videos work without login' : `${name} login`}
+                      </p>
+                      <p className="text-xs text-gray-400">
+                        {isYT
+                          ? 'The app automatically bypasses YouTube\'s bot detection. Login is only needed for age-restricted or private videos.'
+                          : `${name} requires login for most videos.`}
+                      </p>
+                    </div>
+                  </div>
                 </div>
 
-                {/* Auto-detect indicator */}
-                {autoDetecting && (
-                  <div className="flex items-center gap-2 text-sm text-gray-400">
-                    <Loader2 size={14} className="animate-spin text-indigo-400" />
-                    Listening for cookies...
+                {/* Primary method: cookies.txt file upload */}
+                <div className="space-y-3">
+                  <p className="text-sm text-gray-300 font-medium">
+                    {isYT ? 'For age-restricted / private videos:' : 'How to log in:'}
+                  </p>
+                  <p className="text-sm text-gray-400">
+                    Export your cookies using a browser extension and upload the <code className="px-1.5 py-0.5 bg-dark-hover border border-dark-border rounded text-xs font-mono text-gray-300">cookies.txt</code> file.
+                  </p>
+
+                  {/* Step-by-step */}
+                  <div className="p-3.5 bg-dark-hover/60 border border-dark-border rounded-lg space-y-2.5">
+                    <p className="text-xs font-medium text-gray-300 uppercase tracking-wider">Steps</p>
+                    <ol className="list-decimal list-inside text-sm text-gray-400 space-y-2">
+                      <li>
+                        Install a cookie export extension:
+                        <a
+                          href="https://chromewebstore.google.com/detail/get-cookiestxt-locally/cclelndahbckbenkjhflpdbgdldlbecc"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1 ml-1.5 text-indigo-400 hover:text-indigo-300"
+                        >
+                          Get cookies.txt LOCALLY <ExternalLink size={11} />
+                        </a>
+                      </li>
+                      <li>
+                        Go to{' '}
+                        <a
+                          href={isYT ? 'https://www.youtube.com' : 'https://www.kuaishou.com'}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-indigo-400 hover:text-indigo-300"
+                        >
+                          {isYT ? 'youtube.com' : 'kuaishou.com'}
+                        </a>
+                        {' '}and log in to your account
+                      </li>
+                      <li>Click the extension icon → <strong className="text-white">Export</strong> to download <code className="px-1 py-0.5 bg-dark-hover border border-dark-border rounded text-xs font-mono text-gray-300">cookies.txt</code></li>
+                      <li>Upload the file below</li>
+                    </ol>
                   </div>
-                )}
+
+                  {/* File upload area */}
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept=".txt,.cookie,.cookies"
+                    className="hidden"
+                    onChange={e => {
+                      const f = e.target.files?.[0]
+                      if (f) handleCookieFileUpload(activePlatform, f)
+                    }}
+                  />
+                  <button
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={fileUploading}
+                    className="flex items-center gap-2 px-4 py-2.5 bg-pink-600 hover:bg-pink-700 text-white rounded-lg transition-colors font-medium disabled:opacity-50"
+                  >
+                    {fileUploading ? <Loader2 size={16} className="animate-spin" /> : <Upload size={16} />}
+                    {fileUploading ? 'Uploading...' : 'Upload cookies.txt'}
+                  </button>
+                </div>
 
                 {/* Status message */}
                 {helperMessage && (
@@ -671,36 +686,25 @@ export default function Settings() {
                   </p>
                 )}
 
-                {/* Copy script manually (fallback) */}
-                <div className="space-y-2">
-                  <button
-                    onClick={() => {
-                      navigator.clipboard.writeText(script)
-                      setSnippetCopied(true)
-                      setTimeout(() => setSnippetCopied(false), 2000)
-                    }}
-                    className="flex items-center gap-1.5 text-xs text-gray-500 hover:text-gray-300 transition-colors"
-                  >
-                    {snippetCopied ? <CheckCircle size={12} className="text-green-400" /> : <Clipboard size={12} />}
-                    {snippetCopied ? 'Copied!' : 'Copy script again'}
-                  </button>
-                </div>
-
                 {/* Manual paste fallback */}
                 <div className="border-t border-dark-border pt-3">
                   <button
                     onClick={() => setShowManualPaste(!showManualPaste)}
-                    className="text-xs text-gray-500 hover:text-gray-300 transition-colors"
+                    className="flex items-center gap-1.5 text-xs text-gray-500 hover:text-gray-300 transition-colors"
                   >
-                    {showManualPaste ? '▾ Hide manual paste' : '▸ Or paste cookies manually'}
+                    <FileText size={12} />
+                    {showManualPaste ? '▾ Hide manual paste' : '▸ Or paste Netscape cookie text manually'}
                   </button>
                   {showManualPaste && (
                     <div className="mt-2 space-y-2">
+                      <p className="text-xs text-gray-500">
+                        Paste the full content of your exported cookies.txt file (Netscape format):
+                      </p>
                       <textarea
                         value={helperCookie}
                         onChange={e => setHelperCookie(e.target.value)}
-                        placeholder="key1=val1; key2=val2; ..."
-                        rows={3}
+                        placeholder={"# Netscape HTTP Cookie File\n.youtube.com\tTRUE\t/\tTRUE\t0\tSID\tvalue..."}
+                        rows={4}
                         className="w-full px-3 py-2 bg-dark-hover border border-dark-border rounded-lg text-sm text-white placeholder-gray-500 focus:outline-none focus:border-indigo-500 resize-none font-mono"
                       />
                       <button
@@ -708,13 +712,18 @@ export default function Settings() {
                           setHelperSaving(true)
                           setHelperMessage('')
                           try {
-                            await saveSimpleCookie(activePlatform, helperCookie)
+                            const res = await authFetch('/api/cookies', {
+                              method: 'POST',
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({ platform: activePlatform, cookie_data: helperCookie }),
+                            })
+                            if (!res.ok) throw new Error('Save failed')
                             setHelperCookie('')
                             setHelperMessage('✅ Cookies saved successfully!')
                             const data = await fetchAllCookies()
                             setCookies(data.cookies)
                           } catch {
-                            setHelperMessage('❌ Failed to save cookies. Please try again.')
+                            setHelperMessage('❌ Failed to save cookies. Check the format and try again.')
                           } finally {
                             setHelperSaving(false)
                           }

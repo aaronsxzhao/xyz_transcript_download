@@ -255,6 +255,67 @@ async def debug_screenshots():
     }
 
 
+@app.get("/api/debug/youtube-test")
+async def debug_youtube_test():
+    """Debug: test YouTube download capability (JS challenge solver + node)."""
+    import shutil
+    import subprocess
+    result: dict = {}
+
+    node_path = shutil.which("node")
+    result["node_available"] = node_path is not None
+    result["node_path"] = node_path
+    if node_path:
+        try:
+            ver = subprocess.run([node_path, "--version"], capture_output=True, text=True, timeout=5)
+            result["node_version"] = ver.stdout.strip()
+        except Exception as e:
+            result["node_version_error"] = str(e)
+
+    try:
+        import yt_dlp
+        result["ytdlp_version"] = yt_dlp.version.__version__
+    except Exception as e:
+        result["ytdlp_error"] = str(e)
+
+    test_url = "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
+    try:
+        import yt_dlp
+        opts = {
+            "skip_download": True,
+            "quiet": True,
+            "no_warnings": False,
+            "js_runtimes": {"deno": {}, "node": {}, "bun": {}},
+            "remote_components": {"ejs:github"},
+        }
+        with yt_dlp.YoutubeDL(opts) as ydl:
+            info = ydl.extract_info(test_url, download=False)
+        if info:
+            result["test_status"] = "SUCCESS"
+            result["test_title"] = info.get("title", "")
+            result["test_duration"] = info.get("duration", 0)
+        else:
+            result["test_status"] = "FAILED"
+            result["test_detail"] = "extract_info returned None"
+    except Exception as e:
+        result["test_status"] = "ERROR"
+        result["test_detail"] = f"{type(e).__name__}: {str(e)[:500]}"
+
+    from cookie_manager import get_cookie_manager
+    mgr = get_cookie_manager()
+    yt_cookie = mgr.get_cookie("youtube")
+    result["youtube_cookie_saved"] = bool(yt_cookie)
+    result["youtube_cookie_length"] = len(yt_cookie) if yt_cookie else 0
+    if yt_cookie:
+        lines = yt_cookie.strip().split("\n")
+        cookie_names = [l.split("\t")[-2] for l in lines if "\t" in l and not l.startswith("#")]
+        result["youtube_cookie_keys"] = cookie_names[:20]
+        critical_keys = {"SID", "SSID", "HSID", "APISID", "SAPISID", "LOGIN_INFO"}
+        result["has_critical_auth_cookies"] = bool(critical_keys & set(cookie_names))
+
+    return result
+
+
 @app.head("/")
 @app.head("/{path:path}")
 async def head_request(path: str = ""):

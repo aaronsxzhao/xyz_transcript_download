@@ -88,8 +88,9 @@ def _classify_ytdlp_error(e: Exception, platform: str) -> VideoDownloadError:
     if "sign in" in msg or "login" in msg or "need to log in" in msg or "confirm your age" in msg:
         if platform == "youtube":
             return VideoDownloadError(
-                "YouTube bot detection triggered. This is usually temporary — please try again in a minute. "
-                "If it persists, you can set YouTube cookies in Settings.",
+                "YouTube requires login for this video (age-restricted or private). "
+                "Go to Settings → Platform Accounts → YouTube and upload a cookies.txt file "
+                "exported from your browser using the 'Get cookies.txt LOCALLY' extension.",
                 "LOGIN_REQUIRED",
             )
         return VideoDownloadError(
@@ -199,6 +200,8 @@ class YtdlpDownloader(BaseDownloader):
 
     def _get_base_opts(self) -> dict:
         """Build base yt-dlp options with cookie support from QR login or manual input."""
+        import shutil
+
         opts = {
             "noplaylist": True,
             "quiet": True,
@@ -214,7 +217,10 @@ class YtdlpDownloader(BaseDownloader):
             "remote_components": {"ejs:github"},
         }
 
-        import shutil
+        node_path = shutil.which("node")
+        if self.platform == "youtube":
+            logger.info(f"[yt-dlp] Platform=youtube, node available={node_path is not None}, node_path={node_path}")
+
         if shutil.which("aria2c"):
             opts["external_downloader"] = "aria2c"
             opts["external_downloader_args"] = {
@@ -232,7 +238,11 @@ class YtdlpDownloader(BaseDownloader):
             cookie_file = DATA_DIR / f"{self.platform}_cookies.txt"
             cookie_file.write_text(cookie_str, encoding="utf-8")
             opts["cookiefile"] = str(cookie_file)
-            logger.info(f"Using saved cookies for {self.platform}")
+            lines = [l for l in cookie_str.strip().splitlines() if l.strip() and not l.startswith("#")]
+            cookie_names = [l.split("\t")[-2] if "\t" in l else "?" for l in lines[:20]]
+            logger.info(f"Using saved cookies for {self.platform}: {len(lines)} entries, keys={cookie_names}")
+        elif self.platform == "youtube":
+            logger.info("[yt-dlp] No YouTube cookies found, relying on JS challenge solver")
         return opts
 
     def _best_thumbnail(self, info: dict) -> str:
@@ -249,10 +259,16 @@ class YtdlpDownloader(BaseDownloader):
         try:
             opts = self._get_base_opts()
             opts["skip_download"] = True
+            if self.platform == "youtube":
+                opts["quiet"] = False
+                opts["no_warnings"] = False
+                logger.info(f"[yt-dlp] Extracting YouTube metadata for {url}")
             with yt_dlp.YoutubeDL(opts) as ydl:
                 info = ydl.extract_info(url, download=False)
             if not info:
                 return None
+            if self.platform == "youtube":
+                logger.info(f"[yt-dlp] YouTube metadata OK: title={info.get('title', '')[:60]}")
             return VideoMetadata(
                 title=info.get("title", ""),
                 description=info.get("description", ""),
@@ -263,7 +279,7 @@ class YtdlpDownloader(BaseDownloader):
                 tags=info.get("tags", []) or [],
             )
         except Exception as e:
-            logger.error(f"Failed to get metadata: {e}")
+            logger.error(f"Failed to get metadata for {self.platform}: {type(e).__name__}: {e}")
             return None
 
     def _make_progress_hook(self, progress_callback: ProgressCallback, label: str = "Downloading"):
