@@ -100,22 +100,20 @@ export default function VideoNoteForm({ onTaskCreated, hideTitle }: Props) {
     setLoading(true)
     setError('')
 
-    if (isBilibiliUrl(url.trim())) {
-      try {
-        const cookieCheck = await validateBilibiliCookie()
-        if (!cookieCheck.valid) {
-          setError('BiliBili login required. Please go to Settings → BiliBili Login to scan the QR code first.')
-          setLoading(false)
+    try {
+      if (isBilibiliUrl(url.trim())) {
+        try {
+          const cookieCheck = await validateBilibiliCookie()
+          if (!cookieCheck.valid) {
+            setError('BiliBili login required. Please go to Settings → Platform Accounts → BiliBili to log in first.')
+            return
+          }
+        } catch {
+          setError('Could not verify BiliBili login status. Please check Settings → Platform Accounts.')
           return
         }
-      } catch {
-        setError('Could not verify BiliBili login status. Please check Settings → BiliBili Login.')
-        setLoading(false)
-        return
       }
-    }
 
-    try {
       const modelSettings = getUserModelSettings()
       const result = await generateVideoNote({
         url: url.trim(),

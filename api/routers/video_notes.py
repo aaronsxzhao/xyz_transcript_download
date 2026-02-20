@@ -498,23 +498,13 @@ async def generate_note_json(
     user: Optional[User] = Depends(get_current_user),
 ):
     """Start video note generation (JSON body)."""
-    # #region agent log
-    import json as _json, time as _time; _log_path = __import__("pathlib").Path(__file__).resolve().parents[2] / ".cursor" / "debug.log"
-    def _dbg(msg, dat=None, hyp=""): _log_path.parent.mkdir(parents=True,exist_ok=True); f=open(_log_path,"a"); f.write(_json.dumps({"timestamp":int(_time.time()*1000),"location":"video_notes.py:generate_note_json","message":msg,"data":dat or {},"hypothesisId":hyp})+"\n"); f.close()
-    # #endregion
     url = data.get("url", "")
     if not url:
         raise HTTPException(status_code=400, detail="url is required")
 
     user_id = user.id if user else None
-    # #region agent log
-    _dbg("entry", {"user_repr": repr(user), "user_id": user_id, "url": url[:80], "USE_SUPABASE": USE_SUPABASE, "data_keys": list(data.keys())}, "A,B,C")
-    # #endregion
 
     if not user_id and USE_SUPABASE:
-        # #region agent log
-        _dbg("auth_rejected", {"reason": "user_id is None in Supabase mode"}, "A")
-        # #endregion
         raise HTTPException(
             status_code=401,
             detail="Authentication required. Please log in and try again."
@@ -539,19 +529,10 @@ async def generate_note_json(
         "max_output_tokens": data.get("max_output_tokens", 0),
         "user_id": user_id,
     }
-    # #region agent log
-    _dbg("before_create_task", {"task_payload_keys": list(task_payload.keys()), "user_id": user_id, "platform": task_payload["platform"]}, "B")
-    # #endregion
 
     try:
         task_id = db.create_task(task_payload)
-        # #region agent log
-        _dbg("create_task_ok", {"task_id": task_id}, "B")
-        # #endregion
     except Exception as e:
-        # #region agent log
-        _dbg("create_task_failed", {"error": str(e), "error_type": type(e).__name__}, "B")
-        # #endregion
         logger.error(f"[generate-json] create_task failed: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Failed to create task: {type(e).__name__}: {e}")
 
