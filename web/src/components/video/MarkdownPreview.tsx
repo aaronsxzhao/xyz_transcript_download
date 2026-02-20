@@ -8,7 +8,7 @@ import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter'
 import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism'
 import {
   Copy, Download, Check, FileText, AlertCircle, Loader2, RotateCcw, Square,
-  Play, ExternalLink, X, FileDown,
+  Play, ExternalLink, X, FileDown, ImageIcon,
 } from 'lucide-react'
 import StepBar from './StepBar'
 import YouTubeCookieGuide from './YouTubeCookieGuide'
@@ -320,8 +320,33 @@ export default function MarkdownPreview({ task }: Props) {
           ">
             <ReactMarkdown
               remarkPlugins={[remarkGfm, remarkMath]}
-              rehypePlugins={[rehypeKatex]}
+              rehypePlugins={[[rehypeKatex, { throwOnError: false, errorColor: '#94a3b8' }]]}
               components={{
+                p({ children, ...props }) {
+                  const childArray = Array.isArray(children) ? children : [children]
+                  const processed = childArray.map((child, i) => {
+                    if (typeof child !== 'string') return child
+                    const screenshotRegex = /\*?Screenshot-\[(\d+(?::\d+){1,2})\]\*?/g
+                    const parts: React.ReactNode[] = []
+                    let lastIdx = 0
+                    let match
+                    while ((match = screenshotRegex.exec(child)) !== null) {
+                      if (match.index > lastIdx) parts.push(child.slice(lastIdx, match.index))
+                      const ts = match[1]
+                      parts.push(
+                        <span key={`ss-${i}-${ts}`} className="inline-flex items-center gap-1.5 px-2.5 py-1 my-1 bg-slate-700/50 border border-slate-600/50 rounded-lg text-xs text-slate-400">
+                          <ImageIcon size={12} />
+                          Screenshot @ {ts}
+                        </span>
+                      )
+                      lastIdx = match.index + match[0].length
+                    }
+                    if (parts.length === 0) return child
+                    if (lastIdx < child.length) parts.push(child.slice(lastIdx))
+                    return parts
+                  })
+                  return <p {...props}>{processed.flat()}</p>
+                },
                 code({ className, children, ...props }) {
                   const match = /language-(\w+)/.exec(className || '')
                   const codeStr = String(children).replace(/\n$/, '')

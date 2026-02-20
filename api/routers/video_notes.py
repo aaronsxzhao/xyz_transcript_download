@@ -392,11 +392,20 @@ def process_video_note_sync(
             markdown = replace_content_markers(markdown, url, platform)
 
         # Extract and capture screenshots if needed
-        if "screenshot" in formats and video_path:
-            timestamps = extract_timestamps_from_markdown(markdown)
-            if timestamps:
-                extract_screenshots_batch(str(video_path), timestamps, task_id)
-                markdown = replace_screenshot_markers(markdown, task_id)
+        if "screenshot" in formats:
+            if video_path:
+                timestamps = extract_timestamps_from_markdown(markdown)
+                if timestamps:
+                    _update_task_status(db, task_id, "saving", 93,
+                                        f"Extracting {len(timestamps)} screenshots...", user_id)
+                    extract_screenshots_batch(str(video_path), timestamps, task_id)
+                    markdown = replace_screenshot_markers(markdown, task_id)
+            else:
+                logger.warning(f"No video file for screenshots in task {task_id}, removing markers")
+                import re
+                markdown = re.sub(
+                    r'\*?Screenshot-\[\d+(?::\d+){1,2}\]\*?\n?', '', markdown
+                )
 
         # Save result
         db.update_task(task_id, {"markdown": markdown, "status": "success", "progress": 100, "message": "Done"})
