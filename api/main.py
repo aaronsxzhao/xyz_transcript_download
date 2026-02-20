@@ -231,6 +231,30 @@ async def health_check():
     return {"status": "ok"}
 
 
+@app.get("/api/debug/screenshots")
+async def debug_screenshots():
+    """Debug: list screenshot directory contents and config."""
+    import os
+    screenshots_dir = _data_dir / "screenshots"
+    files = []
+    if screenshots_dir.exists():
+        for f in sorted(screenshots_dir.iterdir()):
+            files.append({
+                "name": f.name,
+                "size": f.stat().st_size,
+                "modified": f.stat().st_mtime,
+            })
+    return {
+        "data_dir": str(_data_dir),
+        "screenshots_dir": str(screenshots_dir),
+        "screenshots_dir_exists": screenshots_dir.exists(),
+        "file_count": len(files),
+        "files": files[:50],
+        "cwd": os.getcwd(),
+        "data_dir_contents": [p.name for p in _data_dir.iterdir()] if _data_dir.exists() else [],
+    }
+
+
 @app.head("/")
 @app.head("/{path:path}")
 async def head_request(path: str = ""):
