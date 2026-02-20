@@ -316,6 +316,37 @@ async def debug_youtube_test():
     return result
 
 
+@app.get("/api/debug/logs")
+async def debug_logs(lines: int = 200, level: str = ""):
+    """Return recent application log lines for remote debugging."""
+    from config import DATA_DIR
+    logs_dir = DATA_DIR / "logs"
+    if not logs_dir.exists():
+        return {"error": "No logs directory", "lines": []}
+
+    log_files = sorted(logs_dir.glob("xyz_*.log"), key=lambda f: f.stat().st_mtime, reverse=True)
+    if not log_files:
+        return {"error": "No log files found", "files": [f.name for f in logs_dir.iterdir()], "lines": []}
+
+    latest = log_files[0]
+    try:
+        all_lines = latest.read_text(encoding="utf-8", errors="replace").splitlines()
+    except Exception as e:
+        return {"error": str(e), "lines": []}
+
+    if level:
+        level_upper = level.upper()
+        all_lines = [l for l in all_lines if level_upper in l]
+
+    tail = all_lines[-lines:]
+    return {
+        "file": latest.name,
+        "total_lines": len(all_lines),
+        "showing": len(tail),
+        "lines": tail,
+    }
+
+
 @app.head("/")
 @app.head("/{path:path}")
 async def head_request(path: str = ""):
