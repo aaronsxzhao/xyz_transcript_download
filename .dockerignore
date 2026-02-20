@@ -43,5 +43,10 @@ data/
 *.zip
 *.dmg
 
-# Plans
+# Tests
+tests/
+
+# Docs & plans
 .cursor/
+*.md
+!requirements*.txt
