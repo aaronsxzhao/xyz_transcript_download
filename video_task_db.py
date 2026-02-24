@@ -275,6 +275,10 @@ class _SupabaseVideoTaskDB:
                 self._sb.update_video_task(task_id, pending)
             except Exception as e:
                 logger.warning(f"Supabase flush failed for {task_id}: {e}")
+                with self._lock:
+                    existing = self._dirty.get(task_id, {})
+                    pending.update(existing)
+                    self._dirty[task_id] = pending
             self._last_flush[task_id] = time.monotonic()
 
     def create_task(self, task_data: dict) -> str:
@@ -312,10 +316,14 @@ class _SupabaseVideoTaskDB:
         return task
 
     def flush_task(self, task_id: str):
-        """Force-flush any pending writes for a task and remove from cache."""
+        """Force-flush any pending writes for a task.
+
+        Keeps the cache intact so subsequent get_task calls still return the
+        full task data instead of falling back to a minimal partial entry
+        created by a later update_task call.
+        """
         self._flush(task_id)
         with self._lock:
-            self._cache.pop(task_id, None)
             self._last_flush.pop(task_id, None)
 
     def list_tasks(self, user_id: str = None, limit: int = 100) -> List[dict]:

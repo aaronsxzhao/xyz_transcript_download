@@ -739,13 +739,20 @@ class SupabaseDatabase:
         return self._video_task_to_dict(result.data[0])
 
     def list_video_tasks(self, user_id: str, limit: int = 100) -> List[dict]:
-        """List all video tasks for a user."""
+        """List all video tasks for a user (excludes heavy fields for perf)."""
         if not self.client:
             return []
 
+        cols = (
+            "id, user_id, url, platform, title, thumbnail, status, progress,"
+            "message, style, model, formats, quality, video_quality, extras,"
+            "video_understanding, video_interval, grid_cols, grid_rows,"
+            "duration, max_output_tokens, error, channel, channel_url,"
+            "channel_avatar, created_at, updated_at"
+        )
         result = (
             self.client.table("video_tasks")
-            .select("*")
+            .select(cols)
             .eq("user_id", user_id)
             .order("created_at", desc=True)
             .limit(limit)

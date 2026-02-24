@@ -164,20 +164,12 @@ export default function VideoViewer() {
 </style>
 </head><body>${body}</body></html>`)
       printWin.document.close()
-      // Wait for content to render then trigger print (Save as PDF)
-      printWin.onload = () => {
-        setTimeout(() => {
-          printWin.print()
-          printWin.close()
-        }, 500)
+      const triggerPrint = () => {
+        printWin.focus()
+        printWin.print()
       }
-      // Fallback if onload already fired
-      setTimeout(() => {
-        if (!printWin.closed) {
-          printWin.print()
-          printWin.close()
-        }
-      }, 2000)
+      printWin.onload = () => setTimeout(triggerPrint, 500)
+      setTimeout(() => { if (!printWin.closed) triggerPrint() }, 2500)
     } catch (e) {
       console.error('PDF generation failed:', e)
     } finally {
