@@ -99,6 +99,8 @@ export default function Settings() {
   const [cookies, setCookies] = useState<{ platform: string; has_cookie: boolean; updated_at: string }[]>([])
 
   const QR_LIFETIME = 120
+  const QR_MAX_AUTO_RETRIES = 3
+  const QR_RETRY_DELAY_MS = 2000
   const [qrUrl, setQrUrl] = useState('')
   const [qrStatus, setQrStatus] = useState<'idle' | 'loading' | 'waiting' | 'scanned' | 'success' | 'expired' | 'error'>('idle')
   const [qrMessage, setQrMessage] = useState('')
@@ -107,6 +109,7 @@ export default function Settings() {
   const qrTimerRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const qrAutoRef = useRef(0)
   const qrScannedRef = useRef(false)
+  const qrRetryCountRef = useRef(0)
   const qrPlatformRef = useRef<Platform>('bilibili')
 
   const [cookieMessage, setCookieMessage] = useState('')
@@ -165,15 +168,23 @@ export default function Settings() {
     if (qrTimerRef.current) { clearInterval(qrTimerRef.current); qrTimerRef.current = null }
     qrAutoRef.current = 0
     qrScannedRef.current = false
+    qrRetryCountRef.current = 0
   }, [])
 
-  const startQrLogin = useCallback(async (platform: 'bilibili' | 'douyin') => {
-    stopQrPolling()
+  const startQrLogin = useCallback(async (platform: 'bilibili' | 'douyin', isManual = true) => {
+    if (isManual) {
+      stopQrPolling()
+      qrRetryCountRef.current = 0
+    } else {
+      if (qrPollRef.current) { clearInterval(qrPollRef.current); qrPollRef.current = null }
+      if (qrTimerRef.current) { clearInterval(qrTimerRef.current); qrTimerRef.current = null }
+    }
+
     setQrStatus('loading')
-    setQrMessage('')
+    if (isManual) setQrMessage('')
     qrScannedRef.current = false
     qrPlatformRef.current = platform
-    const autoId = ++qrAutoRef.current
+    const autoId = isManual ? ++qrAutoRef.current : qrAutoRef.current
 
     const generateFn = platform === 'bilibili' ? bilibiliQrGenerate : douyinQrGenerate
     const pollFn = platform === 'bilibili'
@@ -181,72 +192,90 @@ export default function Settings() {
       : (key: string) => douyinQrPoll(key)
     const appName = platform === 'bilibili' ? 'BiliBili' : 'Douyin'
 
-    const generate = async (): Promise<boolean> => {
-      if (qrAutoRef.current !== autoId) return false
-      try {
-        const result = await generateFn()
-        if (qrAutoRef.current !== autoId) return false
-        const url = 'qr_url' in result ? result.qr_url : ''
-        const key = platform === 'bilibili'
-          ? (result as { qrcode_key: string }).qrcode_key
-          : (result as { token: string }).token
-        setQrUrl(url)
-        setQrStatus('waiting')
-        setQrMessage(`Open ${appName} app and scan the QR code`)
-        setQrCountdown(QR_LIFETIME)
-        qrScannedRef.current = false
+    try {
+      const result = await generateFn()
+      if (qrAutoRef.current !== autoId) return
+      const url = 'qr_url' in result ? result.qr_url : ''
+      const key = platform === 'bilibili'
+        ? (result as { qrcode_key: string }).qrcode_key
+        : (result as { token: string }).token
+      setQrUrl(url)
+      setQrStatus('waiting')
+      setQrMessage(
+        qrRetryCountRef.current > 0
+          ? `New QR code ready (attempt ${qrRetryCountRef.current + 1}) — scan and confirm quickly`
+          : `Open ${appName} app and scan the QR code`
+      )
+      setQrCountdown(QR_LIFETIME)
+      qrScannedRef.current = false
 
-        if (qrTimerRef.current) clearInterval(qrTimerRef.current)
-        qrTimerRef.current = setInterval(() => {
-          setQrCountdown(prev => prev <= 1 ? 0 : prev - 1)
-        }, 1000)
+      qrTimerRef.current = setInterval(() => {
+        setQrCountdown(prev => prev <= 1 ? 0 : prev - 1)
+      }, 1000)
 
-        if (qrPollRef.current) clearInterval(qrPollRef.current)
-        qrPollRef.current = setInterval(async () => {
+      qrPollRef.current = setInterval(async () => {
+        if (qrAutoRef.current !== autoId) return
+        try {
+          const poll = await pollFn(key)
           if (qrAutoRef.current !== autoId) return
-          try {
-            const poll = await pollFn(key)
-            if (qrAutoRef.current !== autoId) return
-            if (poll.status === 'success') {
-              setQrStatus('success')
-              setQrMessage(`Login successful! ${appName} cookies saved.`)
-              stopQrPolling()
-              const data = await fetchAllCookies()
-              setCookies(data.cookies)
-            } else if (poll.status === 'scanned') {
-              qrScannedRef.current = true
-              setQrStatus('scanned')
-              setQrMessage('Scanned! Please confirm on your phone quickly (BiliBili QR codes expire fast)...')
-              if (qrTimerRef.current) { clearInterval(qrTimerRef.current); qrTimerRef.current = null }
-              setQrCountdown(0)
-            } else if (poll.status === 'expired') {
-              if (qrPollRef.current) clearInterval(qrPollRef.current)
-              if (qrTimerRef.current) clearInterval(qrTimerRef.current)
-              if (qrScannedRef.current) {
-                setQrMessage('QR expired before confirmation — generating a new one, please confirm faster...')
-                setQrStatus('loading')
-              }
-              generate()
-            } else if (poll.status === 'waiting') {
-              if (poll.message && poll.message !== 'Waiting for scan') {
-                setQrMessage(poll.message)
-              }
+          if (poll.status === 'success') {
+            setQrStatus('success')
+            setQrMessage(`Login successful! ${appName} cookies saved.`)
+            stopQrPolling()
+            const data = await fetchAllCookies()
+            setCookies(data.cookies)
+          } else if (poll.status === 'scanned') {
+            qrScannedRef.current = true
+            setQrStatus('scanned')
+            setQrMessage(`Scanned! Please confirm on your phone quickly (${appName} QR codes expire fast)...`)
+            if (qrTimerRef.current) { clearInterval(qrTimerRef.current); qrTimerRef.current = null }
+            setQrCountdown(0)
+          } else if (poll.status === 'expired') {
+            if (qrPollRef.current) { clearInterval(qrPollRef.current); qrPollRef.current = null }
+            if (qrTimerRef.current) { clearInterval(qrTimerRef.current); qrTimerRef.current = null }
+
+            qrRetryCountRef.current++
+            if (qrRetryCountRef.current >= QR_MAX_AUTO_RETRIES) {
+              setQrStatus('expired')
+              setQrMessage(
+                qrScannedRef.current
+                  ? `QR expired ${QR_MAX_AUTO_RETRIES} times — you scanned but didn't confirm fast enough. Click "Generate QR Code" to try again.`
+                  : `QR expired ${QR_MAX_AUTO_RETRIES} times. Click "Generate QR Code" to try again.`
+              )
+              qrRetryCountRef.current = 0
+              return
             }
-          } catch (err) {
-            console.warn('QR poll error:', err)
+
+            if (qrScannedRef.current) {
+              setQrMessage('QR expired before confirmation — generating a new one, please confirm faster...')
+            } else {
+              setQrMessage('QR expired, generating a new one...')
+            }
+            setQrStatus('loading')
+
+            await new Promise(r => setTimeout(r, QR_RETRY_DELAY_MS))
+            if (qrAutoRef.current !== autoId) return
+            startQrLogin(platform, false)
+          } else if (poll.status === 'waiting') {
+            if (poll.message && poll.message !== 'Waiting for scan') {
+              setQrMessage(poll.message)
+            }
           }
-        }, 2000)
-        return true
-      } catch {
-        if (qrAutoRef.current === autoId) {
-          setQrStatus('error')
-          setQrMessage('Failed to generate QR code. Check your network connection.')
+        } catch (err) {
+          console.warn('QR poll error:', err)
         }
-        return false
+      }, 2000)
+    } catch {
+      if (qrAutoRef.current === autoId) {
+        setQrStatus('error')
+        setQrMessage(
+          qrRetryCountRef.current > 0
+            ? `Failed to generate QR code after ${qrRetryCountRef.current + 1} attempts. ${appName} may be rate-limiting. Wait a moment and try again.`
+            : 'Failed to generate QR code. Check your network connection.'
+        )
+        qrRetryCountRef.current = 0
       }
     }
-
-    await generate()
   }, [stopQrPolling])
 
   const handleSwitchPlatform = useCallback((p: Platform) => {
@@ -592,7 +621,7 @@ export default function Settings() {
                       Or scan QR code with {name} app
                     </p>
 
-                    {qrStatus === 'idle' || qrStatus === 'error' ? (
+                    {qrStatus === 'idle' || qrStatus === 'error' || qrStatus === 'expired' ? (
                       <div>
                         <button
                           onClick={() => startQrLogin(activePlatform as 'bilibili' | 'douyin')}
@@ -601,8 +630,8 @@ export default function Settings() {
                           <Smartphone size={16} />
                           Generate QR Code
                         </button>
-                        {qrStatus === 'error' && qrMessage && (
-                          <p className="text-sm text-amber-400 mt-2">{qrMessage}</p>
+                        {(qrStatus === 'error' || qrStatus === 'expired') && qrMessage && (
+                          <p className={`text-sm mt-2 ${qrStatus === 'expired' ? 'text-amber-400' : 'text-red-400'}`}>{qrMessage}</p>
                         )}
                       </div>
                     ) : qrStatus === 'loading' ? (

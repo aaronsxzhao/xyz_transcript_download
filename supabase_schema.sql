@@ -185,6 +185,9 @@ CREATE TABLE IF NOT EXISTS video_tasks (
     duration REAL DEFAULT 0,
     max_output_tokens INTEGER DEFAULT 0,
     error TEXT DEFAULT '',
+    channel TEXT DEFAULT '',
+    channel_url TEXT DEFAULT '',
+    channel_avatar TEXT DEFAULT '',
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
@@ -226,6 +229,18 @@ CREATE POLICY "Users can delete own video task versions" ON video_task_versions
     FOR DELETE USING (
         EXISTS (SELECT 1 FROM video_tasks t WHERE t.id = video_task_versions.task_id AND t.user_id = auth.uid())
     );
+
+-- Platform cookies table (server-wide, not user-scoped)
+CREATE TABLE IF NOT EXISTS platform_cookies (
+    id BIGSERIAL PRIMARY KEY,
+    platform TEXT UNIQUE NOT NULL,
+    cookie_data TEXT NOT NULL DEFAULT '',
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+ALTER TABLE platform_cookies ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Service role full access platform_cookies" ON platform_cookies
+    FOR ALL USING (true) WITH CHECK (true);
 
 -- Service role policies for server-side operations
 CREATE POLICY "Service role full access video_tasks" ON video_tasks
