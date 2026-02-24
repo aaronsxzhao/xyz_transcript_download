@@ -1,6 +1,8 @@
 """
 Screenshot extraction from videos using FFmpeg.
 Supports single frame extraction and batch extraction at timestamps.
+When USE_SUPABASE is enabled, screenshots are uploaded to Supabase Storage
+so they remain accessible regardless of which server processed the video.
 """
 
 import re
@@ -9,7 +11,7 @@ import uuid
 from pathlib import Path
 from typing import List, Optional, Tuple
 
-from config import DATA_DIR
+from config import DATA_DIR, USE_SUPABASE
 from logger import get_logger
 
 logger = get_logger("screenshot_extractor")
@@ -19,6 +21,48 @@ SCREENSHOTS_DIR.mkdir(parents=True, exist_ok=True)
 
 THUMBNAILS_DIR = DATA_DIR / "thumbnails"
 THUMBNAILS_DIR.mkdir(parents=True, exist_ok=True)
+
+_SUPABASE_BUCKET = "screenshots"
+_SUPABASE_THUMB_BUCKET = "thumbnails"
+
+
+def _ensure_supabase_bucket(client, bucket_name: str):
+    """Create the storage bucket if it doesn't exist."""
+    try:
+        client.storage.get_bucket(bucket_name)
+    except Exception:
+        try:
+            client.storage.create_bucket(
+                bucket_name,
+                options={"public": True, "file_size_limit": 2 * 1024 * 1024},
+            )
+            logger.info(f"Created Supabase storage bucket: {bucket_name}")
+        except Exception as e:
+            if "already exists" not in str(e).lower():
+                logger.warning(f"Could not create bucket '{bucket_name}': {e}")
+
+
+def _upload_to_supabase(local_path: Path, bucket: str, remote_name: str) -> Optional[str]:
+    """Upload a file to Supabase Storage and return its public URL."""
+    if not USE_SUPABASE:
+        return None
+    try:
+        from api.supabase_client import get_supabase_admin_client
+        client = get_supabase_admin_client()
+        if not client:
+            return None
+        _ensure_supabase_bucket(client, bucket)
+        with open(local_path, "rb") as f:
+            data = f.read()
+        client.storage.from_(bucket).upload(
+            remote_name, data,
+            file_options={"content-type": "image/jpeg", "upsert": "true"},
+        )
+        url = client.storage.from_(bucket).get_public_url(remote_name)
+        return url
+    except Exception as e:
+        logger.warning(f"Supabase upload failed for {remote_name}: {e}")
+        return None
 
 try:
     import imageio_ffmpeg
@@ -77,6 +121,8 @@ def extract_screenshot(
         ]
         result = subprocess.run(cmd, capture_output=True, timeout=30)
         if result.returncode == 0 and output_path.exists():
+            if USE_SUPABASE:
+                _upload_to_supabase(output_path, _SUPABASE_BUCKET, filename)
             return filename
         logger.error(f"Screenshot extraction failed at {timestamp}s: {result.stderr[:200]}")
         return None
@@ -130,7 +176,21 @@ def replace_screenshot_markers(
     task_id: str,
     base_url: str = "/data/screenshots",
 ) -> str:
-    """Replace Screenshot-[timestamp] markers in markdown with actual image tags."""
+    """Replace Screenshot-[timestamp] markers in markdown with actual image tags.
+
+    In Supabase mode, uses public Supabase Storage URLs so screenshots
+    are accessible regardless of which server processed the video.
+    """
+    supabase_base = None
+    if USE_SUPABASE:
+        try:
+            from api.supabase_client import get_supabase_admin_client
+            client = get_supabase_admin_client()
+            if client:
+                supabase_base = client.storage.from_(_SUPABASE_BUCKET).get_public_url("").rstrip("/")
+        except Exception:
+            pass
+
     def replacer(match):
         total_seconds = _parse_timestamp_str(match.group(1))
         m = int(total_seconds // 60)
@@ -139,6 +199,8 @@ def replace_screenshot_markers(
         filename = f"{task_id}_{ts_str}.jpg"
         screenshot_path = SCREENSHOTS_DIR / filename
         if screenshot_path.exists():
+            if supabase_base:
+                return f"![Screenshot at {m:02d}:{s:02d}]({supabase_base}/{filename})"
             return f"![Screenshot at {m:02d}:{s:02d}]({base_url}/{filename})"
         return match.group(0)
 
@@ -252,6 +314,10 @@ def extract_first_frame_thumbnail(video_path: str, task_id: str) -> Optional[str
             result = subprocess.run(cmd, capture_output=True, timeout=30)
             if result.returncode == 0 and output_path.exists() and output_path.stat().st_size > 0:
                 logger.info(f"Extracted thumbnail for {task_id} at seek={seek}")
+                if USE_SUPABASE:
+                    public_url = _upload_to_supabase(output_path, _SUPABASE_THUMB_BUCKET, filename)
+                    if public_url:
+                        return public_url
                 return f"/data/thumbnails/{filename}"
         except subprocess.TimeoutExpired:
             logger.warning(f"Thumbnail extraction timed out at seek={seek}")

@@ -40,5 +40,8 @@ pydub>=0.25.1
 yt-dlp>=2026.1.1
 yt-dlp-ejs>=0.3.0
 
+# Notion export (markdown to Notion blocks)
+notion-markdown>=0.7.0
+
 # Note: torch, faster-whisper, mlx-whisper are NOT included
 # Cloud deployment uses Groq API for transcription (WHISPER_MODE=api)

@@ -417,17 +417,15 @@ export default function VideoViewer() {
                   >
                     {pdfLoading ? <Loader2 size={14} className="animate-spin" /> : <FileDown size={14} />}
                   </button>
-                  {hasNotionKey && (
-                    <button
-                      onClick={openNotionModal}
-                      className="p-1.5 text-gray-400 hover:text-orange-400 transition-colors"
-                      title="Send to Notion"
-                    >
-                      <svg width="14" height="14" viewBox="0 0 100 100" fill="currentColor">
-                        <path d="M6.6 12.3c4.2 3.1 5.8 2.9 13.7 2.1l49.5-3.7c1.6 0 .3-1.6-.3-1.8l-8.2-6c-2.4-1.8-5.5-3.9-11.5-3.4L2.7 3.1C-.5 3.4-1.3 5.1.8 6.8zm4.5 14.7v52c0 2.8 1.4 3.8 4.5 3.6l54.4-3.2c3.2-.2 3.5-2.1 3.5-4.3V23.4c0-2.2-.9-3.4-2.8-3.2L15.8 23.3c-2.1.2-2.8 1.2-2.8 3.2v.5zM64 27c.3 1.4 0 2.8-1.4 3l-2.6.5v38.4c-2.3 1.2-4.4 1.9-6.2 1.9-2.8 0-3.5-.9-5.6-3.5L31.6 40.3v24.4l5.4 1.2s0 2.8-3.9 2.8l-10.8.6c-.3-.6 0-2.2 1.1-2.4l2.8-.8V33.7l-3.9-.3c-.3-1.4.5-3.5 2.8-3.7l11.6-.7 17.2 26.3V33l-4.5-.5c-.3-1.6 1-2.8 2.6-2.9l11.1-.6zM2.2 1.7l50.3-3.8c6.2-.5 7.8-.2 11.6 2.8l16 11.2c2.6 1.9 3.5 2.4 3.5 4.5V78c0 4.3-1.6 6.8-7.1 7.2L18.5 88.6c-4.1.2-6.1-.4-8.2-3.1L1.6 74.3C-.3 71.6-1 69.7-1 67.2v-60c0-3.4 1.6-6.2 5.1-5.5z" transform="translate(10 5) scale(0.9)"/>
-                      </svg>
-                    </button>
-                  )}
+                  <button
+                    onClick={openNotionModal}
+                    className="p-1.5 text-gray-400 hover:text-orange-400 transition-colors"
+                    title="Send to Notion"
+                  >
+                    <svg width="14" height="14" viewBox="0 0 100 100" fill="currentColor">
+                      <path d="M6.6 12.3c4.2 3.1 5.8 2.9 13.7 2.1l49.5-3.7c1.6 0 .3-1.6-.3-1.8l-8.2-6c-2.4-1.8-5.5-3.9-11.5-3.4L2.7 3.1C-.5 3.4-1.3 5.1.8 6.8zm4.5 14.7v52c0 2.8 1.4 3.8 4.5 3.6l54.4-3.2c3.2-.2 3.5-2.1 3.5-4.3V23.4c0-2.2-.9-3.4-2.8-3.2L15.8 23.3c-2.1.2-2.8 1.2-2.8 3.2v.5zM64 27c.3 1.4 0 2.8-1.4 3l-2.6.5v38.4c-2.3 1.2-4.4 1.9-6.2 1.9-2.8 0-3.5-.9-5.6-3.5L31.6 40.3v24.4l5.4 1.2s0 2.8-3.9 2.8l-10.8.6c-.3-.6 0-2.2 1.1-2.4l2.8-.8V33.7l-3.9-.3c-.3-1.4.5-3.5 2.8-3.7l11.6-.7 17.2 26.3V33l-4.5-.5c-.3-1.6 1-2.8 2.6-2.9l11.1-.6zM2.2 1.7l50.3-3.8c6.2-.5 7.8-.2 11.6 2.8l16 11.2c2.6 1.9 3.5 2.4 3.5 4.5V78c0 4.3-1.6 6.8-7.1 7.2L18.5 88.6c-4.1.2-6.1-.4-8.2-3.1L1.6 74.3C-.3 71.6-1 69.7-1 67.2v-60c0-3.4 1.6-6.2 5.1-5.5z" transform="translate(10 5) scale(0.9)"/>
+                    </svg>
+                  </button>
                 </>
               )}
             </>
@@ -621,6 +619,18 @@ export default function VideoViewer() {
             </div>
 
             <div className="p-4 space-y-3">
+              {!hasNotionKey ? (
+                <div className="space-y-3 py-2">
+                  <p className="text-sm text-gray-300">Set up your Notion integration to export notes.</p>
+                  <ol className="text-xs text-gray-400 space-y-1.5 list-decimal list-inside">
+                    <li>Go to <a href="https://www.notion.so/profile/integrations" target="_blank" rel="noopener noreferrer" className="text-orange-400 hover:text-orange-300">Notion Integrations <ExternalLink size={10} className="inline" /></a></li>
+                    <li>Create an integration and copy the token</li>
+                    <li>Go to <Link to="/settings" className="text-orange-400 hover:text-orange-300">Settings</Link> and paste it in the Notion section</li>
+                    <li>Share target pages with your integration in Notion</li>
+                  </ol>
+                </div>
+              ) : (
+              <>
               {/* Search */}
               <div className="relative">
                 <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
@@ -669,6 +679,9 @@ export default function VideoViewer() {
                 )}
               </div>
 
+              </>
+              )}
+
               {/* Result message */}
               {notionResult && (
                 <div className={`p-2.5 rounded-lg text-xs ${
@@ -698,9 +711,9 @@ export default function VideoViewer() {
                 onClick={() => setNotionOpen(false)}
                 className="px-4 py-2 text-sm text-gray-400 hover:text-white transition-colors"
               >
-                {notionResult?.ok ? 'Done' : 'Cancel'}
+                {notionResult?.ok ? 'Done' : hasNotionKey ? 'Cancel' : 'Close'}
               </button>
-              {!notionResult?.ok && (
+              {hasNotionKey && !notionResult?.ok && (
                 <button
                   onClick={handleNotionExport}
                   disabled={!notionSelectedId || notionExporting}
