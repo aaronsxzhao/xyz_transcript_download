@@ -295,7 +295,10 @@ class NoteSummarizer:
         for i, chunk_text in enumerate(chunks):
             is_last = (i == num_chunks - 1)
             these_formats = chunk_formats if is_last else chunk_formats_no_summary
-            chunk_info = f"这是视频的第 {i + 1}/{num_chunks} 部分。请为本部分生成详细笔记，不要生成总标题（# 标题），直接从 ## 二级标题开始。"
+            chunk_info = (
+                f"这是视频的第 {i + 1}/{num_chunks} 部分。请为本部分生成详细笔记，不要生成总标题（# 标题），直接从 ## 二级标题开始。"
+                "二级标题请使用描述性名称（如 ## 市场分析），不要自行编号（如 ## 第一部分：市场分析），编号会在后期统一处理。"
+            )
 
             system_prompt = _build_system_prompt(style, these_formats)
             user_prompt = _build_user_prompt(
@@ -350,7 +353,7 @@ class NoteSummarizer:
         return chunks
 
     def _merge_chunk_notes(self, title: str, chunk_results: List[str], add_toc: bool) -> str:
-        """Merge chunk note results into a single document."""
+        """Merge chunk note results into a single document with sequential heading numbers."""
         merged_sections = []
         ai_summary = ""
 
@@ -380,7 +383,9 @@ class NoteSummarizer:
             if summary_lines:
                 ai_summary = "\n".join(summary_lines).strip()
 
-        body = f"\n\n---\n\n".join(merged_sections)
+        body = "\n\n---\n\n".join(merged_sections)
+
+        body = self._renumber_headings(body)
 
         if add_toc:
             toc = self._generate_toc(body)
@@ -393,16 +398,59 @@ class NoteSummarizer:
 
         return final
 
+    @staticmethod
+    def _renumber_headings(markdown: str) -> str:
+        """Sequentially number ## headings and their ### sub-headings across the whole document."""
+        lines = markdown.split("\n")
+        result = []
+        h2_counter = 0
+        h3_counter = 0
+
+        strip_num = re.compile(r"^(#{2,3}\s+)(?:第?[一二三四五六七八九十\d]+[部章节]分?[：:\s]*|[\d]+(?:[.、．][\d]+)*[.、．\s]\s*)")
+
+        for line in lines:
+            stripped = line.strip()
+            if stripped.startswith("## ") and not stripped.startswith("### "):
+                h2_counter += 1
+                h3_counter = 0
+                cleaned = strip_num.sub(r"\1", line)
+                heading_text = cleaned.lstrip("#").strip()
+                result.append(f"## {h2_counter}. {heading_text}")
+            elif stripped.startswith("### "):
+                h3_counter += 1
+                cleaned = strip_num.sub(r"\1", line)
+                heading_text = cleaned.lstrip("#").strip()
+                result.append(f"### {h2_counter}.{h3_counter} {heading_text}")
+            else:
+                result.append(line)
+
+        return "\n".join(result)
+
     def _generate_toc(self, markdown: str) -> str:
         """Generate a table of contents from ## headings in markdown."""
         toc_lines = ["## 目录\n"]
+        slug_counts: dict[str, int] = {}
         for match in re.finditer(r"^(#{2,3})\s+(.+)$", markdown, re.MULTILINE):
             level = len(match.group(1))
             heading = match.group(2).strip()
-            anchor = re.sub(r"[^\w\u4e00-\u9fff\s-]", "", heading).strip().replace(" ", "-").lower()
+            anchor = self._github_slug(heading, slug_counts)
             indent = "  " * (level - 2)
             toc_lines.append(f"{indent}- [{heading}](#{anchor})")
         return "\n".join(toc_lines)
+
+    @staticmethod
+    def _github_slug(text: str, counts: dict[str, int]) -> str:
+        """Replicate github-slugger's algorithm used by rehype-slug."""
+        slug = text.lower()
+        slug = re.sub(r"[^\w\u4e00-\u9fff\u3400-\u4dbf\U00020000-\U0002a6df\s-]", "", slug, flags=re.UNICODE)
+        slug = slug.strip().replace(" ", "-")
+        slug = re.sub(r"-+", "-", slug)
+        base = slug
+        n = counts.get(base, 0)
+        if n > 0:
+            slug = f"{base}-{n}"
+        counts[base] = n + 1
+        return slug
 
     @retry(
         stop=stop_after_attempt(MAX_RETRIES),

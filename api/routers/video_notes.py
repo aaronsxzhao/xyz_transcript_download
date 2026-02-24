@@ -630,7 +630,7 @@ async def retry_task(
     task = db.get_task(task_id, user_id)
     if not task:
         raise HTTPException(status_code=404, detail="Task not found")
-    retryable = ("failed", "cancelled", "downloading", "parsing", "transcribing", "summarizing", "saving", "pending")
+    retryable = ("failed", "cancelled", "success", "downloading", "parsing", "transcribing", "summarizing", "saving", "pending")
     if task["status"] not in retryable:
         raise HTTPException(status_code=400, detail=f"Cannot retry task in '{task['status']}' status")
 

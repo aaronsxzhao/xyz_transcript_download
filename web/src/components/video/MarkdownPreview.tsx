@@ -4,11 +4,12 @@ import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import remarkMath from 'remark-math'
 import rehypeKatex from 'rehype-katex'
+import rehypeSlug from 'rehype-slug'
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter'
 import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism'
 import {
   Copy, Download, Check, FileText, AlertCircle, Loader2, RotateCcw, Square,
-  Play, ExternalLink, X, FileDown, ImageIcon,
+  Play, ExternalLink, X, FileDown, ImageIcon, RefreshCw,
 } from 'lucide-react'
 import StepBar from './StepBar'
 import YouTubeCookieGuide from './YouTubeCookieGuide'
@@ -22,6 +23,7 @@ export default function MarkdownPreview({ task }: Props) {
   const [copied, setCopied] = useState(false)
   const [zoomedImg, setZoomedImg] = useState<string | null>(null)
   const [pdfLoading, setPdfLoading] = useState(false)
+  const [regenerating, setRegenerating] = useState(false)
   const navigate = useNavigate()
 
   if (!task) {
@@ -118,6 +120,18 @@ export default function MarkdownPreview({ task }: Props) {
     }
   }
 
+  const handleRegenerate = async () => {
+    setRegenerating(true)
+    try {
+      const { retryVideoTask } = await import('../../lib/api')
+      await retryVideoTask(task.id)
+    } catch (e) {
+      console.error('Regenerate failed:', e)
+    } finally {
+      setRegenerating(false)
+    }
+  }
+
   return (
     <div className="flex flex-col h-full">
       {/* Header */}
@@ -132,34 +146,47 @@ export default function MarkdownPreview({ task }: Props) {
             </span>
           )}
         </div>
-        {task.markdown && (
-          <div className="flex items-center gap-1 flex-shrink-0">
-            <button
-              onClick={handleCopy}
-              className="p-1.5 text-gray-400 hover:text-white transition-colors"
-              title="Copy to clipboard"
-            >
-              {copied ? <Check size={15} className="text-green-400" /> : <Copy size={15} />}
-            </button>
-            <button
-              onClick={handleDownload}
-              className="p-1.5 text-gray-400 hover:text-white transition-colors"
-              title="Download Markdown"
-            >
-              <Download size={15} />
-            </button>
-            {isSuccess && (
+        <div className="flex items-center gap-1 flex-shrink-0">
+          {task.markdown && (
+            <>
               <button
-                onClick={handleDownloadPdf}
-                disabled={pdfLoading}
-                className="p-1.5 text-gray-400 hover:text-white transition-colors disabled:opacity-50"
-                title="Download PDF"
+                onClick={handleCopy}
+                className="p-1.5 text-gray-400 hover:text-white transition-colors"
+                title="Copy to clipboard"
               >
-                {pdfLoading ? <Loader2 size={15} className="animate-spin" /> : <FileDown size={15} />}
+                {copied ? <Check size={15} className="text-green-400" /> : <Copy size={15} />}
               </button>
-            )}
-          </div>
-        )}
+              <button
+                onClick={handleDownload}
+                className="p-1.5 text-gray-400 hover:text-white transition-colors"
+                title="Download Markdown"
+              >
+                <Download size={15} />
+              </button>
+              {isSuccess && (
+                <button
+                  onClick={handleDownloadPdf}
+                  disabled={pdfLoading}
+                  className="p-1.5 text-gray-400 hover:text-white transition-colors disabled:opacity-50"
+                  title="Download PDF"
+                >
+                  {pdfLoading ? <Loader2 size={15} className="animate-spin" /> : <FileDown size={15} />}
+                </button>
+              )}
+            </>
+          )}
+          {(isSuccess || isFailed || isCancelled) && (
+            <button
+              onClick={handleRegenerate}
+              disabled={regenerating}
+              className="flex items-center gap-1 ml-1 px-2 py-1 text-xs text-indigo-400 hover:text-indigo-300 border border-indigo-500/30 hover:border-indigo-400/50 rounded-lg transition-colors disabled:opacity-50"
+              title="Regenerate notes"
+            >
+              <RefreshCw size={13} className={regenerating ? 'animate-spin' : ''} />
+              Regenerate
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Progress bar for active tasks */}
@@ -314,7 +341,7 @@ export default function MarkdownPreview({ task }: Props) {
           ">
             <ReactMarkdown
               remarkPlugins={[remarkGfm, remarkMath]}
-              rehypePlugins={[[rehypeKatex, { throwOnError: false, errorColor: '#94a3b8' }]]}
+              rehypePlugins={[rehypeSlug, [rehypeKatex, { throwOnError: false, errorColor: '#94a3b8' }]]}
               components={{
                 p({ children, ...props }) {
                   const childArray = Array.isArray(children) ? children : [children]
@@ -390,6 +417,22 @@ export default function MarkdownPreview({ task }: Props) {
                       >
                         <Play size={10} className="fill-current" />
                         {text.replace(/^▶\s*/, '')}
+                      </a>
+                    )
+                  }
+                  if (href?.startsWith('#')) {
+                    return (
+                      <a
+                        href={href}
+                        onClick={(e) => {
+                          e.preventDefault()
+                          const id = href.slice(1)
+                          const el = document.getElementById(id)
+                          el?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+                        }}
+                        className="text-indigo-400 hover:underline hover:text-indigo-300 transition-colors"
+                      >
+                        {children}
                       </a>
                     )
                   }
