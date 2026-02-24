@@ -329,6 +329,16 @@ def process_video_note_sync(
             _clear_cancelled(task_id)
             return
 
+        # When screenshots are requested, embed segment timestamps in transcript
+        # so the LLM can place Screenshot markers at real video timestamps.
+        if "screenshot" in formats and transcript_segments:
+            timestamped_parts = []
+            for seg in transcript_segments:
+                m = int(seg["start"] // 60)
+                s = int(seg["start"] % 60)
+                timestamped_parts.append(f"[{m:02d}:{s:02d}] {seg['text']}")
+            transcript_text = "\n".join(timestamped_parts)
+
         transcript_chars = len(transcript_text)
         num_expected_chunks = max(1, transcript_chars // NOTE_CHUNK_CHARS + (1 if transcript_chars % NOTE_CHUNK_CHARS else 0))
         if num_expected_chunks > 1:
@@ -390,6 +400,7 @@ def process_video_note_sync(
             tags=tags,
             extras=extras,
             progress_callback=summarize_progress,
+            duration=duration,
         )
 
         if not markdown:

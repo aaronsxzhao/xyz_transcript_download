@@ -63,7 +63,7 @@ NOTE_STYLES = {
 }
 
 
-def _build_system_prompt(style: str, formats: List[str]) -> str:
+def _build_system_prompt(style: str, formats: List[str], duration: float = 0) -> str:
     """Build the system prompt based on style and format options."""
     style_info = NOTE_STYLES.get(style, NOTE_STYLES["detailed"])
     style_instruction = style_info["prompt"]
@@ -79,10 +79,34 @@ def _build_system_prompt(style: str, formats: List[str]) -> str:
             "其中 mm:ss 是对应的视频时间戳。"
         )
     if "screenshot" in formats:
+        if duration > 0:
+            duration_min = duration / 60
+            if duration_min <= 5:
+                screenshot_count = "3-5"
+            elif duration_min <= 15:
+                screenshot_count = "5-8"
+            elif duration_min <= 30:
+                screenshot_count = "8-12"
+            elif duration_min <= 60:
+                screenshot_count = "10-15"
+            else:
+                screenshot_count = "15-20"
+        else:
+            screenshot_count = "5-10"
+
         format_instructions.append(
-            "在适当位置插入截图标记，格式严格为 Screenshot-[MM:SS]（纯文本，不要用反引号包裹，不要加 * 号），"
-            "其中 MM:SS 是建议截取的视频时间戳（用两位数分钟和秒，如 05:30、75:00）。"
-            "不要用 H:MM:SS 格式。每个主要段落可插入1-2个截图标记。"
+            "转录文本中每行前面有 [MM:SS] 时间戳，表示该段内容在视频中的实际时间位置。\n"
+            "请在内容发生视觉变化（如切换话题、展示图表、演示操作、出现新场景）的位置插入截图标记。\n"
+            "格式严格为 Screenshot-[MM:SS]（纯文本，不要用反引号包裹，不要加 * 号），"
+            "其中 MM:SS 必须从转录文本中的时间戳中选取，不要自行编造时间戳。\n"
+            "不要用 H:MM:SS 格式。\n"
+            f"根据视频时长，建议插入约 {screenshot_count} 个截图，"
+            "均匀分布在笔记各段落中，优先选择以下时刻：\n"
+            "  - 话题切换或章节转折处\n"
+            "  - 出现重要图表、数据、代码、公式等视觉内容时\n"
+            "  - 关键操作步骤演示时\n"
+            "  - 讨论重点结论时\n"
+            "不要在相邻位置连续插入截图，保持合理间距。"
         )
     if "summary" in formats:
         format_instructions.append(
@@ -215,6 +239,7 @@ class NoteSummarizer:
         tags: Optional[List[str]] = None,
         extras: str = "",
         progress_callback=None,
+        duration: float = 0,
     ) -> Optional[str]:
         """
         Generate a Markdown note from a transcript.
@@ -234,11 +259,13 @@ class NoteSummarizer:
                 result = self._generate_chunked(
                     title, transcript_text, style, formats,
                     visual_context, tags, extras, progress_callback,
+                    duration=duration,
                 )
             else:
                 result = self._generate_single(
                     title, transcript_text, style, formats,
                     visual_context, tags, extras, progress_callback,
+                    duration=duration,
                 )
 
             if result:
@@ -266,9 +293,10 @@ class NoteSummarizer:
         tags: Optional[List[str]] = None,
         extras: str = "",
         progress_callback=None,
+        duration: float = 0,
     ) -> Optional[str]:
         """Generate notes from a single (short) transcript."""
-        system_prompt = _build_system_prompt(style, formats)
+        system_prompt = _build_system_prompt(style, formats, duration=duration)
         user_prompt = _build_user_prompt(title, transcript_text, visual_context, tags, extras)
         return self._call_llm(system_prompt, user_prompt, progress_callback)
 
@@ -282,6 +310,7 @@ class NoteSummarizer:
         tags: Optional[List[str]] = None,
         extras: str = "",
         progress_callback=None,
+        duration: float = 0,
     ) -> Optional[str]:
         """Split a long transcript into chunks, generate notes for each, and merge."""
         chunks = self._split_transcript(transcript_text)
@@ -303,7 +332,7 @@ class NoteSummarizer:
                 "二级标题请使用描述性名称（如 ## 市场分析），不要自行编号（如 ## 第一部分：市场分析），编号会在后期统一处理。"
             )
 
-            system_prompt = _build_system_prompt(style, these_formats)
+            system_prompt = _build_system_prompt(style, these_formats, duration=duration)
             user_prompt = _build_user_prompt(
                 title, chunk_text, visual_context if i == 0 else "",
                 tags, extras, chunk_info=chunk_info,
