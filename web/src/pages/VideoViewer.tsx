@@ -1,10 +1,11 @@
-import { useEffect, useState, useMemo } from 'react'
+import { useEffect, useState, useMemo, useCallback, useRef } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import {
   ArrowLeft, Copy, Download, Check, FileText, Map, Clock, Loader2,
   ChevronRight, FileDown, RefreshCw, XCircle, ExternalLink, RotateCcw,
+  Search, X, CheckCircle, AlertTriangle,
 } from 'lucide-react'
-import { fetchVideoTask, retryVideoTask, type VideoTask } from '../lib/api'
+import { fetchVideoTask, retryVideoTask, fetchNotionPages, exportToNotion, type VideoTask, type NotionPage } from '../lib/api'
 import MarkdownPreview from '../components/video/MarkdownPreview'
 import TranscriptPanel from '../components/video/TranscriptPanel'
 import MindMapView from '../components/video/MindMapView'
@@ -45,6 +46,16 @@ export default function VideoViewer() {
   const [copied, setCopied] = useState(false)
   const [pdfLoading, setPdfLoading] = useState(false)
   const [regenerating, setRegenerating] = useState(false)
+
+  const [notionOpen, setNotionOpen] = useState(false)
+  const [notionPages, setNotionPages] = useState<NotionPage[]>([])
+  const [notionSearch, setNotionSearch] = useState('')
+  const [notionLoading, setNotionLoading] = useState(false)
+  const [notionExporting, setNotionExporting] = useState(false)
+  const [notionSelectedId, setNotionSelectedId] = useState('')
+  const [notionResult, setNotionResult] = useState<{ ok: boolean; message: string; url?: string } | null>(null)
+  const notionSearchTimeout = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const notionModalRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     if (!taskId) return
@@ -218,6 +229,64 @@ export default function VideoViewer() {
     }
   }
 
+  const hasNotionKey = !!localStorage.getItem('notion_api_key')
+
+  const openNotionModal = useCallback(async () => {
+    setNotionOpen(true)
+    setNotionResult(null)
+    setNotionSelectedId('')
+    setNotionSearch('')
+    setNotionLoading(true)
+    try {
+      const data = await fetchNotionPages()
+      setNotionPages(data.pages)
+    } catch (err) {
+      setNotionResult({
+        ok: false,
+        message: err instanceof Error ? err.message : 'Failed to load pages',
+      })
+    } finally {
+      setNotionLoading(false)
+    }
+  }, [])
+
+  const handleNotionSearch = useCallback((q: string) => {
+    setNotionSearch(q)
+    if (notionSearchTimeout.current) clearTimeout(notionSearchTimeout.current)
+    notionSearchTimeout.current = setTimeout(async () => {
+      setNotionLoading(true)
+      try {
+        const data = await fetchNotionPages(q || undefined)
+        setNotionPages(data.pages)
+      } catch {
+        // keep current pages on search error
+      } finally {
+        setNotionLoading(false)
+      }
+    }, 400)
+  }, [])
+
+  const handleNotionExport = useCallback(async () => {
+    if (!taskId || !notionSelectedId) return
+    setNotionExporting(true)
+    setNotionResult(null)
+    try {
+      const result = await exportToNotion(taskId, notionSelectedId)
+      setNotionResult({
+        ok: true,
+        message: `Exported "${result.title}" to Notion`,
+        url: result.url,
+      })
+    } catch (err) {
+      setNotionResult({
+        ok: false,
+        message: err instanceof Error ? err.message : 'Export failed',
+      })
+    } finally {
+      setNotionExporting(false)
+    }
+  }, [taskId, notionSelectedId])
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-[60vh]">
@@ -339,14 +408,27 @@ export default function VideoViewer() {
                 <Download size={14} />
               </button>
               {task.status === 'success' && (
-                <button
-                  onClick={handleDownloadPdf}
-                  disabled={pdfLoading}
-                  className="p-1.5 text-gray-400 hover:text-white transition-colors disabled:opacity-50"
-                  title="Download PDF"
-                >
-                  {pdfLoading ? <Loader2 size={14} className="animate-spin" /> : <FileDown size={14} />}
-                </button>
+                <>
+                  <button
+                    onClick={handleDownloadPdf}
+                    disabled={pdfLoading}
+                    className="p-1.5 text-gray-400 hover:text-white transition-colors disabled:opacity-50"
+                    title="Download PDF"
+                  >
+                    {pdfLoading ? <Loader2 size={14} className="animate-spin" /> : <FileDown size={14} />}
+                  </button>
+                  {hasNotionKey && (
+                    <button
+                      onClick={openNotionModal}
+                      className="p-1.5 text-gray-400 hover:text-orange-400 transition-colors"
+                      title="Send to Notion"
+                    >
+                      <svg width="14" height="14" viewBox="0 0 100 100" fill="currentColor">
+                        <path d="M6.6 12.3c4.2 3.1 5.8 2.9 13.7 2.1l49.5-3.7c1.6 0 .3-1.6-.3-1.8l-8.2-6c-2.4-1.8-5.5-3.9-11.5-3.4L2.7 3.1C-.5 3.4-1.3 5.1.8 6.8zm4.5 14.7v52c0 2.8 1.4 3.8 4.5 3.6l54.4-3.2c3.2-.2 3.5-2.1 3.5-4.3V23.4c0-2.2-.9-3.4-2.8-3.2L15.8 23.3c-2.1.2-2.8 1.2-2.8 3.2v.5zM64 27c.3 1.4 0 2.8-1.4 3l-2.6.5v38.4c-2.3 1.2-4.4 1.9-6.2 1.9-2.8 0-3.5-.9-5.6-3.5L31.6 40.3v24.4l5.4 1.2s0 2.8-3.9 2.8l-10.8.6c-.3-.6 0-2.2 1.1-2.4l2.8-.8V33.7l-3.9-.3c-.3-1.4.5-3.5 2.8-3.7l11.6-.7 17.2 26.3V33l-4.5-.5c-.3-1.6 1-2.8 2.6-2.9l11.1-.6zM2.2 1.7l50.3-3.8c6.2-.5 7.8-.2 11.6 2.8l16 11.2c2.6 1.9 3.5 2.4 3.5 4.5V78c0 4.3-1.6 6.8-7.1 7.2L18.5 88.6c-4.1.2-6.1-.4-8.2-3.1L1.6 74.3C-.3 71.6-1 69.7-1 67.2v-60c0-3.4 1.6-6.2 5.1-5.5z" transform="translate(10 5) scale(0.9)"/>
+                      </svg>
+                    </button>
+                  )}
+                </>
               )}
             </>
           )}
@@ -512,6 +594,126 @@ export default function VideoViewer() {
           )}
         </div>
       </div>
+
+      {/* Notion export modal */}
+      {notionOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
+          onClick={e => { if (e.target === e.currentTarget) setNotionOpen(false) }}
+        >
+          <div
+            ref={notionModalRef}
+            className="bg-dark-surface border border-dark-border rounded-2xl w-full max-w-md mx-4 shadow-2xl"
+          >
+            <div className="flex items-center justify-between p-4 border-b border-dark-border">
+              <h2 className="text-sm font-semibold text-white flex items-center gap-2">
+                <svg width="16" height="16" viewBox="0 0 100 100" fill="currentColor" className="text-orange-400">
+                  <path d="M6.6 12.3c4.2 3.1 5.8 2.9 13.7 2.1l49.5-3.7c1.6 0 .3-1.6-.3-1.8l-8.2-6c-2.4-1.8-5.5-3.9-11.5-3.4L2.7 3.1C-.5 3.4-1.3 5.1.8 6.8zm4.5 14.7v52c0 2.8 1.4 3.8 4.5 3.6l54.4-3.2c3.2-.2 3.5-2.1 3.5-4.3V23.4c0-2.2-.9-3.4-2.8-3.2L15.8 23.3c-2.1.2-2.8 1.2-2.8 3.2v.5zM64 27c.3 1.4 0 2.8-1.4 3l-2.6.5v38.4c-2.3 1.2-4.4 1.9-6.2 1.9-2.8 0-3.5-.9-5.6-3.5L31.6 40.3v24.4l5.4 1.2s0 2.8-3.9 2.8l-10.8.6c-.3-.6 0-2.2 1.1-2.4l2.8-.8V33.7l-3.9-.3c-.3-1.4.5-3.5 2.8-3.7l11.6-.7 17.2 26.3V33l-4.5-.5c-.3-1.6 1-2.8 2.6-2.9l11.1-.6zM2.2 1.7l50.3-3.8c6.2-.5 7.8-.2 11.6 2.8l16 11.2c2.6 1.9 3.5 2.4 3.5 4.5V78c0 4.3-1.6 6.8-7.1 7.2L18.5 88.6c-4.1.2-6.1-.4-8.2-3.1L1.6 74.3C-.3 71.6-1 69.7-1 67.2v-60c0-3.4 1.6-6.2 5.1-5.5z" transform="translate(10 5) scale(0.9)"/>
+                </svg>
+                Send to Notion
+              </h2>
+              <button
+                onClick={() => setNotionOpen(false)}
+                className="p-1 text-gray-400 hover:text-white transition-colors"
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            <div className="p-4 space-y-3">
+              {/* Search */}
+              <div className="relative">
+                <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
+                <input
+                  type="text"
+                  value={notionSearch}
+                  onChange={e => handleNotionSearch(e.target.value)}
+                  placeholder="Search pages..."
+                  className="w-full pl-9 pr-3 py-2 bg-dark-hover border border-dark-border text-white text-sm rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                  autoFocus
+                />
+              </div>
+
+              {/* Page list */}
+              <div className="max-h-60 overflow-y-auto custom-scrollbar space-y-0.5">
+                {notionLoading ? (
+                  <div className="flex items-center justify-center py-8">
+                    <Loader2 size={20} className="animate-spin text-gray-500" />
+                  </div>
+                ) : notionPages.length === 0 ? (
+                  <div className="text-center py-8 text-sm text-gray-500">
+                    {notionResult?.ok === false
+                      ? 'Could not load pages'
+                      : 'No pages found. Share pages with your integration in Notion.'}
+                  </div>
+                ) : (
+                  notionPages.map(page => (
+                    <button
+                      key={page.id}
+                      onClick={() => setNotionSelectedId(page.id === notionSelectedId ? '' : page.id)}
+                      className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-left text-sm transition-colors ${
+                        page.id === notionSelectedId
+                          ? 'bg-orange-500/15 border border-orange-500/40 text-white'
+                          : 'hover:bg-dark-hover text-gray-300 border border-transparent'
+                      }`}
+                    >
+                      <span className="flex-shrink-0 w-5 text-center">
+                        {page.icon || '📄'}
+                      </span>
+                      <span className="truncate flex-1">{page.title || 'Untitled'}</span>
+                      {page.id === notionSelectedId && (
+                        <CheckCircle size={14} className="text-orange-400 flex-shrink-0" />
+                      )}
+                    </button>
+                  ))
+                )}
+              </div>
+
+              {/* Result message */}
+              {notionResult && (
+                <div className={`p-2.5 rounded-lg text-xs ${
+                  notionResult.ok
+                    ? 'bg-green-500/10 border border-green-500/30 text-green-400'
+                    : 'bg-red-500/10 border border-red-500/30 text-red-400'
+                }`}>
+                  {notionResult.ok ? <CheckCircle size={12} className="inline mr-1.5" /> : <AlertTriangle size={12} className="inline mr-1.5" />}
+                  {notionResult.message}
+                  {notionResult.url && (
+                    <a
+                      href={notionResult.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="ml-2 inline-flex items-center gap-1 text-orange-400 hover:text-orange-300"
+                    >
+                      Open in Notion <ExternalLink size={10} />
+                    </a>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Footer */}
+            <div className="flex items-center justify-end gap-2 p-4 border-t border-dark-border">
+              <button
+                onClick={() => setNotionOpen(false)}
+                className="px-4 py-2 text-sm text-gray-400 hover:text-white transition-colors"
+              >
+                {notionResult?.ok ? 'Done' : 'Cancel'}
+              </button>
+              {!notionResult?.ok && (
+                <button
+                  onClick={handleNotionExport}
+                  disabled={!notionSelectedId || notionExporting}
+                  className="inline-flex items-center gap-2 px-4 py-2 bg-orange-600 hover:bg-orange-700 disabled:opacity-40 disabled:cursor-not-allowed text-white text-sm font-medium rounded-lg transition-colors"
+                >
+                  {notionExporting ? <Loader2 size={14} className="animate-spin" /> : <ExternalLink size={14} />}
+                  Export
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

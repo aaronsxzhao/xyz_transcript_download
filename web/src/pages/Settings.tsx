@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import {
   Cpu, MessageSquare, Clock, Loader2, CheckCircle, Trash2, AlertTriangle,
   Search, Save, Download, X, Activity, Smartphone, Chrome,
-  ExternalLink, Settings2, UserCircle, Wrench, Upload, FileText,
+  ExternalLink, Settings2, UserCircle, Wrench, Upload, FileText, Link,
 } from 'lucide-react'
 import { QRCodeSVG } from 'qrcode.react'
 import {
@@ -10,6 +10,7 @@ import {
   ImportSubscriptionsResult, fetchSysHealth, fetchAllCookies,
   bilibiliQrGenerate, bilibiliQrPoll, douyinQrGenerate, douyinQrPoll,
   uploadCookieFile, importBrowserCookies, saveSimpleCookie,
+  fetchNotionPages,
 } from '../lib/api'
 import PlatformIcon, { PLATFORM_COLORS } from '../components/PlatformIcon'
 
@@ -126,6 +127,10 @@ export default function Settings() {
     { value: 'safari', label: 'Safari' },
     { value: 'brave', label: 'Brave' },
   ]
+
+  const [notionKey, setNotionKey] = useState(() => localStorage.getItem('notion_api_key') || '')
+  const [notionTestResult, setNotionTestResult] = useState<{ ok: boolean; message: string } | null>(null)
+  const [notionTesting, setNotionTesting] = useState(false)
 
   const handleAutoImport = useCallback(async (platform: Platform) => {
     setCookieLoading(true)
@@ -497,6 +502,94 @@ export default function Settings() {
               label="Check Interval"
               value={settings ? (settings.check_interval >= 86400 ? `${Math.round(settings.check_interval / 86400)} day(s)` : settings.check_interval >= 3600 ? `${Math.round(settings.check_interval / 3600)} hour(s)` : `${Math.floor(settings.check_interval / 60)} minutes`) : '-'}
             />
+          </section>
+
+          {/* Notion */}
+          <section className="p-5 bg-dark-surface border border-dark-border rounded-xl">
+            <h2 className="text-base font-semibold text-white mb-3 flex items-center gap-2">
+              <Link className="text-orange-500" size={18} />
+              Notion Export
+            </h2>
+            <div className="space-y-3">
+              <div className="flex flex-col gap-2">
+                <label className="text-gray-400 text-sm">Integration Token</label>
+                <div className="flex gap-2">
+                  <input
+                    type="password"
+                    value={notionKey}
+                    onChange={e => {
+                      setNotionKey(e.target.value)
+                      setNotionTestResult(null)
+                    }}
+                    placeholder="ntn_..."
+                    className="flex-1 bg-dark-hover border border-dark-border text-white text-sm rounded-lg px-3 py-2 focus:ring-2 focus:ring-orange-500 focus:border-transparent font-mono"
+                  />
+                  <button
+                    onClick={() => {
+                      localStorage.setItem('notion_api_key', notionKey.trim())
+                      setNotionTestResult(null)
+                    }}
+                    className="px-3 py-2 bg-dark-hover hover:bg-dark-border text-white text-sm rounded-lg transition-colors"
+                  >
+                    <Save size={14} />
+                  </button>
+                </div>
+              </div>
+              <button
+                onClick={async () => {
+                  if (!notionKey.trim()) {
+                    setNotionTestResult({ ok: false, message: 'Enter a Notion API key first' })
+                    return
+                  }
+                  localStorage.setItem('notion_api_key', notionKey.trim())
+                  setNotionTesting(true)
+                  setNotionTestResult(null)
+                  try {
+                    const data = await fetchNotionPages()
+                    setNotionTestResult({
+                      ok: true,
+                      message: `Connected! Found ${data.pages.length} accessible page${data.pages.length !== 1 ? 's' : ''}.`,
+                    })
+                  } catch (err) {
+                    setNotionTestResult({
+                      ok: false,
+                      message: err instanceof Error ? err.message : 'Connection failed',
+                    })
+                  } finally {
+                    setNotionTesting(false)
+                  }
+                }}
+                disabled={notionTesting || !notionKey.trim()}
+                className="flex items-center gap-2 px-4 py-2 bg-dark-hover hover:bg-dark-border text-white rounded-lg transition-colors text-sm disabled:opacity-50"
+              >
+                {notionTesting ? <Loader2 size={14} className="animate-spin" /> : <Activity size={14} />}
+                Test Connection
+              </button>
+              {notionTestResult && (
+                <div className={`p-2.5 rounded-lg text-xs ${
+                  notionTestResult.ok
+                    ? 'bg-green-500/10 border border-green-500/30 text-green-400'
+                    : 'bg-red-500/10 border border-red-500/30 text-red-400'
+                }`}>
+                  {notionTestResult.ok ? <CheckCircle size={12} className="inline mr-1.5" /> : <AlertTriangle size={12} className="inline mr-1.5" />}
+                  {notionTestResult.message}
+                </div>
+              )}
+              <div className="p-3 bg-dark-hover/50 rounded-lg space-y-1.5">
+                <p className="text-xs text-gray-300 font-medium">Setup instructions:</p>
+                <ol className="text-xs text-gray-400 space-y-1 list-decimal list-inside">
+                  <li>
+                    Go to{' '}
+                    <a href="https://www.notion.so/profile/integrations" target="_blank" rel="noopener noreferrer" className="text-orange-400 hover:text-orange-300">
+                      Notion Integrations <ExternalLink size={10} className="inline" />
+                    </a>
+                    {' '}and create an integration
+                  </li>
+                  <li>Copy the Internal Integration Secret and paste it above</li>
+                  <li>In Notion, open the page you want to export to, click <strong className="text-white">...</strong> &gt; <strong className="text-white">Connect to</strong> &gt; select your integration</li>
+                </ol>
+              </div>
+            </div>
           </section>
 
           {/* Save */}

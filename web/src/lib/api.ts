@@ -595,3 +595,44 @@ export async function importBrowserCookies(
   }
   return res.json()
 }
+
+// ==================== Notion ====================
+
+function getNotionKey(): string {
+  return localStorage.getItem('notion_api_key') || ''
+}
+
+export interface NotionPage {
+  id: string
+  title: string
+  icon: string
+  url: string
+}
+
+export async function fetchNotionPages(query?: string): Promise<{ pages: NotionPage[] }> {
+  const params = query ? `?query=${encodeURIComponent(query)}` : ''
+  const res = await authFetch(`${API_BASE}/notion/pages${params}`, {
+    headers: { 'X-Notion-Key': getNotionKey() },
+  })
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ detail: 'Failed to fetch Notion pages' }))
+    throw new Error(err.detail || 'Failed to fetch Notion pages')
+  }
+  return res.json()
+}
+
+export async function exportToNotion(taskId: string, parentPageId: string): Promise<{ url: string; page_id: string; title: string }> {
+  const res = await authFetch(`${API_BASE}/notion/export`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-Notion-Key': getNotionKey(),
+    },
+    body: JSON.stringify({ task_id: taskId, parent_page_id: parentPageId }),
+  })
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ detail: 'Export to Notion failed' }))
+    throw new Error(err.detail || 'Export to Notion failed')
+  }
+  return res.json()
+}

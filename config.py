@@ -215,6 +215,9 @@ DISCORD_WEBHOOK_URL = _get_env("DISCORD_WEBHOOK_URL", "")
 # Xiaoyuzhou API base URL
 XYZ_API_BASE = "https://api.xiaoyuzhoufm.com"
 
+# Notion Configuration (for exporting video notes)
+NOTION_API_KEY = _get_env("NOTION_API_KEY", "")
+
 # Supabase Configuration (for cloud storage and auth)
 SUPABASE_URL = _get_env("SUPABASE_URL", "")
 SUPABASE_KEY = _get_env("SUPABASE_KEY", "")  # anon/public key

@@ -56,5 +56,8 @@ Pillow>=10.0.0
 # File upload support
 python-multipart>=0.0.6
 
+# Notion export (markdown to Notion blocks)
+notion-markdown>=0.7.0
+
 # Optional: Flash Attention for faster inference (CUDA only)
 # flash-attn>=2.3.0  # Uncomment if using CUDA GPU

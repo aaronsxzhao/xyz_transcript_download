@@ -66,12 +66,18 @@ def _broadcast_from_thread(task_id: str, task_data: dict, user_id: Optional[str]
 
 def _update_task_status(db, task_id: str, status: str, progress: float = 0,
                         message: str = "", user_id: Optional[str] = None, **kwargs):
-    """Update task in DB and broadcast."""
+    """Update task in DB and broadcast.
+
+    Uses the in-memory cache (get_task reads from cache first in Supabase
+    mode) so the WebSocket broadcast never blocks on an extra HTTP call.
+    """
     if status not in ("cancelled", "failed") and is_video_task_cancelled(task_id):
         return
     updates = {"status": status, "progress": progress, "message": message}
     updates.update(kwargs)
     db.update_task(task_id, updates)
+    # get_task now returns from in-memory cache on Supabase backend,
+    # so this is essentially free (no extra HTTP round-trip).
     task = db.get_task(task_id, user_id)
     if task:
         _broadcast_from_thread(task_id, task, user_id)
@@ -410,6 +416,7 @@ def process_video_note_sync(
         last_summarize_progress = [70]
         import time as _time
         _last_stream_broadcast = [0.0]
+        _stream_interval = 2.0 if USE_SUPABASE else 0.6
 
         def summarize_progress(chars, partial_text="", chunk_num=0, total_chunks=0):
             if is_video_task_cancelled(task_id):
@@ -425,7 +432,7 @@ def process_video_note_sync(
             now = _time.monotonic()
             should_broadcast = (
                 job_progress - last_summarize_progress[0] >= 1
-                or (partial_text and now - _last_stream_broadcast[0] >= 0.6)
+                or (partial_text and now - _last_stream_broadcast[0] >= _stream_interval)
             )
             if should_broadcast:
                 if is_video_task_cancelled(task_id):
@@ -443,10 +450,8 @@ def process_video_note_sync(
                 }
                 if partial_text:
                     updates["markdown"] = partial_text
-                db.update_task(task_id, updates)
-                task = db.get_task(task_id, user_id)
-                if task:
-                    _broadcast_from_thread(task_id, task, user_id)
+                _update_task_status(db, task_id, "summarizing", job_progress, msg, user_id,
+                                    **({"markdown": partial_text} if partial_text else {}))
 
         markdown = note_summarizer.generate_note(
             title=title,
@@ -494,12 +499,16 @@ def process_video_note_sync(
         # Save version
         db.add_version(task_id, markdown, style, llm_model)
 
+        # Ensure all pending writes are flushed to Supabase
+        db.flush_task(task_id)
+
         _update_task_status(db, task_id, "success", 100, "Notes generated!", user_id)
         logger.info(f"Video note completed: {task_id} ({title})")
 
     except VideoCancelledException:
         _update_task_status(db, task_id, "cancelled", 0, "Cancelled", user_id)
         _clear_cancelled(task_id)
+        db.flush_task(task_id)
         logger.info(f"Video task cancelled: {task_id}")
     except Exception as e:
         import traceback
@@ -510,6 +519,7 @@ def process_video_note_sync(
         else:
             _update_task_status(db, task_id, "failed", 0, f"Error: {str(e)}", user_id,
                                 error=str(e))
+        db.flush_task(task_id)
 
 
 async def process_video_note_async(task_id: str, **kwargs):

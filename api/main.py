@@ -14,7 +14,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 
 from api.routers import podcasts, episodes, transcripts, summaries, processing
-from api.routers import auth_router, video_notes, cookies
+from api.routers import auth_router, video_notes, cookies, notion
 from api.auth import get_current_user, User
 from logger import get_logger
 
@@ -209,6 +209,7 @@ app.include_router(summaries.router, prefix="/api/summaries", tags=["Summaries"]
 app.include_router(processing.router, prefix="/api", tags=["Processing"])
 app.include_router(video_notes.router, prefix="/api/video-notes", tags=["Video Notes"])
 app.include_router(cookies.router, prefix="/api/cookies", tags=["Cookies"])
+app.include_router(notion.router, prefix="/api/notion", tags=["Notion"])
 
 # Mount static files for data — use the same DATA_DIR that the rest of the app uses
 from config import DATA_DIR as _data_dir

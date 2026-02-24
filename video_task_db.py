@@ -232,24 +232,91 @@ class _SQLiteVideoTaskDB:
 
 
 class _SupabaseVideoTaskDB:
-    """Supabase backend for video tasks (cloud deployment)."""
+    """Supabase backend for video tasks (cloud deployment).
+
+    Uses an in-memory write-behind cache to avoid blocking the processing
+    pipeline on Supabase HTTP round-trips for every progress tick.
+    Only flushes to Supabase on status transitions, every FLUSH_INTERVAL
+    seconds, or when markdown/transcript data changes.
+    """
+
+    FLUSH_INTERVAL = 3.0  # seconds between periodic Supabase writes
+    TERMINAL_STATUSES = {"success", "failed", "cancelled"}
+    MILESTONE_FIELDS = {"status", "markdown", "transcript_json", "error",
+                        "title", "thumbnail", "channel"}
 
     def __init__(self):
         from api.supabase_db import get_supabase_database
         self._sb = get_supabase_database()
+        self._cache: dict[str, dict] = {}  # task_id -> merged fields
+        self._dirty: dict[str, dict] = {}  # task_id -> pending DB writes
+        self._last_flush: dict[str, float] = {}  # task_id -> monotonic time
+        import threading
+        self._lock = threading.Lock()
+
+    def _should_flush(self, task_id: str, updates: dict) -> bool:
+        import time
+        now = time.monotonic()
+        if any(k in updates for k in self.MILESTONE_FIELDS):
+            return True
+        if updates.get("status") in self.TERMINAL_STATUSES:
+            return True
+        last = self._last_flush.get(task_id, 0)
+        if now - last >= self.FLUSH_INTERVAL:
+            return True
+        return False
+
+    def _flush(self, task_id: str):
+        import time
+        with self._lock:
+            pending = self._dirty.pop(task_id, None)
+        if pending:
+            try:
+                self._sb.update_video_task(task_id, pending)
+            except Exception as e:
+                logger.warning(f"Supabase flush failed for {task_id}: {e}")
+            self._last_flush[task_id] = time.monotonic()
 
     def create_task(self, task_data: dict) -> str:
         task_id = task_data.get("id") or str(uuid.uuid4())[:12]
         user_id = task_data.get("user_id")
         if not user_id:
             logger.warning("create_task called without user_id in Supabase mode")
-        return self._sb.create_video_task(user_id, task_id, task_data)
+        result = self._sb.create_video_task(user_id, task_id, task_data)
+        with self._lock:
+            self._cache[task_id] = dict(task_data, id=task_id, user_id=user_id)
+        return result
 
     def update_task(self, task_id: str, updates: dict):
-        self._sb.update_video_task(task_id, updates)
+        with self._lock:
+            if task_id in self._cache:
+                self._cache[task_id].update(updates)
+            else:
+                self._cache[task_id] = dict(updates)
+            dirty = self._dirty.get(task_id, {})
+            dirty.update(updates)
+            self._dirty[task_id] = dirty
+
+        if self._should_flush(task_id, updates):
+            self._flush(task_id)
 
     def get_task(self, task_id: str, user_id: str = None) -> Optional[dict]:
-        return self._sb.get_video_task(task_id, user_id)
+        with self._lock:
+            cached = self._cache.get(task_id)
+        if cached is not None:
+            return self._cached_to_dict(cached)
+        task = self._sb.get_video_task(task_id, user_id)
+        if task:
+            with self._lock:
+                self._cache[task_id] = task
+        return task
+
+    def flush_task(self, task_id: str):
+        """Force-flush any pending writes for a task and remove from cache."""
+        self._flush(task_id)
+        with self._lock:
+            self._cache.pop(task_id, None)
+            self._last_flush.pop(task_id, None)
 
     def list_tasks(self, user_id: str = None, limit: int = 100) -> List[dict]:
         if not user_id:
@@ -257,6 +324,10 @@ class _SupabaseVideoTaskDB:
         return self._sb.list_video_tasks(user_id, limit)
 
     def delete_task(self, task_id: str, user_id: str = None) -> bool:
+        with self._lock:
+            self._cache.pop(task_id, None)
+            self._dirty.pop(task_id, None)
+            self._last_flush.pop(task_id, None)
         return self._sb.delete_video_task(task_id, user_id)
 
     def add_version(self, task_id: str, content: str, style: str = "", model_name: str = "") -> str:
@@ -265,6 +336,24 @@ class _SupabaseVideoTaskDB:
 
     def get_versions(self, task_id: str) -> List[dict]:
         return self._sb.get_video_task_versions(task_id)
+
+    @staticmethod
+    def _cached_to_dict(cached: dict) -> dict:
+        d = dict(cached)
+        if isinstance(d.get("formats"), str):
+            try:
+                d["formats"] = json.loads(d["formats"])
+            except (json.JSONDecodeError, TypeError):
+                d["formats"] = []
+        elif not isinstance(d.get("formats"), list):
+            d["formats"] = []
+        if "transcript_json" in d and "transcript" not in d:
+            try:
+                tj = d["transcript_json"]
+                d["transcript"] = json.loads(tj) if tj else None
+            except (json.JSONDecodeError, TypeError):
+                d["transcript"] = None
+        return d
 
 
 class VideoTaskDB:
@@ -301,6 +390,11 @@ class VideoTaskDB:
 
     def get_versions(self, task_id: str) -> List[dict]:
         return self._backend.get_versions(task_id)
+
+    def flush_task(self, task_id: str):
+        """Flush pending writes (Supabase cache). No-op for SQLite."""
+        if hasattr(self._backend, "flush_task"):
+            self._backend.flush_task(task_id)
 
 
 _video_task_db: Optional[VideoTaskDB] = None
