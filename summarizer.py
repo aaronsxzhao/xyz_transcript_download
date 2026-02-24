@@ -387,20 +387,26 @@ class Summarizer:
             
             collected_content = []
             char_count = 0
+            finish_reason = None
             for chunk in stream:
-                if chunk.choices[0].delta.content:
-                    content = chunk.choices[0].delta.content
+                choice = chunk.choices[0]
+                if choice.delta.content:
+                    content = choice.delta.content
                     collected_content.append(content)
                     char_count += len(content)
                     progress_callback(char_count)
+                if choice.finish_reason:
+                    finish_reason = choice.finish_reason
             
-            # Create a response-like object
+            final_content = "".join(collected_content)
+            if finish_reason and finish_reason != "stop":
+                logger.warning(f"LLM stream ended with finish_reason={finish_reason} ({len(final_content):,} chars)")
+            logger.info(f"LLM response: {len(final_content):,} chars generated")
+
             class StreamedResponse:
                 def __init__(self, content):
                     self.choices = [type('Choice', (), {'message': type('Message', (), {'content': content})()})]
             
-            final_content = "".join(collected_content)
-            logger.info(f"LLM response: {len(final_content):,} chars generated")
             return StreamedResponse(final_content)
         else:
             response = self.client.chat.completions.create(**common_params)
