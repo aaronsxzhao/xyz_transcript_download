@@ -11,8 +11,17 @@ export default defineConfig({
     outDir: 'dist',
     assetsDir: 'assets',
     sourcemap: false,
-    // Ensure clean output
     emptyOutDir: true,
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          'react-vendor': ['react', 'react-dom', 'react-router-dom'],
+          'markdown': ['react-markdown', 'remark-gfm', 'remark-math', 'rehype-katex', 'rehype-slug'],
+          'syntax': ['react-syntax-highlighter'],
+          'markmap': ['markmap-lib', 'markmap-view'],
+        },
+      },
+    },
   },
   server: {
     port: 5173,

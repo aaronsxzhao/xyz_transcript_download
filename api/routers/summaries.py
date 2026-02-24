@@ -23,13 +23,7 @@ async def list_summaries(user: Optional[User] = Depends(get_current_user)):
     db = get_db(user.id if user else None)
     
     summaries = await run_sync(db.get_all_summaries)
-    
-    # Debug logging
-    for s in summaries[:3]:  # Log first 3
-        print(f"[DEBUG] Summary {s.episode_id}: topics={len(s.topics)}, key_points={len(s.key_points)}")
-        if s.key_points:
-            print(f"[DEBUG]   First key point: {s.key_points[0].get('topic', 'N/A')[:50]}")
-    
+
     return [
         SummaryListItem(
             episode_id=s.episode_id,

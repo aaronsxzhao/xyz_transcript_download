@@ -1,15 +1,17 @@
+import { lazy, Suspense } from 'react'
 import { Routes, Route, Navigate } from 'react-router-dom'
 import { AuthProvider, useAuth } from './contexts/AuthContext'
 import Layout from './components/Layout'
-import Dashboard from './pages/Dashboard'
-import Podcasts from './pages/Podcasts'
-import Episodes from './pages/Episodes'
-import Viewer from './pages/Viewer'
-import Videos from './pages/Videos'
-import VideoViewer from './pages/VideoViewer'
-import Settings from './pages/Settings'
-import Login from './pages/Login'
 import { Loader2 } from 'lucide-react'
+
+const Dashboard = lazy(() => import('./pages/Dashboard'))
+const Podcasts = lazy(() => import('./pages/Podcasts'))
+const Episodes = lazy(() => import('./pages/Episodes'))
+const Viewer = lazy(() => import('./pages/Viewer'))
+const Videos = lazy(() => import('./pages/Videos'))
+const VideoViewer = lazy(() => import('./pages/VideoViewer'))
+const Settings = lazy(() => import('./pages/Settings'))
+const Login = lazy(() => import('./pages/Login'))
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user, loading, authEnabled } = useAuth()
@@ -35,6 +37,12 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   return <>{children}</>
 }
 
+const PageSpinner = () => (
+  <div className="min-h-[60vh] flex items-center justify-center">
+    <Loader2 className="w-6 h-6 animate-spin text-indigo-500" />
+  </div>
+)
+
 function AppRoutes() {
   const { authEnabled, user, loading } = useAuth()
 
@@ -47,91 +55,27 @@ function AppRoutes() {
   }
 
   return (
-    <Routes>
-      {/* Login route - only show if auth is enabled */}
-      <Route
-        path="/login"
-        element={
-          authEnabled && !user ? (
-            <Login />
-          ) : (
-            <Navigate to="/" replace />
-          )
-        }
-      />
-      
-      {/* Protected routes */}
-      <Route
-        path="/"
-        element={
-          <ProtectedRoute>
-            <Layout>
-              <Dashboard />
-            </Layout>
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/podcasts"
-        element={
-          <ProtectedRoute>
-            <Layout>
-              <Podcasts />
-            </Layout>
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/podcasts/:pid/episodes"
-        element={
-          <ProtectedRoute>
-            <Layout>
-              <Episodes />
-            </Layout>
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/viewer/:eid"
-        element={
-          <ProtectedRoute>
-            <Layout>
-              <Viewer />
-            </Layout>
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/videos"
-        element={
-          <ProtectedRoute>
-            <Layout>
-              <Videos />
-            </Layout>
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/videos/:taskId"
-        element={
-          <ProtectedRoute>
-            <Layout>
-              <VideoViewer />
-            </Layout>
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/settings"
-        element={
-          <ProtectedRoute>
-            <Layout>
-              <Settings />
-            </Layout>
-          </ProtectedRoute>
-        }
-      />
-    </Routes>
+    <Suspense fallback={<PageSpinner />}>
+      <Routes>
+        <Route
+          path="/login"
+          element={
+            authEnabled && !user ? (
+              <Login />
+            ) : (
+              <Navigate to="/" replace />
+            )
+          }
+        />
+        <Route path="/" element={<ProtectedRoute><Layout><Dashboard /></Layout></ProtectedRoute>} />
+        <Route path="/podcasts" element={<ProtectedRoute><Layout><Podcasts /></Layout></ProtectedRoute>} />
+        <Route path="/podcasts/:pid/episodes" element={<ProtectedRoute><Layout><Episodes /></Layout></ProtectedRoute>} />
+        <Route path="/viewer/:eid" element={<ProtectedRoute><Layout><Viewer /></Layout></ProtectedRoute>} />
+        <Route path="/videos" element={<ProtectedRoute><Layout><Videos /></Layout></ProtectedRoute>} />
+        <Route path="/videos/:taskId" element={<ProtectedRoute><Layout><VideoViewer /></Layout></ProtectedRoute>} />
+        <Route path="/settings" element={<ProtectedRoute><Layout><Settings /></Layout></ProtectedRoute>} />
+      </Routes>
+    </Suspense>
   )
 }
 

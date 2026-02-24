@@ -10,6 +10,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 from typing import Optional
 from fastapi import FastAPI, Depends
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 
@@ -194,11 +195,13 @@ async def shutdown_event():
 # CORS middleware for frontend
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Allow all origins for production
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+app.add_middleware(GZipMiddleware, minimum_size=500)
 
 # Include routers
 app.include_router(auth_router.router, prefix="/api/auth", tags=["Authentication"])
@@ -467,25 +470,22 @@ async def get_stats(user: Optional["User"] = Depends(get_current_user)):
     """Get dashboard statistics."""
     from api.db import get_db
     from video_task_db import get_video_task_db
-    
+
     db = get_db(user.id if user else None)
     stats = db.get_stats()
-    
-    # Video stats
+
     video_db = get_video_task_db()
     user_id = user.id if user else None
-    video_tasks = video_db.list_tasks(user_id)
-    total_videos = len(video_tasks)
-    completed_videos = sum(1 for t in video_tasks if t.get("status") == "success")
-    
+    vcounts = video_db.count_tasks(user_id)
+
     return {
         "total_podcasts": stats["podcasts"],
         "total_episodes": stats["episodes"],
         "total_transcripts": stats["transcripts"],
         "total_summaries": stats["summaries"],
         "processing_queue": 0,
-        "total_videos": total_videos,
-        "completed_videos": completed_videos,
+        "total_videos": vcounts["total"],
+        "completed_videos": vcounts["completed"],
     }
 
 

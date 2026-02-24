@@ -47,7 +47,7 @@ export default function Videos() {
 
   useEffect(() => {
     loadTasks()
-    const interval = setInterval(loadTasks, hasActiveTasks ? 3000 : 15000)
+    const interval = setInterval(loadTasks, hasActiveTasks ? 5000 : 30000)
     return () => clearInterval(interval)
   }, [loadTasks, hasActiveTasks])
 

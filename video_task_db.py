@@ -331,6 +331,11 @@ class _SupabaseVideoTaskDB:
             return []
         return self._sb.list_video_tasks(user_id, limit)
 
+    def count_tasks(self, user_id: str = None) -> dict:
+        if not user_id:
+            return {"total": 0, "completed": 0}
+        return self._sb.count_video_tasks(user_id)
+
     def delete_task(self, task_id: str, user_id: str = None) -> bool:
         with self._lock:
             self._cache.pop(task_id, None)
@@ -389,6 +394,12 @@ class VideoTaskDB:
 
     def list_tasks(self, user_id: str = None, limit: int = 100) -> List[dict]:
         return self._backend.list_tasks(user_id, limit)
+
+    def count_tasks(self, user_id: str = None) -> dict:
+        if hasattr(self._backend, "count_tasks"):
+            return self._backend.count_tasks(user_id)
+        tasks = self._backend.list_tasks(user_id)
+        return {"total": len(tasks), "completed": sum(1 for t in tasks if t.get("status") == "success")}
 
     def delete_task(self, task_id: str, user_id: str = None) -> bool:
         return self._backend.delete_task(task_id, user_id)

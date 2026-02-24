@@ -3,6 +3,7 @@ import asyncio
 import json
 import shutil
 import threading
+import time
 import uuid
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
@@ -22,6 +23,14 @@ logger = get_logger("video_notes")
 router = APIRouter()
 
 VIDEO_EXECUTOR = ThreadPoolExecutor(max_workers=2, thread_name_prefix="video_processor")
+
+_list_cache: dict = {}
+_LIST_TTL = 5.0
+
+
+def _invalidate_list_cache(user_id: str = None):
+    key = user_id or "__local__"
+    _list_cache.pop(key, None)
 
 _cancel_lock = threading.Lock()
 _cancelled_tasks: Set[str] = set()
@@ -564,6 +573,7 @@ async def generate_note(
     from video_task_db import get_video_task_db
     db = get_video_task_db()
 
+    _invalidate_list_cache(user_id)
     try:
         task_id = db.create_task({
             "url": url,
@@ -643,6 +653,7 @@ async def generate_note_json(
         "user_id": user_id,
     }
 
+    _invalidate_list_cache(user_id)
     try:
         task_id = db.create_task(task_payload)
     except Exception as e:
@@ -672,12 +683,19 @@ async def generate_note_json(
 
 @router.get("/tasks")
 async def list_tasks(user: Optional[User] = Depends(get_current_user)):
-    """List all video note tasks."""
+    """List all video note tasks (cached for 5s to avoid excessive Supabase calls)."""
     from video_task_db import get_video_task_db
-    db = get_video_task_db()
     user_id = user.id if user else None
+    cache_key = user_id or "__local__"
+    now = time.monotonic()
+    entry = _list_cache.get(cache_key)
+    if entry and now - entry["t"] < _LIST_TTL:
+        return entry["data"]
+    db = get_video_task_db()
     tasks = db.list_tasks(user_id)
-    return {"tasks": tasks}
+    result = {"tasks": tasks}
+    _list_cache[cache_key] = {"t": now, "data": result}
+    return result
 
 
 @router.get("/tasks/{task_id}")
@@ -707,6 +725,7 @@ async def delete_task(task_id: str, user: Optional[User] = Depends(get_current_u
     if not deleted:
         _clear_cancelled(task_id)
         raise HTTPException(status_code=404, detail="Task not found")
+    _invalidate_list_cache(user_id)
     return {"message": "Task deleted"}
 
 

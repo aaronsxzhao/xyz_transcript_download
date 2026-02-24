@@ -739,16 +739,14 @@ class SupabaseDatabase:
         return self._video_task_to_dict(result.data[0])
 
     def list_video_tasks(self, user_id: str, limit: int = 100) -> List[dict]:
-        """List all video tasks for a user (excludes heavy fields for perf)."""
+        """List all video tasks for a user (only columns needed for list UI)."""
         if not self.client:
             return []
 
         cols = (
-            "id, user_id, url, platform, title, thumbnail, status, progress,"
-            "message, style, model, formats, quality, video_quality, extras,"
-            "video_understanding, video_interval, grid_cols, grid_rows,"
-            "duration, max_output_tokens, error, channel, channel_url,"
-            "channel_avatar, created_at, updated_at"
+            "id, url, platform, title, thumbnail, status, progress, message,"
+            "style, duration, error, channel, channel_url, channel_avatar,"
+            "created_at, updated_at"
         )
         result = (
             self.client.table("video_tasks")
@@ -759,6 +757,25 @@ class SupabaseDatabase:
             .execute()
         )
         return [self._video_task_to_dict(r) for r in result.data]
+
+    def count_video_tasks(self, user_id: str) -> dict:
+        """Return total and completed video task counts (cheap COUNT query)."""
+        if not self.client or not user_id:
+            return {"total": 0, "completed": 0}
+        total_r = (
+            self.client.table("video_tasks")
+            .select("id", count="exact")
+            .eq("user_id", user_id)
+            .execute()
+        )
+        done_r = (
+            self.client.table("video_tasks")
+            .select("id", count="exact")
+            .eq("user_id", user_id)
+            .eq("status", "success")
+            .execute()
+        )
+        return {"total": total_r.count or 0, "completed": done_r.count or 0}
 
     def delete_video_task(self, task_id: str, user_id: str = None) -> bool:
         """Delete a video task and its versions."""
