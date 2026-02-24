@@ -95,7 +95,7 @@ def process_video_note_sync(
     from video_task_db import get_video_task_db
     from video_downloader import get_downloader, detect_platform, VideoDownloadError
     from cookie_manager import get_cookie_manager
-    from note_summarizer import get_note_summarizer
+    from note_summarizer import get_note_summarizer, NOTE_CHUNK_CHARS
     from screenshot_extractor import (
         extract_timestamps_from_markdown,
         extract_screenshots_batch,
@@ -132,7 +132,7 @@ def process_video_note_sync(
 
         if has_saved_transcript:
             logger.info(f"Reusing saved transcript for {task_id} ({len(existing_transcript['text'])} chars), skipping download+transcribe")
-            _update_task_status(db, task_id, "transcribing", 60, "Reusing existing transcript...", user_id)
+            _update_task_status(db, task_id, "transcribing", 60, "Reusing saved transcript — skipping download and transcription", user_id)
             transcript_text = existing_transcript["text"]
             transcript_segments = existing_transcript.get("segments", [])
         else:
@@ -182,16 +182,16 @@ def process_video_note_sync(
                 return
 
             # Phase 2: Check for subtitles first (avoids downloading audio entirely)
-            _update_task_status(db, task_id, "downloading", 12, "Checking for subtitles...", user_id)
+            _update_task_status(db, task_id, "downloading", 12, "Checking for existing subtitles on platform...", user_id)
             subtitles = downloader.get_subtitles(url, task_id)
 
             if subtitles:
-                _update_task_status(db, task_id, "transcribing", 50, "Using platform subtitles...", user_id)
+                _update_task_status(db, task_id, "transcribing", 50, "Found platform subtitles — skipping audio download", user_id)
                 transcript_segments = subtitles
                 transcript_text = " ".join(s["text"] for s in subtitles)
                 logger.info(f"Using platform subtitles for {task_id}, skipping audio download")
             else:
-                _update_task_status(db, task_id, "downloading", 14, "Downloading audio...", user_id)
+                _update_task_status(db, task_id, "downloading", 14, "No subtitles found — downloading audio for transcription...", user_id)
 
                 def audio_progress(pct: float, msg: str):
                     if is_video_task_cancelled(task_id):
@@ -226,7 +226,7 @@ def process_video_note_sync(
                         "duration": duration,
                     })
 
-            _update_task_status(db, task_id, "downloading", 25, "Audio ready", user_id)
+            _update_task_status(db, task_id, "downloading", 25, "Audio download complete", user_id)
 
             if is_video_task_cancelled(task_id):
                 _update_task_status(db, task_id, "cancelled", 0, "Cancelled", user_id)
@@ -236,7 +236,7 @@ def process_video_note_sync(
             # Phase 2b: Download video if needed
             needs_video = "screenshot" in formats or video_understanding
             if needs_video:
-                _update_task_status(db, task_id, "downloading", 27, "Downloading video...", user_id)
+                _update_task_status(db, task_id, "downloading", 27, "Downloading video for screenshots (separate from audio)...", user_id)
 
                 def video_progress(pct: float, msg: str):
                     if is_video_task_cancelled(task_id):
@@ -257,7 +257,7 @@ def process_video_note_sync(
 
             # Phase 3: Transcribe (25-60%) — only if subtitles weren't found
             if not transcript_text:
-                _update_task_status(db, task_id, "transcribing", 30, "Starting transcription...", user_id)
+                _update_task_status(db, task_id, "transcribing", 30, "Transcribing audio with Whisper...", user_id)
 
                 from transcriber import get_transcriber
                 transcriber = get_transcriber()
@@ -302,7 +302,7 @@ def process_video_note_sync(
                     "duration": duration,
                 }, ensure_ascii=False),
             })
-            _update_task_status(db, task_id, "transcribing", 60, "Transcription done, preparing notes...", user_id)
+            _update_task_status(db, task_id, "transcribing", 60, "Transcription complete — preparing to generate notes...", user_id)
 
         # Phase 3b: Video understanding (60-70%)
         visual_context = ""
@@ -329,7 +329,13 @@ def process_video_note_sync(
             _clear_cancelled(task_id)
             return
 
-        _update_task_status(db, task_id, "summarizing", 70, "Generating notes...", user_id)
+        transcript_chars = len(transcript_text)
+        num_expected_chunks = max(1, transcript_chars // NOTE_CHUNK_CHARS + (1 if transcript_chars % NOTE_CHUNK_CHARS else 0))
+        if num_expected_chunks > 1:
+            _update_task_status(db, task_id, "summarizing", 70,
+                                f"Starting AI note generation — splitting into ~{num_expected_chunks} sections...", user_id)
+        else:
+            _update_task_status(db, task_id, "summarizing", 70, "Starting AI note generation...", user_id)
 
         # Phase 4: Generate notes (70-90%)
         note_summarizer = get_note_summarizer(
@@ -340,11 +346,16 @@ def process_video_note_sync(
         import time as _time
         _last_stream_broadcast = [0.0]
 
-        def summarize_progress(chars, partial_text=""):
+        def summarize_progress(chars, partial_text="", chunk_num=0, total_chunks=0):
             if is_video_task_cancelled(task_id):
                 raise VideoCancelledException("Cancelled during summarization")
             progress_ratio = min(chars / 8000, 1.0)
             job_progress = 70 + (progress_ratio * 20)
+
+            if total_chunks > 1 and chunk_num > 0:
+                chunk_progress_base = (chunk_num - 1) / total_chunks
+                chunk_progress_current = 1 / total_chunks * min(chars / 3000, 1.0) if chars > 0 else 0
+                job_progress = 70 + (chunk_progress_base + chunk_progress_current) * 20
 
             now = _time.monotonic()
             should_broadcast = (
@@ -354,10 +365,14 @@ def process_video_note_sync(
             if should_broadcast:
                 last_summarize_progress[0] = job_progress
                 _last_stream_broadcast[0] = now
+                if total_chunks > 1 and chunk_num > 0:
+                    msg = f"Writing notes — section {chunk_num}/{total_chunks} ({chars:,} chars)"
+                else:
+                    msg = f"Writing notes ({chars:,} chars)..."
                 updates = {
                     "status": "summarizing",
                     "progress": job_progress,
-                    "message": f"Generating notes ({chars} chars)...",
+                    "message": msg,
                 }
                 if partial_text:
                     updates["markdown"] = partial_text
@@ -383,7 +398,7 @@ def process_video_note_sync(
             return
 
         # Phase 5: Post-processing (90-100%)
-        _update_task_status(db, task_id, "saving", 92, "Post-processing...", user_id)
+        _update_task_status(db, task_id, "saving", 92, "Notes generated — adding links and screenshots...", user_id)
 
         # Replace *Content-[mm:ss] markers with clickable links to original video
         if "link" in formats:

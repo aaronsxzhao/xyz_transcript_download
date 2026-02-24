@@ -1,10 +1,10 @@
 import { Check, Loader2 } from 'lucide-react'
 
 const STEPS = [
-  { key: 'parsing', label: 'Parsing', range: [0, 10] },
-  { key: 'downloading', label: 'Downloading', range: [10, 30] },
-  { key: 'transcribing', label: 'Transcribing', range: [30, 60] },
-  { key: 'summarizing', label: 'Generating', range: [60, 92] },
+  { key: 'parsing', label: 'Parse', range: [0, 10] },
+  { key: 'downloading', label: 'Download', range: [10, 30] },
+  { key: 'transcribing', label: 'Transcribe', range: [30, 60] },
+  { key: 'summarizing', label: 'AI Notes', range: [60, 92] },
   { key: 'success', label: 'Done', range: [92, 100] },
 ]
 

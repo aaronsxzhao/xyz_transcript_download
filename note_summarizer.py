@@ -251,6 +251,8 @@ class NoteSummarizer:
 
             return result
         except Exception as e:
+            if "cancel" in type(e).__name__.lower() or "cancel" in str(e).lower():
+                raise
             logger.error(f"Note generation failed: {e}")
             return None
 
@@ -291,6 +293,7 @@ class NoteSummarizer:
 
         chunk_results = []
         total_chars = 0
+        accumulated_text = f"# {title}\n\n"
 
         for i, chunk_text in enumerate(chunks):
             is_last = (i == num_chunks - 1)
@@ -308,19 +311,28 @@ class NoteSummarizer:
 
             logger.info(f"Generating chunk {i + 1}/{num_chunks} ({len(chunk_text):,} chars)")
 
-            def chunk_progress(chars, partial_text=""):
+            prefix = accumulated_text
+            chunk_idx = i
+            def chunk_progress(chars, partial_text="", _ci=chunk_idx, _prefix=prefix):
                 if progress_callback:
-                    progress_callback(total_chars + chars, partial_text)
+                    full_text = _prefix + partial_text if partial_text else _prefix
+                    progress_callback(total_chars + chars, full_text, _ci + 1, num_chunks)
+
+            if progress_callback:
+                progress_callback(total_chars, accumulated_text, i + 1, num_chunks)
 
             try:
                 result = self._call_llm(system_prompt, user_prompt, chunk_progress)
             except Exception as e:
+                if "cancel" in type(e).__name__.lower() or "cancel" in str(e).lower():
+                    raise
                 logger.error(f"Chunk {i + 1}/{num_chunks} failed: {e}")
                 continue
 
             if result:
                 chunk_results.append(result)
                 total_chars += len(result)
+                accumulated_text += result + "\n\n---\n\n"
 
         if not chunk_results:
             return None
