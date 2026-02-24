@@ -465,7 +465,7 @@ export default function Settings() {
             </h2>
             <SettingRow
               label="Check Interval"
-              value={settings ? `${Math.floor(settings.check_interval / 60)} minutes` : '-'}
+              value={settings ? (settings.check_interval >= 86400 ? `${Math.round(settings.check_interval / 86400)} day(s)` : settings.check_interval >= 3600 ? `${Math.round(settings.check_interval / 3600)} hour(s)` : `${Math.floor(settings.check_interval / 60)} minutes`) : '-'}
             />
           </section>
 

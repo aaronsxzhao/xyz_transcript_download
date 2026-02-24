@@ -173,7 +173,7 @@ if WHISPER_MODE == "api":
         print("Warning: WHISPER_MODE=api with openai provider but OPENAI_API_KEY not set.")
 
 # Check interval for daemon (in seconds)
-CHECK_INTERVAL = _get_env_int("XYZ_CHECK_INTERVAL", 3600, min_val=60)
+CHECK_INTERVAL = _get_env_int("XYZ_CHECK_INTERVAL", 86400, min_val=600)
 
 # Token refresh interval (in seconds)
 TOKEN_REFRESH_INTERVAL = _get_env_int("TOKEN_REFRESH_INTERVAL", 600, min_val=60)
