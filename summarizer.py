@@ -375,7 +375,6 @@ class Summarizer:
             ],
             "response_format": {"type": "json_object"},
             "temperature": 0.3,
-            "max_tokens": 65536,
         }
         
         if progress_callback:
