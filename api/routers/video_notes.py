@@ -166,6 +166,12 @@ def process_video_note_sync(
                 )
                 return
 
+            if platform == "youtube" and not cookies and USE_SUPABASE:
+                logger.warning(
+                    f"[{task_id}] YouTube without cookies on cloud server — "
+                    "may fail due to bot detection. Recommend uploading cookies."
+                )
+
             downloader = get_downloader(platform, cookies)
 
             metadata = downloader.get_metadata(url)

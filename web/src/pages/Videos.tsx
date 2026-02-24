@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState, useMemo } from 'react'
 import { Link } from 'react-router-dom'
 import {
-  Plus, ChevronUp, Video, Search, Trash2, RefreshCw, RotateCcw, Square,
+  Plus, ChevronUp, ChevronDown, Video, Search, Trash2, RefreshCw, RotateCcw, Square,
   CheckCircle, XCircle, Clock, Loader2, ArrowLeft, ExternalLink,
 } from 'lucide-react'
 import VideoNoteForm from '../components/video/VideoNoteForm'
@@ -388,6 +388,47 @@ function ChannelList({ channels, onSelectChannel }: {
 }
 
 
+function getDisplayTitle(task: VideoTask): string {
+  if (task.title && task.title !== 'Untitled') return task.title
+  if (task.url) {
+    try {
+      const u = new URL(task.url)
+      const host = u.hostname.replace('www.', '')
+      const path = u.pathname.replace(/\/$/, '')
+      const shortPath = path.length > 40 ? '...' + path.slice(-37) : path
+      return `${host}${shortPath}`
+    } catch {
+      return task.url.length > 60 ? task.url.slice(0, 57) + '...' : task.url
+    }
+  }
+  return 'Untitled'
+}
+
+function getErrorHint(task: VideoTask): string | null {
+  const err = (task.error || '').toLowerCase()
+  const msg = (task.message || '').toLowerCase()
+  const combined = err + ' ' + msg
+  if (combined.includes('login') || combined.includes('cookie') || combined.includes('403') || combined.includes('sign in') || combined.includes('412'))
+    return 'This video may require login. Go to Settings → Platform Accounts and upload cookies or scan QR code for this platform.'
+  if (combined.includes('not found') || combined.includes('404') || combined.includes('unavailable') || combined.includes('removed'))
+    return 'The video could not be found or is no longer available. Check the URL and try again.'
+  if (combined.includes('geo') || combined.includes('region') || combined.includes('country'))
+    return 'This video may be region-restricted. Try using a VPN or a different region.'
+  if (combined.includes('private'))
+    return 'This video is private. Make sure you have access and upload platform cookies in Settings.'
+  if (combined.includes('age') || combined.includes('restricted'))
+    return 'This video is age-restricted. Upload platform cookies in Settings to verify your account.'
+  if (combined.includes('timeout') || combined.includes('timed out'))
+    return 'The request timed out. Try again later or check your connection.'
+  if (combined.includes('copyright') || combined.includes('blocked'))
+    return 'This video is blocked due to copyright. It cannot be processed.'
+  if (combined.includes('rate limit') || combined.includes('429'))
+    return 'Too many requests. Wait a few minutes and try again.'
+  if (combined.includes('unsupported'))
+    return 'This URL format is not supported. Check the URL and try again.'
+  return 'Something went wrong. Try again, or check Settings → Platform Accounts if the video requires login.'
+}
+
 function VideoList({ videos, onDelete, onRetry, onCancel }: {
   videos: VideoTask[]
   onDelete: (id: string) => void
@@ -411,6 +452,15 @@ function VideoList({ videos, onDelete, onRetry, onCancel }: {
   const isProcessing = (status: string) =>
     !['success', 'failed', 'pending', 'cancelled'].includes(status)
 
+  const [expandedErrors, setExpandedErrors] = useState<Set<string>>(new Set())
+  const toggleError = (id: string) => {
+    setExpandedErrors(prev => {
+      const n = new Set(prev)
+      n.has(id) ? n.delete(id) : n.add(id)
+      return n
+    })
+  }
+
   if (videos.length === 0) {
     return (
       <div className="p-12 bg-dark-surface border border-dark-border rounded-xl text-center">
@@ -423,10 +473,18 @@ function VideoList({ videos, onDelete, onRetry, onCancel }: {
 
   return (
     <div className="space-y-3">
-      {videos.map(task => (
+      {videos.map(task => {
+        const isFailed = task.status === 'failed'
+        const errorMsg = task.error || task.message || ''
+        const hint = isFailed ? getErrorHint(task) : null
+        const displayTitle = getDisplayTitle(task)
+
+        return (
         <div
           key={task.id}
-          className="p-3 md:p-4 bg-dark-surface border border-dark-border rounded-xl hover:border-dark-hover transition-colors"
+          className={`p-3 md:p-4 bg-dark-surface border rounded-xl transition-colors ${
+            isFailed ? 'border-red-500/30 hover:border-red-500/50' : 'border-dark-border hover:border-dark-hover'
+          }`}
         >
           <div className="flex flex-col sm:flex-row sm:items-start gap-3 md:gap-4">
             {task.thumbnail ? (
@@ -438,14 +496,34 @@ function VideoList({ videos, onDelete, onRetry, onCancel }: {
                 referrerPolicy="no-referrer"
               />
             ) : (
-              <div className="hidden sm:flex w-40 md:w-48 h-24 md:h-28 rounded-lg bg-dark-hover items-center justify-center flex-shrink-0">
-                <Video className="w-8 h-8 text-gray-600" />
+              <div className={`hidden sm:flex w-40 md:w-48 h-24 md:h-28 rounded-lg items-center justify-center flex-shrink-0 ${
+                isFailed ? 'bg-red-500/10' : 'bg-dark-hover'
+              }`}>
+                {isFailed ? (
+                  <XCircle className="w-8 h-8 text-red-500/50" />
+                ) : (
+                  <Video className="w-8 h-8 text-gray-600" />
+                )}
               </div>
             )}
             <div className="flex-1 min-w-0">
               <h3 className="font-medium text-white mb-1 line-clamp-2 text-sm md:text-base">
-                {task.title || 'Untitled'}
+                {displayTitle}
               </h3>
+
+              {/* Show URL below title when title is missing */}
+              {(!task.title || task.title === 'Untitled') && task.url && (
+                <a
+                  href={task.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-1 text-xs text-indigo-400 hover:text-indigo-300 mb-1 truncate"
+                >
+                  <ExternalLink size={10} className="flex-shrink-0" />
+                  <span className="truncate">{task.url}</span>
+                </a>
+              )}
+
               <div className="flex flex-wrap items-center gap-2 md:gap-4 text-xs md:text-sm text-gray-400">
                 {task.created_at && (
                   <span>{task.created_at.slice(0, 10)}</span>
@@ -461,10 +539,14 @@ function VideoList({ videos, onDelete, onRetry, onCancel }: {
                   </span>
                 )}
                 {task.status === 'failed' && (
-                  <span className="flex items-center gap-1 text-red-500">
+                  <button
+                    onClick={() => toggleError(task.id)}
+                    className="flex items-center gap-1 text-red-500 hover:text-red-400 transition-colors"
+                  >
                     <XCircle size={12} className="md:w-3.5 md:h-3.5" />
-                    <span className="hidden sm:inline">Failed</span>
-                  </span>
+                    Failed
+                    <ChevronDown size={12} className={`transition-transform ${expandedErrors.has(task.id) ? 'rotate-180' : ''}`} />
+                  </button>
                 )}
                 {task.status === 'cancelled' && (
                   <span className="flex items-center gap-1 text-orange-400">
@@ -479,6 +561,21 @@ function VideoList({ videos, onDelete, onRetry, onCancel }: {
                   </span>
                 )}
               </div>
+
+              {/* Error details — always show brief, expandable for full */}
+              {isFailed && errorMsg && (
+                <div className="mt-2">
+                  <p className={`text-xs text-red-400/80 ${expandedErrors.has(task.id) ? '' : 'line-clamp-1'}`}>
+                    {errorMsg}
+                  </p>
+                  {hint && (
+                    <p className="mt-1.5 text-xs text-amber-400/80 flex items-start gap-1.5">
+                      <span className="flex-shrink-0 mt-0.5">💡</span>
+                      <span>{hint}</span>
+                    </p>
+                  )}
+                </div>
+              )}
             </div>
 
             <div className="flex items-center gap-2 justify-end sm:justify-start">
@@ -559,7 +656,8 @@ function VideoList({ videos, onDelete, onRetry, onCancel }: {
             </div>
           </div>
         </div>
-      ))}
+        )
+      })}
     </div>
   )
 }

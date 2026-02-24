@@ -279,8 +279,16 @@ export default function Dashboard() {
                       </div>
                     )}
                     <div className="flex-1 min-w-0">
-                      <h3 className="font-medium text-white text-sm truncate">{task.title || 'Untitled'}</h3>
+                      <h3 className="font-medium text-white text-sm truncate">
+                        {task.title || (task.url ? (() => {
+                          try { return new URL(task.url).hostname.replace('www.', '') + new URL(task.url).pathname.replace(/\/$/, '').slice(0, 30) }
+                          catch { return 'Untitled' }
+                        })() : 'Untitled')}
+                      </h3>
                       <div className="flex items-center gap-2 text-xs text-gray-500 mt-0.5">
+                        {task.status === 'failed' && (
+                          <span className="px-1.5 py-0.5 bg-red-600/20 text-red-400 rounded-full text-[10px]">Failed</span>
+                        )}
                         {task.platform && <span className="capitalize">{task.platform}</span>}
                         {task.style && <span className="px-1.5 py-0.5 bg-purple-600/20 text-purple-400 rounded-full text-[10px]">{task.style}</span>}
                       </div>

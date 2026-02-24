@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { 
   ArrowLeft, 
@@ -15,6 +15,7 @@ import {
 } from 'lucide-react'
 import { fetchSummary, fetchTranscript, resummarizeEpisode, type Summary, type Transcript, type KeyPoint, type TranscriptSegment } from '../lib/api'
 import { getAccessToken } from '../lib/auth'
+import { useStore } from '../lib/store'
 
 type Tab = 'summary' | 'transcript'
 
@@ -56,18 +57,48 @@ export default function Viewer() {
     }
   }
   
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const { updateJob } = useStore()
+
+  useEffect(() => {
+    return () => { if (pollRef.current) clearInterval(pollRef.current) }
+  }, [])
+
   async function handleResummarize() {
     if (!eid || resummarizing) return
     
     try {
       setResummarizing(true)
-      await resummarizeEpisode(eid)
-      // Redirect to dashboard to see progress
-      window.location.href = '/'
+      setSummary(null)
+      const result = await resummarizeEpisode(eid)
+
+      updateJob({
+        job_id: result.job_id,
+        status: 'pending',
+        progress: 0,
+        message: 'Re-summarizing...',
+        episode_id: eid,
+        episode_title: summary?.title || '',
+      })
+
+      pollRef.current = setInterval(async () => {
+        try {
+          const newSummary = await fetchSummary(eid)
+          if (newSummary && newSummary.topics && newSummary.topics.length > 0) {
+            setSummary(newSummary)
+            setResummarizing(false)
+            if (newSummary.topics.length > 0) {
+              setExpandedTopics(new Set([newSummary.topics[0]]))
+            }
+            if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null }
+          }
+        } catch {
+          // Summary not ready yet, keep polling
+        }
+      }, 5000)
     } catch (err) {
       console.error('Failed to start re-summarization:', err)
       alert('Failed to start re-summarization')
-    } finally {
       setResummarizing(false)
     }
   }
@@ -220,6 +251,14 @@ export default function Viewer() {
       </div>
       
       {/* Content */}
+      {activeTab === 'summary' && resummarizing && !summary && (
+        <div className="flex flex-col items-center justify-center py-20 text-center space-y-4">
+          <Loader2 className="w-10 h-10 animate-spin text-indigo-500" />
+          <p className="text-lg text-white font-medium">Re-generating summary...</p>
+          <p className="text-sm text-gray-400">This may take a minute. The page will update automatically when done.</p>
+        </div>
+      )}
+
       {activeTab === 'summary' && summary && (
         <div className="space-y-6">
           {/* Overview */}

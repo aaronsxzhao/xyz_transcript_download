@@ -1,9 +1,9 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
-  Play, Loader2, Settings2, ChevronDown, ChevronUp,
+  Play, Loader2, Settings2, ChevronDown, ChevronUp, AlertTriangle,
 } from 'lucide-react'
-import { generateVideoNote, uploadVideoFile, getUserModelSettings, validateBilibiliCookie } from '../../lib/api'
+import { generateVideoNote, uploadVideoFile, getUserModelSettings, validateBilibiliCookie, fetchCookieStatus } from '../../lib/api'
 import YouTubeCookieGuide from './YouTubeCookieGuide'
 
 const PLATFORMS = [
@@ -78,6 +78,21 @@ export default function VideoNoteForm({ onTaskCreated, hideTitle }: Props) {
   const [error, setError] = useState('')
   const [uploadProgress, setUploadProgress] = useState('')
   const fileInputRef = useRef<HTMLInputElement>(null)
+
+  const [ytCookieWarning, setYtCookieWarning] = useState(false)
+  const ytCheckRef = useRef(false)
+
+  useEffect(() => {
+    if (isYoutubeUrl(url) && !ytCheckRef.current) {
+      ytCheckRef.current = true
+      fetchCookieStatus('youtube')
+        .then(r => setYtCookieWarning(!r.has_cookie))
+        .catch(() => setYtCookieWarning(false))
+    } else if (!isYoutubeUrl(url)) {
+      ytCheckRef.current = false
+      setYtCookieWarning(false)
+    }
+  }, [url])
 
   const toggleFormat = (id: string) => {
     setFormats(prev =>
@@ -196,6 +211,26 @@ export default function VideoNoteForm({ onTaskCreated, hideTitle }: Props) {
           placeholder="Paste video URL here..."
           className="w-full px-3 py-2.5 bg-dark-hover border border-dark-border rounded-lg text-white text-sm placeholder-gray-500 focus:outline-none focus:border-indigo-500"
         />
+      )}
+
+      {/* YouTube cookie warning */}
+      {ytCookieWarning && isYoutubeUrl(url) && (
+        <div className="flex items-start gap-2 p-2.5 bg-amber-900/20 border border-amber-500/30 rounded-lg">
+          <AlertTriangle size={14} className="text-amber-400 flex-shrink-0 mt-0.5" />
+          <div className="text-xs text-amber-300/90">
+            <p className="font-medium">YouTube cookies not set</p>
+            <p className="mt-0.5 text-amber-300/70">
+              YouTube may block requests from cloud servers. Upload cookies in{' '}
+              <button
+                onClick={() => navigate('/settings')}
+                className="text-indigo-400 hover:text-indigo-300 underline"
+              >
+                Settings → Platform Accounts
+              </button>{' '}
+              to avoid failures.
+            </p>
+          </div>
+        </div>
       )}
 
       {/* Note Style */}

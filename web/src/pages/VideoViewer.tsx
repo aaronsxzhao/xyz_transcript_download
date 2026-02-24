@@ -2,7 +2,7 @@ import { useEffect, useState, useMemo } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import {
   ArrowLeft, Copy, Download, Check, FileText, Map, Clock, Loader2,
-  ChevronRight, FileDown, RefreshCw,
+  ChevronRight, FileDown, RefreshCw, XCircle, ExternalLink, RotateCcw,
 } from 'lucide-react'
 import { fetchVideoTask, retryVideoTask, type VideoTask } from '../lib/api'
 import MarkdownPreview from '../components/video/MarkdownPreview'
@@ -250,9 +250,19 @@ export default function VideoViewer() {
           </Link>
           <div className="min-w-0">
             <h1 className="text-base font-semibold text-white truncate">
-              {task.title || 'Untitled'}
+              {task.title || (task.url ? (() => {
+                try {
+                  const u = new URL(task.url)
+                  return u.hostname.replace('www.', '') + u.pathname.replace(/\/$/, '')
+                } catch { return task.url }
+              })() : 'Untitled')}
             </h1>
             <div className="flex items-center gap-2 text-xs text-gray-500 mt-0.5">
+              {task.status === 'failed' && (
+                <span className="px-1.5 py-0.5 bg-red-600/20 text-red-400 rounded-full text-[10px]">
+                  Failed
+                </span>
+              )}
               {task.style && (
                 <span className="px-1.5 py-0.5 bg-purple-600/20 text-purple-400 rounded-full text-[10px]">
                   {task.style}
@@ -354,6 +364,48 @@ export default function VideoViewer() {
         </div>
       </div>
 
+      {/* Failed state banner */}
+      {task.status === 'failed' && (
+        <div className="flex-shrink-0 mb-3 p-4 bg-red-500/10 border border-red-500/30 rounded-xl">
+          <div className="flex items-start gap-3">
+            <XCircle className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" />
+            <div className="flex-1 min-w-0">
+              <h3 className="text-sm font-medium text-red-400 mb-1">Processing Failed</h3>
+              {(task.error || task.message) && (
+                <p className="text-xs text-red-400/80 mb-2">{task.error || task.message}</p>
+              )}
+              {task.url && (
+                <a
+                  href={task.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 text-xs text-indigo-400 hover:text-indigo-300 mb-2"
+                >
+                  <ExternalLink size={10} />
+                  <span className="truncate max-w-xs">{task.url}</span>
+                </a>
+              )}
+              <div className="flex items-center gap-2 mt-1">
+                <button
+                  onClick={handleRegenerate}
+                  disabled={regenerating}
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white text-xs rounded-lg transition-colors"
+                >
+                  <RotateCcw size={12} className={regenerating ? 'animate-spin' : ''} />
+                  Retry
+                </button>
+                <Link
+                  to="/settings"
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-dark-hover hover:bg-dark-border text-gray-300 text-xs rounded-lg transition-colors"
+                >
+                  Check Settings
+                </Link>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Two-column layout: both columns scroll independently within viewport */}
       <div className="flex-1 flex gap-4 min-h-0">
         {/* Left sidebar: scrolls independently */}
@@ -419,14 +471,44 @@ export default function VideoViewer() {
 
         {/* Right: main content — scrolls independently */}
         <div className="flex-1 min-w-0 overflow-y-auto custom-scrollbar bg-dark-surface rounded-xl border border-dark-border p-4" id="video-content-scroll">
-          {viewMode === 'markdown' && (
-            <MarkdownPreview task={{ ...task, markdown: content }} />
-          )}
-          {viewMode === 'mindmap' && (
-            <MindMapView markdown={content} />
-          )}
-          {viewMode === 'transcript' && (
-            <TranscriptPanel transcript={task.transcript} />
+          {!['success', 'failed', 'cancelled'].includes(task.status) && !content ? (
+            <div className="flex flex-col items-center justify-center py-20 text-center space-y-4">
+              <Loader2 className="w-10 h-10 animate-spin text-indigo-500" />
+              <p className="text-lg text-white font-medium">
+                {task.status === 'pending' ? 'Queued for processing...' :
+                 task.status === 'downloading' ? 'Downloading video...' :
+                 task.status === 'transcribing' ? 'Transcribing audio...' :
+                 task.status === 'summarizing' ? 'Generating notes...' :
+                 task.status === 'saving' ? 'Saving results...' :
+                 'Processing...'}
+              </p>
+              {task.progress > 0 && (
+                <div className="w-48">
+                  <div className="h-1.5 bg-dark-border rounded-full overflow-hidden">
+                    <div
+                      className="h-full bg-indigo-500 transition-all duration-500"
+                      style={{ width: `${Math.min(task.progress, 100)}%` }}
+                    />
+                  </div>
+                  <p className="text-xs text-gray-500 mt-1">{Math.round(task.progress)}%</p>
+                </div>
+              )}
+              {task.message && (
+                <p className="text-sm text-gray-400 max-w-md">{task.message}</p>
+              )}
+            </div>
+          ) : (
+            <>
+              {viewMode === 'markdown' && (
+                <MarkdownPreview task={{ ...task, markdown: content }} />
+              )}
+              {viewMode === 'mindmap' && (
+                <MindMapView markdown={content} />
+              )}
+              {viewMode === 'transcript' && (
+                <TranscriptPanel transcript={task.transcript} />
+              )}
+            </>
           )}
         </div>
       </div>

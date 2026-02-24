@@ -47,7 +47,10 @@ async def bilibili_qr_generate(user: Optional[User] = Depends(get_current_user))
         logger.error(f"BiliBili QR generate error: {e}")
         raise HTTPException(status_code=502, detail=f"Failed to reach BiliBili: {type(e).__name__}")
 
+    logger.info(f"BiliBili QR generate response: code={data.get('code')}")
+
     if data.get("code") != 0:
+        logger.error(f"BiliBili QR generate failed: {data}")
         raise HTTPException(status_code=502, detail="Failed to generate BiliBili QR code")
 
     qr_data = data["data"]
@@ -55,6 +58,7 @@ async def bilibili_qr_generate(user: Optional[User] = Depends(get_current_user))
     qrcode_key = qr_data["qrcode_key"]
 
     _qr_sessions[qrcode_key] = {"created_at": time.time(), "status": "pending"}
+    logger.info(f"BiliBili QR generated: key={qrcode_key[:8]}..., url_len={len(qr_url)}")
 
     return {
         "qr_url": qr_url,
@@ -72,13 +76,16 @@ async def bilibili_qr_poll(
         async with httpx.AsyncClient(
             headers=BILIBILI_HEADERS,
             timeout=httpx.Timeout(15.0, connect=10.0),
-            follow_redirects=True,
+            follow_redirects=False,
         ) as client:
             resp = await client.get(
                 "https://passport.bilibili.com/x/passport-login/web/qrcode/poll",
                 params={"qrcode_key": qrcode_key},
             )
             data = resp.json()
+            set_cookie_headers = resp.headers.get_list("set-cookie")
+            logger.debug(f"BiliBili QR poll HTTP {resp.status_code}, "
+                          f"set-cookie count: {len(set_cookie_headers)}")
     except httpx.TimeoutException:
         return {"status": "waiting", "message": "BiliBili API slow, retrying..."}
     except Exception as e:
@@ -88,7 +95,7 @@ async def bilibili_qr_poll(
     poll_data = data.get("data", {})
     code = poll_data.get("code")
     msg = poll_data.get("message", "")
-    logger.info(f"BiliBili QR poll: code={code}, message={msg}")
+    logger.info(f"BiliBili QR poll: code={code}, message={msg}, raw_keys={list(poll_data.keys())}")
 
     # BiliBili QR poll codes:
     #   0     = login confirmed (success)
@@ -98,19 +105,39 @@ async def bilibili_qr_poll(
 
     if code == 0:
         refresh_url = poll_data.get("url", "")
+        logger.info(f"BiliBili QR success — refresh_url present: {bool(refresh_url)}, "
+                     f"url_len: {len(refresh_url)}")
+
         cookies_from_url = _extract_cookies_from_url(refresh_url)
         cookies_from_headers = _extract_cookies_from_headers(resp.headers)
         all_cookies = {**cookies_from_url, **cookies_from_headers}
+
+        logger.info(f"BiliBili QR cookies — from_url: {list(cookies_from_url.keys())}, "
+                     f"from_headers: {list(cookies_from_headers.keys())}, "
+                     f"total: {len(all_cookies)}")
+
+        has_sessdata = "SESSDATA" in all_cookies
+        has_bili_jct = "bili_jct" in all_cookies
+        logger.info(f"BiliBili QR critical cookies — SESSDATA: {has_sessdata}, "
+                     f"bili_jct: {has_bili_jct}")
 
         if all_cookies:
             cookie_str = _cookies_to_netscape(all_cookies)
             from cookie_manager import get_cookie_manager
             mgr = get_cookie_manager()
             mgr.set_cookie("bilibili", cookie_str)
-            logger.info(f"BiliBili QR login success, saved {len(all_cookies)} cookies")
+            logger.info(f"BiliBili QR login success, saved {len(all_cookies)} cookies: "
+                         f"{list(all_cookies.keys())}")
+        else:
+            logger.warning("BiliBili QR login returned code=0 but NO cookies extracted!")
 
         _qr_sessions.pop(qrcode_key, None)
-        return {"status": "success", "message": "Login successful, cookies saved"}
+        saved_count = len(all_cookies)
+        return {
+            "status": "success",
+            "message": f"Login successful, {saved_count} cookies saved"
+                       + ("" if has_sessdata else " (WARNING: SESSDATA missing)"),
+        }
 
     elif code == 86090:
         return {"status": "scanned", "message": "QR code scanned, waiting for confirmation"}
@@ -118,7 +145,8 @@ async def bilibili_qr_poll(
         _qr_sessions.pop(qrcode_key, None)
         return {"status": "expired", "message": "QR code expired"}
     else:
-        return {"status": "waiting", "message": "Waiting for scan"}
+        logger.info(f"BiliBili QR poll — unhandled code={code}, message={msg}")
+        return {"status": "waiting", "message": f"Waiting for scan (code: {code})"}
 
 
 def _extract_cookies_from_url(url: str) -> dict:
@@ -480,7 +508,14 @@ async def save_simple_cookie(data: SimpleCookieUpdate, user: Optional[User] = De
 
     netscape = _simple_cookie_to_netscape(data.cookie_string, domain)
     from cookie_manager import get_cookie_manager
-    get_cookie_manager().set_cookie(data.platform, netscape)
+    try:
+        get_cookie_manager().set_cookie(data.platform, netscape)
+    except Exception as e:
+        logger.error(f"Failed to save cookies for {data.platform}: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to save cookies: {e}. Please check your database configuration.",
+        )
     return {"message": f"Cookies saved for {data.platform}"}
 
 
@@ -536,7 +571,14 @@ async def upload_cookie_file(
 
     netscape = "\n".join(filtered_lines) + "\n"
     from cookie_manager import get_cookie_manager
-    get_cookie_manager().set_cookie(platform, netscape)
+    try:
+        get_cookie_manager().set_cookie(platform, netscape)
+    except Exception as e:
+        logger.error(f"Failed to save cookies for {platform}: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to save cookies: {e}. Please check your database configuration.",
+        )
     logger.info(f"Uploaded cookies.txt for {platform}: {cookie_count} cookies saved")
     return {"message": f"Saved {cookie_count} cookies for {platform}", "cookie_count": cookie_count}
 

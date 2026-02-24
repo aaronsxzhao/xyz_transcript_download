@@ -558,7 +558,10 @@ export async function saveSimpleCookie(platform: string, cookieString: string): 
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ platform, cookie_string: cookieString }),
   })
-  if (!res.ok) throw new Error('Failed to save cookie')
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ detail: 'Failed to save cookie' }))
+    throw new Error(err.detail || 'Failed to save cookie')
+  }
   return res.json()
 }
 

@@ -114,6 +114,7 @@ def _classify_ytdlp_error(e: Exception, platform: str) -> VideoDownloadError:
 
     # Chinese: 登录 = login, 请先 = please first, 未登录 = not logged in, 需要 = need
     auth_patterns = ["sign in", "login", "need to log in", "confirm your age",
+                     "not a bot", "bot detection",
                      "登录", "请先", "未登录", "需要登录", "cookie", "banned",
                      "403", "unauthorized", "authentication"]
     if any(p in msg for p in auth_patterns):
@@ -125,8 +126,8 @@ def _classify_ytdlp_error(e: Exception, platform: str) -> VideoDownloadError:
             )
         if platform == "youtube":
             return VideoDownloadError(
-                "YouTube requires login for this video. "
-                "Go to Settings → Platform Accounts → YouTube and follow the 4-step guide to upload your cookies.",
+                "YouTube requires authentication (likely due to bot detection on cloud servers). "
+                "Go to Settings → Platform Accounts → YouTube and upload your cookies to fix this.",
                 "LOGIN_REQUIRED",
             )
         return VideoDownloadError(
@@ -142,6 +143,13 @@ def _classify_ytdlp_error(e: Exception, platform: str) -> VideoDownloadError:
         )
 
     if "removed" in msg or "deleted" in msg or "not available" in msg or "not found" in msg:
+        if platform == "youtube" and ("unavailable" in msg or "not available" in msg):
+            return VideoDownloadError(
+                "YouTube says this video is unavailable. This often happens when accessing YouTube "
+                "from a cloud server. Try uploading your YouTube cookies in Settings → Platform Accounts "
+                "→ YouTube to authenticate your session.",
+                "LOGIN_REQUIRED",
+            )
         return VideoDownloadError(
             "This video has been removed or is no longer available.",
             "VIDEO_UNAVAILABLE",
@@ -182,6 +190,26 @@ def _classify_ytdlp_error(e: Exception, platform: str) -> VideoDownloadError:
             "This URL is not supported. Please check the URL and try again.",
             "UNSUPPORTED_URL",
         )
+
+    if "no video formats" in msg or "requested format" in msg or "no matching format" in msg:
+        if platform == "youtube":
+            return VideoDownloadError(
+                "Could not find a downloadable format for this YouTube video. "
+                "This video may require login — try uploading YouTube cookies in Settings → Platform Accounts.",
+                "LOGIN_REQUIRED",
+            )
+        return VideoDownloadError(
+            f"No downloadable format found for this video on {platform}.",
+            "FORMAT_UNAVAILABLE",
+        )
+
+    if "sabr" in msg or "missing a url" in msg:
+        if platform == "youtube":
+            return VideoDownloadError(
+                "YouTube is blocking direct downloads for this video. "
+                "Try uploading YouTube cookies in Settings → Platform Accounts.",
+                "LOGIN_REQUIRED",
+            )
 
     return VideoDownloadError(
         f"Download failed: {e}",
@@ -255,8 +283,22 @@ class YtdlpDownloader(BaseDownloader):
         }
 
         node_path = shutil.which("node")
+        deno_path = shutil.which("deno")
         if self.platform == "youtube":
-            logger.info(f"[yt-dlp] Platform=youtube, node available={node_path is not None}, node_path={node_path}")
+            try:
+                import yt_dlp_ejs  # noqa: F401
+                has_ejs = True
+            except ImportError:
+                has_ejs = False
+            logger.info(
+                f"[yt-dlp] Platform=youtube, node={node_path}, deno={deno_path}, "
+                f"yt-dlp-ejs={has_ejs}"
+            )
+            if not node_path and not deno_path:
+                logger.warning(
+                    "[yt-dlp] No JS runtime (node/deno) found! "
+                    "YouTube downloads may fail. Install Node.js or Deno."
+                )
 
         if shutil.which("aria2c"):
             opts["external_downloader"] = "aria2c"

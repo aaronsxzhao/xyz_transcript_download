@@ -2,15 +2,14 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import {
   Cpu, MessageSquare, Clock, Loader2, CheckCircle, Trash2, AlertTriangle,
   Search, Save, Download, X, Activity, Smartphone, Chrome,
-  ExternalLink, Settings2, UserCircle, Wrench, Upload, FileText, Info,
+  ExternalLink, Settings2, UserCircle, Wrench, Upload, FileText,
 } from 'lucide-react'
-import YouTubeCookieGuide from '../components/video/YouTubeCookieGuide'
 import { QRCodeSVG } from 'qrcode.react'
 import {
   fetchSettings, updateSettings, authFetch, importUserSubscriptions,
   ImportSubscriptionsResult, fetchSysHealth, fetchAllCookies,
   bilibiliQrGenerate, bilibiliQrPoll, douyinQrGenerate, douyinQrPoll,
-  uploadCookieFile, importBrowserCookies,
+  uploadCookieFile, importBrowserCookies, saveSimpleCookie,
 } from '../lib/api'
 
 interface SettingsData {
@@ -228,9 +227,13 @@ export default function Settings() {
                 setQrStatus('loading')
               }
               generate()
+            } else if (poll.status === 'waiting') {
+              if (poll.message && poll.message !== 'Waiting for scan') {
+                setQrMessage(poll.message)
+              }
             }
-          } catch {
-            /* keep polling — server may have restarted */
+          } catch (err) {
+            console.warn('QR poll error:', err)
           }
         }, 2000)
         return true
@@ -517,77 +520,21 @@ export default function Settings() {
 
             if (isYT) {
               const ytLoggedIn = cookies.find(c => c.platform === 'youtube')?.has_cookie
-              return (
-                <div className="space-y-4">
-                  <div className="p-3 bg-blue-500/10 border border-blue-500/30 rounded-lg">
-                    <div className="flex items-start gap-2.5">
-                      <Info size={16} className="text-blue-400 mt-0.5 flex-shrink-0" />
-                      <p className="text-xs text-gray-400">
-                        Most public YouTube videos work <strong className="text-blue-300">without login</strong>.
-                        Only need this for age-restricted or members-only videos.
-                      </p>
-                    </div>
-                  </div>
-
-                  {ytLoggedIn && (
-                    <div className="flex items-center gap-2 p-3 bg-green-500/10 border border-green-500/30 rounded-lg">
-                      <CheckCircle size={16} className="text-green-400" />
-                      <span className="text-sm text-green-400">YouTube cookies are set! You're good to go.</span>
-                    </div>
-                  )}
-
-                  <YouTubeCookieGuide onCookiesSaved={async () => {
-                    const data = await fetchAllCookies()
-                    setCookies(data.cookies)
-                  }} />
-
-                  {/* Quick import for local users */}
-                  <div className="border-t border-dark-border pt-4">
-                    <button
-                      onClick={() => setShowFileUpload(!showFileUpload)}
-                      className="flex items-center gap-1.5 text-xs text-gray-500 hover:text-gray-300 transition-colors"
-                    >
-                      <Chrome size={12} />
-                      {showFileUpload ? '▾ Hide auto-import (local app only)' : '▸ Running locally? Try auto-import instead'}
-                    </button>
-                    {showFileUpload && (
-                      <div className="mt-3 space-y-2 pl-1">
-                        <p className="text-xs text-gray-500">
-                          If this app is running on your own computer, we can read cookies directly from your browser.
-                        </p>
-                        <div className="flex items-center gap-2">
-                          <select
-                            value={selectedBrowser}
-                            onChange={e => setSelectedBrowser(e.target.value)}
-                            className="bg-dark-hover border border-dark-border text-white text-sm rounded-lg px-3 py-2"
-                          >
-                            {BROWSERS.map(b => (
-                              <option key={b.value} value={b.value}>{b.label}</option>
-                            ))}
-                          </select>
-                          <button
-                            onClick={() => handleAutoImport('youtube')}
-                            disabled={cookieLoading}
-                            className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-colors font-medium disabled:opacity-50 text-sm"
-                          >
-                            {cookieLoading ? <Loader2 size={16} className="animate-spin" /> : <Download size={16} />}
-                            {cookieLoading ? 'Importing...' : 'Auto-import'}
-                          </button>
-                        </div>
-                        {cookieMessage && (
-                          <div className={`p-2 rounded-lg text-xs ${
-                            cookieMessage.includes('✅') ? 'bg-green-500/10 border border-green-500/30 text-green-400'
-                              : cookieMessage.includes('❌') ? 'bg-red-500/10 border border-red-500/30 text-red-400'
-                              : 'bg-amber-500/10 border border-amber-500/30 text-amber-400'
-                          }`}>
-                            {cookieMessage}
-                          </div>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                </div>
-              )
+              return <YouTubeLoginSection
+                loggedIn={!!ytLoggedIn}
+                cookieLoading={cookieLoading}
+                cookieMessage={cookieMessage}
+                setCookieMessage={setCookieMessage}
+                selectedBrowser={selectedBrowser}
+                setSelectedBrowser={setSelectedBrowser}
+                browsers={BROWSERS}
+                handleAutoImport={() => handleAutoImport('youtube')}
+                onCookiesSaved={async () => {
+                  const data = await fetchAllCookies()
+                  setCookies(data.cookies)
+                }}
+                handleCookieFileUpload={(f: File) => handleCookieFileUpload('youtube', f)}
+              />
             }
 
             return (
@@ -691,7 +638,7 @@ export default function Settings() {
                             ) : (
                               <span className="flex items-center justify-center gap-2">
                                 <Loader2 size={14} className="animate-spin" />
-                                Waiting for scan...
+                                {qrMessage || 'Waiting for scan...'}
                               </span>
                             )}
                           </p>
@@ -982,6 +929,226 @@ export default function Settings() {
               Find your username in your profile URL (xiaoyuzhoufm.com/user/<span className="text-cyan-400">username</span>)
             </p>
           </section>
+        </div>
+      )}
+    </div>
+  )
+}
+
+function YouTubeLoginSection({
+  loggedIn, cookieLoading, cookieMessage, setCookieMessage,
+  selectedBrowser, setSelectedBrowser,
+  browsers, handleAutoImport, onCookiesSaved, handleCookieFileUpload,
+}: {
+  loggedIn: boolean
+  cookieLoading: boolean
+  cookieMessage: string
+  setCookieMessage: (v: string) => void
+  selectedBrowser: string
+  setSelectedBrowser: (v: string) => void
+  browsers: { value: string; label: string }[]
+  handleAutoImport: () => void
+  onCookiesSaved: () => Promise<void>
+  handleCookieFileUpload: (f: File) => void
+}) {
+  const [ytMethod, setYtMethod] = useState<'paste' | 'file' | 'browser'>('paste')
+  const [pasteValue, setPasteValue] = useState('')
+  const [pasteSaving, setPasteSaving] = useState(false)
+  const localFileRef = useRef<HTMLInputElement>(null)
+
+  const handlePasteSave = async () => {
+    if (!pasteValue.trim()) return
+    setPasteSaving(true)
+    setCookieMessage('')
+    try {
+      const text = pasteValue.trim()
+      const isNetscape = text.includes('\t') && (text.includes('.youtube.com') || text.includes('#HttpOnly_'))
+      if (isNetscape) {
+        const blob = new Blob([text], { type: 'text/plain' })
+        const file = new File([blob], 'youtube_cookies.txt', { type: 'text/plain' })
+        const result = await uploadCookieFile('youtube', file)
+        setCookieMessage(`✅ ${result.message}`)
+      } else {
+        const result = await saveSimpleCookie('youtube', text)
+        setCookieMessage(`✅ ${result.message}`)
+      }
+      await onCookiesSaved()
+      setPasteValue('')
+    } catch (err) {
+      setCookieMessage(`❌ ${err instanceof Error ? err.message : 'Save failed'}`)
+    } finally {
+      setPasteSaving(false)
+    }
+  }
+
+  return (
+    <div className="space-y-4">
+      {/* Status */}
+      {loggedIn ? (
+        <div className="flex items-center gap-2 p-3 bg-green-500/10 border border-green-500/30 rounded-lg">
+          <CheckCircle size={16} className="text-green-400" />
+          <span className="text-sm text-green-400">YouTube cookies are set</span>
+        </div>
+      ) : (
+        <div className="p-3 bg-amber-500/10 border border-amber-500/30 rounded-lg">
+          <div className="flex items-start gap-2.5">
+            <AlertTriangle size={16} className="text-amber-400 mt-0.5 flex-shrink-0" />
+            <div className="text-xs text-gray-300">
+              <p className="font-medium text-amber-300">YouTube cookies recommended</p>
+              <p className="mt-0.5 text-gray-400">
+                YouTube may block requests from servers. Upload cookies to ensure all videos work.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Method tabs */}
+      <div className="flex gap-1 p-0.5 bg-dark-hover rounded-lg">
+        {([
+          { id: 'paste' as const, label: 'Paste Cookies', icon: <FileText size={13} /> },
+          { id: 'file' as const, label: 'Upload File', icon: <Upload size={13} /> },
+          { id: 'browser' as const, label: 'From Browser', icon: <Chrome size={13} /> },
+        ]).map(m => (
+          <button
+            key={m.id}
+            onClick={() => setYtMethod(m.id)}
+            className={`flex-1 flex items-center justify-center gap-1.5 px-2 py-1.5 text-xs rounded-md transition-colors ${
+              ytMethod === m.id
+                ? 'bg-indigo-600 text-white'
+                : 'text-gray-400 hover:text-white'
+            }`}
+          >
+            {m.icon}
+            {m.label}
+          </button>
+        ))}
+      </div>
+
+      {/* Method: Paste */}
+      {ytMethod === 'paste' && (
+        <div className="space-y-3">
+          <div className="p-3 bg-dark-hover/50 rounded-lg space-y-2">
+            <p className="text-xs text-gray-300 font-medium">How to get your cookies:</p>
+            <ol className="text-xs text-gray-400 space-y-1.5 list-decimal list-inside">
+              <li>Open <a href="https://www.youtube.com" target="_blank" rel="noopener noreferrer" className="text-indigo-400 hover:text-indigo-300">YouTube</a> in your browser and make sure you're logged in</li>
+              <li>Press <kbd className="px-1.5 py-0.5 bg-gray-700 rounded text-[11px] text-white">F12</kbd> to open DevTools</li>
+              <li>Go to <strong className="text-white">Console</strong> tab, paste this and press Enter:</li>
+            </ol>
+            <div className="relative">
+              <pre className="p-2 bg-gray-800 rounded text-[11px] text-green-300 font-mono overflow-x-auto select-all">document.cookie</pre>
+              <button
+                onClick={() => navigator.clipboard.writeText('document.cookie')}
+                className="absolute top-1 right-1 p-1 text-gray-500 hover:text-white transition-colors"
+                title="Copy command"
+              >
+                <Download size={12} />
+              </button>
+            </div>
+            <p className="text-[11px] text-gray-500">
+              Copy the result (the long string with <code className="text-gray-400">key=value; key=value</code> format) and paste below.
+              Alternatively, paste a Netscape cookies.txt content — both formats work.
+            </p>
+          </div>
+
+          <textarea
+            value={pasteValue}
+            onChange={e => setPasteValue(e.target.value)}
+            placeholder="Paste cookie string or cookies.txt content here..."
+            rows={4}
+            className="w-full px-3 py-2 bg-dark-hover border border-dark-border rounded-lg text-xs text-white placeholder-gray-500 focus:outline-none focus:border-indigo-500 font-mono resize-none"
+          />
+
+          <button
+            onClick={handlePasteSave}
+            disabled={pasteSaving || !pasteValue.trim()}
+            className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 disabled:bg-gray-700 disabled:text-gray-500 text-white rounded-lg text-sm font-medium transition-colors"
+          >
+            {pasteSaving ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
+            Save Cookies
+          </button>
+        </div>
+      )}
+
+      {/* Method: File upload */}
+      {ytMethod === 'file' && (
+        <div className="space-y-3">
+          <div className="p-3 bg-dark-hover/50 rounded-lg space-y-2">
+            <p className="text-xs text-gray-300 font-medium">Export cookies.txt file:</p>
+            <ol className="text-xs text-gray-400 space-y-1.5 list-decimal list-inside">
+              <li>
+                Install{' '}
+                <a href="https://chromewebstore.google.com/detail/get-cookiestxt-locally/cclelndahbckbenkjhflpdbgdldlbecc" target="_blank" rel="noopener noreferrer" className="text-indigo-400 hover:text-indigo-300">
+                  Get cookies.txt LOCALLY <ExternalLink size={10} className="inline" />
+                </a>{' '}
+                extension
+              </li>
+              <li>Open <a href="https://www.youtube.com" target="_blank" rel="noopener noreferrer" className="text-indigo-400 hover:text-indigo-300">YouTube</a> and log in</li>
+              <li>Click the extension icon → Export</li>
+              <li>Upload the downloaded file below</li>
+            </ol>
+          </div>
+
+          <input
+            ref={localFileRef}
+            type="file"
+            accept=".txt,.cookie,.cookies"
+            className="hidden"
+            onChange={e => {
+              const f = e.target.files?.[0]
+              if (f) handleCookieFileUpload(f)
+              if (localFileRef.current) localFileRef.current.value = ''
+            }}
+          />
+          <button
+            onClick={() => localFileRef.current?.click()}
+            disabled={cookieLoading}
+            className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white rounded-lg text-sm font-medium transition-colors"
+          >
+            {cookieLoading ? <Loader2 size={16} className="animate-spin" /> : <Upload size={16} />}
+            Upload cookies.txt
+          </button>
+        </div>
+      )}
+
+      {/* Method: From browser */}
+      {ytMethod === 'browser' && (
+        <div className="space-y-3">
+          <div className="p-3 bg-dark-hover/50 rounded-lg">
+            <p className="text-xs text-gray-400">
+              Reads cookies directly from your browser. Only works when this app runs on your own computer (not cloud deployment).
+            </p>
+          </div>
+          <div className="flex items-center gap-2">
+            <select
+              value={selectedBrowser}
+              onChange={e => setSelectedBrowser(e.target.value)}
+              className="bg-dark-hover border border-dark-border text-white text-sm rounded-lg px-3 py-2"
+            >
+              {browsers.map(b => (
+                <option key={b.value} value={b.value}>{b.label}</option>
+              ))}
+            </select>
+            <button
+              onClick={handleAutoImport}
+              disabled={cookieLoading}
+              className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white rounded-lg text-sm font-medium transition-colors"
+            >
+              {cookieLoading ? <Loader2 size={16} className="animate-spin" /> : <Download size={16} />}
+              {cookieLoading ? 'Importing...' : 'Auto-import'}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Status message */}
+      {cookieMessage && (
+        <div className={`p-2.5 rounded-lg text-xs ${
+          cookieMessage.includes('✅') ? 'bg-green-500/10 border border-green-500/30 text-green-400'
+            : cookieMessage.includes('❌') ? 'bg-red-500/10 border border-red-500/30 text-red-400'
+            : 'bg-amber-500/10 border border-amber-500/30 text-amber-400'
+        }`}>
+          {cookieMessage}
         </div>
       )}
     </div>
