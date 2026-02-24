@@ -375,6 +375,7 @@ class Summarizer:
             ],
             "response_format": {"type": "json_object"},
             "temperature": 0.3,
+            "max_tokens": 65536,
         }
         
         if progress_callback:
@@ -403,6 +404,9 @@ class Summarizer:
             return StreamedResponse(final_content)
         else:
             response = self.client.chat.completions.create(**common_params)
+            finish_reason = response.choices[0].finish_reason
+            if finish_reason and finish_reason != "stop":
+                logger.warning(f"LLM response finish_reason={finish_reason} ({len(response.choices[0].message.content or ''):,} chars)")
             if response.choices[0].message.content:
                 logger.info(f"LLM response: {len(response.choices[0].message.content):,} chars generated")
             return response

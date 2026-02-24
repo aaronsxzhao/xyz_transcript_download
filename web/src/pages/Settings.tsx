@@ -217,21 +217,21 @@ export default function Settings() {
             } else if (poll.status === 'scanned') {
               qrScannedRef.current = true
               setQrStatus('scanned')
-              setQrMessage('Scanned! Please confirm on your phone...')
+              setQrMessage('Scanned! Please confirm on your phone quickly (BiliBili QR codes expire fast)...')
               if (qrTimerRef.current) { clearInterval(qrTimerRef.current); qrTimerRef.current = null }
               setQrCountdown(0)
             } else if (poll.status === 'expired') {
+              if (qrPollRef.current) clearInterval(qrPollRef.current)
+              if (qrTimerRef.current) clearInterval(qrTimerRef.current)
               if (qrScannedRef.current) {
-                setQrStatus('error')
-                setQrMessage('Confirmation timed out. Please try again.')
-                stopQrPolling()
-              } else {
-                if (qrPollRef.current) clearInterval(qrPollRef.current)
-                if (qrTimerRef.current) clearInterval(qrTimerRef.current)
-                generate()
+                setQrMessage('QR expired before confirmation — generating a new one, please confirm faster...')
+                setQrStatus('loading')
               }
+              generate()
             }
-          } catch { /* keep polling */ }
+          } catch {
+            /* keep polling — server may have restarted */
+          }
         }, 2000)
         return true
       } catch {

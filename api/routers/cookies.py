@@ -68,14 +68,6 @@ async def bilibili_qr_poll(
     user: Optional[User] = Depends(get_current_user),
 ):
     """Poll BiliBili QR code login status."""
-    if qrcode_key not in _qr_sessions:
-        raise HTTPException(status_code=404, detail="QR session not found")
-
-    session = _qr_sessions[qrcode_key]
-    if time.time() - session["created_at"] > 180:
-        _qr_sessions.pop(qrcode_key, None)
-        return {"status": "expired", "message": "QR code expired, please generate a new one"}
-
     try:
         async with httpx.AsyncClient(
             headers=BILIBILI_HEADERS,
@@ -95,14 +87,14 @@ async def bilibili_qr_poll(
 
     poll_data = data.get("data", {})
     code = poll_data.get("code")
-    logger.info(f"BiliBili QR poll: code={code}, message={poll_data.get('message', '')}")
+    msg = poll_data.get("message", "")
+    logger.info(f"BiliBili QR poll: code={code}, message={msg}")
 
     # BiliBili QR poll codes:
     #   0     = login confirmed (success)
     #   86090 = scanned, waiting for user to confirm on phone
     #   86101 = not scanned yet (waiting)
     #   86038 = QR code expired
-    msg = poll_data.get("message", "")
 
     if code == 0:
         refresh_url = poll_data.get("url", "")
