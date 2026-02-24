@@ -204,11 +204,6 @@ SUMMARIZER_MAX_CHARS = _get_env_int("SUMMARIZER_MAX_CHARS", 100000, min_val=5000
 SUMMARIZER_CHUNK_SEGMENTS = _get_env_int("SUMMARIZER_CHUNK_SEGMENTS", 1000, min_val=100)
 # Characters per chunk when segments aren't available
 SUMMARIZER_CHUNK_CHARS = _get_env_int("SUMMARIZER_CHUNK_CHARS", 80000, min_val=10000)
-# Maximum output tokens for LLM summarization
-# GPT-4o supports up to 16,384 output tokens
-# Set high to avoid cutoff - long episodes need detailed summaries
-# 16000 tokens ≈ 12,000-20,000 Chinese characters of output
-SUMMARIZER_MAX_OUTPUT_TOKENS = _get_env_int("SUMMARIZER_MAX_OUTPUT_TOKENS", 16000, min_val=4000)
 
 # WebSocket settings
 # Heartbeat interval in seconds

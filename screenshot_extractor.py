@@ -110,8 +110,8 @@ def _parse_timestamp_str(time_str: str) -> float:
     return float(parts[0])
 
 
-# Matches *Screenshot-[MM:SS] or *Screenshot-[H:MM:SS] with optional trailing *
-_SCREENSHOT_PATTERN = re.compile(r'\*?Screenshot-\[(\d+(?::\d+){1,2})\]\*?')
+# Matches Screenshot-[MM:SS] or Screenshot-[H:MM:SS] with optional surrounding *, backticks
+_SCREENSHOT_PATTERN = re.compile(r'`?\*?Screenshot-\[(\d+(?::\d+){1,2})\]\*?`?')
 
 
 def extract_timestamps_from_markdown(markdown: str) -> List[float]:

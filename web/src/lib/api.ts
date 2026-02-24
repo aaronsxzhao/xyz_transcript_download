@@ -206,7 +206,6 @@ export async function processEpisode(
       force: options.force || false,
       whisper_model: modelSettings.whisper_model,
       llm_model: modelSettings.llm_model,
-      max_output_tokens: modelSettings.max_output_tokens,
     }),
   })
   if (!res.ok) throw new Error('Failed to start processing')
@@ -237,7 +236,6 @@ export async function fetchSettings(): Promise<{
 export async function updateSettings(settings: {
   whisper_model?: string
   llm_model?: string
-  max_output_tokens?: number
 }): Promise<{ message: string }> {
   const res = await authFetch(`${API_BASE}/settings`, {
     method: 'POST',
@@ -255,13 +253,10 @@ export async function updateSettings(settings: {
 export function getUserModelSettings(): { 
   whisper_model: string
   llm_model: string
-  max_output_tokens: number 
 } {
-  const savedTokens = localStorage.getItem('max_output_tokens')
   return {
     whisper_model: localStorage.getItem('whisper_model') || 'whisper-large-v3-turbo',
     llm_model: localStorage.getItem('llm_model') || '',
-    max_output_tokens: savedTokens ? parseInt(savedTokens, 10) : 16000,
   }
 }
 
@@ -296,7 +291,6 @@ export async function resummarizeEpisode(episodeId: string): Promise<{ message: 
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       llm_model: modelSettings.llm_model,
-      max_output_tokens: modelSettings.max_output_tokens,
     }),
   })
   if (!res.ok) throw new Error('Failed to start re-summarization')
@@ -414,7 +408,6 @@ export interface VideoNoteRequest {
   video_interval?: number
   grid_cols?: number
   grid_rows?: number
-  max_output_tokens?: number
 }
 
 export async function generateVideoNote(data: VideoNoteRequest): Promise<{ task_id: string }> {
@@ -425,7 +418,6 @@ export async function generateVideoNote(data: VideoNoteRequest): Promise<{ task_
     body: JSON.stringify({
       ...data,
       llm_model: data.llm_model || modelSettings.llm_model,
-      max_output_tokens: data.max_output_tokens || modelSettings.max_output_tokens,
     }),
   })
   if (!res.ok) {

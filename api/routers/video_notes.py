@@ -89,7 +89,6 @@ def process_video_note_sync(
     grid_cols: int,
     grid_rows: int,
     user_id: Optional[str],
-    max_output_tokens: int = 0,
     video_quality: str = "720",
 ):
     """Synchronous video note processing pipeline."""
@@ -335,7 +334,6 @@ def process_video_note_sync(
         # Phase 4: Generate notes (70-90%)
         note_summarizer = get_note_summarizer(
             model=llm_model if llm_model else "",
-            max_output_tokens=max_output_tokens,
         )
 
         last_summarize_progress = [70]
@@ -454,7 +452,6 @@ async def generate_note(
     video_interval: int = Form(4),
     grid_cols: int = Form(3),
     grid_rows: int = Form(3),
-    max_output_tokens: int = Form(0),
     user: Optional[User] = Depends(get_current_user),
 ):
     """Start video note generation."""
@@ -488,7 +485,6 @@ async def generate_note(
             "video_interval": video_interval,
             "grid_cols": grid_cols,
             "grid_rows": grid_rows,
-            "max_output_tokens": max_output_tokens,
             "user_id": user_id,
         })
     except Exception as e:
@@ -510,7 +506,6 @@ async def generate_note(
         grid_cols=grid_cols,
         grid_rows=grid_rows,
         user_id=user_id,
-        max_output_tokens=max_output_tokens,
         video_quality=video_quality,
     )
 
@@ -552,7 +547,6 @@ async def generate_note_json(
         "video_interval": data.get("video_interval", 4),
         "grid_cols": data.get("grid_cols", 3),
         "grid_rows": data.get("grid_rows", 3),
-        "max_output_tokens": data.get("max_output_tokens", 0),
         "user_id": user_id,
     }
 
@@ -577,7 +571,6 @@ async def generate_note_json(
         grid_cols=data.get("grid_cols", 3),
         grid_rows=data.get("grid_rows", 3),
         user_id=user_id,
-        max_output_tokens=data.get("max_output_tokens", 0),
         video_quality=data.get("video_quality", "720"),
     )
 
@@ -659,7 +652,6 @@ async def retry_task(
         grid_rows=task["grid_rows"],
         user_id=user_id,
         video_quality=task.get("video_quality", "720"),
-        max_output_tokens=task.get("max_output_tokens", 0),
     )
 
     return {"message": "Retry started", "task_id": task_id}

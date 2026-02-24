@@ -133,7 +133,6 @@ export default function VideoNoteForm({ onTaskCreated, hideTitle }: Props) {
         video_interval: videoInterval,
         grid_cols: gridCols,
         grid_rows: gridRows,
-        max_output_tokens: modelSettings.max_output_tokens,
       })
       onTaskCreated?.(result.task_id)
       setUrl('')

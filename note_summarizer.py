@@ -13,12 +13,12 @@ from tenacity import retry, stop_after_attempt, wait_exponential
 
 from config import (
     LLM_API_KEY, LLM_BASE_URL, LLM_MODEL, MAX_RETRIES,
-    SUMMARIZER_MAX_OUTPUT_TOKENS,
 )
-from summarizer import extract_json_from_response
 from logger import get_logger
 
 logger = get_logger("note_summarizer")
+
+NOTE_CHUNK_CHARS = 10000
 
 NOTE_STYLES = {
     "minimal": {
@@ -80,9 +80,9 @@ def _build_system_prompt(style: str, formats: List[str]) -> str:
         )
     if "screenshot" in formats:
         format_instructions.append(
-            "在适当位置插入截图标记，格式严格为 `Screenshot-[MM:SS]`，"
+            "在适当位置插入截图标记，格式严格为 Screenshot-[MM:SS]（纯文本，不要用反引号包裹，不要加 * 号），"
             "其中 MM:SS 是建议截取的视频时间戳（用两位数分钟和秒，如 05:30、75:00）。"
-            "注意：不要在前面加 * 号，不要用 H:MM:SS 格式。每个主要段落可插入1-2个截图标记。"
+            "不要用 H:MM:SS 格式。每个主要段落可插入1-2个截图标记。"
         )
     if "summary" in formats:
         format_instructions.append(
@@ -152,9 +152,13 @@ def _build_user_prompt(
     visual_context: str = "",
     tags: List[str] = None,
     extras: str = "",
+    chunk_info: str = "",
 ) -> str:
     """Build the user prompt with video content."""
     parts = [f"## 视频标题\n{title}\n"]
+
+    if chunk_info:
+        parts.append(f"## 当前片段\n{chunk_info}\n")
 
     if tags:
         parts.append(f"## 标签\n{', '.join(tags)}\n")
@@ -185,12 +189,10 @@ class NoteSummarizer:
         api_key: str = "",
         base_url: str = "",
         model: str = "",
-        max_output_tokens: int = 0,
     ):
         self.api_key = api_key or LLM_API_KEY
         self.base_url = base_url or LLM_BASE_URL
         self.model = model or LLM_MODEL
-        self.max_output_tokens = max_output_tokens or SUMMARIZER_MAX_OUTPUT_TOKENS
 
         if not self.api_key:
             raise ValueError("LLM API key is required for note generation")
@@ -216,35 +218,191 @@ class NoteSummarizer:
     ) -> Optional[str]:
         """
         Generate a Markdown note from a transcript.
-
-        Args:
-            title: Video title.
-            transcript_text: Full transcript text.
-            style: Note style key (one of NOTE_STYLES).
-            formats: List of format options ("toc", "link", "screenshot", "summary").
-            visual_context: Optional visual analysis text.
-            tags: Optional list of tags.
-            extras: Optional extra instructions from user.
-            progress_callback: Optional callback(chars_generated).
-
-        Returns:
-            Markdown string or None on failure.
+        Automatically chunks long transcripts (> NOTE_CHUNK_CHARS) and merges results.
         """
         if formats is None:
             formats = []
 
-        system_prompt = _build_system_prompt(style, formats)
-        user_prompt = _build_user_prompt(title, transcript_text, visual_context, tags, extras)
+        transcript_len = len(transcript_text)
+        logger.info(
+            f"Generating note: style={style}, formats={formats}, "
+            f"transcript={transcript_len} chars"
+        )
 
         try:
-            logger.info(
-                f"Generating note: style={style}, formats={formats}, "
-                f"transcript={len(transcript_text)} chars"
-            )
-            return self._call_llm(system_prompt, user_prompt, progress_callback)
+            if transcript_len > NOTE_CHUNK_CHARS:
+                result = self._generate_chunked(
+                    title, transcript_text, style, formats,
+                    visual_context, tags, extras, progress_callback,
+                )
+            else:
+                result = self._generate_single(
+                    title, transcript_text, style, formats,
+                    visual_context, tags, extras, progress_callback,
+                )
+
+            if result:
+                ratio = len(result) / transcript_len if transcript_len > 0 else 1
+                if ratio < 0.05:
+                    logger.warning(
+                        f"Output may be too sparse: {len(result)} chars output "
+                        f"for {transcript_len} chars input (ratio={ratio:.3f})"
+                    )
+
+            return result
         except Exception as e:
             logger.error(f"Note generation failed: {e}")
             return None
+
+    def _generate_single(
+        self,
+        title: str,
+        transcript_text: str,
+        style: str,
+        formats: List[str],
+        visual_context: str = "",
+        tags: Optional[List[str]] = None,
+        extras: str = "",
+        progress_callback=None,
+    ) -> Optional[str]:
+        """Generate notes from a single (short) transcript."""
+        system_prompt = _build_system_prompt(style, formats)
+        user_prompt = _build_user_prompt(title, transcript_text, visual_context, tags, extras)
+        return self._call_llm(system_prompt, user_prompt, progress_callback)
+
+    def _generate_chunked(
+        self,
+        title: str,
+        transcript_text: str,
+        style: str,
+        formats: List[str],
+        visual_context: str = "",
+        tags: Optional[List[str]] = None,
+        extras: str = "",
+        progress_callback=None,
+    ) -> Optional[str]:
+        """Split a long transcript into chunks, generate notes for each, and merge."""
+        chunks = self._split_transcript(transcript_text)
+        num_chunks = len(chunks)
+        logger.info(f"Chunked transcript into {num_chunks} parts ({len(transcript_text):,} chars total)")
+
+        chunk_formats = [f for f in formats if f != "toc"]
+        chunk_formats_no_summary = [f for f in chunk_formats if f != "summary"]
+
+        chunk_results = []
+        total_chars = 0
+
+        for i, chunk_text in enumerate(chunks):
+            is_last = (i == num_chunks - 1)
+            these_formats = chunk_formats if is_last else chunk_formats_no_summary
+            chunk_info = f"这是视频的第 {i + 1}/{num_chunks} 部分。请为本部分生成详细笔记，不要生成总标题（# 标题），直接从 ## 二级标题开始。"
+
+            system_prompt = _build_system_prompt(style, these_formats)
+            user_prompt = _build_user_prompt(
+                title, chunk_text, visual_context if i == 0 else "",
+                tags, extras, chunk_info=chunk_info,
+            )
+
+            logger.info(f"Generating chunk {i + 1}/{num_chunks} ({len(chunk_text):,} chars)")
+
+            def chunk_progress(chars, partial_text=""):
+                if progress_callback:
+                    progress_callback(total_chars + chars, partial_text)
+
+            try:
+                result = self._call_llm(system_prompt, user_prompt, chunk_progress)
+            except Exception as e:
+                logger.error(f"Chunk {i + 1}/{num_chunks} failed: {e}")
+                continue
+
+            if result:
+                chunk_results.append(result)
+                total_chars += len(result)
+
+        if not chunk_results:
+            return None
+
+        return self._merge_chunk_notes(title, chunk_results, "toc" in formats)
+
+    def _split_transcript(self, text: str) -> List[str]:
+        """Split transcript text into chunks at sentence boundaries."""
+        if len(text) <= NOTE_CHUNK_CHARS:
+            return [text]
+
+        chunks = []
+        start = 0
+        while start < len(text):
+            end = start + NOTE_CHUNK_CHARS
+            if end >= len(text):
+                chunks.append(text[start:])
+                break
+
+            split_at = end
+            for sep in ["。", ".", "\n\n", "\n", "，", ", ", " "]:
+                pos = text.rfind(sep, start + NOTE_CHUNK_CHARS // 2, end)
+                if pos != -1:
+                    split_at = pos + len(sep)
+                    break
+
+            chunks.append(text[start:split_at])
+            start = split_at
+
+        return chunks
+
+    def _merge_chunk_notes(self, title: str, chunk_results: List[str], add_toc: bool) -> str:
+        """Merge chunk note results into a single document."""
+        merged_sections = []
+        ai_summary = ""
+
+        for result in chunk_results:
+            lines = result.strip().split("\n")
+            filtered = []
+            in_summary = False
+            summary_lines = []
+
+            for line in lines:
+                stripped = line.strip()
+                if stripped.startswith("# ") and not stripped.startswith("## "):
+                    continue
+                if stripped.startswith("## AI 总结") or stripped.startswith("## AI总结"):
+                    in_summary = True
+                    continue
+                if in_summary:
+                    if stripped.startswith("## "):
+                        in_summary = False
+                        filtered.append(line)
+                    else:
+                        summary_lines.append(line)
+                    continue
+                filtered.append(line)
+
+            merged_sections.append("\n".join(filtered).strip())
+            if summary_lines:
+                ai_summary = "\n".join(summary_lines).strip()
+
+        body = f"\n\n---\n\n".join(merged_sections)
+
+        if add_toc:
+            toc = self._generate_toc(body)
+            final = f"# {title}\n\n{toc}\n\n---\n\n{body}"
+        else:
+            final = f"# {title}\n\n{body}"
+
+        if ai_summary:
+            final += f"\n\n---\n\n## AI 总结\n\n{ai_summary}"
+
+        return final
+
+    def _generate_toc(self, markdown: str) -> str:
+        """Generate a table of contents from ## headings in markdown."""
+        toc_lines = ["## 目录\n"]
+        for match in re.finditer(r"^(#{2,3})\s+(.+)$", markdown, re.MULTILINE):
+            level = len(match.group(1))
+            heading = match.group(2).strip()
+            anchor = re.sub(r"[^\w\u4e00-\u9fff\s-]", "", heading).strip().replace(" ", "-").lower()
+            indent = "  " * (level - 2)
+            toc_lines.append(f"{indent}- [{heading}](#{anchor})")
+        return "\n".join(toc_lines)
 
     @retry(
         stop=stop_after_attempt(MAX_RETRIES),
@@ -265,40 +423,63 @@ class NoteSummarizer:
                 {"role": "user", "content": user_prompt},
             ],
             "temperature": 0.4,
-            "max_tokens": self.max_output_tokens,
         }
 
         if progress_callback:
             stream = self.client.chat.completions.create(**params, stream=True)
             collected = []
             char_count = 0
+            finish_reason = None
             for chunk in stream:
-                delta = chunk.choices[0].delta.content
-                if delta:
-                    collected.append(delta)
-                    char_count += len(delta)
+                choice = chunk.choices[0]
+                if choice.delta.content:
+                    collected.append(choice.delta.content)
+                    char_count += len(choice.delta.content)
                     partial_text = "".join(collected)
                     progress_callback(char_count, partial_text)
+                if choice.finish_reason:
+                    finish_reason = choice.finish_reason
             result = "".join(collected)
+            if finish_reason and finish_reason != "stop":
+                logger.warning(f"LLM stream ended with finish_reason={finish_reason} ({len(result)} chars)")
         else:
             response = self.client.chat.completions.create(**params)
             result = response.choices[0].message.content or ""
+            finish_reason = response.choices[0].finish_reason
+            if finish_reason and finish_reason != "stop":
+                logger.warning(f"LLM response finish_reason={finish_reason} ({len(result)} chars)")
+            if hasattr(response, "usage") and response.usage:
+                logger.info(
+                    f"Token usage: prompt={response.usage.prompt_tokens}, "
+                    f"completion={response.usage.completion_tokens}, "
+                    f"total={response.usage.total_tokens}"
+                )
 
+        result = self._clean_markdown(result)
         logger.info(f"Note generated: {len(result)} chars")
         return result
+
+    @staticmethod
+    def _clean_markdown(text: str) -> str:
+        """Strip code fence wrappers that LLMs sometimes add despite instructions."""
+        stripped = text.strip()
+        if stripped.startswith("```"):
+            first_newline = stripped.find("\n")
+            if first_newline != -1:
+                stripped = stripped[first_newline + 1:]
+        if stripped.endswith("```"):
+            stripped = stripped[:-3]
+        return stripped.strip()
 
 
 _note_summarizer: Optional[NoteSummarizer] = None
 
 
-def get_note_summarizer(
-    model: str = "",
-    max_output_tokens: int = 0,
-) -> NoteSummarizer:
+def get_note_summarizer(model: str = "") -> NoteSummarizer:
     """Get or create a NoteSummarizer instance, reusing the existing LLM config."""
     global _note_summarizer
-    if model or max_output_tokens:
-        return NoteSummarizer(model=model, max_output_tokens=max_output_tokens)
+    if model:
+        return NoteSummarizer(model=model)
     if _note_summarizer is None:
         _note_summarizer = NoteSummarizer()
     return _note_summarizer
