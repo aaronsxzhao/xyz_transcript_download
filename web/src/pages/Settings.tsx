@@ -11,6 +11,7 @@ import {
   bilibiliQrGenerate, bilibiliQrPoll, douyinQrGenerate, douyinQrPoll,
   uploadCookieFile, importBrowserCookies, saveSimpleCookie,
 } from '../lib/api'
+import PlatformIcon, { PLATFORM_COLORS } from '../components/PlatformIcon'
 
 interface SettingsData {
   whisper_mode: string
@@ -534,6 +535,7 @@ export default function Settings() {
                       : 'text-gray-400 hover:text-white hover:bg-dark-border'
                   }`}
                 >
+                  <PlatformIcon platform={p} size={15} className={activePlatform === p ? 'text-white' : PLATFORM_COLORS[p] || 'text-gray-400'} />
                   {platformLabel(p)}
                   {loggedIn && <span className="w-1.5 h-1.5 rounded-full bg-green-400 flex-shrink-0" />}
                 </button>
@@ -754,7 +756,10 @@ export default function Settings() {
                 const info = cookies.find(c => c.platform === p)
                 return (
                   <div key={p} className="flex items-center justify-between p-2.5 bg-dark-hover rounded-lg text-sm">
-                    <span className="text-white">{platformLabel(p)}</span>
+                    <span className="flex items-center gap-2 text-white">
+                      <PlatformIcon platform={p} size={14} className={PLATFORM_COLORS[p] || 'text-gray-400'} />
+                      {platformLabel(p)}
+                    </span>
                     <span className={`text-xs ${info?.has_cookie ? 'text-green-400' : 'text-gray-500'}`}>
                       {info?.has_cookie ? 'Logged in' : 'Not set'}
                     </span>

@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback } from 'react'
 import { Trash2, RefreshCw, Search, CheckCircle, XCircle, Loader2, Clock, RotateCcw, Square } from 'lucide-react'
 import { fetchVideoTasks, deleteVideoTask, retryVideoTask, cancelVideoTask, type VideoTask } from '../../lib/api'
 import { useStore } from '../../lib/store'
+import PlatformIcon, { PLATFORM_COLORS } from '../PlatformIcon'
 
 interface Props {
   onSelect?: (task: VideoTask) => void
@@ -104,16 +105,9 @@ export default function VideoHistory({ onSelect }: Props) {
     return labels[status] || status
   }
 
-  const getPlatformIcon = (platform: string) => {
-    const icons: Record<string, string> = {
-      bilibili: '📺',
-      youtube: '▶️',
-      douyin: '🎵',
-      kuaishou: '⚡',
-      local: '📁',
-    }
-    return icons[platform] || '🎬'
-  }
+  const getPlatformIcon = (platform: string) => (
+    <PlatformIcon platform={platform} size={14} className={PLATFORM_COLORS[platform] || 'text-gray-400'} />
+  )
 
   return (
     <div className="flex flex-col h-full">

@@ -5,18 +5,19 @@ import {
   CheckCircle, XCircle, Clock, Loader2, ArrowLeft, ExternalLink,
 } from 'lucide-react'
 import VideoNoteForm from '../components/video/VideoNoteForm'
+import PlatformIcon, { PLATFORM_COLORS } from '../components/PlatformIcon'
 import { useStore } from '../lib/store'
 import {
   fetchVideoTasks, deleteVideoTask, retryVideoTask, cancelVideoTask,
   type VideoTask,
 } from '../lib/api'
 
-const PLATFORM_META: Record<string, { label: string; icon: string }> = {
-  bilibili: { label: 'Bilibili', icon: '📺' },
-  youtube: { label: 'YouTube', icon: '▶️' },
-  douyin: { label: '抖音', icon: '🎵' },
-  kuaishou: { label: '快手', icon: '⚡' },
-  local: { label: 'Local', icon: '📁' },
+const PLATFORM_META: Record<string, { label: string }> = {
+  bilibili: { label: 'Bilibili' },
+  youtube: { label: 'YouTube' },
+  douyin: { label: '抖音' },
+  kuaishou: { label: '快手' },
+  local: { label: 'Local' },
 }
 
 type View = { type: 'platforms' } | { type: 'channels'; platform: string } | { type: 'videos'; platform: string; channel: string }
@@ -207,7 +208,7 @@ export default function Videos() {
             All ({filtered.length})
           </button>
           {sortedPlatforms.map(p => {
-            const meta = PLATFORM_META[p] || { label: p, icon: '🎬' }
+            const meta = PLATFORM_META[p] || { label: p }
             const stats = platformStats[p]
             const isActive = (view.type === 'channels' || view.type === 'videos') && view.platform === p
             return (
@@ -220,7 +221,7 @@ export default function Videos() {
                     : 'bg-dark-surface border border-dark-border text-gray-400 hover:text-white hover:bg-dark-hover'
                 }`}
               >
-                <span>{meta.icon}</span>
+                <PlatformIcon platform={p} size={15} className={isActive ? 'text-white' : PLATFORM_COLORS[p] || 'text-gray-400'} />
                 {meta.label}
                 <span className="text-xs opacity-70">({stats.total})</span>
               </button>
@@ -240,7 +241,7 @@ export default function Videos() {
         /* Platform overview — show all platforms as cards */
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {sortedPlatforms.map(p => {
-            const meta = PLATFORM_META[p] || { label: p, icon: '🎬' }
+            const meta = PLATFORM_META[p] || { label: p }
             const stats = platformStats[p]
             const channels = Object.keys(getChannels(p))
             return (
@@ -250,7 +251,7 @@ export default function Videos() {
                 className="p-5 bg-dark-surface border border-dark-border rounded-xl hover:border-indigo-500/50 transition-colors text-left"
               >
                 <div className="flex items-center gap-3 mb-3">
-                  <span className="text-2xl">{meta.icon}</span>
+                  <PlatformIcon platform={p} size={28} className={PLATFORM_COLORS[p] || 'text-gray-400'} />
                   <h3 className="text-lg font-semibold text-white">{meta.label}</h3>
                 </div>
                 <div className="flex items-center gap-4 text-sm text-gray-400">

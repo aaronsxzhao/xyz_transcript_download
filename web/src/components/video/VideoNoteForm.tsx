@@ -5,13 +5,14 @@ import {
 } from 'lucide-react'
 import { generateVideoNote, uploadVideoFile, getUserModelSettings, validateBilibiliCookie, fetchCookieStatus } from '../../lib/api'
 import YouTubeCookieGuide from './YouTubeCookieGuide'
+import PlatformIcon, { PLATFORM_COLORS } from '../PlatformIcon'
 
 const PLATFORMS = [
-  { id: 'bilibili', label: 'Bilibili', icon: '📺' },
-  { id: 'youtube', label: 'YouTube', icon: '▶️' },
-  { id: 'douyin', label: 'Douyin', icon: '🎵' },
-  { id: 'kuaishou', label: 'Kuaishou', icon: '⚡' },
-  { id: 'local', label: 'Local File', icon: '📁' },
+  { id: 'bilibili', label: 'Bilibili' },
+  { id: 'youtube', label: 'YouTube' },
+  { id: 'douyin', label: 'Douyin' },
+  { id: 'kuaishou', label: 'Kuaishou' },
+  { id: 'local', label: 'Local File' },
 ]
 
 const STYLES = [
@@ -183,7 +184,10 @@ export default function VideoNoteForm({ onTaskCreated, hideTitle }: Props) {
                   : 'bg-dark-hover text-gray-400 hover:text-white'
               }`}
             >
-              {p.icon} {p.label}
+              <span className="inline-flex items-center gap-1.5">
+                <PlatformIcon platform={p.id} size={13} className={platform === p.id ? 'text-white' : PLATFORM_COLORS[p.id] || 'text-gray-400'} />
+                {p.label}
+              </span>
             </button>
           ))}
         </div>
