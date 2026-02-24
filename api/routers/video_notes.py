@@ -101,6 +101,7 @@ def process_video_note_sync(
         extract_screenshots_batch,
         replace_screenshot_markers,
         replace_content_markers,
+        extract_first_frame_thumbnail,
     )
 
     db = get_video_task_db()
@@ -124,6 +125,8 @@ def process_video_note_sync(
         title = (existing_task or {}).get("title", "")
         thumbnail = (existing_task or {}).get("thumbnail", "")
         duration = (existing_task or {}).get("duration", 0)
+        channel = (existing_task or {}).get("channel", "")
+        channel_url = (existing_task or {}).get("channel_url", "")
         tags = []
         transcript_text = ""
         transcript_segments = []
@@ -168,11 +171,15 @@ def process_video_note_sync(
                 thumbnail = metadata.thumbnail or thumbnail
                 duration = metadata.duration or duration
                 tags = metadata.tags or []
+                channel = metadata.channel or channel
+                channel_url = metadata.channel_url or channel_url
 
             db.update_task(task_id, {
                 "title": title,
                 "thumbnail": thumbnail,
                 "duration": duration,
+                "channel": channel,
+                "channel_url": channel_url,
             })
             _update_task_status(db, task_id, "parsing", 10, f"Found: {title}", user_id)
 
@@ -220,10 +227,16 @@ def process_video_note_sync(
                         duration = dl_info.duration
                     if not tags and dl_info.tags:
                         tags = dl_info.tags
+                    if not channel and dl_info.channel:
+                        channel = dl_info.channel
+                    if not channel_url and dl_info.channel_url:
+                        channel_url = dl_info.channel_url
                     db.update_task(task_id, {
                         "title": title,
                         "thumbnail": thumbnail,
                         "duration": duration,
+                        "channel": channel,
+                        "channel_url": channel_url,
                     })
 
             _update_task_status(db, task_id, "downloading", 25, "Audio download complete", user_id)
@@ -303,6 +316,34 @@ def process_video_note_sync(
                 }, ensure_ascii=False),
             })
             _update_task_status(db, task_id, "transcribing", 60, "Transcription complete — preparing to generate notes...", user_id)
+
+        # Thumbnail fallback: extract first frame if no thumbnail was fetched
+        if not thumbnail:
+            source = video_path or audio_path
+            if source:
+                thumb_url = extract_first_frame_thumbnail(str(source), task_id)
+                if thumb_url:
+                    thumbnail = thumb_url
+                    db.update_task(task_id, {"thumbnail": thumbnail})
+                    logger.info(f"[{task_id}] Thumbnail fallback from local file succeeded")
+            # If still no thumbnail and we have a URL, try a quick video download just for thumbnail
+            if not thumbnail and url:
+                if not platform:
+                    platform = detect_platform(url)
+                if platform:
+                    logger.info(f"[{task_id}] Attempting lightweight video download for thumbnail...")
+                    try:
+                        cookies = cookie_mgr.get_cookie(platform)
+                        thumb_downloader = get_downloader(platform, cookies)
+                        thumb_video = thumb_downloader.download_video(url, task_id, video_quality="360")
+                        if thumb_video:
+                            thumb_url = extract_first_frame_thumbnail(str(thumb_video), task_id)
+                            if thumb_url:
+                                thumbnail = thumb_url
+                                db.update_task(task_id, {"thumbnail": thumbnail})
+                                logger.info(f"[{task_id}] Thumbnail fallback from downloaded video succeeded")
+                    except Exception as e:
+                        logger.warning(f"[{task_id}] Thumbnail video download fallback failed: {e}")
 
         # Phase 3b: Video understanding (60-70%)
         visual_context = ""

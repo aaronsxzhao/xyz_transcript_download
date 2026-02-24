@@ -17,6 +17,9 @@ logger = get_logger("screenshot_extractor")
 SCREENSHOTS_DIR = DATA_DIR / "screenshots"
 SCREENSHOTS_DIR.mkdir(parents=True, exist_ok=True)
 
+THUMBNAILS_DIR = DATA_DIR / "thumbnails"
+THUMBNAILS_DIR.mkdir(parents=True, exist_ok=True)
+
 try:
     import imageio_ffmpeg
     FFMPEG_PATH = imageio_ffmpeg.get_ffmpeg_exe()
@@ -206,3 +209,58 @@ def get_video_duration(video_path: str) -> float:
     except Exception:
         pass
     return 0.0
+
+
+def extract_first_frame_thumbnail(video_path: str, task_id: str) -> Optional[str]:
+    """
+    Extract the first frame of a video as a thumbnail.
+    Tries multiple seek positions and falls back to no-seek if needed.
+
+    Returns:
+        URL path to the thumbnail (e.g. /data/thumbnails/abc123.jpg), or None on failure.
+    """
+    video_path_obj = Path(video_path)
+    if not video_path_obj.exists():
+        logger.error(f"Video file not found for thumbnail: {video_path}")
+        return None
+
+    # Skip audio-only files
+    suffix = video_path_obj.suffix.lower()
+    if suffix in ('.mp3', '.m4a', '.aac', '.ogg', '.opus', '.wav', '.flac', '.wma'):
+        logger.info(f"Skipping thumbnail extraction for audio file: {suffix}")
+        return None
+
+    filename = f"{task_id}.jpg"
+    output_path = THUMBNAILS_DIR / filename
+
+    if output_path.exists() and output_path.stat().st_size > 0:
+        return f"/data/thumbnails/{filename}"
+
+    # Try multiple seek positions: 1s, 0s (first frame), 3s
+    for seek in ["00:00:01.000", "00:00:00.000", "00:00:03.000"]:
+        try:
+            cmd = [
+                FFMPEG_PATH,
+                "-ss", seek,
+                "-i", str(video_path),
+                "-frames:v", "1",
+                "-q:v", "2",
+                "-vf", "scale=640:-2",
+                "-y",
+                str(output_path),
+            ]
+            result = subprocess.run(cmd, capture_output=True, timeout=30)
+            if result.returncode == 0 and output_path.exists() and output_path.stat().st_size > 0:
+                logger.info(f"Extracted thumbnail for {task_id} at seek={seek}")
+                return f"/data/thumbnails/{filename}"
+        except subprocess.TimeoutExpired:
+            logger.warning(f"Thumbnail extraction timed out at seek={seek}")
+        except Exception as e:
+            logger.warning(f"Thumbnail extraction attempt failed at seek={seek}: {e}")
+
+    # Clean up empty output file if any
+    if output_path.exists() and output_path.stat().st_size == 0:
+        output_path.unlink(missing_ok=True)
+
+    logger.warning(f"All thumbnail extraction attempts failed for {task_id}")
+    return None

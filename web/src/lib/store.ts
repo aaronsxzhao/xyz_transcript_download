@@ -24,11 +24,6 @@ interface AppState {
   // WebSocket connection
   wsConnected: boolean
   setWsConnected: (connected: boolean) => void
-  
-  // UI state
-  sidebarOpen: boolean
-  toggleSidebar: () => void
-  setSidebarOpen: (open: boolean) => void
 }
 
 export const useStore = create<AppState>((set) => ({
@@ -114,9 +109,4 @@ export const useStore = create<AppState>((set) => ({
   // WebSocket
   wsConnected: false,
   setWsConnected: (connected) => set({ wsConnected: connected }),
-  
-  // UI
-  sidebarOpen: true,
-  toggleSidebar: () => set((state) => ({ sidebarOpen: !state.sidebarOpen })),
-  setSidebarOpen: (open) => set({ sidebarOpen: open }),
 }))

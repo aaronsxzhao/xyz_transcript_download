@@ -111,6 +111,8 @@ export interface Stats {
   total_transcripts: number
   total_summaries: number
   processing_queue: number
+  total_videos: number
+  completed_videos: number
 }
 
 export interface SummaryListItem {
@@ -365,6 +367,8 @@ export interface VideoTask {
   platform: string
   title: string
   thumbnail: string
+  channel: string
+  channel_url: string
   status: string
   progress: number
   message: string

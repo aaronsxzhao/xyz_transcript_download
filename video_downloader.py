@@ -53,6 +53,8 @@ class VideoMetadata:
     platform: str = ""
     url: str = ""
     tags: list = None
+    channel: str = ""
+    channel_url: str = ""
 
     def __post_init__(self):
         if self.tags is None:
@@ -290,6 +292,8 @@ class YtdlpDownloader(BaseDownloader):
                 platform=self.platform,
                 url=url,
                 tags=info.get("tags", []) or [],
+                channel=info.get("channel") or info.get("uploader") or "",
+                channel_url=info.get("channel_url") or info.get("uploader_url") or "",
             )
         except Exception as e:
             logger.error(f"Failed to get metadata for {self.platform}: {type(e).__name__}: {e}")
@@ -378,6 +382,8 @@ class YtdlpDownloader(BaseDownloader):
             platform=self.platform,
             url=info.get("webpage_url", ""),
             tags=info.get("tags", []) or [],
+            channel=info.get("channel") or info.get("uploader") or "",
+            channel_url=info.get("channel_url") or info.get("uploader_url") or "",
         )
 
     def download_video(self, url: str, task_id: str, video_quality: str = "720",
@@ -522,6 +528,83 @@ class BilibiliDownloader(YtdlpDownloader):
     def __init__(self, cookies: str = ""):
         super().__init__("bilibili", cookies)
 
+    @staticmethod
+    def _extract_bvid(url: str) -> Optional[str]:
+        m = re.search(r'(BV[\w]+)', url)
+        return m.group(1) if m else None
+
+    @staticmethod
+    def _extract_aid(url: str) -> Optional[str]:
+        m = re.search(r'av(\d+)', url, re.IGNORECASE)
+        return m.group(1) if m else None
+
+    def get_metadata(self, url: str) -> Optional[VideoMetadata]:
+        """Fetch metadata from Bilibili's public API, fall back to yt-dlp."""
+        import requests
+
+        bvid = self._extract_bvid(url)
+        aid = self._extract_aid(url)
+        if not bvid and not aid:
+            return super().get_metadata(url)
+
+        try:
+            headers = {
+                "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36",
+                "Referer": "https://www.bilibili.com/",
+            }
+            cookie_str = self.cookies
+            if not cookie_str:
+                try:
+                    from cookie_manager import get_cookie_manager
+                    cookie_str = get_cookie_manager().get_cookie("bilibili")
+                except Exception:
+                    pass
+            if cookie_str:
+                # Extract key-value pairs from Netscape cookie format
+                pairs = []
+                for line in cookie_str.strip().splitlines():
+                    line = line.strip()
+                    if not line or line.startswith("#"):
+                        continue
+                    parts = line.split("\t")
+                    if len(parts) >= 7:
+                        pairs.append(f"{parts[5]}={parts[6]}")
+                if pairs:
+                    headers["Cookie"] = "; ".join(pairs)
+
+            params = {"bvid": bvid} if bvid else {"aid": aid}
+            resp = requests.get(
+                "https://api.bilibili.com/x/web-interface/view",
+                params=params, headers=headers, timeout=15,
+            )
+            data = resp.json()
+            if data.get("code") != 0:
+                logger.warning(f"Bilibili API returned code {data.get('code')}: {data.get('message')}")
+                return super().get_metadata(url)
+
+            d = data["data"]
+            owner = d.get("owner", {})
+            mid = owner.get("mid", "")
+
+            thumbnail = d.get("pic", "")
+            if thumbnail and thumbnail.startswith("http://"):
+                thumbnail = thumbnail.replace("http://", "https://", 1)
+
+            return VideoMetadata(
+                title=d.get("title", ""),
+                description=d.get("desc", ""),
+                thumbnail=thumbnail,
+                duration=d.get("duration", 0) or 0,
+                platform="bilibili",
+                url=url,
+                tags=[t.get("tag_name", "") for t in d.get("tag", []) if t.get("tag_name")],
+                channel=owner.get("name", ""),
+                channel_url=f"https://space.bilibili.com/{mid}" if mid else "",
+            )
+        except Exception as e:
+            logger.warning(f"Bilibili API metadata failed: {e}, falling back to yt-dlp")
+            return super().get_metadata(url)
+
 
 class YoutubeDownloader(YtdlpDownloader):
     def __init__(self, cookies: str = ""):
@@ -574,12 +657,15 @@ class DouyinDownloader(BaseDownloader):
             if resp.status_code == 200:
                 data = resp.json()
                 detail = data.get("aweme_detail", {})
+                author = detail.get("author", {})
                 return VideoMetadata(
                     title=detail.get("desc", "Douyin Video"),
                     thumbnail=detail.get("video", {}).get("cover", {}).get("url_list", [""])[0],
                     duration=detail.get("video", {}).get("duration", 0) / 1000.0,
                     platform="douyin",
                     url=url,
+                    channel=author.get("nickname", ""),
+                    channel_url=f"https://www.douyin.com/user/{author.get('sec_uid', '')}" if author.get("sec_uid") else "",
                 )
             return VideoMetadata(title="Douyin Video", platform="douyin", url=url)
         except Exception as e:

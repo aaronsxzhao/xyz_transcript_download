@@ -214,6 +214,7 @@ app.include_router(cookies.router, prefix="/api/cookies", tags=["Cookies"])
 from config import DATA_DIR as _data_dir
 _data_dir.mkdir(parents=True, exist_ok=True)
 (_data_dir / "screenshots").mkdir(parents=True, exist_ok=True)
+(_data_dir / "thumbnails").mkdir(parents=True, exist_ok=True)
 (_data_dir / "uploads").mkdir(parents=True, exist_ok=True)
 app.mount("/data", StaticFiles(directory=str(_data_dir)), name="data")
 
@@ -464,9 +465,17 @@ async def image_proxy(url: str):
 async def get_stats(user: Optional["User"] = Depends(get_current_user)):
     """Get dashboard statistics."""
     from api.db import get_db
+    from video_task_db import get_video_task_db
     
     db = get_db(user.id if user else None)
     stats = db.get_stats()
+    
+    # Video stats
+    video_db = get_video_task_db()
+    user_id = user.id if user else None
+    video_tasks = video_db.list_tasks(user_id)
+    total_videos = len(video_tasks)
+    completed_videos = sum(1 for t in video_tasks if t.get("status") == "success")
     
     return {
         "total_podcasts": stats["podcasts"],
@@ -474,6 +483,8 @@ async def get_stats(user: Optional["User"] = Depends(get_current_user)):
         "total_transcripts": stats["transcripts"],
         "total_summaries": stats["summaries"],
         "processing_queue": 0,
+        "total_videos": total_videos,
+        "completed_videos": completed_videos,
     }
 
 

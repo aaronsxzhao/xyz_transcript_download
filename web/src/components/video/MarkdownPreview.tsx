@@ -8,8 +8,8 @@ import rehypeSlug from 'rehype-slug'
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter'
 import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism'
 import {
-  Copy, Download, Check, FileText, AlertCircle, Loader2, RotateCcw, Square,
-  Play, ExternalLink, X, FileDown, ImageIcon, RefreshCw,
+  AlertCircle, Loader2, RotateCcw, Square,
+  Play, ExternalLink, X, ImageIcon, FileText,
 } from 'lucide-react'
 import StepBar from './StepBar'
 import YouTubeCookieGuide from './YouTubeCookieGuide'
@@ -20,10 +20,7 @@ interface Props {
 }
 
 export default function MarkdownPreview({ task }: Props) {
-  const [copied, setCopied] = useState(false)
   const [zoomedImg, setZoomedImg] = useState<string | null>(null)
-  const [pdfLoading, setPdfLoading] = useState(false)
-  const [regenerating, setRegenerating] = useState(false)
   const navigate = useNavigate()
 
   if (!task) {
@@ -41,153 +38,8 @@ export default function MarkdownPreview({ task }: Props) {
   const isCancelled = task.status === 'cancelled'
   const isSuccess = task.status === 'success'
 
-  const handleCopy = async () => {
-    if (!task.markdown) return
-    await navigator.clipboard.writeText(task.markdown)
-    setCopied(true)
-    setTimeout(() => setCopied(false), 2000)
-  }
-
-  const handleDownload = () => {
-    if (!task.markdown) return
-    const blob = new Blob([task.markdown], { type: 'text/markdown' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = `${task.title || 'notes'}.md`
-    a.click()
-    URL.revokeObjectURL(url)
-  }
-
-  const handleDownloadPdf = async () => {
-    if (!task?.markdown || pdfLoading) return
-    setPdfLoading(true)
-    try {
-      const [html2pdfModule, markedModule] = await Promise.all([
-        import('html2pdf.js'),
-        import('marked'),
-      ])
-      const html2pdf = html2pdfModule.default
-      const { marked } = markedModule
-
-      marked.setOptions({ gfm: true, breaks: false })
-      const body = await marked.parse(task.markdown)
-
-      const wrapper = document.createElement('div')
-      wrapper.innerHTML = `
-        <style>
-          * { box-sizing: border-box; }
-          body, div { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto Sans SC", "PingFang SC", "Microsoft YaHei", sans-serif; }
-          h1 { font-size: 22px; font-weight: 700; color: #111827; border-bottom: 2px solid #e5e7eb; padding-bottom: 8px; margin: 24px 0 16px; }
-          h2 { font-size: 18px; font-weight: 700; color: #1e40af; margin: 28px 0 12px; }
-          h3 { font-size: 15px; font-weight: 600; color: #1f2937; margin: 20px 0 8px; }
-          h4, h5, h6 { font-size: 14px; font-weight: 600; color: #374151; margin: 16px 0 6px; }
-          p { font-size: 13px; line-height: 1.75; color: #374151; margin: 8px 0; }
-          li { font-size: 13px; line-height: 1.75; color: #374151; }
-          ul, ol { padding-left: 20px; margin: 6px 0; }
-          strong { color: #111827; }
-          a { color: #4f46e5; text-decoration: none; }
-          blockquote { border-left: 3px solid #6366f1; background: #eef2ff; color: #374151; padding: 10px 16px; margin: 12px 0; border-radius: 0 6px 6px 0; font-size: 13px; }
-          blockquote p { margin: 4px 0; }
-          code { font-family: "SF Mono", "Fira Code", monospace; font-size: 12px; color: #6366f1; background: #f3f4f6; padding: 1px 5px; border-radius: 3px; }
-          pre { background: #f8fafc; border: 1px solid #e5e7eb; border-radius: 6px; padding: 12px; overflow-x: auto; margin: 12px 0; }
-          pre code { background: none; padding: 0; color: #1f2937; font-size: 12px; }
-          table { width: 100%; border-collapse: collapse; margin: 12px 0; font-size: 12.5px; }
-          th { background: #f3f4f6; font-weight: 600; color: #111827; text-align: left; padding: 8px 10px; border: 1px solid #d1d5db; }
-          td { padding: 8px 10px; border: 1px solid #d1d5db; color: #374151; }
-          hr { border: none; border-top: 1px solid #e5e7eb; margin: 24px 0; }
-          img { max-width: 100%; height: auto; border-radius: 6px; border: 1px solid #e5e7eb; margin: 10px 0; }
-          table, img, blockquote, pre { page-break-inside: avoid; }
-          h1, h2, h3 { page-break-after: avoid; }
-        </style>
-        <div style="color:#1f2937; background:#fff; padding:0; font-size:13px; line-height:1.75;">
-          ${body}
-        </div>
-      `
-
-      const filename = `${(task.title || 'notes').replace(/[^\w\s-]/g, '').trim()}.pdf`
-      await html2pdf().set({
-        margin: [12, 14, 12, 14],
-        filename,
-        image: { type: 'jpeg', quality: 0.98 },
-        html2canvas: { scale: 2, useCORS: true, logging: false },
-        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
-      }).from(wrapper).save()
-    } catch (e) {
-      console.error('PDF generation failed:', e)
-    } finally {
-      setPdfLoading(false)
-    }
-  }
-
-  const handleRegenerate = async () => {
-    setRegenerating(true)
-    try {
-      const { retryVideoTask } = await import('../../lib/api')
-      await retryVideoTask(task.id)
-    } catch (e) {
-      console.error('Regenerate failed:', e)
-    } finally {
-      setRegenerating(false)
-    }
-  }
-
   return (
-    <div className="flex flex-col h-full">
-      {/* Header */}
-      <div className="flex items-center justify-between mb-3 flex-shrink-0">
-        <div className="flex items-center gap-2 min-w-0">
-          <h3 className="text-sm font-semibold text-white truncate">
-            {task.title || 'Generating...'}
-          </h3>
-          {task.style && (
-            <span className="px-2 py-0.5 bg-purple-600/20 text-purple-400 text-xs rounded-full flex-shrink-0">
-              {task.style}
-            </span>
-          )}
-        </div>
-        <div className="flex items-center gap-1 flex-shrink-0">
-          {task.markdown && (
-            <>
-              <button
-                onClick={handleCopy}
-                className="p-1.5 text-gray-400 hover:text-white transition-colors"
-                title="Copy to clipboard"
-              >
-                {copied ? <Check size={15} className="text-green-400" /> : <Copy size={15} />}
-              </button>
-              <button
-                onClick={handleDownload}
-                className="p-1.5 text-gray-400 hover:text-white transition-colors"
-                title="Download Markdown"
-              >
-                <Download size={15} />
-              </button>
-              {isSuccess && (
-                <button
-                  onClick={handleDownloadPdf}
-                  disabled={pdfLoading}
-                  className="p-1.5 text-gray-400 hover:text-white transition-colors disabled:opacity-50"
-                  title="Download PDF"
-                >
-                  {pdfLoading ? <Loader2 size={15} className="animate-spin" /> : <FileDown size={15} />}
-                </button>
-              )}
-            </>
-          )}
-          {(isSuccess || isFailed || isCancelled) && (
-            <button
-              onClick={handleRegenerate}
-              disabled={regenerating}
-              className="flex items-center gap-1 ml-1 px-2 py-1 text-xs text-indigo-400 hover:text-indigo-300 border border-indigo-500/30 hover:border-indigo-400/50 rounded-lg transition-colors disabled:opacity-50"
-              title="Regenerate notes"
-            >
-              <RefreshCw size={13} className={regenerating ? 'animate-spin' : ''} />
-              Regenerate
-            </button>
-          )}
-        </div>
-      </div>
+    <div>
 
       {/* Progress bar for active tasks */}
       {isActive && (
@@ -217,7 +69,7 @@ export default function MarkdownPreview({ task }: Props) {
 
       {/* Pending state */}
       {task.status === 'pending' && (
-        <div className="flex flex-col items-center justify-center flex-1 text-gray-500">
+        <div className="flex flex-col items-center justify-center py-20 text-gray-500">
           <Loader2 size={32} className="animate-spin mb-3 text-indigo-400" />
           <p>Queued for processing...</p>
         </div>
@@ -225,7 +77,7 @@ export default function MarkdownPreview({ task }: Props) {
 
       {/* Failed state */}
       {isFailed && (
-        <div className="flex flex-col items-center justify-center flex-1 text-gray-500">
+        <div className="flex flex-col items-center justify-center py-20 text-gray-500">
           <AlertCircle size={32} className="mb-3 text-red-400" />
           <p className="text-red-400">Processing failed</p>
           {(() => {
@@ -293,7 +145,7 @@ export default function MarkdownPreview({ task }: Props) {
 
       {/* Cancelled state */}
       {isCancelled && (
-        <div className="flex flex-col items-center justify-center flex-1 text-gray-500">
+        <div className="flex flex-col items-center justify-center py-20 text-gray-500">
           <Square size={32} className="mb-3 text-orange-400" />
           <p className="text-orange-400">Processing cancelled</p>
           <button
@@ -315,14 +167,14 @@ export default function MarkdownPreview({ task }: Props) {
 
       {/* Markdown content (finished or streaming) */}
       {(isSuccess || (isActive && task.markdown)) && task.markdown && (
-        <div className="flex-1 overflow-y-auto custom-scrollbar">
+        <div>
           {isActive && (
             <div className="flex items-center gap-2 mb-3 px-1 text-xs text-indigo-400">
               <Loader2 size={12} className="animate-spin" />
               <span>Writing notes...</span>
             </div>
           )}
-          <article className="prose prose-invert max-w-none
+          <article className="prose prose-invert max-w-none pb-4
             prose-headings:text-gray-100 prose-headings:font-bold
             prose-h1:text-2xl prose-h1:border-b prose-h1:border-dark-border prose-h1:pb-2 prose-h1:mb-6
             prose-h2:text-xl prose-h2:mt-8 prose-h2:mb-4 prose-h2:text-indigo-300
@@ -398,7 +250,7 @@ export default function MarkdownPreview({ task }: Props) {
                     <img
                       src={src}
                       alt={alt || ''}
-                      className="max-w-full rounded-lg border border-dark-border cursor-pointer hover:opacity-90 transition-opacity"
+                      className="max-w-[min(100%,480px)] max-h-64 w-auto rounded-lg border border-dark-border cursor-pointer hover:opacity-90 transition-opacity"
                       loading="lazy"
                       onClick={() => src && setZoomedImg(src)}
                     />
@@ -426,9 +278,18 @@ export default function MarkdownPreview({ task }: Props) {
                         href={href}
                         onClick={(e) => {
                           e.preventDefault()
-                          const id = href.slice(1)
+                          const id = decodeURIComponent(href.slice(1))
                           const el = document.getElementById(id)
-                          el?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+                          if (!el) return
+                          const container = document.getElementById('video-content-scroll')
+                          if (container) {
+                            const elRect = el.getBoundingClientRect()
+                            const containerRect = container.getBoundingClientRect()
+                            const scrollTop = container.scrollTop + (elRect.top - containerRect.top) - 12
+                            container.scrollTo({ top: Math.max(0, scrollTop), behavior: 'smooth' })
+                          } else {
+                            el.scrollIntoView({ behavior: 'smooth', block: 'start' })
+                          }
                         }}
                         className="text-indigo-400 hover:underline hover:text-indigo-300 transition-colors"
                       >
@@ -450,7 +311,10 @@ export default function MarkdownPreview({ task }: Props) {
                 },
               }}
             >
-              {task.markdown}
+              {task.markdown
+                .replace(/^##\s*(?:目录|Table of Contents)\s*\n(?:[\s\S]*?)(?=\n---\n|\n## )/m, '')
+                .replace(/^\n---\n/m, '\n')
+              }
             </ReactMarkdown>
           </article>
         </div>
@@ -478,7 +342,7 @@ export default function MarkdownPreview({ task }: Props) {
 
       {/* Loading state for active but no markdown yet */}
       {isActive && !task.markdown && task.status !== 'pending' && (
-        <div className="flex flex-col items-center justify-center flex-1 text-gray-500">
+        <div className="flex flex-col items-center justify-center py-20 text-gray-500">
           {/* Circular progress */}
           <div className="relative w-16 h-16 mb-4">
             <svg className="w-full h-full -rotate-90" viewBox="0 0 64 64">
