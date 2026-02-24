@@ -67,6 +67,8 @@ def _broadcast_from_thread(task_id: str, task_data: dict, user_id: Optional[str]
 def _update_task_status(db, task_id: str, status: str, progress: float = 0,
                         message: str = "", user_id: Optional[str] = None, **kwargs):
     """Update task in DB and broadcast."""
+    if status not in ("cancelled", "failed") and is_video_task_cancelled(task_id):
+        return
     updates = {"status": status, "progress": progress, "message": message}
     updates.update(kwargs)
     db.update_task(task_id, updates)
@@ -127,6 +129,7 @@ def process_video_note_sync(
         duration = (existing_task or {}).get("duration", 0)
         channel = (existing_task or {}).get("channel", "")
         channel_url = (existing_task or {}).get("channel_url", "")
+        channel_avatar = (existing_task or {}).get("channel_avatar", "")
         tags = []
         transcript_text = ""
         transcript_segments = []
@@ -173,6 +176,7 @@ def process_video_note_sync(
                 tags = metadata.tags or []
                 channel = metadata.channel or channel
                 channel_url = metadata.channel_url or channel_url
+                channel_avatar = metadata.channel_avatar or channel_avatar
 
             db.update_task(task_id, {
                 "title": title,
@@ -180,6 +184,7 @@ def process_video_note_sync(
                 "duration": duration,
                 "channel": channel,
                 "channel_url": channel_url,
+                "channel_avatar": channel_avatar,
             })
             _update_task_status(db, task_id, "parsing", 10, f"Found: {title}", user_id)
 
@@ -231,12 +236,15 @@ def process_video_note_sync(
                         channel = dl_info.channel
                     if not channel_url and dl_info.channel_url:
                         channel_url = dl_info.channel_url
+                    if not channel_avatar and dl_info.channel_avatar:
+                        channel_avatar = dl_info.channel_avatar
                     db.update_task(task_id, {
                         "title": title,
                         "thumbnail": thumbnail,
                         "duration": duration,
                         "channel": channel,
                         "channel_url": channel_url,
+                        "channel_avatar": channel_avatar,
                     })
 
             _update_task_status(db, task_id, "downloading", 25, "Audio download complete", user_id)
@@ -414,6 +422,8 @@ def process_video_note_sync(
                 or (partial_text and now - _last_stream_broadcast[0] >= 0.6)
             )
             if should_broadcast:
+                if is_video_task_cancelled(task_id):
+                    raise VideoCancelledException("Cancelled during summarization")
                 last_summarize_progress[0] = job_progress
                 _last_stream_broadcast[0] = now
                 if total_chunks > 1 and chunk_num > 0:
@@ -744,8 +754,7 @@ async def cancel_task(
     with _cancel_lock:
         _cancelled_tasks.add(task_id)
 
-    _update_task_status(db, task_id, "cancelled", task.get("progress", 0),
-                        "Cancelling...", user_id)
+    db.update_task(task_id, {"status": "cancelled", "message": "Cancelling..."})
     logger.info(f"Cancel requested for video task: {task_id}")
     return {"message": "Cancel requested", "task_id": task_id}
 

@@ -271,6 +271,7 @@ export default function Dashboard() {
                         alt=""
                         className="w-16 h-10 rounded object-cover flex-shrink-0 bg-dark-hover"
                         onError={e => { (e.target as HTMLImageElement).style.display = 'none' }}
+                        referrerPolicy="no-referrer"
                       />
                     ) : (
                       <div className="w-16 h-10 rounded bg-dark-hover flex items-center justify-center flex-shrink-0">

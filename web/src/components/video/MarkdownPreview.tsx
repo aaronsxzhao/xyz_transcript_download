@@ -252,6 +252,7 @@ export default function MarkdownPreview({ task }: Props) {
                       alt={alt || ''}
                       className="max-w-[min(100%,480px)] max-h-64 w-auto rounded-lg border border-dark-border cursor-pointer hover:opacity-90 transition-opacity"
                       loading="lazy"
+                      referrerPolicy="no-referrer"
                       onClick={() => src && setZoomedImg(src)}
                     />
                   )

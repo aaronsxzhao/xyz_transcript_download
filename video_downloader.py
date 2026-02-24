@@ -43,6 +43,27 @@ except ImportError:
     FFMPEG_PATH = shutil.which("ffmpeg") or "ffmpeg"
 
 
+def _fetch_youtube_channel_avatar(channel_url: str) -> str:
+    """Extract channel avatar URL from a YouTube channel page."""
+    if not channel_url:
+        return ""
+    try:
+        import requests as _req
+        headers = {
+            "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36",
+            "Accept-Language": "en-US,en;q=0.9",
+        }
+        resp = _req.get(channel_url, headers=headers, timeout=10)
+        if resp.status_code != 200:
+            return ""
+        m = re.search(r'"avatar":\{"thumbnails":\[\{"url":"(https://yt3\.[^"]+)"', resp.text)
+        if m:
+            return m.group(1)
+    except Exception as e:
+        logger.debug(f"Failed to fetch YouTube channel avatar: {e}")
+    return ""
+
+
 @dataclass
 class VideoMetadata:
     """Metadata extracted from a video."""
@@ -55,6 +76,7 @@ class VideoMetadata:
     tags: list = None
     channel: str = ""
     channel_url: str = ""
+    channel_avatar: str = ""
 
     def __post_init__(self):
         if self.tags is None:
@@ -284,6 +306,11 @@ class YtdlpDownloader(BaseDownloader):
                 return None
             if self.platform == "youtube":
                 logger.info(f"[yt-dlp] YouTube metadata OK: title={info.get('title', '')[:60]}")
+            ch_url = info.get("channel_url") or info.get("uploader_url") or ""
+            ch_avatar = ""
+            if self.platform == "youtube" and ch_url:
+                ch_avatar = _fetch_youtube_channel_avatar(ch_url)
+
             return VideoMetadata(
                 title=info.get("title", ""),
                 description=info.get("description", ""),
@@ -293,7 +320,8 @@ class YtdlpDownloader(BaseDownloader):
                 url=url,
                 tags=info.get("tags", []) or [],
                 channel=info.get("channel") or info.get("uploader") or "",
-                channel_url=info.get("channel_url") or info.get("uploader_url") or "",
+                channel_url=ch_url,
+                channel_avatar=ch_avatar,
             )
         except Exception as e:
             logger.error(f"Failed to get metadata for {self.platform}: {type(e).__name__}: {e}")
@@ -374,6 +402,10 @@ class YtdlpDownloader(BaseDownloader):
         info = getattr(self, "_last_info", None)
         if not info:
             return None
+        ch_url = info.get("channel_url") or info.get("uploader_url") or ""
+        ch_avatar = ""
+        if self.platform == "youtube" and ch_url:
+            ch_avatar = _fetch_youtube_channel_avatar(ch_url)
         return VideoMetadata(
             title=info.get("title", ""),
             description=info.get("description", ""),
@@ -383,7 +415,8 @@ class YtdlpDownloader(BaseDownloader):
             url=info.get("webpage_url", ""),
             tags=info.get("tags", []) or [],
             channel=info.get("channel") or info.get("uploader") or "",
-            channel_url=info.get("channel_url") or info.get("uploader_url") or "",
+            channel_url=ch_url,
+            channel_avatar=ch_avatar,
         )
 
     def download_video(self, url: str, task_id: str, video_quality: str = "720",
@@ -600,6 +633,7 @@ class BilibiliDownloader(YtdlpDownloader):
                 tags=[t.get("tag_name", "") for t in d.get("tag", []) if t.get("tag_name")],
                 channel=owner.get("name", ""),
                 channel_url=f"https://space.bilibili.com/{mid}" if mid else "",
+                channel_avatar=owner.get("face", "").replace("http://", "https://", 1) if owner.get("face") else "",
             )
         except Exception as e:
             logger.warning(f"Bilibili API metadata failed: {e}, falling back to yt-dlp")

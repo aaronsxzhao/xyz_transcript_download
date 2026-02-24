@@ -84,6 +84,7 @@ class _SQLiteVideoTaskDB:
                 ("max_output_tokens INTEGER", "0"),
                 ("channel TEXT", "''"),
                 ("channel_url TEXT", "''"),
+                ("channel_avatar TEXT", "''"),
             ]:
                 try:
                     conn.execute(f"ALTER TABLE video_tasks ADD COLUMN {col} DEFAULT {default}")
@@ -132,7 +133,7 @@ class _SQLiteVideoTaskDB:
         allowed = {
             "status", "progress", "message", "markdown", "transcript_json",
             "title", "thumbnail", "duration", "error", "model",
-            "channel", "channel_url",
+            "channel", "channel_url", "channel_avatar",
         }
         fields = {k: v for k, v in updates.items() if k in allowed}
         if not fields:

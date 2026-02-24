@@ -369,6 +369,7 @@ export interface VideoTask {
   thumbnail: string
   channel: string
   channel_url: string
+  channel_avatar: string
   status: string
   progress: number
   message: string

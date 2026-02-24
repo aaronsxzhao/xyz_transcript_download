@@ -53,7 +53,7 @@ export default function Videos() {
   const handleTaskCreated = (taskId: string) => {
     useStore.getState().updateVideoTask({
       id: taskId, url: '', platform: '', title: '', thumbnail: '',
-      channel: '', channel_url: '',
+      channel: '', channel_url: '', channel_avatar: '',
       status: 'pending', progress: 0, message: 'Queued for processing...',
       markdown: '', transcript: null, style: '', model: '', formats: [],
       quality: '', extras: '', video_understanding: false, video_interval: 4,
@@ -319,18 +319,27 @@ function ChannelList({ channels, onSelectChannel }: {
           >
             <div className="flex flex-col sm:flex-row sm:items-start gap-4">
               <div className="flex items-start gap-3 sm:gap-4 flex-1 min-w-0 cursor-pointer" onClick={() => onSelectChannel(ch)}>
-                {latestTask?.thumbnail ? (
-                  <img
-                    src={latestTask.thumbnail}
-                    alt=""
-                    className="w-14 h-14 md:w-20 md:h-20 rounded-lg object-cover flex-shrink-0 bg-dark-hover"
-                    onError={e => { (e.target as HTMLImageElement).style.display = 'none' }}
-                  />
-                ) : (
-                  <div className="w-14 h-14 md:w-20 md:h-20 rounded-lg bg-dark-hover flex items-center justify-center flex-shrink-0">
-                    <Video className="w-6 h-6 md:w-8 md:h-8 text-gray-600" />
-                  </div>
-                )}
+                {(() => {
+                  const avatar = info.tasks.find(t => t.channel_avatar)?.channel_avatar
+                  const thumb = latestTask?.thumbnail
+                  const imgSrc = avatar || thumb
+                  if (imgSrc) {
+                    return (
+                      <img
+                        src={imgSrc}
+                        alt=""
+                        className={`w-14 h-14 md:w-20 md:h-20 flex-shrink-0 bg-dark-hover object-cover ${avatar ? 'rounded-full' : 'rounded-lg'}`}
+                        onError={e => { (e.target as HTMLImageElement).style.display = 'none' }}
+                        referrerPolicy="no-referrer"
+                      />
+                    )
+                  }
+                  return (
+                    <div className="w-14 h-14 md:w-20 md:h-20 rounded-full bg-dark-hover flex items-center justify-center flex-shrink-0">
+                      <Video className="w-6 h-6 md:w-8 md:h-8 text-gray-600" />
+                    </div>
+                  )
+                })()}
 
                 <div className="flex-1 min-w-0">
                   <h3 className="text-base md:text-lg font-semibold text-white mb-1 line-clamp-2">
@@ -420,6 +429,19 @@ function VideoList({ videos, onDelete, onRetry, onCancel }: {
           className="p-3 md:p-4 bg-dark-surface border border-dark-border rounded-xl hover:border-dark-hover transition-colors"
         >
           <div className="flex flex-col sm:flex-row sm:items-start gap-3 md:gap-4">
+            {task.thumbnail ? (
+              <img
+                src={task.thumbnail}
+                alt=""
+                className="w-full sm:w-40 md:w-48 h-24 sm:h-24 md:h-28 rounded-lg object-cover flex-shrink-0 bg-dark-hover"
+                onError={e => { (e.target as HTMLImageElement).style.display = 'none' }}
+                referrerPolicy="no-referrer"
+              />
+            ) : (
+              <div className="hidden sm:flex w-40 md:w-48 h-24 md:h-28 rounded-lg bg-dark-hover items-center justify-center flex-shrink-0">
+                <Video className="w-8 h-8 text-gray-600" />
+              </div>
+            )}
             <div className="flex-1 min-w-0">
               <h3 className="font-medium text-white mb-1 line-clamp-2 text-sm md:text-base">
                 {task.title || 'Untitled'}
