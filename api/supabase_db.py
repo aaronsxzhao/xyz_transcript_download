@@ -396,104 +396,66 @@ class SupabaseDatabase:
     # ==================== Summaries ====================
     
     def get_summary(self, user_id: str, episode_id: str) -> Optional[SummaryRecord]:
-        """Get a summary by episode ID."""
+        """Get a summary by episode ID with key points via FK join."""
         if not self.client:
             return None
-        
-        result = self.client.table("summaries").select("*").eq("user_id", user_id).eq("episode_id", episode_id).execute()
+
+        result = (
+            self.client.table("summaries")
+            .select("*, summary_key_points(topic, summary, original_quote, timestamp)")
+            .eq("user_id", user_id)
+            .eq("episode_id", episode_id)
+            .execute()
+        )
         if not result.data:
             return None
-        
-        summary = result.data[0]
-        
-        # Get key points from summary_key_points table
-        kp_result = self.client.table("summary_key_points").select("*").eq("summary_id", summary["id"]).execute()
-        key_points = [
-            {
-                "topic": kp["topic"],
-                "summary": kp["summary"],
-                "original_quote": kp["original_quote"],
-                "timestamp": kp["timestamp"]
-            }
-            for kp in kp_result.data
-        ]
-        
-        # Check if key_points stored directly in summaries table (old format)
-        # Use whichever source has more key_points
-        old_key_points = summary.get("key_points", []) or []
-        if isinstance(old_key_points, list) and len(old_key_points) > len(key_points):
-            key_points = old_key_points
-        
+
+        row = result.data[0]
+        kp_list = row.get("summary_key_points") or []
+
         return SummaryRecord(
-            id=summary["id"],
-            user_id=summary["user_id"],
-            episode_id=summary["episode_id"],
-            title=summary["title"],
-            overview=summary["overview"],
-            topics=summary.get("topics", []),
-            takeaways=summary.get("takeaways", []),
-            key_points=key_points
+            id=row["id"],
+            user_id=row["user_id"],
+            episode_id=row["episode_id"],
+            title=row["title"],
+            overview=row["overview"],
+            topics=row.get("topics", []),
+            takeaways=row.get("takeaways", []),
+            key_points=kp_list,
         )
     
     def get_all_summaries(self, user_id: str) -> List[SummaryRecord]:
-        """Get all summaries for a user."""
+        """Get all summaries for a user with key points via FK join."""
         if not self.client:
             return []
-        
-        result = self.client.table("summaries").select("*").eq("user_id", user_id).order("created_at", desc=True).execute()
-        
+
+        # Use Supabase FK join to fetch summaries + key points in one query
+        result = (
+            self.client.table("summaries")
+            .select("*, summary_key_points(topic, summary, original_quote, timestamp)")
+            .eq("user_id", user_id)
+            .order("created_at", desc=True)
+            .execute()
+        )
+
         if not result.data:
             return []
-        
-        # Get all summary IDs
-        summary_ids = [s["id"] for s in result.data]
-        
-        print(f"[DEBUG] get_all_summaries: Found {len(summary_ids)} summaries, fetching key points...")
-        
-        # Fetch ALL key points in ONE query instead of N queries
-        kp_by_summary: Dict[int, List[Dict[str, Any]]] = {}
-        
-        if summary_ids:
-            try:
-                kp_result = self.client.table("summary_key_points").select("*").in_("summary_id", summary_ids).execute()
-                print(f"[DEBUG] get_all_summaries: Fetched {len(kp_result.data) if kp_result.data else 0} key points total")
-                
-                # Group key points by summary_id
-                for kp in (kp_result.data or []):
-                    sid = kp["summary_id"]
-                    if sid not in kp_by_summary:
-                        kp_by_summary[sid] = []
-                    kp_by_summary[sid].append({
-                        "topic": kp["topic"],
-                        "summary": kp["summary"],
-                        "original_quote": kp["original_quote"],
-                        "timestamp": kp["timestamp"]
-                    })
-            except Exception as e:
-                print(f"[DEBUG] get_all_summaries: Error fetching key points: {e}")
-        
+
         summaries = []
-        for summary in result.data:
-            # Get key_points from summary_key_points table first
-            kp_list = kp_by_summary.get(summary["id"], [])
-            
-            # Check if key_points stored directly in summaries table (old format)
-            # Use whichever source has more key_points
-            old_kp_list = summary.get("key_points", []) or []
-            if isinstance(old_kp_list, list) and len(old_kp_list) > len(kp_list):
-                kp_list = old_kp_list
-            
+        for row in result.data:
+            kp_list = row.get("summary_key_points") or []
+
             summaries.append(SummaryRecord(
-                id=summary["id"],
-                user_id=summary["user_id"],
-                episode_id=summary["episode_id"],
-                title=summary["title"],
-                overview=summary["overview"],
-                topics=summary.get("topics", []),
-                takeaways=summary.get("takeaways", []),
-                key_points=kp_list
+                id=row["id"],
+                user_id=row["user_id"],
+                episode_id=row["episode_id"],
+                title=row["title"],
+                overview=row["overview"],
+                topics=row.get("topics", []),
+                takeaways=row.get("takeaways", []),
+                key_points=kp_list,
             ))
-        
+
         return summaries
     
     def save_summary(self, user_id: str, episode_id: str, title: str, overview: str,
@@ -503,8 +465,6 @@ class SupabaseDatabase:
         if not self.client:
             return False
         
-        print(f"[DEBUG] save_summary: episode_id={episode_id}, topics={len(topics)}, key_points={len(key_points)}")
-        
         # Upsert summary
         result = self.client.table("summaries").upsert({
             "user_id": user_id,
@@ -512,20 +472,17 @@ class SupabaseDatabase:
             "title": title,
             "overview": overview,
             "topics": topics,
-            "takeaways": takeaways
+            "takeaways": takeaways,
         }, on_conflict="user_id,episode_id").execute()
-        
+
         if not result.data:
-            print(f"[DEBUG] save_summary: Failed to upsert summary")
             return False
-        
+
         summary_id = result.data[0]["id"]
-        print(f"[DEBUG] save_summary: summary_id={summary_id}")
-        
-        # Delete old key points
+
+        # Replace key points
         self.client.table("summary_key_points").delete().eq("summary_id", summary_id).execute()
-        
-        # Insert new key points
+
         if key_points:
             kp_rows = [
                 {
@@ -533,18 +490,12 @@ class SupabaseDatabase:
                     "topic": kp.get("topic", ""),
                     "summary": kp.get("summary", ""),
                     "original_quote": kp.get("original_quote", ""),
-                    "timestamp": kp.get("timestamp", "")
+                    "timestamp": kp.get("timestamp", ""),
                 }
                 for kp in key_points
             ]
-            try:
-                insert_result = self.client.table("summary_key_points").insert(kp_rows).execute()
-                print(f"[DEBUG] save_summary: Inserted {len(insert_result.data) if insert_result.data else 0} key points")
-            except Exception as e:
-                print(f"[DEBUG] save_summary: Failed to insert key points: {e}")
-        else:
-            print(f"[DEBUG] save_summary: No key points to insert")
-        
+            self.client.table("summary_key_points").insert(kp_rows).execute()
+
         return True
     
     def has_summary(self, user_id: str, episode_id: str) -> bool:
