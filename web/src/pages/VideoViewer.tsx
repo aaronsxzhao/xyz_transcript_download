@@ -91,9 +91,20 @@ export default function VideoViewer() {
   }, [taskId])
 
   const handleCopy = async () => {
-    const content = getCurrentContent()
-    if (!content) return
-    await navigator.clipboard.writeText(content)
+    const md = getCurrentContent()
+    if (!md) return
+    try {
+      const { marked } = await import('marked')
+      marked.setOptions({ gfm: true, breaks: false })
+      const html = await marked.parse(md)
+      const blob = new Blob([html], { type: 'text/html' })
+      const textBlob = new Blob([md], { type: 'text/plain' })
+      await navigator.clipboard.write([
+        new ClipboardItem({ 'text/html': blob, 'text/plain': textBlob }),
+      ])
+    } catch {
+      await navigator.clipboard.writeText(md)
+    }
     setCopied(true)
     setTimeout(() => setCopied(false), 2000)
   }
@@ -388,7 +399,7 @@ export default function VideoViewer() {
               <button
                 onClick={handleCopy}
                 className="p-1.5 text-gray-400 hover:text-white transition-colors"
-                title="Copy"
+                title="Copy as rich text (paste into Notion)"
               >
                 {copied ? <Check size={14} className="text-green-400" /> : <Copy size={14} />}
               </button>
