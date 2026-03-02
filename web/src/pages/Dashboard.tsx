@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
-import { Radio, FileText, MessageSquare, Loader2, Plus, ArrowRight, Bell, RefreshCw, X, Video, CheckCircle } from 'lucide-react'
+import { Radio, FileText, MessageSquare, Loader2, Plus, ArrowRight, Bell, RefreshCw, X, Video, CheckCircle, Users } from 'lucide-react'
 import { fetchStats, fetchSummaries, processEpisode, fetchNewEpisodes, checkPodcastsForUpdates, fetchVideoTasks, type Stats, type SummaryListItem, type ProcessingJob, type NewEpisode, type VideoTask } from '../lib/api'
 import { useStore } from '../lib/store'
 import { getCache, setCache, CacheKeys } from '../lib/cache'
@@ -12,6 +12,7 @@ export default function Dashboard() {
   const [stats, setStats] = useState<Stats | null>(null)
   const [summaries, setSummaries] = useState<SummaryListItem[]>([])
   const [recentVideos, setRecentVideos] = useState<VideoTask[]>([])
+  const [videoChannels, setVideoChannels] = useState<{ name: string; avatar: string; url: string; count: number }[]>([])
   const [loading, setLoading] = useState(true)
   const [episodeUrl, setEpisodeUrl] = useState('')
   const [processing, setProcessing] = useState(false)
@@ -43,7 +44,21 @@ export default function Dashboard() {
       ])
       setStats(statsData)
       setSummaries(summariesData)
-      setRecentVideos(videoData.tasks.filter(t => t.status === 'success').slice(0, 6))
+
+      const successTasks = videoData.tasks.filter(t => t.status === 'success')
+      setRecentVideos(successTasks.slice(0, 6))
+
+      const channelMap = new Map<string, { name: string; avatar: string; url: string; count: number }>()
+      for (const t of successTasks) {
+        if (!t.channel) continue
+        const existing = channelMap.get(t.channel)
+        if (existing) {
+          existing.count++
+        } else {
+          channelMap.set(t.channel, { name: t.channel, avatar: t.channel_avatar || '', url: t.channel_url || '', count: 1 })
+        }
+      }
+      setVideoChannels(Array.from(channelMap.values()).sort((a, b) => b.count - a.count))
 
       setCache(CacheKeys.STATS, statsData)
       setCache(CacheKeys.SUMMARIES, summariesData)
@@ -191,11 +206,12 @@ export default function Dashboard() {
 
       {/* Stats — podcast + video combined */}
       {stats && (
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 md:gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-7 gap-3 md:gap-4">
           <StatCard icon={Radio} label="Podcasts" value={stats.total_podcasts} color="text-indigo-500" />
           <StatCard icon={FileText} label="Episodes" value={stats.total_episodes} color="text-blue-500" />
           <StatCard icon={FileText} label="Transcripts" value={stats.total_transcripts} color="text-green-500" />
           <StatCard icon={MessageSquare} label="Summaries" value={stats.total_summaries} color="text-purple-500" />
+          <StatCard icon={Users} label="Channels" value={videoChannels.length} color="text-orange-500" />
           <StatCard icon={Video} label="Videos" value={stats.total_videos} color="text-cyan-500" />
           <StatCard icon={CheckCircle} label="Completed" value={stats.completed_videos} color="text-emerald-500" />
         </div>
@@ -286,10 +302,15 @@ export default function Dashboard() {
                         })() : 'Untitled')}
                       </h3>
                       <div className="flex items-center gap-2 text-xs text-gray-500 mt-0.5">
-                        {task.status === 'failed' && (
-                          <span className="px-1.5 py-0.5 bg-red-600/20 text-red-400 rounded-full text-[10px]">Failed</span>
+                        {task.channel && (
+                          <span className="flex items-center gap-1 truncate">
+                            {task.channel_avatar && (
+                              <img src={task.channel_avatar} alt="" className="w-3.5 h-3.5 rounded-full flex-shrink-0" referrerPolicy="no-referrer" onError={e => { (e.target as HTMLImageElement).style.display = 'none' }} />
+                            )}
+                            <span className="truncate">{task.channel}</span>
+                          </span>
                         )}
-                        {task.platform && <span className="capitalize">{task.platform}</span>}
+                        {!task.channel && task.platform && <span className="capitalize">{task.platform}</span>}
                         {task.style && <span className="px-1.5 py-0.5 bg-purple-600/20 text-purple-400 rounded-full text-[10px]">{task.style}</span>}
                       </div>
                     </div>
@@ -300,6 +321,44 @@ export default function Dashboard() {
           )}
         </div>
       </div>
+
+      {/* Video Channels */}
+      {videoChannels.length > 0 && (
+        <div>
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-semibold text-white">Video Channels</h2>
+            <Link
+              to="/videos"
+              className="flex items-center gap-1 text-sm text-indigo-400 hover:text-indigo-300"
+            >
+              View all <ArrowRight size={16} />
+            </Link>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            {videoChannels.slice(0, 6).map((ch) => (
+              <a
+                key={ch.name}
+                href={ch.url || undefined}
+                target="_blank"
+                rel="noopener noreferrer"
+                className={`flex items-center gap-3 p-3 bg-dark-surface border border-dark-border rounded-xl transition-colors ${ch.url ? 'hover:border-indigo-500/50 cursor-pointer' : ''}`}
+              >
+                {ch.avatar ? (
+                  <img src={ch.avatar} alt="" className="w-9 h-9 rounded-full flex-shrink-0 bg-dark-hover" referrerPolicy="no-referrer" onError={e => { (e.target as HTMLImageElement).style.display = 'none' }} />
+                ) : (
+                  <div className="w-9 h-9 rounded-full bg-dark-hover flex items-center justify-center flex-shrink-0">
+                    <Users size={16} className="text-gray-600" />
+                  </div>
+                )}
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-white truncate">{ch.name}</p>
+                  <p className="text-xs text-gray-500">{ch.count} video{ch.count > 1 ? 's' : ''}</p>
+                </div>
+              </a>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   )
 }
