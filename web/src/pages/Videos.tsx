@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState, useMemo } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import {
   Plus, ChevronUp, ChevronDown, Video, Search, Trash2, RefreshCw, RotateCcw, Square,
   CheckCircle, XCircle, Clock, Loader2, ArrowLeft, ExternalLink,
@@ -436,6 +436,7 @@ function VideoList({ videos, onDelete, onRetry, onCancel }: {
   onRetry: (id: string) => void
   onCancel: (id: string) => void
 }) {
+  const navigate = useNavigate()
   const formatDuration = (sec: number) => {
     const m = Math.floor(sec / 60)
     return `${m} min`
@@ -480,12 +481,14 @@ function VideoList({ videos, onDelete, onRetry, onCancel }: {
         const hint = isFailed ? getErrorHint(task) : null
         const displayTitle = getDisplayTitle(task)
 
+        const isClickable = task.status === 'success'
         return (
         <div
           key={task.id}
+          onClick={isClickable ? () => navigate(`/videos/${task.id}`) : undefined}
           className={`p-3 md:p-4 bg-dark-surface border rounded-xl transition-colors ${
             isFailed ? 'border-red-500/30 hover:border-red-500/50' : 'border-dark-border hover:border-dark-hover'
-          }`}
+          } ${isClickable ? 'cursor-pointer' : ''}`}
         >
           <div className="flex flex-col sm:flex-row sm:items-start gap-3 md:gap-4">
             {task.thumbnail ? (
@@ -518,6 +521,7 @@ function VideoList({ videos, onDelete, onRetry, onCancel }: {
                   href={task.url}
                   target="_blank"
                   rel="noopener noreferrer"
+                  onClick={e => e.stopPropagation()}
                   className="flex items-center gap-1 text-xs text-indigo-400 hover:text-indigo-300 mb-1 truncate"
                 >
                   <ExternalLink size={10} className="flex-shrink-0" />
@@ -579,7 +583,7 @@ function VideoList({ videos, onDelete, onRetry, onCancel }: {
               )}
             </div>
 
-            <div className="flex items-center gap-2 justify-end sm:justify-start">
+            <div className="flex items-center gap-2 justify-end sm:justify-start" onClick={e => e.stopPropagation()}>
               {(() => {
                 if (task.status === 'success') {
                   return (

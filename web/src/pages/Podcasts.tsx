@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { Radio, Plus, Trash2, RefreshCw, Loader2, ExternalLink } from 'lucide-react'
 import { fetchPodcasts, addPodcast, removePodcast, refreshPodcast, type Podcast } from '../lib/api'
 import { useToast } from '../components/Toast'
@@ -12,6 +12,7 @@ export default function Podcasts() {
   const [showAddForm, setShowAddForm] = useState(false)
   const [refreshing, setRefreshing] = useState<string | null>(null)
   const [deletingPid, setDeletingPid] = useState<string | null>(null)
+  const navigate = useNavigate()
   const { addToast, removeToast } = useToast()
   
   useEffect(() => {
@@ -169,7 +170,8 @@ export default function Podcasts() {
           {podcasts.map((podcast) => (
             <div
               key={podcast.pid}
-              className="p-4 md:p-6 bg-dark-surface border border-dark-border rounded-xl hover:border-dark-hover transition-colors"
+              onClick={() => navigate(`/podcasts/${podcast.pid}/episodes`)}
+              className="p-4 md:p-6 bg-dark-surface border border-dark-border rounded-xl hover:border-dark-hover transition-colors cursor-pointer"
             >
               <div className="flex flex-col sm:flex-row sm:items-start gap-4">
                 <div className="flex items-start gap-3 sm:gap-4 flex-1 min-w-0">
@@ -194,7 +196,7 @@ export default function Podcasts() {
                   </div>
                 </div>
                 
-                <div className="flex items-center gap-2 justify-end sm:justify-start">
+                <div className="flex items-center gap-2 justify-end sm:justify-start" onClick={e => e.stopPropagation()}>
                   <Link
                     to={`/podcasts/${podcast.pid}/episodes`}
                     className="flex items-center gap-1 px-3 py-2 bg-dark-hover hover:bg-dark-border text-white rounded-lg transition-colors text-sm"

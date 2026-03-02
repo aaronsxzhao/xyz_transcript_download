@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { useParams, Link } from 'react-router-dom'
+import { useParams, Link, useNavigate } from 'react-router-dom'
 import { ArrowLeft, Play, FileText, MessageSquare, Loader2, CheckCircle, Trash2, RefreshCw, Tag } from 'lucide-react'
 import { fetchPodcast, fetchEpisodes, processEpisode, deleteEpisode, resummarizeEpisode, type Podcast, type Episode } from '../lib/api'
 import { useToast } from '../components/Toast'
@@ -14,6 +14,7 @@ export default function Episodes() {
   const [processingEid, setProcessingEid] = useState<string | null>(null)
   const [regeneratingEid, setRegeneratingEid] = useState<string | null>(null)
   const [deletingEid, setDeletingEid] = useState<string | null>(null)
+  const navigate = useNavigate()
   const { addToast } = useToast()
   const { jobs, updateJob } = useStore()
   
@@ -165,7 +166,8 @@ export default function Episodes() {
         {episodes.map((episode) => (
           <div
             key={episode.eid}
-            className="p-3 md:p-4 bg-dark-surface border border-dark-border rounded-xl hover:border-dark-hover transition-colors"
+            onClick={episode.has_summary ? () => navigate(`/viewer/${episode.eid}`) : undefined}
+            className={`p-3 md:p-4 bg-dark-surface border border-dark-border rounded-xl hover:border-dark-hover transition-colors${episode.has_summary ? ' cursor-pointer' : ''}`}
           >
             <div className="flex flex-col sm:flex-row sm:items-start gap-3 md:gap-4">
               <div className="flex-1 min-w-0">
@@ -195,7 +197,7 @@ export default function Episodes() {
                 </div>
               </div>
               
-              <div className="flex items-center gap-2 justify-end sm:justify-start">
+              <div className="flex items-center gap-2 justify-end sm:justify-start" onClick={e => e.stopPropagation()}>
                 {(() => {
                   const activeJob = getActiveJob(episode.eid)
                   
