@@ -636,3 +636,19 @@ export async function exportToNotion(taskId: string, parentPageId: string): Prom
   }
   return res.json()
 }
+
+export async function exportMarkdownToNotion(markdown: string, title: string, parentPageId: string): Promise<{ url: string; page_id: string; title: string }> {
+  const res = await authFetch(`${API_BASE}/notion/export-markdown`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-Notion-Key': getNotionKey(),
+    },
+    body: JSON.stringify({ markdown, title, parent_page_id: parentPageId }),
+  })
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ detail: 'Export to Notion failed' }))
+    throw new Error(err.detail || 'Export to Notion failed')
+  }
+  return res.json()
+}

@@ -112,6 +112,12 @@ class ExportRequest(BaseModel):
     parent_page_id: str
 
 
+class ExportMarkdownRequest(BaseModel):
+    markdown: str
+    title: str
+    parent_page_id: str
+
+
 @router.post("/export")
 async def export_to_notion(
     req: ExportRequest,
@@ -190,4 +196,69 @@ async def export_to_notion(
         raise
     except Exception as e:
         logger.error(f"Notion export error: {e}")
+        raise HTTPException(status_code=502, detail=f"Notion export failed: {type(e).__name__}: {str(e)[:200]}")
+
+
+@router.post("/export-markdown")
+async def export_markdown_to_notion(
+    req: ExportMarkdownRequest,
+    user: Optional[User] = Depends(get_current_user),
+    x_notion_key: Optional[str] = Header(None),
+):
+    """Export arbitrary markdown content to Notion as a sub-page."""
+    key = _get_notion_key(x_notion_key)
+
+    if not req.markdown.strip():
+        raise HTTPException(status_code=400, detail="No content to export")
+
+    from notion_markdown import to_notion
+    blocks = to_notion(req.markdown)
+    title = req.title or "Untitled"
+
+    try:
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            create_resp = await client.post(
+                f"{NOTION_API_BASE}/pages",
+                headers=_notion_headers(key),
+                json={
+                    "parent": {"type": "page_id", "page_id": req.parent_page_id},
+                    "properties": {
+                        "title": {
+                            "title": [{"text": {"content": title}}]
+                        }
+                    },
+                },
+            )
+            if create_resp.status_code == 401:
+                raise HTTPException(status_code=401, detail="Invalid Notion API key")
+            if create_resp.status_code != 200:
+                detail = create_resp.json().get("message", create_resp.text[:300])
+                raise HTTPException(status_code=502, detail=f"Failed to create Notion page: {detail}")
+
+            page_data = create_resp.json()
+            page_id = page_data["id"]
+            page_url = page_data.get("url", "")
+
+            for i in range(0, len(blocks), 100):
+                batch = blocks[i : i + 100]
+                append_resp = await client.patch(
+                    f"{NOTION_API_BASE}/blocks/{page_id}/children",
+                    headers=_notion_headers(key),
+                    json={"children": batch},
+                )
+                if append_resp.status_code not in (200, 201):
+                    logger.warning(
+                        f"Notion append blocks batch {i // 100} failed: "
+                        f"{append_resp.status_code} {append_resp.text[:200]}"
+                    )
+
+        logger.info(f"Exported markdown '{title}' to Notion: {page_url}")
+        return {"url": page_url, "page_id": page_id, "title": title}
+
+    except httpx.TimeoutException:
+        raise HTTPException(status_code=504, detail="Notion API timed out")
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Notion markdown export error: {e}")
         raise HTTPException(status_code=502, detail=f"Notion export failed: {type(e).__name__}: {str(e)[:200]}")
