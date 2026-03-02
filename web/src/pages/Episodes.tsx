@@ -1,10 +1,11 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useParams, Link, useNavigate } from 'react-router-dom'
-import { ArrowLeft, Play, FileText, MessageSquare, Loader2, CheckCircle, Trash2, RefreshCw, Tag } from 'lucide-react'
+import { ArrowLeft, Play, FileText, MessageSquare, Loader2, CheckCircle, Trash2, RefreshCw, Tag, Sparkles } from 'lucide-react'
 import { fetchPodcast, fetchEpisodes, processEpisode, deleteEpisode, resummarizeEpisode, type Podcast, type Episode } from '../lib/api'
 import { useToast } from '../components/Toast'
 import { useStore } from '../lib/store'
 import { getStatusColor } from '../lib/statusUtils'
+import { markSeen, isNewItem } from '../lib/seen'
 
 export default function Episodes() {
   const { pid } = useParams<{ pid: string }>()
@@ -29,6 +30,14 @@ export default function Episodes() {
   useEffect(() => {
     if (pid) loadData()
   }, [pid])
+
+  const seenMarkedRef = useRef(false)
+  useEffect(() => {
+    if (episodes.length > 0 && !seenMarkedRef.current) {
+      seenMarkedRef.current = true
+      markSeen(episodes.map(e => e.eid))
+    }
+  }, [episodes])
   
   async function loadData() {
     try {
@@ -192,6 +201,12 @@ export default function Episodes() {
                       <span className="text-gray-400 ml-1">
                         ({episode.topics_count} <Tag size={10} className="inline" />, {episode.key_points_count} pts)
                       </span>
+                    </span>
+                  )}
+                  {!episode.has_transcript && !episode.has_summary && isNewItem(episode.eid) && (
+                    <span className="flex items-center gap-1 text-cyan-400">
+                      <Sparkles size={12} className="md:w-3.5 md:h-3.5" />
+                      <span className="hidden sm:inline">Newly Added</span>
                     </span>
                   )}
                 </div>

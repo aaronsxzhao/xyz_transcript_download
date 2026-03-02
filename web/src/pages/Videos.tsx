@@ -1,14 +1,17 @@
-import { useCallback, useEffect, useState, useMemo } from 'react'
+import { useCallback, useEffect, useState, useMemo, useRef } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import {
   Plus, ChevronUp, ChevronDown, Video, Search, Trash2, RefreshCw, RotateCcw, Square,
-  CheckCircle, XCircle, Clock, Loader2, ArrowLeft, ExternalLink, Play,
+  CheckCircle, XCircle, Clock, Loader2, ArrowLeft, ExternalLink, Play, Sparkles,
 } from 'lucide-react'
 import VideoNoteForm from '../components/video/VideoNoteForm'
 import PlatformIcon, { PLATFORM_COLORS } from '../components/PlatformIcon'
 import { useStore } from '../lib/store'
+import { useToast } from '../components/Toast'
+import { markSeen, isNewItem } from '../lib/seen'
 import {
   fetchVideoTasks, deleteVideoTask, retryVideoTask, cancelVideoTask,
+  checkVideoChannelsForUpdates,
   type VideoTask,
 } from '../lib/api'
 
@@ -26,20 +29,43 @@ export default function Videos() {
   const { videoTasks, setVideoTasks, removeVideoTask } = useStore()
   const [formOpen, setFormOpen] = useState(false)
   const [search, setSearch] = useState('')
-  const [loading, setLoading] = useState(false)
+  const [checking, setChecking] = useState(false)
   const [view, setView] = useState<View>({ type: 'platforms' })
+  const { addToast } = useToast()
 
   const loadTasks = useCallback(async () => {
-    setLoading(true)
     try {
       const data = await fetchVideoTasks()
       setVideoTasks(data.tasks)
     } catch (e) {
       console.error('Failed to load tasks:', e)
-    } finally {
-      setLoading(false)
     }
   }, [setVideoTasks])
+
+  const handleCheckUpdates = async () => {
+    setChecking(true)
+    try {
+      const opts: { channel?: string; platform?: string } = {}
+      if (view.type === 'videos') opts.channel = view.channel
+      else if (view.type === 'channels') opts.platform = view.platform
+
+      const result = await checkVideoChannelsForUpdates(opts)
+      if (result.new_videos > 0) {
+        addToast({ type: 'success', title: 'New videos found', message: `Found ${result.new_videos} new video(s) from ${result.channels_checked} channel(s)` })
+        loadTasks()
+      } else {
+        const scope = view.type === 'videos' ? view.channel
+          : view.type === 'channels' ? (PLATFORM_META[view.platform]?.label || view.platform)
+          : 'all channels'
+        addToast({ type: 'info', title: 'All caught up', message: `No new videos from ${scope}` })
+      }
+    } catch (err) {
+      console.error('Failed to check for updates:', err)
+      addToast({ type: 'error', title: 'Check failed', message: err instanceof Error ? err.message : 'Unknown error' })
+    } finally {
+      setChecking(false)
+    }
+  }
 
   const hasActiveTasks = videoTasks.some(t =>
     !['success', 'failed', 'cancelled', 'discovered'].includes(t.status)
@@ -50,6 +76,14 @@ export default function Videos() {
     const interval = setInterval(loadTasks, hasActiveTasks ? 5000 : 30000)
     return () => clearInterval(interval)
   }, [loadTasks, hasActiveTasks])
+
+  const seenMarkedRef = useRef(false)
+  useEffect(() => {
+    if (videoTasks.length > 0 && !seenMarkedRef.current) {
+      seenMarkedRef.current = true
+      markSeen(videoTasks.map(t => t.id))
+    }
+  }, [videoTasks])
 
   const handleTaskCreated = (taskId: string) => {
     useStore.getState().updateVideoTask({
@@ -160,9 +194,18 @@ export default function Videos() {
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <button onClick={loadTasks} disabled={loading}
-            className="p-2 bg-dark-surface border border-dark-border rounded-lg hover:bg-dark-hover transition-colors text-gray-400">
-            <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
+          <button
+            onClick={handleCheckUpdates}
+            disabled={checking}
+            className="flex items-center gap-2 px-3 py-2 bg-dark-surface border border-dark-border rounded-lg hover:bg-dark-hover transition-colors text-sm text-gray-300"
+            title={
+              view.type === 'videos' ? `Check ${view.channel} for new videos`
+                : view.type === 'channels' ? `Check ${PLATFORM_META[view.platform]?.label || view.platform} channels for new videos`
+                : 'Check all channels for new videos'
+            }
+          >
+            <RefreshCw size={16} className={checking ? 'animate-spin' : ''} />
+            <span className="hidden sm:inline">{checking ? 'Checking...' : 'Check Updates'}</span>
           </button>
           <button onClick={() => setFormOpen(!formOpen)}
             className="flex items-center gap-2 px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-medium rounded-lg transition-colors">
@@ -566,10 +609,10 @@ function VideoList({ videos, onDelete, onRetry, onCancel }: {
                     <span className="hidden sm:inline">Pending</span>
                   </span>
                 )}
-                {task.status === 'discovered' && (
+                {['discovered', 'pending'].includes(task.status) && isNewItem(task.id) && (
                   <span className="flex items-center gap-1 text-cyan-400">
-                    <Search size={12} className="md:w-3.5 md:h-3.5" />
-                    <span className="hidden sm:inline">Discovered</span>
+                    <Sparkles size={12} className="md:w-3.5 md:h-3.5" />
+                    <span className="hidden sm:inline">Newly Added</span>
                   </span>
                 )}
               </div>
@@ -618,7 +661,7 @@ function VideoList({ videos, onDelete, onRetry, onCancel }: {
                   return (
                     <button
                       onClick={() => onRetry(task.id)}
-                      className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-colors"
+                      className="flex items-center gap-2 px-4 py-2 bg-dark-hover hover:bg-dark-border text-white rounded-lg transition-colors"
                       title="Start processing this video"
                     >
                       <Play size={16} />

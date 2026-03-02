@@ -696,6 +696,27 @@ class SupabaseDatabase:
         )
         return {r["url"] for r in (result.data or [])}
 
+    def get_distinct_video_channels(self, user_id: str) -> list:
+        """Return distinct channels with their metadata."""
+        if not self.client or not user_id:
+            return []
+        result = (
+            self.client.table("video_tasks")
+            .select("channel, channel_url, channel_avatar, platform")
+            .eq("user_id", user_id)
+            .neq("channel", "")
+            .neq("channel_url", "")
+            .execute()
+        )
+        seen = set()
+        channels = []
+        for r in (result.data or []):
+            key = r.get("channel", "")
+            if key and key not in seen:
+                seen.add(key)
+                channels.append(r)
+        return channels
+
     def update_video_task(self, task_id: str, updates: dict):
         """Update video task fields."""
         if not self.client:

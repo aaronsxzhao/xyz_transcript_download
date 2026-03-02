@@ -26,7 +26,7 @@ export default function VideoHistory({ onSelect }: Props) {
   }, [setVideoTasks])
 
   const hasActiveTasks = videoTasks.some(t =>
-    !['success', 'failed', 'cancelled'].includes(t.status)
+    !['success', 'failed', 'cancelled', 'discovered'].includes(t.status)
   )
 
   useEffect(() => {

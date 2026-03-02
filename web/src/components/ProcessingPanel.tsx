@@ -1,11 +1,13 @@
 /**
- * Unified processing panel showing active podcast AND video jobs with progress
+ * Unified processing panel showing active podcast AND video jobs with progress.
+ * Completed jobs are auto-dismissed once the user has seen them.
  */
 import { useState, useEffect, useRef } from 'react'
 import { ChevronUp, ChevronDown, Activity, X, Trash2, RotateCcw, Radio, Video } from 'lucide-react'
 import { useStore } from '../lib/store'
 import { cancelJob, deleteJob, retryJob, type ProcessingJob } from '../lib/api'
 import { getStatusColor, getStatusText, isActiveStatus } from '../lib/statusUtils'
+import { markSeen, shouldDismissCompleted } from '../lib/seen'
 
 const MOBILE_BREAKPOINT = 640
 
@@ -16,21 +18,34 @@ export default function ProcessingPanel() {
   )
   const prevActiveCountRef = useRef(0)
 
-  // Podcast jobs
+  // Podcast jobs — filter out completed jobs that user already saw
   const activeJobs = jobs.filter(job =>
     job.status !== 'completed' && job.status !== 'failed' && job.status !== 'cancelled'
   )
   const completedJobs = jobs.filter(job =>
-    job.status === 'completed' || job.status === 'failed' || job.status === 'cancelled'
+    (job.status === 'completed' || job.status === 'failed' || job.status === 'cancelled') &&
+    !shouldDismissCompleted(job.job_id)
   )
 
-  // Active video tasks
+  // Mark completed jobs as seen so they auto-dismiss on next render/load
+  const completedSeenRef = useRef(false)
+  useEffect(() => {
+    const doneIds = jobs
+      .filter(j => j.status === 'completed' || j.status === 'failed' || j.status === 'cancelled')
+      .map(j => j.job_id)
+    if (doneIds.length > 0 && !completedSeenRef.current) {
+      completedSeenRef.current = true
+      markSeen(doneIds)
+    }
+  }, [jobs])
+
+  // Active video tasks (exclude discovered — those are just queued for user to pick)
   const activeVideoTasks = videoTasks.filter(t =>
-    !['success', 'failed', 'cancelled'].includes(t.status)
+    !['success', 'failed', 'cancelled', 'discovered'].includes(t.status)
   )
 
   const totalActive = activeJobs.length + activeVideoTasks.length
-  const totalItems = jobs.length + activeVideoTasks.length
+  const totalItems = activeJobs.length + completedJobs.length + activeVideoTasks.length
 
   useEffect(() => {
     if (totalActive > prevActiveCountRef.current && window.innerWidth < MOBILE_BREAKPOINT) {

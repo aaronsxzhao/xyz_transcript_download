@@ -9,7 +9,7 @@ from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import Optional, Set
 
-from fastapi import APIRouter, HTTPException, BackgroundTasks, Depends, UploadFile, File, Form
+from fastapi import APIRouter, HTTPException, BackgroundTasks, Depends, UploadFile, File, Form, Query
 
 from api.auth import get_current_user, User
 from api.routers.processing import (
@@ -887,6 +887,83 @@ async def upload_video(
         "filename": file.filename,
         "path": str(save_path),
         "size": len(content),
+    }
+
+
+@router.post("/check-channels")
+async def check_channels_for_updates(
+    channel: Optional[str] = Query(None, description="Filter to a specific channel name"),
+    platform: Optional[str] = Query(None, description="Filter to a specific platform"),
+    user: Optional[User] = Depends(get_current_user),
+):
+    """Scan video channels for new videos and create discovered tasks.
+
+    Without filters: checks all channels.
+    With platform: checks only channels on that platform.
+    With channel: checks only that specific channel.
+    """
+    from video_task_db import get_video_task_db
+    from video_downloader import list_channel_videos
+
+    db = get_video_task_db()
+    user_id = user.id if user else None
+    all_channels = db.get_distinct_channels(user_id)
+
+    if channel:
+        all_channels = [c for c in all_channels if c.get("channel") == channel]
+    elif platform:
+        all_channels = [c for c in all_channels if c.get("platform") == platform]
+
+    if not all_channels:
+        return {"message": "No video channels found", "new_videos": 0, "channels_checked": 0}
+
+    loop = asyncio.get_event_loop()
+    total_created = 0
+
+    for ch in all_channels:
+        ch_name = ch.get("channel", "")
+        channel_url = ch.get("channel_url", "")
+        channel_avatar = ch.get("channel_avatar", "")
+        ch_platform = ch.get("platform", "")
+        if not channel_url:
+            continue
+        try:
+            videos = await loop.run_in_executor(
+                None, lambda cu=channel_url, p=ch_platform: list_channel_videos(cu, p, limit=15)
+            )
+            if not videos:
+                continue
+            urls = [v["url"] for v in videos]
+            existing_urls = db.get_existing_urls(urls, user_id)
+            for v in videos:
+                if v["url"] in existing_urls:
+                    continue
+                try:
+                    db.create_task({
+                        "url": v["url"],
+                        "platform": ch_platform,
+                        "title": v.get("title", ""),
+                        "thumbnail": v.get("thumbnail", ""),
+                        "duration": v.get("duration", 0),
+                        "channel": ch_name,
+                        "channel_url": channel_url,
+                        "channel_avatar": channel_avatar,
+                        "status": "discovered",
+                        "user_id": user_id,
+                    })
+                    total_created += 1
+                except Exception as e:
+                    logger.warning(f"Failed to create discovered task for {v['url']}: {e}")
+        except Exception as e:
+            logger.warning(f"Failed to check channel '{ch_name}': {e}")
+
+    if total_created:
+        _invalidate_list_cache(user_id)
+
+    return {
+        "message": f"Found {total_created} new video(s)" if total_created else "No new videos found",
+        "new_videos": total_created,
+        "channels_checked": len(all_channels),
     }
 
 

@@ -24,15 +24,30 @@ async def list_summaries(user: Optional[User] = Depends(get_current_user)):
     
     summaries = await run_sync(db.get_all_summaries)
 
-    return [
-        SummaryListItem(
+    podcast_cache: dict = {}
+    def get_podcast_info(episode_id: str) -> tuple:
+        ep = db.get_episode(episode_id)
+        if not ep or not ep.pid:
+            return ("", "")
+        if ep.pid in podcast_cache:
+            return podcast_cache[ep.pid]
+        p = db.get_podcast(ep.pid)
+        info = (p.title if p else "", p.cover_url if p else "")
+        podcast_cache[ep.pid] = info
+        return info
+
+    results = []
+    for s in summaries:
+        pt, pc = get_podcast_info(s.episode_id)
+        results.append(SummaryListItem(
             episode_id=s.episode_id,
             title=s.title,
             topics_count=len(s.topics),
             key_points_count=len(s.key_points),
-        )
-        for s in summaries
-    ]
+            podcast_title=pt,
+            podcast_cover=pc,
+        ))
+    return results
 
 
 @router.get("/{eid}", response_model=SummaryResponse)

@@ -1,10 +1,11 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
 import { Link } from 'react-router-dom'
 import { Radio, FileText, MessageSquare, Loader2, Plus, ArrowRight, Bell, RefreshCw, X, Video, CheckCircle, Users } from 'lucide-react'
-import { fetchStats, fetchSummaries, processEpisode, fetchNewEpisodes, checkPodcastsForUpdates, fetchVideoTasks, type Stats, type SummaryListItem, type ProcessingJob, type NewEpisode, type VideoTask } from '../lib/api'
+import { fetchStats, fetchSummaries, processEpisode, fetchNewEpisodes, checkPodcastsForUpdates, checkVideoChannelsForUpdates, fetchVideoTasks, type Stats, type SummaryListItem, type ProcessingJob, type NewEpisode, type VideoTask } from '../lib/api'
 import { useStore } from '../lib/store'
 import { getCache, setCache, CacheKeys } from '../lib/cache'
 import { useToast } from '../components/Toast'
+import { markSeen, shouldDismissCompleted } from '../lib/seen'
 import SummaryCard from '../components/SummaryCard'
 import ProcessingProgress from '../components/ProcessingProgress'
 
@@ -39,7 +40,7 @@ export default function Dashboard() {
 
   const recentlyDoneVideos: ProcessingJob[] = useMemo(() => {
     return videoTasks
-      .filter(t => t.status === 'success' || t.status === 'failed')
+      .filter(t => (t.status === 'success' || t.status === 'failed') && !shouldDismissCompleted(t.id))
       .slice(0, 3)
       .map(t => ({
         job_id: t.id,
@@ -51,17 +52,30 @@ export default function Dashboard() {
   }, [videoTasks])
 
   const allQueueItems = useMemo(() => {
-    const podcastJobs = jobs.map(j => ({ ...j, _kind: 'podcast' as const }))
+    const activePodcasts = jobs
+      .filter(j => j.status !== 'completed' && j.status !== 'failed' && j.status !== 'cancelled')
+      .map(j => ({ ...j, _kind: 'podcast' as const }))
+    const donePodcasts = jobs
+      .filter(j => (j.status === 'completed' || j.status === 'failed' || j.status === 'cancelled') && !shouldDismissCompleted(j.job_id))
+      .map(j => ({ ...j, _kind: 'podcast' as const }))
     const videoJobs = activeVideoJobs.map(j => ({ ...j, _kind: 'video' as const }))
-    const donePodcasts = podcastJobs.filter(j => j.status === 'completed')
-    const activePodcasts = podcastJobs.filter(j => j.status !== 'completed')
+    const doneVideos = recentlyDoneVideos.slice(0, 2).map(j => ({ ...j, _kind: 'video' as const }))
 
-    const showDoneVideos = activeVideoJobs.length > 0 || jobs.length > 0
-      ? recentlyDoneVideos.slice(0, 2).map(j => ({ ...j, _kind: 'video' as const }))
-      : []
-
-    return [...activePodcasts, ...videoJobs, ...donePodcasts, ...showDoneVideos]
+    return [...activePodcasts, ...videoJobs, ...donePodcasts, ...doneVideos]
   }, [jobs, activeVideoJobs, recentlyDoneVideos])
+
+  // Mark completed queue items as seen so they auto-dismiss on next load
+  const queueSeenRef = useRef(false)
+  useEffect(() => {
+    const doneIds = [
+      ...jobs.filter(j => j.status === 'completed' || j.status === 'failed' || j.status === 'cancelled').map(j => j.job_id),
+      ...videoTasks.filter(t => t.status === 'success' || t.status === 'failed').map(t => t.id),
+    ]
+    if (doneIds.length > 0 && !queueSeenRef.current) {
+      queueSeenRef.current = true
+      markSeen(doneIds)
+    }
+  }, [jobs, videoTasks])
 
   useEffect(() => {
     loadData()
@@ -122,14 +136,36 @@ export default function Dashboard() {
   async function handleCheckUpdates() {
     setCheckingUpdates(true)
     try {
-      const result = await checkPodcastsForUpdates()
-      if (result.new_episodes > 0) {
-        setNewEpisodes(result.episodes)
+      const [podcastResult, videoResult] = await Promise.all([
+        checkPodcastsForUpdates().catch(e => {
+          console.error('Podcast check failed:', e)
+          return { new_episodes: 0, episodes: [] as NewEpisode[], message: '' }
+        }),
+        checkVideoChannelsForUpdates().catch(e => {
+          console.error('Video channel check failed:', e)
+          return { new_videos: 0, channels_checked: 0, message: '' }
+        }),
+      ])
+
+      const hasNewPodcasts = podcastResult.new_episodes > 0
+      const hasNewVideos = videoResult.new_videos > 0
+
+      if (hasNewPodcasts) {
+        setNewEpisodes(podcastResult.episodes)
         setShowNewEpisodes(true)
-        addToast({ type: 'success', title: 'New episodes found', message: `Found ${result.new_episodes} new episode(s)` })
+      }
+
+      if (hasNewPodcasts && hasNewVideos) {
+        addToast({ type: 'success', title: 'New content found', message: `${podcastResult.new_episodes} episode(s) + ${videoResult.new_videos} video(s)` })
+        loadData()
+      } else if (hasNewPodcasts) {
+        addToast({ type: 'success', title: 'New episodes found', message: `Found ${podcastResult.new_episodes} new episode(s)` })
+        loadData()
+      } else if (hasNewVideos) {
+        addToast({ type: 'success', title: 'New videos found', message: `Found ${videoResult.new_videos} new video(s) from ${videoResult.channels_checked} channel(s)` })
         loadData()
       } else {
-        addToast({ type: 'info', title: 'All caught up', message: 'No new episodes from subscribed podcasts' })
+        addToast({ type: 'info', title: 'All caught up', message: 'No new episodes or videos found' })
       }
     } catch (err) {
       console.error('Failed to check for updates:', err)
@@ -183,7 +219,7 @@ export default function Dashboard() {
           onClick={handleCheckUpdates}
           disabled={checkingUpdates}
           className="flex items-center gap-2 px-3 py-2 bg-dark-surface border border-dark-border rounded-lg hover:bg-dark-hover transition-colors text-sm text-gray-300"
-          title="Check subscribed podcasts for new episodes"
+          title="Check podcasts and video channels for new content"
         >
           <RefreshCw size={16} className={checkingUpdates ? 'animate-spin' : ''} />
           <span className="hidden sm:inline">{checkingUpdates ? 'Checking...' : 'Check Updates'}</span>
@@ -331,41 +367,40 @@ export default function Dashboard() {
                 <Link
                   key={task.id}
                   to={`/videos/${task.id}`}
-                  className="block p-4 bg-dark-surface border border-dark-border rounded-xl hover:border-indigo-500/50 transition-colors"
+                  className="flex gap-4 p-4 min-h-[104px] bg-dark-surface border border-dark-border rounded-xl hover:border-indigo-500/50 transition-colors"
                 >
-                  <div className="flex items-center gap-3">
-                    {task.thumbnail ? (
-                      <img
-                        src={task.thumbnail}
-                        alt=""
-                        className="w-16 h-10 rounded object-cover flex-shrink-0 bg-dark-hover"
-                        onError={e => { (e.target as HTMLImageElement).style.display = 'none' }}
-                        referrerPolicy="no-referrer"
-                      />
-                    ) : (
-                      <div className="w-16 h-10 rounded bg-dark-hover flex items-center justify-center flex-shrink-0">
-                        <Video size={14} className="text-gray-600" />
-                      </div>
-                    )}
-                    <div className="flex-1 min-w-0">
-                      <h3 className="font-medium text-white text-sm truncate">
-                        {task.title || (task.url ? (() => {
-                          try { return new URL(task.url).hostname.replace('www.', '') + new URL(task.url).pathname.replace(/\/$/, '').slice(0, 30) }
-                          catch { return 'Untitled' }
-                        })() : 'Untitled')}
-                      </h3>
-                      <div className="flex items-center gap-2 text-xs text-gray-500 mt-0.5">
-                        {task.channel && (
-                          <span className="flex items-center gap-1 truncate">
-                            {task.channel_avatar && (
-                              <img src={task.channel_avatar} alt="" className="w-3.5 h-3.5 rounded-full flex-shrink-0" referrerPolicy="no-referrer" onError={e => { (e.target as HTMLImageElement).style.display = 'none' }} />
-                            )}
-                            <span className="truncate">{task.channel}</span>
-                          </span>
-                        )}
-                        {!task.channel && task.platform && <span className="capitalize">{task.platform}</span>}
-                        {task.style && <span className="px-1.5 py-0.5 bg-purple-600/20 text-purple-400 rounded-full text-[10px]">{task.style}</span>}
-                      </div>
+                  {task.thumbnail ? (
+                    <img
+                      src={task.thumbnail}
+                      alt=""
+                      className="w-20 h-14 rounded object-cover flex-shrink-0 bg-dark-hover my-auto"
+                      onError={e => { (e.target as HTMLImageElement).style.display = 'none' }}
+                      referrerPolicy="no-referrer"
+                    />
+                  ) : (
+                    <div className="w-20 h-14 rounded bg-dark-hover flex items-center justify-center flex-shrink-0 my-auto">
+                      <Video size={16} className="text-gray-600" />
+                    </div>
+                  )}
+                  <div className="flex-1 min-w-0 flex flex-col justify-between">
+                    <h3 className="font-medium text-white line-clamp-2">
+                      {task.title || (task.url ? (() => {
+                        try { return new URL(task.url).hostname.replace('www.', '') + new URL(task.url).pathname.replace(/\/$/, '').slice(0, 30) }
+                        catch { return 'Untitled' }
+                      })() : 'Untitled')}
+                    </h3>
+                    <div className="flex items-center gap-4 text-sm text-gray-400 mt-auto">
+                      {task.channel && (
+                        <span className="flex items-center gap-1.5 truncate">
+                          {task.channel_avatar ? (
+                            <img src={task.channel_avatar} alt="" className="w-4 h-4 rounded-full flex-shrink-0 bg-dark-hover" referrerPolicy="no-referrer" onError={e => { (e.target as HTMLImageElement).style.display = 'none' }} />
+                          ) : (
+                            <Video size={14} className="text-cyan-400 flex-shrink-0" />
+                          )}
+                          <span className="truncate">{task.channel}</span>
+                        </span>
+                      )}
+                      {task.style && <span className="px-1.5 py-0.5 bg-purple-600/20 text-purple-400 rounded-full text-[10px]">{task.style}</span>}
                     </div>
                   </div>
                 </Link>
@@ -375,43 +410,6 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* Video Channels */}
-      {videoChannels.length > 0 && (
-        <div>
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-semibold text-white">Video Channels</h2>
-            <Link
-              to="/videos"
-              className="flex items-center gap-1 text-sm text-indigo-400 hover:text-indigo-300"
-            >
-              View all <ArrowRight size={16} />
-            </Link>
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-            {videoChannels.slice(0, 6).map((ch) => (
-              <a
-                key={ch.name}
-                href={ch.url || undefined}
-                target="_blank"
-                rel="noopener noreferrer"
-                className={`flex items-center gap-3 p-3 bg-dark-surface border border-dark-border rounded-xl transition-colors ${ch.url ? 'hover:border-indigo-500/50 cursor-pointer' : ''}`}
-              >
-                {ch.avatar ? (
-                  <img src={ch.avatar} alt="" className="w-9 h-9 rounded-full flex-shrink-0 bg-dark-hover" referrerPolicy="no-referrer" onError={e => { (e.target as HTMLImageElement).style.display = 'none' }} />
-                ) : (
-                  <div className="w-9 h-9 rounded-full bg-dark-hover flex items-center justify-center flex-shrink-0">
-                    <Users size={16} className="text-gray-600" />
-                  </div>
-                )}
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-white truncate">{ch.name}</p>
-                  <p className="text-xs text-gray-500">{ch.count} video{ch.count > 1 ? 's' : ''}</p>
-                </div>
-              </a>
-            ))}
-          </div>
-        </div>
-      )}
     </div>
   )
 }

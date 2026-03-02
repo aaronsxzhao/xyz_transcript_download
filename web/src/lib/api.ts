@@ -120,6 +120,8 @@ export interface SummaryListItem {
   title: string
   topics_count: number
   key_points_count: number
+  podcast_title: string
+  podcast_cover: string
 }
 
 export interface ProcessingJob {
@@ -334,6 +336,25 @@ export async function checkPodcastsForUpdates(): Promise<{
     method: 'POST',
   })
   if (!res.ok) throw new Error('Failed to check for updates')
+  return res.json()
+}
+
+export async function checkVideoChannelsForUpdates(opts?: {
+  channel?: string
+  platform?: string
+}): Promise<{
+  message: string
+  new_videos: number
+  channels_checked: number
+}> {
+  const params = new URLSearchParams()
+  if (opts?.channel) params.set('channel', opts.channel)
+  if (opts?.platform) params.set('platform', opts.platform)
+  const qs = params.toString()
+  const res = await authFetch(`${API_BASE}/video-notes/check-channels${qs ? `?${qs}` : ''}`, {
+    method: 'POST',
+  })
+  if (!res.ok) throw new Error('Failed to check video channels')
   return res.json()
 }
 

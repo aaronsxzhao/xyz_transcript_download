@@ -169,6 +169,21 @@ class _SQLiteVideoTaskDB:
                 ).fetchall()
             return {r[0] for r in rows}
 
+    def get_distinct_channels(self, user_id: str = None) -> List[dict]:
+        with self._conn() as conn:
+            if user_id:
+                rows = conn.execute(
+                    "SELECT DISTINCT channel, channel_url, channel_avatar, platform FROM video_tasks "
+                    "WHERE channel != '' AND channel IS NOT NULL AND channel_url != '' AND user_id = ?",
+                    (user_id,),
+                ).fetchall()
+            else:
+                rows = conn.execute(
+                    "SELECT DISTINCT channel, channel_url, channel_avatar, platform FROM video_tasks "
+                    "WHERE channel != '' AND channel IS NOT NULL AND channel_url != '' AND user_id IS NULL",
+                ).fetchall()
+            return [dict(r) for r in rows]
+
     def update_task(self, task_id: str, updates: dict):
         allowed = {
             "status", "progress", "message", "markdown", "transcript_json",
@@ -386,6 +401,11 @@ class _SupabaseVideoTaskDB:
             return set()
         return self._sb.get_existing_video_urls(urls, user_id)
 
+    def get_distinct_channels(self, user_id: str = None) -> List[dict]:
+        if not user_id:
+            return []
+        return self._sb.get_distinct_video_channels(user_id)
+
     def delete_task(self, task_id: str, user_id: str = None) -> bool:
         with self._lock:
             self._cache.pop(task_id, None)
@@ -456,6 +476,9 @@ class VideoTaskDB:
 
     def get_existing_urls(self, urls: list, user_id: str = None) -> set:
         return self._backend.get_existing_urls(urls, user_id)
+
+    def get_distinct_channels(self, user_id: str = None) -> List[dict]:
+        return self._backend.get_distinct_channels(user_id)
 
     def delete_task(self, task_id: str, user_id: str = None) -> bool:
         return self._backend.delete_task(task_id, user_id)

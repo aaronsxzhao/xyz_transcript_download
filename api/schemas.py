@@ -84,6 +84,8 @@ class SummaryListItem(BaseModel):
     title: str
     topics_count: int
     key_points_count: int
+    podcast_title: str = ""
+    podcast_cover: str = ""
 
 
 # Processing schemas
