@@ -644,7 +644,7 @@ class SupabaseDatabase:
             "url": task_data.get("url", ""),
             "platform": task_data.get("platform", ""),
             "title": task_data.get("title", ""),
-            "status": "pending",
+            "status": task_data.get("status", "pending"),
             "style": task_data.get("style", "detailed"),
             "model": task_data.get("model", ""),
             "formats": task_data.get("formats", []),
@@ -657,8 +657,44 @@ class SupabaseDatabase:
             "grid_rows": task_data.get("grid_rows", 3),
             "max_output_tokens": task_data.get("max_output_tokens", 0),
         }
+        if task_data.get("thumbnail"):
+            row["thumbnail"] = task_data["thumbnail"]
+        if task_data.get("duration"):
+            row["duration"] = task_data["duration"]
+        if task_data.get("channel"):
+            row["channel"] = task_data["channel"]
+        if task_data.get("channel_url"):
+            row["channel_url"] = task_data["channel_url"]
+        if task_data.get("channel_avatar"):
+            row["channel_avatar"] = task_data["channel_avatar"]
         self.client.table("video_tasks").insert(row).execute()
         return task_id
+
+    def count_channel_tasks(self, channel: str, user_id: str) -> int:
+        """Count how many tasks exist for a given channel."""
+        if not self.client or not user_id or not channel:
+            return 0
+        result = (
+            self.client.table("video_tasks")
+            .select("id", count="exact")
+            .eq("user_id", user_id)
+            .eq("channel", channel)
+            .execute()
+        )
+        return result.count or 0
+
+    def get_existing_video_urls(self, urls: list, user_id: str) -> set:
+        """Return URLs that already have tasks for this user."""
+        if not self.client or not user_id or not urls:
+            return set()
+        result = (
+            self.client.table("video_tasks")
+            .select("url")
+            .eq("user_id", user_id)
+            .in_("url", urls)
+            .execute()
+        )
+        return {r["url"] for r in (result.data or [])}
 
     def update_video_task(self, task_id: str, updates: dict):
         """Update video task fields."""

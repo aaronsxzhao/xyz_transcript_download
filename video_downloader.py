@@ -12,7 +12,7 @@ import uuid
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, asdict
 from pathlib import Path
-from typing import Callable, Optional
+from typing import Callable, List, Optional
 
 import yt_dlp
 
@@ -229,6 +229,97 @@ def detect_platform(url: str) -> str:
     elif "kuaishou.com" in url_lower or "kwai.com" in url_lower:
         return "kuaishou"
     return ""
+
+
+def _channel_videos_url(channel_url: str, platform: str) -> str:
+    """Convert a channel URL to the videos listing URL for yt-dlp."""
+    if not channel_url:
+        return ""
+    if platform == "youtube":
+        url = channel_url.rstrip("/")
+        if not url.endswith("/videos"):
+            url += "/videos"
+        return url
+    if platform == "bilibili":
+        url = channel_url.rstrip("/")
+        if not url.endswith("/video"):
+            url += "/video"
+        return url
+    return channel_url
+
+
+def list_channel_videos(
+    channel_url: str,
+    platform: str,
+    cookies: str = "",
+    limit: int = 15,
+) -> List[dict]:
+    """List recent videos from a channel URL using yt-dlp flat extraction.
+
+    Returns a list of dicts with keys: url, title, thumbnail, duration.
+    """
+    listing_url = _channel_videos_url(channel_url, platform)
+    if not listing_url:
+        return []
+
+    opts: dict = {
+        "quiet": True,
+        "no_warnings": True,
+        "extract_flat": True,
+        "playlistend": limit,
+        "noplaylist": False,
+        "ignoreerrors": True,
+        "socket_timeout": 20,
+    }
+
+    if cookies:
+        cookie_file = DATA_DIR / f"{platform}_cookies.txt"
+        cookie_file.write_text(cookies, encoding="utf-8")
+        opts["cookiefile"] = str(cookie_file)
+    else:
+        try:
+            from cookie_manager import get_cookie_manager
+            saved = get_cookie_manager().get_cookie(platform)
+            if saved:
+                cookie_file = DATA_DIR / f"{platform}_cookies.txt"
+                cookie_file.write_text(saved, encoding="utf-8")
+                opts["cookiefile"] = str(cookie_file)
+        except Exception:
+            pass
+
+    if platform == "youtube":
+        opts["js_runtimes"] = {"deno": {}, "node": {}, "bun": {}}
+        opts["remote_components"] = {"ejs:github"}
+
+    try:
+        with yt_dlp.YoutubeDL(opts) as ydl:
+            info = ydl.extract_info(listing_url, download=False)
+        if not info:
+            return []
+        entries = info.get("entries") or []
+        videos = []
+        for entry in entries:
+            if not entry:
+                continue
+            vid_url = entry.get("url") or entry.get("webpage_url") or ""
+            if not vid_url:
+                continue
+            if platform == "youtube" and not vid_url.startswith("http"):
+                vid_url = f"https://www.youtube.com/watch?v={vid_url}"
+            thumb = entry.get("thumbnail") or entry.get("thumbnails", [{}])[0].get("url", "") if entry.get("thumbnails") else entry.get("thumbnail", "")
+            videos.append({
+                "url": vid_url,
+                "title": entry.get("title") or "",
+                "thumbnail": thumb or "",
+                "duration": entry.get("duration") or 0,
+            })
+            if len(videos) >= limit:
+                break
+        logger.info(f"Listed {len(videos)} videos from channel {channel_url}")
+        return videos
+    except Exception as e:
+        logger.error(f"Failed to list channel videos for {channel_url}: {e}")
+        return []
 
 
 ProgressCallback = Optional["Callable[[float, str], None]"]

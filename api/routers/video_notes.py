@@ -92,6 +92,67 @@ def _update_task_status(db, task_id: str, status: str, progress: float = 0,
         _broadcast_from_thread(task_id, task, user_id)
 
 
+CHANNEL_FETCH_EXECUTOR = ThreadPoolExecutor(max_workers=1, thread_name_prefix="channel_fetch")
+
+
+def _discover_channel_videos(
+    channel_url: str,
+    channel: str,
+    channel_avatar: str,
+    platform: str,
+    user_id: Optional[str],
+    current_url: str,
+):
+    """Fetch latest videos from a new channel and create 'discovered' tasks."""
+    try:
+        from video_downloader import list_channel_videos
+        from video_task_db import get_video_task_db
+
+        db = get_video_task_db()
+
+        existing_count = db.count_channel_tasks(channel, user_id)
+        if existing_count > 1:
+            logger.info(f"Channel '{channel}' already has {existing_count} tasks, skipping discovery")
+            return
+
+        logger.info(f"New channel detected: '{channel}' — fetching latest videos from {channel_url}")
+        videos = list_channel_videos(channel_url, platform, limit=15)
+        if not videos:
+            logger.info(f"No videos found for channel '{channel}'")
+            return
+
+        urls = [v["url"] for v in videos]
+        existing_urls = db.get_existing_urls(urls, user_id)
+        existing_urls.add(current_url)
+
+        created = 0
+        for v in videos:
+            if v["url"] in existing_urls:
+                continue
+            try:
+                db.create_task({
+                    "url": v["url"],
+                    "platform": platform,
+                    "title": v.get("title", ""),
+                    "thumbnail": v.get("thumbnail", ""),
+                    "duration": v.get("duration", 0),
+                    "channel": channel,
+                    "channel_url": channel_url,
+                    "channel_avatar": channel_avatar,
+                    "status": "discovered",
+                    "user_id": user_id,
+                })
+                created += 1
+            except Exception as e:
+                logger.warning(f"Failed to create discovered task for {v['url']}: {e}")
+
+        if created:
+            _invalidate_list_cache(user_id)
+            logger.info(f"Created {created} discovered tasks from channel '{channel}'")
+    except Exception as e:
+        logger.error(f"Channel discovery failed for '{channel}': {e}")
+
+
 def process_video_note_sync(
     task_id: str,
     url: str,
@@ -208,6 +269,13 @@ def process_video_note_sync(
                 "channel_avatar": channel_avatar,
             })
             _update_task_status(db, task_id, "parsing", 10, f"Found: {title}", user_id)
+
+            if channel and channel_url:
+                CHANNEL_FETCH_EXECUTOR.submit(
+                    _discover_channel_videos,
+                    channel_url, channel, channel_avatar,
+                    platform, user_id, url,
+                )
 
             if is_video_task_cancelled(task_id):
                 _update_task_status(db, task_id, "cancelled", 0, "Cancelled", user_id)
@@ -742,7 +810,7 @@ async def retry_task(
     task = db.get_task(task_id, user_id)
     if not task:
         raise HTTPException(status_code=404, detail="Task not found")
-    retryable = ("failed", "cancelled", "success", "downloading", "parsing", "transcribing", "summarizing", "saving", "pending")
+    retryable = ("failed", "cancelled", "success", "downloading", "parsing", "transcribing", "summarizing", "saving", "pending", "discovered")
     if task["status"] not in retryable:
         raise HTTPException(status_code=400, detail=f"Cannot retry task in '{task['status']}' status")
 

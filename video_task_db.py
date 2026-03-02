@@ -100,18 +100,21 @@ class _SQLiteVideoTaskDB:
 
     def create_task(self, task_data: dict) -> str:
         task_id = task_data.get("id") or str(uuid.uuid4())[:12]
+        status = task_data.get("status", "pending")
         with self._conn() as conn:
             conn.execute(
                 """INSERT INTO video_tasks
                    (id, url, platform, title, status, style, model, formats, quality,
                     video_quality, extras, video_understanding, video_interval,
-                    grid_cols, grid_rows, max_output_tokens, user_id)
-                   VALUES (?, ?, ?, ?, 'pending', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                    grid_cols, grid_rows, max_output_tokens, user_id,
+                    thumbnail, duration, channel, channel_url, channel_avatar)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
                 (
                     task_id,
                     task_data.get("url", ""),
                     task_data.get("platform", ""),
                     task_data.get("title", ""),
+                    status,
                     task_data.get("style", "detailed"),
                     task_data.get("model", ""),
                     json.dumps(task_data.get("formats", [])),
@@ -124,10 +127,47 @@ class _SQLiteVideoTaskDB:
                     task_data.get("grid_rows", 3),
                     task_data.get("max_output_tokens", 0),
                     task_data.get("user_id"),
+                    task_data.get("thumbnail", ""),
+                    task_data.get("duration", 0),
+                    task_data.get("channel", ""),
+                    task_data.get("channel_url", ""),
+                    task_data.get("channel_avatar", ""),
                 ),
             )
             conn.commit()
         return task_id
+
+    def count_channel_tasks(self, channel: str, user_id: str = None) -> int:
+        with self._conn() as conn:
+            if user_id:
+                row = conn.execute(
+                    "SELECT COUNT(*) FROM video_tasks WHERE channel = ? AND user_id = ?",
+                    (channel, user_id),
+                ).fetchone()
+            else:
+                row = conn.execute(
+                    "SELECT COUNT(*) FROM video_tasks WHERE channel = ?",
+                    (channel,),
+                ).fetchone()
+            return row[0] if row else 0
+
+    def get_existing_urls(self, urls: list, user_id: str = None) -> set:
+        """Return the subset of *urls* that already have tasks for this user."""
+        if not urls:
+            return set()
+        placeholders = ",".join("?" * len(urls))
+        with self._conn() as conn:
+            if user_id:
+                rows = conn.execute(
+                    f"SELECT url FROM video_tasks WHERE url IN ({placeholders}) AND user_id = ?",
+                    (*urls, user_id),
+                ).fetchall()
+            else:
+                rows = conn.execute(
+                    f"SELECT url FROM video_tasks WHERE url IN ({placeholders})",
+                    urls,
+                ).fetchall()
+            return {r[0] for r in rows}
 
     def update_task(self, task_id: str, updates: dict):
         allowed = {
@@ -336,6 +376,16 @@ class _SupabaseVideoTaskDB:
             return {"total": 0, "completed": 0}
         return self._sb.count_video_tasks(user_id)
 
+    def count_channel_tasks(self, channel: str, user_id: str = None) -> int:
+        if not user_id or not channel:
+            return 0
+        return self._sb.count_channel_tasks(channel, user_id)
+
+    def get_existing_urls(self, urls: list, user_id: str = None) -> set:
+        if not urls or not user_id:
+            return set()
+        return self._sb.get_existing_video_urls(urls, user_id)
+
     def delete_task(self, task_id: str, user_id: str = None) -> bool:
         with self._lock:
             self._cache.pop(task_id, None)
@@ -400,6 +450,12 @@ class VideoTaskDB:
             return self._backend.count_tasks(user_id)
         tasks = self._backend.list_tasks(user_id)
         return {"total": len(tasks), "completed": sum(1 for t in tasks if t.get("status") == "success")}
+
+    def count_channel_tasks(self, channel: str, user_id: str = None) -> int:
+        return self._backend.count_channel_tasks(channel, user_id)
+
+    def get_existing_urls(self, urls: list, user_id: str = None) -> set:
+        return self._backend.get_existing_urls(urls, user_id)
 
     def delete_task(self, task_id: str, user_id: str = None) -> bool:
         return self._backend.delete_task(task_id, user_id)

@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState, useMemo } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import {
   Plus, ChevronUp, ChevronDown, Video, Search, Trash2, RefreshCw, RotateCcw, Square,
-  CheckCircle, XCircle, Clock, Loader2, ArrowLeft, ExternalLink,
+  CheckCircle, XCircle, Clock, Loader2, ArrowLeft, ExternalLink, Play,
 } from 'lucide-react'
 import VideoNoteForm from '../components/video/VideoNoteForm'
 import PlatformIcon, { PLATFORM_COLORS } from '../components/PlatformIcon'
@@ -42,7 +42,7 @@ export default function Videos() {
   }, [setVideoTasks])
 
   const hasActiveTasks = videoTasks.some(t =>
-    !['success', 'failed', 'cancelled'].includes(t.status)
+    !['success', 'failed', 'cancelled', 'discovered'].includes(t.status)
   )
 
   useEffect(() => {
@@ -447,12 +447,13 @@ function VideoList({ videos, onDelete, onRetry, onCancel }: {
       pending: 'Pending', parsing: 'Parsing', downloading: 'Downloading',
       transcribing: 'Transcribing', summarizing: 'Summarizing', saving: 'Saving',
       success: 'Done', failed: 'Failed', cancelled: 'Cancelled',
+      discovered: 'Discovered',
     }
     return labels[status] || status
   }
 
   const isProcessing = (status: string) =>
-    !['success', 'failed', 'pending', 'cancelled'].includes(status)
+    !['success', 'failed', 'pending', 'cancelled', 'discovered'].includes(status)
 
   const [expandedErrors, setExpandedErrors] = useState<Set<string>>(new Set())
   const toggleError = (id: string) => {
@@ -565,6 +566,12 @@ function VideoList({ videos, onDelete, onRetry, onCancel }: {
                     <span className="hidden sm:inline">Pending</span>
                   </span>
                 )}
+                {task.status === 'discovered' && (
+                  <span className="flex items-center gap-1 text-cyan-400">
+                    <Search size={12} className="md:w-3.5 md:h-3.5" />
+                    <span className="hidden sm:inline">Discovered</span>
+                  </span>
+                )}
               </div>
 
               {/* Error details — always show brief, expandable for full */}
@@ -604,6 +611,19 @@ function VideoList({ videos, onDelete, onRetry, onCancel }: {
                         View
                       </Link>
                     </>
+                  )
+                }
+
+                if (task.status === 'discovered') {
+                  return (
+                    <button
+                      onClick={() => onRetry(task.id)}
+                      className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-colors"
+                      title="Start processing this video"
+                    >
+                      <Play size={16} />
+                      Process
+                    </button>
                   )
                 }
 
