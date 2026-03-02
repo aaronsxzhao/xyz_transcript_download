@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { Link } from 'react-router-dom'
 import { Radio, FileText, MessageSquare, Loader2, Plus, ArrowRight, Bell, RefreshCw, X, Video, CheckCircle, Users } from 'lucide-react'
 import { fetchStats, fetchSummaries, processEpisode, fetchNewEpisodes, checkPodcastsForUpdates, fetchVideoTasks, type Stats, type SummaryListItem, type ProcessingJob, type NewEpisode, type VideoTask } from '../lib/api'
@@ -7,6 +7,8 @@ import { getCache, setCache, CacheKeys } from '../lib/cache'
 import { useToast } from '../components/Toast'
 import SummaryCard from '../components/SummaryCard'
 import ProcessingProgress from '../components/ProcessingProgress'
+
+const VIDEO_QUEUE_STATUSES = new Set(['pending', 'parsing', 'downloading', 'transcribing', 'summarizing', 'saving', 'success', 'failed'])
 
 export default function Dashboard() {
   const [stats, setStats] = useState<Stats | null>(null)
@@ -20,8 +22,46 @@ export default function Dashboard() {
   const [checkingUpdates, setCheckingUpdates] = useState(false)
   const [showNewEpisodes, setShowNewEpisodes] = useState(true)
 
-  const { jobs, updateJob } = useStore()
+  const { jobs, updateJob, videoTasks, setVideoTasks } = useStore()
   const { addToast } = useToast()
+
+  const activeVideoJobs: ProcessingJob[] = useMemo(() => {
+    return videoTasks
+      .filter(t => VIDEO_QUEUE_STATUSES.has(t.status) && t.status !== 'success' && t.status !== 'failed')
+      .map(t => ({
+        job_id: t.id,
+        status: t.status === 'saving' ? 'summarizing' : t.status,
+        progress: t.progress,
+        message: t.message || t.title || '',
+        episode_title: t.title || (t.url ? (() => { try { return new URL(t.url).hostname + new URL(t.url).pathname.slice(0, 30) } catch { return t.url } })() : 'Video'),
+      }))
+  }, [videoTasks])
+
+  const recentlyDoneVideos: ProcessingJob[] = useMemo(() => {
+    return videoTasks
+      .filter(t => t.status === 'success' || t.status === 'failed')
+      .slice(0, 3)
+      .map(t => ({
+        job_id: t.id,
+        status: t.status,
+        progress: 100,
+        message: t.status === 'success' ? 'Notes generated!' : (t.error || t.message || 'Failed'),
+        episode_title: t.title || 'Video',
+      }))
+  }, [videoTasks])
+
+  const allQueueItems = useMemo(() => {
+    const podcastJobs = jobs.map(j => ({ ...j, _kind: 'podcast' as const }))
+    const videoJobs = activeVideoJobs.map(j => ({ ...j, _kind: 'video' as const }))
+    const donePodcasts = podcastJobs.filter(j => j.status === 'completed')
+    const activePodcasts = podcastJobs.filter(j => j.status !== 'completed')
+
+    const showDoneVideos = activeVideoJobs.length > 0 || jobs.length > 0
+      ? recentlyDoneVideos.slice(0, 2).map(j => ({ ...j, _kind: 'video' as const }))
+      : []
+
+    return [...activePodcasts, ...videoJobs, ...donePodcasts, ...showDoneVideos]
+  }, [jobs, activeVideoJobs, recentlyDoneVideos])
 
   useEffect(() => {
     loadData()
@@ -45,6 +85,7 @@ export default function Dashboard() {
       setStats(statsData)
       setSummaries(summariesData)
 
+      if (videoData.tasks.length > 0) setVideoTasks(videoData.tasks)
       const successTasks = videoData.tasks.filter(t => t.status === 'success')
       setRecentVideos(successTasks.slice(0, 6))
 
@@ -217,14 +258,26 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* Processing jobs */}
-      {jobs.length > 0 && (
+      {/* Processing jobs — podcast + video combined */}
+      {allQueueItems.length > 0 && (
         <div>
           <h2 className="text-lg font-semibold text-white mb-4">Processing Queue</h2>
           <div className="space-y-3">
-            {jobs.map((job: ProcessingJob) => (
-              <ProcessingProgress key={job.job_id} job={job} />
-            ))}
+            {allQueueItems.map((item) => {
+              const isVideo = item._kind === 'video'
+              const isDone = item.status === 'completed' || item.status === 'success'
+              const link = isDone
+                ? isVideo ? `/videos/${item.job_id}` : item.episode_id ? `/viewer/${item.episode_id}` : undefined
+                : undefined
+              return (
+                <ProcessingProgress
+                  key={`${item._kind}-${item.job_id}`}
+                  job={item}
+                  link={link}
+                  kind={item._kind}
+                />
+              )
+            })}
           </div>
         </div>
       )}
