@@ -760,7 +760,7 @@ class SupabaseDatabase:
             self.client.table("video_tasks")
             .select(cols)
             .eq("user_id", user_id)
-            .order("created_at", desc=True)
+            .order("updated_at", desc=True)
             .limit(limit)
             .execute()
         )

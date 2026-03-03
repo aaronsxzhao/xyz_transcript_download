@@ -103,8 +103,15 @@ export default function Videos() {
     catch (e) { console.error('Delete failed:', e) }
   }
   const handleRetry = async (taskId: string) => {
-    try { await retryVideoTask(taskId); loadTasks() }
-    catch (e) { console.error('Retry failed:', e) }
+    try {
+      await retryVideoTask(taskId)
+      const task = videoTasks.find(t => t.id === taskId)
+      addToast({ type: 'success', title: 'Processing started', message: task?.title || 'Video processing started' })
+      loadTasks()
+    } catch (e) {
+      console.error('Retry failed:', e)
+      addToast({ type: 'error', title: 'Failed to start processing', message: e instanceof Error ? e.message : 'Unknown error' })
+    }
   }
   const handleCancel = async (taskId: string) => {
     try { await cancelVideoTask(taskId); loadTasks() }

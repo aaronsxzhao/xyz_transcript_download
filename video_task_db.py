@@ -223,12 +223,12 @@ class _SQLiteVideoTaskDB:
         with self._conn() as conn:
             if user_id:
                 rows = conn.execute(
-                    "SELECT * FROM video_tasks WHERE user_id = ? ORDER BY created_at DESC LIMIT ?",
+                    "SELECT * FROM video_tasks WHERE user_id = ? ORDER BY updated_at DESC LIMIT ?",
                     (user_id, limit),
                 ).fetchall()
             else:
                 rows = conn.execute(
-                    "SELECT * FROM video_tasks WHERE user_id IS NULL ORDER BY created_at DESC LIMIT ?",
+                    "SELECT * FROM video_tasks WHERE user_id IS NULL ORDER BY updated_at DESC LIMIT ?",
                     (limit,),
                 ).fetchall()
             return [self._row_to_dict(r) for r in rows]
