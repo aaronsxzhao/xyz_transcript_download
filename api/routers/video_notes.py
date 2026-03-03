@@ -136,6 +136,7 @@ def _discover_channel_videos(
                     "title": v.get("title", ""),
                     "thumbnail": v.get("thumbnail", ""),
                     "duration": v.get("duration", 0),
+                    "published_at": v.get("published_at", ""),
                     "channel": channel,
                     "channel_url": channel_url,
                     "channel_avatar": channel_avatar,
@@ -251,6 +252,7 @@ def process_video_note_sync(
             downloader = get_downloader(platform, cookies)
 
             metadata = downloader.get_metadata(url)
+            published_at = ""
             if metadata:
                 title = metadata.title or title
                 thumbnail = metadata.thumbnail or thumbnail
@@ -259,15 +261,19 @@ def process_video_note_sync(
                 channel = metadata.channel or channel
                 channel_url = metadata.channel_url or channel_url
                 channel_avatar = metadata.channel_avatar or channel_avatar
+                published_at = metadata.published_at or ""
 
-            db.update_task(task_id, {
+            task_updates: dict = {
                 "title": title,
                 "thumbnail": thumbnail,
                 "duration": duration,
                 "channel": channel,
                 "channel_url": channel_url,
                 "channel_avatar": channel_avatar,
-            })
+            }
+            if published_at:
+                task_updates["published_at"] = published_at
+            db.update_task(task_id, task_updates)
             _update_task_status(db, task_id, "parsing", 10, f"Found: {title}", user_id)
 
             if channel and channel_url:

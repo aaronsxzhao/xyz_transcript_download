@@ -667,6 +667,8 @@ class SupabaseDatabase:
             row["channel_url"] = task_data["channel_url"]
         if task_data.get("channel_avatar"):
             row["channel_avatar"] = task_data["channel_avatar"]
+        if task_data.get("published_at"):
+            row["published_at"] = task_data["published_at"]
         self.client.table("video_tasks").insert(row).execute()
         return task_id
 
@@ -754,13 +756,13 @@ class SupabaseDatabase:
         cols = (
             "id, url, platform, title, thumbnail, status, progress, message,"
             "style, duration, error, channel, channel_url, channel_avatar,"
-            "created_at, updated_at"
+            "published_at, created_at, updated_at"
         )
         result = (
             self.client.table("video_tasks")
             .select(cols)
             .eq("user_id", user_id)
-            .order("updated_at", desc=True)
+            .order("published_at", desc=True)
             .limit(limit)
             .execute()
         )

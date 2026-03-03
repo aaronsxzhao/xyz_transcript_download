@@ -85,6 +85,7 @@ class _SQLiteVideoTaskDB:
                 ("channel TEXT", "''"),
                 ("channel_url TEXT", "''"),
                 ("channel_avatar TEXT", "''"),
+                ("published_at TEXT", "''"),
             ]:
                 try:
                     conn.execute(f"ALTER TABLE video_tasks ADD COLUMN {col} DEFAULT {default}")
@@ -107,8 +108,9 @@ class _SQLiteVideoTaskDB:
                    (id, url, platform, title, status, style, model, formats, quality,
                     video_quality, extras, video_understanding, video_interval,
                     grid_cols, grid_rows, max_output_tokens, user_id,
-                    thumbnail, duration, channel, channel_url, channel_avatar)
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                    thumbnail, duration, channel, channel_url, channel_avatar,
+                    published_at)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
                 (
                     task_id,
                     task_data.get("url", ""),
@@ -132,6 +134,7 @@ class _SQLiteVideoTaskDB:
                     task_data.get("channel", ""),
                     task_data.get("channel_url", ""),
                     task_data.get("channel_avatar", ""),
+                    task_data.get("published_at", ""),
                 ),
             )
             conn.commit()
@@ -223,12 +226,12 @@ class _SQLiteVideoTaskDB:
         with self._conn() as conn:
             if user_id:
                 rows = conn.execute(
-                    "SELECT * FROM video_tasks WHERE user_id = ? ORDER BY updated_at DESC LIMIT ?",
+                    "SELECT * FROM video_tasks WHERE user_id = ? ORDER BY COALESCE(NULLIF(published_at,''), created_at) DESC LIMIT ?",
                     (user_id, limit),
                 ).fetchall()
             else:
                 rows = conn.execute(
-                    "SELECT * FROM video_tasks WHERE user_id IS NULL ORDER BY updated_at DESC LIMIT ?",
+                    "SELECT * FROM video_tasks WHERE user_id IS NULL ORDER BY COALESCE(NULLIF(published_at,''), created_at) DESC LIMIT ?",
                     (limit,),
                 ).fetchall()
             return [self._row_to_dict(r) for r in rows]

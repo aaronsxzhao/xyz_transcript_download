@@ -93,7 +93,7 @@ export default function Videos() {
       markdown: '', transcript: null, style: '', model: '', formats: [],
       quality: '', extras: '', video_understanding: false, video_interval: 4,
       grid_cols: 3, grid_rows: 3, duration: 0, error: '',
-      created_at: new Date().toISOString(), updated_at: new Date().toISOString(),
+      published_at: '', created_at: new Date().toISOString(), updated_at: new Date().toISOString(),
     })
     setFormOpen(false)
   }
@@ -581,8 +581,8 @@ function VideoList({ videos, onDelete, onRetry, onCancel }: {
               )}
 
               <div className="flex flex-wrap items-center gap-2 md:gap-4 text-xs md:text-sm text-gray-400">
-                {task.created_at && (
-                  <span>{task.created_at.slice(0, 10)}</span>
+                {(task.published_at || task.created_at) && (
+                  <span>{(task.published_at || task.created_at).slice(0, 10)}</span>
                 )}
                 {task.duration > 0 && (
                   <span>{formatDuration(task.duration)}</span>

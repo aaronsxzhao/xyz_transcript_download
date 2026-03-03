@@ -188,6 +188,7 @@ CREATE TABLE IF NOT EXISTS video_tasks (
     channel TEXT DEFAULT '',
     channel_url TEXT DEFAULT '',
     channel_avatar TEXT DEFAULT '',
+    published_at TEXT DEFAULT '',
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );

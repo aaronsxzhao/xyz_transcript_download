@@ -407,6 +407,7 @@ export interface VideoTask {
   grid_rows: number
   duration: number
   error: string
+  published_at: string
   created_at: string
   updated_at: string
   versions?: VideoTaskVersion[]

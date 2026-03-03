@@ -77,6 +77,7 @@ class VideoMetadata:
     channel: str = ""
     channel_url: str = ""
     channel_avatar: str = ""
+    published_at: str = ""
 
     def __post_init__(self):
         if self.tags is None:
@@ -307,11 +308,14 @@ def list_channel_videos(
             if platform == "youtube" and not vid_url.startswith("http"):
                 vid_url = f"https://www.youtube.com/watch?v={vid_url}"
             thumb = entry.get("thumbnail") or entry.get("thumbnails", [{}])[0].get("url", "") if entry.get("thumbnails") else entry.get("thumbnail", "")
+            ud = entry.get("upload_date") or ""
+            pub = f"{ud[:4]}-{ud[4:6]}-{ud[6:8]}" if len(ud) >= 8 else ""
             videos.append({
                 "url": vid_url,
                 "title": entry.get("title") or "",
                 "thumbnail": thumb or "",
                 "duration": entry.get("duration") or 0,
+                "published_at": pub,
             })
             if len(videos) >= limit:
                 break
@@ -444,6 +448,9 @@ class YtdlpDownloader(BaseDownloader):
             if self.platform == "youtube" and ch_url:
                 ch_avatar = _fetch_youtube_channel_avatar(ch_url)
 
+            ud = info.get("upload_date") or ""
+            pub = f"{ud[:4]}-{ud[4:6]}-{ud[6:8]}" if len(ud) >= 8 else ""
+
             return VideoMetadata(
                 title=info.get("title", ""),
                 description=info.get("description", ""),
@@ -455,6 +462,7 @@ class YtdlpDownloader(BaseDownloader):
                 channel=info.get("channel") or info.get("uploader") or "",
                 channel_url=ch_url,
                 channel_avatar=ch_avatar,
+                published_at=pub,
             )
         except Exception as e:
             logger.error(f"Failed to get metadata for {self.platform}: {type(e).__name__}: {e}")
@@ -539,6 +547,8 @@ class YtdlpDownloader(BaseDownloader):
         ch_avatar = ""
         if self.platform == "youtube" and ch_url:
             ch_avatar = _fetch_youtube_channel_avatar(ch_url)
+        ud = info.get("upload_date") or ""
+        pub = f"{ud[:4]}-{ud[4:6]}-{ud[6:8]}" if len(ud) >= 8 else ""
         return VideoMetadata(
             title=info.get("title", ""),
             description=info.get("description", ""),
@@ -550,6 +560,7 @@ class YtdlpDownloader(BaseDownloader):
             channel=info.get("channel") or info.get("uploader") or "",
             channel_url=ch_url,
             channel_avatar=ch_avatar,
+            published_at=pub,
         )
 
     def download_video(self, url: str, task_id: str, video_quality: str = "720",

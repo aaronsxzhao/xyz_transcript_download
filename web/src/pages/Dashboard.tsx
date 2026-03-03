@@ -115,7 +115,9 @@ export default function Dashboard() {
       setSummaries(summariesData)
 
       if (videoData.tasks.length > 0) setVideoTasks(videoData.tasks)
-      const successTasks = videoData.tasks.filter(t => t.status === 'success')
+      const successTasks = videoData.tasks
+        .filter(t => t.status === 'success')
+        .sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime())
       setRecentVideos(successTasks.slice(0, 6))
 
       const channelMap = new Map<string, { name: string; avatar: string; url: string; count: number }>()
