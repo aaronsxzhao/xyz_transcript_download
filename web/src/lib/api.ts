@@ -57,6 +57,8 @@ export interface Podcast {
   cover_url: string
   episode_count: number
   summarized_count: number
+  platform: string
+  feed_url: string
 }
 
 export interface Episode {
@@ -122,6 +124,7 @@ export interface SummaryListItem {
   key_points_count: number
   podcast_title: string
   podcast_cover: string
+  created_at: string
 }
 
 export interface ProcessingJob {

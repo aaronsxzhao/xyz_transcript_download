@@ -23,6 +23,8 @@ class PodcastRecord:
     cover_url: str
     last_checked: Optional[str] = None
     created_at: Optional[str] = None
+    platform: str = "xiaoyuzhou"
+    feed_url: str = ""
 
 
 @dataclass
@@ -76,13 +78,29 @@ class SupabaseDatabase:
     
     # ==================== Podcasts ====================
     
+    def _row_to_podcast(self, row: dict) -> PodcastRecord:
+        """Convert a DB row to PodcastRecord, handling missing columns gracefully."""
+        return PodcastRecord(
+            id=row["id"],
+            user_id=row["user_id"],
+            pid=row["pid"],
+            title=row.get("title", ""),
+            author=row.get("author", ""),
+            description=row.get("description", ""),
+            cover_url=row.get("cover_url", ""),
+            last_checked=row.get("last_checked"),
+            created_at=row.get("created_at"),
+            platform=row.get("platform", "xiaoyuzhou"),
+            feed_url=row.get("feed_url", ""),
+        )
+
     def get_all_podcasts(self, user_id: str) -> List[PodcastRecord]:
         """Get all podcasts for a user."""
         if not self.client:
             return []
         
         result = self.client.table("podcasts").select("*").eq("user_id", user_id).execute()
-        return [PodcastRecord(**row) for row in result.data]
+        return [self._row_to_podcast(row) for row in result.data]
     
     def get_podcast(self, user_id: str, pid: str) -> Optional[PodcastRecord]:
         """Get a podcast by pid for a user."""
@@ -91,7 +109,7 @@ class SupabaseDatabase:
         
         result = self.client.table("podcasts").select("*").eq("user_id", user_id).eq("pid", pid).execute()
         if result.data:
-            return PodcastRecord(**result.data[0])
+            return self._row_to_podcast(result.data[0])
         return None
     
     def get_podcast_by_id(self, user_id: str, podcast_id: int) -> Optional[PodcastRecord]:
@@ -101,23 +119,31 @@ class SupabaseDatabase:
         
         result = self.client.table("podcasts").select("*").eq("user_id", user_id).eq("id", podcast_id).execute()
         if result.data:
-            return PodcastRecord(**result.data[0])
+            return self._row_to_podcast(result.data[0])
         return None
     
     def add_podcast(self, user_id: str, pid: str, title: str, author: str = "",
-                    description: str = "", cover_url: str = "") -> Optional[int]:
+                    description: str = "", cover_url: str = "",
+                    platform: str = "xiaoyuzhou", feed_url: str = "") -> Optional[int]:
         """Add a new podcast for a user."""
         if not self.client:
             return None
         
-        result = self.client.table("podcasts").insert({
+        data = {
             "user_id": user_id,
             "pid": pid,
             "title": title,
             "author": author,
             "description": description,
-            "cover_url": cover_url
-        }).execute()
+            "cover_url": cover_url,
+        }
+        try:
+            data["platform"] = platform
+            data["feed_url"] = feed_url
+        except Exception:
+            pass
+        
+        result = self.client.table("podcasts").insert(data).execute()
         
         if result.data:
             return result.data[0]["id"]
@@ -455,6 +481,7 @@ class SupabaseDatabase:
                 topics=row.get("topics", []),
                 takeaways=row.get("takeaways", []),
                 key_points=kp_list,
+                created_at=row.get("created_at"),
             ))
 
         return summaries

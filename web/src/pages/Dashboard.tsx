@@ -121,7 +121,10 @@ export default function Dashboard() {
         fetchVideoTasks().catch(() => ({ tasks: [] })),
       ])
       setStats(statsData)
-      setSummaries(summariesData)
+      const sorted = [...summariesData].sort((a, b) =>
+        new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime()
+      )
+      setSummaries(sorted)
 
       if (videoData.tasks.length > 0) setVideoTasks(videoData.tasks)
       const successTasks = videoData.tasks

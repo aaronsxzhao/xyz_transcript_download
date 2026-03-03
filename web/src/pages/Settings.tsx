@@ -463,7 +463,7 @@ export default function Settings() {
     p === 'bilibili' ? 'BiliBili' : p === 'youtube' ? 'YouTube' : p.charAt(0).toUpperCase() + p.slice(1)
 
   return (
-    <div className="max-w-2xl">
+    <div className="max-w-2xl mx-auto">
       <div className="mb-5">
         <h1 className="text-2xl font-bold text-white mb-1">Settings</h1>
         <p className="text-sm text-gray-500">Configure AI models, platform logins, and system tools</p>
@@ -796,8 +796,17 @@ export default function Settings() {
               />
             }
 
+            const platformLoggedIn = cookies.find(c => c.platform === activePlatform)?.has_cookie
+
             return (
               <div className="space-y-4">
+                {platformLoggedIn && (
+                  <div className="flex items-center gap-2 p-3 bg-green-500/10 border border-green-500/30 rounded-lg">
+                    <CheckCircle size={16} className="text-green-400" />
+                    <span className="text-sm text-green-400">{name} cookies are set</span>
+                  </div>
+                )}
+
                 {/* ─── Method 1: Auto-import from browser ─── */}
                 <div className="space-y-3">
                   <p className="text-sm text-gray-300 font-medium flex items-center gap-2">

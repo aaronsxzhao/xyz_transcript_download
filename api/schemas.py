@@ -19,6 +19,8 @@ class PodcastResponse(PodcastBase):
     pid: str
     episode_count: int = 0
     summarized_count: int = 0
+    platform: str = "xiaoyuzhou"
+    feed_url: str = ""
     
     class Config:
         from_attributes = True
@@ -86,6 +88,7 @@ class SummaryListItem(BaseModel):
     key_points_count: int
     podcast_title: str = ""
     podcast_cover: str = ""
+    created_at: str = ""
 
 
 # Processing schemas

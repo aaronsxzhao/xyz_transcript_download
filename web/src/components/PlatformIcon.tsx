@@ -33,6 +33,26 @@ export default function PlatformIcon({ platform, size = 16, className = '' }: Pl
           <path d="M12.421 2c2.238 0 3.688.953 4.39 1.58.341.303.436.81.213 1.201l-1.634 2.869c-.248.436-.79.598-1.234.374a3.397 3.397 0 0 0-1.58-.399c-2.034 0-3.552 1.665-3.552 3.712 0 1.636.862 2.85 1.895 3.555l4.12 2.817c.444.304.579.907.297 1.368l-1.7 2.777c-.265.432-.83.58-1.272.333C9.647 20.45 6.4 17.37 6.4 11.337 6.4 5.78 9.674 2 12.421 2zm5.702 6.2c.736 0 1.333.597 1.333 1.333v8.934c0 .736-.597 1.333-1.333 1.333-.736 0-1.333-.597-1.333-1.333V9.533c0-.736.597-1.333 1.333-1.333z"/>
         </svg>
       )
+    case 'xiaoyuzhou':
+      return (
+        <svg viewBox="0 0 24 24" width={s} height={s} className={cls} fill="currentColor">
+          <circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" strokeWidth="2"/>
+          <circle cx="12" cy="12" r="4"/>
+          <ellipse cx="12" cy="12" rx="10" ry="4" fill="none" stroke="currentColor" strokeWidth="1.5" transform="rotate(-30 12 12)"/>
+        </svg>
+      )
+    case 'apple':
+      return (
+        <svg viewBox="0 0 24 24" width={s} height={s} className={cls} fill="currentColor">
+          <path d="M5.34 18.66a1 1 0 0 1-.37-1.36 9 9 0 0 1 0-10.6 1 1 0 0 1 1.73 1A7 7 0 0 0 5 12a7 7 0 0 0 1.7 4.3 1 1 0 0 1-1.36 1.36z"/>
+          <path d="M18.66 18.66a1 1 0 0 1-1.36-1.36A7 7 0 0 0 19 12a7 7 0 0 0-1.7-4.3 1 1 0 0 1 1.73-1 9 9 0 0 1 0 10.6 1 1 0 0 1-.37.36z"/>
+          <path d="M8.46 15.54a1 1 0 0 1-.19-1.4A4 4 0 0 0 9 12a4 4 0 0 0-.73-2.14 1 1 0 1 1 1.59-1.22A6 6 0 0 1 11 12a6 6 0 0 1-1.14 3.36 1 1 0 0 1-1.4.18z"/>
+          <path d="M15.54 15.54a1 1 0 0 1-1.4-.18A6 6 0 0 1 13 12a6 6 0 0 1 1.14-3.36 1 1 0 1 1 1.59 1.22A4 4 0 0 0 15 12c0 .78.26 1.53.73 2.14a1 1 0 0 1-.19 1.4z"/>
+          <circle cx="12" cy="12" r="2"/>
+          <path d="M12 14v6"/>
+          <circle cx="12" cy="21" r="1"/>
+        </svg>
+      )
     case 'local':
       return (
         <svg viewBox="0 0 24 24" width={s} height={s} className={cls} fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -55,4 +75,6 @@ export const PLATFORM_COLORS: Record<string, string> = {
   douyin: 'text-white',
   kuaishou: 'text-[#FF4906]',
   local: 'text-gray-400',
+  xiaoyuzhou: 'text-[#EE6723]',
+  apple: 'text-[#872EC4]',
 }

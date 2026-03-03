@@ -57,7 +57,10 @@ export default function Episodes() {
   async function handleProcess(episode: Episode) {
     setProcessingEid(episode.eid)
     try {
-      const episodeUrl = `https://www.xiaoyuzhoufm.com/episode/${episode.eid}`
+      const isApple = podcast?.platform === 'apple'
+      const episodeUrl = isApple
+        ? `apple://${episode.eid}` 
+        : `https://www.xiaoyuzhoufm.com/episode/${episode.eid}`
       const result = await processEpisode(episodeUrl)
       
       // Immediately add job to store for instant UI feedback

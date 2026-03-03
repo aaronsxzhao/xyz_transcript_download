@@ -13,6 +13,8 @@ CREATE TABLE IF NOT EXISTS podcasts (
     author TEXT DEFAULT '',
     description TEXT DEFAULT '',
     cover_url TEXT DEFAULT '',
+    platform TEXT DEFAULT 'xiaoyuzhou',
+    feed_url TEXT DEFAULT '',
     last_checked TIMESTAMP WITH TIME ZONE,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     UNIQUE(user_id, pid)

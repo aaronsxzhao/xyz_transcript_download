@@ -407,77 +407,99 @@ def process_episode_sync(job_id: str, episode_url: str, transcribe_only: bool = 
         # ===== PHASE 1: Fetch episode info (0-10%) =====
         update_job_status(job_id, "fetching", 5, "Fetching episode info...")
         
-        episode = client.get_episode_by_share_url(episode_url)
-        if not episode:
-            update_job_status(job_id, "failed", 0, "Could not fetch episode")
-            return
+        is_apple = episode_url.startswith("apple://")
+        
+        if is_apple:
+            apple_eid = episode_url.replace("apple://", "")
+            db_ep = db_interface.get_episode(apple_eid)
+            if not db_ep:
+                update_job_status(job_id, "failed", 0, "Episode not found in database")
+                return
+            
+            from dataclasses import dataclass as _dc
+            @_dc
+            class _AppleEp:
+                eid: str
+                pid: str
+                title: str
+                description: str
+                duration: int
+                pub_date: str
+                audio_url: str
+                shownotes: str = ""
+            
+            episode = _AppleEp(
+                eid=db_ep.eid, pid=db_ep.pid, title=db_ep.title,
+                description=db_ep.description, duration=db_ep.duration,
+                pub_date=db_ep.pub_date, audio_url=db_ep.audio_url,
+            )
+            podcast_id_for_db = db_ep.podcast_id
+        else:
+            episode = client.get_episode_by_share_url(episode_url)
+            if not episode:
+                update_job_status(job_id, "failed", 0, "Could not fetch episode")
+                return
         
         update_job_status(job_id, "fetching", 10, f"Found: {episode.title}", 
                          episode.eid, episode.title)
         
-        # Auto-subscribe to podcast and add episode to database
-        # This ensures episodes added via URL have a podcast page to view them
-        podcast_id_for_db = None
-        
-        # Try to get podcast ID from episode, or fetch it separately
-        pid = episode.pid
-        if not pid:
-            # Try to get podcast ID from the episode API
-            logger.info(f"Episode missing pid, trying to fetch podcast ID for {episode.eid}")
-            pid = client.get_episode_podcast_id(episode.eid)
+        if not is_apple:
+            # Auto-subscribe to podcast and add episode to database
+            podcast_id_for_db = None
+            
+            pid = episode.pid
+            if not pid:
+                logger.info(f"Episode missing pid, trying to fetch podcast ID for {episode.eid}")
+                pid = client.get_episode_podcast_id(episode.eid)
+                if pid:
+                    episode.pid = pid
+            
             if pid:
-                episode.pid = pid
-        
-        if pid:
-            podcast = db_interface.get_podcast(pid)
-            is_new_subscription = False
-            
-            if not podcast:
-                # Podcast not in DB - subscribe to it
-                podcast_info = client.get_podcast(pid)
-                if podcast_info:
-                    db_interface.add_podcast(
-                        podcast_info.pid, podcast_info.title, podcast_info.author,
-                        podcast_info.description, podcast_info.cover_url
-                    )
-                    update_job_status(job_id, "fetching", 12, f"Subscribed to: {podcast_info.title}")
-                    podcast = db_interface.get_podcast(pid)
-                    is_new_subscription = True
-                    logger.info(f"Auto-subscribed to podcast: {podcast_info.title}")
-            
-            if podcast:
-                podcast_id_for_db = podcast.id
+                podcast = db_interface.get_podcast(pid)
+                is_new_subscription = False
                 
-                # If this is a new subscription, fetch all episodes (same as podcasts page)
-                if is_new_subscription:
-                    try:
-                        all_episodes = client.get_episodes_from_page(pid, limit=50)
-                        added_count = 0
-                        for ep in all_episodes:
-                            if not db_interface.episode_exists(ep.eid):
-                                db_interface.add_episode(
-                                    eid=ep.eid, pid=ep.pid, podcast_id=podcast.id,
-                                    title=ep.title, description=ep.description,
-                                    duration=ep.duration, pub_date=ep.pub_date,
-                                    audio_url=ep.audio_url,
-                                )
-                                added_count += 1
-                        logger.info(f"Added {added_count} episodes from podcast to database")
-                    except Exception as e:
-                        logger.warning(f"Failed to fetch all episodes: {e}")
+                if not podcast:
+                    podcast_info = client.get_podcast(pid)
+                    if podcast_info:
+                        db_interface.add_podcast(
+                            podcast_info.pid, podcast_info.title, podcast_info.author,
+                            podcast_info.description, podcast_info.cover_url
+                        )
+                        update_job_status(job_id, "fetching", 12, f"Subscribed to: {podcast_info.title}")
+                        podcast = db_interface.get_podcast(pid)
+                        is_new_subscription = True
+                        logger.info(f"Auto-subscribed to podcast: {podcast_info.title}")
                 
-                # ALWAYS ensure the current episode is in the database
-                # (it might be older than the latest 50 episodes we just fetched)
-                if not db_interface.episode_exists(episode.eid):
-                    db_interface.add_episode(
-                        eid=episode.eid, pid=pid, podcast_id=podcast.id,
-                        title=episode.title, description=episode.description,
-                        duration=episode.duration, pub_date=episode.pub_date,
-                        audio_url=episode.audio_url,
-                    )
-                    logger.info(f"Added current episode to database: {episode.title}")
-        else:
-            logger.warning(f"Could not find podcast ID for episode {episode.eid} - episode won't appear in podcast page")
+                if podcast:
+                    podcast_id_for_db = podcast.id
+                    
+                    if is_new_subscription:
+                        try:
+                            all_episodes = client.get_episodes_from_page(pid, limit=50)
+                            added_count = 0
+                            for ep in all_episodes:
+                                if not db_interface.episode_exists(ep.eid):
+                                    db_interface.add_episode(
+                                        eid=ep.eid, pid=ep.pid, podcast_id=podcast.id,
+                                        title=ep.title, description=ep.description,
+                                        duration=ep.duration, pub_date=ep.pub_date,
+                                        audio_url=ep.audio_url,
+                                    )
+                                    added_count += 1
+                            logger.info(f"Added {added_count} episodes from podcast to database")
+                        except Exception as e:
+                            logger.warning(f"Failed to fetch all episodes: {e}")
+                    
+                    if not db_interface.episode_exists(episode.eid):
+                        db_interface.add_episode(
+                            eid=episode.eid, pid=pid, podcast_id=podcast.id,
+                            title=episode.title, description=episode.description,
+                            duration=episode.duration, pub_date=episode.pub_date,
+                            audio_url=episode.audio_url,
+                        )
+                        logger.info(f"Added current episode to database: {episode.title}")
+            else:
+                logger.warning(f"Could not find podcast ID for episode {episode.eid} - episode won't appear in podcast page")
         
         # Check for existing transcript/summary
         existing_transcript = db_interface.get_transcript(episode.eid)
@@ -864,13 +886,22 @@ async def process_episode(
     # Try to fetch episode info for immediate display
     episode_id = None
     episode_title = None
+    is_apple = data.episode_url.startswith("apple://")
     try:
-        from xyz_client import get_client
-        client = get_client()
-        episode = client.get_episode_by_share_url(data.episode_url)
-        if episode:
-            episode_id = episode.eid
-            episode_title = episode.title
+        if is_apple:
+            eid = data.episode_url.replace("apple://", "")
+            db_interface = get_db(user_id)
+            ep = db_interface.get_episode(eid)
+            if ep:
+                episode_id = ep.eid
+                episode_title = ep.title
+        else:
+            from xyz_client import get_client
+            client = get_client()
+            episode = client.get_episode_by_share_url(data.episode_url)
+            if episode:
+                episode_id = episode.eid
+                episode_title = episode.title
     except Exception:
         pass  # Will be fetched again in background task
     
@@ -1052,21 +1083,26 @@ async def retry_job(
         if not episode_id:
             raise HTTPException(status_code=400, detail="Job has no episode_id to retry")
     
-    # Construct episode URL
-    episode_url = f"https://www.xiaoyuzhoufm.com/episode/{episode_id}"
+    # Detect platform from episode ID to construct the right URL
+    db_interface = get_db(user_id)
+    db_ep = db_interface.get_episode(episode_id)
+    if db_ep and db_ep.pid and db_ep.pid.startswith("apple_"):
+        episode_url = f"apple://{episode_id}"
+    else:
+        episode_url = f"https://www.xiaoyuzhoufm.com/episode/{episode_id}"
     
     # Delete old cached compressed audio to force re-compression
     try:
         from downloader import get_downloader
-        from xyz_client import get_client
-        
-        client = get_client()
-        episode = client.get_episode_by_share_url(episode_url)
-        if episode:
-            downloader = get_downloader()
-            compressed_path = downloader.get_compressed_path(episode)
-            if compressed_path.exists():
-                compressed_path.unlink()
+        if not episode_url.startswith("apple://"):
+            from xyz_client import get_client
+            client = get_client()
+            episode = client.get_episode_by_share_url(episode_url)
+            if episode:
+                downloader = get_downloader()
+                compressed_path = downloader.get_compressed_path(episode)
+                if compressed_path.exists():
+                    compressed_path.unlink()
     except Exception:
         pass  # Best effort - proceed with retry anyway
     
@@ -1140,8 +1176,12 @@ async def resummarize_episode(
     # Delete existing summary to force regeneration
     db.delete_summary(episode_id)
     
-    # Construct episode URL
-    episode_url = f"https://www.xiaoyuzhoufm.com/episode/{episode_id}"
+    # Detect platform from episode data
+    db_ep = db.get_episode(episode_id)
+    if db_ep and db_ep.pid and db_ep.pid.startswith("apple_"):
+        episode_url = f"apple://{episode_id}"
+    else:
+        episode_url = f"https://www.xiaoyuzhoufm.com/episode/{episode_id}"
     
     llm_model = data.llm_model if data else None
     

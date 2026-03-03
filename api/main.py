@@ -442,17 +442,24 @@ async def image_proxy(url: str):
         "image.xyzcdn.net",
         "jike.ruguoapp.com",
         "piccdn.igetget.com",
+        "mzstatic.com",
+        "is1-ssl.mzstatic.com",
+        "is2-ssl.mzstatic.com",
+        "is3-ssl.mzstatic.com",
+        "is4-ssl.mzstatic.com",
+        "is5-ssl.mzstatic.com",
     ]
-    
+
     from urllib.parse import urlparse
     parsed = urlparse(url)
-    
+
     if not any(domain in parsed.netloc for domain in allowed_domains):
         return Response(status_code=403, content="Domain not allowed")
-    
+
     try:
+        headers = {"User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36"}
         async with httpx.AsyncClient(timeout=10.0) as client:
-            resp = await client.get(url)
+            resp = await client.get(url, headers=headers)
             if resp.status_code == 200:
                 content_type = resp.headers.get("content-type", "image/jpeg")
                 return Response(

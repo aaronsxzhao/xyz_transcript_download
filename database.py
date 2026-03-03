@@ -40,6 +40,8 @@ class PodcastRecord:
     cover_url: str
     last_checked: str
     created_at: str
+    platform: str = "xiaoyuzhou"
+    feed_url: str = ""
 
 
 @dataclass
@@ -118,6 +120,13 @@ class Database:
                     )
                 """)
 
+                # Migrate: add platform and feed_url columns if missing
+                cols = {row[1] for row in cursor.execute("PRAGMA table_info(podcasts)").fetchall()}
+                if "platform" not in cols:
+                    cursor.execute("ALTER TABLE podcasts ADD COLUMN platform TEXT DEFAULT 'xiaoyuzhou'")
+                if "feed_url" not in cols:
+                    cursor.execute("ALTER TABLE podcasts ADD COLUMN feed_url TEXT DEFAULT ''")
+
                 # Create indexes
                 cursor.execute("""
                     CREATE INDEX IF NOT EXISTS idx_episodes_pid ON episodes(pid)
@@ -157,6 +166,8 @@ class Database:
         author: str = "",
         description: str = "",
         cover_url: str = "",
+        platform: str = "xiaoyuzhou",
+        feed_url: str = "",
     ) -> Optional[int]:
         """
         Add a new podcast to the database.
@@ -168,13 +179,12 @@ class Database:
             cursor = conn.cursor()
             try:
                 cursor.execute("""
-                    INSERT INTO podcasts (pid, title, author, description, cover_url)
-                    VALUES (?, ?, ?, ?, ?)
-                """, (pid, title, author, description, cover_url))
+                    INSERT INTO podcasts (pid, title, author, description, cover_url, platform, feed_url)
+                    VALUES (?, ?, ?, ?, ?, ?, ?)
+                """, (pid, title, author, description, cover_url, platform, feed_url))
                 conn.commit()
                 return cursor.lastrowid
             except sqlite3.IntegrityError:
-                # Already exists
                 return None
 
     def get_podcast(self, pid: str) -> Optional[PodcastRecord]:
@@ -185,6 +195,7 @@ class Database:
             row = cursor.fetchone()
             
             if row:
+                keys = row.keys()
                 return PodcastRecord(
                     id=row["id"],
                     pid=row["pid"],
@@ -194,6 +205,8 @@ class Database:
                     cover_url=row["cover_url"],
                     last_checked=row["last_checked"] or "",
                     created_at=row["created_at"],
+                    platform=row["platform"] if "platform" in keys else "xiaoyuzhou",
+                    feed_url=row["feed_url"] if "feed_url" in keys else "",
                 )
             return None
 
@@ -225,6 +238,7 @@ class Database:
             
             podcasts = []
             for row in cursor.fetchall():
+                keys = row.keys()
                 podcasts.append(PodcastRecord(
                     id=row["id"],
                     pid=row["pid"],
@@ -234,6 +248,8 @@ class Database:
                     cover_url=row["cover_url"],
                     last_checked=row["last_checked"] or "",
                     created_at=row["created_at"],
+                    platform=row["platform"] if "platform" in keys else "xiaoyuzhou",
+                    feed_url=row["feed_url"] if "feed_url" in keys else "",
                 ))
             return podcasts
 

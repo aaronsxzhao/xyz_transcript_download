@@ -34,7 +34,9 @@ USER-SPECIFIC RESOURCES (not shared):
 from typing import Optional, List, Dict, Any
 from dataclasses import dataclass
 from config import USE_SUPABASE, DATA_DIR
+from datetime import datetime, timezone
 import json
+import os
 
 
 @dataclass
@@ -47,6 +49,8 @@ class PodcastData:
     description: str = ""
     cover_url: str = ""
     user_id: Optional[str] = None
+    platform: str = "xiaoyuzhou"
+    feed_url: str = ""
 
 
 @dataclass
@@ -84,6 +88,7 @@ class SummaryData:
     topics: List[str]
     takeaways: List[str]
     key_points: List[Dict[str, Any]]
+    created_at: str = ""
 
 
 class DatabaseInterface:
@@ -134,6 +139,8 @@ class DatabaseInterface:
                 description=getattr(r, 'description', ''),
                 cover_url=getattr(r, 'cover_url', ''),
                 user_id=self.user_id,
+                platform=getattr(r, 'platform', 'xiaoyuzhou'),
+                feed_url=getattr(r, 'feed_url', ''),
             )
             for r in records
         ]
@@ -158,15 +165,18 @@ class DatabaseInterface:
             description=getattr(r, 'description', ''),
             cover_url=getattr(r, 'cover_url', ''),
             user_id=self.user_id,
+            platform=getattr(r, 'platform', 'xiaoyuzhou'),
+            feed_url=getattr(r, 'feed_url', ''),
         )
     
     def add_podcast(self, pid: str, title: str, author: str = "", 
-                    description: str = "", cover_url: str = "") -> Optional[int]:
+                    description: str = "", cover_url: str = "",
+                    platform: str = "xiaoyuzhou", feed_url: str = "") -> Optional[int]:
         """Add a new podcast."""
         if self.use_supabase:
-            return self.db.add_podcast(self.user_id, pid, title, author, description, cover_url)
+            return self.db.add_podcast(self.user_id, pid, title, author, description, cover_url, platform, feed_url)
         else:
-            return self.db.add_podcast(pid, title, author, description, cover_url)
+            return self.db.add_podcast(pid, title, author, description, cover_url, platform, feed_url)
     
     def delete_podcast(self, pid: str) -> bool:
         """Delete a podcast."""
@@ -474,11 +484,11 @@ class DatabaseInterface:
                     topics=r.topics,
                     takeaways=r.takeaways,
                     key_points=r.key_points,
+                    created_at=r.created_at or "",
                 )
                 for r in records
             ]
         else:
-            # Load from files
             summaries_dir = DATA_DIR / "summaries"
             results = []
             if summaries_dir.exists():
@@ -486,6 +496,8 @@ class DatabaseInterface:
                     try:
                         with open(path, "r", encoding="utf-8") as f:
                             data = json.load(f)
+                        mtime = os.path.getmtime(path)
+                        created = datetime.fromtimestamp(mtime, tz=timezone.utc).isoformat()
                         results.append(SummaryData(
                             episode_id=data.get("episode_id", path.stem),
                             title=data.get("title", ""),
@@ -493,9 +505,11 @@ class DatabaseInterface:
                             topics=data.get("topics", []),
                             takeaways=data.get("takeaways", []),
                             key_points=data.get("key_points", []),
+                            created_at=created,
                         ))
                     except (json.JSONDecodeError, IOError):
                         continue
+            results.sort(key=lambda s: s.created_at, reverse=True)
             return results
     
     def has_summary(self, episode_id: str) -> bool:

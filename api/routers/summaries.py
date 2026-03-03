@@ -46,6 +46,7 @@ async def list_summaries(user: Optional[User] = Depends(get_current_user)):
             key_points_count=len(s.key_points),
             podcast_title=pt,
             podcast_cover=pc,
+            created_at=s.created_at,
         ))
     return results
 
