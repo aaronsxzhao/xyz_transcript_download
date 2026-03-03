@@ -731,7 +731,7 @@ class SupabaseDatabase:
         allowed = {
             "status", "progress", "message", "markdown", "transcript_json",
             "title", "thumbnail", "duration", "error", "model",
-            "channel", "channel_url", "channel_avatar",
+            "channel", "channel_url", "channel_avatar", "published_at",
         }
         fields = {k: v for k, v in updates.items() if k in allowed}
         if not fields:
