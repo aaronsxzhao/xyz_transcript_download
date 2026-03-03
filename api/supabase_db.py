@@ -3,6 +3,7 @@ Supabase database operations.
 Provides user-scoped CRUD operations for podcasts, episodes, transcripts, and summaries.
 """
 
+import json
 from typing import List, Optional, Dict, Any
 from dataclasses import dataclass, asdict
 from datetime import datetime
@@ -732,10 +733,16 @@ class SupabaseDatabase:
             "status", "progress", "message", "markdown", "transcript_json",
             "title", "thumbnail", "duration", "error", "model",
             "channel", "channel_url", "channel_avatar", "published_at",
+            "style", "formats", "quality", "video_quality",
         }
         fields = {k: v for k, v in updates.items() if k in allowed}
         if not fields:
             return
+        if "formats" in fields and isinstance(fields["formats"], str):
+            try:
+                fields["formats"] = json.loads(fields["formats"])
+            except (json.JSONDecodeError, TypeError):
+                fields["formats"] = []
         fields["updated_at"] = datetime.utcnow().isoformat()
         self.client.table("video_tasks").update(fields).eq("id", task_id).execute()
 
@@ -817,6 +824,16 @@ class SupabaseDatabase:
             query = query.eq("user_id", user_id)
         result = query.execute()
         return bool(result.data)
+
+    def delete_video_channel(self, channel: str, user_id: str = None) -> int:
+        """Delete all video tasks for a channel."""
+        if not self.client or not channel:
+            return 0
+        query = self.client.table("video_tasks").delete().eq("channel", channel)
+        if user_id:
+            query = query.eq("user_id", user_id)
+        result = query.execute()
+        return len(result.data) if result.data else 0
 
     def add_video_task_version(self, task_id: str, version_id: str,
                                content: str, style: str = "", model_name: str = "") -> str:

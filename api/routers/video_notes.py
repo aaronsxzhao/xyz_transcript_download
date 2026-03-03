@@ -9,7 +9,7 @@ from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import Optional, Set
 
-from fastapi import APIRouter, HTTPException, BackgroundTasks, Depends, UploadFile, File, Form, Query
+from fastapi import APIRouter, HTTPException, BackgroundTasks, Depends, UploadFile, File, Form, Query, Request
 
 from api.auth import get_current_user, User
 from api.routers.processing import (
@@ -803,13 +803,29 @@ async def delete_task(task_id: str, user: Optional[User] = Depends(get_current_u
     return {"message": "Task deleted"}
 
 
+@router.delete("/channels/{channel_name}")
+async def delete_channel(channel_name: str, user: Optional[User] = Depends(get_current_user)):
+    """Delete all video tasks for a channel."""
+    from video_task_db import get_video_task_db
+    db = get_video_task_db()
+    user_id = user.id if user else None
+    count = db.delete_channel(channel_name, user_id)
+    if count == 0:
+        raise HTTPException(status_code=404, detail="Channel not found or no tasks to delete")
+    _invalidate_list_cache(user_id)
+    return {"message": f"Deleted {count} video(s) from channel '{channel_name}'", "deleted": count}
+
+
 @router.post("/tasks/{task_id}/retry")
 async def retry_task(
     task_id: str,
     background_tasks: BackgroundTasks,
+    request: Request,
     user: Optional[User] = Depends(get_current_user),
 ):
-    """Retry a failed video note task."""
+    """Retry a failed video note task.  Accepts optional JSON body with
+    processing defaults (style, formats, quality, video_quality) that
+    override empty/missing values on the task — useful for discovered videos."""
     from video_task_db import get_video_task_db
     db = get_video_task_db()
     user_id = user.id if user else None
@@ -820,25 +836,55 @@ async def retry_task(
     if task["status"] not in retryable:
         raise HTTPException(status_code=400, detail=f"Cannot retry task in '{task['status']}' status")
 
-    msg = "Starting..." if task["status"] == "discovered" else "Retrying..."
-    db.update_task(task_id, {"status": "pending", "progress": 0, "message": msg, "error": ""})
+    overrides: dict = {}
+    try:
+        body = await request.json()
+        if isinstance(body, dict):
+            overrides = body
+    except Exception:
+        pass
+
+    style = task.get("style") or overrides.get("style", "detailed")
+    formats = task.get("formats") or overrides.get("formats", ["toc", "summary", "screenshot"])
+    quality = task.get("quality") or overrides.get("quality", "medium")
+    video_quality = task.get("video_quality") or overrides.get("video_quality", "720")
+    llm_model = task.get("model") or overrides.get("llm_model", "")
+
+    if isinstance(formats, str):
+        try:
+            formats = json.loads(formats)
+        except (json.JSONDecodeError, TypeError):
+            formats = ["toc", "summary", "screenshot"]
+    if not formats:
+        formats = overrides.get("formats", ["toc", "summary", "screenshot"])
+
+    db.update_task(task_id, {
+        "status": "pending", "progress": 0,
+        "message": "Starting..." if task["status"] == "discovered" else "Retrying...",
+        "error": "",
+        "style": style,
+        "formats": formats,
+        "quality": quality,
+        "video_quality": video_quality,
+        "model": llm_model,
+    })
 
     background_tasks.add_task(
         process_video_note_async,
         task_id,
         url=task["url"],
         platform=task["platform"],
-        style=task["style"],
-        formats=task["formats"],
-        quality=task["quality"],
-        llm_model=task["model"],
-        extras=task["extras"],
-        video_understanding=task["video_understanding"],
-        video_interval=task["video_interval"],
-        grid_cols=task["grid_cols"],
-        grid_rows=task["grid_rows"],
+        style=style,
+        formats=formats,
+        quality=quality,
+        llm_model=llm_model,
+        extras=task.get("extras", ""),
+        video_understanding=task.get("video_understanding", False),
+        video_interval=task.get("video_interval", 4),
+        grid_cols=task.get("grid_cols", 3),
+        grid_rows=task.get("grid_rows", 3),
         user_id=user_id,
-        video_quality=task.get("video_quality", "720"),
+        video_quality=video_quality,
     )
 
     return {"message": "Retry started", "task_id": task_id}
@@ -957,6 +1003,7 @@ async def check_channels_for_updates(
                         "channel_avatar": channel_avatar,
                         "status": "discovered",
                         "user_id": user_id,
+                        "published_at": v.get("published_at", ""),
                     })
                     total_created += 1
                 except Exception as e:

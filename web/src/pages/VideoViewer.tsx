@@ -1,5 +1,5 @@
 import { useEffect, useState, useMemo, useCallback, useRef } from 'react'
-import { useParams, Link } from 'react-router-dom'
+import { useParams, Link, useNavigate } from 'react-router-dom'
 import {
   ArrowLeft, Copy, Download, Check, FileText, Map, Clock, Loader2,
   ChevronRight, FileDown, RefreshCw, XCircle, ExternalLink, RotateCcw,
@@ -39,6 +39,7 @@ function extractToc(markdown: string): TocItem[] {
 
 export default function VideoViewer() {
   const { taskId } = useParams<{ taskId: string }>()
+  const navigate = useNavigate()
   const [task, setTask] = useState<VideoTask | null>(null)
   const [loading, setLoading] = useState(true)
   const [viewMode, setViewMode] = useState<ViewMode>('markdown')
@@ -135,13 +136,7 @@ export default function VideoViewer() {
       marked.setOptions({ gfm: true, breaks: false })
       const body = await marked.parse(md)
 
-      // Open a new window for printing — works reliably across browsers
-      const printWin = window.open('', '_blank', 'width=800,height=600')
-      if (!printWin) {
-        alert('Please allow popups to download PDF')
-        return
-      }
-      printWin.document.write(`<!DOCTYPE html>
+      const html = `<!DOCTYPE html>
 <html><head>
 <meta charset="utf-8">
 <title>${task?.title || 'Notes'}</title>
@@ -173,14 +168,25 @@ export default function VideoViewer() {
     h1, h2, h3 { page-break-after: avoid; }
   }
 </style>
-</head><body>${body}</body></html>`)
-      printWin.document.close()
-      const triggerPrint = () => {
-        printWin.focus()
-        printWin.print()
+</head><body>${body}</body></html>`
+      const blob = new Blob([html], { type: 'text/html' })
+      const url = URL.createObjectURL(blob)
+      const iframe = document.createElement('iframe')
+      iframe.style.position = 'fixed'
+      iframe.style.right = '0'
+      iframe.style.bottom = '0'
+      iframe.style.width = '0'
+      iframe.style.height = '0'
+      iframe.style.border = 'none'
+      iframe.src = url
+      iframe.onload = () => {
+        setTimeout(() => {
+          iframe.contentWindow?.focus()
+          iframe.contentWindow?.print()
+          setTimeout(() => { document.body.removeChild(iframe); URL.revokeObjectURL(url) }, 1000)
+        }, 500)
       }
-      printWin.onload = () => setTimeout(triggerPrint, 500)
-      setTimeout(() => { if (!printWin.closed) triggerPrint() }, 2500)
+      document.body.appendChild(iframe)
     } catch (e) {
       console.error('PDF generation failed:', e)
     } finally {
@@ -302,7 +308,7 @@ export default function VideoViewer() {
     return (
       <div className="flex flex-col items-center justify-center h-[60vh] text-gray-500">
         <p>Task not found</p>
-        <Link to="/videos" className="text-indigo-400 mt-2">Back to Videos</Link>
+        <button onClick={() => navigate(-1)} className="text-indigo-400 mt-2">Go Back</button>
       </div>
     )
   }
@@ -314,12 +320,12 @@ export default function VideoViewer() {
       {/* Fixed header bar */}
       <div className="flex items-center justify-between pb-3 flex-shrink-0">
         <div className="flex items-center gap-2 min-w-0">
-          <Link
-            to="/videos"
+          <button
+            onClick={() => navigate(-1)}
             className="p-1.5 text-gray-400 hover:text-white transition-colors flex-shrink-0"
           >
             <ArrowLeft size={18} />
-          </Link>
+          </button>
           <div className="min-w-0">
             <h1 className="text-base font-semibold text-white truncate">
               {task.title || (task.url ? (() => {

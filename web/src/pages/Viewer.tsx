@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { useParams, Link } from 'react-router-dom'
+import { useParams, Link, useNavigate } from 'react-router-dom'
 import { 
   ArrowLeft, 
   FileText, 
@@ -74,6 +74,7 @@ function summaryToMarkdown(summary: Summary): string {
 
 export default function Viewer() {
   const { eid } = useParams<{ eid: string }>()
+  const navigate = useNavigate()
   const [activeTab, setActiveTab] = useState<Tab>('summary')
   const [summary, setSummary] = useState<Summary | null>(null)
   const [transcript, setTranscript] = useState<Transcript | null>(null)
@@ -211,9 +212,7 @@ export default function Viewer() {
       const { marked } = await import('marked')
       marked.setOptions({ gfm: true, breaks: false })
       const body = await marked.parse(md)
-      const printWin = window.open('', '_blank', 'width=800,height=600')
-      if (!printWin) { alert('Please allow popups to download PDF'); return }
-      printWin.document.write(`<!DOCTYPE html>
+      const html = `<!DOCTYPE html>
 <html><head>
 <meta charset="utf-8">
 <title>${summary?.title || 'Summary'}</title>
@@ -231,11 +230,25 @@ export default function Viewer() {
   blockquote p { margin: 4px 0; }
   @media print { body { padding: 0; } h1, h2, h3 { page-break-after: avoid; } }
 </style>
-</head><body>${body}</body></html>`)
-      printWin.document.close()
-      const triggerPrint = () => { printWin.focus(); printWin.print() }
-      printWin.onload = () => setTimeout(triggerPrint, 500)
-      setTimeout(() => { if (!printWin.closed) triggerPrint() }, 2500)
+</head><body>${body}</body></html>`
+      const blob = new Blob([html], { type: 'text/html' })
+      const url = URL.createObjectURL(blob)
+      const iframe = document.createElement('iframe')
+      iframe.style.position = 'fixed'
+      iframe.style.right = '0'
+      iframe.style.bottom = '0'
+      iframe.style.width = '0'
+      iframe.style.height = '0'
+      iframe.style.border = 'none'
+      iframe.src = url
+      iframe.onload = () => {
+        setTimeout(() => {
+          iframe.contentWindow?.focus()
+          iframe.contentWindow?.print()
+          setTimeout(() => { document.body.removeChild(iframe); URL.revokeObjectURL(url) }, 1000)
+        }, 500)
+      }
+      document.body.appendChild(iframe)
     } catch (e) {
       console.error('PDF generation failed:', e)
     } finally {
@@ -324,12 +337,12 @@ export default function Viewer() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-start gap-3 md:gap-4">
         <div className="flex items-start gap-3">
-          <Link
-            to="/"
+          <button
+            onClick={() => navigate(-1)}
             className="p-2 bg-dark-surface border border-dark-border rounded-lg hover:bg-dark-hover transition-colors flex-shrink-0"
           >
             <ArrowLeft size={20} />
-          </Link>
+          </button>
           <div className="flex-1 min-w-0 sm:hidden">
             <h1 className="text-lg font-bold text-white line-clamp-2">
               {summary?.title || 'Episode Viewer'}

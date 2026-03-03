@@ -192,10 +192,13 @@ class _SQLiteVideoTaskDB:
             "status", "progress", "message", "markdown", "transcript_json",
             "title", "thumbnail", "duration", "error", "model",
             "channel", "channel_url", "channel_avatar",
+            "style", "formats", "quality", "video_quality", "published_at",
         }
         fields = {k: v for k, v in updates.items() if k in allowed}
         if not fields:
             return
+        if "formats" in fields and isinstance(fields["formats"], list):
+            fields["formats"] = json.dumps(fields["formats"])
         fields["updated_at"] = datetime.now().isoformat()
         set_clause = ", ".join(f"{k} = ?" for k in fields)
         values = list(fields.values()) + [task_id]
@@ -251,6 +254,31 @@ class _SQLiteVideoTaskDB:
             conn.execute("DELETE FROM video_task_versions WHERE task_id = ?", (task_id,))
             conn.commit()
             return cursor.rowcount > 0
+
+    def delete_channel(self, channel: str, user_id: str = None) -> int:
+        with self._conn() as conn:
+            if user_id:
+                rows = conn.execute(
+                    "SELECT id FROM video_tasks WHERE channel = ? AND user_id = ?",
+                    (channel, user_id),
+                ).fetchall()
+                conn.execute(
+                    "DELETE FROM video_tasks WHERE channel = ? AND user_id = ?",
+                    (channel, user_id),
+                )
+            else:
+                rows = conn.execute(
+                    "SELECT id FROM video_tasks WHERE channel = ? AND user_id IS NULL",
+                    (channel,),
+                ).fetchall()
+                conn.execute(
+                    "DELETE FROM video_tasks WHERE channel = ? AND user_id IS NULL",
+                    (channel,),
+                )
+            for r in rows:
+                conn.execute("DELETE FROM video_task_versions WHERE task_id = ?", (r[0],))
+            conn.commit()
+            return len(rows)
 
     def add_version(self, task_id: str, content: str, style: str = "", model_name: str = "") -> str:
         ver_id = str(uuid.uuid4())[:8]
@@ -416,6 +444,17 @@ class _SupabaseVideoTaskDB:
             self._last_flush.pop(task_id, None)
         return self._sb.delete_video_task(task_id, user_id)
 
+    def delete_channel(self, channel: str, user_id: str = None) -> int:
+        if not user_id or not channel:
+            return 0
+        with self._lock:
+            to_remove = [tid for tid, c in self._cache.items() if c.get("channel") == channel]
+            for tid in to_remove:
+                self._cache.pop(tid, None)
+                self._dirty.pop(tid, None)
+                self._last_flush.pop(tid, None)
+        return self._sb.delete_video_channel(channel, user_id)
+
     def add_version(self, task_id: str, content: str, style: str = "", model_name: str = "") -> str:
         ver_id = str(uuid.uuid4())[:8]
         return self._sb.add_video_task_version(task_id, ver_id, content, style, model_name)
@@ -485,6 +524,9 @@ class VideoTaskDB:
 
     def delete_task(self, task_id: str, user_id: str = None) -> bool:
         return self._backend.delete_task(task_id, user_id)
+
+    def delete_channel(self, channel: str, user_id: str = None) -> int:
+        return self._backend.delete_channel(channel, user_id)
 
     def add_version(self, task_id: str, content: str, style: str = "", model_name: str = "") -> str:
         return self._backend.add_version(task_id, content, style, model_name)

@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useRef } from 'react'
 import { Link } from 'react-router-dom'
 import { Radio, FileText, MessageSquare, Loader2, Plus, ArrowRight, Bell, RefreshCw, X, Video, CheckCircle, Users } from 'lucide-react'
-import { fetchStats, fetchSummaries, processEpisode, fetchNewEpisodes, checkPodcastsForUpdates, checkVideoChannelsForUpdates, fetchVideoTasks, cancelJob, cancelVideoTask, type Stats, type SummaryListItem, type ProcessingJob, type NewEpisode, type VideoTask } from '../lib/api'
+import { fetchStats, fetchSummaries, processEpisode, fetchNewEpisodes, checkPodcastsForUpdates, checkVideoChannelsForUpdates, fetchVideoTasks, cancelJob, cancelVideoTask, generateVideoNote, getVideoProcessingDefaults, getUserModelSettings, type Stats, type SummaryListItem, type ProcessingJob, type NewEpisode, type VideoTask } from '../lib/api'
 import { useStore } from '../lib/store'
 import { getCache, setCache, CacheKeys } from '../lib/cache'
 import { useToast } from '../components/Toast'
@@ -10,6 +10,15 @@ import SummaryCard from '../components/SummaryCard'
 import ProcessingProgress from '../components/ProcessingProgress'
 
 const VIDEO_QUEUE_STATUSES = new Set(['pending', 'parsing', 'downloading', 'transcribing', 'summarizing', 'saving', 'success', 'failed'])
+
+function detectVideoPlatform(url: string): string {
+  const u = url.toLowerCase()
+  if (/bilibili\.com|b23\.tv/.test(u)) return 'bilibili'
+  if (/youtube\.com|youtu\.be/.test(u)) return 'youtube'
+  if (/douyin\.com|tiktok\.com/.test(u)) return 'douyin'
+  if (/kuaishou\.com|kwai\.com/.test(u)) return 'kuaishou'
+  return ''
+}
 
 export default function Dashboard() {
   const [stats, setStats] = useState<Stats | null>(null)
@@ -194,21 +203,40 @@ export default function Dashboard() {
 
   async function handleProcess(e: React.FormEvent) {
     e.preventDefault()
-    if (!episodeUrl.trim()) return
+    const url = episodeUrl.trim()
+    if (!url) return
 
     setProcessing(true)
     try {
-      const result = await processEpisode(episodeUrl)
-      updateJob({
-        job_id: result.job_id,
-        status: 'pending',
-        progress: 0,
-        message: 'Starting...',
-        episode_id: result.episode_id,
-        episode_title: result.episode_title,
-      })
-      setEpisodeUrl('')
-      addToast({ type: 'success', title: 'Processing started', message: 'Check the processing panel for progress' })
+      const videoPlatform = detectVideoPlatform(url)
+      if (videoPlatform) {
+        const defaults = getVideoProcessingDefaults()
+        const modelSettings = getUserModelSettings()
+        const result = await generateVideoNote({
+          url,
+          platform: videoPlatform,
+          style: (defaults.style as string) || 'detailed',
+          formats: (defaults.formats as string[]) || ['toc', 'summary', 'screenshot'],
+          quality: (defaults.quality as string) || 'medium',
+          video_quality: (defaults.video_quality as string) || '720',
+          llm_model: modelSettings.llm_model,
+        })
+        setEpisodeUrl('')
+        addToast({ type: 'success', title: 'Video processing started', message: 'Check the processing panel for progress' })
+        loadData()
+      } else {
+        const result = await processEpisode(url)
+        updateJob({
+          job_id: result.job_id,
+          status: 'pending',
+          progress: 0,
+          message: 'Starting...',
+          episode_id: result.episode_id,
+          episode_title: result.episode_title,
+        })
+        setEpisodeUrl('')
+        addToast({ type: 'success', title: 'Processing started', message: 'Check the processing panel for progress' })
+      }
     } catch (err) {
       console.error('Failed to start processing:', err)
       addToast({ type: 'error', title: 'Failed to start processing', message: err instanceof Error ? err.message : 'Unknown error' })
@@ -281,10 +309,10 @@ export default function Dashboard() {
         <h2 className="text-lg font-semibold text-white mb-4">Quick Process</h2>
         <form onSubmit={handleProcess} className="flex flex-col sm:flex-row gap-3 sm:gap-4">
           <input
-            type="url"
+            type="text"
             value={episodeUrl}
             onChange={(e) => setEpisodeUrl(e.target.value)}
-            placeholder="Paste episode URL..."
+            placeholder="Paste podcast episode or video URL..."
             className="flex-1 px-4 py-3 bg-dark-hover border border-dark-border rounded-lg text-white placeholder:text-gray-500 focus:outline-none focus:border-indigo-500 text-base"
           />
           <button

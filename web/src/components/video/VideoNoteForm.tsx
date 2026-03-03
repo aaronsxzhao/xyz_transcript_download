@@ -1,19 +1,28 @@
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
-  Play, Loader2, Settings2, ChevronDown, ChevronUp, AlertTriangle,
+  Play, Loader2, Settings2, ChevronDown, ChevronUp, AlertTriangle, Upload,
 } from 'lucide-react'
 import { generateVideoNote, uploadVideoFile, getUserModelSettings, validateBilibiliCookie, fetchCookieStatus } from '../../lib/api'
 import YouTubeCookieGuide from './YouTubeCookieGuide'
 import PlatformIcon, { PLATFORM_COLORS } from '../PlatformIcon'
 
-const PLATFORMS = [
-  { id: 'bilibili', label: 'Bilibili' },
-  { id: 'youtube', label: 'YouTube' },
-  { id: 'douyin', label: 'Douyin' },
-  { id: 'kuaishou', label: 'Kuaishou' },
-  { id: 'local', label: 'Local File' },
-]
+const PLATFORM_LABELS: Record<string, string> = {
+  bilibili: 'Bilibili',
+  youtube: 'YouTube',
+  douyin: 'Douyin',
+  kuaishou: 'Kuaishou',
+  local: 'Local File',
+}
+
+function detectPlatform(url: string): string {
+  const u = url.toLowerCase()
+  if (/bilibili\.com|b23\.tv/.test(u)) return 'bilibili'
+  if (/youtube\.com|youtu\.be/.test(u)) return 'youtube'
+  if (/douyin\.com|tiktok\.com/.test(u)) return 'douyin'
+  if (/kuaishou\.com|kwai\.com/.test(u)) return 'kuaishou'
+  return ''
+}
 
 const STYLES = [
   { id: 'minimal', label: '精简 Minimal' },
@@ -53,20 +62,12 @@ interface Props {
   hideTitle?: boolean
 }
 
-function isBilibiliUrl(url: string): boolean {
-  return /bilibili\.com|b23\.tv/i.test(url)
-}
-
-function isYoutubeUrl(url: string): boolean {
-  return /youtube\.com|youtu\.be/i.test(url)
-}
-
 export default function VideoNoteForm({ onTaskCreated, hideTitle }: Props) {
   const navigate = useNavigate()
   const [url, setUrl] = useState('')
-  const [platform, setPlatform] = useState('')
+  const [isLocalFile, setIsLocalFile] = useState(false)
   const [style, setStyle] = useState('detailed')
-  const [formats, setFormats] = useState<string[]>(['toc', 'summary'])
+  const [formats, setFormats] = useState<string[]>(['toc', 'summary', 'screenshot'])
   const [quality, setQuality] = useState('medium')
   const [videoQuality, setVideoQuality] = useState('720')
   const [extras, setExtras] = useState('')
@@ -80,20 +81,22 @@ export default function VideoNoteForm({ onTaskCreated, hideTitle }: Props) {
   const [uploadProgress, setUploadProgress] = useState('')
   const fileInputRef = useRef<HTMLInputElement>(null)
 
+  const detectedPlatform = useMemo(() => isLocalFile ? 'local' : detectPlatform(url), [url, isLocalFile])
+
   const [ytCookieWarning, setYtCookieWarning] = useState(false)
   const ytCheckRef = useRef(false)
 
   useEffect(() => {
-    if (isYoutubeUrl(url) && !ytCheckRef.current) {
+    if (detectedPlatform === 'youtube' && !ytCheckRef.current) {
       ytCheckRef.current = true
       fetchCookieStatus('youtube')
         .then(r => setYtCookieWarning(!r.has_cookie))
         .catch(() => setYtCookieWarning(false))
-    } else if (!isYoutubeUrl(url)) {
+    } else if (detectedPlatform !== 'youtube') {
       ytCheckRef.current = false
       setYtCookieWarning(false)
     }
-  }, [url])
+  }, [detectedPlatform])
 
   const toggleFormat = (id: string) => {
     setFormats(prev =>
@@ -106,7 +109,7 @@ export default function VideoNoteForm({ onTaskCreated, hideTitle }: Props) {
     try {
       const result = await uploadVideoFile(file)
       setUrl(result.path)
-      setPlatform('local')
+      setIsLocalFile(true)
       setUploadProgress(`Uploaded: ${file.name}`)
     } catch (e) {
       setUploadProgress('Upload failed')
@@ -122,7 +125,7 @@ export default function VideoNoteForm({ onTaskCreated, hideTitle }: Props) {
     setError('')
 
     try {
-      if (isBilibiliUrl(url.trim())) {
+      if (detectedPlatform === 'bilibili') {
         try {
           const cookieCheck = await validateBilibiliCookie()
           if (!cookieCheck.valid) {
@@ -138,7 +141,7 @@ export default function VideoNoteForm({ onTaskCreated, hideTitle }: Props) {
       const modelSettings = getUserModelSettings()
       const result = await generateVideoNote({
         url: url.trim(),
-        platform,
+        platform: detectedPlatform,
         style,
         formats,
         quality,
@@ -152,6 +155,7 @@ export default function VideoNoteForm({ onTaskCreated, hideTitle }: Props) {
       })
       onTaskCreated?.(result.task_id)
       setUrl('')
+      setIsLocalFile(false)
       setUploadProgress('')
     } catch (e: any) {
       const msg = e?.message || 'Unknown error'
@@ -167,29 +171,45 @@ export default function VideoNoteForm({ onTaskCreated, hideTitle }: Props) {
     <div className="space-y-3">
       {!hideTitle && <h3 className="text-base font-semibold text-white">Generate Video Notes</h3>}
 
-      {/* Platform */}
+      {/* URL input + auto-detected platform badge + local upload */}
       <div>
-        <label className="block text-xs font-medium text-gray-500 uppercase tracking-wider mb-1.5">Platform</label>
-        <div className="flex flex-wrap gap-1.5">
-          {PLATFORMS.map(p => (
-            <button
-              key={p.id}
-              onClick={() => {
-                setPlatform(p.id)
-                if (p.id === 'local') fileInputRef.current?.click()
-              }}
-              className={`px-2.5 py-1 rounded-md text-xs transition-colors ${
-                platform === p.id
-                  ? 'bg-indigo-600 text-white'
-                  : 'bg-dark-hover text-gray-400 hover:text-white'
-              }`}
-            >
-              <span className="inline-flex items-center gap-1.5">
-                <PlatformIcon platform={p.id} size={13} className={platform === p.id ? 'text-white' : PLATFORM_COLORS[p.id] || 'text-gray-400'} />
-                {p.label}
-              </span>
-            </button>
-          ))}
+        <div className="flex gap-1.5">
+          {isLocalFile ? (
+            <div className="flex-1 flex items-center gap-2 px-3 py-2.5 bg-dark-hover border border-dark-border rounded-lg">
+              <PlatformIcon platform="local" size={14} className={PLATFORM_COLORS['local'] || 'text-gray-400'} />
+              <span className="text-sm text-white truncate">{uploadProgress || 'Local file'}</span>
+              <button
+                onClick={() => { setUrl(''); setIsLocalFile(false); setUploadProgress('') }}
+                className="ml-auto text-xs text-gray-500 hover:text-red-400 transition-colors"
+              >
+                Clear
+              </button>
+            </div>
+          ) : (
+            <div className="flex-1 relative">
+              <input
+                type="text"
+                value={url}
+                onChange={e => { setUrl(e.target.value); setIsLocalFile(false) }}
+                placeholder="Paste video URL here..."
+                className="w-full px-3 py-2.5 bg-dark-hover border border-dark-border rounded-lg text-white text-sm placeholder-gray-500 focus:outline-none focus:border-indigo-500 pr-24"
+              />
+              {detectedPlatform && (
+                <span className="absolute right-2 top-1/2 -translate-y-1/2 inline-flex items-center gap-1 px-2 py-0.5 rounded bg-indigo-600/20 border border-indigo-500/30 text-[11px] text-indigo-400">
+                  <PlatformIcon platform={detectedPlatform} size={12} className="text-indigo-400" />
+                  {PLATFORM_LABELS[detectedPlatform] || detectedPlatform}
+                </span>
+              )}
+            </div>
+          )}
+          <button
+            onClick={() => fileInputRef.current?.click()}
+            className="px-3 py-2.5 bg-dark-hover border border-dark-border rounded-lg text-gray-400 hover:text-white transition-colors flex items-center gap-1.5 text-xs whitespace-nowrap"
+            title="Upload local video file"
+          >
+            <Upload size={14} />
+            <span className="hidden sm:inline">Local File</span>
+          </button>
         </div>
         <input
           ref={fileInputRef}
@@ -201,24 +221,10 @@ export default function VideoNoteForm({ onTaskCreated, hideTitle }: Props) {
             if (file) handleFileUpload(file)
           }}
         />
-        {uploadProgress && (
-          <p className="text-xs text-gray-500 mt-1">{uploadProgress}</p>
-        )}
       </div>
 
-      {/* URL */}
-      {platform !== 'local' && (
-        <input
-          type="text"
-          value={url}
-          onChange={e => setUrl(e.target.value)}
-          placeholder="Paste video URL here..."
-          className="w-full px-3 py-2.5 bg-dark-hover border border-dark-border rounded-lg text-white text-sm placeholder-gray-500 focus:outline-none focus:border-indigo-500"
-        />
-      )}
-
       {/* YouTube cookie warning */}
-      {ytCookieWarning && isYoutubeUrl(url) && (
+      {ytCookieWarning && detectedPlatform === 'youtube' && (
         <div className="flex items-start gap-2 p-2.5 bg-amber-900/20 border border-amber-500/30 rounded-lg">
           <AlertTriangle size={14} className="text-amber-400 flex-shrink-0 mt-0.5" />
           <div className="text-xs text-amber-300/90">
@@ -394,7 +400,7 @@ export default function VideoNoteForm({ onTaskCreated, hideTitle }: Props) {
       {error && (
         <div className="p-3 bg-red-900/30 border border-red-500/50 rounded-lg text-xs text-red-300">
           <p>{error}</p>
-          {error.toLowerCase().includes('login') && isYoutubeUrl(url) && (
+          {error.toLowerCase().includes('login') && detectedPlatform === 'youtube' && (
             <div className="mt-3 p-3 bg-dark-hover rounded-lg border border-dark-border">
               <YouTubeCookieGuide compact />
             </div>

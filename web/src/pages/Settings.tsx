@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import {
   Cpu, MessageSquare, Clock, Loader2, CheckCircle, Trash2, AlertTriangle,
   Search, Save, Download, X, Activity, Smartphone, Chrome,
-  ExternalLink, Settings2, UserCircle, Wrench, Upload, FileText, Link,
+  ExternalLink, Settings2, UserCircle, Wrench, Upload, FileText, Link, Video,
 } from 'lucide-react'
 import { QRCodeSVG } from 'qrcode.react'
 import {
@@ -127,6 +127,48 @@ export default function Settings() {
     { value: 'safari', label: 'Safari' },
     { value: 'brave', label: 'Brave' },
   ]
+
+  const VIDEO_STYLES = [
+    { id: 'minimal', label: '精简 Minimal' },
+    { id: 'detailed', label: '详细 Detailed' },
+    { id: 'academic', label: '学术 Academic' },
+    { id: 'tutorial', label: '教程 Tutorial' },
+    { id: 'xiaohongshu', label: '小红书 Social' },
+    { id: 'life_journal', label: '生活向 Journal' },
+    { id: 'task_oriented', label: '任务导向 Tasks' },
+    { id: 'business', label: '商业 Business' },
+    { id: 'meeting_minutes', label: '会议纪要 Minutes' },
+  ]
+  const VIDEO_FORMATS = [
+    { id: 'toc', label: 'Table of Contents' },
+    { id: 'link', label: 'Timestamp Links' },
+    { id: 'screenshot', label: 'Screenshots' },
+    { id: 'summary', label: 'AI Summary' },
+  ]
+  const AUDIO_QUALITIES = [
+    { id: 'fast', label: 'Fast (32k)' },
+    { id: 'medium', label: 'Medium (64k)' },
+    { id: 'slow', label: 'High (128k)' },
+  ]
+  const VIDEO_QUALITIES = [
+    { id: '360', label: '360p' },
+    { id: '480', label: '480p' },
+    { id: '720', label: '720p' },
+    { id: '1080', label: '1080p' },
+    { id: 'best', label: 'Best' },
+  ]
+
+  const [vdStyle, setVdStyle] = useState(() => localStorage.getItem('vd_style') || 'detailed')
+  const [vdFormats, setVdFormats] = useState<string[]>(() => {
+    try { return JSON.parse(localStorage.getItem('vd_formats') || '["toc","summary","screenshot"]') }
+    catch { return ['toc', 'summary', 'screenshot'] }
+  })
+  const [vdQuality, setVdQuality] = useState(() => localStorage.getItem('vd_quality') || 'medium')
+  const [vdVideoQuality, setVdVideoQuality] = useState(() => localStorage.getItem('vd_video_quality') || '720')
+
+  const toggleVdFormat = (id: string) => {
+    setVdFormats(prev => prev.includes(id) ? prev.filter(f => f !== id) : [...prev, id])
+  }
 
   const [notionKey, setNotionKey] = useState(() => localStorage.getItem('notion_api_key') || '')
   const [notionTestResult, setNotionTestResult] = useState<{ ok: boolean; message: string } | null>(null)
@@ -332,6 +374,10 @@ export default function Settings() {
     try {
       localStorage.setItem('whisper_model', whisperModel)
       localStorage.setItem('llm_model', llmModel)
+      localStorage.setItem('vd_style', vdStyle)
+      localStorage.setItem('vd_formats', JSON.stringify(vdFormats))
+      localStorage.setItem('vd_quality', vdQuality)
+      localStorage.setItem('vd_video_quality', vdVideoQuality)
       await updateSettings({
         whisper_model: whisperModel,
         llm_model: llmModel,
@@ -588,6 +634,95 @@ export default function Settings() {
                   <li>Copy the Internal Integration Secret and paste it above</li>
                   <li>In Notion, open the page you want to export to, click <strong className="text-white">...</strong> &gt; <strong className="text-white">Connect to</strong> &gt; select your integration</li>
                 </ol>
+              </div>
+            </div>
+          </section>
+
+          {/* Video Defaults */}
+          <section className="p-5 bg-dark-surface border border-dark-border rounded-xl">
+            <h2 className="text-base font-semibold text-white mb-1 flex items-center gap-2">
+              <Video className="text-cyan-500" size={18} />
+              Video Processing Defaults
+            </h2>
+            <p className="text-xs text-gray-500 mb-4">Applied when processing discovered videos from channel updates</p>
+
+            <div className="space-y-4">
+              <div>
+                <span className="text-gray-400 text-sm block mb-2">Note Style</span>
+                <div className="flex flex-wrap gap-1.5">
+                  {VIDEO_STYLES.map(s => (
+                    <button
+                      key={s.id}
+                      onClick={() => setVdStyle(s.id)}
+                      className={`px-3 py-1.5 rounded-lg text-xs transition-colors ${
+                        vdStyle === s.id
+                          ? 'bg-indigo-600/20 text-indigo-400 border border-indigo-500/50'
+                          : 'bg-dark-hover text-gray-400 border border-transparent hover:text-white'
+                      }`}
+                    >
+                      {s.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <span className="text-gray-400 text-sm block mb-2">Included Sections</span>
+                <div className="flex flex-wrap gap-1.5">
+                  {VIDEO_FORMATS.map(f => (
+                    <button
+                      key={f.id}
+                      onClick={() => toggleVdFormat(f.id)}
+                      className={`px-3 py-1.5 rounded-lg text-xs transition-colors ${
+                        vdFormats.includes(f.id)
+                          ? 'bg-indigo-600/20 text-indigo-400 border border-indigo-500/50'
+                          : 'bg-dark-hover text-gray-400 border border-transparent hover:text-white'
+                      }`}
+                    >
+                      {f.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="flex flex-col sm:flex-row gap-4">
+                <div className="flex-1">
+                  <span className="text-gray-400 text-sm block mb-2">Audio Quality</span>
+                  <div className="flex flex-wrap gap-1.5">
+                    {AUDIO_QUALITIES.map(q => (
+                      <button
+                        key={q.id}
+                        onClick={() => setVdQuality(q.id)}
+                        className={`px-3 py-1.5 rounded-lg text-xs transition-colors ${
+                          vdQuality === q.id
+                            ? 'bg-indigo-600/20 text-indigo-400 border border-indigo-500/50'
+                            : 'bg-dark-hover text-gray-400 border border-transparent hover:text-white'
+                        }`}
+                      >
+                        {q.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="flex-1">
+                  <span className="text-gray-400 text-sm block mb-2">Video Quality</span>
+                  <div className="flex flex-wrap gap-1.5">
+                    {VIDEO_QUALITIES.map(q => (
+                      <button
+                        key={q.id}
+                        onClick={() => setVdVideoQuality(q.id)}
+                        className={`px-3 py-1.5 rounded-lg text-xs transition-colors ${
+                          vdVideoQuality === q.id
+                            ? 'bg-indigo-600/20 text-indigo-400 border border-indigo-500/50'
+                            : 'bg-dark-hover text-gray-400 border border-transparent hover:text-white'
+                        }`}
+                      >
+                        {q.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
               </div>
             </div>
           </section>

@@ -1,10 +1,8 @@
 /**
  * WebSocket client for real-time updates with polling fallback
  * 
- * Strategy:
- * - WebSocket is primary for real-time updates
- * - Polling is fallback only when WebSocket fails
- * - Only ONE polling interval runs at a time (fast OR regular, not both)
+ * Connected once at app startup (main.tsx), never tied to component lifecycle.
+ * This avoids React StrictMode double-mount issues entirely.
  */
 import { useStore } from './store'
 import { authFetch, type ProcessingJob } from './api'
@@ -13,14 +11,12 @@ import { getAccessToken } from './auth'
 let ws: WebSocket | null = null
 let reconnectTimeout: number | null = null
 let pollInterval: number | null = null
-let wsWorking = false  // Track if WebSocket is successfully receiving updates
-let lastMessageTime = 0  // Track last message for stale connection detection
+let wsWorking = false
+let lastMessageTime = 0
 let staleCheckInterval: number | null = null
+let connected = false
 
-// Poll for job updates (fallback when WebSocket fails)
 async function pollJobs() {
-  // Skip polling entirely if WebSocket is working
-  // Stale connection detection (30s timeout) handles WebSocket failures
   if (wsWorking && ws?.readyState === WebSocket.OPEN) {
     return
   }
@@ -31,18 +27,14 @@ async function pollJobs() {
       const data = await response.json()
       const serverJobs: ProcessingJob[] = data.jobs || []
       
-      // Update each job in the store
       serverJobs.forEach(job => {
         useStore.getState().updateJob(job)
       })
       
-      // Check if any jobs are active after update
       const stillHasActiveJobs = serverJobs.some(job => 
         !['completed', 'failed', 'cancelled'].includes(job.status)
       )
       
-      // Poll faster (3s) if there are active jobs and WebSocket is down
-      // Otherwise slow poll (15s) to check for new jobs
       const desiredInterval = stillHasActiveJobs ? 3000 : 15000
       if (pollInterval) {
         clearInterval(pollInterval)
@@ -56,29 +48,19 @@ async function pollJobs() {
 
 function startPolling() {
   if (pollInterval) return
-  
-  // Start with slow polling (5s), will speed up if active jobs detected
   pollJobs()
   pollInterval = window.setInterval(pollJobs, 5000)
 }
 
-function stopPolling() {
-  if (pollInterval) {
-    clearInterval(pollInterval)
-    pollInterval = null
-  }
-}
-
 export function connectWebSocket() {
-  if (ws?.readyState === WebSocket.OPEN) return
+  if (connected) return
+  connected = true
+
+  if (ws?.readyState === WebSocket.OPEN || ws?.readyState === WebSocket.CONNECTING) return
   
-  // Start polling as fallback (will stop if WebSocket works)
   startPolling()
   
   const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
-  
-  // Don't include token in URL to avoid it appearing in server logs
-  // Token is sent via first message after connection
   const wsUrl = `${protocol}//${window.location.host}/api/ws/progress`
   
   ws = new WebSocket(wsUrl)
@@ -87,12 +69,10 @@ export function connectWebSocket() {
     console.log('WebSocket connected')
     useStore.getState().setWsConnected(true)
     
-    // Send auth token as first message (not in URL to avoid logging)
     const token = getAccessToken()
     if (token && ws?.readyState === WebSocket.OPEN) {
       ws.send(JSON.stringify({ type: 'auth', token }))
     } else if (ws?.readyState === WebSocket.OPEN) {
-      // Send empty auth to trigger anonymous mode
       ws.send(JSON.stringify({ type: 'auth' }))
     }
   }
@@ -102,8 +82,8 @@ export function connectWebSocket() {
     useStore.getState().setWsConnected(false)
     wsWorking = false
     
-    // Reconnect after 3 seconds
     reconnectTimeout = window.setTimeout(() => {
+      connected = false
       connectWebSocket()
     }, 3000)
   }
@@ -118,7 +98,6 @@ export function connectWebSocket() {
       const data = JSON.parse(event.data)
       lastMessageTime = Date.now()
       
-      // Mark WebSocket as working on first successful message
       if (!wsWorking) {
         wsWorking = true
         console.log('WebSocket receiving updates, polling paused')
@@ -132,14 +111,12 @@ export function connectWebSocket() {
         
         case 'job_update':
           if (data.job) {
-            console.log('WebSocket job_update:', data.job.job_id, data.job.progress?.toFixed(1) + '%')
             useStore.getState().updateJob(data.job)
           }
           break
         
         case 'video_job_update':
           if (data.task) {
-            console.log('WebSocket video_job_update:', data.task.id, data.task.progress?.toFixed(1) + '%')
             useStore.getState().updateVideoTask(data.task)
           }
           break
@@ -155,8 +132,6 @@ export function connectWebSocket() {
     }
   }
   
-  // Check for stale connection every 15 seconds
-  // If we have active jobs but no message for 30s, reconnect
   if (staleCheckInterval) clearInterval(staleCheckInterval)
   staleCheckInterval = window.setInterval(() => {
     const jobs = useStore.getState().jobs
@@ -173,23 +148,4 @@ export function connectWebSocket() {
       }
     }
   }, 15000)
-}
-
-export function disconnectWebSocket() {
-  stopPolling()
-  
-  if (reconnectTimeout) {
-    clearTimeout(reconnectTimeout)
-    reconnectTimeout = null
-  }
-  if (staleCheckInterval) {
-    clearInterval(staleCheckInterval)
-    staleCheckInterval = null
-  }
-  if (ws) {
-    ws.close()
-    ws = null
-  }
-  wsWorking = false
-  lastMessageTime = 0
 }

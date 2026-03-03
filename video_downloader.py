@@ -263,11 +263,12 @@ def list_channel_videos(
     if not listing_url:
         return []
 
+    fetch_limit = limit * 3 if platform == "bilibili" else limit
     opts: dict = {
         "quiet": True,
         "no_warnings": True,
         "extract_flat": True,
-        "playlistend": limit,
+        "playlistend": fetch_limit,
         "noplaylist": False,
         "ignoreerrors": True,
         "socket_timeout": 20,
@@ -307,9 +308,19 @@ def list_channel_videos(
                 continue
             if platform == "youtube" and not vid_url.startswith("http"):
                 vid_url = f"https://www.youtube.com/watch?v={vid_url}"
+            if platform == "bilibili" and "/video/" not in vid_url:
+                continue
             thumb = entry.get("thumbnail") or entry.get("thumbnails", [{}])[0].get("url", "") if entry.get("thumbnails") else entry.get("thumbnail", "")
             ud = entry.get("upload_date") or ""
             pub = f"{ud[:4]}-{ud[4:6]}-{ud[6:8]}" if len(ud) >= 8 else ""
+            if not pub:
+                ts = entry.get("timestamp") or entry.get("release_timestamp")
+                if ts:
+                    from datetime import datetime as _dt, timezone as _tz
+                    try:
+                        pub = _dt.fromtimestamp(int(ts), tz=_tz.utc).strftime("%Y-%m-%d")
+                    except (ValueError, OSError):
+                        pass
             videos.append({
                 "url": vid_url,
                 "title": entry.get("title") or "",
@@ -319,11 +330,143 @@ def list_channel_videos(
             })
             if len(videos) >= limit:
                 break
+
+        if platform == "bilibili":
+            videos = _enrich_bilibili_entries(videos, cookies)
+
+        if platform == "youtube":
+            videos = _enrich_youtube_publish_dates(videos, channel_url)
+
         logger.info(f"Listed {len(videos)} videos from channel {channel_url}")
         return videos
     except Exception as e:
         logger.error(f"Failed to list channel videos for {channel_url}: {e}")
         return []
+
+
+def _enrich_bilibili_entries(videos: List[dict], cookies: str = "") -> List[dict]:
+    """Fetch title/thumbnail/duration for Bilibili entries missing metadata."""
+    import requests
+
+    needs_enrichment = [v for v in videos if not v.get("title")]
+    if not needs_enrichment:
+        return videos
+
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36",
+        "Referer": "https://www.bilibili.com/",
+    }
+    cookie_str = cookies
+    if not cookie_str:
+        try:
+            from cookie_manager import get_cookie_manager
+            cookie_str = get_cookie_manager().get_cookie("bilibili")
+        except Exception:
+            pass
+    if cookie_str:
+        pairs = []
+        for line in cookie_str.strip().splitlines():
+            line = line.strip()
+            if not line or line.startswith("#"):
+                continue
+            parts = line.split("\t")
+            if len(parts) >= 7:
+                pairs.append(f"{parts[5]}={parts[6]}")
+        if pairs:
+            headers["Cookie"] = "; ".join(pairs)
+
+    url_to_video = {v["url"]: v for v in videos}
+    for v in needs_enrichment:
+        bvid_match = re.search(r"(BV[\w]+)", v["url"])
+        if not bvid_match:
+            continue
+        bvid = bvid_match.group(1)
+        try:
+            resp = requests.get(
+                "https://api.bilibili.com/x/web-interface/view",
+                params={"bvid": bvid}, headers=headers, timeout=10,
+            )
+            data = resp.json()
+            if data.get("code") != 0:
+                continue
+            d = data["data"]
+            thumb = d.get("pic", "")
+            if thumb and thumb.startswith("http://"):
+                thumb = thumb.replace("http://", "https://", 1)
+            ud = str(d.get("pubdate", ""))
+            pub = ""
+            if ud and ud.isdigit():
+                from datetime import datetime, timezone
+                pub = datetime.fromtimestamp(int(ud), tz=timezone.utc).strftime("%Y-%m-%d")
+            entry = url_to_video[v["url"]]
+            entry["title"] = d.get("title", "") or entry["title"]
+            entry["thumbnail"] = thumb or entry["thumbnail"]
+            entry["duration"] = d.get("duration", 0) or entry["duration"]
+            if pub:
+                entry["published_at"] = pub
+        except Exception as e:
+            logger.debug(f"Failed to enrich Bilibili video {bvid}: {e}")
+
+    return videos
+
+
+def _enrich_youtube_publish_dates(videos: List[dict], channel_url: str) -> List[dict]:
+    """Fill in missing published_at for YouTube videos using the channel RSS feed."""
+    needs = [v for v in videos if not v.get("published_at")]
+    if not needs:
+        return videos
+
+    channel_id = ""
+    m = re.search(r"youtube\.com/channel/(UC[\w-]+)", channel_url)
+    if m:
+        channel_id = m.group(1)
+    else:
+        m = re.search(r"youtube\.com/@([\w.-]+)", channel_url)
+        if m:
+            try:
+                import requests
+                resp = requests.get(
+                    channel_url, timeout=10,
+                    headers={"User-Agent": "Mozilla/5.0"},
+                    allow_redirects=True,
+                )
+                cid_match = re.search(r'"externalId"\s*:\s*"(UC[\w-]+)"', resp.text)
+                if cid_match:
+                    channel_id = cid_match.group(1)
+            except Exception:
+                pass
+
+    if not channel_id:
+        return videos
+
+    try:
+        import requests
+        from xml.etree import ElementTree
+        rss_url = f"https://www.youtube.com/feeds/videos.xml?channel_id={channel_id}"
+        resp = requests.get(rss_url, timeout=10,
+                            headers={"User-Agent": "Mozilla/5.0"})
+        if resp.status_code != 200:
+            return videos
+
+        ns = {"atom": "http://www.w3.org/2005/Atom", "yt": "http://www.youtube.com/xml/schemas/2015"}
+        root = ElementTree.fromstring(resp.text)
+        vid_dates: dict[str, str] = {}
+        for entry in root.findall("atom:entry", ns):
+            vid_id_el = entry.find("yt:videoId", ns)
+            pub_el = entry.find("atom:published", ns)
+            if vid_id_el is not None and pub_el is not None and vid_id_el.text and pub_el.text:
+                vid_dates[vid_id_el.text] = pub_el.text[:10]
+
+        for v in needs:
+            vid_id_match = re.search(r"[?&]v=([\w-]+)", v["url"]) or re.search(r"youtu\.be/([\w-]+)", v["url"])
+            if vid_id_match:
+                vid_id = vid_id_match.group(1)
+                if vid_id in vid_dates:
+                    v["published_at"] = vid_dates[vid_id]
+    except Exception as e:
+        logger.debug(f"YouTube RSS publish date enrichment failed: {e}")
+
+    return videos
 
 
 ProgressCallback = Optional["Callable[[float, str], None]"]

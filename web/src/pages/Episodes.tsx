@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { useParams, Link, useNavigate } from 'react-router-dom'
+import { useParams, useNavigate, Link } from 'react-router-dom'
 import { ArrowLeft, Play, FileText, MessageSquare, Loader2, CheckCircle, Trash2, RefreshCw, Tag, Sparkles } from 'lucide-react'
 import { fetchPodcast, fetchEpisodes, processEpisode, deleteEpisode, resummarizeEpisode, type Podcast, type Episode } from '../lib/api'
 import { useToast } from '../components/Toast'
@@ -158,12 +158,12 @@ export default function Episodes() {
   return (
     <div className="space-y-4 md:space-y-6">
       <div className="flex items-center gap-3 md:gap-4">
-        <Link
-          to="/podcasts"
+        <button
+          onClick={() => navigate(-1)}
           className="p-2 bg-dark-surface border border-dark-border rounded-lg hover:bg-dark-hover transition-colors flex-shrink-0"
         >
           <ArrowLeft size={20} />
-        </Link>
+        </button>
         <div className="min-w-0">
           <h1 className="text-lg md:text-2xl font-bold text-white line-clamp-1">{podcast?.title || 'Episodes'}</h1>
           <p className="text-sm md:text-base text-gray-400">{episodes.length} episodes</p>

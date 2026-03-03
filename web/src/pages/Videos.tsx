@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState, useMemo, useRef } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import {
   Plus, ChevronUp, ChevronDown, Video, Search, Trash2, RefreshCw, RotateCcw, Square,
   CheckCircle, XCircle, Clock, Loader2, ArrowLeft, ExternalLink, Play, Sparkles,
@@ -10,7 +10,7 @@ import { useStore } from '../lib/store'
 import { useToast } from '../components/Toast'
 import { markSeen, isNewItem } from '../lib/seen'
 import {
-  fetchVideoTasks, deleteVideoTask, retryVideoTask, cancelVideoTask,
+  fetchVideoTasks, deleteVideoTask, deleteVideoChannel, retryVideoTask, cancelVideoTask,
   checkVideoChannelsForUpdates,
   type VideoTask,
 } from '../lib/api'
@@ -30,8 +30,23 @@ export default function Videos() {
   const [formOpen, setFormOpen] = useState(false)
   const [search, setSearch] = useState('')
   const [checking, setChecking] = useState(false)
-  const [view, setView] = useState<View>({ type: 'platforms' })
+  const [searchParams, setSearchParams] = useSearchParams()
   const { addToast } = useToast()
+
+  const view: View = useMemo(() => {
+    const platform = searchParams.get('platform')
+    const channel = searchParams.get('channel')
+    if (platform && channel) return { type: 'videos', platform, channel }
+    if (platform) return { type: 'channels', platform }
+    return { type: 'platforms' }
+  }, [searchParams])
+
+  const setView = useCallback((v: View) => {
+    const params: Record<string, string> = {}
+    if (v.type === 'channels') params.platform = v.platform
+    else if (v.type === 'videos') { params.platform = v.platform; params.channel = v.channel }
+    setSearchParams(params, { replace: true })
+  }, [setSearchParams])
 
   const loadTasks = useCallback(async () => {
     try {
@@ -64,6 +79,30 @@ export default function Videos() {
       addToast({ type: 'error', title: 'Check failed', message: err instanceof Error ? err.message : 'Unknown error' })
     } finally {
       setChecking(false)
+    }
+  }
+
+  const handleDeleteChannel = async (channelName: string) => {
+    try {
+      const result = await deleteVideoChannel(channelName)
+      addToast({ type: 'success', title: 'Channel deleted', message: result.message })
+      loadTasks()
+    } catch (err) {
+      addToast({ type: 'error', title: 'Delete failed', message: err instanceof Error ? err.message : 'Unknown error' })
+    }
+  }
+
+  const handleCheckChannelUpdates = async (channelName: string) => {
+    try {
+      const result = await checkVideoChannelsForUpdates({ channel: channelName })
+      if (result.new_videos > 0) {
+        addToast({ type: 'success', title: 'New videos found', message: `Found ${result.new_videos} new video(s) from ${channelName}` })
+        loadTasks()
+      } else {
+        addToast({ type: 'info', title: 'All caught up', message: `No new videos from ${channelName}` })
+      }
+    } catch (err) {
+      addToast({ type: 'error', title: 'Check failed', message: err instanceof Error ? err.message : 'Unknown error' })
     }
   }
 
@@ -163,12 +202,18 @@ export default function Videos() {
     return channelMap
   }
 
-  // Get videos for a platform+channel
+  // Get videos for a platform+channel, sorted by publish date (newest first)
   const getVideos = (platform: string, channel: string) => {
-    return filtered.filter(t =>
-      (t.platform || 'other') === platform &&
-      (t.channel || 'Unknown Channel') === channel
-    )
+    return filtered
+      .filter(t =>
+        (t.platform || 'other') === platform &&
+        (t.channel || 'Unknown Channel') === channel
+      )
+      .sort((a, b) => {
+        const da = a.published_at || a.created_at || ''
+        const db = b.published_at || b.created_at || ''
+        return db.localeCompare(da)
+      })
   }
 
   return (
@@ -317,6 +362,8 @@ export default function Videos() {
         <ChannelList
           channels={getChannels(view.platform)}
           onSelectChannel={(ch) => setView({ type: 'videos', platform: view.platform, channel: ch })}
+          onDeleteChannel={handleDeleteChannel}
+          onCheckUpdates={handleCheckChannelUpdates}
         />
       ) : (
         /* Video list for selected channel */
@@ -332,10 +379,16 @@ export default function Videos() {
 }
 
 
-function ChannelList({ channels, onSelectChannel }: {
+function ChannelList({ channels, onSelectChannel, onDeleteChannel, onCheckUpdates }: {
   channels: Record<string, { count: number; done: number; tasks: VideoTask[] }>
   onSelectChannel: (ch: string) => void
+  onDeleteChannel?: (ch: string) => void
+  onCheckUpdates?: (ch: string) => Promise<void>
 }) {
+  const [confirmDelete, setConfirmDelete] = useState<string | null>(null)
+  const [deleting, setDeleting] = useState(false)
+  const [refreshing, setRefreshing] = useState<string | null>(null)
+
   const channelNames = Object.keys(channels).sort((a, b) => {
     if (a === 'Unknown Channel') return 1
     if (b === 'Unknown Channel') return -1
@@ -415,7 +468,7 @@ function ChannelList({ channels, onSelectChannel }: {
                   onClick={() => onSelectChannel(ch)}
                   className="flex items-center gap-1 px-3 py-2 bg-dark-hover hover:bg-dark-border text-white rounded-lg transition-colors text-sm"
                 >
-                  <Video size={16} />
+                  <ExternalLink size={16} />
                   <span className="hidden sm:inline">Videos</span>
                 </button>
                 {latestTask?.channel_url && (
@@ -428,6 +481,49 @@ function ChannelList({ channels, onSelectChannel }: {
                   >
                     <ExternalLink size={16} />
                   </a>
+                )}
+                {onCheckUpdates && (
+                  <button
+                    onClick={async () => {
+                      setRefreshing(ch)
+                      try { await onCheckUpdates(ch) } finally { setRefreshing(null) }
+                    }}
+                    disabled={refreshing === ch}
+                    className="p-2 bg-dark-hover hover:bg-dark-border text-white rounded-lg transition-colors disabled:opacity-50"
+                    title="Check for new videos"
+                  >
+                    <RefreshCw size={16} className={refreshing === ch ? 'animate-spin' : ''} />
+                  </button>
+                )}
+                {onDeleteChannel && (
+                  confirmDelete === ch ? (
+                    <div className="flex items-center gap-1">
+                      <button
+                        onClick={async () => {
+                          setDeleting(true)
+                          try { await onDeleteChannel(ch) } finally { setDeleting(false); setConfirmDelete(null) }
+                        }}
+                        disabled={deleting}
+                        className="px-2 py-1.5 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors text-xs disabled:opacity-50"
+                      >
+                        {deleting ? 'Deleting...' : 'Confirm'}
+                      </button>
+                      <button
+                        onClick={() => setConfirmDelete(null)}
+                        className="px-2 py-1.5 bg-dark-hover hover:bg-dark-border text-gray-400 rounded-lg transition-colors text-xs"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      onClick={() => setConfirmDelete(ch)}
+                      className="p-2 bg-dark-hover hover:bg-red-600/20 text-red-400 rounded-lg transition-colors disabled:opacity-50"
+                      title="Delete channel and all its videos"
+                    >
+                      <Trash2 size={16} />
+                    </button>
+                  )
                 )}
               </div>
             </div>
@@ -708,6 +804,18 @@ function VideoList({ videos, onDelete, onRetry, onCancel }: {
                   </button>
                 )
               })()}
+
+              {task.url && !isProcessing(task.status) && (
+                <a
+                  href={task.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="p-2 bg-dark-hover hover:bg-dark-border text-white rounded-lg transition-colors"
+                  title="Open original video"
+                >
+                  <ExternalLink size={16} />
+                </a>
+              )}
 
               {!isProcessing(task.status) && (
                 <button

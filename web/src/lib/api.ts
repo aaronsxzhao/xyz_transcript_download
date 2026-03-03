@@ -478,9 +478,33 @@ export async function deleteVideoTask(taskId: string): Promise<{ message: string
   return res.json()
 }
 
+export async function deleteVideoChannel(channelName: string): Promise<{ message: string; deleted: number }> {
+  const res = await authFetch(`${API_BASE}/video-notes/channels/${encodeURIComponent(channelName)}`, {
+    method: 'DELETE',
+  })
+  if (!res.ok) throw new Error('Failed to delete channel')
+  return res.json()
+}
+
+export function getVideoProcessingDefaults(): Record<string, unknown> {
+  const d: Record<string, unknown> = {}
+  try {
+    const s = localStorage.getItem('vd_style'); if (s) d.style = s
+    const f = localStorage.getItem('vd_formats'); if (f) d.formats = JSON.parse(f)
+    const q = localStorage.getItem('vd_quality'); if (q) d.quality = q
+    const vq = localStorage.getItem('vd_video_quality'); if (vq) d.video_quality = vq
+    const lm = localStorage.getItem('llm_model'); if (lm) d.llm_model = lm
+  } catch { /* ignore */ }
+  return d
+}
+
 export async function retryVideoTask(taskId: string): Promise<{ task_id: string }> {
+  const defaults = getVideoProcessingDefaults()
+  const hasBody = Object.keys(defaults).length > 0
   const res = await authFetch(`${API_BASE}/video-notes/tasks/${taskId}/retry`, {
     method: 'POST',
+    headers: hasBody ? { 'Content-Type': 'application/json' } : undefined,
+    body: hasBody ? JSON.stringify(defaults) : undefined,
   })
   if (!res.ok) throw new Error('Failed to retry video task')
   return res.json()

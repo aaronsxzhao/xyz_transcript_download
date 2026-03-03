@@ -1,5 +1,5 @@
 import { lazy, Suspense } from 'react'
-import { Routes, Route, Navigate } from 'react-router-dom'
+import { Routes, Route, Navigate, Outlet } from 'react-router-dom'
 import { AuthProvider, useAuth } from './contexts/AuthContext'
 import Layout from './components/Layout'
 import { Loader2 } from 'lucide-react'
@@ -13,7 +13,7 @@ const VideoViewer = lazy(() => import('./pages/VideoViewer'))
 const Settings = lazy(() => import('./pages/Settings'))
 const Login = lazy(() => import('./pages/Login'))
 
-function ProtectedRoute({ children }: { children: React.ReactNode }) {
+function ProtectedRoute() {
   const { user, loading, authEnabled } = useAuth()
 
   if (loading) {
@@ -24,17 +24,15 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
     )
   }
 
-  // If auth is not enabled (local mode), allow access
   if (!authEnabled) {
-    return <>{children}</>
+    return <Outlet />
   }
 
-  // If auth is enabled but user is not logged in, redirect to login
   if (!user) {
     return <Navigate to="/login" replace />
   }
 
-  return <>{children}</>
+  return <Outlet />
 }
 
 const PageSpinner = () => (
@@ -67,13 +65,17 @@ function AppRoutes() {
             )
           }
         />
-        <Route path="/" element={<ProtectedRoute><Layout><Dashboard /></Layout></ProtectedRoute>} />
-        <Route path="/podcasts" element={<ProtectedRoute><Layout><Podcasts /></Layout></ProtectedRoute>} />
-        <Route path="/podcasts/:pid/episodes" element={<ProtectedRoute><Layout><Episodes /></Layout></ProtectedRoute>} />
-        <Route path="/viewer/:eid" element={<ProtectedRoute><Layout><Viewer /></Layout></ProtectedRoute>} />
-        <Route path="/videos" element={<ProtectedRoute><Layout><Videos /></Layout></ProtectedRoute>} />
-        <Route path="/videos/:taskId" element={<ProtectedRoute><Layout><VideoViewer /></Layout></ProtectedRoute>} />
-        <Route path="/settings" element={<ProtectedRoute><Layout><Settings /></Layout></ProtectedRoute>} />
+        <Route element={<ProtectedRoute />}>
+          <Route element={<Layout />}>
+            <Route path="/" element={<Dashboard />} />
+            <Route path="/podcasts" element={<Podcasts />} />
+            <Route path="/podcasts/:pid/episodes" element={<Episodes />} />
+            <Route path="/viewer/:eid" element={<Viewer />} />
+            <Route path="/videos" element={<Videos />} />
+            <Route path="/videos/:taskId" element={<VideoViewer />} />
+            <Route path="/settings" element={<Settings />} />
+          </Route>
+        </Route>
       </Routes>
     </Suspense>
   )
