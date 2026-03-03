@@ -669,7 +669,11 @@ class SupabaseDatabase:
             row["channel_avatar"] = task_data["channel_avatar"]
         if task_data.get("published_at"):
             row["published_at"] = task_data["published_at"]
-        self.client.table("video_tasks").insert(row).execute()
+        try:
+            self.client.table("video_tasks").insert(row).execute()
+        except Exception:
+            row.pop("published_at", None)
+            self.client.table("video_tasks").insert(row).execute()
         return task_id
 
     def count_channel_tasks(self, channel: str, user_id: str) -> int:
@@ -758,14 +762,29 @@ class SupabaseDatabase:
             "style, duration, error, channel, channel_url, channel_avatar,"
             "published_at, created_at, updated_at"
         )
-        result = (
-            self.client.table("video_tasks")
-            .select(cols)
-            .eq("user_id", user_id)
-            .order("published_at", desc=True)
-            .limit(limit)
-            .execute()
-        )
+        try:
+            result = (
+                self.client.table("video_tasks")
+                .select(cols)
+                .eq("user_id", user_id)
+                .order("published_at", desc=True)
+                .limit(limit)
+                .execute()
+            )
+        except Exception:
+            cols_fallback = (
+                "id, url, platform, title, thumbnail, status, progress, message,"
+                "style, duration, error, channel, channel_url, channel_avatar,"
+                "created_at, updated_at"
+            )
+            result = (
+                self.client.table("video_tasks")
+                .select(cols_fallback)
+                .eq("user_id", user_id)
+                .order("created_at", desc=True)
+                .limit(limit)
+                .execute()
+            )
         return [self._video_task_to_dict(r) for r in result.data]
 
     def count_video_tasks(self, user_id: str) -> dict:
