@@ -1,5 +1,6 @@
+import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Video, Radio, ExternalLink } from 'lucide-react'
+import { Video, Radio, ExternalLink, X } from 'lucide-react'
 import type { ProcessingJob } from '../lib/api'
 import { getStatusIcon, getStatusColor, isActiveStatus } from '../lib/statusUtils'
 
@@ -7,12 +8,23 @@ interface ProcessingProgressProps {
   job: ProcessingJob
   link?: string
   kind?: 'podcast' | 'video'
+  onCancel?: (id: string) => Promise<void>
 }
 
-export default function ProcessingProgress({ job, link, kind }: ProcessingProgressProps) {
+export default function ProcessingProgress({ job, link, kind, onCancel }: ProcessingProgressProps) {
   const isActive = isActiveStatus(job.status)
   const isDone = job.status === 'completed' || job.status === 'success'
   const clickable = isDone && !!link
+  const [cancelling, setCancelling] = useState(false)
+
+  const handleCancel = async (e: React.MouseEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    if (!onCancel || cancelling) return
+    setCancelling(true)
+    try { await onCancel(job.job_id) } catch { /* ignore */ }
+    finally { setCancelling(false) }
+  }
 
   const content = (
     <div className={`p-4 bg-dark-surface border rounded-xl transition-colors ${
@@ -33,6 +45,16 @@ export default function ProcessingProgress({ job, link, kind }: ProcessingProgre
         <div className="flex items-center gap-2 flex-shrink-0 ml-2">
           <span className="text-xs text-gray-500 uppercase">{job.status === 'success' ? 'completed' : job.status}</span>
           {clickable && <ExternalLink size={12} className="text-indigo-400" />}
+          {isActive && onCancel && (
+            <button
+              onClick={handleCancel}
+              disabled={cancelling}
+              className="p-1 text-gray-500 hover:text-red-400 hover:bg-red-400/10 rounded transition-colors"
+              title="Cancel"
+            >
+              <X size={14} />
+            </button>
+          )}
         </div>
       </div>
       

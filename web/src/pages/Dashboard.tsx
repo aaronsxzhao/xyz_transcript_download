@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useRef } from 'react'
 import { Link } from 'react-router-dom'
 import { Radio, FileText, MessageSquare, Loader2, Plus, ArrowRight, Bell, RefreshCw, X, Video, CheckCircle, Users } from 'lucide-react'
-import { fetchStats, fetchSummaries, processEpisode, fetchNewEpisodes, checkPodcastsForUpdates, checkVideoChannelsForUpdates, fetchVideoTasks, type Stats, type SummaryListItem, type ProcessingJob, type NewEpisode, type VideoTask } from '../lib/api'
+import { fetchStats, fetchSummaries, processEpisode, fetchNewEpisodes, checkPodcastsForUpdates, checkVideoChannelsForUpdates, fetchVideoTasks, cancelJob, cancelVideoTask, type Stats, type SummaryListItem, type ProcessingJob, type NewEpisode, type VideoTask } from '../lib/api'
 import { useStore } from '../lib/store'
 import { getCache, setCache, CacheKeys } from '../lib/cache'
 import { useToast } from '../components/Toast'
@@ -23,8 +23,23 @@ export default function Dashboard() {
   const [checkingUpdates, setCheckingUpdates] = useState(false)
   const [showNewEpisodes, setShowNewEpisodes] = useState(true)
 
-  const { jobs, updateJob, videoTasks, setVideoTasks } = useStore()
+  const { jobs, updateJob, removeJob, videoTasks, setVideoTasks } = useStore()
   const { addToast } = useToast()
+
+  async function handleCancelQueueItem(id: string, kind: 'podcast' | 'video') {
+    try {
+      if (kind === 'podcast') {
+        await cancelJob(id)
+        removeJob(id)
+      } else {
+        await cancelVideoTask(id)
+        setVideoTasks(videoTasks.filter(t => t.id !== id))
+      }
+      addToast({ type: 'info', title: 'Cancelled', message: 'Task has been cancelled' })
+    } catch (err) {
+      addToast({ type: 'error', title: 'Cancel failed', message: err instanceof Error ? err.message : 'Unknown error' })
+    }
+  }
 
   const activeVideoJobs: ProcessingJob[] = useMemo(() => {
     return videoTasks
@@ -311,6 +326,7 @@ export default function Dashboard() {
                   job={item}
                   link={link}
                   kind={item._kind}
+                  onCancel={(id) => handleCancelQueueItem(id, item._kind)}
                 />
               )
             })}

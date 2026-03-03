@@ -814,7 +814,8 @@ async def retry_task(
     if task["status"] not in retryable:
         raise HTTPException(status_code=400, detail=f"Cannot retry task in '{task['status']}' status")
 
-    db.update_task(task_id, {"status": "pending", "progress": 0, "message": "Retrying...", "error": ""})
+    msg = "Starting..." if task["status"] == "discovered" else "Retrying..."
+    db.update_task(task_id, {"status": "pending", "progress": 0, "message": msg, "error": ""})
 
     background_tasks.add_task(
         process_video_note_async,

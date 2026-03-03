@@ -5,7 +5,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { ChevronUp, ChevronDown, Activity, X, Trash2, RotateCcw, Radio, Video } from 'lucide-react'
 import { useStore } from '../lib/store'
-import { cancelJob, deleteJob, retryJob, type ProcessingJob } from '../lib/api'
+import { cancelJob, deleteJob, retryJob, cancelVideoTask, type ProcessingJob } from '../lib/api'
 import { getStatusColor, getStatusText, isActiveStatus } from '../lib/statusUtils'
 import { markSeen, shouldDismissCompleted } from '../lib/seen'
 
@@ -143,6 +143,18 @@ export default function ProcessingPanel() {
 }
 
 function VideoJobItem({ task }: { task: { id: string; title: string; status: string; progress: number; message: string; platform: string } }) {
+  const [cancelling, setCancelling] = useState(false)
+  const { setVideoTasks, videoTasks } = useStore()
+
+  const handleCancel = async () => {
+    setCancelling(true)
+    try {
+      await cancelVideoTask(task.id)
+      setVideoTasks(videoTasks.filter(t => t.id !== task.id))
+    } catch (err) { console.error('Cancel failed:', err) }
+    finally { setCancelling(false) }
+  }
+
   const statusColor = task.status === 'downloading' ? 'bg-blue-500'
     : task.status === 'transcribing' ? 'bg-purple-500'
     : task.status === 'summarizing' ? 'bg-indigo-500'
@@ -160,6 +172,14 @@ function VideoJobItem({ task }: { task: { id: string; title: string; status: str
             {task.message || task.status}
           </p>
         </div>
+        <button
+          onClick={handleCancel}
+          disabled={cancelling}
+          className="p-2 sm:p-1 min-w-[40px] min-h-[40px] sm:min-w-0 sm:min-h-0 flex items-center justify-center text-gray-500 hover:text-red-400 hover:bg-red-400/10 rounded transition-colors -mr-1"
+          title="Cancel"
+        >
+          <X className={`w-5 h-5 sm:w-4 sm:h-4 ${cancelling ? 'animate-spin' : ''}`} />
+        </button>
       </div>
       <div className="relative h-1.5 bg-dark-border rounded-full overflow-hidden">
         <div
