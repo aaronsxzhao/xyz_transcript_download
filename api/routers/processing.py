@@ -12,7 +12,7 @@ from fastapi import APIRouter, HTTPException, WebSocket, WebSocketDisconnect, Ba
 from api.schemas import ProcessRequest, BatchProcessRequest, ProcessingStatus, ResummarizeRequest
 from api.auth import get_current_user, User
 from api.db import get_db, TranscriptData, SummaryData
-from config import DATA_DIR, BACKGROUND_REFINEMENT_TIMEOUT, WEBSOCKET_HEARTBEAT_INTERVAL
+from config import DATA_DIR, BACKGROUND_REFINEMENT_TIMEOUT, WEBSOCKET_HEARTBEAT_INTERVAL, USE_SUPABASE
 from logger import notify_discord, get_logger
 
 logger = get_logger("processing")
@@ -1237,6 +1237,11 @@ async def websocket_progress(websocket: WebSocket, token: Optional[str] = None):
                 logger.warning(f"[WS] URL token verification returned None (check auth.py logs for details)")
         except Exception as e:
             logger.warning(f"[WS] URL token verification exception: {type(e).__name__}: {e}")
+
+    # In local mode (no Supabase auth), use "local" to match get_current_user
+    if not user_id and not USE_SUPABASE:
+        user_id = "local"
+        logger.info("[WS] Local mode: using user_id='local'")
     
     # Register with manager
     await manager.connect(websocket, user_id, already_accepted=True)
