@@ -215,7 +215,7 @@ export default function Dashboard() {
       if (videoPlatform) {
         const defaults = getVideoProcessingDefaults()
         const modelSettings = getUserModelSettings()
-        const result = await generateVideoNote({
+        await generateVideoNote({
           url,
           platform: videoPlatform,
           style: (defaults.style as string) || 'detailed',

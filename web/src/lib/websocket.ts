@@ -9,7 +9,6 @@ import { authFetch, type ProcessingJob } from './api'
 import { getAccessToken } from './auth'
 
 let ws: WebSocket | null = null
-let reconnectTimeout: number | null = null
 let pollInterval: number | null = null
 let wsWorking = false
 let lastMessageTime = 0
@@ -82,7 +81,7 @@ export function connectWebSocket() {
     useStore.getState().setWsConnected(false)
     wsWorking = false
     
-    reconnectTimeout = window.setTimeout(() => {
+    window.setTimeout(() => {
       connected = false
       connectWebSocket()
     }, 3000)
