@@ -44,6 +44,7 @@ class EpisodeResponse(EpisodeBase):
     has_summary: bool = False
     topics_count: int = 0
     key_points_count: int = 0
+    created_at: str = ""
     
     class Config:
         from_attributes = True

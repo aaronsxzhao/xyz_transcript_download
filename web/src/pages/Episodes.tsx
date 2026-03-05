@@ -187,7 +187,10 @@ export default function Episodes() {
                   {episode.title}
                 </h3>
                 <div className="flex flex-wrap items-center gap-2 md:gap-4 text-xs md:text-sm text-gray-400">
-                  <span>{episode.pub_date?.slice(0, 10)}</span>
+                  {episode.pub_date && <span>{episode.pub_date.slice(0, 10)}</span>}
+                  {episode.created_at && episode.created_at.slice(0, 10) !== (episode.pub_date || '').slice(0, 10) && (
+                    <span className="text-gray-500">imported {episode.created_at.slice(0, 10)}</span>
+                  )}
                   <span>{formatDuration(episode.duration)}</span>
                   
                   {/* Status indicators */}

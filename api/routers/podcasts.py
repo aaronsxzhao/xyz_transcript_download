@@ -280,6 +280,7 @@ async def list_podcast_episodes(pid: str, limit: int = 50, user: Optional[User] 
             has_summary=ep.eid in summary_ids,
             topics_count=summary_counts.get(ep.eid, (0, 0))[0],
             key_points_count=summary_counts.get(ep.eid, (0, 0))[1],
+            created_at=ep.created_at,
         )
         for ep in episodes[:limit]
     ]

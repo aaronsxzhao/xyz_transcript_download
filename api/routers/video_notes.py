@@ -653,25 +653,42 @@ async def generate_note(
     db = get_video_task_db()
 
     _invalidate_list_cache(user_id)
-    try:
-        task_id = db.create_task({
-            "url": url,
-            "platform": platform,
+
+    existing = db.get_task_by_url(url, user_id)
+    if existing:
+        task_id = existing["id"]
+        db.update_task(task_id, {
             "style": style,
             "formats": fmt_list,
             "quality": quality,
             "video_quality": video_quality,
             "model": llm_model,
             "extras": extras,
-            "video_understanding": video_understanding,
-            "video_interval": video_interval,
-            "grid_cols": grid_cols,
-            "grid_rows": grid_rows,
-            "user_id": user_id,
+            "status": "pending",
+            "progress": 0,
+            "message": "",
+            "error": "",
         })
-    except Exception as e:
-        logger.error(f"[generate] create_task failed: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"Failed to create task: {type(e).__name__}: {e}")
+    else:
+        try:
+            task_id = db.create_task({
+                "url": url,
+                "platform": platform,
+                "style": style,
+                "formats": fmt_list,
+                "quality": quality,
+                "video_quality": video_quality,
+                "model": llm_model,
+                "extras": extras,
+                "video_understanding": video_understanding,
+                "video_interval": video_interval,
+                "grid_cols": grid_cols,
+                "grid_rows": grid_rows,
+                "user_id": user_id,
+            })
+        except Exception as e:
+            logger.error(f"[generate] create_task failed: {e}", exc_info=True)
+            raise HTTPException(status_code=500, detail=f"Failed to create task: {type(e).__name__}: {e}")
 
     background_tasks.add_task(
         process_video_note_async,
@@ -716,28 +733,44 @@ async def generate_note_json(
     from video_task_db import get_video_task_db
     db = get_video_task_db()
 
-    task_payload = {
-        "url": url,
-        "platform": data.get("platform", ""),
-        "style": data.get("style", "detailed"),
-        "formats": data.get("formats", []),
-        "quality": data.get("quality", "medium"),
-        "video_quality": data.get("video_quality", "720"),
-        "model": data.get("llm_model", ""),
-        "extras": data.get("extras", ""),
-        "video_understanding": data.get("video_understanding", False),
-        "video_interval": data.get("video_interval", 4),
-        "grid_cols": data.get("grid_cols", 3),
-        "grid_rows": data.get("grid_rows", 3),
-        "user_id": user_id,
-    }
-
     _invalidate_list_cache(user_id)
-    try:
-        task_id = db.create_task(task_payload)
-    except Exception as e:
-        logger.error(f"[generate-json] create_task failed: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"Failed to create task: {type(e).__name__}: {e}")
+
+    existing = db.get_task_by_url(url, user_id)
+    if existing:
+        task_id = existing["id"]
+        db.update_task(task_id, {
+            "style": data.get("style", "detailed"),
+            "formats": data.get("formats", []),
+            "quality": data.get("quality", "medium"),
+            "video_quality": data.get("video_quality", "720"),
+            "model": data.get("llm_model", ""),
+            "extras": data.get("extras", ""),
+            "status": "pending",
+            "progress": 0,
+            "message": "",
+            "error": "",
+        })
+    else:
+        task_payload = {
+            "url": url,
+            "platform": data.get("platform", ""),
+            "style": data.get("style", "detailed"),
+            "formats": data.get("formats", []),
+            "quality": data.get("quality", "medium"),
+            "video_quality": data.get("video_quality", "720"),
+            "model": data.get("llm_model", ""),
+            "extras": data.get("extras", ""),
+            "video_understanding": data.get("video_understanding", False),
+            "video_interval": data.get("video_interval", 4),
+            "grid_cols": data.get("grid_cols", 3),
+            "grid_rows": data.get("grid_rows", 3),
+            "user_id": user_id,
+        }
+        try:
+            task_id = db.create_task(task_payload)
+        except Exception as e:
+            logger.error(f"[generate-json] create_task failed: {e}", exc_info=True)
+            raise HTTPException(status_code=500, detail=f"Failed to create task: {type(e).__name__}: {e}")
 
     background_tasks.add_task(
         process_video_note_async,

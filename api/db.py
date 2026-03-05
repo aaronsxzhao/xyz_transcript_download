@@ -67,6 +67,7 @@ class EpisodeData:
     audio_url: str = ""
     status: str = "pending"
     user_id: Optional[str] = None
+    created_at: str = ""
 
 
 @dataclass
@@ -231,6 +232,7 @@ class DatabaseInterface:
                 audio_url=getattr(r, 'audio_url', ''),
                 status=str(getattr(r, 'status', 'pending')),
                 user_id=self.user_id,
+                created_at=getattr(r, 'created_at', '') or '',
             )
             for r in records
         ]
@@ -259,6 +261,7 @@ class DatabaseInterface:
             audio_url=getattr(r, 'audio_url', ''),
             status=str(getattr(r, 'status', 'pending')),
             user_id=self.user_id,
+            created_at=getattr(r, 'created_at', '') or '',
         )
     
     def episode_exists(self, eid: str) -> bool:

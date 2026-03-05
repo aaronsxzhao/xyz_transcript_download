@@ -75,6 +75,7 @@ export interface Episode {
   has_summary: boolean
   topics_count: number
   key_points_count: number
+  created_at: string
 }
 
 export interface Summary {

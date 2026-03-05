@@ -681,8 +681,11 @@ function VideoList({ videos, onDelete, onRetry, onCancel }: {
               )}
 
               <div className="flex flex-wrap items-center gap-2 md:gap-4 text-xs md:text-sm text-gray-400">
-                {(task.published_at || task.created_at) && (
-                  <span>{(task.published_at || task.created_at).slice(0, 10)}</span>
+                {task.published_at && (
+                  <span>{task.published_at.slice(0, 10)}</span>
+                )}
+                {task.created_at && task.created_at.slice(0, 10) !== (task.published_at || '').slice(0, 10) && (
+                  <span className="text-gray-500">imported {task.created_at.slice(0, 10)}</span>
                 )}
                 {task.duration > 0 && (
                   <span>{formatDuration(task.duration)}</span>

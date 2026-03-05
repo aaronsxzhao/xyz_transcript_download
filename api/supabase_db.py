@@ -786,6 +786,18 @@ class SupabaseDatabase:
             return None
         return self._video_task_to_dict(result.data[0])
 
+    def get_video_task_by_url(self, url: str, user_id: str = None) -> Optional[dict]:
+        """Get a video task by URL."""
+        if not self.client or not url:
+            return None
+        query = self.client.table("video_tasks").select("*").eq("url", url)
+        if user_id:
+            query = query.eq("user_id", user_id)
+        result = query.limit(1).execute()
+        if not result.data:
+            return None
+        return self._video_task_to_dict(result.data[0])
+
     def list_video_tasks(self, user_id: str, limit: int = 100) -> List[dict]:
         """List all video tasks for a user (only columns needed for list UI)."""
         if not self.client:

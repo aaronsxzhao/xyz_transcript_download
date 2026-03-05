@@ -225,6 +225,22 @@ class _SQLiteVideoTaskDB:
                 return None
             return self._row_to_dict(row)
 
+    def get_task_by_url(self, url: str, user_id: str = None) -> Optional[dict]:
+        with self._conn() as conn:
+            if user_id:
+                row = conn.execute(
+                    "SELECT * FROM video_tasks WHERE url = ? AND user_id = ? LIMIT 1",
+                    (url, user_id),
+                ).fetchone()
+            else:
+                row = conn.execute(
+                    "SELECT * FROM video_tasks WHERE url = ? AND user_id IS NULL LIMIT 1",
+                    (url,),
+                ).fetchone()
+            if not row:
+                return None
+            return self._row_to_dict(row)
+
     def list_tasks(self, user_id: str = None, limit: int = 100) -> List[dict]:
         order = "ORDER BY (CASE WHEN published_at IS NOT NULL AND published_at != '' THEN 0 ELSE 1 END), published_at DESC, created_at DESC"
         with self._conn() as conn:
@@ -402,6 +418,11 @@ class _SupabaseVideoTaskDB:
                 self._cache[task_id] = task
         return task
 
+    def get_task_by_url(self, url: str, user_id: str = None) -> Optional[dict]:
+        if not user_id or not url:
+            return None
+        return self._sb.get_video_task_by_url(url, user_id)
+
     def flush_task(self, task_id: str):
         """Force-flush any pending writes for a task.
 
@@ -504,6 +525,9 @@ class VideoTaskDB:
 
     def get_task(self, task_id: str, user_id: str = None) -> Optional[dict]:
         return self._backend.get_task(task_id, user_id)
+
+    def get_task_by_url(self, url: str, user_id: str = None) -> Optional[dict]:
+        return self._backend.get_task_by_url(url, user_id)
 
     def list_tasks(self, user_id: str = None, limit: int = 100) -> List[dict]:
         return self._backend.list_tasks(user_id, limit)
