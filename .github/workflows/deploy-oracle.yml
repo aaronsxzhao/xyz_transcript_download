@@ -3,10 +3,15 @@ name: Deploy to Oracle Cloud
 on:
   push:
     branches: [main]
-    paths-ignore:
-      - '*.md'
-      - 'tests/**'
-      - '.gitignore'
+    paths:
+      - '*.py'
+      - 'api/**'
+      - 'web/**'
+      - 'Dockerfile'
+      - 'requirements.txt'
+      - 'package.json'
+      - 'package-lock.json'
+      - '.github/workflows/deploy-oracle.yml'
   workflow_dispatch:
 
 env:
