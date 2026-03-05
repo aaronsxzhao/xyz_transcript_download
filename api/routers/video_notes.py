@@ -171,22 +171,21 @@ def process_video_note_sync(
     video_quality: str = "720",
 ):
     """Synchronous video note processing pipeline."""
-    from video_task_db import get_video_task_db
-    from video_downloader import get_downloader, detect_platform, VideoDownloadError
-    from cookie_manager import get_cookie_manager
-    from note_summarizer import get_note_summarizer, NOTE_CHUNK_CHARS
-    from screenshot_extractor import (
-        extract_timestamps_from_markdown,
-        extract_screenshots_batch,
-        replace_screenshot_markers,
-        replace_content_markers,
-        extract_first_frame_thumbnail,
-    )
-
-    db = get_video_task_db()
-    cookie_mgr = get_cookie_manager()
-
     try:
+        from video_task_db import get_video_task_db
+        from video_downloader import get_downloader, detect_platform, VideoDownloadError
+        from cookie_manager import get_cookie_manager
+        from note_summarizer import get_note_summarizer, NOTE_CHUNK_CHARS
+        from screenshot_extractor import (
+            extract_timestamps_from_markdown,
+            extract_screenshots_batch,
+            replace_screenshot_markers,
+            replace_content_markers,
+            extract_first_frame_thumbnail,
+        )
+
+        db = get_video_task_db()
+        cookie_mgr = get_cookie_manager()
         if is_video_task_cancelled(task_id):
             _update_task_status(db, task_id, "cancelled", 0, "Cancelled", user_id)
             _clear_cancelled(task_id)
@@ -596,21 +595,27 @@ def process_video_note_sync(
     except Exception as e:
         import traceback
         traceback.print_exc()
-        if is_video_task_cancelled(task_id):
-            _update_task_status(db, task_id, "cancelled", 0, "Cancelled", user_id)
-            _clear_cancelled(task_id)
-        else:
-            _update_task_status(db, task_id, "failed", 0, f"Error: {str(e)}", user_id,
-                                error=str(e))
-        db.flush_task(task_id)
+        try:
+            if is_video_task_cancelled(task_id):
+                _update_task_status(db, task_id, "cancelled", 0, "Cancelled", user_id)
+                _clear_cancelled(task_id)
+            else:
+                _update_task_status(db, task_id, "failed", 0, f"Error: {str(e)}", user_id,
+                                    error=str(e))
+            db.flush_task(task_id)
+        except Exception:
+            logger.error(f"[Video {task_id}] Failed during error handling: {e}")
 
 
 async def process_video_note_async(task_id: str, **kwargs):
     loop = asyncio.get_event_loop()
-    await loop.run_in_executor(
-        VIDEO_EXECUTOR,
-        lambda: process_video_note_sync(task_id, **kwargs),
-    )
+    try:
+        await loop.run_in_executor(
+            VIDEO_EXECUTOR,
+            lambda: process_video_note_sync(task_id, **kwargs),
+        )
+    except Exception as e:
+        logger.error(f"[Video {task_id}] Unhandled error: {e}")
 
 
 @router.post("/generate")

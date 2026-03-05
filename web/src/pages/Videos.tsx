@@ -203,6 +203,7 @@ export default function Videos() {
   }
 
   // Get videos for a platform+channel, sorted by publish date (newest first)
+  // Videos without published_at sort to the bottom, ordered by created_at
   const getVideos = (platform: string, channel: string) => {
     return filtered
       .filter(t =>
@@ -210,9 +211,12 @@ export default function Videos() {
         (t.channel || 'Unknown Channel') === channel
       )
       .sort((a, b) => {
-        const da = a.published_at || a.created_at || ''
-        const db = b.published_at || b.created_at || ''
-        return db.localeCompare(da)
+        const pa = a.published_at || ''
+        const pb = b.published_at || ''
+        if (pa && pb) return pb.localeCompare(pa)
+        if (pa && !pb) return -1
+        if (!pa && pb) return 1
+        return (b.created_at || '').localeCompare(a.created_at || '')
       })
   }
 

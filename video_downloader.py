@@ -311,10 +311,10 @@ def list_channel_videos(
             if platform == "bilibili" and "/video/" not in vid_url:
                 continue
             thumb = entry.get("thumbnail") or entry.get("thumbnails", [{}])[0].get("url", "") if entry.get("thumbnails") else entry.get("thumbnail", "")
-            ud = entry.get("upload_date") or ""
+            ud = entry.get("upload_date") or entry.get("release_date") or ""
             pub = f"{ud[:4]}-{ud[4:6]}-{ud[6:8]}" if len(ud) >= 8 else ""
             if not pub:
-                ts = entry.get("timestamp") or entry.get("release_timestamp")
+                ts = entry.get("timestamp") or entry.get("release_timestamp") or entry.get("epoch")
                 if ts:
                     from datetime import datetime as _dt, timezone as _tz
                     try:

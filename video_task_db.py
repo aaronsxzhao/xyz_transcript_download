@@ -226,15 +226,16 @@ class _SQLiteVideoTaskDB:
             return self._row_to_dict(row)
 
     def list_tasks(self, user_id: str = None, limit: int = 100) -> List[dict]:
+        order = "ORDER BY (CASE WHEN published_at IS NOT NULL AND published_at != '' THEN 0 ELSE 1 END), published_at DESC, created_at DESC"
         with self._conn() as conn:
             if user_id:
                 rows = conn.execute(
-                    "SELECT * FROM video_tasks WHERE user_id = ? ORDER BY COALESCE(NULLIF(published_at,''), created_at) DESC LIMIT ?",
+                    f"SELECT * FROM video_tasks WHERE user_id = ? {order} LIMIT ?",
                     (user_id, limit),
                 ).fetchall()
             else:
                 rows = conn.execute(
-                    "SELECT * FROM video_tasks WHERE user_id IS NULL ORDER BY COALESCE(NULLIF(published_at,''), created_at) DESC LIMIT ?",
+                    f"SELECT * FROM video_tasks WHERE user_id IS NULL {order} LIMIT ?",
                     (limit,),
                 ).fetchall()
             return [self._row_to_dict(r) for r in rows]

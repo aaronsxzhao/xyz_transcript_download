@@ -382,22 +382,19 @@ def process_episode_sync(job_id: str, episode_url: str, transcribe_only: bool = 
         whisper_model: Optional whisper model to use (e.g., 'whisper-large-v3-turbo')
         llm_model: Optional LLM model to use for summarization
     """
-    import threading
-    from xyz_client import get_client
-    from downloader import get_downloader, compress_audio
-    from transcriber import get_transcriber, Transcript, TranscriptSegment as TSeg
-    from summarizer import get_summarizer
-    
-    client = get_client()
-    downloader = get_downloader()
-    transcriber = get_transcriber(model=whisper_model)
-    summarizer = get_summarizer(model=llm_model)
-    
-    # Use unified database interface (routes to SQLite or Supabase based on config)
-    # IMPORTANT: Don't use local database.py directly - always use db interface
-    db_interface = get_db(user_id)
-    
     try:
+        import threading
+        from xyz_client import get_client
+        from downloader import get_downloader, compress_audio
+        from transcriber import get_transcriber, Transcript, TranscriptSegment as TSeg
+        from summarizer import get_summarizer
+        
+        client = get_client()
+        downloader = get_downloader()
+        transcriber = get_transcriber(model=whisper_model)
+        summarizer = get_summarizer(model=llm_model)
+        
+        db_interface = get_db(user_id)
         # Check for cancellation before starting
         if is_job_cancelled(job_id):
             update_job_status(job_id, "cancelled", 0, "Cancelled before starting")
@@ -862,10 +859,14 @@ async def process_episode_async(job_id: str, episode_url: str, transcribe_only: 
     """
     loop = asyncio.get_event_loop()
     
-    await loop.run_in_executor(
-        PROCESSING_EXECUTOR,
-        lambda: process_episode_sync(job_id, episode_url, transcribe_only, force, user_id, whisper_model, llm_model)
-    )
+    try:
+        await loop.run_in_executor(
+            PROCESSING_EXECUTOR,
+            lambda: process_episode_sync(job_id, episode_url, transcribe_only, force, user_id, whisper_model, llm_model)
+        )
+    except Exception as e:
+        logger.error(f"[Job {job_id}] Unhandled error in process_episode_sync: {e}")
+        update_job_status(job_id, "failed", 0, f"Error: {str(e)}")
     
     # Broadcast final status
     await broadcast_status(job_id)

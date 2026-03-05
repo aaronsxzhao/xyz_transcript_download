@@ -97,11 +97,6 @@ export function connectWebSocket() {
       const data = JSON.parse(event.data)
       lastMessageTime = Date.now()
       
-      if (!wsWorking) {
-        wsWorking = true
-        console.log('WebSocket receiving updates, polling paused')
-      }
-      
       switch (data.type) {
         case 'init':
           console.log('WebSocket init:', data.jobs?.length || 0, 'jobs')
@@ -110,12 +105,14 @@ export function connectWebSocket() {
         
         case 'job_update':
           if (data.job) {
+            wsWorking = true
             useStore.getState().updateJob(data.job)
           }
           break
         
         case 'video_job_update':
           if (data.task) {
+            wsWorking = true
             useStore.getState().updateVideoTask(data.task)
           }
           break
