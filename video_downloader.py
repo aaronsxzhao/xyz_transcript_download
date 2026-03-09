@@ -1027,6 +1027,16 @@ class DouyinDownloader(BaseDownloader):
         if cookies:
             self.headers["Cookie"] = cookies
 
+    def _cookiefile_path(self) -> Optional[str]:
+        if not self.cookies:
+            return None
+        try:
+            cookie_file = DATA_DIR / "douyin_cookies.txt"
+            cookie_file.write_text(self.cookies, encoding="utf-8")
+            return str(cookie_file)
+        except Exception:
+            return None
+
     def _extract_video_id(self, url: str) -> Optional[str]:
         match = re.search(r'/video/(\d+)', url)
         if match:
@@ -1035,6 +1045,14 @@ class DouyinDownloader(BaseDownloader):
         try:
             import requests
             resp = requests.head(url, allow_redirects=True, timeout=10, headers=self.headers)
+            match = re.search(r'/video/(\d+)', resp.url)
+            if match:
+                return match.group(1)
+        except Exception:
+            pass
+        try:
+            import requests
+            resp = requests.get(url, allow_redirects=True, timeout=15, headers=self.headers)
             match = re.search(r'/video/(\d+)', resp.url)
             if match:
                 return match.group(1)
@@ -1093,6 +1111,9 @@ class DouyinDownloader(BaseDownloader):
                 "noplaylist": True,
                 "quiet": True,
             }
+            cookiefile = self._cookiefile_path()
+            if cookiefile:
+                opts["cookiefile"] = cookiefile
             with yt_dlp.YoutubeDL(opts) as ydl:
                 ydl.download([url])
             if output_path.exists():
