@@ -308,6 +308,104 @@ def _channel_videos_url(channel_url: str, platform: str) -> str:
     return channel_url
 
 
+def _netscape_cookie_header(cookies: str) -> str:
+    pairs = []
+    for line in (cookies or "").splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        if line.startswith("#HttpOnly_"):
+            line = line[len("#HttpOnly_"):]
+        elif line.startswith("#"):
+            continue
+        parts = line.split("\t")
+        if len(parts) >= 7 and parts[5]:
+            pairs.append(f"{parts[5]}={parts[6]}")
+    return "; ".join(pairs)
+
+
+def _extract_douyin_sec_user_id(channel_url: str) -> str:
+    if not channel_url:
+        return ""
+    m = re.search(r"douyin\.com/user/([^/?#]+)", channel_url)
+    return m.group(1) if m else ""
+
+
+def _list_douyin_channel_videos(channel_url: str, cookies: str = "", limit: int = 15) -> List[dict]:
+    import requests
+
+    sec_user_id = _extract_douyin_sec_user_id(channel_url)
+    if not sec_user_id:
+        return []
+
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+                      "(KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36",
+        "Referer": channel_url,
+        "Accept": "application/json, text/plain, */*",
+    }
+    cookie_header = _netscape_cookie_header(cookies)
+    if cookie_header:
+        headers["Cookie"] = cookie_header
+
+    params = {
+        "device_platform": "webapp",
+        "aid": "6383",
+        "channel": "channel_pc_web",
+        "sec_user_id": sec_user_id,
+        "max_cursor": "0",
+        "locate_query": "false",
+        "show_live_replay_strategy": "1",
+        "need_time_list": "1",
+        "time_list_query": "0",
+        "whale_cut_token": "",
+        "cut_version": "1",
+        "count": str(max(limit, 1)),
+        "publish_video_strategy_type": "2",
+        "from_user_page": "1",
+    }
+
+    resp = requests.get(
+        "https://www.douyin.com/aweme/v1/web/aweme/post/",
+        headers=headers,
+        params=params,
+        timeout=20,
+    )
+    data = resp.json()
+    if data.get("status_code") != 0:
+        logger.warning(f"Douyin post API returned status_code={data.get('status_code')}")
+        return []
+
+    videos = []
+    for item in data.get("aweme_list") or []:
+        aweme_id = item.get("aweme_id")
+        if not aweme_id:
+            continue
+        video = item.get("video") or {}
+        cover = ((video.get("cover") or {}).get("url_list") or [""])[0]
+        pub = ""
+        ts = item.get("create_time")
+        if ts:
+            from datetime import datetime as _dt, timezone as _tz
+            try:
+                pub = _dt.fromtimestamp(int(ts), tz=_tz.utc).strftime("%Y-%m-%d")
+            except (ValueError, OSError):
+                pub = ""
+
+        videos.append({
+            "url": f"https://www.douyin.com/video/{aweme_id}",
+            "title": item.get("desc") or "",
+            "thumbnail": cover,
+            "duration": (video.get("duration") or 0) / 1000.0,
+            "published_at": pub,
+        })
+        if len(videos) >= limit:
+            break
+
+    logger.info(f"Listed {len(videos)} Douyin videos from channel {channel_url}")
+    return videos
+
+
 def list_channel_videos(
     channel_url: str,
     platform: str,
@@ -321,6 +419,20 @@ def list_channel_videos(
     listing_url = _channel_videos_url(channel_url, platform)
     if not listing_url:
         return []
+
+    if not cookies:
+        try:
+            from cookie_manager import get_cookie_manager
+            cookies = get_cookie_manager().get_cookie(platform)
+        except Exception:
+            cookies = ""
+
+    if platform == "douyin":
+        try:
+            return _list_douyin_channel_videos(channel_url, cookies=cookies, limit=limit)
+        except Exception as e:
+            logger.error(f"Failed to list Douyin channel videos for {channel_url}: {e}")
+            return []
 
     fetch_limit = limit * 3 if platform == "bilibili" else limit
     opts: dict = {
@@ -337,16 +449,6 @@ def list_channel_videos(
         cookie_file = DATA_DIR / f"{platform}_cookies.txt"
         cookie_file.write_text(cookies, encoding="utf-8")
         opts["cookiefile"] = str(cookie_file)
-    else:
-        try:
-            from cookie_manager import get_cookie_manager
-            saved = get_cookie_manager().get_cookie(platform)
-            if saved:
-                cookie_file = DATA_DIR / f"{platform}_cookies.txt"
-                cookie_file.write_text(saved, encoding="utf-8")
-                opts["cookiefile"] = str(cookie_file)
-        except Exception:
-            pass
 
     if platform == "youtube":
         opts["js_runtimes"] = {"deno": {}, "node": {}, "bun": {}}
