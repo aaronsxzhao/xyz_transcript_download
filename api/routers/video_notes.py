@@ -223,6 +223,7 @@ def process_video_note_sync(
             and len(existing_transcript["text"]) > 50
         )
 
+        downloader = None
         title = (existing_task or {}).get("title", "")
         thumbnail = (existing_task or {}).get("thumbnail", "")
         duration = (existing_task or {}).get("duration", 0)
@@ -379,23 +380,6 @@ def process_video_note_sync(
                 _clear_cancelled(task_id)
                 return
 
-            # Phase 2b: Download video if needed
-            needs_video = "screenshot" in formats or video_understanding
-            if needs_video:
-                _update_task_status(db, task_id, "downloading", 26, "Downloading video for screenshots (separate from audio)...", user_id)
-
-                def video_progress(pct: float, msg: str):
-                    if is_video_task_cancelled(task_id):
-                        raise VideoCancelledException("Cancelled during video download")
-                    job_pct = 26 + pct * 14
-                    _update_task_status(db, task_id, "downloading", job_pct, msg, user_id)
-
-                try:
-                    video_path = downloader.download_video(url, task_id, video_quality=video_quality, progress_callback=video_progress)
-                except VideoDownloadError as e:
-                    logger.warning(f"Video download failed ({e.error_code}), continuing without video: {e}")
-                    video_path = None
-
             if is_video_task_cancelled(task_id):
                 _update_task_status(db, task_id, "cancelled", 0, "Cancelled", user_id)
                 _clear_cancelled(task_id)
@@ -450,6 +434,35 @@ def process_video_note_sync(
                 }, ensure_ascii=False),
             })
             _update_task_status(db, task_id, "transcribing", 60, "Transcription complete — preparing to generate notes...", user_id)
+
+        # Download video whenever screenshots or video understanding are requested.
+        # This must also run for retry/re-process paths that reuse an existing transcript.
+        needs_video = "screenshot" in formats or video_understanding
+        if needs_video and not video_path:
+            _update_task_status(db, task_id, "downloading", 26, "Downloading video for screenshots...", user_id)
+
+            def video_progress(pct: float, msg: str):
+                if is_video_task_cancelled(task_id):
+                    raise VideoCancelledException("Cancelled during video download")
+                job_pct = 26 + pct * 14
+                _update_task_status(db, task_id, "downloading", job_pct, msg, user_id)
+
+            try:
+                if not platform:
+                    platform = detect_platform(url)
+                if platform and downloader is None:
+                    cookies = cookie_mgr.get_cookie(platform)
+                    downloader = get_downloader(platform, cookies)
+                if downloader:
+                    video_path = downloader.download_video(
+                        url,
+                        task_id,
+                        video_quality=video_quality,
+                        progress_callback=video_progress,
+                    )
+            except VideoDownloadError as e:
+                logger.warning(f"Video download failed ({e.error_code}), continuing without video: {e}")
+                video_path = None
 
         # Thumbnail fallback: extract first frame if no thumbnail was fetched
         if not thumbnail:
