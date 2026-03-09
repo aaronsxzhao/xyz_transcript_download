@@ -261,11 +261,19 @@ def normalize_video_url(url: str, platform: str = "") -> str:
 
     if platform == "bilibili":
         m = re.search(r"/video/(BV[\w]+)", url, re.IGNORECASE)
+        page = ""
+        try:
+            qs = parse_qs(parsed.query or "")
+            page_num = (qs.get("p") or [""])[0]
+            if page_num and page_num.isdigit() and int(page_num) > 1:
+                page = f"?p={page_num}"
+        except Exception:
+            page = ""
         if m:
-            return f"https://www.bilibili.com/video/{m.group(1)}"
+            return f"https://www.bilibili.com/video/{m.group(1)}{page}"
         m = re.search(r"av(\d+)", url, re.IGNORECASE)
         if m:
-            return f"https://www.bilibili.com/video/av{m.group(1)}"
+            return f"https://www.bilibili.com/video/av{m.group(1)}{page}"
 
     return url
 
@@ -904,6 +912,15 @@ class BilibiliDownloader(YtdlpDownloader):
         """Fetch metadata from Bilibili's public API, fall back to yt-dlp."""
         import requests
 
+        normalized_url = normalize_video_url(url, "bilibili")
+        page_num = 1
+        try:
+            parsed = urlparse(normalized_url)
+            qs = parse_qs(parsed.query or "")
+            page_num = int((qs.get("p") or ["1"])[0] or "1")
+        except Exception:
+            page_num = 1
+
         bvid = self._extract_bvid(url)
         aid = self._extract_aid(url)
         if not bvid and not aid:
@@ -947,22 +964,39 @@ class BilibiliDownloader(YtdlpDownloader):
             d = data["data"]
             owner = d.get("owner", {})
             mid = owner.get("mid", "")
+            pages = d.get("pages") or []
+            current_page = pages[page_num - 1] if 1 <= page_num <= len(pages) else {}
 
             thumbnail = d.get("pic", "")
             if thumbnail and thumbnail.startswith("http://"):
                 thumbnail = thumbnail.replace("http://", "https://", 1)
 
+            title = d.get("title", "")
+            part_title = current_page.get("part") or ""
+            if page_num > 1 and part_title and part_title != title:
+                title = f"{title} - {part_title}"
+
+            published_at = ""
+            pub_ts = d.get("pubdate")
+            if pub_ts:
+                try:
+                    from datetime import datetime, timezone
+                    published_at = datetime.fromtimestamp(int(pub_ts), tz=timezone.utc).strftime("%Y-%m-%d")
+                except Exception:
+                    published_at = ""
+
             return VideoMetadata(
-                title=d.get("title", ""),
+                title=title,
                 description=d.get("desc", ""),
                 thumbnail=thumbnail,
-                duration=d.get("duration", 0) or 0,
+                duration=current_page.get("duration") or d.get("duration", 0) or 0,
                 platform="bilibili",
-                url=url,
+                url=normalized_url,
                 tags=[t.get("tag_name", "") for t in d.get("tag", []) if t.get("tag_name")],
                 channel=owner.get("name", ""),
                 channel_url=f"https://space.bilibili.com/{mid}" if mid else "",
                 channel_avatar=owner.get("face", "").replace("http://", "https://", 1) if owner.get("face") else "",
+                published_at=published_at,
             )
         except Exception as e:
             logger.warning(f"Bilibili API metadata failed: {e}, falling back to yt-dlp")
