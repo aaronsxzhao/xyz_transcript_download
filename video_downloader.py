@@ -1071,6 +1071,35 @@ class DouyinDownloader(BaseDownloader):
         except Exception:
             return None
 
+    @staticmethod
+    def _normalize_playwright_expires(raw_expires: str) -> Optional[int]:
+        """Normalize cookie expiry into a Playwright-compatible Unix timestamp.
+
+        Some imported browser cookies arrive as Chromium/WebKit timestamps
+        (microseconds since 1601) instead of Unix seconds. Playwright rejects
+        those giant values directly.
+        """
+        try:
+            exp = int(float(raw_expires))
+        except Exception:
+            return None
+
+        if exp == -1:
+            return -1
+        if exp <= 0:
+            return None
+
+        # Normal Unix timestamp in seconds.
+        if exp <= 253402300799:
+            return exp
+
+        # Chromium/WebKit timestamp: microseconds since 1601-01-01.
+        unix_from_chromium = int(exp / 1_000_000 - 11644473600)
+        if 0 < unix_from_chromium <= 253402300799:
+            return unix_from_chromium
+
+        return None
+
     def _playwright_cookies(self) -> list[dict]:
         cookies = []
         for line in (self.cookies or "").splitlines():
@@ -1098,12 +1127,9 @@ class DouyinDownloader(BaseDownloader):
             }
             if http_only:
                 cookie["httpOnly"] = True
-            try:
-                exp = int(expires)
-                if exp > 0:
-                    cookie["expires"] = exp
-            except Exception:
-                pass
+            normalized_expires = self._normalize_playwright_expires(expires)
+            if normalized_expires is not None:
+                cookie["expires"] = normalized_expires
             cookies.append(cookie)
         return cookies
 
