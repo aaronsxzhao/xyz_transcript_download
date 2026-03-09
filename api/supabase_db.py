@@ -868,6 +868,16 @@ class SupabaseDatabase:
         """Delete all video tasks for a channel."""
         if not self.client or not channel:
             return 0
+        if channel == "__unknown__":
+            empty_query = self.client.table("video_tasks").delete().eq("channel", "")
+            null_query = self.client.table("video_tasks").delete().is_("channel", "null")
+            if user_id:
+                empty_query = empty_query.eq("user_id", user_id)
+                null_query = null_query.eq("user_id", user_id)
+            empty_result = empty_query.execute()
+            null_result = null_query.execute()
+            return len(empty_result.data or []) + len(null_result.data or [])
+
         query = self.client.table("video_tasks").delete().eq("channel", channel)
         if user_id:
             query = query.eq("user_id", user_id)

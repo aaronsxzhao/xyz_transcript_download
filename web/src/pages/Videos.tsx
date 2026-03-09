@@ -487,6 +487,7 @@ function ChannelList({ channels, onSelectChannel, onDeleteChannel, onCheckUpdate
                   </a>
                 )}
                 {onCheckUpdates && (
+                  latestTask?.channel_url ? (
                   <button
                     onClick={async () => {
                       setRefreshing(ch)
@@ -498,6 +499,7 @@ function ChannelList({ channels, onSelectChannel, onDeleteChannel, onCheckUpdate
                   >
                     <RefreshCw size={16} className={refreshing === ch ? 'animate-spin' : ''} />
                   </button>
+                  ) : null
                 )}
                 {onDeleteChannel && (
                   confirmDelete === ch ? (

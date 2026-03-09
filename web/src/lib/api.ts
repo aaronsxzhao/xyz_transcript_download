@@ -5,6 +5,7 @@
 import { getAccessToken, refreshToken } from './auth'
 
 const API_BASE = '/api'
+const UNKNOWN_CHANNEL_SENTINEL = '__unknown__'
 
 /**
  * Helper to create headers with auth token
@@ -487,7 +488,8 @@ export async function deleteVideoTask(taskId: string): Promise<{ message: string
 }
 
 export async function deleteVideoChannel(channelName: string): Promise<{ message: string; deleted: number }> {
-  const res = await authFetch(`${API_BASE}/video-notes/channels/${encodeURIComponent(channelName)}`, {
+  const apiChannelName = channelName === 'Unknown Channel' ? UNKNOWN_CHANNEL_SENTINEL : channelName
+  const res = await authFetch(`${API_BASE}/video-notes/channels/${encodeURIComponent(apiChannelName)}`, {
     method: 'DELETE',
   })
   if (!res.ok) throw new Error('Failed to delete channel')

@@ -17,6 +17,7 @@ from config import DATABASE_PATH, USE_SUPABASE
 from logger import get_logger
 
 logger = get_logger("video_task_db")
+UNKNOWN_CHANNEL_SENTINEL = "__unknown__"
 
 
 class _SQLiteVideoTaskDB:
@@ -274,7 +275,24 @@ class _SQLiteVideoTaskDB:
 
     def delete_channel(self, channel: str, user_id: str = None) -> int:
         with self._conn() as conn:
-            if user_id:
+            if channel == UNKNOWN_CHANNEL_SENTINEL:
+                if user_id:
+                    rows = conn.execute(
+                        "SELECT id FROM video_tasks WHERE (channel = '' OR channel IS NULL) AND user_id = ?",
+                        (user_id,),
+                    ).fetchall()
+                    conn.execute(
+                        "DELETE FROM video_tasks WHERE (channel = '' OR channel IS NULL) AND user_id = ?",
+                        (user_id,),
+                    )
+                else:
+                    rows = conn.execute(
+                        "SELECT id FROM video_tasks WHERE (channel = '' OR channel IS NULL) AND user_id IS NULL",
+                    ).fetchall()
+                    conn.execute(
+                        "DELETE FROM video_tasks WHERE (channel = '' OR channel IS NULL) AND user_id IS NULL",
+                    )
+            elif user_id:
                 rows = conn.execute(
                     "SELECT id FROM video_tasks WHERE channel = ? AND user_id = ?",
                     (channel, user_id),
@@ -470,7 +488,13 @@ class _SupabaseVideoTaskDB:
         if not user_id or not channel:
             return 0
         with self._lock:
-            to_remove = [tid for tid, c in self._cache.items() if c.get("channel") == channel]
+            if channel == UNKNOWN_CHANNEL_SENTINEL:
+                to_remove = [
+                    tid for tid, c in self._cache.items()
+                    if not c.get("channel")
+                ]
+            else:
+                to_remove = [tid for tid, c in self._cache.items() if c.get("channel") == channel]
             for tid in to_remove:
                 self._cache.pop(tid, None)
                 self._dirty.pop(tid, None)
