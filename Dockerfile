@@ -31,7 +31,8 @@ WORKDIR /app
 # Install Python deps first (cached unless requirements change)
 COPY requirements-cloud.txt .
 RUN --mount=type=cache,target=/root/.cache/pip \
-    pip install -r requirements-cloud.txt
+    pip install -r requirements-cloud.txt && \
+    python -m playwright install --with-deps chromium
 
 # Copy application code (changes frequently, so last)
 COPY . .
