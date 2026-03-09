@@ -10,7 +10,7 @@ import {
   ImportSubscriptionsResult, fetchSysHealth, fetchAllCookies,
   bilibiliQrGenerate, bilibiliQrPoll, douyinQrGenerate, douyinQrPoll,
   uploadCookieFile, importBrowserCookies, saveSimpleCookie,
-  fetchNotionPages,
+  fetchNotionPages, fetchDouyinCookieDiagnosis, DouyinCookieDiagnosis,
 } from '../lib/api'
 import PlatformIcon, { PLATFORM_COLORS } from '../components/PlatformIcon'
 
@@ -118,6 +118,7 @@ export default function Settings() {
   const [cookieLoading, setCookieLoading] = useState(false)
   const [showFileUpload, setShowFileUpload] = useState(false)
   const [selectedBrowser, setSelectedBrowser] = useState('chrome')
+  const [douyinDiagnosis, setDouyinDiagnosis] = useState<DouyinCookieDiagnosis | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const BROWSERS = [
@@ -313,13 +314,16 @@ export default function Settings() {
           console.warn('QR poll error:', err)
         }
       }, 2000)
-    } catch {
+    } catch (err) {
       if (qrAutoRef.current === autoId) {
         setQrStatus('error')
+        const detail = err instanceof Error ? err.message : ''
         setQrMessage(
-          qrRetryCountRef.current > 0
-            ? `Failed to generate QR code after ${qrRetryCountRef.current + 1} attempts. ${appName} may be rate-limiting. Wait a moment and try again.`
-            : 'Failed to generate QR code. Check your network connection.'
+          detail || (
+            qrRetryCountRef.current > 0
+              ? `Failed to generate QR code after ${qrRetryCountRef.current + 1} attempts. ${appName} may be rate-limiting. Wait a moment and try again.`
+              : 'Failed to generate QR code. Check your network connection.'
+          )
         )
         qrRetryCountRef.current = 0
       }
@@ -347,6 +351,13 @@ export default function Settings() {
       .then(data => setCookies(data.cookies))
       .catch(() => {})
   }, [])
+
+  useEffect(() => {
+    if (activeTab !== 'accounts' || activePlatform !== 'douyin') return
+    fetchDouyinCookieDiagnosis()
+      .then(setDouyinDiagnosis)
+      .catch(() => setDouyinDiagnosis(null))
+  }, [activeTab, activePlatform, cookies])
 
   useEffect(() => {
     if (settings) {
@@ -805,6 +816,55 @@ export default function Settings() {
                     <CheckCircle size={16} className="text-green-400" />
                     <span className="text-sm text-green-400">{name} cookies are set</span>
                   </div>
+                )}
+
+                {activePlatform === 'douyin' && (
+                  <>
+                    <div className="p-3 bg-amber-500/10 border border-amber-500/30 rounded-lg">
+                      <div className="flex items-start gap-2">
+                        <AlertTriangle size={16} className="text-amber-400 mt-0.5 flex-shrink-0" />
+                        <div className="space-y-1">
+                          <p className="text-sm text-amber-300 font-medium">QR login is unreliable right now</p>
+                          <p className="text-xs text-amber-200/80">
+                            Use browser cookie import for best results. If yt-dlp is blocked, localhost now tries a Chromium fallback.
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                    {douyinDiagnosis && (
+                      <div className={`p-3 rounded-lg border ${
+                        douyinDiagnosis.looks_usable
+                          ? 'bg-cyan-500/10 border-cyan-500/30'
+                          : 'bg-red-500/10 border-red-500/30'
+                      }`}>
+                        <div className="flex items-start gap-2">
+                          {douyinDiagnosis.looks_usable ? (
+                            <CheckCircle size={16} className="text-cyan-400 mt-0.5 flex-shrink-0" />
+                          ) : (
+                            <AlertTriangle size={16} className="text-red-400 mt-0.5 flex-shrink-0" />
+                          )}
+                          <div className="space-y-2">
+                            <p className={`text-sm ${douyinDiagnosis.looks_usable ? 'text-cyan-300' : 'text-red-300'}`}>
+                              {douyinDiagnosis.message}
+                            </p>
+                            <p className="text-xs text-gray-400">
+                              Saved {douyinDiagnosis.cookie_count} cookies across {douyinDiagnosis.domains.length} domains.
+                            </p>
+                            {douyinDiagnosis.present.length > 0 && (
+                              <p className="text-xs text-gray-300">
+                                Present: {douyinDiagnosis.present.join(', ')}
+                              </p>
+                            )}
+                            {douyinDiagnosis.missing.length > 0 && (
+                              <p className="text-xs text-gray-400">
+                                Missing: {douyinDiagnosis.missing.join(', ')}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </>
                 )}
 
                 {/* ─── Method 1: Auto-import from browser ─── */}

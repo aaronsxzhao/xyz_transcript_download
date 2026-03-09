@@ -221,6 +221,7 @@ def _classify_ytdlp_error(e: Exception, platform: str) -> VideoDownloadError:
 
 def detect_platform(url: str) -> str:
     """Auto-detect the video platform from a URL."""
+    url = extract_first_url(url)
     url_lower = url.lower()
     if "bilibili.com" in url_lower or "b23.tv" in url_lower:
         return "bilibili"
@@ -233,10 +234,22 @@ def detect_platform(url: str) -> str:
     return ""
 
 
+def extract_first_url(text: str) -> str:
+    """Extract the first http(s) URL from pasted share text."""
+    if not text:
+        return text
+    match = re.search(r'https?://[^\s]+', text)
+    if not match:
+        return text.strip()
+    url = match.group(0).strip()
+    return url.rstrip('\'"）)]}>,.;，。！？】」')
+
+
 def normalize_video_url(url: str, platform: str = "") -> str:
     """Normalize share URLs to stable canonical URLs for dedupe/storage."""
     if not url:
         return url
+    url = extract_first_url(url)
 
     platform = platform or detect_platform(url)
     try:
@@ -1019,13 +1032,34 @@ class DouyinDownloader(BaseDownloader):
             except Exception:
                 pass
         self.cookies = cookies
+        self.browser_headers = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                          "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36",
+            "Referer": "https://www.douyin.com/",
+        }
         self.headers = {
             "User-Agent": "Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X) "
                           "AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.0 Mobile/15E148 Safari/604.1",
             "Referer": "https://www.douyin.com/",
         }
-        if cookies:
-            self.headers["Cookie"] = cookies
+        cookie_header = self._cookie_header()
+        if cookie_header:
+            self.headers["Cookie"] = cookie_header
+
+    def _cookie_header(self) -> str:
+        pairs = []
+        for line in (self.cookies or "").splitlines():
+            line = line.strip()
+            if not line:
+                continue
+            if line.startswith("#HttpOnly_"):
+                line = line[len("#HttpOnly_"):]
+            elif line.startswith("#"):
+                continue
+            parts = line.split("\t")
+            if len(parts) >= 7 and parts[5]:
+                pairs.append(f"{parts[5]}={parts[6]}")
+        return "; ".join(pairs)
 
     def _cookiefile_path(self) -> Optional[str]:
         if not self.cookies:
@@ -1036,6 +1070,245 @@ class DouyinDownloader(BaseDownloader):
             return str(cookie_file)
         except Exception:
             return None
+
+    def _playwright_cookies(self) -> list[dict]:
+        cookies = []
+        for line in (self.cookies or "").splitlines():
+            line = line.strip()
+            if not line:
+                continue
+            http_only = False
+            if line.startswith("#HttpOnly_"):
+                line = line[len("#HttpOnly_"):]
+                http_only = True
+            elif line.startswith("#"):
+                continue
+            parts = line.split("\t")
+            if len(parts) < 7:
+                continue
+            domain, _, path, secure, expires, name, value = parts[:7]
+            if not name:
+                continue
+            cookie = {
+                "name": name,
+                "value": value,
+                "domain": domain,
+                "path": path or "/",
+                "secure": (secure or "").upper() == "TRUE",
+            }
+            if http_only:
+                cookie["httpOnly"] = True
+            try:
+                exp = int(expires)
+                if exp > 0:
+                    cookie["expires"] = exp
+            except Exception:
+                pass
+            cookies.append(cookie)
+        return cookies
+
+    def _browser_probe(self, url: str) -> dict:
+        """Use a real browser context as a fallback when yt-dlp is blocked."""
+        try:
+            from playwright.sync_api import sync_playwright
+        except Exception as e:
+            logger.warning(f"Playwright unavailable for Douyin fallback: {e}")
+            return {}
+
+        try:
+            with sync_playwright() as p:
+                browser = p.chromium.launch(headless=True)
+                context = browser.new_context(user_agent=self.browser_headers["User-Agent"])
+                cookies = self._playwright_cookies()
+                if cookies:
+                    context.add_cookies(cookies)
+                page = context.new_page()
+                detail_holder = {}
+
+                def on_response(resp):
+                    if "/aweme/v1/web/aweme/detail/" in resp.url:
+                        try:
+                            data = resp.json()
+                            detail_holder["detail"] = data.get("aweme_detail", {})
+                        except Exception:
+                            pass
+
+                page.on("response", on_response)
+                page.goto(url, wait_until="domcontentloaded", timeout=60000)
+                page.wait_for_timeout(5000)
+
+                video_url = ""
+                thumbnail = ""
+                duration = 0.0
+                audio_url = ""
+                author = {}
+                detail = detail_holder.get("detail") or {}
+                video = detail.get("video", {}) if isinstance(detail, dict) else {}
+                if video:
+                    video_url = (
+                        (video.get("play_addr_h264") or {}).get("url_list", [""])[0]
+                        or (video.get("play_addr") or {}).get("url_list", [""])[0]
+                        or (video.get("download_addr") or {}).get("url_list", [""])[0]
+                    )
+                    thumbnail = (video.get("cover") or {}).get("url_list", [""])[0]
+                    duration = float(video.get("duration", 0) or 0) / 1000.0
+                    author = detail.get("author", {}) or {}
+                    audio_tracks = video.get("bit_rate_audio") or []
+                    if audio_tracks:
+                        best_audio = max(
+                            audio_tracks,
+                            key=lambda x: (x.get("audio_meta", {}) or {}).get("bitrate", 0),
+                        )
+                        audio_urls = (best_audio.get("audio_meta", {}) or {}).get("url_list", {}) or {}
+                        audio_url = (
+                            audio_urls.get("main_url")
+                            or audio_urls.get("backup_url")
+                            or audio_urls.get("fallback_url")
+                            or ""
+                        )
+
+                if page.locator("video").count():
+                    if not video_url:
+                        video_url = page.locator("video").first.evaluate(
+                            """(el) => el.currentSrc || el.src ||
+                            (el.querySelector('source') && el.querySelector('source').src) || ''"""
+                        )
+                    if not thumbnail:
+                        thumbnail = page.locator("video").first.evaluate("(el) => el.poster || ''")
+                    if not duration:
+                        try:
+                            duration = float(page.locator("video").first.evaluate("(el) => el.duration || 0") or 0)
+                        except Exception:
+                            duration = 0.0
+
+                if not thumbnail and page.locator('meta[property="og:image"]').count():
+                    thumbnail = page.locator('meta[property="og:image"]').first.get_attribute("content") or ""
+
+                title = (detail.get("desc") if isinstance(detail, dict) else "") or (page.title() or "").strip()
+                if title.endswith(" - 抖音"):
+                    title = title[:-5].strip()
+
+                result = {
+                    "page_url": page.url,
+                    "video_url": video_url,
+                    "audio_url": audio_url,
+                    "title": title or "Douyin Video",
+                    "thumbnail": thumbnail,
+                    "duration": duration,
+                    "channel": author.get("nickname", ""),
+                    "channel_url": f"https://www.douyin.com/user/{author.get('sec_uid', '')}" if author.get("sec_uid") else "",
+                }
+                browser.close()
+                return result
+        except Exception as e:
+            logger.warning(f"Douyin browser fallback failed: {e}")
+            return {}
+
+    def _download_browser_video(
+        self,
+        page_url: str,
+        video_url: str,
+        output_path: Path,
+        progress_callback: ProgressCallback = None,
+    ) -> Optional[Path]:
+        import requests
+
+        headers = {
+            "User-Agent": self.browser_headers["User-Agent"],
+            "Referer": page_url or "https://www.douyin.com/",
+        }
+        try:
+            with requests.get(video_url, headers=headers, stream=True, timeout=60) as resp:
+                resp.raise_for_status()
+                total = int(resp.headers.get("content-length", "0") or 0)
+                downloaded = 0
+                with open(output_path, "wb") as f:
+                    for chunk in resp.iter_content(chunk_size=1024 * 512):
+                        if not chunk:
+                            continue
+                        f.write(chunk)
+                        downloaded += len(chunk)
+                        if progress_callback and total > 0:
+                            pct = min(downloaded / total, 1.0)
+                            progress_callback(pct, f"Downloading video... {pct:.0%}")
+            return output_path if output_path.exists() else None
+        except Exception as e:
+            logger.warning(f"Douyin browser video download failed: {e}")
+            return None
+
+    def _probe_media_streams(self, media_path: Path) -> dict:
+        try:
+            result = subprocess.run(
+                ["ffprobe", "-v", "error", "-show_streams", "-of", "json", str(media_path)],
+                capture_output=True,
+                text=True,
+                timeout=30,
+                check=True,
+            )
+            data = json.loads(result.stdout or "{}")
+            streams = data.get("streams") or []
+            return {
+                "has_audio": any(s.get("codec_type") == "audio" for s in streams),
+                "has_video": any(s.get("codec_type") == "video" for s in streams),
+            }
+        except Exception:
+            return {"has_audio": False, "has_video": False}
+
+    def _has_usable_cached_video(self, media_path: Path) -> bool:
+        if not media_path.exists():
+            return False
+        streams = self._probe_media_streams(media_path)
+        return bool(streams.get("has_video") and streams.get("has_audio"))
+
+    def _merge_browser_audio(self, video_path: Path, audio_url: str, page_url: str, task_id: str) -> Optional[Path]:
+        import requests
+
+        audio_path = VIDEO_DIR / f"{task_id}.douyin-audio.m4a"
+        merged_path = VIDEO_DIR / f"{task_id}.merged.mp4"
+        headers = {
+            "User-Agent": self.browser_headers["User-Agent"],
+            "Referer": page_url or "https://www.douyin.com/",
+        }
+        try:
+            with requests.get(audio_url, headers=headers, stream=True, timeout=60) as resp:
+                resp.raise_for_status()
+                with open(audio_path, "wb") as f:
+                    for chunk in resp.iter_content(chunk_size=1024 * 512):
+                        if chunk:
+                            f.write(chunk)
+
+            subprocess.run(
+                [
+                    FFMPEG_PATH, "-y",
+                    "-i", str(video_path),
+                    "-i", str(audio_path),
+                    "-c:v", "copy",
+                    "-c:a", "aac",
+                    str(merged_path),
+                ],
+                capture_output=True,
+                timeout=600,
+                check=True,
+            )
+            if merged_path.exists():
+                try:
+                    video_path.unlink(missing_ok=True)
+                except Exception:
+                    pass
+                merged_path.replace(video_path)
+                return video_path
+        except Exception as e:
+            logger.warning(f"Douyin audio merge fallback failed: {e}")
+        finally:
+            try:
+                audio_path.unlink(missing_ok=True)
+            except Exception:
+                pass
+            try:
+                merged_path.unlink(missing_ok=True)
+            except Exception:
+                pass
+        return None
 
     def _extract_video_id(self, url: str) -> Optional[str]:
         match = re.search(r'/video/(\d+)', url)
@@ -1062,6 +1335,7 @@ class DouyinDownloader(BaseDownloader):
 
     def get_metadata(self, url: str) -> Optional[VideoMetadata]:
         try:
+            url = normalize_video_url(url, "douyin")
             import requests
             video_id = self._extract_video_id(url)
             if not video_id:
@@ -1069,7 +1343,7 @@ class DouyinDownloader(BaseDownloader):
 
             api_url = f"https://www.douyin.com/aweme/v1/web/aweme/detail/?aweme_id={video_id}"
             resp = requests.get(api_url, headers=self.headers, timeout=15)
-            if resp.status_code == 200:
+            if resp.status_code == 200 and resp.text.strip():
                 data = resp.json()
                 detail = data.get("aweme_detail", {})
                 author = detail.get("author", {})
@@ -1082,23 +1356,66 @@ class DouyinDownloader(BaseDownloader):
                     channel=author.get("nickname", ""),
                     channel_url=f"https://www.douyin.com/user/{author.get('sec_uid', '')}" if author.get("sec_uid") else "",
                 )
-            return VideoMetadata(title="Douyin Video", platform="douyin", url=url)
+            probe = self._browser_probe(url)
+            return VideoMetadata(
+                title=probe.get("title") or "Douyin Video",
+                thumbnail=probe.get("thumbnail", ""),
+                duration=probe.get("duration", 0) or 0,
+                platform="douyin",
+                url=probe.get("page_url") or url,
+                channel=probe.get("channel", ""),
+                channel_url=probe.get("channel_url", ""),
+            )
         except Exception as e:
             logger.error(f"Douyin metadata error: {e}")
-            return VideoMetadata(title="Douyin Video", platform="douyin", url=url)
+            probe = self._browser_probe(url)
+            return VideoMetadata(
+                title=probe.get("title") or "Douyin Video",
+                thumbnail=probe.get("thumbnail", ""),
+                duration=probe.get("duration", 0) or 0,
+                platform="douyin",
+                url=probe.get("page_url") or url,
+                channel=probe.get("channel", ""),
+                channel_url=probe.get("channel_url", ""),
+            )
 
     def download_audio(self, url: str, task_id: str, quality: str = "medium",
                        progress_callback: ProgressCallback = None) -> Optional[Path]:
         video_path = self.download_video(url, task_id, progress_callback=progress_callback)
         if not video_path:
             return None
-        return self._extract_audio(video_path, task_id, quality)
+        audio_path = self._extract_audio(video_path, task_id, quality)
+        if audio_path:
+            return audio_path
+
+        # Self-heal old cached fallback files that contained only a silent preview clip.
+        streams = self._probe_media_streams(video_path)
+        if not streams.get("has_audio"):
+            try:
+                video_path.unlink(missing_ok=True)
+            except Exception:
+                pass
+            bad_audio = VIDEO_AUDIO_DIR / f"{task_id}.mp3"
+            try:
+                bad_audio.unlink(missing_ok=True)
+            except Exception:
+                pass
+            redownloaded = self.download_video(url, task_id, progress_callback=progress_callback)
+            if redownloaded:
+                return self._extract_audio(redownloaded, task_id, quality)
+        return None
 
     def download_video(self, url: str, task_id: str, video_quality: str = "720",
                        progress_callback: ProgressCallback = None) -> Optional[Path]:
+        url = normalize_video_url(url, "douyin")
         output_path = VIDEO_DIR / f"{task_id}.mp4"
         if output_path.exists():
-            return output_path
+            if self._has_usable_cached_video(output_path):
+                return output_path
+            try:
+                output_path.unlink(missing_ok=True)
+            except Exception:
+                pass
         try:
             if video_quality == "best":
                 vfmt = "best"
@@ -1110,6 +1427,7 @@ class DouyinDownloader(BaseDownloader):
                 "outtmpl": str(VIDEO_DIR / f"{task_id}.%(ext)s"),
                 "noplaylist": True,
                 "quiet": True,
+                "http_headers": self.browser_headers,
             }
             cookiefile = self._cookiefile_path()
             if cookiefile:
@@ -1117,13 +1435,47 @@ class DouyinDownloader(BaseDownloader):
             with yt_dlp.YoutubeDL(opts) as ydl:
                 ydl.download([url])
             if output_path.exists():
-                return output_path
+                if self._has_usable_cached_video(output_path):
+                    return output_path
+                try:
+                    output_path.unlink(missing_ok=True)
+                except Exception:
+                    pass
             for f in VIDEO_DIR.glob(f"{task_id}.*"):
                 if f.suffix in (".mp4", ".mkv", ".webm"):
-                    return f
+                    if self._has_usable_cached_video(f):
+                        return f
+                    try:
+                        f.unlink(missing_ok=True)
+                    except Exception:
+                        pass
         except VideoDownloadError:
             raise
         except Exception as e:
+            logger.warning(f"Douyin yt-dlp download failed, trying browser fallback: {e}")
+            probe = self._browser_probe(url)
+            video_url = probe.get("video_url", "")
+            if video_url:
+                if progress_callback:
+                    progress_callback(0.02, "yt-dlp blocked by Douyin, switching to browser fallback...")
+                downloaded = self._download_browser_video(
+                    probe.get("page_url") or url,
+                    video_url,
+                    output_path,
+                    progress_callback,
+                )
+                if downloaded:
+                    streams = self._probe_media_streams(downloaded)
+                    if not streams.get("has_audio") and probe.get("audio_url"):
+                        merged = self._merge_browser_audio(
+                            downloaded,
+                            probe.get("audio_url", ""),
+                            probe.get("page_url") or url,
+                            task_id,
+                        )
+                        if merged:
+                            return merged
+                    return downloaded
             logger.error(f"Douyin video download failed: {e}")
             raise _classify_ytdlp_error(e, "douyin")
         return None

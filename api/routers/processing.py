@@ -714,7 +714,8 @@ def process_episode_sync(job_id: str, episode_url: str, transcribe_only: bool = 
                 update_job_status(job_id, "cancelled", last_progress[0], "Cancelled")
                 mark_job_cancelled(job_id)
                 return
-            update_job_status(job_id, "failed", 0, "Transcription failed")
+            transcribe_error = getattr(transcriber, "last_error", "") or "Transcription failed"
+            update_job_status(job_id, "failed", 0, transcribe_error)
             return
         
         update_job_status(job_id, "transcribing", 70, "Transcription complete")

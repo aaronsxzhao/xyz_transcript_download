@@ -521,6 +521,7 @@ class APITranscriber:
         self.api_key = api_key or WHISPER_API_KEY
         self.base_url = base_url or WHISPER_BASE_URL
         self.model = model or WHISPER_API_MODEL  # Allow dynamic model override
+        self.last_error = ""
 
         if not self.api_key:
             raise ValueError("API key is required for API transcription. Set GROQ_API_KEY or OPENAI_API_KEY.")
@@ -529,6 +530,21 @@ class APITranscriber:
         self.max_size = MAX_AUDIO_SIZE_MB * 1024 * 1024
         
         logger.info(f"Using Whisper API: {self.base_url}, model: {self.model}")
+
+    def _format_api_error(self, error: Exception) -> str:
+        raw = str(error)
+        lower = raw.lower()
+        if "403" in lower or "forbidden" in lower:
+            if "groq" in self.base_url:
+                return (
+                    "Groq Whisper API returned 403 Forbidden. "
+                    "Your current GROQ_API_KEY does not have access or is invalid. "
+                    "Update GROQ_API_KEY or switch to local Whisper."
+                )
+            return "Whisper API returned 403 Forbidden. Check your API key and provider access."
+        if "401" in lower or "unauthorized" in lower:
+            return "Whisper API authentication failed. Check your API key."
+        return f"Transcription failed: {raw}"
     
     def _wait_for_rate_limit(self):
         """Wait if needed to respect rate limits."""
@@ -572,6 +588,7 @@ class APITranscriber:
         import time
         
         try:
+            self.last_error = ""
             file_size_mb = audio_path.stat().st_size / 1024 / 1024
             
             # Estimate processing time: Groq processes ~1 min audio in 2-5 sec
@@ -708,7 +725,8 @@ class APITranscriber:
             # Re-raise cancellation exceptions so they propagate to caller
             if "cancel" in str(e).lower() or "Cancel" in type(e).__name__:
                 raise
-            logger.error(f"Transcription failed: {e}")
+            self.last_error = self._format_api_error(e)
+            logger.error(self.last_error)
             return None
 
     def _transcribe_large_file(
@@ -987,6 +1005,7 @@ class Transcriber:
     """
 
     def __init__(self, model: Optional[str] = None):
+        self.last_error = ""
         if WHISPER_MODE == "local":
             backend = WHISPER_BACKEND
             if backend == "auto":
@@ -1009,9 +1028,11 @@ class Transcriber:
         progress_callback: Optional[Callable[[float], None]] = None,
     ) -> Optional[Transcript]:
         """Transcribe an audio file."""
-        return self._transcriber.transcribe(
+        result = self._transcriber.transcribe(
             audio_path, episode_id, language, progress_callback
         )
+        self.last_error = getattr(self._transcriber, "last_error", "")
+        return result
 
     def save_transcript(self, transcript: Transcript) -> Path:
         """Save transcript to JSON file."""

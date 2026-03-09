@@ -37,7 +37,7 @@ email-validator>=2.0.0
 pydub>=0.25.1
 
 # Video/audio downloading
-yt-dlp>=2026.1.1
+yt-dlp>=2026.3.3
 yt-dlp-ejs>=0.3.0
 
 # Notion export (markdown to Notion blocks)

@@ -110,6 +110,13 @@ def _discover_channel_videos(
 
         db = get_video_task_db()
 
+        if platform not in ("youtube", "bilibili"):
+            logger.info(
+                f"Skipping automatic channel discovery for platform '{platform}' "
+                f"({channel_url}) - not supported yet"
+            )
+            return
+
         existing_count = db.count_channel_tasks(channel, user_id)
         if existing_count > 1:
             logger.info(f"Channel '{channel}' already has {existing_count} tasks, skipping discovery")
@@ -412,8 +419,9 @@ def process_video_note_sync(
                         _update_task_status(db, task_id, "cancelled", 0, "Cancelled", user_id)
                         _clear_cancelled(task_id)
                         return
-                    _update_task_status(db, task_id, "failed", 0, "Transcription failed", user_id,
-                                        error="Transcription failed")
+                    transcribe_error = getattr(transcriber, "last_error", "") or "Transcription failed"
+                    _update_task_status(db, task_id, "failed", 0, transcribe_error, user_id,
+                                        error=transcribe_error)
                     return
                 transcript_text = transcript.text
                 transcript_segments = [

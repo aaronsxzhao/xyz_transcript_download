@@ -578,27 +578,71 @@ export async function fetchAllCookies(): Promise<{ cookies: { platform: string; 
   return res.json()
 }
 
+export interface DouyinCookieDiagnosis {
+  has_cookie: boolean
+  looks_usable: boolean
+  message: string
+  present: string[]
+  missing: string[]
+  cookie_count: number
+  domains: string[]
+}
+
+export async function fetchDouyinCookieDiagnosis(): Promise<DouyinCookieDiagnosis> {
+  const res = await authFetch(`${API_BASE}/cookies/douyin/diagnose`)
+  if (!res.ok) throw new Error('Failed to inspect Douyin cookies')
+  return res.json()
+}
+
 export async function bilibiliQrGenerate(): Promise<{ qr_url: string; qrcode_key: string }> {
   const res = await authFetch(`${API_BASE}/cookies/bilibili/qr/generate`)
-  if (!res.ok) throw new Error('Failed to generate QR code')
+  if (!res.ok) {
+    let detail = 'Failed to generate QR code'
+    try {
+      const data = await res.json()
+      detail = data.detail || detail
+    } catch {}
+    throw new Error(detail)
+  }
   return res.json()
 }
 
 export async function bilibiliQrPoll(qrcodeKey: string): Promise<{ status: string; message: string }> {
   const res = await authFetch(`${API_BASE}/cookies/bilibili/qr/poll?qrcode_key=${encodeURIComponent(qrcodeKey)}`)
-  if (!res.ok) throw new Error('Failed to poll QR status')
+  if (!res.ok) {
+    let detail = 'Failed to poll QR status'
+    try {
+      const data = await res.json()
+      detail = data.detail || detail
+    } catch {}
+    throw new Error(detail)
+  }
   return res.json()
 }
 
 export async function douyinQrGenerate(): Promise<{ qr_url: string; token: string }> {
   const res = await authFetch(`${API_BASE}/cookies/douyin/qr/generate`)
-  if (!res.ok) throw new Error('Failed to generate Douyin QR code')
+  if (!res.ok) {
+    let detail = 'Failed to generate Douyin QR code'
+    try {
+      const data = await res.json()
+      detail = data.detail || detail
+    } catch {}
+    throw new Error(detail)
+  }
   return res.json()
 }
 
 export async function douyinQrPoll(token: string): Promise<{ status: string; message: string }> {
   const res = await authFetch(`${API_BASE}/cookies/douyin/qr/poll?token=${encodeURIComponent(token)}`)
-  if (!res.ok) throw new Error('Failed to poll Douyin QR status')
+  if (!res.ok) {
+    let detail = 'Failed to poll Douyin QR status'
+    try {
+      const data = await res.json()
+      detail = data.detail || detail
+    } catch {}
+    throw new Error(detail)
+  }
   return res.json()
 }
 

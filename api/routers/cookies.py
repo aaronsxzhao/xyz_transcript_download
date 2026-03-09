@@ -212,12 +212,95 @@ def _netscape_to_header(netscape_str: str) -> str:
     pairs = []
     for line in netscape_str.splitlines():
         line = line.strip()
-        if not line or line.startswith("#"):
+        if not line:
+            continue
+        if line.startswith("#HttpOnly_"):
+            line = line[len("#HttpOnly_"):]
+        elif line.startswith("#"):
             continue
         parts = line.split("\t")
         if len(parts) >= 7:
             pairs.append(f"{parts[5]}={parts[6]}")
     return "; ".join(pairs)
+
+
+def _parse_netscape_cookies(netscape_str: str) -> list[dict]:
+    cookies = []
+    for line in netscape_str.splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        http_only = False
+        if line.startswith("#HttpOnly_"):
+            line = line[len("#HttpOnly_"):]
+            http_only = True
+        elif line.startswith("#"):
+            continue
+        parts = line.split("\t")
+        if len(parts) >= 7:
+            cookies.append({
+                "domain": parts[0],
+                "path": parts[2],
+                "secure": parts[3].upper() == "TRUE",
+                "expires": parts[4],
+                "name": parts[5],
+                "value": parts[6],
+                "http_only": http_only,
+            })
+    return cookies
+
+
+@router.get("/douyin/diagnose")
+async def douyin_diagnose_cookie(user: Optional[User] = Depends(get_current_user)):
+    """Inspect saved Douyin cookies and report whether they look strong enough."""
+    from cookie_manager import get_cookie_manager
+
+    raw = get_cookie_manager().get_cookie("douyin")
+    if not raw:
+        return {
+            "has_cookie": False,
+            "looks_usable": False,
+            "message": "No Douyin cookies saved yet. Use browser cookie import for best results.",
+            "present": [],
+            "missing": ["msToken", "ttwid", "__ac_nonce", "__ac_signature", "passport_csrf_token", "s_v_web_id"],
+            "cookie_count": 0,
+            "domains": [],
+        }
+
+    parsed = _parse_netscape_cookies(raw)
+    names = {c["name"] for c in parsed if c.get("name")}
+    domains = sorted({c["domain"] for c in parsed if c.get("domain")})
+    critical = ["msToken", "ttwid", "__ac_nonce", "__ac_signature", "passport_csrf_token", "s_v_web_id"]
+    present = [name for name in critical if name in names]
+    missing = [name for name in critical if name not in names]
+
+    looks_usable = all(name in names for name in ("ttwid", "__ac_nonce", "__ac_signature", "s_v_web_id"))
+    if "msToken" not in names:
+        message = (
+            "Douyin cookies are saved, but `msToken` is missing. "
+            "That often means yt-dlp will still fail with 'fresh cookies needed'. "
+            "Use browser cookie import from a browser where the video already opens."
+        )
+    elif not looks_usable:
+        message = (
+            "Douyin cookies are incomplete. Browser cookie import is recommended, "
+            "and QR login is unreliable right now."
+        )
+    else:
+        message = (
+            "Douyin cookies look reasonably complete. If yt-dlp still fails, "
+            "the app will try the browser fallback locally."
+        )
+
+    return {
+        "has_cookie": True,
+        "looks_usable": looks_usable,
+        "message": message,
+        "present": present,
+        "missing": missing,
+        "cookie_count": len(parsed),
+        "domains": domains,
+    }
 
 
 def _cookies_dict_to_netscape(cookies: dict, domain: str) -> str:
@@ -246,30 +329,64 @@ DOUYIN_HEADERS = {
                   "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
     "Referer": "https://www.douyin.com/",
     "Accept": "application/json, text/plain, */*",
+    "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.8",
+    "Origin": "https://www.douyin.com",
 }
 
 _douyin_sessions: dict[str, dict] = {}
+
+
+def _parse_json_response(resp: httpx.Response, label: str) -> dict:
+    """Parse JSON with better logging for upstream anti-bot/html responses."""
+    try:
+        return resp.json()
+    except Exception as e:
+        body_preview = resp.text[:300].replace("\n", " ").replace("\r", " ")
+        logger.error(
+            f"{label} returned non-JSON response: status={resp.status_code}, "
+            f"content_type={resp.headers.get('content-type', '')}, body={body_preview!r}"
+        )
+        raise HTTPException(
+            status_code=502,
+            detail=f"{label} returned invalid response (HTTP {resp.status_code}). Douyin may be blocking the QR request right now.",
+        ) from e
 
 
 @router.get("/douyin/qr/generate")
 async def douyin_qr_generate(user: Optional[User] = Depends(get_current_user)):
     """Generate a Douyin QR code for login."""
     try:
-        async with httpx.AsyncClient(
-            headers=DOUYIN_HEADERS,
-            timeout=httpx.Timeout(30.0, connect=15.0),
-            follow_redirects=True,
-        ) as client:
-            resp = await client.get(
-                "https://sso.douyin.com/get_qrcode/",
-                params={
-                    "aid": "6383",
-                    "service": "https://www.douyin.com",
-                },
-            )
-            data = resp.json()
+        request_variants = [
+            DOUYIN_HEADERS,
+            {
+                **DOUYIN_HEADERS,
+                "Sec-Fetch-Dest": "empty",
+                "Sec-Fetch-Mode": "cors",
+                "Sec-Fetch-Site": "same-site",
+            },
+        ]
+        resp = None
+        data = None
+        for headers in request_variants:
+            async with httpx.AsyncClient(
+                headers=headers,
+                timeout=httpx.Timeout(30.0, connect=15.0),
+                follow_redirects=True,
+            ) as client:
+                resp = await client.get(
+                    "https://sso.douyin.com/get_qrcode/",
+                    params={
+                        "aid": "6383",
+                        "service": "https://www.douyin.com",
+                    },
+                )
+                data = _parse_json_response(resp, "Douyin QR endpoint")
+                if data:
+                    break
     except httpx.TimeoutException:
         raise HTTPException(status_code=504, detail="Douyin API timed out")
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Douyin QR generate error: {e}")
         raise HTTPException(status_code=502, detail=f"Failed to reach Douyin: {type(e).__name__}")
@@ -329,9 +446,11 @@ async def douyin_qr_poll(
                     "service": "https://www.douyin.com",
                 },
             )
-            data = resp.json()
+            data = _parse_json_response(resp, "Douyin QR poll endpoint")
     except httpx.TimeoutException:
         return {"status": "waiting", "message": "Douyin API slow, retrying..."}
+    except HTTPException as e:
+        return {"status": "waiting", "message": e.detail}
     except Exception as e:
         logger.warning(f"Douyin QR poll error: {e}")
         return {"status": "waiting", "message": "Network error, retrying..."}
