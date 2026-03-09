@@ -5,7 +5,7 @@ import shutil
 import threading
 import time
 import uuid
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import ThreadPoolExecutor, TimeoutError as FutureTimeout
 from pathlib import Path
 from typing import Optional, Set
 
@@ -105,7 +105,7 @@ def _discover_channel_videos(
 ):
     """Fetch latest videos from a new channel and create 'discovered' tasks."""
     try:
-        from video_downloader import list_channel_videos
+        from video_downloader import list_channel_videos, normalize_video_url
         from video_task_db import get_video_task_db
 
         db = get_video_task_db()
@@ -120,6 +120,10 @@ def _discover_channel_videos(
         if not videos:
             logger.info(f"No videos found for channel '{channel}'")
             return
+
+        current_url = normalize_video_url(current_url, platform)
+        for v in videos:
+            v["url"] = normalize_video_url(v["url"], platform)
 
         urls = [v["url"] for v in videos]
         existing_urls = db.get_existing_urls(urls, user_id)
@@ -173,7 +177,7 @@ def process_video_note_sync(
     """Synchronous video note processing pipeline."""
     try:
         from video_task_db import get_video_task_db
-        from video_downloader import get_downloader, detect_platform, VideoDownloadError
+        from video_downloader import get_downloader, detect_platform, normalize_video_url, VideoDownloadError
         from cookie_manager import get_cookie_manager
         from note_summarizer import get_note_summarizer, NOTE_CHUNK_CHARS
         from screenshot_extractor import (
@@ -229,6 +233,7 @@ def process_video_note_sync(
                 _update_task_status(db, task_id, "failed", 0, "Could not detect platform", user_id,
                                     error="Unsupported URL")
                 return
+            url = normalize_video_url(url, platform)
 
             cookies = cookie_mgr.get_cookie(platform)
             logger.info(f"[{task_id}] Platform={platform}, has_cookies={bool(cookies)}, cookie_len={len(cookies) if cookies else 0}")
@@ -250,7 +255,12 @@ def process_video_note_sync(
 
             downloader = get_downloader(platform, cookies)
 
-            metadata = downloader.get_metadata(url)
+            metadata = None
+            try:
+                with ThreadPoolExecutor(max_workers=1) as metadata_executor:
+                    metadata = metadata_executor.submit(downloader.get_metadata, url).result(timeout=45)
+            except FutureTimeout:
+                logger.warning(f"[{task_id}] Metadata fetch timed out for {url}; continuing without metadata")
             published_at = ""
             if metadata:
                 title = metadata.title or title
@@ -263,6 +273,7 @@ def process_video_note_sync(
                 published_at = metadata.published_at or ""
 
             task_updates: dict = {
+                "url": url,
                 "title": title,
                 "thumbnail": thumbnail,
                 "duration": duration,
@@ -650,7 +661,9 @@ async def generate_note(
         fmt_list = []
 
     from video_task_db import get_video_task_db
+    from video_downloader import normalize_video_url
     db = get_video_task_db()
+    url = normalize_video_url(url, platform)
 
     _invalidate_list_cache(user_id)
 
@@ -731,7 +744,10 @@ async def generate_note_json(
         )
 
     from video_task_db import get_video_task_db
+    from video_downloader import normalize_video_url
     db = get_video_task_db()
+    platform = data.get("platform", "")
+    url = normalize_video_url(url, platform)
 
     _invalidate_list_cache(user_id)
 
@@ -753,7 +769,7 @@ async def generate_note_json(
     else:
         task_payload = {
             "url": url,
-            "platform": data.get("platform", ""),
+            "platform": platform,
             "style": data.get("style", "detailed"),
             "formats": data.get("formats", []),
             "quality": data.get("quality", "medium"),
@@ -776,7 +792,7 @@ async def generate_note_json(
         process_video_note_async,
         task_id,
         url=url,
-        platform=data.get("platform", ""),
+        platform=platform,
         style=data.get("style", "detailed"),
         formats=data.get("formats", []),
         quality=data.get("quality", "medium"),

@@ -110,20 +110,37 @@ def extract_screenshot(
         return filename
 
     try:
-        cmd = [
-            FFMPEG_PATH,
-            "-ss", _format_timestamp(timestamp),
-            "-i", str(video_path),
-            "-frames:v", "1",
-            "-q:v", "2",
-            "-y",
-            str(output_path),
+        duration = get_video_duration(str(video_path))
+        seek_ts = max(0.0, timestamp)
+        if duration > 0:
+            seek_ts = min(seek_ts, max(0.0, duration - 0.5))
+
+        attempts = [
+            ["-ss", _format_timestamp(seek_ts), "-i", str(video_path)],
+            ["-i", str(video_path), "-ss", _format_timestamp(seek_ts)],
         ]
-        result = subprocess.run(cmd, capture_output=True, timeout=30)
-        if result.returncode == 0 and output_path.exists():
-            if USE_SUPABASE:
-                _upload_to_supabase(output_path, _SUPABASE_BUCKET, filename)
-            return filename
+        if seek_ts > 0.5:
+            retry_ts = max(0.0, seek_ts - 0.5)
+            attempts.extend([
+                ["-ss", _format_timestamp(retry_ts), "-i", str(video_path)],
+                ["-i", str(video_path), "-ss", _format_timestamp(retry_ts)],
+            ])
+
+        for args in attempts:
+            cmd = [
+                FFMPEG_PATH,
+                *args,
+                "-frames:v", "1",
+                "-q:v", "2",
+                "-y",
+                str(output_path),
+            ]
+            result = subprocess.run(cmd, capture_output=True, timeout=30)
+            if result.returncode == 0 and output_path.exists() and output_path.stat().st_size > 0:
+                if USE_SUPABASE:
+                    _upload_to_supabase(output_path, _SUPABASE_BUCKET, filename)
+                return filename
+
         logger.error(f"Screenshot extraction failed at {timestamp}s: {result.stderr[:200]}")
         return None
     except Exception as e:
@@ -143,7 +160,11 @@ def extract_screenshots_batch(
         List of (timestamp, filename_or_none) tuples.
     """
     results = []
+    seen = set()
     for ts in timestamps:
+        if ts in seen:
+            continue
+        seen.add(ts)
         filename = extract_screenshot(video_path, ts, task_id)
         results.append((ts, filename))
     return results

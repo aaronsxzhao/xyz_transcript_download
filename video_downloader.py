@@ -9,6 +9,7 @@ import re
 import shutil
 import subprocess
 import uuid
+from urllib.parse import parse_qs, urlparse
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, asdict
 from pathlib import Path
@@ -230,6 +231,43 @@ def detect_platform(url: str) -> str:
     elif "kuaishou.com" in url_lower or "kwai.com" in url_lower:
         return "kuaishou"
     return ""
+
+
+def normalize_video_url(url: str, platform: str = "") -> str:
+    """Normalize share URLs to stable canonical URLs for dedupe/storage."""
+    if not url:
+        return url
+
+    platform = platform or detect_platform(url)
+    try:
+        parsed = urlparse(url)
+    except Exception:
+        return url
+
+    if platform == "youtube":
+        video_id = ""
+        host = (parsed.netloc or "").lower()
+        if "youtu.be" in host:
+            video_id = parsed.path.strip("/").split("/")[0]
+        elif "/shorts/" in parsed.path:
+            m = re.search(r"/shorts/([\w-]+)", parsed.path)
+            if m:
+                video_id = m.group(1)
+        else:
+            qs = parse_qs(parsed.query or "")
+            video_id = (qs.get("v") or [""])[0]
+        if video_id:
+            return f"https://www.youtube.com/watch?v={video_id}"
+
+    if platform == "bilibili":
+        m = re.search(r"/video/(BV[\w]+)", url, re.IGNORECASE)
+        if m:
+            return f"https://www.bilibili.com/video/{m.group(1)}"
+        m = re.search(r"av(\d+)", url, re.IGNORECASE)
+        if m:
+            return f"https://www.bilibili.com/video/av{m.group(1)}"
+
+    return url
 
 
 def _channel_videos_url(channel_url: str, platform: str) -> str:
@@ -574,6 +612,7 @@ class YtdlpDownloader(BaseDownloader):
 
     def get_metadata(self, url: str) -> Optional[VideoMetadata]:
         try:
+            url = normalize_video_url(url, self.platform)
             opts = self._get_base_opts()
             opts["skip_download"] = True
             if self.platform == "youtube":
@@ -640,6 +679,7 @@ class YtdlpDownloader(BaseDownloader):
 
     def download_audio(self, url: str, task_id: str, quality: str = "medium",
                        progress_callback: ProgressCallback = None) -> Optional[Path]:
+        url = normalize_video_url(url, self.platform)
         output_path = VIDEO_AUDIO_DIR / f"{task_id}.mp3"
         if output_path.exists():
             return output_path
@@ -708,6 +748,7 @@ class YtdlpDownloader(BaseDownloader):
 
     def download_video(self, url: str, task_id: str, video_quality: str = "720",
                        progress_callback: ProgressCallback = None) -> Optional[Path]:
+        url = normalize_video_url(url, self.platform)
         output_path = VIDEO_DIR / f"{task_id}.mp4"
         if output_path.exists():
             return output_path
@@ -743,6 +784,7 @@ class YtdlpDownloader(BaseDownloader):
     def get_subtitles(self, url: str, task_id: str) -> Optional[list]:
         """Try to extract subtitles from the video platform."""
         try:
+            url = normalize_video_url(url, self.platform)
             sub_dir = DATA_DIR / "subtitles"
             sub_dir.mkdir(exist_ok=True)
 
