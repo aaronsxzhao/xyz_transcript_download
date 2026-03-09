@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import {
   Play, Loader2, Settings2, ChevronDown, ChevronUp, AlertTriangle, Upload,
 } from 'lucide-react'
-import { generateVideoNote, uploadVideoFile, getUserModelSettings, validateBilibiliCookie, fetchCookieStatus } from '../../lib/api'
+import { generateVideoNote, uploadVideoFile, getUserModelSettings, validateBilibiliCookie, fetchCookieStatus, getVideoProcessingDefaults } from '../../lib/api'
 import YouTubeCookieGuide from './YouTubeCookieGuide'
 import PlatformIcon, { PLATFORM_COLORS } from '../PlatformIcon'
 
@@ -64,12 +64,16 @@ interface Props {
 
 export default function VideoNoteForm({ onTaskCreated, hideTitle }: Props) {
   const navigate = useNavigate()
+  const savedDefaults = useMemo(() => getVideoProcessingDefaults(), [])
   const [url, setUrl] = useState('')
   const [isLocalFile, setIsLocalFile] = useState(false)
-  const [style, setStyle] = useState('detailed')
-  const [formats, setFormats] = useState<string[]>(['toc', 'summary', 'screenshot'])
-  const [quality, setQuality] = useState('medium')
-  const [videoQuality, setVideoQuality] = useState('720')
+  const [style, setStyle] = useState(() => (savedDefaults.style as string) || 'detailed')
+  const [formats, setFormats] = useState<string[]>(() => {
+    const value = savedDefaults.formats
+    return Array.isArray(value) ? value as string[] : ['toc', 'summary', 'screenshot']
+  })
+  const [quality, setQuality] = useState(() => (savedDefaults.quality as string) || 'medium')
+  const [videoQuality, setVideoQuality] = useState(() => (savedDefaults.video_quality as string) || '720')
   const [extras, setExtras] = useState('')
   const [videoUnderstanding, setVideoUnderstanding] = useState(false)
   const [videoInterval, setVideoInterval] = useState(4)

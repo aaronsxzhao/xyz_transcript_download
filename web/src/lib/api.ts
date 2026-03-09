@@ -355,8 +355,12 @@ export async function checkVideoChannelsForUpdates(opts?: {
   if (opts?.channel) params.set('channel', opts.channel)
   if (opts?.platform) params.set('platform', opts.platform)
   const qs = params.toString()
+  const defaults = getVideoProcessingDefaults()
+  const hasBody = Object.keys(defaults).length > 0
   const res = await authFetch(`${API_BASE}/video-notes/check-channels${qs ? `?${qs}` : ''}`, {
     method: 'POST',
+    headers: hasBody ? { 'Content-Type': 'application/json' } : undefined,
+    body: hasBody ? JSON.stringify(defaults) : undefined,
   })
   if (!res.ok) throw new Error('Failed to check video channels')
   return res.json()

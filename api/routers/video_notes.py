@@ -898,9 +898,11 @@ async def retry_task(
     request: Request,
     user: Optional[User] = Depends(get_current_user),
 ):
-    """Retry a failed video note task.  Accepts optional JSON body with
-    processing defaults (style, formats, quality, video_quality) that
-    override empty/missing values on the task — useful for discovered videos."""
+    """Retry a video note task.
+
+    If the client sends processing defaults in the JSON body, prefer those
+    values so retry/re-process uses the user's current Settings selections.
+    """
     from video_task_db import get_video_task_db
     db = get_video_task_db()
     user_id = user.id if user else None
@@ -919,11 +921,11 @@ async def retry_task(
     except Exception:
         pass
 
-    style = task.get("style") or overrides.get("style", "detailed")
-    formats = task.get("formats") or overrides.get("formats", ["toc", "summary", "screenshot"])
-    quality = task.get("quality") or overrides.get("quality", "medium")
-    video_quality = task.get("video_quality") or overrides.get("video_quality", "720")
-    llm_model = task.get("model") or overrides.get("llm_model", "")
+    style = overrides.get("style", task.get("style") or "detailed")
+    formats = overrides.get("formats", task.get("formats") or ["toc", "summary", "screenshot"])
+    quality = overrides.get("quality", task.get("quality") or "medium")
+    video_quality = overrides.get("video_quality", task.get("video_quality") or "720")
+    llm_model = overrides.get("llm_model", task.get("model") or "")
 
     if isinstance(formats, str):
         try:
@@ -1022,6 +1024,7 @@ async def upload_video(
 async def check_channels_for_updates(
     channel: Optional[str] = Query(None, description="Filter to a specific channel name"),
     platform: Optional[str] = Query(None, description="Filter to a specific platform"),
+    request: Request = None,
     user: Optional[User] = Depends(get_current_user),
 ):
     """Scan video channels for new videos and create discovered tasks.
@@ -1035,6 +1038,15 @@ async def check_channels_for_updates(
 
     db = get_video_task_db()
     user_id = user.id if user else None
+    defaults: dict = {}
+    if request is not None:
+        try:
+            body = await request.json()
+            if isinstance(body, dict):
+                defaults = body
+        except Exception:
+            pass
+
     all_channels = db.get_distinct_channels(user_id)
 
     if channel:
@@ -1076,6 +1088,11 @@ async def check_channels_for_updates(
                         "channel": ch_name,
                         "channel_url": channel_url,
                         "channel_avatar": channel_avatar,
+                        "style": defaults.get("style", "detailed"),
+                        "formats": defaults.get("formats", ["toc", "summary", "screenshot"]),
+                        "quality": defaults.get("quality", "medium"),
+                        "video_quality": defaults.get("video_quality", "720"),
+                        "model": defaults.get("llm_model", ""),
                         "status": "discovered",
                         "user_id": user_id,
                         "published_at": v.get("published_at", ""),
