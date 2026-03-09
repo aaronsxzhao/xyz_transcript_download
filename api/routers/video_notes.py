@@ -82,6 +82,18 @@ def _update_task_status(db, task_id: str, status: str, progress: float = 0,
     """
     if status not in ("cancelled", "failed") and is_video_task_cancelled(task_id):
         return
+    current_task = db.get_task(task_id, user_id)
+    current_progress = 0.0
+    if current_task:
+        try:
+            current_progress = float(current_task.get("progress") or 0)
+        except Exception:
+            current_progress = 0.0
+
+    # Keep in-flight progress monotonic so optional branches (screenshots,
+    # saved transcripts, video understanding) never make the bar jump backward.
+    if status not in ("pending", "failed", "cancelled", "success"):
+        progress = max(progress, current_progress)
     updates = {"status": status, "progress": progress, "message": message}
     updates.update(kwargs)
     db.update_task(task_id, updates)
