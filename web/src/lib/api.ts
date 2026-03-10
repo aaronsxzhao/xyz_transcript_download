@@ -79,6 +79,11 @@ export interface Episode {
   created_at: string
 }
 
+export interface LocalAudioUploadResult {
+  podcast: Podcast
+  episode: Episode
+}
+
 export interface Summary {
   episode_id: string
   title: string
@@ -160,6 +165,30 @@ export async function addPodcast(url: string): Promise<Podcast> {
   if (!res.ok) {
     const error = await res.json()
     throw new Error(error.detail || 'Failed to add podcast')
+  }
+  return res.json()
+}
+
+export async function uploadLocalPodcastAudio(
+  file: File,
+  options: { title?: string; description?: string } = {}
+): Promise<LocalAudioUploadResult> {
+  const formData = new FormData()
+  formData.append('file', file)
+  if (options.title) formData.append('title', options.title)
+  if (options.description) formData.append('description', options.description)
+
+  const res = await authFetch(`${API_BASE}/podcasts/upload-audio`, {
+    method: 'POST',
+    body: formData,
+  })
+  if (!res.ok) {
+    let detail = 'Failed to upload audio'
+    try {
+      const body = await res.json()
+      detail = body.detail || body.message || detail
+    } catch {}
+    throw new Error(detail)
   }
   return res.json()
 }
@@ -535,7 +564,14 @@ export async function uploadVideoFile(file: File): Promise<{ file_id: string; pa
     method: 'POST',
     body: formData,
   })
-  if (!res.ok) throw new Error('Failed to upload video')
+  if (!res.ok) {
+    let detail = 'Failed to upload video'
+    try {
+      const body = await res.json()
+      detail = body.detail || body.message || detail
+    } catch {}
+    throw new Error(detail)
+  }
   return res.json()
 }
 

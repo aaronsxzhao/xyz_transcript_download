@@ -434,6 +434,11 @@ export default function Dashboard() {
                   <div className="flex-1 min-w-0 flex flex-col justify-between">
                     <h3 className="font-medium text-white line-clamp-2">
                       {task.title || (task.url ? (() => {
+                        if (task.platform === 'local') {
+                          const parts = task.url.split(/[\\/]/)
+                          const filename = parts[parts.length - 1] || task.url
+                          return filename.replace(/\.[^.]+$/, '')
+                        }
                         try { return new URL(task.url).hostname.replace('www.', '') + new URL(task.url).pathname.replace(/\/$/, '').slice(0, 30) }
                         catch { return 'Untitled' }
                       })() : 'Untitled')}

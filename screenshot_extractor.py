@@ -6,6 +6,7 @@ so they remain accessible regardless of which server processed the video.
 """
 
 import re
+import json
 import subprocess
 import uuid
 from pathlib import Path
@@ -350,4 +351,78 @@ def extract_first_frame_thumbnail(video_path: str, task_id: str) -> Optional[str
         output_path.unlink(missing_ok=True)
 
     logger.warning(f"All thumbnail extraction attempts failed for {task_id}")
+    return None
+
+
+def extract_embedded_thumbnail(video_path: str, task_id: str) -> Optional[str]:
+    """
+    Extract embedded cover art / attached picture from a media file.
+
+    Returns:
+        URL path to the thumbnail (e.g. /data/thumbnails/abc123_cover.jpg), or None on failure.
+    """
+    video_path = Path(video_path)
+    if not video_path.exists():
+        logger.error(f"Video file not found for embedded thumbnail: {video_path}")
+        return None
+
+    filename = f"{task_id}_cover.jpg"
+    output_path = THUMBNAILS_DIR / filename
+    if output_path.exists() and output_path.stat().st_size > 0:
+        return f"/data/thumbnails/{filename}"
+
+    try:
+        probe = subprocess.run(
+            [
+                "ffprobe",
+                "-v",
+                "quiet",
+                "-print_format",
+                "json",
+                "-show_streams",
+                str(video_path),
+            ],
+            capture_output=True,
+            text=True,
+            timeout=30,
+            check=False,
+        )
+        data = json.loads(probe.stdout or "{}")
+        streams = data.get("streams") or []
+        attached_stream = next(
+            (
+                stream for stream in streams
+                if stream.get("codec_type") == "video"
+                and (stream.get("disposition") or {}).get("attached_pic") == 1
+            ),
+            None,
+        )
+        if not attached_stream:
+            return None
+
+        stream_index = attached_stream.get("index")
+        if stream_index is None:
+            return None
+
+        cmd = [
+            FFMPEG_PATH,
+            "-i",
+            str(video_path),
+            "-map",
+            f"0:{stream_index}",
+            "-frames:v",
+            "1",
+            "-q:v",
+            "2",
+            "-y",
+            str(output_path),
+        ]
+        result = subprocess.run(cmd, capture_output=True, timeout=30)
+        if result.returncode == 0 and output_path.exists() and output_path.stat().st_size > 0:
+            if USE_SUPABASE:
+                _upload_to_supabase(output_path, _SUPABASE_THUMB_BUCKET, filename)
+            logger.info(f"Extracted embedded cover thumbnail for {task_id}")
+            return f"/data/thumbnails/{filename}"
+    except Exception as e:
+        logger.warning(f"Embedded thumbnail extraction failed for {task_id}: {e}")
     return None

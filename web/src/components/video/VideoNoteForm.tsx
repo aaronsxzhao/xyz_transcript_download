@@ -109,14 +109,16 @@ export default function VideoNoteForm({ onTaskCreated, hideTitle }: Props) {
   }
 
   const handleFileUpload = async (file: File) => {
+    setError('')
     setUploadProgress('Uploading...')
     try {
       const result = await uploadVideoFile(file)
       setUrl(result.path)
       setIsLocalFile(true)
       setUploadProgress(`Uploaded: ${file.name}`)
-    } catch (e) {
+    } catch (e: any) {
       setUploadProgress('Upload failed')
+      setError(e?.message || 'Failed to upload local video')
     }
   }
 
@@ -218,11 +220,12 @@ export default function VideoNoteForm({ onTaskCreated, hideTitle }: Props) {
         <input
           ref={fileInputRef}
           type="file"
-          accept="video/*"
+            accept="video/*,.mp4,.mkv,.avi,.mov,.webm,.flv,.wmv,.m4v"
           className="hidden"
           onChange={e => {
             const file = e.target.files?.[0]
             if (file) handleFileUpload(file)
+              e.currentTarget.value = ''
           }}
         />
       </div>

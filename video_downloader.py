@@ -1707,11 +1707,14 @@ class LocalVideoHandler(BaseDownloader):
     """Handler for locally uploaded video files."""
 
     def get_metadata(self, url: str) -> Optional[VideoMetadata]:
+        from screenshot_extractor import extract_embedded_thumbnail
+
         file_path = Path(url)
         if not file_path.exists():
             return None
         title = file_path.stem
         duration = 0
+        thumbnail = extract_embedded_thumbnail(str(file_path), file_path.stem)
         try:
             cmd = [
                 FFMPEG_PATH, "-i", str(file_path),
@@ -1726,6 +1729,7 @@ class LocalVideoHandler(BaseDownloader):
             pass
         return VideoMetadata(
             title=title,
+            thumbnail=thumbnail or "",
             duration=duration,
             platform="local",
             url=str(file_path),

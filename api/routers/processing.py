@@ -9,6 +9,12 @@ from pathlib import Path
 from typing import Dict, Set, Optional
 from fastapi import APIRouter, HTTPException, WebSocket, WebSocketDisconnect, BackgroundTasks, Depends
 
+from api.local_media import (
+    LOCAL_PODCAST_PID,
+    build_local_episode_url,
+    get_local_episode_id,
+    is_local_episode_url,
+)
 from api.schemas import ProcessRequest, BatchProcessRequest, ProcessingStatus, ResummarizeRequest
 from api.auth import get_current_user, User
 from api.db import get_db, TranscriptData, SummaryData
@@ -197,6 +203,25 @@ class ConnectionManager:
 
 
 manager = ConnectionManager()
+
+
+def _is_local_db_episode(db_ep) -> bool:
+    if not db_ep:
+        return False
+    if getattr(db_ep, "pid", "") == LOCAL_PODCAST_PID:
+        return True
+    audio_url = getattr(db_ep, "audio_url", "") or ""
+    return bool(audio_url) and "://" not in audio_url and Path(audio_url).is_absolute()
+
+
+def _episode_url_from_db_episode(db_ep) -> str:
+    if not db_ep:
+        return ""
+    if _is_local_db_episode(db_ep):
+        return build_local_episode_url(db_ep.eid)
+    if db_ep and db_ep.pid and db_ep.pid.startswith("apple_"):
+        return f"apple://{db_ep.eid}"
+    return f"https://www.xiaoyuzhoufm.com/episode/{db_ep.eid}"
 
 
 def update_job_status(job_id: str, status: str, progress: float = 0, message: str = "",
@@ -404,9 +429,39 @@ def process_episode_sync(job_id: str, episode_url: str, transcribe_only: bool = 
         # ===== PHASE 1: Fetch episode info (0-10%) =====
         update_job_status(job_id, "fetching", 5, "Fetching episode info...")
         
+        is_local = is_local_episode_url(episode_url)
         is_apple = episode_url.startswith("apple://")
         
-        if is_apple:
+        if is_local:
+            local_eid = get_local_episode_id(episode_url)
+            db_ep = db_interface.get_episode(local_eid)
+            if not db_ep:
+                update_job_status(job_id, "failed", 0, "Local episode not found in database")
+                return
+
+            from dataclasses import dataclass as _dc
+            @_dc
+            class _LocalEp:
+                eid: str
+                pid: str
+                title: str
+                description: str
+                duration: int
+                pub_date: str
+                audio_url: str
+                shownotes: str = ""
+
+            episode = _LocalEp(
+                eid=db_ep.eid,
+                pid=db_ep.pid,
+                title=db_ep.title,
+                description=db_ep.description,
+                duration=db_ep.duration,
+                pub_date=db_ep.pub_date,
+                audio_url=db_ep.audio_url,
+            )
+            podcast_id_for_db = db_ep.podcast_id
+        elif is_apple:
             apple_eid = episode_url.replace("apple://", "")
             db_ep = db_interface.get_episode(apple_eid)
             if not db_ep:
@@ -440,7 +495,7 @@ def process_episode_sync(job_id: str, episode_url: str, transcribe_only: bool = 
         update_job_status(job_id, "fetching", 10, f"Found: {episode.title}", 
                          episode.eid, episode.title)
         
-        if not is_apple:
+        if not is_apple and not is_local:
             # Auto-subscribe to podcast and add episode to database
             podcast_id_for_db = None
             
@@ -505,7 +560,7 @@ def process_episode_sync(job_id: str, episode_url: str, transcribe_only: bool = 
         # If user doesn't have a transcript, check for shared transcript from other users
         # Transcripts can be shared since audio content is the same for all users
         shared_transcript_used = False
-        if not existing_transcript and not force:
+        if not existing_transcript and not force and not is_local:
             episode_duration = episode.duration or 0
             min_duration = episode_duration * 0.85 if episode_duration > 0 else 0
             
@@ -888,10 +943,11 @@ async def process_episode(
     # Try to fetch episode info for immediate display
     episode_id = None
     episode_title = None
+    is_local = is_local_episode_url(data.episode_url)
     is_apple = data.episode_url.startswith("apple://")
     try:
-        if is_apple:
-            eid = data.episode_url.replace("apple://", "")
+        if is_local or is_apple:
+            eid = get_local_episode_id(data.episode_url) if is_local else data.episode_url.replace("apple://", "")
             db_interface = get_db(user_id)
             ep = db_interface.get_episode(eid)
             if ep:
@@ -1088,20 +1144,23 @@ async def retry_job(
     # Detect platform from episode ID to construct the right URL
     db_interface = get_db(user_id)
     db_ep = db_interface.get_episode(episode_id)
-    if db_ep and db_ep.pid and db_ep.pid.startswith("apple_"):
-        episode_url = f"apple://{episode_id}"
-    else:
-        episode_url = f"https://www.xiaoyuzhoufm.com/episode/{episode_id}"
+    episode_url = _episode_url_from_db_episode(db_ep)
+    if not episode_url:
+        raise HTTPException(status_code=404, detail="Episode not found")
     
     # Delete old cached compressed audio to force re-compression
     try:
         from downloader import get_downloader
-        if not episode_url.startswith("apple://"):
+        downloader = get_downloader()
+        if db_ep:
+            compressed_path = downloader.get_compressed_path(db_ep)
+            if compressed_path.exists():
+                compressed_path.unlink()
+        elif not episode_url.startswith("apple://") and not is_local_episode_url(episode_url):
             from xyz_client import get_client
             client = get_client()
             episode = client.get_episode_by_share_url(episode_url)
             if episode:
-                downloader = get_downloader()
                 compressed_path = downloader.get_compressed_path(episode)
                 if compressed_path.exists():
                     compressed_path.unlink()
@@ -1180,10 +1239,9 @@ async def resummarize_episode(
     
     # Detect platform from episode data
     db_ep = db.get_episode(episode_id)
-    if db_ep and db_ep.pid and db_ep.pid.startswith("apple_"):
-        episode_url = f"apple://{episode_id}"
-    else:
-        episode_url = f"https://www.xiaoyuzhoufm.com/episode/{episode_id}"
+    episode_url = _episode_url_from_db_episode(db_ep)
+    if not episode_url:
+        raise HTTPException(status_code=404, detail="Episode not found")
     
     llm_model = data.llm_model if data else None
     

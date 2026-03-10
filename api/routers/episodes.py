@@ -1,8 +1,10 @@
 """Episode management endpoints."""
 import asyncio
+from pathlib import Path
 from typing import Optional
 from fastapi import APIRouter, HTTPException, Depends
 
+from api.local_media import LOCAL_PODCAST_PID
 from api.schemas import EpisodeResponse
 from api.auth import get_current_user, User
 from api.db import get_db
@@ -60,6 +62,10 @@ async def get_episode_audio_info(eid: str, user: Optional[User] = Depends(get_cu
     
     # Check if audio exists locally (file I/O in executor)
     def find_audio_path():
+        if episode.audio_url and "://" not in episode.audio_url:
+            local_path = Path(episode.audio_url)
+            if local_path.exists():
+                return str(local_path)
         audio_dir = DATA_DIR / "audio"
         if not audio_dir.exists():
             return None
@@ -127,6 +133,15 @@ async def delete_episode(eid: str, user: Optional[User] = Depends(get_current_us
                 audio_file = audio_dir / "unknown" / f"{eid}{ext}"
                 if audio_file.exists():
                     audio_file.unlink()
+
+        # Delete uploaded local audio file and its fast-transcription cache
+        if episode_pid == LOCAL_PODCAST_PID and episode.audio_url and "://" not in episode.audio_url:
+            local_file = Path(episode.audio_url)
+            if local_file.exists():
+                local_file.unlink()
+            fast_copy = local_file.parent / f"{local_file.stem}_fast.mp3"
+            if fast_copy.exists():
+                fast_copy.unlink()
     
     await run_sync(delete_all_data)
     

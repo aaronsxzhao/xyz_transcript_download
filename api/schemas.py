@@ -50,6 +50,11 @@ class EpisodeResponse(EpisodeBase):
         from_attributes = True
 
 
+class LocalAudioUploadResponse(BaseModel):
+    podcast: PodcastResponse
+    episode: EpisodeResponse
+
+
 # Transcript schemas
 class TranscriptSegment(BaseModel):
     start: float

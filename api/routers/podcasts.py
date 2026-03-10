@@ -1,14 +1,26 @@
 """Podcast management endpoints."""
 import asyncio
+import subprocess
+from datetime import datetime, timezone
+from pathlib import Path
 from typing import List, Optional
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, HTTPException, Depends, UploadFile, File, Form
 
 from api.schemas import (
-    PodcastResponse, PodcastCreate, EpisodeResponse,
+    PodcastResponse, PodcastCreate, EpisodeResponse, LocalAudioUploadResponse,
     ImportSubscriptionsRequest, ImportSubscriptionsResponse
 )
 from api.auth import get_current_user, User
 from api.db import get_db
+from api.local_media import (
+    LOCAL_AUDIO_EXTENSIONS,
+    LOCAL_PODCAST_AUTHOR,
+    LOCAL_PODCAST_DESCRIPTION,
+    LOCAL_PODCAST_PID,
+    LOCAL_PODCAST_TITLE,
+    get_local_audio_dir,
+    make_local_episode_id,
+)
 from config import USE_SUPABASE
 from logger import get_logger
 
@@ -21,6 +33,86 @@ async def run_sync(func, *args):
     """Run a synchronous function in executor to avoid blocking event loop."""
     loop = asyncio.get_event_loop()
     return await loop.run_in_executor(None, func, *args)
+
+
+def _get_media_duration_seconds(file_path: Path) -> int:
+    """Read media duration with ffprobe. Returns 0 if unavailable."""
+    try:
+        result = subprocess.run(
+            [
+                "ffprobe",
+                "-v",
+                "quiet",
+                "-show_entries",
+                "format=duration",
+                "-of",
+                "default=noprint_wrappers=1:nokey=1",
+                str(file_path),
+            ],
+            capture_output=True,
+            text=True,
+            timeout=30,
+            check=False,
+        )
+        return max(0, int(float((result.stdout or "0").strip() or 0)))
+    except Exception:
+        return 0
+
+
+def _podcast_response_from_record(db, podcast) -> PodcastResponse:
+    episodes = db.get_episodes_by_podcast(podcast.pid)
+    summary_ids = db.get_summary_episode_ids()
+    summarized_count = sum(1 for ep in episodes if ep.eid in summary_ids)
+    return PodcastResponse(
+        pid=podcast.pid,
+        title=podcast.title,
+        author=podcast.author,
+        description=podcast.description,
+        cover_url=podcast.cover_url,
+        episode_count=len(episodes),
+        summarized_count=summarized_count,
+        platform=getattr(podcast, "platform", "xiaoyuzhou") or "xiaoyuzhou",
+        feed_url=getattr(podcast, "feed_url", "") or "",
+    )
+
+
+def _episode_response_from_record(db, episode) -> EpisodeResponse:
+    return EpisodeResponse(
+        eid=episode.eid,
+        pid=episode.pid,
+        title=episode.title,
+        description=episode.description,
+        duration=episode.duration,
+        pub_date=episode.pub_date,
+        cover_url="",
+        audio_url=episode.audio_url,
+        status=episode.status,
+        has_transcript=db.has_transcript(episode.eid),
+        has_summary=db.has_summary(episode.eid),
+        topics_count=0,
+        key_points_count=0,
+        created_at=episode.created_at,
+    )
+
+
+def _ensure_local_podcast(db):
+    podcast = db.get_podcast(LOCAL_PODCAST_PID)
+    if podcast:
+        return podcast
+    podcast_id = db.add_podcast(
+        LOCAL_PODCAST_PID,
+        LOCAL_PODCAST_TITLE,
+        LOCAL_PODCAST_AUTHOR,
+        LOCAL_PODCAST_DESCRIPTION,
+        "",
+        platform="local",
+    )
+    if not podcast_id:
+        raise RuntimeError("Failed to create local podcast")
+    podcast = db.get_podcast(LOCAL_PODCAST_PID)
+    if not podcast:
+        raise RuntimeError("Local podcast created but could not be loaded")
+    return podcast
 
 
 @router.get("", response_model=List[PodcastResponse])
@@ -70,6 +162,78 @@ async def add_podcast(data: PodcastCreate, user: Optional[User] = Depends(get_cu
         return await _add_apple_podcast(url, db)
     else:
         return await _add_xyz_podcast(url, db)
+
+
+@router.post("/upload-audio", response_model=LocalAudioUploadResponse)
+async def upload_local_audio(
+    file: UploadFile = File(...),
+    title: str = Form(""),
+    description: str = Form(""),
+    user: Optional[User] = Depends(get_current_user),
+):
+    """Upload a local audio file into the user's local podcast."""
+    if not file.filename:
+        raise HTTPException(status_code=400, detail="No file provided")
+
+    original_name = Path(file.filename).name
+    ext = Path(original_name).suffix.lower()
+    if ext not in LOCAL_AUDIO_EXTENSIONS:
+        raise HTTPException(status_code=400, detail=f"Unsupported audio format: {ext or 'unknown'}")
+
+    user_id = user.id if user else None
+    db = get_db(user_id)
+    podcast = await run_sync(_ensure_local_podcast, db)
+
+    eid = make_local_episode_id()
+    save_dir = get_local_audio_dir(user_id)
+    save_path = save_dir / f"{eid}{ext}"
+    file_size = 0
+
+    try:
+        with open(save_path, "wb") as out:
+            while True:
+                chunk = await file.read(1024 * 1024)
+                if not chunk:
+                    break
+                out.write(chunk)
+                file_size += len(chunk)
+    finally:
+        await file.close()
+
+    if file_size <= 0:
+        try:
+            save_path.unlink(missing_ok=True)
+        except Exception:
+            pass
+        raise HTTPException(status_code=400, detail="Uploaded file is empty")
+
+    duration = await run_sync(_get_media_duration_seconds, save_path)
+    episode_title = title.strip() or Path(original_name).stem
+    episode_description = description.strip()
+    pub_date = datetime.now(timezone.utc).isoformat()
+
+    def save_episode():
+        return db.add_episode(
+            eid=eid,
+            pid=podcast.pid,
+            podcast_id=podcast.id,
+            title=episode_title,
+            description=episode_description,
+            duration=duration,
+            pub_date=pub_date,
+            audio_url=str(save_path),
+        )
+
+    await run_sync(save_episode)
+    episode = await run_sync(db.get_episode, eid)
+    if not episode:
+        raise HTTPException(status_code=500, detail="Failed to load uploaded episode")
+
+    podcast_response, episode_response = await asyncio.gather(
+        run_sync(_podcast_response_from_record, db, podcast),
+        run_sync(_episode_response_from_record, db, episode),
+    )
+    return LocalAudioUploadResponse(podcast=podcast_response, episode=episode_response)
 
 
 async def _add_apple_podcast(url: str, db) -> PodcastResponse:

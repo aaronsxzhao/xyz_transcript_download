@@ -1,18 +1,20 @@
 import { useState, useEffect, useMemo, useCallback } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
-import { Radio, Plus, Trash2, RefreshCw, Loader2, ExternalLink, ArrowLeft, ChevronRight, Search } from 'lucide-react'
-import { fetchPodcasts, addPodcast, removePodcast, refreshPodcast, type Podcast } from '../lib/api'
+import { Radio, Plus, Trash2, RefreshCw, Loader2, ExternalLink, ArrowLeft, ChevronRight, Search, Upload } from 'lucide-react'
+import { fetchPodcasts, addPodcast, removePodcast, refreshPodcast, uploadLocalPodcastAudio, type Podcast } from '../lib/api'
 import { useToast } from '../components/Toast'
 import PlatformIcon, { PLATFORM_COLORS } from '../components/PlatformIcon'
 
 const PODCAST_PLATFORMS: { id: string; label: string }[] = [
   { id: 'xiaoyuzhou', label: '小宇宙' },
   { id: 'apple', label: 'Apple Podcasts' },
+  { id: 'local', label: 'Local Uploads' },
 ]
 
 const PLATFORM_LABELS: Record<string, string> = {
   xiaoyuzhou: '小宇宙',
   apple: 'Apple Podcasts',
+  local: 'Local Uploads',
 }
 
 type View =
@@ -30,8 +32,13 @@ export default function Podcasts() {
   const [podcasts, setPodcasts] = useState<Podcast[]>([])
   const [loading, setLoading] = useState(true)
   const [adding, setAdding] = useState(false)
+  const [uploading, setUploading] = useState(false)
   const [newUrl, setNewUrl] = useState('')
   const [showAddForm, setShowAddForm] = useState(false)
+  const [showUploadForm, setShowUploadForm] = useState(false)
+  const [uploadTitle, setUploadTitle] = useState('')
+  const [uploadDescription, setUploadDescription] = useState('')
+  const [audioFile, setAudioFile] = useState<File | null>(null)
   const [refreshing, setRefreshing] = useState<string | null>(null)
   const [refreshingAll, setRefreshingAll] = useState(false)
   const [deletingPid, setDeletingPid] = useState<string | null>(null)
@@ -107,6 +114,42 @@ export default function Podcasts() {
     }
   }
 
+  async function handleUploadAudio(e: React.FormEvent) {
+    e.preventDefault()
+    if (!audioFile) return
+
+    setUploading(true)
+    const toastId = addToast({
+      type: 'loading',
+      title: 'Uploading audio...',
+      message: 'Creating your local podcast episode',
+    })
+
+    try {
+      const result = await uploadLocalPodcastAudio(audioFile, {
+        title: uploadTitle.trim(),
+        description: uploadDescription.trim(),
+      })
+      removeToast(toastId)
+      setAudioFile(null)
+      setUploadTitle('')
+      setUploadDescription('')
+      setShowUploadForm(false)
+      await loadPodcasts()
+      addToast({ type: 'success', title: 'Audio uploaded', message: result.episode.title })
+      navigate(`/podcasts/${result.podcast.pid}/episodes`)
+    } catch (err: unknown) {
+      removeToast(toastId)
+      addToast({
+        type: 'error',
+        title: 'Upload failed',
+        message: err instanceof Error ? err.message : 'Unknown error',
+      })
+    } finally {
+      setUploading(false)
+    }
+  }
+
   async function handleRemove(pid: string) {
     if (!confirm('Remove this podcast?')) return
     const podcast = podcasts.find(p => p.pid === pid)
@@ -123,6 +166,11 @@ export default function Podcasts() {
   }
 
   async function handleRefresh(pid: string) {
+    const podcast = podcasts.find(p => p.pid === pid)
+    if ((podcast?.platform || 'xiaoyuzhou') === 'local') {
+      addToast({ type: 'info', title: 'Local uploads', message: 'Uploaded audio is managed manually and does not support refresh.' })
+      return
+    }
     setRefreshing(pid)
     try {
       const result = await refreshPodcast(pid)
@@ -137,6 +185,10 @@ export default function Podcasts() {
 
   async function handleCheckAllUpdates() {
     if (view.type !== 'podcasts') return
+    if (view.platform === 'local') {
+      addToast({ type: 'info', title: 'Local uploads', message: 'Local uploads do not have external updates to check.' })
+      return
+    }
     const platformPodcasts = podcasts.filter(p => (p.platform || 'xiaoyuzhou') === view.platform)
     if (platformPodcasts.length === 0) return
 
@@ -176,7 +228,7 @@ export default function Podcasts() {
   }, [filtered])
 
   const sortedPlatforms = useMemo(() => {
-    const order = ['xiaoyuzhou', 'apple']
+    const order = ['xiaoyuzhou', 'apple', 'local']
     return Object.keys(platformCounts).sort((a, b) =>
       (order.indexOf(a) === -1 ? 99 : order.indexOf(a)) -
       (order.indexOf(b) === -1 ? 99 : order.indexOf(b))
@@ -223,7 +275,7 @@ export default function Podcasts() {
           </div>
         </div>
         <div className="flex items-center gap-2 w-full sm:w-auto">
-          {view.type === 'podcasts' && (
+          {view.type === 'podcasts' && view.platform !== 'local' && (
             <button
               onClick={handleCheckAllUpdates}
               disabled={refreshingAll}
@@ -235,7 +287,14 @@ export default function Podcasts() {
             </button>
           )}
           <button
-            onClick={() => setShowAddForm(!showAddForm)}
+            onClick={() => { setShowUploadForm(!showUploadForm); setShowAddForm(false) }}
+            className="flex items-center justify-center gap-2 px-4 py-2.5 bg-dark-surface border border-dark-border hover:bg-dark-hover text-white font-medium rounded-lg transition-colors flex-1 sm:flex-none"
+          >
+            <Upload size={18} />
+            Upload Audio
+          </button>
+          <button
+            onClick={() => { setShowAddForm(!showAddForm); setShowUploadForm(false) }}
             className="flex items-center justify-center gap-2 px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-medium rounded-lg transition-colors flex-1 sm:flex-none"
           >
             <Plus size={20} />
@@ -272,6 +331,57 @@ export default function Podcasts() {
               {adding ? <Loader2 className="w-5 h-5 animate-spin" /> : <Plus className="w-5 h-5" />}
               Add
             </button>
+          </form>
+        </div>
+      )}
+
+      {showUploadForm && (
+        <div className="p-4 md:p-6 bg-dark-surface border border-dark-border rounded-xl">
+          <h2 className="text-lg font-semibold text-white mb-4">Upload Local Audio</h2>
+          <form onSubmit={handleUploadAudio} className="space-y-4">
+            <div className="grid gap-4 md:grid-cols-2">
+              <div>
+                <label className="block text-sm text-gray-400 mb-2">Audio file</label>
+                <input
+                  type="file"
+                  accept="audio/*,.mp3,.m4a,.wav,.aac,.flac,.ogg,.opus,.mp4,.mpeg,.mpga"
+                  onChange={e => setAudioFile(e.target.files?.[0] || null)}
+                  className="block w-full text-sm text-gray-300 file:mr-4 file:rounded-lg file:border-0 file:bg-indigo-600 file:px-4 file:py-2 file:text-sm file:font-medium file:text-white hover:file:bg-indigo-700"
+                />
+                {audioFile && <p className="mt-2 text-xs text-gray-500">{audioFile.name}</p>}
+              </div>
+              <div>
+                <label className="block text-sm text-gray-400 mb-2">Episode title</label>
+                <input
+                  type="text"
+                  value={uploadTitle}
+                  onChange={e => setUploadTitle(e.target.value)}
+                  placeholder="Optional, defaults to filename"
+                  className="w-full px-4 py-3 bg-dark-hover border border-dark-border rounded-lg text-white placeholder:text-gray-500 focus:outline-none focus:border-indigo-500 text-base"
+                />
+              </div>
+            </div>
+            <div>
+              <label className="block text-sm text-gray-400 mb-2">Description</label>
+              <textarea
+                value={uploadDescription}
+                onChange={e => setUploadDescription(e.target.value)}
+                placeholder="Optional notes about this upload"
+                rows={3}
+                className="w-full px-4 py-3 bg-dark-hover border border-dark-border rounded-lg text-white placeholder:text-gray-500 focus:outline-none focus:border-indigo-500 text-base resize-y"
+              />
+            </div>
+            <div className="flex flex-col sm:flex-row gap-3 sm:items-center sm:justify-between">
+              <p className="text-sm text-gray-500">First upload creates your Local Uploads podcast automatically. Later uploads go into the same library section.</p>
+              <button
+                type="submit"
+                disabled={uploading || !audioFile}
+                className="flex items-center justify-center gap-2 px-6 py-3 bg-indigo-600 hover:bg-indigo-700 disabled:bg-gray-700 disabled:cursor-not-allowed text-white font-medium rounded-lg transition-colors"
+              >
+                {uploading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Upload className="w-5 h-5" />}
+                Upload
+              </button>
+            </div>
           </form>
         </div>
       )}
@@ -334,7 +444,7 @@ export default function Podcasts() {
                 {search ? 'No matching podcasts' : 'No podcasts yet'}
               </p>
               <p className="text-gray-500">
-                {search ? 'Try a different search term' : 'Add a podcast to get started'}
+                {search ? 'Try a different search term' : 'Add a podcast or upload local audio to get started'}
               </p>
             </div>
           ) : (
@@ -434,14 +544,16 @@ export default function Podcasts() {
                         <ExternalLink size={16} />
                         <span className="hidden sm:inline">Episodes</span>
                       </Link>
-                      <button
-                        onClick={() => handleRefresh(podcast.pid)}
-                        disabled={refreshing === podcast.pid}
-                        className="p-2 bg-dark-hover hover:bg-dark-border text-white rounded-lg transition-colors disabled:opacity-50"
-                        title="Refresh episodes"
-                      >
-                        <RefreshCw size={16} className={refreshing === podcast.pid ? 'animate-spin' : ''} />
-                      </button>
+                      {podcast.platform !== 'local' && (
+                        <button
+                          onClick={() => handleRefresh(podcast.pid)}
+                          disabled={refreshing === podcast.pid}
+                          className="p-2 bg-dark-hover hover:bg-dark-border text-white rounded-lg transition-colors disabled:opacity-50"
+                          title="Refresh episodes"
+                        >
+                          <RefreshCw size={16} className={refreshing === podcast.pid ? 'animate-spin' : ''} />
+                        </button>
+                      )}
                       <button
                         onClick={() => handleRemove(podcast.pid)}
                         disabled={deletingPid === podcast.pid}

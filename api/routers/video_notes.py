@@ -1,6 +1,7 @@
 """Video note generation endpoints with background processing."""
 import asyncio
 import json
+import os
 import shutil
 import threading
 import time
@@ -12,6 +13,7 @@ from typing import Optional, Set
 from fastapi import APIRouter, HTTPException, BackgroundTasks, Depends, UploadFile, File, Form, Query, Request
 
 from api.auth import get_current_user, User
+from api.local_media import LOCAL_VIDEO_CHANNEL, LOCAL_VIDEO_EXTENSIONS
 from api.routers.processing import (
     manager, get_main_loop, ConnectionManager,
 )
@@ -38,6 +40,15 @@ _cancelled_tasks: Set[str] = set()
 
 class VideoCancelledException(Exception):
     pass
+
+
+def _local_video_title(path_value: str) -> str:
+    """Best-effort title for uploaded local files before metadata is fetched."""
+    if not path_value:
+        return ""
+    name = os.path.basename(path_value)
+    stem, _ = os.path.splitext(name)
+    return stem or name
 
 
 def is_video_task_cancelled(task_id: str) -> bool:
@@ -698,6 +709,7 @@ async def generate_note(
     from video_downloader import normalize_video_url
     db = get_video_task_db()
     url = normalize_video_url(url, platform)
+    is_local = platform == "local"
 
     _invalidate_list_cache(user_id)
 
@@ -705,6 +717,7 @@ async def generate_note(
     if existing:
         task_id = existing["id"]
         db.update_task(task_id, {
+            "title": _local_video_title(url) if is_local and not existing.get("title") else existing.get("title", ""),
             "style": style,
             "formats": fmt_list,
             "quality": quality,
@@ -721,6 +734,7 @@ async def generate_note(
             task_id = db.create_task({
                 "url": url,
                 "platform": platform,
+                "title": _local_video_title(url) if is_local else "",
                 "style": style,
                 "formats": fmt_list,
                 "quality": quality,
@@ -732,6 +746,7 @@ async def generate_note(
                 "grid_cols": grid_cols,
                 "grid_rows": grid_rows,
                 "user_id": user_id,
+                "channel": LOCAL_VIDEO_CHANNEL if is_local else "",
             })
         except Exception as e:
             logger.error(f"[generate] create_task failed: {e}", exc_info=True)
@@ -782,6 +797,7 @@ async def generate_note_json(
     db = get_video_task_db()
     platform = data.get("platform", "")
     url = normalize_video_url(url, platform)
+    is_local = platform == "local"
 
     _invalidate_list_cache(user_id)
 
@@ -789,6 +805,7 @@ async def generate_note_json(
     if existing:
         task_id = existing["id"]
         db.update_task(task_id, {
+            "title": _local_video_title(url) if is_local and not existing.get("title") else existing.get("title", ""),
             "style": data.get("style", "detailed"),
             "formats": data.get("formats", []),
             "quality": data.get("quality", "medium"),
@@ -804,6 +821,7 @@ async def generate_note_json(
         task_payload = {
             "url": url,
             "platform": platform,
+            "title": _local_video_title(url) if is_local else "",
             "style": data.get("style", "detailed"),
             "formats": data.get("formats", []),
             "quality": data.get("quality", "medium"),
@@ -815,6 +833,7 @@ async def generate_note_json(
             "grid_cols": data.get("grid_cols", 3),
             "grid_rows": data.get("grid_rows", 3),
             "user_id": user_id,
+            "channel": LOCAL_VIDEO_CHANNEL if is_local else "",
         }
         try:
             task_id = db.create_task(task_payload)
@@ -1015,21 +1034,33 @@ async def upload_video(
         raise HTTPException(status_code=400, detail="No file provided")
 
     ext = Path(file.filename).suffix.lower()
-    if ext not in (".mp4", ".mkv", ".avi", ".mov", ".webm", ".flv", ".wmv", ".m4v"):
+    if ext not in LOCAL_VIDEO_EXTENSIONS:
         raise HTTPException(status_code=400, detail=f"Unsupported format: {ext}")
 
     file_id = str(uuid.uuid4())[:12]
     save_path = UPLOAD_DIR / f"{file_id}{ext}"
+    total_size = 0
 
-    with open(save_path, "wb") as f:
-        content = await file.read()
-        f.write(content)
+    try:
+        with open(save_path, "wb") as f:
+            while True:
+                chunk = await file.read(1024 * 1024)
+                if not chunk:
+                    break
+                f.write(chunk)
+                total_size += len(chunk)
+    finally:
+        await file.close()
+
+    if total_size <= 0:
+        save_path.unlink(missing_ok=True)
+        raise HTTPException(status_code=400, detail="Uploaded file is empty")
 
     return {
         "file_id": file_id,
         "filename": file.filename,
         "path": str(save_path),
-        "size": len(content),
+        "size": total_size,
     }
 
 

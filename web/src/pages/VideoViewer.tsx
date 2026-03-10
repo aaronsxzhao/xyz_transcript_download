@@ -329,6 +329,11 @@ export default function VideoViewer() {
           <div className="min-w-0">
             <h1 className="text-base font-semibold text-white truncate">
               {task.title || (task.url ? (() => {
+                if (task.platform === 'local') {
+                  const parts = task.url.split(/[\\/]/)
+                  const filename = parts[parts.length - 1] || task.url
+                  return filename.replace(/\.[^.]+$/, '') || filename
+                }
                 try {
                   const u = new URL(task.url)
                   return u.hostname.replace('www.', '') + u.pathname.replace(/\/$/, '')

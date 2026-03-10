@@ -243,6 +243,10 @@ class AudioDownloader:
         Returns:
             Path to the audio file
         """
+        local_source = self._get_local_audio_source(episode.audio_url)
+        if local_source:
+            return local_source
+
         # Create podcast-specific directory
         podcast_dir = self.base_dir / (episode.pid or "unknown")
         podcast_dir.mkdir(parents=True, exist_ok=True)
@@ -252,6 +256,15 @@ class AudioDownloader:
         filename = f"{episode.eid}{ext}"
 
         return podcast_dir / filename
+
+    def _get_local_audio_source(self, audio_url: str) -> Optional[Path]:
+        """Return a local path when the episode audio already exists on disk."""
+        if not audio_url or "://" in audio_url:
+            return None
+        path = Path(audio_url)
+        if path.is_absolute():
+            return path
+        return None
 
     def _get_extension(self, url: str) -> str:
         """Extract file extension from URL."""
@@ -308,6 +321,20 @@ class AudioDownloader:
             return None
 
         audio_path = self.get_audio_path(episode)
+
+        local_source = self._get_local_audio_source(episode.audio_url)
+        if local_source:
+            if not local_source.exists():
+                logger.error(f"Local audio file not found: {local_source}")
+                return None
+            if force:
+                compressed_path = self.get_compressed_path(episode)
+                if compressed_path.exists():
+                    try:
+                        compressed_path.unlink()
+                    except OSError:
+                        pass
+            return local_source
 
         # Check if already downloaded and complete (includes truncation check)
         if not force and self.is_downloaded(episode):

@@ -544,6 +544,11 @@ function ChannelList({ channels, onSelectChannel, onDeleteChannel, onCheckUpdate
 function getDisplayTitle(task: VideoTask): string {
   if (task.title && task.title !== 'Untitled') return task.title
   if (task.url) {
+    if (task.platform === 'local') {
+      const parts = task.url.split(/[\\/]/)
+      const filename = parts[parts.length - 1] || task.url
+      return filename.replace(/\.[^.]+$/, '') || filename
+    }
     try {
       const u = new URL(task.url)
       const host = u.hostname.replace('www.', '')
