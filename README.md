@@ -38,7 +38,7 @@ Works locally or in the cloud with multi-user support.
 
 ### Option A: Cloud Version
 
-1. Visit the deployed web app
+1. Visit the deployed web app: https://aipodcastsummary.online/
 2. Sign in with your account
 3. Add podcasts or paste video URLs
 4. Process and read summaries / notes online
@@ -114,6 +114,8 @@ Open http://localhost:5173 in your browser.
 
 ## Web Interface
 
+Hosted app: https://aipodcastsummary.online/
+
 ```bash
 python main.py serve
 ```
@@ -131,6 +133,7 @@ python main.py serve
 | **Settings** | Whisper/LLM model config, video processing defaults, account cookies, data maintenance |
 
 **URLs:**
+- Hosted Web App: https://aipodcastsummary.online/
 - Frontend: http://localhost:5173
 - API Docs: http://localhost:8000/docs
 
