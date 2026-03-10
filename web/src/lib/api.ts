@@ -122,6 +122,7 @@ export interface Stats {
   processing_queue: number
   total_videos: number
   completed_videos: number
+  total_video_channels: number
 }
 
 export interface SummaryListItem {
@@ -215,6 +216,12 @@ export async function fetchEpisodes(pid: string): Promise<Episode[]> {
 export async function fetchSummaries(): Promise<SummaryListItem[]> {
   const res = await authFetch(`${API_BASE}/summaries`)
   if (!res.ok) throw new Error('Failed to fetch summaries')
+  return res.json()
+}
+
+export async function fetchRecentSummaries(limit: number = 6): Promise<SummaryListItem[]> {
+  const res = await authFetch(`${API_BASE}/summaries/recent?limit=${encodeURIComponent(String(limit))}`)
+  if (!res.ok) throw new Error('Failed to fetch recent summaries')
   return res.json()
 }
 
@@ -502,6 +509,12 @@ export async function fetchVideoTasks(): Promise<{ tasks: VideoTask[] }> {
   return res.json()
 }
 
+export async function fetchRecentVideoTasks(limit: number = 6): Promise<{ tasks: VideoTask[] }> {
+  const res = await authFetch(`${API_BASE}/video-notes/recent?limit=${encodeURIComponent(String(limit))}`)
+  if (!res.ok) throw new Error('Failed to fetch recent video tasks')
+  return res.json()
+}
+
 export async function fetchVideoTask(taskId: string): Promise<VideoTask> {
   const res = await authFetch(`${API_BASE}/video-notes/tasks/${taskId}`)
   if (!res.ok) throw new Error('Failed to fetch video task')
@@ -557,7 +570,34 @@ export async function cancelVideoTask(taskId: string): Promise<{ message: string
   return res.json()
 }
 
-export async function uploadVideoFile(file: File): Promise<{ file_id: string; path: string }> {
+const CHUNKED_VIDEO_UPLOAD_THRESHOLD = 50 * 1024 * 1024
+
+function isOversizedUploadStatus(status: number): boolean {
+  return status === 413
+}
+
+async function parseUploadError(res: Response, fallback = 'Failed to upload video'): Promise<string> {
+  let detail = fallback
+  try {
+    const body = await res.json()
+    detail = body.detail || body.message || detail
+  } catch {
+    try {
+      const text = await res.text()
+      if (text.trim()) detail = text.trim()
+    } catch {
+      // Ignore body parsing failures.
+    }
+  }
+
+  if (isOversizedUploadStatus(res.status)) {
+    return 'This upload was blocked before it reached the app. The hosted site sits behind a proxy with per-request size limits, so large local videos need chunked upload. Please retry after refreshing; the app should now switch large files to chunked upload automatically.'
+  }
+
+  return detail
+}
+
+async function uploadVideoFileSimple(file: File): Promise<{ file_id: string; path: string }> {
   const formData = new FormData()
   formData.append('file', file)
   const res = await authFetch(`${API_BASE}/video-notes/upload`, {
@@ -565,14 +605,80 @@ export async function uploadVideoFile(file: File): Promise<{ file_id: string; pa
     body: formData,
   })
   if (!res.ok) {
-    let detail = 'Failed to upload video'
-    try {
-      const body = await res.json()
-      detail = body.detail || body.message || detail
-    } catch {}
-    throw new Error(detail)
+    throw new Error(await parseUploadError(res))
   }
   return res.json()
+}
+
+async function uploadVideoFileChunked(
+  file: File,
+  onProgress?: (progress: { uploadedBytes: number; totalBytes: number; percent: number }) => void,
+): Promise<{ file_id: string; path: string }> {
+  const initData = new FormData()
+  initData.append('filename', file.name)
+  initData.append('size', String(file.size))
+  initData.append('content_type', file.type || 'application/octet-stream')
+
+  const initRes = await authFetch(`${API_BASE}/video-notes/upload/init`, {
+    method: 'POST',
+    body: initData,
+  })
+  if (!initRes.ok) {
+    throw new Error(await parseUploadError(initRes, 'Failed to initialize video upload'))
+  }
+
+  const init = await initRes.json() as {
+    upload_id: string
+    chunk_size: number
+    total_chunks: number
+  }
+
+  let uploadedBytes = 0
+  for (let index = 0; index < init.total_chunks; index += 1) {
+    const start = index * init.chunk_size
+    const end = Math.min(file.size, start + init.chunk_size)
+    const chunkBlob = file.slice(start, end)
+    const chunkForm = new FormData()
+    chunkForm.append('upload_id', init.upload_id)
+    chunkForm.append('index', String(index))
+    chunkForm.append('chunk', chunkBlob, `${file.name}.part-${index}`)
+
+    const chunkRes = await authFetch(`${API_BASE}/video-notes/upload/chunk`, {
+      method: 'POST',
+      body: chunkForm,
+    })
+    if (!chunkRes.ok) {
+      throw new Error(await parseUploadError(chunkRes, `Failed to upload chunk ${index + 1}`))
+    }
+
+    uploadedBytes = end
+    onProgress?.({
+      uploadedBytes,
+      totalBytes: file.size,
+      percent: Math.min(100, Math.round((uploadedBytes / file.size) * 100)),
+    })
+  }
+
+  const completeForm = new FormData()
+  completeForm.append('upload_id', init.upload_id)
+  const completeRes = await authFetch(`${API_BASE}/video-notes/upload/complete`, {
+    method: 'POST',
+    body: completeForm,
+  })
+  if (!completeRes.ok) {
+    throw new Error(await parseUploadError(completeRes, 'Failed to finalize video upload'))
+  }
+  return completeRes.json()
+}
+
+export async function uploadVideoFile(
+  file: File,
+  onProgress?: (progress: { uploadedBytes: number; totalBytes: number; percent: number }) => void,
+): Promise<{ file_id: string; path: string }> {
+  if (file.size > CHUNKED_VIDEO_UPLOAD_THRESHOLD) {
+    return uploadVideoFileChunked(file, onProgress)
+  }
+  return uploadVideoFileSimple(file)
 }
 
 export async function fetchVideoNoteStyles(): Promise<{ styles: Record<string, string> }> {

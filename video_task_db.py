@@ -257,6 +257,41 @@ class _SQLiteVideoTaskDB:
                 ).fetchall()
             return [self._row_to_dict(r) for r in rows]
 
+    def list_recent_success_tasks(self, user_id: str = None, limit: int = 6) -> List[dict]:
+        order = "ORDER BY updated_at DESC, created_at DESC"
+        cols = (
+            "id, url, platform, title, thumbnail, status, progress, message, "
+            "style, duration, error, channel, channel_url, channel_avatar, "
+            "published_at, created_at, updated_at"
+        )
+        with self._conn() as conn:
+            if user_id:
+                rows = conn.execute(
+                    f"SELECT {cols} FROM video_tasks WHERE user_id = ? AND status = 'success' {order} LIMIT ?",
+                    (user_id, limit),
+                ).fetchall()
+            else:
+                rows = conn.execute(
+                    f"SELECT {cols} FROM video_tasks WHERE user_id IS NULL AND status = 'success' {order} LIMIT ?",
+                    (limit,),
+                ).fetchall()
+            return [self._row_to_dict(r) for r in rows]
+
+    def count_distinct_channels(self, user_id: str = None) -> int:
+        with self._conn() as conn:
+            if user_id:
+                row = conn.execute(
+                    "SELECT COUNT(DISTINCT channel) FROM video_tasks "
+                    "WHERE channel != '' AND channel IS NOT NULL AND user_id = ?",
+                    (user_id,),
+                ).fetchone()
+            else:
+                row = conn.execute(
+                    "SELECT COUNT(DISTINCT channel) FROM video_tasks "
+                    "WHERE channel != '' AND channel IS NOT NULL AND user_id IS NULL",
+                ).fetchone()
+            return row[0] if row else 0
+
     def delete_task(self, task_id: str, user_id: str = None) -> bool:
         with self._conn() as conn:
             if user_id:
@@ -457,10 +492,20 @@ class _SupabaseVideoTaskDB:
             return []
         return self._sb.list_video_tasks(user_id, limit)
 
+    def list_recent_success_tasks(self, user_id: str = None, limit: int = 6) -> List[dict]:
+        if not user_id:
+            return []
+        return self._sb.list_recent_success_video_tasks(user_id, limit)
+
     def count_tasks(self, user_id: str = None) -> dict:
         if not user_id:
             return {"total": 0, "completed": 0}
         return self._sb.count_video_tasks(user_id)
+
+    def count_distinct_channels(self, user_id: str = None) -> int:
+        if not user_id:
+            return 0
+        return self._sb.count_distinct_video_channels(user_id)
 
     def count_channel_tasks(self, channel: str, user_id: str = None) -> int:
         if not user_id or not channel:
@@ -556,11 +601,24 @@ class VideoTaskDB:
     def list_tasks(self, user_id: str = None, limit: int = 100) -> List[dict]:
         return self._backend.list_tasks(user_id, limit)
 
+    def list_recent_success_tasks(self, user_id: str = None, limit: int = 6) -> List[dict]:
+        if hasattr(self._backend, "list_recent_success_tasks"):
+            return self._backend.list_recent_success_tasks(user_id, limit)
+        tasks = self._backend.list_tasks(user_id, limit * 3)
+        success = [t for t in tasks if t.get("status") == "success"]
+        return success[:limit]
+
     def count_tasks(self, user_id: str = None) -> dict:
         if hasattr(self._backend, "count_tasks"):
             return self._backend.count_tasks(user_id)
         tasks = self._backend.list_tasks(user_id)
         return {"total": len(tasks), "completed": sum(1 for t in tasks if t.get("status") == "success")}
+
+    def count_distinct_channels(self, user_id: str = None) -> int:
+        if hasattr(self._backend, "count_distinct_channels"):
+            return self._backend.count_distinct_channels(user_id)
+        channels = self._backend.get_distinct_channels(user_id)
+        return len(channels)
 
     def count_channel_tasks(self, channel: str, user_id: str = None) -> int:
         return self._backend.count_channel_tasks(channel, user_id)

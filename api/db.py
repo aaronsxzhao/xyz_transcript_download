@@ -514,6 +514,52 @@ class DatabaseInterface:
                         continue
             results.sort(key=lambda s: s.created_at, reverse=True)
             return results
+
+    def get_recent_summaries(self, limit: int = 6) -> List[SummaryData]:
+        """Get the most recent summaries for lightweight dashboard views."""
+        if self._anonymous_supabase:
+            return []
+        if self.use_supabase:
+            records = self.db.get_recent_summaries(self.user_id, limit)
+            return [
+                SummaryData(
+                    episode_id=r.episode_id,
+                    title=r.title,
+                    overview=r.overview,
+                    topics=r.topics,
+                    takeaways=r.takeaways,
+                    key_points=r.key_points,
+                    created_at=r.created_at or "",
+                )
+                for r in records
+            ]
+
+        summaries_dir = DATA_DIR / "summaries"
+        results = []
+        if summaries_dir.exists():
+            paths = sorted(
+                summaries_dir.glob("*.json"),
+                key=lambda p: p.stat().st_mtime,
+                reverse=True,
+            )[:limit]
+            for path in paths:
+                try:
+                    with open(path, "r", encoding="utf-8") as f:
+                        data = json.load(f)
+                    mtime = os.path.getmtime(path)
+                    created = datetime.fromtimestamp(mtime, tz=timezone.utc).isoformat()
+                    results.append(SummaryData(
+                        episode_id=data.get("episode_id", path.stem),
+                        title=data.get("title", ""),
+                        overview=data.get("overview", ""),
+                        topics=data.get("topics", []),
+                        takeaways=data.get("takeaways", []),
+                        key_points=data.get("key_points", []),
+                        created_at=created,
+                    ))
+                except (json.JSONDecodeError, IOError, OSError):
+                    continue
+        return results
     
     def has_summary(self, episode_id: str) -> bool:
         """Check if episode has a summary."""

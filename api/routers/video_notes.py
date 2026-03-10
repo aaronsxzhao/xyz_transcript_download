@@ -51,6 +51,25 @@ def _local_video_title(path_value: str) -> str:
     return stem or name
 
 
+def _upload_session_dir(upload_id: str) -> Path:
+    return CHUNK_UPLOAD_DIR / upload_id
+
+
+def _session_meta_path(upload_id: str) -> Path:
+    return _upload_session_dir(upload_id) / "meta.json"
+
+
+def _session_chunk_path(upload_id: str, index: int) -> Path:
+    return _upload_session_dir(upload_id) / f"{index:06d}.part"
+
+
+def _cleanup_upload_session(upload_id: str):
+    try:
+        shutil.rmtree(_upload_session_dir(upload_id), ignore_errors=True)
+    except Exception:
+        pass
+
+
 def is_video_task_cancelled(task_id: str) -> bool:
     with _cancel_lock:
         return task_id in _cancelled_tasks
@@ -62,6 +81,8 @@ def _clear_cancelled(task_id: str):
 
 UPLOAD_DIR = DATA_DIR / "uploads"
 UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+CHUNK_UPLOAD_DIR = UPLOAD_DIR / "_chunks"
+CHUNK_UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 
 
 async def broadcast_video_job(task_id: str, task_data: dict, user_id: Optional[str] = None):
@@ -879,6 +900,27 @@ async def list_tasks(user: Optional[User] = Depends(get_current_user)):
     return result
 
 
+@router.get("/recent")
+async def list_recent_tasks(
+    limit: int = Query(6, ge=1, le=20),
+    user: Optional[User] = Depends(get_current_user),
+):
+    """List recent successful video notes for the dashboard."""
+    from video_task_db import get_video_task_db
+    user_id = user.id if user else None
+    cache_key = f"{user_id or '__local__'}:recent:{limit}"
+    now = time.monotonic()
+    entry = _list_cache.get(cache_key)
+    if entry and now - entry["t"] < _LIST_TTL:
+        return entry["data"]
+
+    db = get_video_task_db()
+    tasks = db.list_recent_success_tasks(user_id, limit)
+    result = {"tasks": tasks}
+    _list_cache[cache_key] = {"t": now, "data": result}
+    return result
+
+
 @router.get("/tasks/{task_id}")
 async def get_task(task_id: str, user: Optional[User] = Depends(get_current_user)):
     """Get a video note task with versions."""
@@ -1061,6 +1103,143 @@ async def upload_video(
         "filename": file.filename,
         "path": str(save_path),
         "size": total_size,
+    }
+
+
+@router.post("/upload/init")
+async def init_chunked_upload(
+    filename: str = Form(...),
+    size: int = Form(...),
+    content_type: str = Form(""),
+    user: Optional[User] = Depends(get_current_user),
+):
+    """Initialize a chunked local video upload session."""
+    if not filename:
+        raise HTTPException(status_code=400, detail="filename is required")
+
+    ext = Path(filename).suffix.lower()
+    if ext not in LOCAL_VIDEO_EXTENSIONS:
+        raise HTTPException(status_code=400, detail=f"Unsupported format: {ext}")
+
+    upload_id = str(uuid.uuid4())[:16]
+    session_dir = _upload_session_dir(upload_id)
+    session_dir.mkdir(parents=True, exist_ok=True)
+    meta = {
+        "filename": Path(filename).name,
+        "size": max(0, int(size or 0)),
+        "content_type": content_type or "",
+        "ext": ext,
+        "user_id": user.id if user else None,
+        "created_at": time.time(),
+    }
+    _session_meta_path(upload_id).write_text(json.dumps(meta), encoding="utf-8")
+    chunk_size = 20 * 1024 * 1024  # 20MB keeps well below common proxy limits
+    total_chunks = max(1, (meta["size"] + chunk_size - 1) // chunk_size)
+    return {
+        "upload_id": upload_id,
+        "chunk_size": chunk_size,
+        "total_chunks": total_chunks,
+    }
+
+
+@router.post("/upload/chunk")
+async def upload_video_chunk(
+    upload_id: str = Form(...),
+    index: int = Form(...),
+    chunk: UploadFile = File(...),
+    user: Optional[User] = Depends(get_current_user),
+):
+    """Upload one chunk of a local video file."""
+    meta_path = _session_meta_path(upload_id)
+    if not meta_path.exists():
+        raise HTTPException(status_code=404, detail="Upload session not found")
+
+    try:
+        meta = json.loads(meta_path.read_text(encoding="utf-8"))
+    except Exception:
+        _cleanup_upload_session(upload_id)
+        raise HTTPException(status_code=500, detail="Upload session is corrupted")
+
+    if meta.get("user_id") != (user.id if user else None):
+        raise HTTPException(status_code=403, detail="Upload session does not belong to this user")
+
+    if index < 0:
+        raise HTTPException(status_code=400, detail="Chunk index must be >= 0")
+
+    part_path = _session_chunk_path(upload_id, index)
+    total_size = 0
+    try:
+        with open(part_path, "wb") as f:
+            while True:
+                data = await chunk.read(1024 * 1024)
+                if not data:
+                    break
+                f.write(data)
+                total_size += len(data)
+    finally:
+        await chunk.close()
+
+    if total_size <= 0:
+        part_path.unlink(missing_ok=True)
+        raise HTTPException(status_code=400, detail="Uploaded chunk is empty")
+
+    return {"upload_id": upload_id, "index": index, "size": total_size}
+
+
+@router.post("/upload/complete")
+async def complete_chunked_upload(
+    upload_id: str = Form(...),
+    user: Optional[User] = Depends(get_current_user),
+):
+    """Finalize a chunked upload and assemble the saved local file."""
+    meta_path = _session_meta_path(upload_id)
+    if not meta_path.exists():
+        raise HTTPException(status_code=404, detail="Upload session not found")
+
+    try:
+        meta = json.loads(meta_path.read_text(encoding="utf-8"))
+    except Exception:
+        _cleanup_upload_session(upload_id)
+        raise HTTPException(status_code=500, detail="Upload session is corrupted")
+
+    if meta.get("user_id") != (user.id if user else None):
+        raise HTTPException(status_code=403, detail="Upload session does not belong to this user")
+
+    session_dir = _upload_session_dir(upload_id)
+    part_paths = sorted(session_dir.glob("*.part"))
+    if not part_paths:
+        raise HTTPException(status_code=400, detail="No uploaded chunks found")
+
+    file_id = str(uuid.uuid4())[:12]
+    ext = meta.get("ext") or Path(meta.get("filename", "")).suffix.lower()
+    save_path = UPLOAD_DIR / f"{file_id}{ext}"
+    bytes_written = 0
+
+    try:
+        with open(save_path, "wb") as out:
+            for part_path in part_paths:
+                with open(part_path, "rb") as src:
+                    shutil.copyfileobj(src, out, length=1024 * 1024)
+                bytes_written += part_path.stat().st_size
+    except Exception:
+        save_path.unlink(missing_ok=True)
+        raise HTTPException(status_code=500, detail="Failed to assemble uploaded file")
+    finally:
+        _cleanup_upload_session(upload_id)
+
+    expected_size = int(meta.get("size") or 0)
+    if expected_size > 0 and bytes_written != expected_size:
+        save_path.unlink(missing_ok=True)
+        raise HTTPException(
+            status_code=400,
+            detail=f"Upload incomplete: expected {expected_size} bytes, received {bytes_written} bytes",
+        )
+
+    return {
+        "file_id": file_id,
+        "filename": meta.get("filename", ""),
+        "path": str(save_path),
+        "size": bytes_written,
     }
 
 

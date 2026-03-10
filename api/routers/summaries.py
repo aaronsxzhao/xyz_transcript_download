@@ -23,7 +23,11 @@ async def list_summaries(user: Optional[User] = Depends(get_current_user)):
     db = get_db(user.id if user else None)
     
     summaries = await run_sync(db.get_all_summaries)
+    return await run_sync(_build_summary_list_items, db, summaries)
 
+
+def _build_summary_list_items(db, summaries) -> List[SummaryListItem]:
+    """Convert summary records into lightweight list items with podcast metadata."""
     podcast_cache: dict = {}
     def get_podcast_info(episode_id: str) -> tuple:
         ep = db.get_episode(episode_id)
@@ -49,6 +53,17 @@ async def list_summaries(user: Optional[User] = Depends(get_current_user)):
             created_at=s.created_at,
         ))
     return results
+
+
+@router.get("/recent", response_model=List[SummaryListItem])
+async def list_recent_summaries(
+    limit: int = Query(6, ge=1, le=20),
+    user: Optional[User] = Depends(get_current_user),
+):
+    """List recent summaries for the dashboard."""
+    db = get_db(user.id if user else None)
+    summaries = await run_sync(db.get_recent_summaries, limit)
+    return await run_sync(_build_summary_list_items, db, summaries)
 
 
 @router.get("/{eid}", response_model=SummaryResponse)

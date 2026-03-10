@@ -83,6 +83,8 @@ export const CacheKeys = {
   STATS: 'stats',
   PODCASTS: 'podcasts',
   SUMMARIES: 'summaries',
+  RECENT_SUMMARIES: 'recent_summaries',
+  RECENT_VIDEOS: 'recent_videos',
   SUMMARY: (eid: string) => `summary_${eid}`,
   TRANSCRIPT: (eid: string) => `transcript_${eid}`,
   EPISODES: (pid: string) => `episodes_${pid}`,

@@ -485,6 +485,36 @@ class SupabaseDatabase:
             ))
 
         return summaries
+
+    def get_recent_summaries(self, user_id: str, limit: int = 6) -> List[SummaryRecord]:
+        """Get a small recent summary list for dashboard cards."""
+        if not self.client:
+            return []
+
+        result = (
+            self.client.table("summaries")
+            .select("id, user_id, episode_id, title, topics, created_at, summary_key_points(id)")
+            .eq("user_id", user_id)
+            .order("created_at", desc=True)
+            .limit(limit)
+            .execute()
+        )
+
+        summaries = []
+        for row in result.data or []:
+            kp_list = row.get("summary_key_points") or []
+            summaries.append(SummaryRecord(
+                id=row["id"],
+                user_id=row["user_id"],
+                episode_id=row["episode_id"],
+                title=row["title"],
+                overview="",
+                topics=row.get("topics", []),
+                takeaways=[],
+                key_points=kp_list,
+                created_at=row.get("created_at"),
+            ))
+        return summaries
     
     def save_summary(self, user_id: str, episode_id: str, title: str, overview: str,
                      topics: List[str], takeaways: List[str],
@@ -751,6 +781,12 @@ class SupabaseDatabase:
                 channels.append(r)
         return channels
 
+    def count_distinct_video_channels(self, user_id: str) -> int:
+        """Return the number of distinct channels for a user."""
+        if not self.client or not user_id:
+            return 0
+        return len(self.get_distinct_video_channels(user_id))
+
     def update_video_task(self, task_id: str, updates: dict):
         """Update video task fields."""
         if not self.client:
@@ -832,6 +868,38 @@ class SupabaseDatabase:
                 .execute()
             )
         return [self._video_task_to_dict(r) for r in result.data]
+
+    def list_recent_success_video_tasks(self, user_id: str, limit: int = 6) -> List[dict]:
+        """List recent successful video tasks for dashboard cards."""
+        if not self.client:
+            return []
+
+        cols = (
+            "id, url, platform, title, thumbnail, status, progress, message,"
+            "style, duration, error, channel, channel_url, channel_avatar,"
+            "published_at, created_at, updated_at"
+        )
+        try:
+            result = (
+                self.client.table("video_tasks")
+                .select(cols)
+                .eq("user_id", user_id)
+                .eq("status", "success")
+                .order("updated_at", desc=True)
+                .limit(limit)
+                .execute()
+            )
+        except Exception:
+            result = (
+                self.client.table("video_tasks")
+                .select(cols)
+                .eq("user_id", user_id)
+                .eq("status", "success")
+                .order("created_at", desc=True)
+                .limit(limit)
+                .execute()
+            )
+        return [self._video_task_to_dict(r) for r in (result.data or [])]
 
     def count_video_tasks(self, user_id: str) -> dict:
         """Return total and completed video task counts (cheap COUNT query)."""

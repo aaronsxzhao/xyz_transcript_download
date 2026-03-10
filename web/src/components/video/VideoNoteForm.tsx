@@ -112,13 +112,18 @@ export default function VideoNoteForm({ onTaskCreated, hideTitle }: Props) {
     setError('')
     setUploadProgress('Uploading...')
     try {
-      const result = await uploadVideoFile(file)
+      const result = await uploadVideoFile(file, ({ percent }) => {
+        setUploadProgress(percent >= 100 ? 'Finishing upload...' : `Uploading... ${percent}%`)
+      })
       setUrl(result.path)
       setIsLocalFile(true)
       setUploadProgress(`Uploaded: ${file.name}`)
     } catch (e: any) {
       setUploadProgress('Upload failed')
-      setError(e?.message || 'Failed to upload local video')
+      setError(
+        e?.message ||
+        'Failed to upload local video. If you are on the hosted site, very large files may need chunked upload.'
+      )
     }
   }
 

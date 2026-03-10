@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useRef } from 'react'
 import { Link } from 'react-router-dom'
 import { Radio, FileText, MessageSquare, Loader2, Plus, ArrowRight, Bell, RefreshCw, X, Video, CheckCircle, Users } from 'lucide-react'
-import { fetchStats, fetchSummaries, processEpisode, fetchNewEpisodes, checkPodcastsForUpdates, checkVideoChannelsForUpdates, fetchVideoTasks, cancelJob, cancelVideoTask, generateVideoNote, getVideoProcessingDefaults, getUserModelSettings, type Stats, type SummaryListItem, type ProcessingJob, type NewEpisode, type VideoTask } from '../lib/api'
+import { fetchStats, fetchRecentSummaries, processEpisode, fetchNewEpisodes, checkPodcastsForUpdates, checkVideoChannelsForUpdates, fetchVideoTasks, fetchRecentVideoTasks, cancelJob, cancelVideoTask, generateVideoNote, getVideoProcessingDefaults, getUserModelSettings, type Stats, type SummaryListItem, type ProcessingJob, type NewEpisode, type VideoTask } from '../lib/api'
 import { useStore } from '../lib/store'
 import { getCache, setCache, CacheKeys } from '../lib/cache'
 import { useToast } from '../components/Toast'
@@ -24,7 +24,6 @@ export default function Dashboard() {
   const [stats, setStats] = useState<Stats | null>(null)
   const [summaries, setSummaries] = useState<SummaryListItem[]>([])
   const [recentVideos, setRecentVideos] = useState<VideoTask[]>([])
-  const [videoChannels, setVideoChannels] = useState<{ name: string; avatar: string; url: string; count: number }[]>([])
   const [loading, setLoading] = useState(true)
   const [episodeUrl, setEpisodeUrl] = useState('')
   const [processing, setProcessing] = useState(false)
@@ -104,52 +103,46 @@ export default function Dashboard() {
   useEffect(() => {
     loadData()
     loadNewEpisodes()
+    loadQueueData()
   }, [])
 
   async function loadData() {
     const cachedStats = getCache<Stats>(CacheKeys.STATS)
-    const cachedSummaries = getCache<SummaryListItem[]>(CacheKeys.SUMMARIES)
+    const cachedSummaries = getCache<SummaryListItem[]>(CacheKeys.RECENT_SUMMARIES)
+    const cachedRecentVideos = getCache<VideoTask[]>(CacheKeys.RECENT_VIDEOS)
 
     if (cachedStats) setStats(cachedStats)
     if (cachedSummaries) setSummaries(cachedSummaries)
-    if (cachedStats || cachedSummaries) setLoading(false)
+    if (cachedRecentVideos) setRecentVideos(cachedRecentVideos)
+    if (cachedStats || cachedSummaries || cachedRecentVideos) setLoading(false)
 
     try {
       const [statsData, summariesData, videoData] = await Promise.all([
         fetchStats(),
-        fetchSummaries(),
-        fetchVideoTasks().catch(() => ({ tasks: [] })),
+        fetchRecentSummaries(),
+        fetchRecentVideoTasks().catch(() => ({ tasks: [] })),
       ])
       setStats(statsData)
-      const sorted = [...summariesData].sort((a, b) =>
-        new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime()
-      )
-      setSummaries(sorted)
-
-      if (videoData.tasks.length > 0) setVideoTasks(videoData.tasks)
-      const successTasks = videoData.tasks
-        .filter(t => t.status === 'success')
-        .sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime())
-      setRecentVideos(successTasks.slice(0, 6))
-
-      const channelMap = new Map<string, { name: string; avatar: string; url: string; count: number }>()
-      for (const t of successTasks) {
-        if (!t.channel) continue
-        const existing = channelMap.get(t.channel)
-        if (existing) {
-          existing.count++
-        } else {
-          channelMap.set(t.channel, { name: t.channel, avatar: t.channel_avatar || '', url: t.channel_url || '', count: 1 })
-        }
-      }
-      setVideoChannels(Array.from(channelMap.values()).sort((a, b) => b.count - a.count))
+      setSummaries(summariesData)
+      setRecentVideos(videoData.tasks)
 
       setCache(CacheKeys.STATS, statsData)
-      setCache(CacheKeys.SUMMARIES, summariesData)
+      setCache(CacheKeys.RECENT_SUMMARIES, summariesData)
+      setCache(CacheKeys.RECENT_VIDEOS, videoData.tasks)
     } catch (err) {
       console.error('Failed to load data:', err)
     } finally {
       setLoading(false)
+      void loadQueueData()
+    }
+  }
+
+  async function loadQueueData() {
+    try {
+      const videoData = await fetchVideoTasks()
+      setVideoTasks(videoData.tasks)
+    } catch (err) {
+      console.error('Failed to load video queue data:', err)
     }
   }
 
@@ -336,7 +329,7 @@ export default function Dashboard() {
           <StatCard icon={FileText} label="Episodes" value={stats.total_episodes} color="text-blue-500" />
           <StatCard icon={FileText} label="Transcripts" value={stats.total_transcripts} color="text-green-500" />
           <StatCard icon={MessageSquare} label="Summaries" value={stats.total_summaries} color="text-purple-500" />
-          <StatCard icon={Users} label="Channels" value={videoChannels.length} color="text-orange-500" />
+          <StatCard icon={Users} label="Channels" value={stats.total_video_channels} color="text-orange-500" />
           <StatCard icon={Video} label="Videos" value={stats.total_videos} color="text-cyan-500" />
           <StatCard icon={CheckCircle} label="Completed" value={stats.completed_videos} color="text-emerald-500" />
         </div>

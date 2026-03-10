@@ -484,6 +484,7 @@ async def get_stats(user: Optional["User"] = Depends(get_current_user)):
     video_db = get_video_task_db()
     user_id = user.id if user else None
     vcounts = video_db.count_tasks(user_id)
+    channel_count = video_db.count_distinct_channels(user_id)
 
     return {
         "total_podcasts": stats["podcasts"],
@@ -493,6 +494,7 @@ async def get_stats(user: Optional["User"] = Depends(get_current_user)):
         "processing_queue": 0,
         "total_videos": vcounts["total"],
         "completed_videos": vcounts["completed"],
+        "total_video_channels": channel_count,
     }
 
 
