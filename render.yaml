@@ -23,6 +23,12 @@ services:
         value: groq
       - key: XYZ_DATA_DIR
         value: /data
+      - key: VIDEO_UPLOAD_CHUNK_SIZE_MB
+        value: "8"
+      - key: VIDEO_UPLOAD_CLIENT_CONCURRENCY
+        value: "6"
+      - key: VIDEO_UPLOAD_ASSEMBLY_COPY_MB
+        value: "4"
       - key: GROQ_API_KEY
         sync: false  # Set manually in dashboard
       - key: LLM_API_KEY

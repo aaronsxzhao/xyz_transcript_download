@@ -84,6 +84,8 @@ export interface LocalAudioUploadResult {
   episode: Episode
 }
 
+const CHUNKED_AUDIO_UPLOAD_THRESHOLD = 8 * 1024 * 1024
+
 export interface Summary {
   episode_id: string
   title: string
@@ -174,6 +176,10 @@ export async function uploadLocalPodcastAudio(
   file: File,
   options: { title?: string; description?: string } = {}
 ): Promise<LocalAudioUploadResult> {
+  if (file.size > CHUNKED_AUDIO_UPLOAD_THRESHOLD) {
+    return uploadLocalPodcastAudioChunked(file, options)
+  }
+
   const formData = new FormData()
   formData.append('file', file)
   if (options.title) formData.append('title', options.title)
@@ -183,15 +189,82 @@ export async function uploadLocalPodcastAudio(
     method: 'POST',
     body: formData,
   })
+  if (res.status === 413) {
+    return uploadLocalPodcastAudioChunked(file, options)
+  }
   if (!res.ok) {
-    let detail = 'Failed to upload audio'
-    try {
-      const body = await res.json()
-      detail = body.detail || body.message || detail
-    } catch {}
-    throw new Error(detail)
+    throw new Error(await parseLocalAudioUploadError(res))
   }
   return res.json()
+}
+
+async function parseLocalAudioUploadError(res: Response): Promise<string> {
+  let detail = 'Failed to upload audio'
+  try {
+    const body = await res.json()
+    detail = body.detail || body.message || detail
+  } catch {}
+
+  if (res.status === 413) {
+    return 'This upload was blocked before it reached the app. The hosted site has per-request upload limits, so larger audio files are now sent in chunks. Please retry after refreshing the page.'
+  }
+
+  return detail
+}
+
+async function uploadLocalPodcastAudioChunked(
+  file: File,
+  options: { title?: string; description?: string } = {}
+): Promise<LocalAudioUploadResult> {
+  const initData = new FormData()
+  initData.append('filename', file.name)
+  initData.append('size', String(file.size))
+
+  const initRes = await authFetch(`${API_BASE}/podcasts/upload-audio/init`, {
+    method: 'POST',
+    body: initData,
+  })
+  if (!initRes.ok) {
+    throw new Error(await parseLocalAudioUploadError(initRes))
+  }
+
+  const init = await initRes.json() as {
+    upload_id: string
+    chunk_size: number
+    total_chunks: number
+  }
+
+  for (let index = 0; index < init.total_chunks; index += 1) {
+    const start = index * init.chunk_size
+    const end = Math.min(file.size, start + init.chunk_size)
+    const chunkData = new FormData()
+    chunkData.append('upload_id', init.upload_id)
+    chunkData.append('index', String(index))
+    chunkData.append('chunk', file.slice(start, end), `${file.name}.part-${index}`)
+
+    const chunkRes = await authFetch(`${API_BASE}/podcasts/upload-audio/chunk`, {
+      method: 'POST',
+      body: chunkData,
+    })
+    if (!chunkRes.ok) {
+      throw new Error(await parseLocalAudioUploadError(chunkRes))
+    }
+  }
+
+  const completeData = new FormData()
+  completeData.append('upload_id', init.upload_id)
+  if (options.title) completeData.append('title', options.title)
+  if (options.description) completeData.append('description', options.description)
+
+  const completeRes = await authFetch(`${API_BASE}/podcasts/upload-audio/complete`, {
+    method: 'POST',
+    body: completeData,
+  })
+  if (!completeRes.ok) {
+    throw new Error(await parseLocalAudioUploadError(completeRes))
+  }
+
+  return completeRes.json()
 }
 
 export async function removePodcast(pid: string): Promise<void> {
@@ -571,8 +644,10 @@ export async function cancelVideoTask(taskId: string): Promise<{ message: string
   return res.json()
 }
 
-const CHUNKED_VIDEO_UPLOAD_THRESHOLD = 8 * 1024 * 1024
-const CHUNKED_VIDEO_UPLOAD_CONCURRENCY = 4
+const CHUNKED_VIDEO_UPLOAD_THRESHOLD = 64 * 1024 * 1024
+const DEFAULT_CHUNKED_VIDEO_UPLOAD_CONCURRENCY = 4
+const MAX_CHUNKED_VIDEO_UPLOAD_CONCURRENCY = 8
+const VIDEO_UPLOAD_ASSEMBLY_POLL_MS = 1500
 
 export interface VideoUploadStatus {
   upload_id: string
@@ -638,6 +713,30 @@ function sleep(ms: number): Promise<void> {
   return new Promise(resolve => window.setTimeout(resolve, ms))
 }
 
+async function startAssemblyStatusPolling(
+  uploadId: string,
+  filename: string,
+  onProgress?: (progress: VideoUploadProgress) => void,
+): Promise<() => Promise<void>> {
+  let stopPolling = false
+  const pollPromise = (async () => {
+    while (!stopPolling) {
+      try {
+        const status = await fetchVideoUploadStatus(uploadId)
+        onProgress?.(toUploadProgress(status, filename))
+      } catch {
+        // Ignore transient poll failures while assembly is in progress.
+      }
+      await sleep(VIDEO_UPLOAD_ASSEMBLY_POLL_MS)
+    }
+  })()
+
+  return async () => {
+    stopPolling = true
+    await pollPromise
+  }
+}
+
 function toUploadProgress(status: VideoUploadStatus, fallbackName = ''): VideoUploadProgress {
   return {
     uploadId: status.upload_id,
@@ -696,6 +795,7 @@ async function uploadVideoFileChunked(
     upload_id: string
     chunk_size: number
     total_chunks: number
+    recommended_concurrency?: number
   }
 
   onProgress?.({
@@ -712,22 +812,14 @@ async function uploadVideoFileChunked(
     locationLabel: 'Temporary server upload area',
   })
 
-  let stopPolling = false
-  const pollPromise = (async () => {
-    while (!stopPolling) {
-      try {
-        const status = await fetchVideoUploadStatus(init.upload_id)
-        onProgress?.(toUploadProgress(status, file.name))
-      } catch {
-        // Ignore transient poll failures during upload.
-      }
-      await sleep(800)
-    }
-  })()
-
   let nextIndex = 0
   let completedChunks = 0
-  const concurrency = Math.min(CHUNKED_VIDEO_UPLOAD_CONCURRENCY, init.total_chunks)
+  const requestedConcurrency = init.recommended_concurrency ?? DEFAULT_CHUNKED_VIDEO_UPLOAD_CONCURRENCY
+  const concurrency = Math.min(
+    Math.max(1, requestedConcurrency),
+    MAX_CHUNKED_VIDEO_UPLOAD_CONCURRENCY,
+    init.total_chunks,
+  )
   const uploadChunk = async (index: number) => {
     const start = index * init.chunk_size
     const end = Math.min(file.size, start + init.chunk_size)
@@ -778,8 +870,6 @@ async function uploadVideoFileChunked(
   try {
     await Promise.all(Array.from({ length: concurrency }, () => worker()))
   } catch (error) {
-    stopPolling = true
-    await pollPromise
     throw error
   }
 
@@ -797,6 +887,8 @@ async function uploadVideoFileChunked(
     locationLabel: 'Temporary server upload area',
   })
 
+  const stopPolling = await startAssemblyStatusPolling(init.upload_id, file.name, onProgress)
+
   const completeForm = new FormData()
   completeForm.append('upload_id', init.upload_id)
   const completeRes = await authFetch(`${API_BASE}/video-notes/upload/complete`, {
@@ -804,8 +896,7 @@ async function uploadVideoFileChunked(
     body: completeForm,
   })
   if (!completeRes.ok) {
-    stopPolling = true
-    await pollPromise
+    await stopPolling()
     throw new Error(await parseUploadError(completeRes, 'Failed to finalize video upload'))
   }
   const completeBody = await completeRes.json() as {
@@ -813,8 +904,7 @@ async function uploadVideoFileChunked(
     path: string
     status?: VideoUploadStatus
   }
-  stopPolling = true
-  await pollPromise
+  await stopPolling()
   if (completeBody.status) {
     onProgress?.(toUploadProgress(completeBody.status, file.name))
   }
@@ -842,7 +932,15 @@ export async function uploadVideoFile(
     statusText: 'Uploading file to server...',
     locationLabel: 'Temporary server upload area',
   })
-  const result = await uploadVideoFileSimple(file)
+  let result: { file_id: string; path: string }
+  try {
+    result = await uploadVideoFileSimple(file)
+  } catch (error) {
+    if (error instanceof Error && error.message.includes('chunked upload automatically')) {
+      return uploadVideoFileChunked(file, onProgress)
+    }
+    throw error
+  }
   onProgress?.({
     uploadId,
     phase: 'uploaded',

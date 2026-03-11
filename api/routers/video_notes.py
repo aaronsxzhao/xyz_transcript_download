@@ -17,7 +17,13 @@ from api.local_media import LOCAL_VIDEO_CHANNEL, LOCAL_VIDEO_EXTENSIONS
 from api.routers.processing import (
     manager, get_main_loop, ConnectionManager,
 )
-from config import DATA_DIR, USE_SUPABASE
+from config import (
+    DATA_DIR,
+    USE_SUPABASE,
+    VIDEO_UPLOAD_ASSEMBLY_COPY_BYTES,
+    VIDEO_UPLOAD_CHUNK_SIZE,
+    VIDEO_UPLOAD_CLIENT_CONCURRENCY,
+)
 from logger import get_logger
 
 logger = get_logger("video_notes")
@@ -1253,7 +1259,7 @@ async def init_chunked_upload(
     upload_id = str(uuid.uuid4())[:16]
     session_dir = _upload_session_dir(upload_id)
     session_dir.mkdir(parents=True, exist_ok=True)
-    chunk_size = 20 * 1024 * 1024  # 20MB keeps well below common proxy limits
+    chunk_size = VIDEO_UPLOAD_CHUNK_SIZE
     total_size = max(0, int(size or 0))
     total_chunks = max(1, (total_size + chunk_size - 1) // chunk_size)
     meta = {
@@ -1276,6 +1282,7 @@ async def init_chunked_upload(
         "upload_id": upload_id,
         "chunk_size": chunk_size,
         "total_chunks": total_chunks,
+        "recommended_concurrency": VIDEO_UPLOAD_CLIENT_CONCURRENCY,
     }
 
 
@@ -1389,7 +1396,7 @@ async def complete_chunked_upload(
         with open(save_path, "wb") as out:
             for part_path in part_paths:
                 with open(part_path, "rb") as src:
-                    shutil.copyfileobj(src, out, length=1024 * 1024)
+                    shutil.copyfileobj(src, out, length=VIDEO_UPLOAD_ASSEMBLY_COPY_BYTES)
                 bytes_written += part_path.stat().st_size
                 _update_upload_meta(upload_id, lambda current: {
                     **current,

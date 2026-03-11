@@ -223,6 +223,14 @@ export function getStoredUser(): AuthUser | null {
  */
 function saveTokens(tokens: AuthTokens): void {
   const storage = getStorage()
+  const otherStorage = storage === localStorage ? sessionStorage : localStorage
+
+  // Remove any prior session from the non-selected storage so a past
+  // "remember me" choice cannot override the current login preference.
+  otherStorage.removeItem(ACCESS_TOKEN_KEY)
+  otherStorage.removeItem(REFRESH_TOKEN_KEY)
+  otherStorage.removeItem(USER_KEY)
+
   storage.setItem(ACCESS_TOKEN_KEY, tokens.access_token)
   storage.setItem(REFRESH_TOKEN_KEY, tokens.refresh_token)
   storage.setItem(USER_KEY, JSON.stringify({

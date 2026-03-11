@@ -1,6 +1,10 @@
 """Podcast management endpoints."""
 import asyncio
+import json
+import shutil
 import subprocess
+import time
+import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import List, Optional
@@ -27,6 +31,8 @@ from logger import get_logger
 logger = get_logger("podcasts")
 
 router = APIRouter()
+LOCAL_AUDIO_CHUNK_DIR = LOCAL_AUDIO_DIR / "_chunks"
+LOCAL_AUDIO_CHUNK_DIR.mkdir(parents=True, exist_ok=True)
 
 
 async def run_sync(func, *args):
@@ -57,6 +63,53 @@ def _get_media_duration_seconds(file_path: Path) -> int:
         return max(0, int(float((result.stdout or "0").strip() or 0)))
     except Exception:
         return 0
+
+
+def _audio_upload_session_dir(upload_id: str) -> Path:
+    return LOCAL_AUDIO_CHUNK_DIR / upload_id
+
+
+def _audio_upload_meta_path(upload_id: str) -> Path:
+    return _audio_upload_session_dir(upload_id) / "meta.json"
+
+
+def _audio_upload_chunk_path(upload_id: str, index: int) -> Path:
+    return _audio_upload_session_dir(upload_id) / f"{index:06d}.part"
+
+
+def _cleanup_audio_upload_session(upload_id: str) -> None:
+    shutil.rmtree(_audio_upload_session_dir(upload_id), ignore_errors=True)
+
+
+def _get_audio_upload_meta(upload_id: str) -> dict:
+    meta_path = _audio_upload_meta_path(upload_id)
+    if not meta_path.exists():
+        raise FileNotFoundError(upload_id)
+    return json.loads(meta_path.read_text(encoding="utf-8"))
+
+
+def _write_audio_upload_meta(upload_id: str, meta: dict) -> dict:
+    _audio_upload_meta_path(upload_id).write_text(json.dumps(meta), encoding="utf-8")
+    return meta
+
+
+def _update_audio_upload_meta(upload_id: str, updater) -> dict:
+    meta = _get_audio_upload_meta(upload_id)
+    return _write_audio_upload_meta(upload_id, updater(meta))
+
+
+def _maybe_cleanup_stale_audio_uploads(max_age_seconds: int = 12 * 60 * 60) -> None:
+    now = time.time()
+    for session_dir in LOCAL_AUDIO_CHUNK_DIR.iterdir():
+        if not session_dir.is_dir():
+            continue
+        try:
+            meta_path = session_dir / "meta.json"
+            last_updated = meta_path.stat().st_mtime if meta_path.exists() else session_dir.stat().st_mtime
+            if now - last_updated > max_age_seconds:
+                shutil.rmtree(session_dir, ignore_errors=True)
+        except Exception:
+            continue
 
 
 def _podcast_response_from_record(db, podcast) -> PodcastResponse:
@@ -206,6 +259,183 @@ async def upload_local_audio(
         except Exception:
             pass
         raise HTTPException(status_code=400, detail="Uploaded file is empty")
+
+    duration = await run_sync(_get_media_duration_seconds, save_path)
+    episode_title = title.strip() or Path(original_name).stem
+    episode_description = description.strip()
+    pub_date = datetime.now(timezone.utc).isoformat()
+
+    def save_episode():
+        return db.add_episode(
+            eid=eid,
+            pid=podcast.pid,
+            podcast_id=podcast.id,
+            title=episode_title,
+            description=episode_description,
+            duration=duration,
+            pub_date=pub_date,
+            audio_url=str(save_path),
+        )
+
+    await run_sync(save_episode)
+    episode = await run_sync(db.get_episode, eid)
+    if not episode:
+        raise HTTPException(status_code=500, detail="Failed to load uploaded episode")
+
+    podcast_response, episode_response = await asyncio.gather(
+        run_sync(_podcast_response_from_record, db, podcast),
+        run_sync(_episode_response_from_record, db, episode),
+    )
+    return LocalAudioUploadResponse(podcast=podcast_response, episode=episode_response)
+
+
+@router.post("/upload-audio/init")
+async def init_chunked_audio_upload(
+    filename: str = Form(...),
+    size: int = Form(...),
+    user: Optional[User] = Depends(get_current_user),
+):
+    """Initialize a chunked local audio upload session."""
+    _maybe_cleanup_stale_audio_uploads()
+
+    if not filename:
+        raise HTTPException(status_code=400, detail="filename is required")
+
+    ext = Path(filename).suffix.lower()
+    if ext not in LOCAL_AUDIO_EXTENSIONS:
+        raise HTTPException(status_code=400, detail=f"Unsupported audio format: {ext or 'unknown'}")
+
+    upload_id = str(uuid.uuid4())[:16]
+    session_dir = _audio_upload_session_dir(upload_id)
+    session_dir.mkdir(parents=True, exist_ok=True)
+
+    chunk_size = 5 * 1024 * 1024
+    total_size = max(0, int(size or 0))
+    total_chunks = max(1, (total_size + chunk_size - 1) // chunk_size)
+    _write_audio_upload_meta(upload_id, {
+        "filename": Path(filename).name,
+        "size": total_size,
+        "ext": ext,
+        "user_id": user.id if user else None,
+        "received_chunks": [],
+        "received_bytes": 0,
+        "total_chunks": total_chunks,
+        "created_at": time.time(),
+    })
+    return {
+        "upload_id": upload_id,
+        "chunk_size": chunk_size,
+        "total_chunks": total_chunks,
+    }
+
+
+@router.post("/upload-audio/chunk")
+async def upload_local_audio_chunk(
+    upload_id: str = Form(...),
+    index: int = Form(...),
+    chunk: UploadFile = File(...),
+    user: Optional[User] = Depends(get_current_user),
+):
+    """Upload one chunk of a local audio file."""
+    try:
+        meta = _get_audio_upload_meta(upload_id)
+    except FileNotFoundError:
+        raise HTTPException(status_code=404, detail="Upload session not found")
+
+    if meta.get("user_id") != (user.id if user else None):
+        raise HTTPException(status_code=403, detail="Upload session does not belong to this user")
+    if index < 0:
+        raise HTTPException(status_code=400, detail="Chunk index must be >= 0")
+
+    total_chunks = int(meta.get("total_chunks") or 0)
+    if total_chunks and index >= total_chunks:
+        raise HTTPException(status_code=400, detail=f"Chunk index {index} is out of range")
+
+    part_path = _audio_upload_chunk_path(upload_id, index)
+    previous_size = part_path.stat().st_size if part_path.exists() else 0
+    chunk_size = 0
+    try:
+        with open(part_path, "wb") as out:
+            while True:
+                data = await chunk.read(1024 * 1024)
+                if not data:
+                    break
+                out.write(data)
+                chunk_size += len(data)
+    finally:
+        await chunk.close()
+
+    if chunk_size <= 0:
+        part_path.unlink(missing_ok=True)
+        raise HTTPException(status_code=400, detail="Uploaded chunk is empty")
+
+    _update_audio_upload_meta(upload_id, lambda current: {
+        **current,
+        "received_bytes": max(0, int(current.get("received_bytes") or 0) - previous_size + chunk_size),
+        "received_chunks": sorted({
+            *[int(i) for i in current.get("received_chunks", [])],
+            index,
+        }),
+    })
+    return {"upload_id": upload_id, "index": index, "size": chunk_size}
+
+
+@router.post("/upload-audio/complete", response_model=LocalAudioUploadResponse)
+async def complete_chunked_audio_upload(
+    upload_id: str = Form(...),
+    title: str = Form(""),
+    description: str = Form(""),
+    user: Optional[User] = Depends(get_current_user),
+):
+    """Assemble a chunked local audio upload and create the episode."""
+    try:
+        meta = _get_audio_upload_meta(upload_id)
+    except FileNotFoundError:
+        raise HTTPException(status_code=404, detail="Upload session not found")
+
+    user_id = user.id if user else None
+    if meta.get("user_id") != user_id:
+        raise HTTPException(status_code=403, detail="Upload session does not belong to this user")
+
+    session_dir = _audio_upload_session_dir(upload_id)
+    part_paths = sorted(session_dir.glob("*.part"))
+    if not part_paths:
+        raise HTTPException(status_code=400, detail="No uploaded chunks found")
+
+    original_name = meta.get("filename", "")
+    ext = Path(original_name).suffix.lower() or meta.get("ext", "")
+    if ext not in LOCAL_AUDIO_EXTENSIONS:
+        raise HTTPException(status_code=400, detail=f"Unsupported audio format: {ext or 'unknown'}")
+
+    db = get_db(user_id)
+    podcast = await run_sync(_ensure_local_podcast, db)
+    eid = make_local_episode_id()
+    save_dir = get_local_audio_dir(user_id)
+    save_path = save_dir / f"{eid}{ext}"
+
+    bytes_written = 0
+    try:
+        with open(save_path, "wb") as out:
+            for part_path in part_paths:
+                with open(part_path, "rb") as src:
+                    shutil.copyfileobj(src, out, length=1024 * 1024)
+                bytes_written += part_path.stat().st_size
+    except Exception:
+        save_path.unlink(missing_ok=True)
+        raise HTTPException(status_code=500, detail="Failed to assemble uploaded audio")
+    finally:
+        _cleanup_audio_upload_session(upload_id)
+
+    expected_size = int(meta.get("size") or 0)
+    if bytes_written <= 0:
+        save_path.unlink(missing_ok=True)
+        raise HTTPException(status_code=400, detail="Uploaded file is empty")
+    if expected_size > 0 and bytes_written != expected_size:
+        save_path.unlink(missing_ok=True)
+        raise HTTPException(
+            status_code=400,
+            detail=f"Upload incomplete: expected {expected_size} bytes, received {bytes_written} bytes",
+        )
 
     duration = await run_sync(_get_media_duration_seconds, save_path)
     episode_title = title.strip() or Path(original_name).stem
