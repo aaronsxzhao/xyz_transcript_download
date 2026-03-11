@@ -17,6 +17,7 @@ from api.schemas import (
 from api.auth import get_current_user, User
 from api.db import get_db
 from api.local_media import (
+    LOCAL_AUDIO_DIR,
     LOCAL_AUDIO_EXTENSIONS,
     LOCAL_PODCAST_AUTHOR,
     LOCAL_PODCAST_DESCRIPTION,
