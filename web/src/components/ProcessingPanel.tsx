@@ -3,8 +3,8 @@
  * Completed jobs are auto-dismissed once the user has seen them.
  */
 import { useState, useEffect, useRef } from 'react'
-import { ChevronUp, ChevronDown, Activity, X, Trash2, RotateCcw, Radio, Video } from 'lucide-react'
-import { useStore } from '../lib/store'
+import { ChevronUp, ChevronDown, Activity, X, Trash2, RotateCcw, Radio, Video, Upload } from 'lucide-react'
+import { useStore, type VideoUploadSession } from '../lib/store'
 import { cancelJob, deleteJob, retryJob, cancelVideoTask, type ProcessingJob } from '../lib/api'
 import { getStatusColor, getStatusText, isActiveStatus } from '../lib/statusUtils'
 import { markSeen, shouldDismissCompleted } from '../lib/seen'
@@ -12,7 +12,7 @@ import { markSeen, shouldDismissCompleted } from '../lib/seen'
 const MOBILE_BREAKPOINT = 640
 
 export default function ProcessingPanel() {
-  const { jobs, videoTasks, wsConnected, removeJob } = useStore()
+  const { jobs, videoTasks, uploadSessions, wsConnected, removeJob, removeUploadSession } = useStore()
   const [expanded, setExpanded] = useState(() =>
     typeof window !== 'undefined' ? window.innerWidth >= MOBILE_BREAKPOINT : true
   )
@@ -44,8 +44,13 @@ export default function ProcessingPanel() {
     !['success', 'failed', 'cancelled', 'discovered'].includes(t.status)
   )
 
-  const totalActive = activeJobs.length + activeVideoTasks.length
-  const totalItems = activeJobs.length + completedJobs.length + activeVideoTasks.length
+  const visibleUploadSessions = uploadSessions.filter(session => session.phase !== 'queued')
+  const activeUploadSessions = visibleUploadSessions.filter(session =>
+    !['failed'].includes(session.phase)
+  )
+
+  const totalActive = activeJobs.length + activeVideoTasks.length + activeUploadSessions.length
+  const totalItems = activeJobs.length + completedJobs.length + activeVideoTasks.length + visibleUploadSessions.length
 
   useEffect(() => {
     if (totalActive > prevActiveCountRef.current && window.innerWidth < MOBILE_BREAKPOINT) {
@@ -124,6 +129,14 @@ export default function ProcessingPanel() {
       {/* Jobs list */}
       {expanded && (
         <div className="max-h-48 sm:max-h-72 overflow-y-auto divide-y divide-dark-border">
+          {/* Upload sessions */}
+          {visibleUploadSessions.map(session => (
+            <UploadSessionItem
+              key={`u-${session.id}`}
+              session={session}
+              onDismiss={() => removeUploadSession(session.id)}
+            />
+          ))}
           {/* Active video tasks */}
           {activeVideoTasks.map(task => (
             <VideoJobItem key={`v-${task.id}`} task={task} />
@@ -138,6 +151,60 @@ export default function ProcessingPanel() {
           ))}
         </div>
       )}
+    </div>
+  )
+}
+
+function UploadSessionItem({ session, onDismiss }: { session: VideoUploadSession; onDismiss: () => void }) {
+  const isActive = !['failed'].includes(session.phase)
+  const statusColor = session.phase === 'failed'
+    ? 'bg-red-500'
+    : session.phase === 'assembling'
+      ? 'bg-amber-500'
+      : session.phase === 'uploaded'
+        ? 'bg-emerald-500'
+        : 'bg-sky-500'
+
+  return (
+    <div className="p-3 space-y-2">
+      <div className="flex items-start gap-2">
+        <Upload size={16} className="text-sky-400 mt-0.5 flex-shrink-0" />
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-medium text-white truncate">
+            {session.filename || 'Uploading local video...'}
+          </p>
+          <p className="text-xs text-gray-500">
+            {session.statusText || session.phase}
+          </p>
+          <p className="text-[11px] text-gray-600 mt-0.5">
+            {session.locationLabel}
+          </p>
+        </div>
+        {!isActive && (
+          <button
+            onClick={onDismiss}
+            className="p-2 sm:p-1 min-w-[40px] min-h-[40px] sm:min-w-0 sm:min-h-0 flex items-center justify-center text-gray-500 hover:text-white hover:bg-dark-border rounded transition-colors -mr-1"
+            title="Dismiss"
+          >
+            <X className="w-5 h-5 sm:w-4 sm:h-4" />
+          </button>
+        )}
+      </div>
+      <div className="relative h-1.5 bg-dark-border rounded-full overflow-hidden">
+        <div
+          className={`absolute left-0 top-0 h-full ${statusColor} transition-all duration-300`}
+          style={{ width: `${Math.min(session.percent, 100)}%` }}
+        />
+        {session.percent === 0 && isActive && (
+          <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent animate-shimmer" />
+        )}
+      </div>
+      <div className="flex justify-between items-center">
+        <p className="text-xs text-sky-400">
+          {session.uploadedBytes.toLocaleString()} / {session.totalBytes.toLocaleString()} bytes
+        </p>
+        <p className="text-xs font-medium text-white">{Math.round(session.percent)}%</p>
+      </div>
     </div>
   )
 }

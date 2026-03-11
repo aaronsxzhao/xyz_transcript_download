@@ -2,7 +2,13 @@
  * Global state management with Zustand
  */
 import { create } from 'zustand'
-import type { ProcessingJob, VideoTask } from './api'
+import type { ProcessingJob, VideoTask, VideoUploadProgress } from './api'
+
+export interface VideoUploadSession extends VideoUploadProgress {
+  id: string
+  path?: string
+  error?: string
+}
 
 interface AppState {
   // Processing jobs
@@ -20,6 +26,11 @@ interface AppState {
   removeVideoTask: (taskId: string) => void
   selectedVideoTaskId: string | null
   setSelectedVideoTaskId: (id: string | null) => void
+
+  // Upload sessions
+  uploadSessions: VideoUploadSession[]
+  upsertUploadSession: (session: VideoUploadSession) => void
+  removeUploadSession: (sessionId: string) => void
   
   // WebSocket connection
   wsConnected: boolean
@@ -105,6 +116,23 @@ export const useStore = create<AppState>((set) => ({
     })),
   selectedVideoTaskId: null,
   setSelectedVideoTaskId: (id) => set({ selectedVideoTaskId: id }),
+
+  // Upload sessions
+  uploadSessions: [],
+  upsertUploadSession: (session) =>
+    set((state) => {
+      const idx = state.uploadSessions.findIndex((s) => s.id === session.id)
+      if (idx >= 0) {
+        const next = [...state.uploadSessions]
+        next[idx] = { ...next[idx], ...session }
+        return { uploadSessions: next }
+      }
+      return { uploadSessions: [session, ...state.uploadSessions] }
+    }),
+  removeUploadSession: (sessionId) =>
+    set((state) => ({
+      uploadSessions: state.uploadSessions.filter((s) => s.id !== sessionId),
+    })),
   
   // WebSocket
   wsConnected: false,

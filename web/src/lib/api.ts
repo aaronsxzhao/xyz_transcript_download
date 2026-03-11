@@ -595,6 +595,7 @@ export interface VideoUploadStatus {
 }
 
 export interface VideoUploadProgress {
+  uploadId: string
   phase: string
   filename: string
   uploadedBytes: number
@@ -638,6 +639,7 @@ function sleep(ms: number): Promise<void> {
 
 function toUploadProgress(status: VideoUploadStatus, fallbackName = ''): VideoUploadProgress {
   return {
+    uploadId: status.upload_id,
     phase: status.phase,
     filename: status.filename || fallbackName,
     uploadedBytes: status.received_bytes,
@@ -696,6 +698,7 @@ async function uploadVideoFileChunked(
   }
 
   onProgress?.({
+    uploadId: init.upload_id,
     phase: 'initializing',
     filename: file.name,
     uploadedBytes: 0,
@@ -747,6 +750,7 @@ async function uploadVideoFileChunked(
       onProgress?.(toUploadProgress(body.status, file.name))
     } else {
       onProgress?.({
+        uploadId: init.upload_id,
         phase: completedChunks >= init.total_chunks ? 'uploaded' : 'uploading',
         filename: file.name,
         uploadedBytes: end,
@@ -779,6 +783,7 @@ async function uploadVideoFileChunked(
   }
 
   onProgress?.({
+    uploadId: init.upload_id,
     phase: 'assembling',
     filename: file.name,
     uploadedBytes: file.size,
@@ -822,7 +827,35 @@ export async function uploadVideoFile(
   if (file.size > CHUNKED_VIDEO_UPLOAD_THRESHOLD) {
     return uploadVideoFileChunked(file, onProgress)
   }
-  return uploadVideoFileSimple(file)
+  const uploadId = `simple-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+  onProgress?.({
+    uploadId,
+    phase: 'uploading',
+    filename: file.name,
+    uploadedBytes: 0,
+    assembledBytes: 0,
+    totalBytes: file.size,
+    uploadedChunks: 0,
+    totalChunks: 1,
+    percent: 0,
+    statusText: 'Uploading file to server...',
+    locationLabel: 'Temporary server upload area',
+  })
+  const result = await uploadVideoFileSimple(file)
+  onProgress?.({
+    uploadId,
+    phase: 'uploaded',
+    filename: file.name,
+    uploadedBytes: file.size,
+    assembledBytes: file.size,
+    totalBytes: file.size,
+    uploadedChunks: 1,
+    totalChunks: 1,
+    percent: 100,
+    statusText: 'Upload complete. File is saved on the server and ready to process.',
+    locationLabel: 'Server upload storage',
+  })
+  return result
 }
 
 export async function fetchVideoNoteStyles(): Promise<{ styles: Record<string, string> }> {

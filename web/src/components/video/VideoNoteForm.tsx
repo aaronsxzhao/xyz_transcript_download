@@ -3,9 +3,10 @@ import { useNavigate } from 'react-router-dom'
 import {
   Play, Loader2, Settings2, ChevronDown, ChevronUp, AlertTriangle, Upload,
 } from 'lucide-react'
-import { generateVideoNote, uploadVideoFile, getUserModelSettings, validateBilibiliCookie, fetchCookieStatus, getVideoProcessingDefaults, type VideoUploadProgress } from '../../lib/api'
+import { generateVideoNote, uploadVideoFile, getUserModelSettings, validateBilibiliCookie, fetchCookieStatus, getVideoProcessingDefaults } from '../../lib/api'
 import YouTubeCookieGuide from './YouTubeCookieGuide'
 import PlatformIcon, { PLATFORM_COLORS } from '../PlatformIcon'
+import { useStore } from '../../lib/store'
 
 const PLATFORM_LABELS: Record<string, string> = {
   bilibili: 'Bilibili',
@@ -62,10 +63,6 @@ interface Props {
   hideTitle?: boolean
 }
 
-interface LocalUploadState extends VideoUploadProgress {
-  path?: string
-}
-
 function formatBytes(bytes: number): string {
   if (!Number.isFinite(bytes) || bytes <= 0) return '0 B'
   const units = ['B', 'KB', 'MB', 'GB', 'TB']
@@ -81,6 +78,7 @@ function formatBytes(bytes: number): string {
 export default function VideoNoteForm({ onTaskCreated, hideTitle }: Props) {
   const navigate = useNavigate()
   const savedDefaults = useMemo(() => getVideoProcessingDefaults(), [])
+  const { uploadSessions, upsertUploadSession, removeUploadSession } = useStore()
   const [url, setUrl] = useState('')
   const [isLocalFile, setIsLocalFile] = useState(false)
   const [style, setStyle] = useState(() => (savedDefaults.style as string) || 'detailed')
@@ -98,8 +96,8 @@ export default function VideoNoteForm({ onTaskCreated, hideTitle }: Props) {
   const [showAdvanced, setShowAdvanced] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
-  const [uploadState, setUploadState] = useState<LocalUploadState | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const activeUpload = uploadSessions[0] || null
 
   const detectedPlatform = useMemo(() => isLocalFile ? 'local' : detectPlatform(url), [url, isLocalFile])
 
@@ -118,6 +116,13 @@ export default function VideoNoteForm({ onTaskCreated, hideTitle }: Props) {
     }
   }, [detectedPlatform])
 
+  useEffect(() => {
+    if (activeUpload?.path) {
+      setUrl(prev => prev || activeUpload.path || '')
+      setIsLocalFile(true)
+    }
+  }, [activeUpload?.path])
+
   const toggleFormat = (id: string) => {
     setFormats(prev =>
       prev.includes(id) ? prev.filter(f => f !== id) : [...prev, id]
@@ -127,7 +132,11 @@ export default function VideoNoteForm({ onTaskCreated, hideTitle }: Props) {
   const handleFileUpload = async (file: File) => {
     setError('')
     setIsLocalFile(true)
-    setUploadState({
+    const fallbackUploadId = `pending-${Date.now()}`
+    let sessionId = fallbackUploadId
+    upsertUploadSession({
+      id: fallbackUploadId,
+      uploadId: fallbackUploadId,
       phase: 'initializing',
       filename: file.name,
       uploadedBytes: 0,
@@ -141,49 +150,48 @@ export default function VideoNoteForm({ onTaskCreated, hideTitle }: Props) {
     })
     try {
       const result = await uploadVideoFile(file, progress => {
-        setUploadState(prev => ({ ...prev, ...progress, path: prev?.path }))
+        if (progress.uploadId !== sessionId) {
+          removeUploadSession(sessionId)
+          sessionId = progress.uploadId
+        }
+        upsertUploadSession({
+          id: progress.uploadId,
+          ...progress,
+        })
       })
+      sessionId = sessionId || fallbackUploadId
       setUrl(result.path)
-      setUploadState(prev => ({
-        ...(prev || {
-          phase: 'uploaded',
-          filename: file.name,
-          uploadedBytes: file.size,
-          assembledBytes: file.size,
-          totalBytes: file.size,
-          uploadedChunks: 0,
-          totalChunks: 0,
-          percent: 100,
-          statusText: '',
-          locationLabel: 'Server upload storage',
-        }),
+      upsertUploadSession({
+        id: sessionId,
+        uploadId: sessionId,
         phase: 'uploaded',
         filename: file.name,
         uploadedBytes: file.size,
         assembledBytes: file.size,
         totalBytes: file.size,
+        uploadedChunks: activeUpload?.uploadedChunks || 1,
+        totalChunks: activeUpload?.totalChunks || 1,
         percent: 100,
         statusText: 'Upload complete. File is saved on the server and ready to process.',
         locationLabel: 'Server upload storage',
         path: result.path,
-      }))
+      })
     } catch (e: any) {
-      setUploadState(prev => ({
-        ...(prev || {
-          phase: 'failed',
-          filename: file.name,
-          uploadedBytes: 0,
-          assembledBytes: 0,
-          totalBytes: file.size,
-          uploadedChunks: 0,
-          totalChunks: 0,
-          percent: 0,
-          statusText: '',
-          locationLabel: 'Temporary server upload area',
-        }),
+      upsertUploadSession({
+        id: sessionId,
+        uploadId: sessionId,
         phase: 'failed',
+        filename: file.name,
+        uploadedBytes: 0,
+        assembledBytes: 0,
+        totalBytes: file.size,
+        uploadedChunks: 0,
+        totalChunks: 0,
+        percent: 0,
         statusText: 'Upload failed',
-      }))
+        locationLabel: 'Temporary server upload area',
+        error: e?.message || 'Failed to upload local video',
+      })
       setError(
         e?.message ||
         'Failed to upload local video. If you are on the hosted site, very large files may need chunked upload.'
@@ -214,14 +222,15 @@ export default function VideoNoteForm({ onTaskCreated, hideTitle }: Props) {
       }
 
       const modelSettings = getUserModelSettings()
-      if (isLocalFile) {
-        setUploadState(prev => prev ? {
-          ...prev,
+      if (isLocalFile && activeUpload) {
+        upsertUploadSession({
+          ...activeUpload,
+          id: activeUpload.id,
           phase: 'queueing',
           percent: 100,
           statusText: 'Upload complete. Creating note task...',
           locationLabel: 'Server upload storage',
-        } : prev)
+        })
       }
       const result = await generateVideoNote({
         url: url.trim(),
@@ -237,33 +246,27 @@ export default function VideoNoteForm({ onTaskCreated, hideTitle }: Props) {
         grid_cols: gridCols,
         grid_rows: gridRows,
       })
-      const localTitle = uploadState?.filename?.replace(/\.[^.]+$/, '') || 'Local video'
-      setUploadState(prev => prev ? {
-        ...prev,
-        phase: 'queued',
-        percent: 100,
-        statusText: 'Note task created. Watch progress in the video list below.',
-        locationLabel: 'Server upload storage',
-      } : prev)
+      const localTitle = activeUpload?.filename?.replace(/\.[^.]+$/, '') || 'Local video'
       onTaskCreated?.({
         taskId: result.task_id,
         title: detectedPlatform === 'local' ? localTitle : '',
         url: url.trim(),
         platform: detectedPlatform,
       })
+      if (activeUpload) removeUploadSession(activeUpload.id)
       setUrl('')
       setIsLocalFile(false)
-      setUploadState(null)
     } catch (e: any) {
       const msg = e?.message || 'Unknown error'
       console.error('Failed to generate note:', msg)
-      if (isLocalFile) {
-        setUploadState(prev => prev ? {
-          ...prev,
+      if (isLocalFile && activeUpload) {
+        upsertUploadSession({
+          ...activeUpload,
+          id: activeUpload.id,
           phase: 'uploaded',
           statusText: 'Upload complete. Ready to create note task.',
           locationLabel: 'Server upload storage',
-        } : prev)
+        })
       }
       setError(msg)
     } finally {
@@ -285,32 +288,36 @@ export default function VideoNoteForm({ onTaskCreated, hideTitle }: Props) {
                 <PlatformIcon platform="local" size={14} className={PLATFORM_COLORS['local'] || 'text-gray-400'} />
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2">
-                    <span className="text-sm text-white truncate">{uploadState?.filename || 'Local file'}</span>
-                    <span className="text-[11px] text-gray-500 whitespace-nowrap">{uploadState?.percent ?? 0}%</span>
+                    <span className="text-sm text-white truncate">{activeUpload?.filename || 'Local file'}</span>
+                    <span className="text-[11px] text-gray-500 whitespace-nowrap">{activeUpload?.percent ?? 0}%</span>
                   </div>
                   <div className="mt-1 text-xs text-gray-400">
-                    {uploadState?.statusText || 'Choose a local file to upload'}
+                    {activeUpload?.statusText || 'Choose a local file to upload'}
                   </div>
                   <div className="mt-1 h-1.5 bg-dark-border rounded-full overflow-hidden">
                     <div
                       className={`h-full transition-all duration-300 ${
-                        uploadState?.phase === 'failed' ? 'bg-red-500' : 'bg-indigo-500'
+                        activeUpload?.phase === 'failed' ? 'bg-red-500' : 'bg-indigo-500'
                       }`}
-                      style={{ width: `${Math.max(4, uploadState?.percent ?? 0)}%` }}
+                      style={{ width: `${Math.max(4, activeUpload?.percent ?? 0)}%` }}
                     />
                   </div>
                   <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-gray-500">
                     <span>
-                      {formatBytes(uploadState?.uploadedBytes || 0)} / {formatBytes(uploadState?.totalBytes || 0)}
+                      {formatBytes(activeUpload?.uploadedBytes || 0)} / {formatBytes(activeUpload?.totalBytes || 0)}
                     </span>
-                    {(uploadState?.totalChunks || 0) > 0 && (
-                      <span>{uploadState?.uploadedChunks || 0}/{uploadState?.totalChunks || 0} chunks</span>
+                    {(activeUpload?.totalChunks || 0) > 0 && (
+                      <span>{activeUpload?.uploadedChunks || 0}/{activeUpload?.totalChunks || 0} chunks</span>
                     )}
-                    <span>{uploadState?.locationLabel || 'Temporary server upload area'}</span>
+                    <span>{activeUpload?.locationLabel || 'Temporary server upload area'}</span>
                   </div>
                 </div>
                 <button
-                  onClick={() => { setUrl(''); setIsLocalFile(false); setUploadState(null) }}
+                  onClick={() => {
+                    setUrl('')
+                    setIsLocalFile(false)
+                    if (activeUpload) removeUploadSession(activeUpload.id)
+                  }}
                   className="text-xs text-gray-500 hover:text-red-400 transition-colors"
                 >
                   Clear
@@ -322,7 +329,11 @@ export default function VideoNoteForm({ onTaskCreated, hideTitle }: Props) {
               <input
                 type="text"
                 value={url}
-                onChange={e => { setUrl(e.target.value); setIsLocalFile(false); setUploadState(null) }}
+                onChange={e => {
+                  setUrl(e.target.value)
+                  setIsLocalFile(false)
+                  if (activeUpload) removeUploadSession(activeUpload.id)
+                }}
                 placeholder="Paste video URL here..."
                 className="w-full px-3 py-2.5 bg-dark-hover border border-dark-border rounded-lg text-white text-sm placeholder-gray-500 focus:outline-none focus:border-indigo-500 pr-24"
               />
