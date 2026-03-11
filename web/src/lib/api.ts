@@ -469,6 +469,7 @@ export interface VideoTaskVersion {
 
 export interface VideoNoteRequest {
   url: string
+  title?: string
   platform?: string
   style?: string
   formats?: string[]

@@ -234,6 +234,7 @@ export default function VideoNoteForm({ onTaskCreated, hideTitle }: Props) {
       }
       const result = await generateVideoNote({
         url: url.trim(),
+        title: detectedPlatform === 'local' ? (activeUpload?.filename?.replace(/\.[^.]+$/, '') || 'Local video') : undefined,
         platform: detectedPlatform,
         style,
         formats,

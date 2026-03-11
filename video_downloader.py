@@ -1762,7 +1762,7 @@ class LocalVideoHandler(BaseDownloader):
         if not file_path.exists():
             return None
         if progress_callback:
-            progress_callback(100, "Using uploaded local video file...")
+            progress_callback(1.0, "Using uploaded local video file...")
         # Reuse the uploaded source file directly instead of copying the full video
         # into the task directory again. FFmpeg and screenshot extraction can read
         # the original file path, which avoids an extra large-file disk copy.

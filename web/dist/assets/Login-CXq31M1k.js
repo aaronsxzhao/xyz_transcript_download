@@ -1,4 +1,4 @@
-import{j as e}from"./markdown-uTMOlHds.js";import{e as C,r}from"./react-vendor-CpIlH4eG.js";import{c as p,ai as M,aj as P,R as L,a0 as R,L as E,ak as A}from"./index-XD8kS_Bd.js";import"./syntax-CjxNszd9.js";/**
+import{j as e}from"./markdown-uTMOlHds.js";import{e as C,r}from"./react-vendor-CpIlH4eG.js";import{c as p,ai as M,aj as P,R as L,a0 as R,L as E,ak as A}from"./index-8wA_qlY-.js";import"./syntax-CjxNszd9.js";/**
  * @license lucide-react v0.303.0 - ISC
  *
  * This source code is licensed under the ISC license.

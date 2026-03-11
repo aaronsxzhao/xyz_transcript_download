@@ -405,6 +405,7 @@ def process_video_note_sync(
                                     error="Unsupported URL")
                 return
             url = normalize_video_url(url, platform)
+            is_local = platform == "local"
 
             cookies = cookie_mgr.get_cookie(platform)
             logger.info(f"[{task_id}] Platform={platform}, has_cookies={bool(cookies)}, cookie_len={len(cookies) if cookies else 0}")
@@ -434,7 +435,10 @@ def process_video_note_sync(
                 logger.warning(f"[{task_id}] Metadata fetch timed out for {url}; continuing without metadata")
             published_at = ""
             if metadata:
-                title = metadata.title or title
+                if is_local:
+                    title = title or metadata.title
+                else:
+                    title = metadata.title or title
                 thumbnail = metadata.thumbnail or thumbnail
                 duration = metadata.duration or duration
                 tags = metadata.tags or []
@@ -595,6 +599,9 @@ def process_video_note_sync(
             def video_progress(pct: float, msg: str):
                 if is_video_task_cancelled(task_id):
                     raise VideoCancelledException("Cancelled during video download")
+                # Accept either normalized 0..1 progress or legacy 0..100 values.
+                pct = pct / 100.0 if pct > 1 else pct
+                pct = max(0.0, min(pct, 1.0))
                 job_pct = 26 + pct * 14
                 _update_task_status(db, task_id, "downloading", job_pct, msg, user_id)
 
@@ -818,6 +825,7 @@ async def process_video_note_async(task_id: str, **kwargs):
 async def generate_note(
     background_tasks: BackgroundTasks,
     url: str = Form(""),
+    title: str = Form(""),
     platform: str = Form(""),
     style: str = Form("detailed"),
     formats: str = Form("[]"),
@@ -857,7 +865,7 @@ async def generate_note(
     if existing:
         task_id = existing["id"]
         db.update_task(task_id, {
-            "title": _local_video_title(url) if is_local and not existing.get("title") else existing.get("title", ""),
+            "title": title or (_local_video_title(url) if is_local and not existing.get("title") else existing.get("title", "")),
             "style": style,
             "formats": fmt_list,
             "quality": quality,
@@ -874,7 +882,7 @@ async def generate_note(
             task_id = db.create_task({
                 "url": url,
                 "platform": platform,
-                "title": _local_video_title(url) if is_local else "",
+                "title": title or (_local_video_title(url) if is_local else ""),
                 "style": style,
                 "formats": fmt_list,
                 "quality": quality,
@@ -945,7 +953,7 @@ async def generate_note_json(
     if existing:
         task_id = existing["id"]
         db.update_task(task_id, {
-            "title": _local_video_title(url) if is_local and not existing.get("title") else existing.get("title", ""),
+            "title": data.get("title", "") or (_local_video_title(url) if is_local and not existing.get("title") else existing.get("title", "")),
             "style": data.get("style", "detailed"),
             "formats": data.get("formats", []),
             "quality": data.get("quality", "medium"),
@@ -961,7 +969,7 @@ async def generate_note_json(
         task_payload = {
             "url": url,
             "platform": platform,
-            "title": _local_video_title(url) if is_local else "",
+            "title": data.get("title", "") or (_local_video_title(url) if is_local else ""),
             "style": data.get("style", "detailed"),
             "formats": data.get("formats", []),
             "quality": data.get("quality", "medium"),
