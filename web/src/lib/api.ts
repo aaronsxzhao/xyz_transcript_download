@@ -570,7 +570,42 @@ export async function cancelVideoTask(taskId: string): Promise<{ message: string
   return res.json()
 }
 
-const CHUNKED_VIDEO_UPLOAD_THRESHOLD = 50 * 1024 * 1024
+const CHUNKED_VIDEO_UPLOAD_THRESHOLD = 8 * 1024 * 1024
+const CHUNKED_VIDEO_UPLOAD_CONCURRENCY = 4
+
+export interface VideoUploadStatus {
+  upload_id: string
+  filename: string
+  size: number
+  received_bytes: number
+  assembled_bytes: number
+  received_chunks: number[]
+  received_chunks_count: number
+  total_chunks: number
+  phase: string
+  error: string
+  path: string
+  file_id: string
+  last_updated: number
+  upload_percent: number
+  assemble_percent: number
+  percent: number
+  status_text: string
+  location_label: string
+}
+
+export interface VideoUploadProgress {
+  phase: string
+  filename: string
+  uploadedBytes: number
+  assembledBytes: number
+  totalBytes: number
+  uploadedChunks: number
+  totalChunks: number
+  percent: number
+  statusText: string
+  locationLabel: string
+}
 
 function isOversizedUploadStatus(status: number): boolean {
   return status === 413
@@ -597,6 +632,33 @@ async function parseUploadError(res: Response, fallback = 'Failed to upload vide
   return detail
 }
 
+function sleep(ms: number): Promise<void> {
+  return new Promise(resolve => window.setTimeout(resolve, ms))
+}
+
+function toUploadProgress(status: VideoUploadStatus, fallbackName = ''): VideoUploadProgress {
+  return {
+    phase: status.phase,
+    filename: status.filename || fallbackName,
+    uploadedBytes: status.received_bytes,
+    assembledBytes: status.assembled_bytes,
+    totalBytes: status.size,
+    uploadedChunks: status.received_chunks_count,
+    totalChunks: status.total_chunks,
+    percent: Math.round(status.percent),
+    statusText: status.status_text,
+    locationLabel: status.location_label,
+  }
+}
+
+async function fetchVideoUploadStatus(uploadId: string): Promise<VideoUploadStatus> {
+  const res = await authFetch(`${API_BASE}/video-notes/upload/status?upload_id=${encodeURIComponent(uploadId)}`)
+  if (!res.ok) {
+    throw new Error(await parseUploadError(res, 'Failed to fetch upload status'))
+  }
+  return res.json()
+}
+
 async function uploadVideoFileSimple(file: File): Promise<{ file_id: string; path: string }> {
   const formData = new FormData()
   formData.append('file', file)
@@ -612,7 +674,7 @@ async function uploadVideoFileSimple(file: File): Promise<{ file_id: string; pat
 
 async function uploadVideoFileChunked(
   file: File,
-  onProgress?: (progress: { uploadedBytes: number; totalBytes: number; percent: number }) => void,
+  onProgress?: (progress: VideoUploadProgress) => void,
 ): Promise<{ file_id: string; path: string }> {
   const initData = new FormData()
   initData.append('filename', file.name)
@@ -633,8 +695,36 @@ async function uploadVideoFileChunked(
     total_chunks: number
   }
 
-  let uploadedBytes = 0
-  for (let index = 0; index < init.total_chunks; index += 1) {
+  onProgress?.({
+    phase: 'initializing',
+    filename: file.name,
+    uploadedBytes: 0,
+    assembledBytes: 0,
+    totalBytes: file.size,
+    uploadedChunks: 0,
+    totalChunks: init.total_chunks,
+    percent: 0,
+    statusText: 'Preparing upload...',
+    locationLabel: 'Temporary server upload area',
+  })
+
+  let stopPolling = false
+  const pollPromise = (async () => {
+    while (!stopPolling) {
+      try {
+        const status = await fetchVideoUploadStatus(init.upload_id)
+        onProgress?.(toUploadProgress(status, file.name))
+      } catch {
+        // Ignore transient poll failures during upload.
+      }
+      await sleep(800)
+    }
+  })()
+
+  let nextIndex = 0
+  let completedChunks = 0
+  const concurrency = Math.min(CHUNKED_VIDEO_UPLOAD_CONCURRENCY, init.total_chunks)
+  const uploadChunk = async (index: number) => {
     const start = index * init.chunk_size
     const end = Math.min(file.size, start + init.chunk_size)
     const chunkBlob = file.slice(start, end)
@@ -651,13 +741,55 @@ async function uploadVideoFileChunked(
       throw new Error(await parseUploadError(chunkRes, `Failed to upload chunk ${index + 1}`))
     }
 
-    uploadedBytes = end
-    onProgress?.({
-      uploadedBytes,
-      totalBytes: file.size,
-      percent: Math.min(100, Math.round((uploadedBytes / file.size) * 100)),
-    })
+    completedChunks += 1
+    const body = await chunkRes.json() as { status?: VideoUploadStatus }
+    if (body.status) {
+      onProgress?.(toUploadProgress(body.status, file.name))
+    } else {
+      onProgress?.({
+        phase: completedChunks >= init.total_chunks ? 'uploaded' : 'uploading',
+        filename: file.name,
+        uploadedBytes: end,
+        assembledBytes: 0,
+        totalBytes: file.size,
+        uploadedChunks: completedChunks,
+        totalChunks: init.total_chunks,
+        percent: Math.min(100, Math.round((completedChunks / init.total_chunks) * 100)),
+        statusText: `Uploading to server... ${completedChunks}/${init.total_chunks} chunks sent`,
+        locationLabel: 'Temporary server upload area',
+      })
+    }
   }
+
+  const worker = async () => {
+    while (true) {
+      const current = nextIndex
+      nextIndex += 1
+      if (current >= init.total_chunks) return
+      await uploadChunk(current)
+    }
+  }
+
+  try {
+    await Promise.all(Array.from({ length: concurrency }, () => worker()))
+  } catch (error) {
+    stopPolling = true
+    await pollPromise
+    throw error
+  }
+
+  onProgress?.({
+    phase: 'assembling',
+    filename: file.name,
+    uploadedBytes: file.size,
+    assembledBytes: 0,
+    totalBytes: file.size,
+    uploadedChunks: init.total_chunks,
+    totalChunks: init.total_chunks,
+    percent: 100,
+    statusText: 'Upload complete. Finalizing file on server...',
+    locationLabel: 'Temporary server upload area',
+  })
 
   const completeForm = new FormData()
   completeForm.append('upload_id', init.upload_id)
@@ -666,14 +798,26 @@ async function uploadVideoFileChunked(
     body: completeForm,
   })
   if (!completeRes.ok) {
+    stopPolling = true
+    await pollPromise
     throw new Error(await parseUploadError(completeRes, 'Failed to finalize video upload'))
   }
-  return completeRes.json()
+  const completeBody = await completeRes.json() as {
+    file_id: string
+    path: string
+    status?: VideoUploadStatus
+  }
+  stopPolling = true
+  await pollPromise
+  if (completeBody.status) {
+    onProgress?.(toUploadProgress(completeBody.status, file.name))
+  }
+  return completeBody
 }
 
 export async function uploadVideoFile(
   file: File,
-  onProgress?: (progress: { uploadedBytes: number; totalBytes: number; percent: number }) => void,
+  onProgress?: (progress: VideoUploadProgress) => void,
 ): Promise<{ file_id: string; path: string }> {
   if (file.size > CHUNKED_VIDEO_UPLOAD_THRESHOLD) {
     return uploadVideoFileChunked(file, onProgress)

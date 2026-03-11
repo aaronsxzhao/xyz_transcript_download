@@ -124,15 +124,28 @@ export default function Videos() {
     }
   }, [videoTasks])
 
-  const handleTaskCreated = (taskId: string) => {
+  const handleTaskCreated = (task: { taskId: string; title: string; url: string; platform: string }) => {
     useStore.getState().updateVideoTask({
-      id: taskId, url: '', platform: '', title: '', thumbnail: '',
-      channel: '', channel_url: '', channel_avatar: '',
-      status: 'pending', progress: 0, message: 'Queued for processing...',
+      id: task.taskId,
+      url: task.url || '',
+      platform: task.platform || '',
+      title: task.title || '',
+      thumbnail: '',
+      channel: task.platform === 'local' ? 'Local Uploads' : '',
+      channel_url: '',
+      channel_avatar: '',
+      status: 'pending',
+      progress: 0,
+      message: 'Upload complete. Queued for processing...',
       markdown: '', transcript: null, style: '', model: '', formats: [],
       quality: '', extras: '', video_understanding: false, video_interval: 4,
       grid_cols: 3, grid_rows: 3, duration: 0, error: '',
       published_at: '', created_at: new Date().toISOString(), updated_at: new Date().toISOString(),
+    })
+    addToast({
+      type: 'success',
+      title: 'Video queued',
+      message: task.title ? `${task.title} is now processing` : 'Your local video is now processing',
     })
     setFormOpen(false)
   }

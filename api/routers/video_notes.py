@@ -36,6 +36,8 @@ def _invalidate_list_cache(user_id: str = None):
 
 _cancel_lock = threading.Lock()
 _cancelled_tasks: Set[str] = set()
+_upload_meta_lock = threading.Lock()
+_last_upload_cleanup = 0.0
 
 
 class VideoCancelledException(Exception):
@@ -68,6 +70,123 @@ def _cleanup_upload_session(upload_id: str):
         shutil.rmtree(_upload_session_dir(upload_id), ignore_errors=True)
     except Exception:
         pass
+
+
+def _cleanup_upload_parts(upload_id: str):
+    session_dir = _upload_session_dir(upload_id)
+    if not session_dir.exists():
+        return
+    for part_path in session_dir.glob("*.part"):
+        part_path.unlink(missing_ok=True)
+
+
+def _read_upload_meta_unlocked(upload_id: str) -> dict:
+    meta_path = _session_meta_path(upload_id)
+    if not meta_path.exists():
+        raise FileNotFoundError(upload_id)
+    return json.loads(meta_path.read_text(encoding="utf-8"))
+
+
+def _write_upload_meta_unlocked(upload_id: str, meta: dict) -> dict:
+    meta["last_updated"] = time.time()
+    _session_meta_path(upload_id).write_text(json.dumps(meta), encoding="utf-8")
+    return meta
+
+
+def _get_upload_meta(upload_id: str) -> dict:
+    with _upload_meta_lock:
+        return _read_upload_meta_unlocked(upload_id)
+
+
+def _update_upload_meta(upload_id: str, updater) -> dict:
+    with _upload_meta_lock:
+        meta = _read_upload_meta_unlocked(upload_id)
+        meta = updater(meta) or meta
+        return _write_upload_meta_unlocked(upload_id, meta)
+
+
+def _mark_upload_failed(upload_id: str, error: str):
+    try:
+        _update_upload_meta(upload_id, lambda meta: {
+            **meta,
+            "phase": "failed",
+            "error": error,
+        })
+    except Exception:
+        pass
+
+
+def _maybe_cleanup_stale_uploads(force: bool = False):
+    global _last_upload_cleanup
+    now = time.time()
+    if not force and now - _last_upload_cleanup < 1800:
+        return
+
+    stale_before = now - (24 * 3600)
+    cleaned = 0
+    for session_dir in CHUNK_UPLOAD_DIR.iterdir():
+        if not session_dir.is_dir():
+            continue
+        meta_path = session_dir / "meta.json"
+        try:
+            last_updated = meta_path.stat().st_mtime if meta_path.exists() else session_dir.stat().st_mtime
+        except Exception:
+            continue
+        if last_updated < stale_before:
+            shutil.rmtree(session_dir, ignore_errors=True)
+            cleaned += 1
+    _last_upload_cleanup = now
+    if cleaned:
+        logger.info(f"Cleaned up {cleaned} stale upload session(s)")
+
+
+def _upload_status_payload(upload_id: str, meta: dict) -> dict:
+    size = int(meta.get("size") or 0)
+    received_bytes = int(meta.get("received_bytes") or 0)
+    assembled_bytes = int(meta.get("assembled_bytes") or 0)
+    total_chunks = int(meta.get("total_chunks") or 0)
+    received_chunks = sorted(int(i) for i in meta.get("received_chunks", []))
+    phase = meta.get("phase") or "initializing"
+
+    upload_percent = 100.0 if size <= 0 else min(100.0, (received_bytes / size) * 100)
+    assemble_percent = 0.0 if size <= 0 else min(100.0, (assembled_bytes / size) * 100)
+
+    if phase == "assembling":
+        display_percent = max(upload_percent, assemble_percent)
+        status_text = "Upload complete. Finalizing file on server..."
+    elif phase == "complete":
+        display_percent = 100.0
+        status_text = "Upload complete. File is saved on the server."
+    elif phase == "failed":
+        display_percent = upload_percent
+        status_text = meta.get("error") or "Upload failed"
+    elif received_bytes > 0:
+        display_percent = upload_percent
+        status_text = f"Uploading to server... {len(received_chunks)}/{max(total_chunks, 1)} chunks received"
+    else:
+        display_percent = 0.0
+        status_text = "Waiting for upload to start..."
+
+    return {
+        "upload_id": upload_id,
+        "filename": meta.get("filename", ""),
+        "size": size,
+        "received_bytes": received_bytes,
+        "assembled_bytes": assembled_bytes,
+        "received_chunks": received_chunks,
+        "received_chunks_count": len(received_chunks),
+        "total_chunks": total_chunks,
+        "phase": phase,
+        "error": meta.get("error", ""),
+        "path": meta.get("path", ""),
+        "file_id": meta.get("file_id", ""),
+        "last_updated": meta.get("last_updated", meta.get("created_at")),
+        "upload_percent": upload_percent,
+        "assemble_percent": assemble_percent,
+        "percent": display_percent,
+        "status_text": status_text,
+        "location_label": "Server upload storage" if phase == "complete" else "Temporary server upload area",
+    }
 
 
 def is_video_task_cancelled(task_id: str) -> bool:
@@ -1114,6 +1233,8 @@ async def init_chunked_upload(
     user: Optional[User] = Depends(get_current_user),
 ):
     """Initialize a chunked local video upload session."""
+    _maybe_cleanup_stale_uploads()
+
     if not filename:
         raise HTTPException(status_code=400, detail="filename is required")
 
@@ -1124,17 +1245,25 @@ async def init_chunked_upload(
     upload_id = str(uuid.uuid4())[:16]
     session_dir = _upload_session_dir(upload_id)
     session_dir.mkdir(parents=True, exist_ok=True)
+    chunk_size = 20 * 1024 * 1024  # 20MB keeps well below common proxy limits
+    total_size = max(0, int(size or 0))
+    total_chunks = max(1, (total_size + chunk_size - 1) // chunk_size)
     meta = {
         "filename": Path(filename).name,
-        "size": max(0, int(size or 0)),
+        "size": total_size,
         "content_type": content_type or "",
         "ext": ext,
         "user_id": user.id if user else None,
         "created_at": time.time(),
+        "received_bytes": 0,
+        "assembled_bytes": 0,
+        "received_chunks": [],
+        "total_chunks": total_chunks,
+        "phase": "initializing",
+        "error": "",
     }
-    _session_meta_path(upload_id).write_text(json.dumps(meta), encoding="utf-8")
-    chunk_size = 20 * 1024 * 1024  # 20MB keeps well below common proxy limits
-    total_chunks = max(1, (meta["size"] + chunk_size - 1) // chunk_size)
+    with _upload_meta_lock:
+        _write_upload_meta_unlocked(upload_id, meta)
     return {
         "upload_id": upload_id,
         "chunk_size": chunk_size,
@@ -1150,12 +1279,10 @@ async def upload_video_chunk(
     user: Optional[User] = Depends(get_current_user),
 ):
     """Upload one chunk of a local video file."""
-    meta_path = _session_meta_path(upload_id)
-    if not meta_path.exists():
-        raise HTTPException(status_code=404, detail="Upload session not found")
-
     try:
-        meta = json.loads(meta_path.read_text(encoding="utf-8"))
+        meta = _get_upload_meta(upload_id)
+    except FileNotFoundError:
+        raise HTTPException(status_code=404, detail="Upload session not found")
     except Exception:
         _cleanup_upload_session(upload_id)
         raise HTTPException(status_code=500, detail="Upload session is corrupted")
@@ -1165,8 +1292,12 @@ async def upload_video_chunk(
 
     if index < 0:
         raise HTTPException(status_code=400, detail="Chunk index must be >= 0")
+    total_chunks = int(meta.get("total_chunks") or 0)
+    if total_chunks and index >= total_chunks:
+        raise HTTPException(status_code=400, detail=f"Chunk index {index} is out of range")
 
     part_path = _session_chunk_path(upload_id, index)
+    previous_size = part_path.stat().st_size if part_path.exists() else 0
     total_size = 0
     try:
         with open(part_path, "wb") as f:
@@ -1183,7 +1314,30 @@ async def upload_video_chunk(
         part_path.unlink(missing_ok=True)
         raise HTTPException(status_code=400, detail="Uploaded chunk is empty")
 
-    return {"upload_id": upload_id, "index": index, "size": total_size}
+    try:
+        status = _update_upload_meta(upload_id, lambda current: {
+            **current,
+            "received_bytes": max(0, int(current.get("received_bytes") or 0) - previous_size + total_size),
+            "received_chunks": sorted({
+                *[int(i) for i in current.get("received_chunks", [])],
+                index,
+            }),
+            "phase": "uploaded" if len({
+                *[int(i) for i in current.get("received_chunks", [])],
+                index,
+            }) >= int(current.get("total_chunks") or 0) else "uploading",
+            "error": "",
+        })
+    except Exception:
+        _mark_upload_failed(upload_id, "Failed to record uploaded chunk")
+        raise HTTPException(status_code=500, detail="Failed to record uploaded chunk")
+
+    return {
+        "upload_id": upload_id,
+        "index": index,
+        "size": total_size,
+        "status": _upload_status_payload(upload_id, status),
+    }
 
 
 @router.post("/upload/complete")
@@ -1192,12 +1346,10 @@ async def complete_chunked_upload(
     user: Optional[User] = Depends(get_current_user),
 ):
     """Finalize a chunked upload and assemble the saved local file."""
-    meta_path = _session_meta_path(upload_id)
-    if not meta_path.exists():
-        raise HTTPException(status_code=404, detail="Upload session not found")
-
     try:
-        meta = json.loads(meta_path.read_text(encoding="utf-8"))
+        meta = _get_upload_meta(upload_id)
+    except FileNotFoundError:
+        raise HTTPException(status_code=404, detail="Upload session not found")
     except Exception:
         _cleanup_upload_session(upload_id)
         raise HTTPException(status_code=500, detail="Upload session is corrupted")
@@ -1210,6 +1362,16 @@ async def complete_chunked_upload(
     if not part_paths:
         raise HTTPException(status_code=400, detail="No uploaded chunks found")
 
+    try:
+        meta = _update_upload_meta(upload_id, lambda current: {
+            **current,
+            "phase": "assembling",
+            "assembled_bytes": 0,
+            "error": "",
+        })
+    except Exception:
+        raise HTTPException(status_code=500, detail="Failed to start upload finalization")
+
     file_id = str(uuid.uuid4())[:12]
     ext = meta.get("ext") or Path(meta.get("filename", "")).suffix.lower()
     save_path = UPLOAD_DIR / f"{file_id}{ext}"
@@ -1221,26 +1383,66 @@ async def complete_chunked_upload(
                 with open(part_path, "rb") as src:
                     shutil.copyfileobj(src, out, length=1024 * 1024)
                 bytes_written += part_path.stat().st_size
+                _update_upload_meta(upload_id, lambda current: {
+                    **current,
+                    "phase": "assembling",
+                    "assembled_bytes": bytes_written,
+                })
     except Exception:
         save_path.unlink(missing_ok=True)
+        _mark_upload_failed(upload_id, "Failed to assemble uploaded file")
         raise HTTPException(status_code=500, detail="Failed to assemble uploaded file")
-    finally:
-        _cleanup_upload_session(upload_id)
 
     expected_size = int(meta.get("size") or 0)
     if expected_size > 0 and bytes_written != expected_size:
         save_path.unlink(missing_ok=True)
+        _mark_upload_failed(
+            upload_id,
+            f"Upload incomplete: expected {expected_size} bytes, received {bytes_written} bytes",
+        )
         raise HTTPException(
             status_code=400,
             detail=f"Upload incomplete: expected {expected_size} bytes, received {bytes_written} bytes",
         )
+
+    final_meta = _update_upload_meta(upload_id, lambda current: {
+        **current,
+        "phase": "complete",
+        "file_id": file_id,
+        "path": str(save_path),
+        "assembled_bytes": bytes_written,
+        "received_bytes": max(bytes_written, int(current.get("received_bytes") or 0)),
+        "error": "",
+    })
+    _cleanup_upload_parts(upload_id)
 
     return {
         "file_id": file_id,
         "filename": meta.get("filename", ""),
         "path": str(save_path),
         "size": bytes_written,
+        "status": _upload_status_payload(upload_id, final_meta),
     }
+
+
+@router.get("/upload/status")
+async def get_chunked_upload_status(
+    upload_id: str = Query(...),
+    user: Optional[User] = Depends(get_current_user),
+):
+    """Get current status for a chunked upload session."""
+    try:
+        meta = _get_upload_meta(upload_id)
+    except FileNotFoundError:
+        raise HTTPException(status_code=404, detail="Upload session not found")
+    except Exception:
+        _cleanup_upload_session(upload_id)
+        raise HTTPException(status_code=500, detail="Upload session is corrupted")
+
+    if meta.get("user_id") != (user.id if user else None):
+        raise HTTPException(status_code=403, detail="Upload session does not belong to this user")
+
+    return _upload_status_payload(upload_id, meta)
 
 
 @router.post("/check-channels")

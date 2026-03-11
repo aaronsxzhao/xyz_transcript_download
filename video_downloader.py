@@ -1761,12 +1761,12 @@ class LocalVideoHandler(BaseDownloader):
         file_path = Path(url)
         if not file_path.exists():
             return None
-        output_path = VIDEO_DIR / f"{task_id}.mp4"
-        if output_path.exists():
-            return output_path
-        # Copy or symlink local file
-        shutil.copy2(str(file_path), str(output_path))
-        return output_path if output_path.exists() else None
+        if progress_callback:
+            progress_callback(100, "Using uploaded local video file...")
+        # Reuse the uploaded source file directly instead of copying the full video
+        # into the task directory again. FFmpeg and screenshot extraction can read
+        # the original file path, which avoids an extra large-file disk copy.
+        return file_path
 
 
 def get_downloader(platform: str, cookies: str = "") -> BaseDownloader:
