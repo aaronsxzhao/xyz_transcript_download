@@ -22,6 +22,7 @@ interface AppState {
   // Video tasks
   videoTasks: VideoTask[]
   setVideoTasks: (tasks: VideoTask[]) => void
+  mergeVideoTasks: (tasks: VideoTask[]) => void
   updateVideoTask: (task: VideoTask) => void
   removeVideoTask: (taskId: string) => void
   selectedVideoTaskId: string | null
@@ -100,12 +101,81 @@ export const useStore = create<AppState>((set) => ({
   // Video tasks
   videoTasks: [],
   setVideoTasks: (tasks) => set({ videoTasks: tasks }),
+  mergeVideoTasks: (serverTasks) =>
+    set((state) => {
+      const isActive = (status: string) => !['success', 'failed', 'cancelled', 'discovered'].includes(status)
+      const hasAnyActiveTasks =
+        serverTasks.some(task => isActive(task.status)) ||
+        state.videoTasks.some(task => isActive(task.status))
+
+      const mergeTask = (existing: VideoTask | undefined, incoming: VideoTask): VideoTask => {
+        if (!existing) return incoming
+
+        const existingUpdatedAt = Date.parse(existing.updated_at || existing.created_at || '') || 0
+        const incomingUpdatedAt = Date.parse(incoming.updated_at || incoming.created_at || '') || 0
+        const keepExistingProgress =
+          isActive(existing.status) &&
+          incomingUpdatedAt < existingUpdatedAt &&
+          (incoming.progress ?? 0) < (existing.progress ?? 0)
+
+        return {
+          ...existing,
+          ...incoming,
+          title: incoming.title || existing.title,
+          thumbnail: incoming.thumbnail || existing.thumbnail,
+          channel: incoming.channel || existing.channel,
+          channel_url: incoming.channel_url || existing.channel_url,
+          channel_avatar: incoming.channel_avatar || existing.channel_avatar,
+          published_at: incoming.published_at || existing.published_at,
+          created_at: incoming.created_at || existing.created_at,
+          updated_at: incoming.updated_at || existing.updated_at,
+          progress: keepExistingProgress ? existing.progress : incoming.progress,
+          status: keepExistingProgress ? existing.status : incoming.status,
+          message: keepExistingProgress ? existing.message : incoming.message,
+          error: incoming.error || existing.error,
+        }
+      }
+
+      const mergedById = new Map<string, VideoTask>()
+      for (const serverTask of serverTasks) {
+        const existing = state.videoTasks.find(task => task.id === serverTask.id)
+        mergedById.set(serverTask.id, mergeTask(existing, serverTask))
+      }
+
+      if (hasAnyActiveTasks) {
+        for (const localTask of state.videoTasks) {
+          if (!mergedById.has(localTask.id)) {
+            mergedById.set(localTask.id, localTask)
+          }
+        }
+      }
+
+      const orderedTasks = [
+        ...serverTasks.map(task => mergedById.get(task.id) ?? task),
+        ...Array.from(mergedById.values()).filter(task => !serverTasks.some(serverTask => serverTask.id === task.id)),
+      ]
+
+      return { videoTasks: orderedTasks }
+    }),
   updateVideoTask: (task) =>
     set((state) => {
       const idx = state.videoTasks.findIndex((t) => t.id === task.id)
       if (idx >= 0) {
         const newTasks = [...state.videoTasks]
-        newTasks[idx] = { ...newTasks[idx], ...task }
+        const existingTask = newTasks[idx]
+        newTasks[idx] = {
+          ...existingTask,
+          ...task,
+          title: task.title || existingTask.title,
+          thumbnail: task.thumbnail || existingTask.thumbnail,
+          channel: task.channel || existingTask.channel,
+          channel_url: task.channel_url || existingTask.channel_url,
+          channel_avatar: task.channel_avatar || existingTask.channel_avatar,
+          published_at: task.published_at || existingTask.published_at,
+          created_at: task.created_at || existingTask.created_at,
+          updated_at: task.updated_at || existingTask.updated_at,
+          error: task.error || existingTask.error,
+        }
         return { videoTasks: newTasks }
       }
       return { videoTasks: [task, ...state.videoTasks] }

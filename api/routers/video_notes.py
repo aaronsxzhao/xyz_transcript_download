@@ -195,6 +195,13 @@ def _upload_status_payload(upload_id: str, meta: dict) -> dict:
     }
 
 
+def _has_active_video_tasks(tasks: list[dict]) -> bool:
+    for task in tasks:
+        if task.get("status") not in ("success", "failed", "cancelled", "discovered"):
+            return True
+    return False
+
+
 def is_video_task_cancelled(task_id: str) -> bool:
     with _cancel_lock:
         return task_id in _cancelled_tasks
@@ -1024,12 +1031,15 @@ async def list_tasks(user: Optional[User] = Depends(get_current_user)):
     cache_key = user_id or "__local__"
     now = time.monotonic()
     entry = _list_cache.get(cache_key)
-    if entry and now - entry["t"] < _LIST_TTL:
+    if entry and now - entry["t"] < _LIST_TTL and not _has_active_video_tasks(entry["data"].get("tasks", [])):
         return entry["data"]
     db = get_video_task_db()
     tasks = db.list_tasks(user_id)
     result = {"tasks": tasks}
-    _list_cache[cache_key] = {"t": now, "data": result}
+    if not _has_active_video_tasks(tasks):
+        _list_cache[cache_key] = {"t": now, "data": result}
+    else:
+        _list_cache.pop(cache_key, None)
     return result
 
 

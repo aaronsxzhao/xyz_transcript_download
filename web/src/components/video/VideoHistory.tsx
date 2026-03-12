@@ -9,7 +9,7 @@ interface Props {
 }
 
 export default function VideoHistory({ onSelect }: Props) {
-  const { videoTasks, setVideoTasks, selectedVideoTaskId, setSelectedVideoTaskId } = useStore()
+  const { videoTasks, mergeVideoTasks, selectedVideoTaskId, setSelectedVideoTaskId } = useStore()
   const [search, setSearch] = useState('')
   const [loading, setLoading] = useState(false)
 
@@ -17,13 +17,13 @@ export default function VideoHistory({ onSelect }: Props) {
     setLoading(true)
     try {
       const data = await fetchVideoTasks()
-      setVideoTasks(data.tasks)
+      mergeVideoTasks(data.tasks)
     } catch (e: any) {
       console.error('Failed to load tasks:', e)
     } finally {
       setLoading(false)
     }
-  }, [setVideoTasks])
+  }, [mergeVideoTasks])
 
   const hasActiveTasks = videoTasks.some(t =>
     !['success', 'failed', 'cancelled', 'discovered'].includes(t.status)
@@ -221,7 +221,7 @@ export default function VideoHistory({ onSelect }: Props) {
               </div>
 
               {/* Progress bar for active tasks */}
-              {!['success', 'failed', 'pending'].includes(task.status) && (
+              {!['success', 'failed', 'cancelled', 'discovered'].includes(task.status) && (
                 <div className="mt-2 h-1 bg-dark-border rounded-full overflow-hidden">
                   <div
                     className="h-full bg-indigo-500 rounded-full"

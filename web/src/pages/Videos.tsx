@@ -26,7 +26,7 @@ const PLATFORM_META: Record<string, { label: string }> = {
 type View = { type: 'platforms' } | { type: 'channels'; platform: string } | { type: 'videos'; platform: string; channel: string }
 
 export default function Videos() {
-  const { videoTasks, setVideoTasks, removeVideoTask } = useStore()
+  const { videoTasks, mergeVideoTasks, removeVideoTask } = useStore()
   const [formOpen, setFormOpen] = useState(false)
   const [search, setSearch] = useState('')
   const [checking, setChecking] = useState(false)
@@ -51,11 +51,11 @@ export default function Videos() {
   const loadTasks = useCallback(async () => {
     try {
       const data = await fetchVideoTasks()
-      setVideoTasks(data.tasks)
+      mergeVideoTasks(data.tasks)
     } catch (e) {
       console.error('Failed to load tasks:', e)
     }
-  }, [setVideoTasks])
+  }, [mergeVideoTasks])
 
   const handleCheckUpdates = async () => {
     setChecking(true)
@@ -623,7 +623,7 @@ function VideoList({ videos, onDelete, onRetry, onCancel }: {
   }
 
   const isProcessing = (status: string) =>
-    !['success', 'failed', 'pending', 'cancelled', 'discovered'].includes(status)
+    !['success', 'failed', 'cancelled', 'discovered'].includes(status)
 
   const [expandedErrors, setExpandedErrors] = useState<Set<string>>(new Set())
   const toggleError = (id: string) => {

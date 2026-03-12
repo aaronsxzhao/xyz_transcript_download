@@ -31,7 +31,7 @@ export default function Dashboard() {
   const [checkingUpdates, setCheckingUpdates] = useState(false)
   const [showNewEpisodes, setShowNewEpisodes] = useState(true)
 
-  const { jobs, updateJob, removeJob, videoTasks, setVideoTasks } = useStore()
+  const { jobs, updateJob, removeJob, videoTasks, setVideoTasks, mergeVideoTasks } = useStore()
   const { addToast } = useToast()
 
   async function handleCancelQueueItem(id: string, kind: 'podcast' | 'video') {
@@ -140,7 +140,7 @@ export default function Dashboard() {
   async function loadQueueData() {
     try {
       const videoData = await fetchVideoTasks()
-      setVideoTasks(videoData.tasks)
+      mergeVideoTasks(videoData.tasks)
     } catch (err) {
       console.error('Failed to load video queue data:', err)
     }
