@@ -178,13 +178,13 @@ class _SQLiteVideoTaskDB:
             if user_id:
                 rows = conn.execute(
                     "SELECT DISTINCT channel, channel_url, channel_avatar, platform FROM video_tasks "
-                    "WHERE channel != '' AND channel IS NOT NULL AND channel_url != '' AND user_id = ?",
+                    "WHERE channel != '' AND channel IS NOT NULL AND user_id = ?",
                     (user_id,),
                 ).fetchall()
             else:
                 rows = conn.execute(
                     "SELECT DISTINCT channel, channel_url, channel_avatar, platform FROM video_tasks "
-                    "WHERE channel != '' AND channel IS NOT NULL AND channel_url != '' AND user_id IS NULL",
+                    "WHERE channel != '' AND channel IS NOT NULL AND user_id IS NULL",
                 ).fetchall()
             return [dict(r) for r in rows]
 

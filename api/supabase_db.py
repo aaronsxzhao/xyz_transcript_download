@@ -769,7 +769,6 @@ class SupabaseDatabase:
             .select("channel, channel_url, channel_avatar, platform")
             .eq("user_id", user_id)
             .neq("channel", "")
-            .neq("channel_url", "")
             .execute()
         )
         seen = set()
@@ -849,11 +848,12 @@ class SupabaseDatabase:
                 self.client.table("video_tasks")
                 .select(cols)
                 .eq("user_id", user_id)
-                .order("published_at", desc=True)
+                .order("created_at", desc=True)
                 .limit(limit)
                 .execute()
             )
         except Exception:
+            # Fallback: fetch without published_at and sort by created_at
             cols_fallback = (
                 "id, url, platform, title, thumbnail, status, progress, message,"
                 "style, duration, error, channel, channel_url, channel_avatar,"
@@ -867,7 +867,17 @@ class SupabaseDatabase:
                 .limit(limit)
                 .execute()
             )
-        return [self._video_task_to_dict(r) for r in result.data]
+            return [self._video_task_to_dict(r) for r in result.data]
+
+        # Sort in Python: use published_at for normal videos, created_at for
+        # local/podcast uploads (platform == "local" or NULL published_at)
+        def sort_key(r: dict) -> str:
+            if r.get("published_at"):
+                return r["published_at"]
+            return r.get("created_at") or ""
+
+        rows = sorted(result.data, key=sort_key, reverse=True)
+        return [self._video_task_to_dict(r) for r in rows[:limit]]
 
     def list_recent_success_video_tasks(self, user_id: str, limit: int = 6) -> List[dict]:
         """List recent successful video tasks for dashboard cards."""
