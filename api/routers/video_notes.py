@@ -37,8 +37,11 @@ _LIST_TTL = 5.0
 
 
 def _invalidate_list_cache(user_id: str = None):
-    key = user_id or "__local__"
-    _list_cache.pop(key, None)
+    prefix = user_id or "__local__"
+    # Remove all cache entries for this user (tasks, channels, by-channel)
+    to_delete = [k for k in _list_cache if k == prefix or k.startswith(f"{prefix}:")]
+    for k in to_delete:
+        _list_cache.pop(k, None)
 
 _cancel_lock = threading.Lock()
 _cancelled_tasks: Set[str] = set()
@@ -1030,6 +1033,47 @@ async def list_tasks(user: Optional[User] = Depends(get_current_user)):
         return entry["data"]
     db = get_video_task_db()
     tasks = db.list_tasks(user_id)
+    result = {"tasks": tasks}
+    if not _has_active_video_tasks(tasks):
+        _list_cache[cache_key] = {"t": now, "data": result}
+    else:
+        _list_cache.pop(cache_key, None)
+    return result
+
+
+@router.get("/channels")
+async def list_channels(user: Optional[User] = Depends(get_current_user)):
+    """List all channels with aggregated stats (count, done, thumbnail). No task payload."""
+    from video_task_db import get_video_task_db
+    user_id = user.id if user else None
+    cache_key = f"{user_id or '__local__'}:channels"
+    now = time.monotonic()
+    entry = _list_cache.get(cache_key)
+    if entry and now - entry["t"] < _LIST_TTL:
+        return entry["data"]
+    db = get_video_task_db()
+    channels = db.list_channels_with_stats(user_id)
+    result = {"channels": channels}
+    _list_cache[cache_key] = {"t": now, "data": result}
+    return result
+
+
+@router.get("/tasks/by-channel")
+async def list_tasks_by_channel(
+    channel: str = Query(...),
+    platform: str = Query(...),
+    user: Optional[User] = Depends(get_current_user),
+):
+    """List all tasks for a specific channel+platform. No cap — fetches all rows."""
+    from video_task_db import get_video_task_db
+    user_id = user.id if user else None
+    cache_key = f"{user_id or '__local__'}:ch:{platform}:{channel}"
+    now = time.monotonic()
+    entry = _list_cache.get(cache_key)
+    if entry and now - entry["t"] < _LIST_TTL and not _has_active_video_tasks(entry["data"].get("tasks", [])):
+        return entry["data"]
+    db = get_video_task_db()
+    tasks = db.list_tasks_by_channel(channel, platform, user_id)
     result = {"tasks": tasks}
     if not _has_active_video_tasks(tasks):
         _list_cache[cache_key] = {"t": now, "data": result}

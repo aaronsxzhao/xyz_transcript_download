@@ -786,6 +786,88 @@ class SupabaseDatabase:
             return 0
         return len(self.get_distinct_video_channels(user_id))
 
+    def list_video_channels_with_stats(self, user_id: str) -> list:
+        """Return one row per channel with total/done counts and latest thumbnail."""
+        if not self.client or not user_id:
+            return []
+        cols = "channel, channel_url, channel_avatar, platform, thumbnail, status, updated_at"
+        try:
+            result = (
+                self.client.table("video_tasks")
+                .select(cols)
+                .eq("user_id", user_id)
+                .neq("channel", "")
+                .execute()
+            )
+        except Exception:
+            return []
+        # Aggregate in Python (PostgREST doesn't expose GROUP BY)
+        channels: dict = {}
+        for r in (result.data or []):
+            ch = r.get("channel") or ""
+            pl = r.get("platform") or ""
+            if not ch:
+                continue
+            key = (ch, pl)
+            if key not in channels:
+                channels[key] = {
+                    "channel": ch,
+                    "platform": pl,
+                    "channel_url": r.get("channel_url", ""),
+                    "channel_avatar": r.get("channel_avatar", ""),
+                    "thumbnail": r.get("thumbnail", "") or "",
+                    "total": 0,
+                    "done": 0,
+                    "last_updated": r.get("updated_at", "") or "",
+                }
+            entry = channels[key]
+            entry["total"] += 1
+            if r.get("status") == "success":
+                entry["done"] += 1
+            if not entry["thumbnail"] and r.get("thumbnail"):
+                entry["thumbnail"] = r["thumbnail"]
+            if not entry["channel_avatar"] and r.get("channel_avatar"):
+                entry["channel_avatar"] = r["channel_avatar"]
+            upd = r.get("updated_at") or ""
+            if upd > (entry["last_updated"] or ""):
+                entry["last_updated"] = upd
+        return sorted(channels.values(), key=lambda x: x["last_updated"] or "", reverse=True)
+
+    def list_video_tasks_by_channel(self, channel: str, platform: str, user_id: str) -> list:
+        """Return all tasks for a specific channel+platform, ordered newest first."""
+        if not self.client or not user_id or not channel:
+            return []
+        cols = (
+            "id, url, platform, title, thumbnail, status, progress, message,"
+            "style, duration, error, channel, channel_url, channel_avatar,"
+            "published_at, created_at, updated_at"
+        )
+        try:
+            result = (
+                self.client.table("video_tasks")
+                .select(cols)
+                .eq("user_id", user_id)
+                .eq("channel", channel)
+                .eq("platform", platform)
+                .order("published_at", desc=True, nullsfirst=False)
+                .order("created_at", desc=True)
+                .execute()
+            )
+            return [self._video_task_to_dict(r) for r in (result.data or [])]
+        except Exception:
+            pass
+        # Fallback without nullsfirst
+        result = (
+            self.client.table("video_tasks")
+            .select(cols)
+            .eq("user_id", user_id)
+            .eq("channel", channel)
+            .eq("platform", platform)
+            .order("created_at", desc=True)
+            .execute()
+        )
+        return [self._video_task_to_dict(r) for r in (result.data or [])]
+
     def update_video_task(self, task_id: str, updates: dict):
         """Update video task fields."""
         if not self.client:
@@ -833,7 +915,7 @@ class SupabaseDatabase:
             return None
         return self._video_task_to_dict(result.data[0])
 
-    def list_video_tasks(self, user_id: str, limit: int = 100) -> List[dict]:
+    def list_video_tasks(self, user_id: str, limit: int = 2000) -> List[dict]:
         """List all video tasks for a user (only columns needed for list UI)."""
         if not self.client:
             return []

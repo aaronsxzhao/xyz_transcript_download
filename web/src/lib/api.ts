@@ -583,6 +583,30 @@ export async function fetchVideoTasks(): Promise<{ tasks: VideoTask[] }> {
   return res.json()
 }
 
+export interface VideoChannelStat {
+  channel: string
+  platform: string
+  channel_url: string
+  channel_avatar: string
+  thumbnail: string
+  total: number
+  done: number
+  last_updated: string
+}
+
+export async function fetchVideoChannels(): Promise<{ channels: VideoChannelStat[] }> {
+  const res = await authFetch(`${API_BASE}/video-notes/channels`)
+  if (!res.ok) throw new Error('Failed to fetch video channels')
+  return res.json()
+}
+
+export async function fetchVideoTasksByChannel(platform: string, channel: string): Promise<{ tasks: VideoTask[] }> {
+  const params = new URLSearchParams({ platform, channel })
+  const res = await authFetch(`${API_BASE}/video-notes/tasks/by-channel?${params}`)
+  if (!res.ok) throw new Error('Failed to fetch channel tasks')
+  return res.json()
+}
+
 export async function fetchRecentVideoTasks(limit: number = 6): Promise<{ tasks: VideoTask[] }> {
   const res = await authFetch(`${API_BASE}/video-notes/recent?limit=${encodeURIComponent(String(limit))}`)
   if (!res.ok) throw new Error('Failed to fetch recent video tasks')

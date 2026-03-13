@@ -10,9 +10,10 @@ import { useStore } from '../lib/store'
 import { useToast } from '../components/Toast'
 import { markSeen, isNewItem } from '../lib/seen'
 import {
-  fetchVideoTasks, deleteVideoTask, deleteVideoChannel, retryVideoTask, cancelVideoTask,
+  fetchVideoChannels, fetchVideoTasksByChannel,
+  deleteVideoTask, deleteVideoChannel, retryVideoTask, cancelVideoTask,
   checkVideoChannelsForUpdates,
-  type VideoTask,
+  type VideoTask, type VideoChannelStat,
 } from '../lib/api'
 
 const PLATFORM_META: Record<string, { label: string }> = {
@@ -33,6 +34,16 @@ export default function Videos() {
   const [searchParams, setSearchParams] = useSearchParams()
   const { addToast } = useToast()
 
+  // Channel list state (loaded once, lightweight)
+  const [channels, setChannels] = useState<VideoChannelStat[]>([])
+  const [channelsLoading, setChannelsLoading] = useState(true)
+
+  // Per-channel video state (loaded on demand when drilling into a channel)
+  const [channelTasks, setChannelTasks] = useState<VideoTask[]>([])
+  const [channelTasksLoading, setChannelTasksLoading] = useState(false)
+  // Track which channel is currently loaded
+  const loadedChannelRef = useRef<string>('')
+
   const view: View = useMemo(() => {
     const platform = searchParams.get('platform')
     const channel = searchParams.get('channel')
@@ -48,14 +59,81 @@ export default function Videos() {
     setSearchParams(params, { replace: true })
   }, [setSearchParams])
 
-  const loadTasks = useCallback(async () => {
+  // Load channel list (called on mount and after mutations)
+  const loadChannels = useCallback(async () => {
     try {
-      const data = await fetchVideoTasks()
-      mergeVideoTasks(data.tasks)
+      const data = await fetchVideoChannels()
+      setChannels(data.channels)
     } catch (e) {
-      console.error('Failed to load tasks:', e)
+      console.error('Failed to load channels:', e)
+    } finally {
+      setChannelsLoading(false)
+    }
+  }, [])
+
+  // Load tasks for the currently viewed channel
+  const loadChannelTasks = useCallback(async (platform: string, channel: string) => {
+    const key = `${platform}::${channel}`
+    loadedChannelRef.current = key
+    setChannelTasksLoading(true)
+    try {
+      const data = await fetchVideoTasksByChannel(platform, channel)
+      // Only apply if still viewing the same channel
+      if (loadedChannelRef.current === key) {
+        setChannelTasks(data.tasks)
+        // Also push into store so active-task polling stays in sync
+        mergeVideoTasks(data.tasks)
+      }
+    } catch (e) {
+      console.error('Failed to load channel tasks:', e)
+    } finally {
+      if (loadedChannelRef.current === key) setChannelTasksLoading(false)
     }
   }, [mergeVideoTasks])
+
+  // Initial load
+  useEffect(() => {
+    loadChannels()
+  }, [loadChannels])
+
+  // When view changes to a specific channel, fetch its tasks
+  useEffect(() => {
+    if (view.type === 'videos') {
+      loadChannelTasks(view.platform, view.channel)
+    } else {
+      // Clear channel tasks when navigating away
+      setChannelTasks([])
+      loadedChannelRef.current = ''
+    }
+  }, [view, loadChannelTasks])
+
+  // Poll active tasks from store (for in-progress processing)
+  const hasActiveTasks = videoTasks.some(t =>
+    !['success', 'failed', 'cancelled', 'discovered'].includes(t.status)
+  )
+  useEffect(() => {
+    if (!hasActiveTasks) return
+    // When there are active tasks in a channel view, re-fetch that channel periodically
+    if (view.type !== 'videos') return
+    const interval = setInterval(() => {
+      loadChannelTasks(view.platform, view.channel)
+    }, 5000)
+    return () => clearInterval(interval)
+  }, [hasActiveTasks, view, loadChannelTasks])
+
+  // Periodically refresh channel stats
+  useEffect(() => {
+    const interval = setInterval(loadChannels, hasActiveTasks ? 10000 : 60000)
+    return () => clearInterval(interval)
+  }, [loadChannels, hasActiveTasks])
+
+  const seenMarkedRef = useRef(false)
+  useEffect(() => {
+    if (channelTasks.length > 0 && !seenMarkedRef.current) {
+      seenMarkedRef.current = true
+      markSeen(channelTasks.map(t => t.id))
+    }
+  }, [channelTasks])
 
   const handleCheckUpdates = async () => {
     setChecking(true)
@@ -67,7 +145,8 @@ export default function Videos() {
       const result = await checkVideoChannelsForUpdates(opts)
       if (result.new_videos > 0) {
         addToast({ type: 'success', title: 'New videos found', message: `Found ${result.new_videos} new video(s) from ${result.channels_checked} channel(s)` })
-        loadTasks()
+        loadChannels()
+        if (view.type === 'videos') loadChannelTasks(view.platform, view.channel)
       } else {
         const scope = view.type === 'videos' ? view.channel
           : view.type === 'channels' ? (PLATFORM_META[view.platform]?.label || view.platform)
@@ -86,7 +165,7 @@ export default function Videos() {
     try {
       const result = await deleteVideoChannel(channelName)
       addToast({ type: 'success', title: 'Channel deleted', message: result.message })
-      loadTasks()
+      loadChannels()
     } catch (err) {
       addToast({ type: 'error', title: 'Delete failed', message: err instanceof Error ? err.message : 'Unknown error' })
     }
@@ -97,7 +176,8 @@ export default function Videos() {
       const result = await checkVideoChannelsForUpdates({ channel: channelName })
       if (result.new_videos > 0) {
         addToast({ type: 'success', title: 'New videos found', message: `Found ${result.new_videos} new video(s) from ${channelName}` })
-        loadTasks()
+        loadChannels()
+        if (view.type === 'videos' && view.channel === channelName) loadChannelTasks(view.platform, view.channel)
       } else {
         addToast({ type: 'info', title: 'All caught up', message: `No new videos from ${channelName}` })
       }
@@ -105,24 +185,6 @@ export default function Videos() {
       addToast({ type: 'error', title: 'Check failed', message: err instanceof Error ? err.message : 'Unknown error' })
     }
   }
-
-  const hasActiveTasks = videoTasks.some(t =>
-    !['success', 'failed', 'cancelled', 'discovered'].includes(t.status)
-  )
-
-  useEffect(() => {
-    loadTasks()
-    const interval = setInterval(loadTasks, hasActiveTasks ? 5000 : 30000)
-    return () => clearInterval(interval)
-  }, [loadTasks, hasActiveTasks])
-
-  const seenMarkedRef = useRef(false)
-  useEffect(() => {
-    if (videoTasks.length > 0 && !seenMarkedRef.current) {
-      seenMarkedRef.current = true
-      markSeen(videoTasks.map(t => t.id))
-    }
-  }, [videoTasks])
 
   const handleTaskCreated = (task: { taskId: string; title: string; url: string; platform: string }) => {
     useStore.getState().updateVideoTask({
@@ -148,50 +210,93 @@ export default function Videos() {
       message: task.title ? `${task.title} is now processing` : 'Your local video is now processing',
     })
     setFormOpen(false)
+    // Refresh channel list so new channel/count appears
+    loadChannels()
   }
 
   const handleDelete = async (taskId: string) => {
-    try { await deleteVideoTask(taskId); removeVideoTask(taskId) }
-    catch (e) { console.error('Delete failed:', e) }
+    try {
+      await deleteVideoTask(taskId)
+      removeVideoTask(taskId)
+      setChannelTasks(prev => prev.filter(t => t.id !== taskId))
+      loadChannels()
+    } catch (e) { console.error('Delete failed:', e) }
   }
   const handleRetry = async (taskId: string) => {
     try {
       await retryVideoTask(taskId)
-      const task = videoTasks.find(t => t.id === taskId)
+      const task = channelTasks.find(t => t.id === taskId)
       addToast({ type: 'success', title: 'Processing started', message: task?.title || 'Video processing started' })
-      loadTasks()
+      if (view.type === 'videos') loadChannelTasks(view.platform, view.channel)
     } catch (e) {
       console.error('Retry failed:', e)
       addToast({ type: 'error', title: 'Failed to start processing', message: e instanceof Error ? e.message : 'Unknown error' })
     }
   }
   const handleCancel = async (taskId: string) => {
-    try { await cancelVideoTask(taskId); loadTasks() }
-    catch (e) { console.error('Cancel failed:', e) }
+    try {
+      await cancelVideoTask(taskId)
+      if (view.type === 'videos') loadChannelTasks(view.platform, view.channel)
+    } catch (e) { console.error('Cancel failed:', e) }
   }
 
-  // Filter by search
-  const filtered = useMemo(() => {
-    if (!search) return videoTasks
-    const q = search.toLowerCase()
-    return videoTasks.filter(t =>
-      t.title.toLowerCase().includes(q) ||
-      t.url.toLowerCase().includes(q) ||
-      t.channel.toLowerCase().includes(q)
+  // Merge in-progress store tasks into the channel task list so they show immediately
+  const mergedChannelTasks = useMemo(() => {
+    if (view.type !== 'videos') return channelTasks
+    const activePlatformChannel = videoTasks.filter(t =>
+      t.platform === view.platform &&
+      (t.channel || 'Unknown Channel') === view.channel &&
+      !['success', 'failed', 'cancelled', 'discovered'].includes(t.status)
     )
-  }, [videoTasks, search])
+    if (activePlatformChannel.length === 0) return channelTasks
+    const ids = new Set(channelTasks.map(t => t.id))
+    const extra = activePlatformChannel.filter(t => !ids.has(t.id))
+    return [...extra, ...channelTasks]
+  }, [channelTasks, videoTasks, view])
 
-  // Derive platforms with counts
+  // Filtered tasks for the channel view
+  const filteredChannelTasks = useMemo(() => {
+    if (!search) return mergedChannelTasks
+    const q = search.toLowerCase()
+    return mergedChannelTasks.filter(t =>
+      t.title.toLowerCase().includes(q) ||
+      t.url.toLowerCase().includes(q)
+    )
+  }, [mergedChannelTasks, search])
+
+  // Sorted channel tasks newest first
+  const sortedChannelTasks = useMemo(() => {
+    return [...filteredChannelTasks].sort((a, b) => {
+      const pa = a.published_at || ''
+      const pb = b.published_at || ''
+      if (pa && pb) return pb.localeCompare(pa)
+      if (pa && !pb) return -1
+      if (!pa && pb) return 1
+      return (b.created_at || '').localeCompare(a.created_at || '')
+    })
+  }, [filteredChannelTasks])
+
+  // Channels filtered by search (for channel/platform views)
+  const filteredChannels = useMemo(() => {
+    if (!search) return channels
+    const q = search.toLowerCase()
+    return channels.filter(c =>
+      c.channel.toLowerCase().includes(q) ||
+      c.platform.toLowerCase().includes(q)
+    )
+  }, [channels, search])
+
+  // Platforms derived from channel list
   const platformStats = useMemo(() => {
     const stats: Record<string, { total: number; done: number }> = {}
-    for (const t of filtered) {
-      const p = t.platform || 'other'
+    for (const c of filteredChannels) {
+      const p = c.platform || 'other'
       if (!stats[p]) stats[p] = { total: 0, done: 0 }
-      stats[p].total++
-      if (t.status === 'success') stats[p].done++
+      stats[p].total += c.total
+      stats[p].done += c.done
     }
     return stats
-  }, [filtered])
+  }, [filteredChannels])
 
   const sortedPlatforms = useMemo(() => {
     const order = ['bilibili', 'youtube', 'douyin', 'kuaishou', 'local']
@@ -201,37 +306,13 @@ export default function Videos() {
     )
   }, [platformStats])
 
-  // Derive channels for a platform
-  const getChannels = (platform: string) => {
-    const channelMap: Record<string, { count: number; done: number; tasks: VideoTask[] }> = {}
-    for (const t of filtered) {
-      if ((t.platform || 'other') !== platform) continue
-      const ch = t.channel || 'Unknown Channel'
-      if (!channelMap[ch]) channelMap[ch] = { count: 0, done: 0, tasks: [] }
-      channelMap[ch].count++
-      channelMap[ch].tasks.push(t)
-      if (t.status === 'success') channelMap[ch].done++
-    }
-    return channelMap
-  }
+  const platformChannels = useMemo(() => {
+    if (view.type !== 'channels' && view.type !== 'videos') return []
+    const platform = view.type === 'channels' ? view.platform : view.platform
+    return filteredChannels.filter(c => c.platform === platform)
+  }, [filteredChannels, view])
 
-  // Get videos for a platform+channel, sorted by publish date (newest first)
-  // Videos without published_at sort to the bottom, ordered by created_at
-  const getVideos = (platform: string, channel: string) => {
-    return filtered
-      .filter(t =>
-        (t.platform || 'other') === platform &&
-        (t.channel || 'Unknown Channel') === channel
-      )
-      .sort((a, b) => {
-        const pa = a.published_at || ''
-        const pb = b.published_at || ''
-        if (pa && pb) return pb.localeCompare(pa)
-        if (pa && !pb) return -1
-        if (!pa && pb) return 1
-        return (b.created_at || '').localeCompare(a.created_at || '')
-      })
-  }
+  const totalVideos = channels.reduce((s, c) => s + c.total, 0)
 
   return (
     <div className="space-y-5">
@@ -256,9 +337,9 @@ export default function Videos() {
               {view.type === 'videos' && view.channel}
             </h1>
             <p className="text-sm text-gray-400">
-              {view.type === 'platforms' && `${videoTasks.length} video note${videoTasks.length !== 1 ? 's' : ''}`}
-              {view.type === 'channels' && `${platformStats[view.platform]?.total || 0} videos`}
-              {view.type === 'videos' && `${getVideos(view.platform, view.channel).length} videos`}
+              {view.type === 'platforms' && `${totalVideos} video note${totalVideos !== 1 ? 's' : ''}`}
+              {view.type === 'channels' && `${platformChannels.length} channel${platformChannels.length !== 1 ? 's' : ''}`}
+              {view.type === 'videos' && (channelTasksLoading ? 'Loading...' : `${sortedChannelTasks.length} videos`)}
             </p>
           </div>
         </div>
@@ -302,7 +383,7 @@ export default function Videos() {
       <div className="relative max-w-md">
         <Search size={16} className="absolute left-3 top-2.5 text-gray-500" />
         <input type="text" value={search} onChange={e => setSearch(e.target.value)}
-          placeholder="Search videos, channels..."
+          placeholder={view.type === 'videos' ? 'Search videos...' : 'Search channels...'}
           className="w-full pl-9 pr-3 py-2 bg-dark-surface border border-dark-border rounded-lg text-sm text-white placeholder-gray-500 focus:outline-none focus:border-indigo-500" />
       </div>
 
@@ -317,7 +398,7 @@ export default function Videos() {
                 : 'bg-dark-surface border border-dark-border text-gray-400 hover:text-white hover:bg-dark-hover'
             }`}
           >
-            All ({filtered.length})
+            All ({totalVideos})
           </button>
           {sortedPlatforms.map(p => {
             const meta = PLATFORM_META[p] || { label: p }
@@ -343,19 +424,23 @@ export default function Videos() {
       )}
 
       {/* Content based on view */}
-      {videoTasks.length === 0 ? (
+      {channelsLoading && view.type === 'platforms' ? (
+        <div className="flex items-center justify-center h-48">
+          <Loader2 className="w-8 h-8 animate-spin text-indigo-500" />
+        </div>
+      ) : channels.length === 0 && view.type === 'platforms' ? (
         <div className="p-12 bg-dark-surface border border-dark-border rounded-xl text-center">
           <Video className="w-16 h-16 text-gray-600 mx-auto mb-4" />
           <p className="text-xl text-gray-400 mb-2">No video notes yet</p>
           <p className="text-gray-500">Create a new video note to get started</p>
         </div>
       ) : view.type === 'platforms' ? (
-        /* Platform overview — show all platforms as cards */
+        /* Platform overview */
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {sortedPlatforms.map(p => {
             const meta = PLATFORM_META[p] || { label: p }
             const stats = platformStats[p]
-            const channels = Object.keys(getChannels(p))
+            const platformChCount = filteredChannels.filter(c => c.platform === p).length
             return (
               <button
                 key={p}
@@ -367,7 +452,7 @@ export default function Videos() {
                   <h3 className="text-lg font-semibold text-white">{meta.label}</h3>
                 </div>
                 <div className="flex items-center gap-4 text-sm text-gray-400">
-                  <span>{channels.length} channel{channels.length !== 1 ? 's' : ''}</span>
+                  <span>{platformChCount} channel{platformChCount !== 1 ? 's' : ''}</span>
                   <span>{stats.done}/{stats.total} completed</span>
                 </div>
               </button>
@@ -377,19 +462,25 @@ export default function Videos() {
       ) : view.type === 'channels' ? (
         /* Channel list for selected platform */
         <ChannelList
-          channels={getChannels(view.platform)}
+          channels={platformChannels}
           onSelectChannel={(ch) => setView({ type: 'videos', platform: view.platform, channel: ch })}
           onDeleteChannel={handleDeleteChannel}
           onCheckUpdates={handleCheckChannelUpdates}
         />
       ) : (
         /* Video list for selected channel */
-        <VideoList
-          videos={getVideos(view.platform, view.channel)}
-          onDelete={handleDelete}
-          onRetry={handleRetry}
-          onCancel={handleCancel}
-        />
+        channelTasksLoading ? (
+          <div className="flex items-center justify-center h-48">
+            <Loader2 className="w-8 h-8 animate-spin text-indigo-500" />
+          </div>
+        ) : (
+          <VideoList
+            videos={sortedChannelTasks}
+            onDelete={handleDelete}
+            onRetry={handleRetry}
+            onCancel={handleCancel}
+          />
+        )
       )}
     </div>
   )
@@ -397,22 +488,16 @@ export default function Videos() {
 
 
 function ChannelList({ channels, onSelectChannel, onDeleteChannel, onCheckUpdates }: {
-  channels: Record<string, { count: number; done: number; tasks: VideoTask[] }>
+  channels: VideoChannelStat[]
   onSelectChannel: (ch: string) => void
-  onDeleteChannel?: (ch: string) => void
+  onDeleteChannel?: (ch: string) => Promise<void> | void
   onCheckUpdates?: (ch: string) => Promise<void>
 }) {
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null)
   const [deleting, setDeleting] = useState(false)
   const [refreshing, setRefreshing] = useState<string | null>(null)
 
-  const channelNames = Object.keys(channels).sort((a, b) => {
-    if (a === 'Unknown Channel') return 1
-    if (b === 'Unknown Channel') return -1
-    return channels[b].count - channels[a].count
-  })
-
-  if (channelNames.length === 0) {
+  if (channels.length === 0) {
     return (
       <div className="p-12 bg-dark-surface border border-dark-border rounded-xl text-center">
         <Video className="w-16 h-16 text-gray-600 mx-auto mb-4" />
@@ -424,57 +509,37 @@ function ChannelList({ channels, onSelectChannel, onDeleteChannel, onCheckUpdate
 
   return (
     <div className="space-y-4">
-      {channelNames.map(ch => {
-        const info = channels[ch]
-        const latestTask = info.tasks.reduce((a, b) =>
-          new Date(b.updated_at) > new Date(a.updated_at) ? b : a
-        , info.tasks[0])
-        const latestTitle = info.tasks
-          .filter(t => t.status === 'success')
-          .sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime())[0]?.title
-
+      {channels.map(ch => {
+        const imgSrc = ch.channel_avatar || ch.thumbnail
         return (
           <div
-            key={ch}
+            key={ch.channel}
             className="p-4 md:p-6 bg-dark-surface border border-dark-border rounded-xl hover:border-dark-hover transition-colors"
           >
             <div className="flex flex-col sm:flex-row sm:items-start gap-4">
-              <div className="flex items-start gap-3 sm:gap-4 flex-1 min-w-0 cursor-pointer" onClick={() => onSelectChannel(ch)}>
-                {(() => {
-                  const avatar = info.tasks.find(t => t.channel_avatar)?.channel_avatar
-                  const thumb = latestTask?.thumbnail
-                  const imgSrc = avatar || thumb
-                  if (imgSrc) {
-                    return (
-                      <img
-                        src={imgSrc}
-                        alt=""
-                        className={`w-14 h-14 md:w-20 md:h-20 flex-shrink-0 bg-dark-hover object-cover ${avatar ? 'rounded-full' : 'rounded-lg'}`}
-                        onError={e => { (e.target as HTMLImageElement).style.display = 'none' }}
-                        referrerPolicy="no-referrer"
-                      />
-                    )
-                  }
-                  return (
-                    <div className="w-14 h-14 md:w-20 md:h-20 rounded-full bg-dark-hover flex items-center justify-center flex-shrink-0">
-                      <Video className="w-6 h-6 md:w-8 md:h-8 text-gray-600" />
-                    </div>
-                  )
-                })()}
+              <div className="flex items-start gap-3 sm:gap-4 flex-1 min-w-0 cursor-pointer" onClick={() => onSelectChannel(ch.channel)}>
+                {imgSrc ? (
+                  <img
+                    src={imgSrc}
+                    alt=""
+                    className={`w-14 h-14 md:w-20 md:h-20 flex-shrink-0 bg-dark-hover object-cover ${ch.channel_avatar ? 'rounded-full' : 'rounded-lg'}`}
+                    onError={e => { (e.target as HTMLImageElement).style.display = 'none' }}
+                    referrerPolicy="no-referrer"
+                  />
+                ) : (
+                  <div className="w-14 h-14 md:w-20 md:h-20 rounded-full bg-dark-hover flex items-center justify-center flex-shrink-0">
+                    <Video className="w-6 h-6 md:w-8 md:h-8 text-gray-600" />
+                  </div>
+                )}
 
                 <div className="flex-1 min-w-0">
                   <h3 className="text-base md:text-lg font-semibold text-white mb-1 line-clamp-2">
-                    {ch}
+                    {ch.channel}
                   </h3>
-                  {latestTitle && (
-                    <p className="text-sm text-gray-500 line-clamp-1 hidden sm:block">
-                      Latest: {latestTitle}
-                    </p>
-                  )}
                   <p className="text-sm text-indigo-400 mt-1 md:mt-2">
-                    {info.done > 0
-                      ? `${info.done} / ${info.count} completed`
-                      : `${info.count} video${info.count !== 1 ? 's' : ''}`
+                    {ch.done > 0
+                      ? `${ch.done} / ${ch.total} completed`
+                      : `${ch.total} video${ch.total !== 1 ? 's' : ''}`
                     }
                   </p>
                 </div>
@@ -482,15 +547,15 @@ function ChannelList({ channels, onSelectChannel, onDeleteChannel, onCheckUpdate
 
               <div className="flex items-center gap-2 justify-end sm:justify-start">
                 <button
-                  onClick={() => onSelectChannel(ch)}
+                  onClick={() => onSelectChannel(ch.channel)}
                   className="flex items-center gap-1 px-3 py-2 bg-dark-hover hover:bg-dark-border text-white rounded-lg transition-colors text-sm"
                 >
                   <ExternalLink size={16} />
                   <span className="hidden sm:inline">Videos</span>
                 </button>
-                {latestTask?.channel_url && (
+                {ch.channel_url && (
                   <a
-                    href={latestTask.channel_url}
+                    href={ch.channel_url}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="p-2 bg-dark-hover hover:bg-dark-border text-white rounded-lg transition-colors"
@@ -499,28 +564,26 @@ function ChannelList({ channels, onSelectChannel, onDeleteChannel, onCheckUpdate
                     <ExternalLink size={16} />
                   </a>
                 )}
-                {onCheckUpdates && (
-                  latestTask?.channel_url ? (
+                {onCheckUpdates && ch.channel_url && (
                   <button
                     onClick={async () => {
-                      setRefreshing(ch)
-                      try { await onCheckUpdates(ch) } finally { setRefreshing(null) }
+                      setRefreshing(ch.channel)
+                      try { await onCheckUpdates(ch.channel) } finally { setRefreshing(null) }
                     }}
-                    disabled={refreshing === ch}
+                    disabled={refreshing === ch.channel}
                     className="p-2 bg-dark-hover hover:bg-dark-border text-white rounded-lg transition-colors disabled:opacity-50"
                     title="Check for new videos"
                   >
-                    <RefreshCw size={16} className={refreshing === ch ? 'animate-spin' : ''} />
+                    <RefreshCw size={16} className={refreshing === ch.channel ? 'animate-spin' : ''} />
                   </button>
-                  ) : null
                 )}
                 {onDeleteChannel && (
-                  confirmDelete === ch ? (
+                  confirmDelete === ch.channel ? (
                     <div className="flex items-center gap-1">
                       <button
                         onClick={async () => {
                           setDeleting(true)
-                          try { await onDeleteChannel(ch) } finally { setDeleting(false); setConfirmDelete(null) }
+                          try { await onDeleteChannel(ch.channel) } finally { setDeleting(false); setConfirmDelete(null) }
                         }}
                         disabled={deleting}
                         className="px-2 py-1.5 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors text-xs disabled:opacity-50"
@@ -536,7 +599,7 @@ function ChannelList({ channels, onSelectChannel, onDeleteChannel, onCheckUpdate
                     </div>
                   ) : (
                     <button
-                      onClick={() => setConfirmDelete(ch)}
+                      onClick={() => setConfirmDelete(ch.channel)}
                       className="p-2 bg-dark-hover hover:bg-red-600/20 text-red-400 rounded-lg transition-colors disabled:opacity-50"
                       title="Delete channel and all its videos"
                     >
@@ -558,7 +621,7 @@ function getDisplayTitle(task: VideoTask): string {
   if (task.title && task.title !== 'Untitled') return task.title
   if (task.url) {
     if (task.platform === 'local') {
-      const parts = task.url.split(/[\\/]/)
+      const parts = task.url.split(/[\/\\]/)
       const filename = parts[parts.length - 1] || task.url
       return filename.replace(/\.[^.]+$/, '') || filename
     }
@@ -686,7 +749,6 @@ function VideoList({ videos, onDelete, onRetry, onCancel }: {
                 {displayTitle}
               </h3>
 
-              {/* Show URL below title when title is missing */}
               {(!task.title || task.title === 'Untitled') && task.url && (
                 <a
                   href={task.url}
@@ -747,7 +809,6 @@ function VideoList({ videos, onDelete, onRetry, onCancel }: {
                 )}
               </div>
 
-              {/* Error details — always show brief, expandable for full */}
               {isFailed && errorMsg && (
                 <div className="mt-2">
                   <p className={`text-xs text-red-400/80 ${expandedErrors.has(task.id) ? '' : 'line-clamp-1'}`}>

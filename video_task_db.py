@@ -188,6 +188,60 @@ class _SQLiteVideoTaskDB:
                 ).fetchall()
             return [dict(r) for r in rows]
 
+    def list_channels_with_stats(self, user_id: str = None) -> List[dict]:
+        """Return one row per channel with count, done count, and latest updated_at."""
+        with self._conn() as conn:
+            if user_id:
+                rows = conn.execute(
+                    """SELECT channel, channel_url, channel_avatar, platform,
+                              COUNT(*) as total,
+                              SUM(CASE WHEN status='success' THEN 1 ELSE 0 END) as done,
+                              MAX(updated_at) as last_updated,
+                              (SELECT thumbnail FROM video_tasks vt2
+                               WHERE vt2.channel = vt.channel
+                               AND (vt2.user_id = ? OR (? IS NULL AND vt2.user_id IS NULL))
+                               AND vt2.thumbnail != '' AND vt2.thumbnail IS NOT NULL
+                               LIMIT 1) as thumbnail
+                       FROM video_tasks vt
+                       WHERE channel != '' AND channel IS NOT NULL AND user_id = ?
+                       GROUP BY channel, channel_url, channel_avatar, platform
+                       ORDER BY MAX(updated_at) DESC""",
+                    (user_id, user_id, user_id),
+                ).fetchall()
+            else:
+                rows = conn.execute(
+                    """SELECT channel, channel_url, channel_avatar, platform,
+                              COUNT(*) as total,
+                              SUM(CASE WHEN status='success' THEN 1 ELSE 0 END) as done,
+                              MAX(updated_at) as last_updated,
+                              (SELECT thumbnail FROM video_tasks vt2
+                               WHERE vt2.channel = vt.channel
+                               AND vt2.user_id IS NULL
+                               AND vt2.thumbnail != '' AND vt2.thumbnail IS NOT NULL
+                               LIMIT 1) as thumbnail
+                       FROM video_tasks vt
+                       WHERE channel != '' AND channel IS NOT NULL AND user_id IS NULL
+                       GROUP BY channel, channel_url, channel_avatar, platform
+                       ORDER BY MAX(updated_at) DESC""",
+                ).fetchall()
+            return [dict(r) for r in rows]
+
+    def list_tasks_by_channel(self, channel: str, platform: str, user_id: str = None) -> List[dict]:
+        """Return all tasks for a specific channel+platform, ordered newest first."""
+        order = "ORDER BY (CASE WHEN published_at IS NOT NULL AND published_at != '' THEN 0 ELSE 1 END), published_at DESC, created_at DESC"
+        with self._conn() as conn:
+            if user_id:
+                rows = conn.execute(
+                    f"SELECT * FROM video_tasks WHERE channel = ? AND platform = ? AND user_id = ? {order}",
+                    (channel, platform, user_id),
+                ).fetchall()
+            else:
+                rows = conn.execute(
+                    f"SELECT * FROM video_tasks WHERE channel = ? AND platform = ? AND user_id IS NULL {order}",
+                    (channel, platform),
+                ).fetchall()
+            return [self._row_to_dict(r) for r in rows]
+
     def update_task(self, task_id: str, updates: dict):
         allowed = {
             "status", "progress", "message", "markdown", "transcript_json",
@@ -242,7 +296,7 @@ class _SQLiteVideoTaskDB:
                 return None
             return self._row_to_dict(row)
 
-    def list_tasks(self, user_id: str = None, limit: int = 100) -> List[dict]:
+    def list_tasks(self, user_id: str = None, limit: int = 2000) -> List[dict]:
         order = "ORDER BY (CASE WHEN published_at IS NOT NULL AND published_at != '' THEN 0 ELSE 1 END), published_at DESC, created_at DESC"
         with self._conn() as conn:
             if user_id:
@@ -487,7 +541,7 @@ class _SupabaseVideoTaskDB:
         with self._lock:
             self._last_flush.pop(task_id, None)
 
-    def list_tasks(self, user_id: str = None, limit: int = 100) -> List[dict]:
+    def list_tasks(self, user_id: str = None, limit: int = 2000) -> List[dict]:
         if not user_id:
             return []
         return self._sb.list_video_tasks(user_id, limit)
@@ -521,6 +575,16 @@ class _SupabaseVideoTaskDB:
         if not user_id:
             return []
         return self._sb.get_distinct_video_channels(user_id)
+
+    def list_channels_with_stats(self, user_id: str = None) -> List[dict]:
+        if not user_id:
+            return []
+        return self._sb.list_video_channels_with_stats(user_id)
+
+    def list_tasks_by_channel(self, channel: str, platform: str, user_id: str = None) -> List[dict]:
+        if not user_id or not channel:
+            return []
+        return self._sb.list_video_tasks_by_channel(channel, platform, user_id)
 
     def delete_task(self, task_id: str, user_id: str = None) -> bool:
         with self._lock:
@@ -598,7 +662,7 @@ class VideoTaskDB:
     def get_task_by_url(self, url: str, user_id: str = None) -> Optional[dict]:
         return self._backend.get_task_by_url(url, user_id)
 
-    def list_tasks(self, user_id: str = None, limit: int = 100) -> List[dict]:
+    def list_tasks(self, user_id: str = None, limit: int = 2000) -> List[dict]:
         return self._backend.list_tasks(user_id, limit)
 
     def list_recent_success_tasks(self, user_id: str = None, limit: int = 6) -> List[dict]:
@@ -628,6 +692,44 @@ class VideoTaskDB:
 
     def get_distinct_channels(self, user_id: str = None) -> List[dict]:
         return self._backend.get_distinct_channels(user_id)
+
+    def list_channels_with_stats(self, user_id: str = None) -> List[dict]:
+        if hasattr(self._backend, "list_channels_with_stats"):
+            return self._backend.list_channels_with_stats(user_id)
+        # Fallback: derive from full task list
+        tasks = self._backend.list_tasks(user_id)
+        channels: dict = {}
+        for t in tasks:
+            ch = t.get("channel") or ""
+            pl = t.get("platform") or ""
+            if not ch:
+                continue
+            key = (ch, pl)
+            if key not in channels:
+                channels[key] = {
+                    "channel": ch, "platform": pl,
+                    "channel_url": t.get("channel_url", ""),
+                    "channel_avatar": t.get("channel_avatar", ""),
+                    "thumbnail": t.get("thumbnail", ""),
+                    "total": 0, "done": 0,
+                    "last_updated": t.get("updated_at", ""),
+                }
+            entry = channels[key]
+            entry["total"] += 1
+            if t.get("status") == "success":
+                entry["done"] += 1
+            if not entry["thumbnail"] and t.get("thumbnail"):
+                entry["thumbnail"] = t["thumbnail"]
+            if (t.get("updated_at") or "") > (entry["last_updated"] or ""):
+                entry["last_updated"] = t["updated_at"]
+        return sorted(channels.values(), key=lambda x: x["last_updated"] or "", reverse=True)
+
+    def list_tasks_by_channel(self, channel: str, platform: str, user_id: str = None) -> List[dict]:
+        if hasattr(self._backend, "list_tasks_by_channel"):
+            return self._backend.list_tasks_by_channel(channel, platform, user_id)
+        # Fallback
+        tasks = self._backend.list_tasks(user_id)
+        return [t for t in tasks if t.get("channel") == channel and t.get("platform") == platform]
 
     def delete_task(self, task_id: str, user_id: str = None) -> bool:
         return self._backend.delete_task(task_id, user_id)
