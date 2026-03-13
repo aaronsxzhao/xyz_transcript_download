@@ -844,40 +844,40 @@ class SupabaseDatabase:
             "published_at, created_at, updated_at"
         )
         try:
+            # Order by published_at DESC (NULLs last via nullsfirst=False),
+            # then created_at DESC for local/podcast uploads with no published_at.
+            # This keeps platform videos (YouTube/Bilibili) in their original
+            # publish order while locals sort by upload time after them.
             result = (
                 self.client.table("video_tasks")
                 .select(cols)
                 .eq("user_id", user_id)
-                .order("created_at", desc=True)
-                .limit(limit)
-                .execute()
-            )
-        except Exception:
-            # Fallback: fetch without published_at and sort by created_at
-            cols_fallback = (
-                "id, url, platform, title, thumbnail, status, progress, message,"
-                "style, duration, error, channel, channel_url, channel_avatar,"
-                "created_at, updated_at"
-            )
-            result = (
-                self.client.table("video_tasks")
-                .select(cols_fallback)
-                .eq("user_id", user_id)
+                .order("published_at", desc=True, nullsfirst=False)
                 .order("created_at", desc=True)
                 .limit(limit)
                 .execute()
             )
             return [self._video_task_to_dict(r) for r in result.data]
+        except Exception:
+            pass
 
-        # Sort in Python: use published_at for normal videos, created_at for
-        # local/podcast uploads (platform == "local" or NULL published_at)
-        def sort_key(r: dict) -> str:
-            if r.get("published_at"):
-                return r["published_at"]
-            return r.get("created_at") or ""
-
-        rows = sorted(result.data, key=sort_key, reverse=True)
-        return [self._video_task_to_dict(r) for r in rows[:limit]]
+        # Fallback: nullsfirst not supported by this postgrest version —
+        # fetch by created_at and re-sort in Python using published_at for
+        # normal videos and created_at for local/podcast uploads.
+        cols_fallback = (
+            "id, url, platform, title, thumbnail, status, progress, message,"
+            "style, duration, error, channel, channel_url, channel_avatar,"
+            "created_at, updated_at"
+        )
+        result = (
+            self.client.table("video_tasks")
+            .select(cols_fallback)
+            .eq("user_id", user_id)
+            .order("created_at", desc=True)
+            .limit(limit)
+            .execute()
+        )
+        return [self._video_task_to_dict(r) for r in result.data]
 
     def list_recent_success_video_tasks(self, user_id: str, limit: int = 6) -> List[dict]:
         """List recent successful video tasks for dashboard cards."""

@@ -1521,6 +1521,12 @@ async def check_channels_for_updates(
                 continue
             urls = [v["url"] for v in videos]
             existing_urls = db.get_existing_urls(urls, user_id)
+            # Backfill published_at on existing tasks that are missing it
+            for v in videos:
+                if v["url"] in existing_urls and v.get("published_at"):
+                    existing = db.get_task_by_url(v["url"], user_id)
+                    if existing and not existing.get("published_at"):
+                        db.update_task(existing["id"], {"published_at": v["published_at"]})
             for v in videos:
                 if v["url"] in existing_urls:
                     continue
