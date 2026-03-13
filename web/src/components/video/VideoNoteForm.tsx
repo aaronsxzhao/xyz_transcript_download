@@ -96,8 +96,9 @@ export default function VideoNoteForm({ onTaskCreated, hideTitle }: Props) {
   const [showAdvanced, setShowAdvanced] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [activeUploadId, setActiveUploadId] = useState<string | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
-  const activeUpload = uploadSessions[0] || null
+  const activeUpload = uploadSessions.find(s => s.id === activeUploadId) || null
 
   const detectedPlatform = useMemo(() => isLocalFile ? 'local' : detectPlatform(url), [url, isLocalFile])
 
@@ -134,6 +135,7 @@ export default function VideoNoteForm({ onTaskCreated, hideTitle }: Props) {
     setIsLocalFile(true)
     const fallbackUploadId = `pending-${Date.now()}`
     let sessionId = fallbackUploadId
+    setActiveUploadId(fallbackUploadId)
     upsertUploadSession({
       id: fallbackUploadId,
       uploadId: fallbackUploadId,
@@ -153,13 +155,13 @@ export default function VideoNoteForm({ onTaskCreated, hideTitle }: Props) {
         if (progress.uploadId !== sessionId) {
           removeUploadSession(sessionId)
           sessionId = progress.uploadId
+          setActiveUploadId(sessionId)
         }
         upsertUploadSession({
           id: progress.uploadId,
           ...progress,
         })
       })
-      sessionId = sessionId || fallbackUploadId
       setUrl(result.path)
       upsertUploadSession({
         id: sessionId,
@@ -257,6 +259,7 @@ export default function VideoNoteForm({ onTaskCreated, hideTitle }: Props) {
       if (activeUpload) removeUploadSession(activeUpload.id)
       setUrl('')
       setIsLocalFile(false)
+      setActiveUploadId(null)
     } catch (e: any) {
       const msg = e?.message || 'Unknown error'
       console.error('Failed to generate note:', msg)
@@ -318,6 +321,7 @@ export default function VideoNoteForm({ onTaskCreated, hideTitle }: Props) {
                     setUrl('')
                     setIsLocalFile(false)
                     if (activeUpload) removeUploadSession(activeUpload.id)
+                    setActiveUploadId(null)
                   }}
                   className="text-xs text-gray-500 hover:text-red-400 transition-colors"
                 >
@@ -334,6 +338,7 @@ export default function VideoNoteForm({ onTaskCreated, hideTitle }: Props) {
                   setUrl(e.target.value)
                   setIsLocalFile(false)
                   if (activeUpload) removeUploadSession(activeUpload.id)
+                  setActiveUploadId(null)
                 }}
                 placeholder="Paste video URL here..."
                 className="w-full px-3 py-2.5 bg-dark-hover border border-dark-border rounded-lg text-white text-sm placeholder-gray-500 focus:outline-none focus:border-indigo-500 pr-24"
@@ -363,7 +368,7 @@ export default function VideoNoteForm({ onTaskCreated, hideTitle }: Props) {
           onChange={e => {
             const file = e.target.files?.[0]
             if (file) handleFileUpload(file)
-              e.currentTarget.value = ''
+            e.currentTarget.value = ''
           }}
         />
       </div>

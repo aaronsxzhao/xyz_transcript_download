@@ -101,6 +101,9 @@ export function connectWebSocket() {
         case 'init':
           console.log('WebSocket init:', data.jobs?.length || 0, 'jobs')
           useStore.getState().mergeJobs(data.jobs || [])
+          if (data.video_tasks?.length) {
+            useStore.getState().mergeVideoTasks(data.video_tasks)
+          }
           break
         
         case 'job_update':

@@ -548,11 +548,6 @@ def process_video_note_sync(
                 _clear_cancelled(task_id)
                 return
 
-            if is_video_task_cancelled(task_id):
-                _update_task_status(db, task_id, "cancelled", 0, "Cancelled", user_id)
-                _clear_cancelled(task_id)
-                return
-
             # Phase 3: Transcribe (42-60%) — only if subtitles weren't found
             if not transcript_text:
                 _update_task_status(db, task_id, "transcribing", 42, "Transcribing audio with Whisper...", user_id)
@@ -1408,10 +1403,11 @@ async def complete_chunked_upload(
                 with open(part_path, "rb") as src:
                     shutil.copyfileobj(src, out, length=VIDEO_UPLOAD_ASSEMBLY_COPY_BYTES)
                 bytes_written += part_path.stat().st_size
-                _update_upload_meta(upload_id, lambda current: {
+                _snapshot = bytes_written
+                _update_upload_meta(upload_id, lambda current, _bw=_snapshot: {
                     **current,
                     "phase": "assembling",
-                    "assembled_bytes": bytes_written,
+                    "assembled_bytes": _bw,
                 })
     except Exception:
         save_path.unlink(missing_ok=True)
