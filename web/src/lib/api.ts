@@ -708,6 +708,16 @@ export interface VideoUploadProgress {
   locationLabel: string
 }
 
+class UploadResponseError extends Error {
+  status: number
+
+  constructor(message: string, status: number) {
+    super(message)
+    this.name = 'UploadResponseError'
+    this.status = status
+  }
+}
+
 function isOversizedUploadStatus(status: number): boolean {
   return status === 413
 }
@@ -793,7 +803,7 @@ async function uploadVideoFileSimple(file: File): Promise<{ file_id: string; pat
     body: formData,
   })
   if (!res.ok) {
-    throw new Error(await parseUploadError(res))
+    throw new UploadResponseError(await parseUploadError(res), res.status)
   }
   return res.json()
 }
@@ -960,7 +970,7 @@ export async function uploadVideoFile(
   try {
     result = await uploadVideoFileSimple(file)
   } catch (error) {
-    if (error instanceof Error && error.message.includes('chunked upload automatically')) {
+    if (error instanceof UploadResponseError && isOversizedUploadStatus(error.status)) {
       return uploadVideoFileChunked(file, onProgress)
     }
     throw error
