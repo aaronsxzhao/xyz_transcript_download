@@ -26,6 +26,13 @@ const PLATFORM_META: Record<string, { label: string }> = {
 
 type View = { type: 'platforms' } | { type: 'channels'; platform: string } | { type: 'videos'; platform: string; channel: string }
 
+const TERMINAL_VIDEO_STATUSES = new Set(['success', 'failed', 'cancelled', 'discovered'])
+const RECENT_TERMINAL_TASK_WINDOW_MS = 15000
+
+function isActiveVideoStatus(status: string) {
+  return !TERMINAL_VIDEO_STATUSES.has(status)
+}
+
 export default function Videos() {
   const { videoTasks, mergeVideoTasks, removeVideoTask } = useStore()
   const [formOpen, setFormOpen] = useState(false)
@@ -120,9 +127,7 @@ export default function Videos() {
   }, [view, loadChannelTasks])
 
   // Poll active tasks from store (for in-progress processing)
-  const hasActiveTasks = videoTasks.some(t =>
-    !['success', 'failed', 'cancelled', 'discovered'].includes(t.status)
-  )
+  const hasActiveTasks = videoTasks.some(t => isActiveVideoStatus(t.status))
   useEffect(() => {
     if (!hasActiveTasks) return
     // When there are active tasks in a channel view, re-fetch that channel periodically
@@ -138,6 +143,42 @@ export default function Videos() {
     const interval = setInterval(loadChannels, hasActiveTasks ? 10000 : 60000)
     return () => clearInterval(interval)
   }, [loadChannels, hasActiveTasks])
+
+  const currentViewStoreTasks = useMemo(() => {
+    if (view.type !== 'videos') return [] as VideoTask[]
+    return videoTasks.filter(t =>
+      t.platform === view.platform &&
+      (t.channel || 'Unknown Channel') === view.channel
+    )
+  }, [videoTasks, view])
+
+  const activeCurrentViewTaskIds = useMemo(() => {
+    return currentViewStoreTasks
+      .filter(task => isActiveVideoStatus(task.status))
+      .map(task => task.id)
+      .sort()
+  }, [currentViewStoreTasks])
+
+  const previousActiveCurrentViewTaskIdsRef = useRef<string[]>([])
+  useEffect(() => {
+    if (view.type !== 'videos') {
+      previousActiveCurrentViewTaskIdsRef.current = []
+      return
+    }
+
+    const previousActiveIds = previousActiveCurrentViewTaskIdsRef.current
+    const finishedTaskIds = previousActiveIds.filter(taskId =>
+      !activeCurrentViewTaskIds.includes(taskId) &&
+      currentViewStoreTasks.some(task => task.id === taskId && TERMINAL_VIDEO_STATUSES.has(task.status))
+    )
+
+    previousActiveCurrentViewTaskIdsRef.current = activeCurrentViewTaskIds
+
+    if (finishedTaskIds.length > 0) {
+      loadChannelTasks(view.platform, view.channel, { preserveExisting: true })
+      loadChannels()
+    }
+  }, [activeCurrentViewTaskIds, currentViewStoreTasks, view, loadChannelTasks, loadChannels])
 
   const seenMarkedRef = useRef(false)
   useEffect(() => {
@@ -252,19 +293,22 @@ export default function Videos() {
     } catch (e) { console.error('Cancel failed:', e) }
   }
 
-  // Merge in-progress store tasks into the channel task list so they show immediately
+  // Merge in-progress store tasks into the channel task list so they show immediately,
+  // and keep just-finished tasks visible until the server-backed refresh catches up.
   const mergedChannelTasks = useMemo(() => {
     if (view.type !== 'videos') return channelTasks
-    const activePlatformChannel = videoTasks.filter(t =>
-      t.platform === view.platform &&
-      (t.channel || 'Unknown Channel') === view.channel &&
-      !['success', 'failed', 'cancelled', 'discovered'].includes(t.status)
-    )
-    if (activePlatformChannel.length === 0) return channelTasks
     const ids = new Set(channelTasks.map(t => t.id))
-    const extra = activePlatformChannel.filter(t => !ids.has(t.id))
+    const now = Date.now()
+    const extra = currentViewStoreTasks.filter(task => {
+      if (ids.has(task.id) || task.status === 'discovered') return false
+      if (isActiveVideoStatus(task.status)) return true
+
+      const updatedAt = Date.parse(task.updated_at || task.created_at || '') || 0
+      return updatedAt > 0 && now - updatedAt <= RECENT_TERMINAL_TASK_WINDOW_MS
+    })
+    if (extra.length === 0) return channelTasks
     return [...extra, ...channelTasks]
-  }, [channelTasks, videoTasks, view])
+  }, [channelTasks, currentViewStoreTasks, view])
 
   // Filtered tasks for the channel view
   const filteredChannelTasks = useMemo(() => {
