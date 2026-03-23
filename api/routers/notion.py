@@ -1,8 +1,9 @@
 """Notion integration endpoints for exporting video notes."""
+import re
 from typing import Optional
 
 import httpx
-from fastapi import APIRouter, Depends, HTTPException, Header
+from fastapi import APIRouter, Depends, HTTPException, Header, Request
 from pydantic import BaseModel
 
 from api.auth import get_current_user, User
@@ -15,6 +16,8 @@ router = APIRouter()
 
 NOTION_API_BASE = "https://api.notion.com/v1"
 NOTION_VERSION = "2022-06-28"
+_MARKDOWN_URL_PATTERN = re.compile(r'(!?)\[([^\]]*)\]\(([^)]+)\)')
+_HTML_ATTR_URL_PATTERN = re.compile(r'((?:src|href)=["\'])([^"\']+)(["\'])', re.IGNORECASE)
 
 
 def _get_notion_key(x_notion_key: Optional[str] = Header(None)) -> str:
@@ -64,6 +67,40 @@ def _extract_notion_error(resp: httpx.Response) -> str:
     except Exception:
         pass
     return resp.text[:300]
+
+
+def _normalize_export_markdown(markdown: str, request: Request) -> str:
+    if not markdown:
+        return markdown
+
+    base_origin = str(request.base_url).rstrip("/")
+
+    markdown = _MARKDOWN_URL_PATTERN.sub(
+        lambda match: match.group(2) if match.group(3).strip().startswith("#") else match.group(0),
+        markdown,
+    )
+
+    def normalize_url(raw_url: str) -> str:
+        url = raw_url.strip()
+        if not url or url.startswith(("#", "mailto:", "tel:", "data:")):
+            return raw_url
+        if re.match(r"^[a-zA-Z][a-zA-Z0-9+.-]*://", url):
+            return raw_url
+        if url.startswith("//"):
+            return f"{request.url.scheme}:{url}"
+        if url.startswith("/"):
+            return f"{base_origin}{url}"
+        return raw_url
+
+    markdown = _MARKDOWN_URL_PATTERN.sub(
+        lambda match: f"{match.group(1)}[{match.group(2)}]({normalize_url(match.group(3))})",
+        markdown,
+    )
+    markdown = _HTML_ATTR_URL_PATTERN.sub(
+        lambda match: f"{match.group(1)}{normalize_url(match.group(2))}{match.group(3)}",
+        markdown,
+    )
+    return markdown
 
 
 async def _create_notion_page(
@@ -191,6 +228,7 @@ class ExportMarkdownRequest(BaseModel):
 @router.post("/export")
 async def export_to_notion(
     req: ExportRequest,
+    request: Request,
     user: Optional[User] = Depends(get_current_user),
     x_notion_key: Optional[str] = Header(None),
 ):
@@ -212,7 +250,7 @@ async def export_to_notion(
     title = task.get("title", "Untitled Video Note")
 
     from notion_markdown import to_notion
-    blocks = to_notion(markdown)
+    blocks = to_notion(_normalize_export_markdown(markdown, request))
 
     try:
         async with httpx.AsyncClient(timeout=60.0) as client:
@@ -236,6 +274,7 @@ async def export_to_notion(
 @router.post("/export-markdown")
 async def export_markdown_to_notion(
     req: ExportMarkdownRequest,
+    request: Request,
     user: Optional[User] = Depends(get_current_user),
     x_notion_key: Optional[str] = Header(None),
 ):
@@ -246,7 +285,7 @@ async def export_markdown_to_notion(
         raise HTTPException(status_code=400, detail="No content to export")
 
     from notion_markdown import to_notion
-    blocks = to_notion(req.markdown)
+    blocks = to_notion(_normalize_export_markdown(req.markdown, request))
     title = req.title or "Untitled"
 
     try:
