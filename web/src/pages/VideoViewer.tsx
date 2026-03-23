@@ -5,7 +5,7 @@ import {
   ChevronRight, FileDown, RefreshCw, XCircle, ExternalLink, RotateCcw,
   Search, X, CheckCircle, AlertTriangle,
 } from 'lucide-react'
-import { fetchVideoTask, retryVideoTask, fetchNotionPages, exportToNotion, type VideoTask, type NotionPage } from '../lib/api'
+import { fetchVideoTask, retryVideoTask, fetchNotionPages, exportMarkdownToNotion, type VideoTask, type NotionPage } from '../lib/api'
 import MarkdownPreview from '../components/video/MarkdownPreview'
 import TranscriptPanel from '../components/video/TranscriptPanel'
 import MindMapView from '../components/video/MindMapView'
@@ -35,6 +35,39 @@ function extractToc(markdown: string): TocItem[] {
     items.push({ level, text, slug })
   }
   return items
+}
+
+function buildNotionExportMarkdown(task: VideoTask, content: string): string {
+  const lines: string[] = []
+  const title = task.title?.trim() || 'Untitled Video Note'
+
+  lines.push(`# ${title}`)
+  lines.push('')
+
+  const metadata: string[] = []
+  if (task.platform) metadata.push(`- Platform: ${task.platform}`)
+  if (task.channel) metadata.push(`- Channel: ${task.channel}`)
+  if (task.style) metadata.push(`- Style: ${task.style}`)
+  if (task.duration > 0) {
+    const m = Math.floor(task.duration / 60)
+    const s = Math.floor(task.duration % 60)
+    metadata.push(`- Duration: ${m}:${s.toString().padStart(2, '0')}`)
+  }
+  if (task.url) metadata.push(`- Source: ${task.url}`)
+
+  if (metadata.length > 0) {
+    lines.push('## Details')
+    lines.push('')
+    lines.push(...metadata)
+    lines.push('')
+  }
+
+  if (content.trim()) {
+    lines.push(content.trim())
+    lines.push('')
+  }
+
+  return lines.join('\n')
 }
 
 export default function VideoViewer() {
@@ -276,11 +309,12 @@ export default function VideoViewer() {
   }, [])
 
   const handleNotionExport = useCallback(async () => {
-    if (!taskId || !notionSelectedId) return
+    if (!task || !notionSelectedId) return
     setNotionExporting(true)
     setNotionResult(null)
     try {
-      const result = await exportToNotion(taskId, notionSelectedId)
+      const markdown = buildNotionExportMarkdown(task, content)
+      const result = await exportMarkdownToNotion(markdown, task.title || 'Untitled Video Note', notionSelectedId)
       setNotionResult({
         ok: true,
         message: `Exported "${result.title}" to Notion`,
@@ -294,7 +328,7 @@ export default function VideoViewer() {
     } finally {
       setNotionExporting(false)
     }
-  }, [taskId, notionSelectedId])
+  }, [content, notionSelectedId, task])
 
   if (loading) {
     return (

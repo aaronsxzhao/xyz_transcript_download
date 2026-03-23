@@ -26,10 +26,26 @@ import { useStore } from '../lib/store'
 
 type Tab = 'summary' | 'transcript'
 
-function summaryToMarkdown(summary: Summary): string {
+function summaryToMarkdown(summary: Summary, transcript?: Transcript | null): string {
   const lines: string[] = []
   lines.push(`# ${summary.title}`)
   lines.push('')
+
+  const metadata: string[] = []
+  if (summary.topics.length > 0) metadata.push(`- Topics: ${summary.topics.length}`)
+  if (summary.key_points.length > 0) metadata.push(`- Key points: ${summary.key_points.length}`)
+  if (transcript?.duration) {
+    const mins = Math.floor(transcript.duration / 60)
+    const secs = Math.floor(transcript.duration % 60)
+    metadata.push(`- Duration: ${mins}:${secs.toString().padStart(2, '0')}`)
+  }
+
+  if (metadata.length > 0) {
+    lines.push('## Details')
+    lines.push('')
+    lines.push(...metadata)
+    lines.push('')
+  }
 
   if (summary.overview) {
     lines.push('## Overview')
@@ -169,7 +185,7 @@ export default function Viewer() {
 
   const getMarkdown = (): string => {
     if (!summary) return ''
-    return summaryToMarkdown(summary)
+    return summaryToMarkdown(summary, transcript)
   }
 
   const handleCopy = async () => {
@@ -292,7 +308,7 @@ export default function Viewer() {
     setNotionExporting(true)
     setNotionResult(null)
     try {
-      const md = summaryToMarkdown(summary)
+      const md = summaryToMarkdown(summary, transcript)
       const result = await exportMarkdownToNotion(md, summary.title, notionSelectedId)
       setNotionResult({ ok: true, message: `Exported "${result.title}" to Notion`, url: result.url })
     } catch (err) {
@@ -300,7 +316,7 @@ export default function Viewer() {
     } finally {
       setNotionExporting(false)
     }
-  }, [summary, notionSelectedId])
+  }, [notionSelectedId, summary, transcript])
   
   function toggleTopic(topic: string) {
     const newExpanded = new Set(expandedTopics)

@@ -56,6 +56,76 @@ def _extract_icon(page: dict) -> str:
     return ""
 
 
+def _extract_notion_error(resp: httpx.Response) -> str:
+    try:
+        body = resp.json()
+        if isinstance(body, dict):
+            return body.get("message") or body.get("detail") or resp.text[:300]
+    except Exception:
+        pass
+    return resp.text[:300]
+
+
+async def _create_notion_page(
+    client: httpx.AsyncClient,
+    key: str,
+    parent_page_id: str,
+    title: str,
+) -> tuple[str, str]:
+    create_resp = await client.post(
+        f"{NOTION_API_BASE}/pages",
+        headers=_notion_headers(key),
+        json={
+            "parent": {"type": "page_id", "page_id": parent_page_id},
+            "properties": {
+                "title": {
+                    "title": [{"text": {"content": title}}]
+                }
+            },
+        },
+    )
+    if create_resp.status_code == 401:
+        raise HTTPException(status_code=401, detail="Invalid Notion API key")
+    if create_resp.status_code not in (200, 201):
+        detail = _extract_notion_error(create_resp)
+        logger.warning(f"Notion create page failed: {create_resp.status_code} {detail}")
+        raise HTTPException(
+            status_code=502,
+            detail=f"Failed to create Notion page: {detail}",
+        )
+
+    page_data = create_resp.json()
+    return page_data["id"], page_data.get("url", "")
+
+
+async def _append_notion_blocks(
+    client: httpx.AsyncClient,
+    key: str,
+    page_id: str,
+    blocks: list[dict],
+) -> None:
+    for i in range(0, len(blocks), 100):
+        batch = blocks[i : i + 100]
+        append_resp = await client.patch(
+            f"{NOTION_API_BASE}/blocks/{page_id}/children",
+            headers=_notion_headers(key),
+            json={"children": batch},
+        )
+        if append_resp.status_code not in (200, 201):
+            detail = _extract_notion_error(append_resp)
+            logger.warning(
+                f"Notion append blocks batch {i // 100} failed: "
+                f"{append_resp.status_code} {detail}"
+            )
+            raise HTTPException(
+                status_code=502,
+                detail=(
+                    "Failed to append all content to Notion. "
+                    f"Batch {i // 100 + 1} was rejected: {detail}"
+                ),
+            )
+
+
 @router.get("/pages")
 async def list_notion_pages(
     query: str = "",
@@ -145,47 +215,11 @@ async def export_to_notion(
     blocks = to_notion(markdown)
 
     try:
-        async with httpx.AsyncClient(timeout=30.0) as client:
-            # Create sub-page under parent
-            create_resp = await client.post(
-                f"{NOTION_API_BASE}/pages",
-                headers=_notion_headers(key),
-                json={
-                    "parent": {"type": "page_id", "page_id": req.parent_page_id},
-                    "properties": {
-                        "title": {
-                            "title": [{"text": {"content": title}}]
-                        }
-                    },
-                },
+        async with httpx.AsyncClient(timeout=60.0) as client:
+            page_id, page_url = await _create_notion_page(
+                client, key, req.parent_page_id, title
             )
-            if create_resp.status_code == 401:
-                raise HTTPException(status_code=401, detail="Invalid Notion API key")
-            if create_resp.status_code != 200:
-                detail = create_resp.json().get("message", create_resp.text[:300])
-                logger.warning(f"Notion create page failed: {create_resp.status_code} {detail}")
-                raise HTTPException(
-                    status_code=502,
-                    detail=f"Failed to create Notion page: {detail}",
-                )
-
-            page_data = create_resp.json()
-            page_id = page_data["id"]
-            page_url = page_data.get("url", "")
-
-            # Append content blocks in batches of 100 (API limit)
-            for i in range(0, len(blocks), 100):
-                batch = blocks[i : i + 100]
-                append_resp = await client.patch(
-                    f"{NOTION_API_BASE}/blocks/{page_id}/children",
-                    headers=_notion_headers(key),
-                    json={"children": batch},
-                )
-                if append_resp.status_code not in (200, 201):
-                    logger.warning(
-                        f"Notion append blocks batch {i // 100} failed: "
-                        f"{append_resp.status_code} {append_resp.text[:200]}"
-                    )
+            await _append_notion_blocks(client, key, page_id, blocks)
 
         logger.info(f"Exported video note '{title}' to Notion: {page_url}")
         return {"url": page_url, "page_id": page_id, "title": title}
@@ -216,41 +250,11 @@ async def export_markdown_to_notion(
     title = req.title or "Untitled"
 
     try:
-        async with httpx.AsyncClient(timeout=30.0) as client:
-            create_resp = await client.post(
-                f"{NOTION_API_BASE}/pages",
-                headers=_notion_headers(key),
-                json={
-                    "parent": {"type": "page_id", "page_id": req.parent_page_id},
-                    "properties": {
-                        "title": {
-                            "title": [{"text": {"content": title}}]
-                        }
-                    },
-                },
+        async with httpx.AsyncClient(timeout=60.0) as client:
+            page_id, page_url = await _create_notion_page(
+                client, key, req.parent_page_id, title
             )
-            if create_resp.status_code == 401:
-                raise HTTPException(status_code=401, detail="Invalid Notion API key")
-            if create_resp.status_code != 200:
-                detail = create_resp.json().get("message", create_resp.text[:300])
-                raise HTTPException(status_code=502, detail=f"Failed to create Notion page: {detail}")
-
-            page_data = create_resp.json()
-            page_id = page_data["id"]
-            page_url = page_data.get("url", "")
-
-            for i in range(0, len(blocks), 100):
-                batch = blocks[i : i + 100]
-                append_resp = await client.patch(
-                    f"{NOTION_API_BASE}/blocks/{page_id}/children",
-                    headers=_notion_headers(key),
-                    json={"children": batch},
-                )
-                if append_resp.status_code not in (200, 201):
-                    logger.warning(
-                        f"Notion append blocks batch {i // 100} failed: "
-                        f"{append_resp.status_code} {append_resp.text[:200]}"
-                    )
+            await _append_notion_blocks(client, key, page_id, blocks)
 
         logger.info(f"Exported markdown '{title}' to Notion: {page_url}")
         return {"url": page_url, "page_id": page_id, "title": title}

@@ -72,10 +72,20 @@ export default function Videos() {
   }, [])
 
   // Load tasks for the currently viewed channel
-  const loadChannelTasks = useCallback(async (platform: string, channel: string) => {
+  const loadChannelTasks = useCallback(async (
+    platform: string,
+    channel: string,
+    options: { preserveExisting?: boolean } = {},
+  ) => {
     const key = `${platform}::${channel}`
+    const preserveExisting = options.preserveExisting === true
+    if (!preserveExisting) {
+      if (loadedChannelRef.current !== key) {
+        setChannelTasks([])
+      }
+      setChannelTasksLoading(true)
+    }
     loadedChannelRef.current = key
-    setChannelTasksLoading(true)
     try {
       const data = await fetchVideoTasksByChannel(platform, channel)
       // Only apply if still viewing the same channel
@@ -87,7 +97,9 @@ export default function Videos() {
     } catch (e) {
       console.error('Failed to load channel tasks:', e)
     } finally {
-      if (loadedChannelRef.current === key) setChannelTasksLoading(false)
+      if (!preserveExisting && loadedChannelRef.current === key) {
+        setChannelTasksLoading(false)
+      }
     }
   }, [mergeVideoTasks])
 
@@ -116,7 +128,7 @@ export default function Videos() {
     // When there are active tasks in a channel view, re-fetch that channel periodically
     if (view.type !== 'videos') return
     const interval = setInterval(() => {
-      loadChannelTasks(view.platform, view.channel)
+      loadChannelTasks(view.platform, view.channel, { preserveExisting: true })
     }, 5000)
     return () => clearInterval(interval)
   }, [hasActiveTasks, view, loadChannelTasks])
@@ -146,7 +158,7 @@ export default function Videos() {
       if (result.new_videos > 0) {
         addToast({ type: 'success', title: 'New videos found', message: `Found ${result.new_videos} new video(s) from ${result.channels_checked} channel(s)` })
         loadChannels()
-        if (view.type === 'videos') loadChannelTasks(view.platform, view.channel)
+        if (view.type === 'videos') loadChannelTasks(view.platform, view.channel, { preserveExisting: true })
       } else {
         const scope = view.type === 'videos' ? view.channel
           : view.type === 'channels' ? (PLATFORM_META[view.platform]?.label || view.platform)
@@ -177,7 +189,7 @@ export default function Videos() {
       if (result.new_videos > 0) {
         addToast({ type: 'success', title: 'New videos found', message: `Found ${result.new_videos} new video(s) from ${channelName}` })
         loadChannels()
-        if (view.type === 'videos' && view.channel === channelName) loadChannelTasks(view.platform, view.channel)
+      if (view.type === 'videos' && view.channel === channelName) loadChannelTasks(view.platform, view.channel, { preserveExisting: true })
       } else {
         addToast({ type: 'info', title: 'All caught up', message: `No new videos from ${channelName}` })
       }
@@ -227,7 +239,7 @@ export default function Videos() {
       await retryVideoTask(taskId)
       const task = channelTasks.find(t => t.id === taskId)
       addToast({ type: 'success', title: 'Processing started', message: task?.title || 'Video processing started' })
-      if (view.type === 'videos') loadChannelTasks(view.platform, view.channel)
+      if (view.type === 'videos') loadChannelTasks(view.platform, view.channel, { preserveExisting: true })
     } catch (e) {
       console.error('Retry failed:', e)
       addToast({ type: 'error', title: 'Failed to start processing', message: e instanceof Error ? e.message : 'Unknown error' })
@@ -236,7 +248,7 @@ export default function Videos() {
   const handleCancel = async (taskId: string) => {
     try {
       await cancelVideoTask(taskId)
-      if (view.type === 'videos') loadChannelTasks(view.platform, view.channel)
+      if (view.type === 'videos') loadChannelTasks(view.platform, view.channel, { preserveExisting: true })
     } catch (e) { console.error('Cancel failed:', e) }
   }
 
