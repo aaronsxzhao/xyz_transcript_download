@@ -11,6 +11,18 @@ import { markSeen, shouldDismissCompleted } from '../lib/seen'
 
 const MOBILE_BREAKPOINT = 640
 
+function formatBytes(bytes: number): string {
+  if (!Number.isFinite(bytes) || bytes <= 0) return '0 MB'
+  const units = ['B', 'KB', 'MB', 'GB', 'TB']
+  let value = bytes
+  let unitIndex = 0
+  while (value >= 1024 && unitIndex < units.length - 1) {
+    value /= 1024
+    unitIndex += 1
+  }
+  return `${value >= 100 ? value.toFixed(0) : value.toFixed(1)} ${units[unitIndex]}`
+}
+
 export default function ProcessingPanel() {
   const { jobs, videoTasks, uploadSessions, wsConnected, removeJob, removeUploadSession } = useStore()
   const [expanded, setExpanded] = useState(() =>
@@ -205,7 +217,7 @@ function UploadSessionItem({ session, onDismiss }: { session: VideoUploadSession
       </div>
       <div className="flex justify-between items-center">
         <p className="text-xs text-sky-400">
-          {session.uploadedBytes.toLocaleString()} / {session.totalBytes.toLocaleString()} bytes
+          {formatBytes(session.uploadedBytes)} / {formatBytes(session.totalBytes)}
         </p>
         <p className="text-xs font-medium text-white">{Math.round(session.percent)}%</p>
       </div>
