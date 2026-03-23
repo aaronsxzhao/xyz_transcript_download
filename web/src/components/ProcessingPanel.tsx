@@ -46,7 +46,7 @@ export default function ProcessingPanel() {
 
   const visibleUploadSessions = uploadSessions.filter(session => session.phase !== 'queued')
   const activeUploadSessions = visibleUploadSessions.filter(session =>
-    !['failed'].includes(session.phase)
+    !['failed', 'success', 'cancelled'].includes(session.phase)
   )
 
   const totalActive = activeJobs.length + activeVideoTasks.length + activeUploadSessions.length
@@ -156,9 +156,13 @@ export default function ProcessingPanel() {
 }
 
 function UploadSessionItem({ session, onDismiss }: { session: VideoUploadSession; onDismiss: () => void }) {
-  const isActive = !['failed'].includes(session.phase)
+  const isActive = !['failed', 'success', 'cancelled'].includes(session.phase)
   const statusColor = session.phase === 'failed'
     ? 'bg-red-500'
+    : session.phase === 'success'
+      ? 'bg-emerald-500'
+      : session.phase === 'cancelled'
+        ? 'bg-orange-400'
     : session.phase === 'assembling'
       ? 'bg-amber-500'
       : session.phase === 'uploaded'

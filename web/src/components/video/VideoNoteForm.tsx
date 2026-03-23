@@ -78,7 +78,7 @@ function formatBytes(bytes: number): string {
 export default function VideoNoteForm({ onTaskCreated, hideTitle }: Props) {
   const navigate = useNavigate()
   const savedDefaults = useMemo(() => getVideoProcessingDefaults(), [])
-  const { uploadSessions, upsertUploadSession, removeUploadSession } = useStore()
+  const { uploadSessions, videoTasks, upsertUploadSession, removeUploadSession } = useStore()
   const [url, setUrl] = useState('')
   const [isLocalFile, setIsLocalFile] = useState(false)
   const [style, setStyle] = useState(() => (savedDefaults.style as string) || 'detailed')
@@ -99,6 +99,22 @@ export default function VideoNoteForm({ onTaskCreated, hideTitle }: Props) {
   const [activeUploadId, setActiveUploadId] = useState<string | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const activeUpload = uploadSessions.find(s => s.id === activeUploadId) || null
+  const linkedTask = activeUpload?.taskId
+    ? videoTasks.find(task => task.id === activeUpload.taskId) || null
+    : null
+  const displayUpload = useMemo(() => {
+    if (!activeUpload) return null
+    if (!linkedTask) return activeUpload
+
+    return {
+      ...activeUpload,
+      phase: linkedTask.status,
+      percent: Math.max(activeUpload.percent || 0, linkedTask.progress || 0),
+      statusText: linkedTask.message || linkedTask.status,
+      locationLabel: 'Server processing queue',
+      error: linkedTask.error || activeUpload.error,
+    }
+  }, [activeUpload, linkedTask])
 
   const detectedPlatform = useMemo(() => isLocalFile ? 'local' : detectPlatform(url), [url, isLocalFile])
 
@@ -123,6 +139,48 @@ export default function VideoNoteForm({ onTaskCreated, hideTitle }: Props) {
       setIsLocalFile(true)
     }
   }, [activeUpload?.path])
+
+  useEffect(() => {
+    if (!activeUploadId && uploadSessions.length > 0) {
+      const preferredSession =
+        uploadSessions.find(session => !['failed'].includes(session.phase)) ||
+        uploadSessions[0]
+      if (preferredSession) {
+        setActiveUploadId(preferredSession.id)
+        setIsLocalFile(true)
+      }
+    }
+  }, [activeUploadId, uploadSessions])
+
+  useEffect(() => {
+    if (!activeUpload || !linkedTask) return
+    const nextPercent = ['success', 'failed', 'cancelled'].includes(linkedTask.status)
+      ? 100
+      : Math.max(activeUpload.percent || 0, linkedTask.progress || 0)
+    const nextStatusText = linkedTask.message || linkedTask.status
+    const nextError = linkedTask.error || activeUpload.error
+    const nextPhase = linkedTask.status
+
+    if (
+      activeUpload.phase === nextPhase &&
+      activeUpload.percent === nextPercent &&
+      activeUpload.statusText === nextStatusText &&
+      activeUpload.locationLabel === 'Server processing queue' &&
+      activeUpload.error === nextError
+    ) {
+      return
+    }
+
+    upsertUploadSession({
+      ...activeUpload,
+      id: activeUpload.id,
+      phase: nextPhase,
+      percent: nextPercent,
+      statusText: nextStatusText,
+      locationLabel: 'Server processing queue',
+      error: nextError,
+    })
+  }, [activeUpload, linkedTask, upsertUploadSession])
 
   const toggleFormat = (id: string) => {
     setFormats(prev =>
@@ -250,16 +308,24 @@ export default function VideoNoteForm({ onTaskCreated, hideTitle }: Props) {
         grid_rows: gridRows,
       })
       const localTitle = activeUpload?.filename?.replace(/\.[^.]+$/, '') || 'Local video'
+      if (activeUpload) {
+        upsertUploadSession({
+          ...activeUpload,
+          id: activeUpload.id,
+          taskId: result.task_id,
+          phase: 'pending',
+          percent: 100,
+          statusText: 'Upload complete. Queued for processing...',
+          locationLabel: 'Server processing queue',
+        })
+      }
       onTaskCreated?.({
         taskId: result.task_id,
         title: detectedPlatform === 'local' ? localTitle : '',
         url: url.trim(),
         platform: detectedPlatform,
       })
-      if (activeUpload) removeUploadSession(activeUpload.id)
-      setUrl('')
-      setIsLocalFile(false)
-      setActiveUploadId(null)
+      setActiveUploadId(prev => prev || activeUpload?.id || null)
     } catch (e: any) {
       const msg = e?.message || 'Unknown error'
       console.error('Failed to generate note:', msg)
@@ -292,28 +358,28 @@ export default function VideoNoteForm({ onTaskCreated, hideTitle }: Props) {
                 <PlatformIcon platform="local" size={14} className={PLATFORM_COLORS['local'] || 'text-gray-400'} />
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2">
-                    <span className="text-sm text-white truncate">{activeUpload?.filename || 'Local file'}</span>
-                    <span className="text-[11px] text-gray-500 whitespace-nowrap">{activeUpload?.percent ?? 0}%</span>
+                    <span className="text-sm text-white truncate">{displayUpload?.filename || 'Local file'}</span>
+                    <span className="text-[11px] text-gray-500 whitespace-nowrap">{displayUpload?.percent ?? 0}%</span>
                   </div>
                   <div className="mt-1 text-xs text-gray-400">
-                    {activeUpload?.statusText || 'Choose a local file to upload'}
+                    {displayUpload?.statusText || 'Choose a local file to upload'}
                   </div>
                   <div className="mt-1 h-1.5 bg-dark-border rounded-full overflow-hidden">
                     <div
                       className={`h-full transition-all duration-300 ${
-                        activeUpload?.phase === 'failed' ? 'bg-red-500' : 'bg-indigo-500'
+                        displayUpload?.phase === 'failed' ? 'bg-red-500' : 'bg-indigo-500'
                       }`}
-                      style={{ width: `${Math.max(4, activeUpload?.percent ?? 0)}%` }}
+                      style={{ width: `${Math.max(4, displayUpload?.percent ?? 0)}%` }}
                     />
                   </div>
                   <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-gray-500">
                     <span>
-                      {formatBytes(activeUpload?.uploadedBytes || 0)} / {formatBytes(activeUpload?.totalBytes || 0)}
+                      {formatBytes(displayUpload?.uploadedBytes || 0)} / {formatBytes(displayUpload?.totalBytes || 0)}
                     </span>
-                    {(activeUpload?.totalChunks || 0) > 0 && (
-                      <span>{activeUpload?.uploadedChunks || 0}/{activeUpload?.totalChunks || 0} chunks</span>
+                    {(displayUpload?.totalChunks || 0) > 0 && (
+                      <span>{displayUpload?.uploadedChunks || 0}/{displayUpload?.totalChunks || 0} chunks</span>
                     )}
-                    <span>{activeUpload?.locationLabel || 'Temporary server upload area'}</span>
+                    <span>{displayUpload?.locationLabel || 'Temporary server upload area'}</span>
                   </div>
                 </div>
                 <button

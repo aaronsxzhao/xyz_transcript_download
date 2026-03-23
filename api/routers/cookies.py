@@ -610,6 +610,28 @@ PLATFORM_DOMAINS = {
     "kuaishou": ".kuaishou.com",
 }
 
+YOUTUBE_COOKIE_KEY_HINTS = {"SID", "SSID", "HSID", "APISID", "SAPISID", "LOGIN_INFO"}
+
+
+def _domain_matches_platform(platform: str, line_domain: str) -> bool:
+    normalized = (line_domain or "").strip().lower().lstrip(".")
+    if not normalized:
+        return False
+
+    if platform == "youtube":
+      if (
+          normalized.endswith("youtube.com") or
+          normalized.endswith("youtu.be") or
+          normalized.endswith("google.com") or
+          normalized.endswith("google.com.hk") or
+          normalized.endswith("youtube-nocookie.com")
+      ):
+          return True
+      return False
+
+    domain = PLATFORM_DOMAINS.get(platform, "").lstrip(".")
+    return bool(domain) and (domain in normalized or normalized in domain)
+
 
 class SimpleCookieUpdate(BaseModel):
     platform: str
@@ -624,6 +646,22 @@ async def save_simple_cookie(data: SimpleCookieUpdate, user: Optional[User] = De
         raise HTTPException(status_code=400, detail=f"Unknown platform: {data.platform}")
     if not data.cookie_string.strip():
         raise HTTPException(status_code=400, detail="Cookie string is empty")
+
+    if data.platform == "youtube":
+        cookie_names = {
+            part.split("=", 1)[0].strip()
+            for part in data.cookie_string.split(";")
+            if "=" in part
+        }
+        if not (cookie_names & YOUTUBE_COOKIE_KEY_HINTS):
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    "This YouTube cookie string does not include the critical auth cookies "
+                    "(such as SID / SAPISID / LOGIN_INFO) that cloud downloads usually need. "
+                    "Please use the cookies.txt file upload method from a logged-in YouTube browser session."
+                ),
+            )
 
     netscape = _simple_cookie_to_netscape(data.cookie_string, domain)
     from cookie_manager import get_cookie_manager
@@ -665,6 +703,7 @@ async def upload_cookie_file(
     lines = text.strip().splitlines()
     filtered_lines = ["# Netscape HTTP Cookie File", ""]
     cookie_count = 0
+    cookie_names: set[str] = set()
     for line in lines:
         line = line.strip()
         if not line:
@@ -677,15 +716,27 @@ async def upload_cookie_file(
         parts = line.split("\t")
         if len(parts) >= 7:
             line_domain = parts[0]
-            if domain.lstrip(".") in line_domain or line_domain.lstrip(".") in domain.lstrip("."):
+            if _domain_matches_platform(platform, line_domain):
                 filtered_lines.append(line)
                 cookie_count += 1
+                if parts[5]:
+                    cookie_names.add(parts[5])
 
     if cookie_count == 0:
         raise HTTPException(
             status_code=400,
             detail=f"No cookies found for {platform} (domain {domain}) in the uploaded file. "
                    f"Make sure you exported cookies from the correct website.",
+        )
+
+    if platform == "youtube" and not (cookie_names & YOUTUBE_COOKIE_KEY_HINTS):
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "The uploaded YouTube cookies.txt file is missing the critical auth cookies "
+                "(such as SID / SAPISID / LOGIN_INFO). Re-export cookies from a browser where "
+                "YouTube is already logged in, using the cookies.txt extension."
+            ),
         )
 
     netscape = "\n".join(filtered_lines) + "\n"
@@ -698,7 +749,10 @@ async def upload_cookie_file(
             status_code=500,
             detail=f"Failed to save cookies: {e}. Please check your database configuration.",
         )
-    logger.info(f"Uploaded cookies.txt for {platform}: {cookie_count} cookies saved")
+    logger.info(
+        f"Uploaded cookies.txt for {platform}: {cookie_count} cookies saved, "
+        f"key_sample={sorted(cookie_names)[:15]}"
+    )
     return {"message": f"Saved {cookie_count} cookies for {platform}", "cookie_count": cookie_count}
 
 

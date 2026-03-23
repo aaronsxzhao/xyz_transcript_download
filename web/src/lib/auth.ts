@@ -138,29 +138,40 @@ export async function signOut(): Promise<void> {
  * Get the current user
  */
 export async function getCurrentUser(): Promise<AuthUser | null> {
+  const fetchUser = async (token: string): Promise<AuthUser | null> => {
+    const res = await fetch(`${API_BASE}/me`, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+      },
+    })
+
+    if (!res.ok) {
+      return null
+    }
+
+    const user = await res.json()
+    if (!user.authenticated) {
+      return null
+    }
+    return user
+  }
+
   const token = getAccessToken()
-  
   if (!token) {
     return null
   }
-  
-  const res = await fetch(`${API_BASE}/me`, {
-    headers: {
-      'Authorization': `Bearer ${token}`,
-    },
-  })
-  
-  if (!res.ok) {
+
+  const currentUser = await fetchUser(token)
+  if (currentUser) {
+    return currentUser
+  }
+
+  const refreshed = await refreshToken()
+  if (!refreshed?.access_token) {
     return null
   }
-  
-  const user = await res.json()
-  
-  if (!user.authenticated) {
-    return null
-  }
-  
-  return user
+
+  return fetchUser(refreshed.access_token)
 }
 
 /**

@@ -8,6 +8,7 @@ export interface VideoUploadSession extends VideoUploadProgress {
   id: string
   path?: string
   error?: string
+  taskId?: string
 }
 
 interface AppState {
