@@ -50,6 +50,11 @@ Thumbs.db
 
 # Node
 web/node_modules/
+desktop/node_modules/
 
 # Logs
 *.log
+
+# Desktop packaging artifacts
+desktop/.stage/
+desktop/dist/

@@ -1,0 +1,67 @@
+{
+  "name": "xyz-desktop",
+  "version": "1.0.0",
+  "description": "Desktop wrapper for the XYZ local app",
+  "main": "electron/main.js",
+  "scripts": {
+    "start": "electron .",
+    "build:web": "npm --prefix ../web run build",
+    "prepare:backend": "node ./scripts/run_python_script.mjs ./scripts/build_backend_runtime.py",
+    "pack": "npm run build:web && npm run prepare:backend && electron-builder --dir",
+    "dist": "npm run build:web && npm run prepare:backend && electron-builder"
+  },
+  "keywords": [
+    "electron",
+    "desktop",
+    "fastapi",
+    "react"
+  ],
+  "author": "",
+  "license": "MIT",
+  "type": "commonjs",
+  "devDependencies": {
+    "electron": "^41.0.3",
+    "electron-builder": "^26.8.1"
+  },
+  "build": {
+    "appId": "com.xyz.podcast.desktop",
+    "productName": "XYZ Podcast",
+    "directories": {
+      "output": "dist",
+      "buildResources": "buildResources"
+    },
+    "files": [
+      "electron/**/*",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": ".stage/backend",
+        "to": "backend"
+      },
+      {
+        "from": ".stage/tools",
+        "to": "tools"
+      }
+    ],
+    "asar": true,
+    "mac": {
+      "target": [
+        "dmg",
+        "zip"
+      ],
+      "category": "public.app-category.productivity"
+    },
+    "win": {
+      "target": [
+        "nsis",
+        "zip"
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true
+    }
+  }
+}
