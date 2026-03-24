@@ -182,14 +182,16 @@ def _parse_timestamp_str(time_str: str) -> float:
 
 
 # Matches Screenshot-[MM:SS] or Screenshot-[H:MM:SS] with optional surrounding *, backticks
-_SCREENSHOT_PATTERN = re.compile(r'`?\*?Screenshot-\[(\d+(?::\d+){1,2})\]\*?`?')
+# Also matches the bracket-less form Screenshot-MM:SS that LLMs sometimes generate
+_SCREENSHOT_PATTERN = re.compile(r'`?\*?Screenshot-(?:\[(\d+(?::\d+){1,2})\]|(\d+(?::\d+){1,2}))\*?`?')
 
 
 def extract_timestamps_from_markdown(markdown: str) -> List[float]:
     """Parse Screenshot-[timestamp] markers from generated markdown and return timestamps."""
     timestamps = []
     for match in _SCREENSHOT_PATTERN.finditer(markdown):
-        timestamps.append(_parse_timestamp_str(match.group(1)))
+        ts_str = match.group(1) or match.group(2)
+        timestamps.append(_parse_timestamp_str(ts_str))
     return timestamps
 
 
@@ -214,7 +216,8 @@ def replace_screenshot_markers(
             pass
 
     def replacer(match):
-        total_seconds = _parse_timestamp_str(match.group(1))
+        ts_str = match.group(1) or match.group(2)
+        total_seconds = _parse_timestamp_str(ts_str)
         m = int(total_seconds // 60)
         s = int(total_seconds % 60)
         ts_str = f"{m:02d}-{s:02d}"

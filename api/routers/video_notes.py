@@ -786,7 +786,7 @@ def process_video_note_sync(
                 logger.warning(f"No video file for screenshots in task {task_id}, removing markers")
                 import re
                 markdown = re.sub(
-                    r'\*?Screenshot-\[\d+(?::\d+){1,2}\]\*?\n?', '', markdown
+                    r'\*?Screenshot-(?:\[\d+(?::\d+){1,2}\]|\d+(?::\d+){1,2})\*?\n?', '', markdown
                 )
 
         # Save result
