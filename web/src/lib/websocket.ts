@@ -12,6 +12,8 @@ let ws: WebSocket | null = null
 let pollInterval: number | null = null
 let wsWorking = false
 let lastMessageTime = 0
+/** Set on socket open; used when no message was ever received (lastMessageTime still 0). */
+let wsOpenTime = 0
 let staleCheckInterval: number | null = null
 let connected = false
 
@@ -65,6 +67,7 @@ export function connectWebSocket() {
   ws = new WebSocket(wsUrl)
   
   ws.onopen = () => {
+    wsOpenTime = Date.now()
     console.log('WebSocket connected')
     useStore.getState().setWsConnected(true)
     
@@ -138,13 +141,18 @@ export function connectWebSocket() {
       !['completed', 'failed', 'cancelled'].includes(job.status)
     )
     
-    if (hasActiveJobs && wsWorking && lastMessageTime > 0) {
-      const timeSinceLastMessage = Date.now() - lastMessageTime
-      if (timeSinceLastMessage > 30000) {
-        console.log('WebSocket appears stale (no message for 30s), reconnecting...')
-        wsWorking = false
-        ws?.close()
-      }
+    const lastActivity = lastMessageTime > 0 ? lastMessageTime : wsOpenTime
+    const trustWs =
+      lastMessageTime > 0 ? wsWorking : true
+    if (
+      hasActiveJobs &&
+      trustWs &&
+      lastActivity > 0 &&
+      Date.now() - lastActivity > 30000
+    ) {
+      console.log('WebSocket appears stale (no message for 30s), reconnecting...')
+      wsWorking = false
+      ws?.close()
     }
   }, 15000)
 }

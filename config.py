@@ -4,6 +4,7 @@ Loads settings from environment variables with validation.
 """
 
 import os
+import threading
 from pathlib import Path
 from typing import List, Optional
 
@@ -234,6 +235,27 @@ SUPABASE_JWT_SECRET = _get_env("SUPABASE_JWT_SECRET", "")  # JWT secret for veri
 # Use Supabase if configured, otherwise fall back to local SQLite
 USE_SUPABASE = bool(SUPABASE_URL and SUPABASE_KEY)
 
+
+def _parse_cors_allowed_origins() -> List[str]:
+    """Comma-separated origins; defaults cover local dev and production app host."""
+    raw = _get_env("CORS_ALLOWED_ORIGINS", "")
+    if raw.strip():
+        return [o.strip() for o in raw.split(",") if o.strip()]
+    return [
+        "https://aipodcastsummary.online",
+        "https://www.aipodcastsummary.online",
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
+        "http://localhost:4173",
+        "http://127.0.0.1:4173",
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+    ]
+
+
+# Explicit list required when allow_credentials=True (browser CORS rules).
+CORS_ALLOWED_ORIGINS = _parse_cors_allowed_origins()
+
 # Request headers for Xiaoyuzhou API
 DEFAULT_HEADERS = {
     "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36",
@@ -289,26 +311,31 @@ _RUNTIME_SETTINGS: dict = {
     "whisper_model": WHISPER_API_MODEL,
     "llm_model": LLM_MODEL,
 }
+_RUNTIME_SETTINGS_LOCK = threading.Lock()
 
 
 def get_runtime_settings() -> dict:
     """Get current runtime settings."""
-    return _RUNTIME_SETTINGS.copy()
+    with _RUNTIME_SETTINGS_LOCK:
+        return _RUNTIME_SETTINGS.copy()
 
 
 def set_runtime_settings(settings: dict) -> None:
     """Update runtime settings."""
     global _RUNTIME_SETTINGS
-    for key, value in settings.items():
-        if key in _RUNTIME_SETTINGS:
-            _RUNTIME_SETTINGS[key] = value
+    with _RUNTIME_SETTINGS_LOCK:
+        for key, value in settings.items():
+            if key in _RUNTIME_SETTINGS:
+                _RUNTIME_SETTINGS[key] = value
 
 
 def get_whisper_model() -> str:
     """Get the current whisper model to use."""
-    return _RUNTIME_SETTINGS.get("whisper_model", WHISPER_API_MODEL)
+    with _RUNTIME_SETTINGS_LOCK:
+        return _RUNTIME_SETTINGS.get("whisper_model", WHISPER_API_MODEL)
 
 
 def get_llm_model() -> str:
     """Get the current LLM model to use."""
-    return _RUNTIME_SETTINGS.get("llm_model", LLM_MODEL)
+    with _RUNTIME_SETTINGS_LOCK:
+        return _RUNTIME_SETTINGS.get("llm_model", LLM_MODEL)

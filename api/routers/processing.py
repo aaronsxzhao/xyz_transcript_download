@@ -1288,7 +1288,7 @@ async def websocket_progress(websocket: WebSocket, token: Optional[str] = None):
     1. First message: {"type": "auth", "token": "..."} - preferred, token not logged
     2. URL query param: ?token=... - fallback for compatibility, token appears in logs
     """
-    from api.auth import verify_jwt_token
+    from api.auth import verify_jwt_token_async
     
     # Log if token was provided in URL (for debugging)
     if token:
@@ -1309,7 +1309,7 @@ async def websocket_progress(websocket: WebSocket, token: Optional[str] = None):
             auth_token = auth_data.get("token")
             if auth_token:
                 logger.info(f"[WS] Auth message received (token length={len(auth_token)})")
-                payload = verify_jwt_token(auth_token)
+                payload = await verify_jwt_token_async(auth_token)
                 if payload:
                     user_id = payload.get("sub")
                     logger.info(f"[WS] Auth message verified: user={user_id}")
@@ -1329,7 +1329,7 @@ async def websocket_progress(websocket: WebSocket, token: Optional[str] = None):
     # Fallback: try URL token if no auth message worked
     if not user_id and token:
         try:
-            payload = verify_jwt_token(token)
+            payload = await verify_jwt_token_async(token)
             if payload:
                 user_id = payload.get("sub")
                 logger.info(f"[WS] Auth via URL token: user={user_id}")

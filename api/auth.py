@@ -15,12 +15,13 @@ Usage:
 - require_auth: Raises 401 if not authenticated, use for auth-only endpoints
 """
 
+import asyncio
 from typing import Optional
 from dataclasses import dataclass
 import threading
 import time
 
-from fastapi import HTTPException, Request, Depends
+from fastapi import HTTPException, Request, Depends, Header
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 
 from config import USE_SUPABASE, SUPABASE_JWT_SECRET, SUPABASE_URL
@@ -139,6 +140,11 @@ def _verify_with_jwks(token: str, jwks: dict) -> Optional[dict]:
         return None
 
 
+async def verify_jwt_token_async(token: str) -> Optional[dict]:
+    """Verify JWT without blocking the event loop (JWKS fetch uses blocking I/O)."""
+    return await asyncio.to_thread(verify_jwt_token, token)
+
+
 def verify_jwt_token(token: str) -> Optional[dict]:
     """
     Verify a Supabase JWT token and return the payload.
@@ -223,7 +229,7 @@ async def get_current_user(
 
     token = credentials.credentials
     try:
-        payload = verify_jwt_token(token)
+        payload = await verify_jwt_token_async(token)
     except Exception:
         return None
 
@@ -252,6 +258,36 @@ async def require_auth(
     return user
 
 
+async def require_debug_access(
+    user: Optional[User] = Depends(get_current_user),
+    x_debug_key: Optional[str] = Header(None, alias="X-Debug-Key"),
+) -> None:
+    """
+    Protect /api/debug/* routes: DEBUG_API_KEY header, or Supabase JWT, or local-only without RENDER.
+    """
+    import os
+
+    expected = os.environ.get("DEBUG_API_KEY")
+    if expected:
+        if x_debug_key != expected:
+            raise HTTPException(status_code=403, detail="Invalid or missing X-Debug-Key")
+        return
+    if USE_SUPABASE:
+        if not user:
+            raise HTTPException(
+                status_code=401,
+                detail="Not authenticated",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+        return
+    if os.environ.get("RENDER"):
+        raise HTTPException(
+            status_code=403,
+            detail="Set DEBUG_API_KEY to use debug endpoints on this host",
+        )
+    return
+
+
 def get_auth_header(request: Request) -> Optional[str]:
     """Extract the Bearer token from request headers."""
     auth_header = request.headers.get("Authorization", "")
@@ -274,13 +310,13 @@ async def get_user_from_token_param(
     
     # Try header first
     if credentials:
-        payload = verify_jwt_token(credentials.credentials)
+        payload = await verify_jwt_token_async(credentials.credentials)
         if payload:
             return User(id=payload.get("sub", ""), email=payload.get("email", ""))
     
     # Fall back to query parameter
     if token:
-        payload = verify_jwt_token(token)
+        payload = await verify_jwt_token_async(token)
         if payload:
             return User(id=payload.get("sub", ""), email=payload.get("email", ""))
     

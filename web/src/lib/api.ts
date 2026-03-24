@@ -7,6 +7,13 @@ import { getAccessToken, refreshToken } from './auth'
 const API_BASE = '/api'
 const UNKNOWN_CHANNEL_SENTINEL = '__unknown__'
 
+/** Dev-only visibility for swallowed parse errors (non-fatal fallbacks). */
+function logIgnoredJsonError(context: string, err: unknown): void {
+  if (import.meta.env.DEV) {
+    console.debug(`[api] ${context}:`, err)
+  }
+}
+
 /**
  * Helper to create headers with auth token
  */
@@ -203,7 +210,9 @@ async function parseLocalAudioUploadError(res: Response): Promise<string> {
   try {
     const body = await res.json()
     detail = body.detail || body.message || detail
-  } catch {}
+  } catch (e) {
+    logIgnoredJsonError('parseLocalAudioUploadError', e)
+  }
 
   if (res.status === 413) {
     return 'This upload was blocked before it reached the app. The hosted site has per-request upload limits, so larger audio files are now sent in chunks. Please retry after refreshing the page.'
@@ -571,7 +580,9 @@ export async function generateVideoNote(data: VideoNoteRequest): Promise<{ task_
     try {
       const body = await res.json()
       detail = body.detail || body.message || detail
-    } catch { /* ignore parse errors */ }
+    } catch (e) {
+      logIgnoredJsonError('generateVideoNote error body', e)
+    }
     throw new Error(detail)
   }
   return res.json()
@@ -644,7 +655,9 @@ export function getVideoProcessingDefaults(): Record<string, unknown> {
     const q = localStorage.getItem('vd_quality'); if (q) d.quality = q
     const vq = localStorage.getItem('vd_video_quality'); if (vq) d.video_quality = vq
     const lm = localStorage.getItem('llm_model'); if (lm) d.llm_model = lm
-  } catch { /* ignore */ }
+  } catch (e) {
+    logIgnoredJsonError('getVideoProcessingDefaults', e)
+  }
   return d
 }
 
@@ -727,12 +740,13 @@ async function parseUploadError(res: Response, fallback = 'Failed to upload vide
   try {
     const body = await res.json()
     detail = body.detail || body.message || detail
-  } catch {
+  } catch (e) {
+    logIgnoredJsonError('parseUploadError json', e)
     try {
       const text = await res.text()
       if (text.trim()) detail = text.trim()
-    } catch {
-      // Ignore body parsing failures.
+    } catch (e2) {
+      logIgnoredJsonError('parseUploadError text', e2)
     }
   }
 
@@ -758,8 +772,8 @@ async function startAssemblyStatusPolling(
       try {
         const status = await fetchVideoUploadStatus(uploadId)
         onProgress?.(toUploadProgress(status, filename))
-      } catch {
-        // Ignore transient poll failures while assembly is in progress.
+      } catch (e) {
+        logIgnoredJsonError('assembly status poll', e)
       }
       await sleep(VIDEO_UPLOAD_ASSEMBLY_POLL_MS)
     }
@@ -1059,7 +1073,9 @@ export async function bilibiliQrGenerate(): Promise<{ qr_url: string; qrcode_key
     try {
       const data = await res.json()
       detail = data.detail || detail
-    } catch {}
+    } catch (e) {
+      logIgnoredJsonError('bilibiliQrGenerate', e)
+    }
     throw new Error(detail)
   }
   return res.json()
@@ -1072,7 +1088,9 @@ export async function bilibiliQrPoll(qrcodeKey: string): Promise<{ status: strin
     try {
       const data = await res.json()
       detail = data.detail || detail
-    } catch {}
+    } catch (e) {
+      logIgnoredJsonError('bilibiliQrPoll', e)
+    }
     throw new Error(detail)
   }
   return res.json()
@@ -1085,7 +1103,9 @@ export async function douyinQrGenerate(): Promise<{ qr_url: string; token: strin
     try {
       const data = await res.json()
       detail = data.detail || detail
-    } catch {}
+    } catch (e) {
+      logIgnoredJsonError('douyinQrGenerate', e)
+    }
     throw new Error(detail)
   }
   return res.json()
@@ -1098,7 +1118,9 @@ export async function douyinQrPoll(token: string): Promise<{ status: string; mes
     try {
       const data = await res.json()
       detail = data.detail || detail
-    } catch {}
+    } catch (e) {
+      logIgnoredJsonError('douyinQrPoll', e)
+    }
     throw new Error(detail)
   }
   return res.json()

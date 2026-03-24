@@ -16,7 +16,7 @@ from fastapi.responses import FileResponse
 
 from api.routers import podcasts, episodes, transcripts, summaries, processing
 from api.routers import auth_router, video_notes, cookies, notion
-from api.auth import get_current_user, User
+from api.auth import get_current_user, require_debug_access, User
 from logger import get_logger
 
 logger = get_logger("api.main")
@@ -34,84 +34,109 @@ app = FastAPI(
 _podcast_check_task: Optional[asyncio.Task] = None
 # User-scoped cache: {user_id: {"episodes": [...], "last_check": ...}}
 _new_episodes_cache: dict = {}
+_NEW_EPISODES_CACHE_MAX_KEYS = 128
+
+
+def _prune_new_episodes_cache() -> None:
+    """Drop oldest entries when the in-memory cache grows too large."""
+    global _new_episodes_cache
+    if len(_new_episodes_cache) <= _NEW_EPISODES_CACHE_MAX_KEYS:
+        return
+    ranked = sorted(
+        _new_episodes_cache.items(),
+        key=lambda kv: kv[1].get("last_check") or "",
+    )
+    overflow = len(_new_episodes_cache) - _NEW_EPISODES_CACHE_MAX_KEYS + 1
+    for key, _ in ranked[:overflow]:
+        del _new_episodes_cache[key]
+
+
+def _store_new_episodes_cache(user_id: str, episodes: list) -> None:
+    _new_episodes_cache[user_id] = {
+        "episodes": episodes[:20],
+        "last_check": datetime.now().isoformat(),
+    }
+    _prune_new_episodes_cache()
+
+
+async def _scan_podcasts_for_new_episodes(db, inter_podcast_delay: Optional[float] = None) -> tuple[int, list]:
+    """
+    Fetch latest episodes for all podcasts in db, persist new ones, return counts and list for UI cache.
+    """
+    from xyz_client import get_client
+
+    all_podcasts = db.get_all_podcasts()
+    if not all_podcasts:
+        return 0, []
+
+    client = get_client()
+    total_new = 0
+    new_episodes_list = []
+
+    for podcast in all_podcasts:
+        try:
+            episodes = client.get_episodes_from_page(podcast.pid, limit=10)
+
+            new_count = 0
+            for ep in episodes:
+                if not db.episode_exists(ep.eid):
+                    db.add_episode(
+                        eid=ep.eid,
+                        pid=ep.pid,
+                        podcast_id=podcast.id,
+                        title=ep.title,
+                        description=ep.description,
+                        duration=ep.duration,
+                        pub_date=ep.pub_date,
+                        audio_url=ep.audio_url,
+                    )
+                    new_count += 1
+                    new_episodes_list.append({
+                        "eid": ep.eid,
+                        "title": ep.title,
+                        "podcast_title": podcast.title,
+                        "podcast_pid": podcast.pid,
+                    })
+
+            if new_count > 0:
+                logger.info(f"[PodcastChecker] Found {new_count} new episode(s) for '{podcast.title}'")
+                total_new += new_count
+
+            db.update_podcast_checked(podcast.pid)
+
+        except Exception as e:
+            logger.warning(f"[PodcastChecker] Error checking '{podcast.title}': {e}")
+
+        if inter_podcast_delay is not None:
+            await asyncio.sleep(inter_podcast_delay)
+
+    return total_new, new_episodes_list
 
 
 async def check_podcasts_for_updates():
     """Background task that periodically checks podcasts for new episodes."""
     from config import CHECK_INTERVAL
-    from xyz_client import get_client
     from api.db import get_db
-    
+
     check_interval = max(CHECK_INTERVAL, 600)  # At least 10 minutes
-    
+
     logger.info(f"[PodcastChecker] Started background podcast checker (interval: {check_interval}s)")
-    
+
     while True:
         try:
             await asyncio.sleep(check_interval)
-            
+
             logger.info("[PodcastChecker] Checking podcasts for updates...")
-            
-            # Get all podcasts (for local mode, no user_id)
+
             db = get_db(None)
-            all_podcasts = db.get_all_podcasts()
-            
-            if not all_podcasts:
-                logger.debug("[PodcastChecker] No podcasts to check")
-                continue
-            
-            client = get_client()
-            total_new = 0
-            new_episodes_list = []
-            
-            for podcast in all_podcasts:
-                try:
-                    # Fetch latest episodes from web
-                    episodes = client.get_episodes_from_page(podcast.pid, limit=10)
-                    
-                    new_count = 0
-                    for ep in episodes:
-                        if not db.episode_exists(ep.eid):
-                            # Add new episode
-                            db.add_episode(
-                                eid=ep.eid,
-                                pid=ep.pid,
-                                podcast_id=podcast.id,
-                                title=ep.title,
-                                description=ep.description,
-                                duration=ep.duration,
-                                pub_date=ep.pub_date,
-                                audio_url=ep.audio_url,
-                            )
-                            new_count += 1
-                            new_episodes_list.append({
-                                "eid": ep.eid,
-                                "title": ep.title,
-                                "podcast_title": podcast.title,
-                                "podcast_pid": podcast.pid,
-                            })
-                    
-                    if new_count > 0:
-                        logger.info(f"[PodcastChecker] Found {new_count} new episode(s) for '{podcast.title}'")
-                        total_new += new_count
-                    
-                    # Update last checked timestamp
-                    db.update_podcast_checked(podcast.pid)
-                    
-                except Exception as e:
-                    logger.warning(f"[PodcastChecker] Error checking '{podcast.title}': {e}")
-                
-                # Small delay between podcasts to avoid rate limiting
-                await asyncio.sleep(2)
-            
-            # Update cache with new episodes (for local/anonymous mode)
+            total_new, new_episodes_list = await _scan_podcasts_for_new_episodes(
+                db, inter_podcast_delay=2.0
+            )
+
             if new_episodes_list:
-                _new_episodes_cache["_anonymous"] = {
-                    "episodes": new_episodes_list[:20],  # Keep last 20
-                    "last_check": datetime.now().isoformat(),
-                }
+                _store_new_episodes_cache("_anonymous", new_episodes_list)
                 logger.info(f"[PodcastChecker] Total: {total_new} new episodes found")
-            
+
         except asyncio.CancelledError:
             logger.info("[PodcastChecker] Background checker stopped")
             break
@@ -157,12 +182,8 @@ async def startup_event():
     from logger import notify_discord
     import os
     
-    # Get environment info
-    env = os.environ.get("RENDER", "local")
-    if env:
-        env_name = "Render (Production)"
-    else:
-        env_name = "Local Development"
+    # RENDER is set by Render.com when deployed; unset means local/other host
+    env_name = "Render (Production)" if os.environ.get("RENDER") else "Local Development"
     
     notify_discord(
         title="API Started",
@@ -192,10 +213,12 @@ async def shutdown_event():
     processing.PROCESSING_EXECUTOR.shutdown(wait=False, cancel_futures=True)
     video_notes.VIDEO_EXECUTOR.shutdown(wait=False, cancel_futures=True)
 
-# CORS middleware for frontend
+# CORS: explicit origins required when credentials are allowed (see CORS_ALLOWED_ORIGINS in config)
+from config import CORS_ALLOWED_ORIGINS as _cors_origins
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=_cors_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -237,7 +260,7 @@ async def health_check():
 
 
 @app.get("/api/debug/screenshots")
-async def debug_screenshots():
+async def debug_screenshots(_: None = Depends(require_debug_access)):
     """Debug: list screenshot directory contents and config."""
     import os
     screenshots_dir = _data_dir / "screenshots"
@@ -261,7 +284,7 @@ async def debug_screenshots():
 
 
 @app.get("/api/debug/youtube-test")
-async def debug_youtube_test():
+async def debug_youtube_test(_: None = Depends(require_debug_access)):
     """Debug: test YouTube download capability (JS challenge solver + node)."""
     import shutil
     import subprocess
@@ -322,7 +345,11 @@ async def debug_youtube_test():
 
 
 @app.get("/api/debug/logs")
-async def debug_logs(lines: int = 200, level: str = ""):
+async def debug_logs(
+    _: None = Depends(require_debug_access),
+    lines: int = 200,
+    level: str = "",
+):
     """Return recent application log lines for remote debugging."""
     from config import DATA_DIR
     logs_dir = DATA_DIR / "logs"
@@ -374,55 +401,19 @@ async def get_new_episodes(user: Optional[User] = Depends(get_current_user)):
 @app.post("/api/check-podcasts")
 async def trigger_podcast_check(user: Optional[User] = Depends(get_current_user)):
     """Manually trigger a podcast update check."""
-    from xyz_client import get_client
     from api.db import get_db
-    
+
     db = get_db(user.id if user else None)
     all_podcasts = db.get_all_podcasts()
-    
+
     if not all_podcasts:
         return {"message": "No podcasts subscribed", "new_episodes": 0}
-    
-    client = get_client()
-    total_new = 0
-    new_episodes_list = []
-    
-    for podcast in all_podcasts:
-        try:
-            episodes = client.get_episodes_from_page(podcast.pid, limit=10)
-            
-            for ep in episodes:
-                if not db.episode_exists(ep.eid):
-                    db.add_episode(
-                        eid=ep.eid,
-                        pid=ep.pid,
-                        podcast_id=podcast.id,
-                        title=ep.title,
-                        description=ep.description,
-                        duration=ep.duration,
-                        pub_date=ep.pub_date,
-                        audio_url=ep.audio_url,
-                    )
-                    total_new += 1
-                    new_episodes_list.append({
-                        "eid": ep.eid,
-                        "title": ep.title,
-                        "podcast_title": podcast.title,
-                        "podcast_pid": podcast.pid,
-                    })
-            
-            db.update_podcast_checked(podcast.pid)
-            
-        except Exception as e:
-            logger.warning(f"Error checking '{podcast.title}': {e}")
-    
-    # Update user-specific cache
+
+    total_new, new_episodes_list = await _scan_podcasts_for_new_episodes(db, inter_podcast_delay=None)
+
     user_id = user.id if user else "_anonymous"
     if new_episodes_list:
-        _new_episodes_cache[user_id] = {
-            "episodes": new_episodes_list[:20],
-            "last_check": datetime.now().isoformat(),
-        }
+        _store_new_episodes_cache(user_id, new_episodes_list)
     
     return {
         "message": f"Found {total_new} new episode(s)",
