@@ -129,7 +129,7 @@ class SupabaseDatabase:
         if not self.client:
             return None
         
-        data = {
+        base = {
             "user_id": user_id,
             "pid": pid,
             "title": title,
@@ -137,16 +137,29 @@ class SupabaseDatabase:
             "description": description,
             "cover_url": cover_url,
         }
-        try:
-            data["platform"] = platform
-            data["feed_url"] = feed_url
-        except Exception:
-            pass
-        
-        result = self.client.table("podcasts").insert(data).execute()
-        
-        if result.data:
-            return result.data[0]["id"]
+        # Older Supabase projects may lack platform / feed_url; PostgREST returns PGRST204.
+        attempts = [
+            {**base, "platform": platform, "feed_url": feed_url},
+            {**base, "platform": platform},
+            base,
+        ]
+        last_err: Optional[Exception] = None
+        for payload in attempts:
+            try:
+                result = self.client.table("podcasts").insert(payload).execute()
+                if result.data:
+                    return result.data[0]["id"]
+            except Exception as e:
+                last_err = e
+                msg = str(e).lower()
+                if "feed_url" in msg or "platform" in msg or "pgrst204" in msg or "schema cache" in msg:
+                    continue
+                raise
+        if last_err:
+            from logger import get_logger
+            get_logger("api.supabase_db").error(
+                "podcasts insert failed after compatibility retries: %s", last_err
+            )
         return None
     
     def delete_podcast(self, user_id: str, pid: str) -> bool:
