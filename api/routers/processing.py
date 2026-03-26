@@ -938,70 +938,79 @@ async def process_episode(
     if not data.episode_url:
         raise HTTPException(status_code=400, detail="episode_url is required")
     
-    user_id = user.id if user else None
-    
-    # Try to fetch episode info for immediate display
-    episode_id = None
-    episode_title = None
-    is_local = is_local_episode_url(data.episode_url)
-    is_apple = data.episode_url.startswith("apple://")
     try:
-        if is_local or is_apple:
-            eid = get_local_episode_id(data.episode_url) if is_local else data.episode_url.replace("apple://", "")
-            db_interface = get_db(user_id)
-            ep = db_interface.get_episode(eid)
-            if ep:
-                episode_id = ep.eid
-                episode_title = ep.title
-        else:
-            from xyz_client import get_client
-            client = get_client()
-            episode = client.get_episode_by_share_url(data.episode_url)
-            if episode:
-                episode_id = episode.eid
-                episode_title = episode.title
-    except Exception:
-        pass  # Will be fetched again in background task
-    
-    # Create job with episode info if available
-    job_id = str(uuid.uuid4())[:8]
-    with _jobs_lock:
-        jobs[job_id] = ProcessingStatus(
-            job_id=job_id,
-            user_id=user_id,  # Track job ownership for user isolation
-            status="pending",
-            progress=0,
-            message="Starting...",
-            episode_id=episode_id,
-            episode_title=episode_title,
+        user_id = user.id if user else None
+        
+        # Try to fetch episode info for immediate display
+        episode_id = None
+        episode_title = None
+        is_local = is_local_episode_url(data.episode_url)
+        is_apple = data.episode_url.startswith("apple://")
+        try:
+            if is_local or is_apple:
+                eid = get_local_episode_id(data.episode_url) if is_local else data.episode_url.replace("apple://", "")
+                db_interface = get_db(user_id)
+                ep = db_interface.get_episode(eid)
+                if ep:
+                    episode_id = ep.eid
+                    episode_title = ep.title
+            else:
+                from xyz_client import get_client
+                client = get_client()
+                episode = client.get_episode_by_share_url(data.episode_url)
+                if episode:
+                    episode_id = episode.eid
+                    episode_title = episode.title
+        except Exception:
+            pass  # Will be fetched again in background task
+        
+        # Create job with episode info if available
+        job_id = str(uuid.uuid4())[:8]
+        with _jobs_lock:
+            jobs[job_id] = ProcessingStatus(
+                job_id=job_id,
+                user_id=user_id,  # Track job ownership for user isolation
+                status="pending",
+                progress=0,
+                message="Starting...",
+                episode_id=episode_id,
+                episode_title=episode_title,
+            )
+        
+        # Persist new job and cleanup old ones (these functions acquire their own locks)
+        _cleanup_old_jobs()
+        _save_jobs_to_file()
+        
+        # Broadcast new job to WebSocket clients immediately
+        await broadcast_status(job_id)
+        
+        # Start background processing with user_id for Supabase support
+        # Pass model settings from request
+        background_tasks.add_task(
+            process_episode_async,
+            job_id,
+            data.episode_url,
+            data.transcribe_only,
+            data.force,
+            user_id,
+            data.whisper_model,
+            data.llm_model,
         )
-    
-    # Persist new job and cleanup old ones (these functions acquire their own locks)
-    _cleanup_old_jobs()
-    _save_jobs_to_file()
-    
-    # Broadcast new job to WebSocket clients immediately
-    await broadcast_status(job_id)
-    
-    # Start background processing with user_id for Supabase support
-    # Pass model settings from request
-    background_tasks.add_task(
-        process_episode_async,
-        job_id,
-        data.episode_url,
-        data.transcribe_only,
-        data.force,
-        user_id,
-        data.whisper_model,
-        data.llm_model,
-    )
-    
-    return {
-        "job_id": job_id, 
-        "message": "Processing started",
-        "episode_id": episode_id,
-        "episode_title": episode_title,
-    }
+        
+        return {
+            "job_id": job_id, 
+            "message": "Processing started",
+            "episode_id": episode_id,
+            "episode_title": episode_title,
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.exception("POST /process failed: %s", e)
+        raise HTTPException(
+            status_code=500,
+            detail=f"Could not start processing: {str(e)[:500]}",
+        ) from e
 
 
 @router.get("/jobs")

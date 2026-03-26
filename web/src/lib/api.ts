@@ -14,6 +14,48 @@ function logIgnoredJsonError(context: string, err: unknown): void {
   }
 }
 
+function detailFromApiBody(body: unknown): string | undefined {
+  if (body === null || typeof body !== 'object') return undefined
+  const o = body as Record<string, unknown>
+  if (typeof o.detail === 'string') return o.detail
+  if (Array.isArray(o.detail)) {
+    try {
+      return JSON.stringify(o.detail)
+    } catch {
+      return String(o.detail)
+    }
+  }
+  if (typeof o.message === 'string') return o.message
+  return undefined
+}
+
+/**
+ * Read JSON from a fetch Response once. Proxies sometimes return 5xx plain text;
+ * this surfaces that text instead of a cryptic JSON.parse error.
+ */
+async function parseApiResponseAsJson<T>(res: Response, operation: string): Promise<T> {
+  const text = await res.text()
+  let body: unknown
+  try {
+    body = text.trim() ? JSON.parse(text) : null
+  } catch {
+    const snippet = text.slice(0, 240).replace(/\s+/g, ' ').trim()
+    if (!res.ok) {
+      throw new Error(
+        `${operation} (${res.status}): ${snippet || 'non-JSON error response (check server / reverse proxy logs)'}`,
+      )
+    }
+    throw new Error(`${operation}: invalid JSON — ${snippet.slice(0, 120)}…`)
+  }
+
+  if (!res.ok) {
+    const msg = detailFromApiBody(body) || `${operation} (${res.status})`
+    throw new Error(msg)
+  }
+
+  return body as T
+}
+
 /**
  * Helper to create headers with auth token
  */
@@ -172,11 +214,7 @@ export async function addPodcast(url: string): Promise<Podcast> {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ url }),
   })
-  if (!res.ok) {
-    const error = await res.json()
-    throw new Error(error.detail || 'Failed to add podcast')
-  }
-  return res.json()
+  return parseApiResponseAsJson<Podcast>(res, 'Failed to add podcast')
 }
 
 export async function uploadLocalPodcastAudio(
@@ -335,8 +373,10 @@ export async function processEpisode(
       llm_model: modelSettings.llm_model,
     }),
   })
-  if (!res.ok) throw new Error('Failed to start processing')
-  return res.json()
+  return parseApiResponseAsJson<{ job_id: string; episode_id?: string; episode_title?: string }>(
+    res,
+    'Failed to start processing',
+  )
 }
 
 export async function refreshPodcast(pid: string): Promise<{ message: string; total: number }> {
@@ -575,17 +615,7 @@ export async function generateVideoNote(data: VideoNoteRequest): Promise<{ task_
       llm_model: data.llm_model || modelSettings.llm_model,
     }),
   })
-  if (!res.ok) {
-    let detail = `Server error ${res.status}`
-    try {
-      const body = await res.json()
-      detail = body.detail || body.message || detail
-    } catch (e) {
-      logIgnoredJsonError('generateVideoNote error body', e)
-    }
-    throw new Error(detail)
-  }
-  return res.json()
+  return parseApiResponseAsJson<{ task_id: string }>(res, 'Video note request failed')
 }
 
 export async function fetchVideoTasks(): Promise<{ tasks: VideoTask[] }> {
