@@ -53,6 +53,10 @@ async function parseApiResponseAsJson<T>(res: Response, operation: string): Prom
     throw new Error(msg)
   }
 
+  if (body === null || body === undefined) {
+    throw new Error(`${operation}: empty response body (${res.status})`)
+  }
+
   return body as T
 }
 
@@ -618,7 +622,14 @@ export async function generateVideoNote(data: VideoNoteRequest): Promise<{ task_
       llm_model: data.llm_model || modelSettings.llm_model,
     }),
   })
-  return parseApiResponseAsJson<{ task_id: string }>(res, 'Video note request failed')
+  const parsed = await parseApiResponseAsJson<{ task_id?: string }>(
+    res,
+    'Video note request failed',
+  )
+  if (typeof parsed.task_id !== 'string' || !parsed.task_id.trim()) {
+    throw new Error('Video note request failed: server response missing task_id')
+  }
+  return { task_id: parsed.task_id }
 }
 
 export async function fetchVideoTasks(): Promise<{ tasks: VideoTask[] }> {

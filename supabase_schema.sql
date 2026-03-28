@@ -1,7 +1,9 @@
 -- Supabase Schema for XYZ Podcast Transcript Tool
 -- Run this in Supabase SQL Editor after creating your project
 --
--- Existing database missing columns? Run: supabase/migrations/20250224_podcasts_feed_url.sql
+-- Existing database missing columns? Run:
+--   supabase/migrations/20250224_podcasts_feed_url.sql
+--   supabase/migrations/20250225_video_tasks_columns.sql
 
 -- Enable Row Level Security (RLS) for all tables
 -- This ensures users can only access their own data

@@ -4,6 +4,7 @@ Provides user-scoped CRUD operations for podcasts, episodes, transcripts, and su
 """
 
 import json
+import re
 from typing import List, Optional, Dict, Any
 from dataclasses import dataclass, asdict
 from datetime import datetime
@@ -704,6 +705,10 @@ class SupabaseDatabase:
     
     # ==================== Video Tasks ====================
 
+    _VIDEO_TASK_INSERT_REQUIRED_KEYS = frozenset(
+        {"id", "user_id", "url", "platform", "title", "status"}
+    )
+
     def create_video_task(self, user_id: str, task_id: str, task_data: dict) -> str:
         """Create a new video task."""
         if not self.client:
@@ -740,11 +745,24 @@ class SupabaseDatabase:
             row["channel_avatar"] = task_data["channel_avatar"]
         if task_data.get("published_at"):
             row["published_at"] = task_data["published_at"]
-        try:
-            self.client.table("video_tasks").insert(row).execute()
-        except Exception:
-            row.pop("published_at", None)
-            self.client.table("video_tasks").insert(row).execute()
+
+        last_err: Optional[Exception] = None
+        for _ in range(32):
+            try:
+                self.client.table("video_tasks").insert(row).execute()
+                return task_id
+            except Exception as e:
+                last_err = e
+                msg = str(e)
+                m = re.search(r"Could not find the '([^']+)' column", msg)
+                if m:
+                    bad = m.group(1)
+                    if bad in row and bad not in self._VIDEO_TASK_INSERT_REQUIRED_KEYS:
+                        row.pop(bad, None)
+                        continue
+                raise
+        if last_err:
+            raise last_err
         return task_id
 
     def count_channel_tasks(self, channel: str, user_id: str) -> int:
