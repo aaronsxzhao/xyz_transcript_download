@@ -245,11 +245,14 @@ export async function uploadLocalPodcastAudio(
 
 async function parseLocalAudioUploadError(res: Response): Promise<string> {
   let detail = 'Failed to upload audio'
-  try {
-    const body = await res.json()
-    detail = body.detail || body.message || detail
-  } catch (e) {
-    logIgnoredJsonError('parseLocalAudioUploadError', e)
+  const text = await res.text().catch(() => '')
+  if (text.trim()) {
+    try {
+      const body = JSON.parse(text) as { detail?: string; message?: string }
+      detail = body.detail || body.message || detail
+    } catch {
+      detail = text.trim().slice(0, 500)
+    }
   }
 
   if (res.status === 413) {
@@ -766,17 +769,15 @@ function isOversizedUploadStatus(status: number): boolean {
 }
 
 async function parseUploadError(res: Response, fallback = 'Failed to upload video'): Promise<string> {
+  // Read body once: res.json() then res.text() fails — stream is single-use (breaks upload error handling).
   let detail = fallback
-  try {
-    const body = await res.json()
-    detail = body.detail || body.message || detail
-  } catch (e) {
-    logIgnoredJsonError('parseUploadError json', e)
+  const text = await res.text().catch(() => '')
+  if (text.trim()) {
     try {
-      const text = await res.text()
-      if (text.trim()) detail = text.trim()
-    } catch (e2) {
-      logIgnoredJsonError('parseUploadError text', e2)
+      const body = JSON.parse(text) as { detail?: string; message?: string }
+      detail = body.detail || body.message || detail
+    } catch {
+      detail = text.trim().slice(0, 500)
     }
   }
 
@@ -916,7 +917,15 @@ async function uploadVideoFileChunked(
     }
 
     completedChunks += 1
-    const body = await chunkRes.json() as { status?: VideoUploadStatus }
+    const chunkText = await chunkRes.text()
+    let body = {} as { status?: VideoUploadStatus }
+    if (chunkText.trim()) {
+      try {
+        body = JSON.parse(chunkText) as { status?: VideoUploadStatus }
+      } catch {
+        // Server may return 200 with empty or non-JSON body; progress still advances.
+      }
+    }
     if (body.status) {
       onProgress?.(toUploadProgress(body.status, file.name))
     } else {
