@@ -116,7 +116,12 @@ export default function VideoNoteForm({ onTaskCreated, hideTitle }: Props) {
     }
   }, [activeUpload, linkedTask])
 
-  const detectedPlatform = useMemo(() => isLocalFile ? 'local' : detectPlatform(url), [url, isLocalFile])
+  // URL wins over isLocalFile — stale uploadSessions can leave isLocalFile true while user pastes YouTube.
+  const detectedPlatform = useMemo(() => {
+    const fromUrl = detectPlatform(url)
+    if (fromUrl) return fromUrl
+    return isLocalFile ? 'local' : ''
+  }, [url, isLocalFile])
 
   const [ytCookieWarning, setYtCookieWarning] = useState(false)
   const ytCheckRef = useRef(false)
@@ -135,22 +140,22 @@ export default function VideoNoteForm({ onTaskCreated, hideTitle }: Props) {
 
   useEffect(() => {
     if (activeUpload?.path) {
-      setUrl(prev => prev || activeUpload.path || '')
+      setUrl(activeUpload.path)
       setIsLocalFile(true)
     }
   }, [activeUpload?.path])
 
   useEffect(() => {
-    if (!activeUploadId && uploadSessions.length > 0) {
-      const preferredSession =
-        uploadSessions.find(session => !['failed'].includes(session.phase)) ||
-        uploadSessions[0]
-      if (preferredSession) {
-        setActiveUploadId(preferredSession.id)
-        setIsLocalFile(true)
-      }
+    if (activeUploadId || uploadSessions.length === 0) return
+    if (detectPlatform(url)) return
+    const preferredSession =
+      uploadSessions.find(session => !['failed'].includes(session.phase)) ||
+      uploadSessions[0]
+    if (preferredSession) {
+      setActiveUploadId(preferredSession.id)
+      setIsLocalFile(true)
     }
-  }, [activeUploadId, uploadSessions])
+  }, [activeUploadId, uploadSessions, url])
 
   useEffect(() => {
     if (!activeUpload || !linkedTask) return
@@ -282,7 +287,8 @@ export default function VideoNoteForm({ onTaskCreated, hideTitle }: Props) {
       }
 
       const modelSettings = getUserModelSettings()
-      if (isLocalFile && activeUpload) {
+      const isLocalTask = detectedPlatform === 'local'
+      if (isLocalTask && activeUpload) {
         upsertUploadSession({
           ...activeUpload,
           id: activeUpload.id,
@@ -294,7 +300,7 @@ export default function VideoNoteForm({ onTaskCreated, hideTitle }: Props) {
       }
       const result = await generateVideoNote({
         url: url.trim(),
-        title: detectedPlatform === 'local' ? (activeUpload?.filename?.replace(/\.[^.]+$/, '') || 'Local video') : undefined,
+        title: isLocalTask ? (activeUpload?.filename?.replace(/\.[^.]+$/, '') || 'Local video') : undefined,
         platform: detectedPlatform,
         style,
         formats,
@@ -308,7 +314,7 @@ export default function VideoNoteForm({ onTaskCreated, hideTitle }: Props) {
         grid_rows: gridRows,
       })
       const localTitle = activeUpload?.filename?.replace(/\.[^.]+$/, '') || 'Local video'
-      if (activeUpload) {
+      if (isLocalTask && activeUpload) {
         upsertUploadSession({
           ...activeUpload,
           id: activeUpload.id,
@@ -321,15 +327,19 @@ export default function VideoNoteForm({ onTaskCreated, hideTitle }: Props) {
       }
       onTaskCreated?.({
         taskId: result.task_id,
-        title: detectedPlatform === 'local' ? localTitle : '',
+        title: isLocalTask ? localTitle : '',
         url: url.trim(),
         platform: detectedPlatform,
       })
-      setActiveUploadId(prev => prev || activeUpload?.id || null)
+      if (isLocalTask) {
+        setActiveUploadId(prev => prev || activeUpload?.id || null)
+      } else {
+        setActiveUploadId(null)
+      }
     } catch (e: any) {
       const msg = e?.message || 'Unknown error'
       console.error('Failed to generate note:', msg)
-      if (isLocalFile && activeUpload) {
+      if (detectedPlatform === 'local' && isLocalFile && activeUpload) {
         upsertUploadSession({
           ...activeUpload,
           id: activeUpload.id,
@@ -352,7 +362,7 @@ export default function VideoNoteForm({ onTaskCreated, hideTitle }: Props) {
       {/* URL input + auto-detected platform badge + local upload */}
       <div>
         <div className="flex gap-1.5">
-          {isLocalFile ? (
+          {isLocalFile && !detectPlatform(url) ? (
             <div className="flex-1 px-3 py-2.5 bg-dark-hover border border-dark-border rounded-lg">
               <div className="flex items-start gap-2">
                 <PlatformIcon platform="local" size={14} className={PLATFORM_COLORS['local'] || 'text-gray-400'} />
@@ -386,8 +396,8 @@ export default function VideoNoteForm({ onTaskCreated, hideTitle }: Props) {
                   onClick={() => {
                     setUrl('')
                     setIsLocalFile(false)
-                    if (activeUpload) removeUploadSession(activeUpload.id)
                     setActiveUploadId(null)
+                    useStore.getState().uploadSessions.map(s => s.id).forEach(id => removeUploadSession(id))
                   }}
                   className="text-xs text-gray-500 hover:text-red-400 transition-colors"
                 >
@@ -401,10 +411,11 @@ export default function VideoNoteForm({ onTaskCreated, hideTitle }: Props) {
                 type="text"
                 value={url}
                 onChange={e => {
-                  setUrl(e.target.value)
+                  const v = e.target.value
+                  setUrl(v)
                   setIsLocalFile(false)
-                  if (activeUpload) removeUploadSession(activeUpload.id)
                   setActiveUploadId(null)
+                  useStore.getState().uploadSessions.map(s => s.id).forEach(id => removeUploadSession(id))
                 }}
                 placeholder="Paste video URL here..."
                 className="w-full px-3 py-2.5 bg-dark-hover border border-dark-border rounded-lg text-white text-sm placeholder-gray-500 focus:outline-none focus:border-indigo-500 pr-24"

@@ -241,6 +241,9 @@ export async function uploadLocalPodcastAudio(
   if (res.status === 413) {
     return uploadLocalPodcastAudioChunked(file, options)
   }
+  if (shouldRetryVideoUploadAsChunked(res.status)) {
+    return uploadLocalPodcastAudioChunked(file, options)
+  }
   if (!res.ok) {
     throw new Error(await parseLocalAudioUploadError(res))
   }
@@ -255,8 +258,12 @@ async function parseLocalAudioUploadError(res: Response): Promise<string> {
       const body = JSON.parse(text) as { detail?: string; message?: string }
       detail = body.detail || body.message || detail
     } catch {
-      detail = text.trim().slice(0, 500)
+      detail = humanizeHtmlOrCdnError(text, res.status)
     }
+  }
+
+  if (detail !== 'Failed to upload audio' && /<!DOCTYPE|<html/i.test(detail)) {
+    detail = humanizeHtmlOrCdnError(detail, res.status)
   }
 
   if (res.status === 413) {
@@ -725,7 +732,8 @@ export async function cancelVideoTask(taskId: string): Promise<{ message: string
   return res.json()
 }
 
-const CHUNKED_VIDEO_UPLOAD_THRESHOLD = 64 * 1024 * 1024
+/** Below this size we still try one-shot upload first; on CDN 5xx / 413 we fall back to chunked. */
+const CHUNKED_VIDEO_UPLOAD_THRESHOLD = 8 * 1024 * 1024
 const DEFAULT_CHUNKED_VIDEO_UPLOAD_CONCURRENCY = 4
 const MAX_CHUNKED_VIDEO_UPLOAD_CONCURRENCY = 8
 const VIDEO_UPLOAD_ASSEMBLY_POLL_MS = 1500
@@ -775,8 +783,30 @@ class UploadResponseError extends Error {
   }
 }
 
+/** Single POST failed at proxy/origin — retry as chunked uploads (smaller requests). */
+function shouldRetryVideoUploadAsChunked(status: number): boolean {
+  return status === 413 || status === 502 || status === 503 || status === 504 || status === 520
+}
+
 function isOversizedUploadStatus(status: number): boolean {
   return status === 413
+}
+
+/** Turn Cloudflare/HTML error pages into a short, actionable message. */
+function humanizeHtmlOrCdnError(text: string, status: number): string {
+  const t = text.trim()
+  const lower = t.toLowerCase()
+  if (
+    lower.includes('<!doctype') ||
+    lower.includes('<html') ||
+    lower.includes('cloudflare') ||
+    /\b520\b/.test(t) ||
+    /\b502\b/.test(t) ||
+    (lower.includes('web server is down') || lower.includes('unknown error'))
+  ) {
+    return `Upload failed: hosting/CDN error (HTTP ${status}). The server dropped the connection—often a timeout or body limit on large files. Retrying with chunked upload may help; if it keeps happening, check your host (e.g. Render) logs and timeouts.`
+  }
+  return t.length > 400 ? `${t.slice(0, 400)}…` : t
 }
 
 async function parseUploadError(res: Response, fallback = 'Failed to upload video'): Promise<string> {
@@ -788,8 +818,12 @@ async function parseUploadError(res: Response, fallback = 'Failed to upload vide
       const body = JSON.parse(text) as { detail?: string; message?: string }
       detail = body.detail || body.message || detail
     } catch {
-      detail = text.trim().slice(0, 500)
+      detail = humanizeHtmlOrCdnError(text, res.status)
     }
+  }
+
+  if (detail !== fallback && /<!DOCTYPE|<html/i.test(detail)) {
+    detail = humanizeHtmlOrCdnError(detail, res.status)
   }
 
   if (isOversizedUploadStatus(res.status)) {
@@ -1034,7 +1068,7 @@ export async function uploadVideoFile(
   try {
     result = await uploadVideoFileSimple(file)
   } catch (error) {
-    if (error instanceof UploadResponseError && isOversizedUploadStatus(error.status)) {
+    if (error instanceof UploadResponseError && shouldRetryVideoUploadAsChunked(error.status)) {
       return uploadVideoFileChunked(file, onProgress)
     }
     throw error
