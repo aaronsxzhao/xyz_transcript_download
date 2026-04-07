@@ -1119,6 +1119,7 @@ async def get_task(task_id: str, user: Optional[User] = Depends(get_current_user
 @router.delete("/tasks/{task_id}")
 async def delete_task(task_id: str, user: Optional[User] = Depends(get_current_user)):
     """Delete a video note task and cancel any in-progress processing."""
+    from screenshot_extractor import delete_task_assets
     from video_task_db import get_video_task_db
     db = get_video_task_db()
     user_id = user.id if user else None
@@ -1130,6 +1131,7 @@ async def delete_task(task_id: str, user: Optional[User] = Depends(get_current_u
     if not deleted:
         _clear_cancelled(task_id)
         raise HTTPException(status_code=404, detail="Task not found")
+    delete_task_assets(task_id)
     _invalidate_list_cache(user_id)
     return {"message": "Task deleted"}
 
@@ -1137,12 +1139,21 @@ async def delete_task(task_id: str, user: Optional[User] = Depends(get_current_u
 @router.delete("/channels/{channel_name}")
 async def delete_channel(channel_name: str, user: Optional[User] = Depends(get_current_user)):
     """Delete all video tasks for a channel."""
+    from screenshot_extractor import delete_task_assets
     from video_task_db import get_video_task_db
     db = get_video_task_db()
     user_id = user.id if user else None
+    if channel_name == "__unknown__":
+        tasks = [task for task in db.list_tasks(user_id, limit=10000) if not task.get("channel")]
+    else:
+        tasks = [task for task in db.list_tasks(user_id, limit=10000) if task.get("channel") == channel_name]
     count = db.delete_channel(channel_name, user_id)
     if count == 0:
         raise HTTPException(status_code=404, detail="Channel not found or no tasks to delete")
+    for task in tasks:
+        task_id = task.get("id")
+        if task_id:
+            delete_task_assets(task_id)
     _invalidate_list_cache(user_id)
     return {"message": f"Deleted {count} video(s) from channel '{channel_name}'", "deleted": count}
 

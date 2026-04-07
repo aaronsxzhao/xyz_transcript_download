@@ -40,6 +40,20 @@ def _get_env_int(key: str, default: int, min_val: Optional[int] = None) -> int:
         return default
 
 
+def _get_env_bool(key: str, default: bool) -> bool:
+    """Get environment variable as boolean."""
+    value = os.getenv(key)
+    if value is None:
+        return default
+    value = value.strip().lower()
+    if value in {"1", "true", "yes", "on"}:
+        return True
+    if value in {"0", "false", "no", "off"}:
+        return False
+    print(f"Warning: {key}={value} is not a valid boolean, using default {default}")
+    return default
+
+
 def _validate_choice(key: str, value: str, choices: List[str], default: str) -> str:
     """Validate that value is in allowed choices."""
     if value not in choices:
@@ -234,6 +248,15 @@ SUPABASE_JWT_SECRET = _get_env("SUPABASE_JWT_SECRET", "")  # JWT secret for veri
 
 # Use Supabase if configured, otherwise fall back to local SQLite
 USE_SUPABASE = bool(SUPABASE_URL and SUPABASE_KEY)
+
+# Keep object storage optional so hosted deployments can use Supabase auth/db
+# without continuously uploading screenshots and thumbnails to Storage.
+USE_SUPABASE_STORAGE = USE_SUPABASE and _get_env_bool("SUPABASE_STORAGE_ENABLED", True)
+
+# Generated screenshot/thumbnail retention. Defaults to 21 days so hosted
+# deployments do not accumulate storage indefinitely.
+GENERATED_MEDIA_RETENTION_DAYS = _get_env_int("GENERATED_MEDIA_RETENTION_DAYS", 21, min_val=0)
+GENERATED_MEDIA_CLEANUP_INTERVAL_HOURS = _get_env_int("GENERATED_MEDIA_CLEANUP_INTERVAL_HOURS", 6, min_val=1)
 
 
 def _parse_cors_allowed_origins() -> List[str]:

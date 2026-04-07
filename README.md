@@ -201,7 +201,32 @@ USE_SUPABASE=true
 SUPABASE_URL=https://xxx.supabase.co
 SUPABASE_KEY=your-anon-key
 SUPABASE_SERVICE_KEY=your-service-key
+# Optional: stop uploading screenshots/thumbnails to Supabase Storage
+# and keep using Supabase only for auth/database.
+# SUPABASE_STORAGE_ENABLED=false
 ```
+
+If your Supabase free plan is running out of Storage, the biggest contributors are usually video screenshots and generated thumbnails. You can inspect buckets with:
+
+```bash
+./venv/bin/python scripts/manage_supabase_storage.py
+```
+
+And if you want to reclaim space immediately:
+
+```bash
+./venv/bin/python scripts/manage_supabase_storage.py --empty screenshots --empty thumbnails --yes
+```
+
+Or delete only generated screenshots/thumbnails older than 21 days:
+
+```bash
+./venv/bin/python scripts/manage_supabase_storage.py --cleanup-expired 21 --yes
+```
+
+The API server also runs this cleanup automatically in the background. By default it deletes generated screenshots/thumbnails after 21 days and checks every 6 hours. You can tune this with `GENERATED_MEDIA_RETENTION_DAYS` and `GENERATED_MEDIA_CLEANUP_INTERVAL_HOURS`.
+
+Supabase usage on the billing page is averaged across the billing period and refreshes hourly, so the chart may not drop immediately after cleanup.
 
 ---
 

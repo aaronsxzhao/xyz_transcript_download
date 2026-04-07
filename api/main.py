@@ -32,6 +32,7 @@ app = FastAPI(
 
 # Background task for checking podcast updates
 _podcast_check_task: Optional[asyncio.Task] = None
+_generated_media_cleanup_task: Optional[asyncio.Task] = None
 # User-scoped cache: {user_id: {"episodes": [...], "last_check": ...}}
 _new_episodes_cache: dict = {}
 _NEW_EPISODES_CACHE_MAX_KEYS = 128
@@ -145,10 +146,45 @@ async def check_podcasts_for_updates():
             await asyncio.sleep(60)  # Wait before retry on error
 
 
+async def cleanup_generated_media_loop():
+    """Background task that periodically deletes expired screenshots/thumbnails."""
+    from config import GENERATED_MEDIA_CLEANUP_INTERVAL_HOURS, GENERATED_MEDIA_RETENTION_DAYS
+    from screenshot_extractor import cleanup_expired_assets
+
+    if GENERATED_MEDIA_RETENTION_DAYS <= 0:
+        logger.info("[MediaCleanup] Disabled (GENERATED_MEDIA_RETENTION_DAYS <= 0)")
+        return
+
+    interval_seconds = max(GENERATED_MEDIA_CLEANUP_INTERVAL_HOURS, 1) * 3600
+    logger.info(
+        "[MediaCleanup] Started generated media cleanup "
+        f"(retention={GENERATED_MEDIA_RETENTION_DAYS}d, interval={GENERATED_MEDIA_CLEANUP_INTERVAL_HOURS}h)"
+    )
+
+    while True:
+        try:
+            stats = await asyncio.to_thread(cleanup_expired_assets, GENERATED_MEDIA_RETENTION_DAYS)
+            deleted_total = int(stats.get("local_deleted", 0)) + int(stats.get("remote_deleted", 0))
+            if deleted_total or stats.get("remote_skipped_unknown_age"):
+                logger.info(
+                    "[MediaCleanup] Completed cleanup: "
+                    f"local_deleted={stats.get('local_deleted', 0)}, "
+                    f"remote_deleted={stats.get('remote_deleted', 0)}, "
+                    f"remote_skipped_unknown_age={stats.get('remote_skipped_unknown_age', 0)}"
+                )
+            await asyncio.sleep(interval_seconds)
+        except asyncio.CancelledError:
+            logger.info("[MediaCleanup] Background cleanup stopped")
+            break
+        except Exception as e:
+            logger.error(f"[MediaCleanup] Error during cleanup: {e}")
+            await asyncio.sleep(300)
+
+
 @app.on_event("startup")
 async def startup_event():
     """Capture the main event loop on startup for thread-safe broadcasting."""
-    global _podcast_check_task
+    global _podcast_check_task, _generated_media_cleanup_task
     from config import USE_SUPABASE, SUPABASE_JWT_SECRET
     
     loop = asyncio.get_running_loop()
@@ -177,6 +213,7 @@ async def startup_event():
     
     # Start background podcast checker
     _podcast_check_task = asyncio.create_task(check_podcasts_for_updates())
+    _generated_media_cleanup_task = asyncio.create_task(cleanup_generated_media_loop())
     
     # Send Discord notification on startup
     from logger import notify_discord
@@ -199,13 +236,20 @@ async def startup_event():
 @app.on_event("shutdown")
 async def shutdown_event():
     """Clean up resources on shutdown."""
-    global _podcast_check_task
+    global _podcast_check_task, _generated_media_cleanup_task
     
     # Cancel background podcast checker
     if _podcast_check_task:
         _podcast_check_task.cancel()
         try:
             await _podcast_check_task
+        except asyncio.CancelledError:
+            pass
+
+    if _generated_media_cleanup_task:
+        _generated_media_cleanup_task.cancel()
+        try:
+            await _generated_media_cleanup_task
         except asyncio.CancelledError:
             pass
     
