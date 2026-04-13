@@ -885,7 +885,7 @@ async def generate_note(
             "extras": extras,
             "status": "pending",
             "progress": 0,
-            "message": "",
+            "message": "Queued for processing...",
             "error": "",
         })
     else:
@@ -906,6 +906,12 @@ async def generate_note(
                 "grid_rows": grid_rows,
                 "user_id": user_id,
                 "channel": LOCAL_VIDEO_CHANNEL if is_local else "",
+            })
+            db.update_task(task_id, {
+                "status": "pending",
+                "progress": 0,
+                "message": "Queued for processing...",
+                "error": "",
             })
         except Exception as e:
             logger.error(f"[generate] create_task failed: {e}", exc_info=True)
@@ -973,7 +979,7 @@ async def generate_note_json(
             "extras": data.get("extras", ""),
             "status": "pending",
             "progress": 0,
-            "message": "",
+            "message": "Queued for processing...",
             "error": "",
         })
     else:
@@ -996,6 +1002,12 @@ async def generate_note_json(
         }
         try:
             task_id = db.create_task(task_payload)
+            db.update_task(task_id, {
+                "status": "pending",
+                "progress": 0,
+                "message": "Queued for processing...",
+                "error": "",
+            })
         except Exception as e:
             logger.error(f"[generate-json] create_task failed: {e}", exc_info=True)
             raise HTTPException(status_code=500, detail=f"Failed to create task: {type(e).__name__}: {e}")

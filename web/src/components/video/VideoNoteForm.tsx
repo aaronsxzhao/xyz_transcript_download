@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import {
   Play, Loader2, Settings2, ChevronDown, ChevronUp, AlertTriangle, Upload,
 } from 'lucide-react'
-import { generateVideoNote, uploadVideoFile, getUserModelSettings, validateBilibiliCookie, fetchCookieStatus, getVideoProcessingDefaults } from '../../lib/api'
+import { fetchVideoTask, generateVideoNote, uploadVideoFile, getUserModelSettings, validateBilibiliCookie, fetchCookieStatus, getVideoProcessingDefaults, type VideoTask } from '../../lib/api'
 import YouTubeCookieGuide from './YouTubeCookieGuide'
 import PlatformIcon, { PLATFORM_COLORS } from '../PlatformIcon'
 import { useStore } from '../../lib/store'
@@ -59,7 +59,7 @@ const VIDEO_QUALITIES = [
 ]
 
 interface Props {
-  onTaskCreated?: (task: { taskId: string; title: string; url: string; platform: string }) => void
+  onTaskCreated?: (task: { taskId: string; title: string; url: string; platform: string; initialTask?: VideoTask | null }) => void
   hideTitle?: boolean
 }
 
@@ -273,7 +273,11 @@ export default function VideoNoteForm({ onTaskCreated, hideTitle }: Props) {
     setError('')
 
     try {
-      if (detectedPlatform === 'bilibili') {
+      const trimmedUrl = url.trim()
+      const submissionPlatform = detectPlatform(trimmedUrl) || ((activeUpload || isLocalFile) ? 'local' : '')
+      const isLocalTask = submissionPlatform === 'local'
+
+      if (submissionPlatform === 'bilibili') {
         try {
           const cookieCheck = await validateBilibiliCookie()
           if (!cookieCheck.valid) {
@@ -287,7 +291,6 @@ export default function VideoNoteForm({ onTaskCreated, hideTitle }: Props) {
       }
 
       const modelSettings = getUserModelSettings()
-      const isLocalTask = detectedPlatform === 'local'
       if (isLocalTask && activeUpload) {
         upsertUploadSession({
           ...activeUpload,
@@ -299,9 +302,9 @@ export default function VideoNoteForm({ onTaskCreated, hideTitle }: Props) {
         })
       }
       const result = await generateVideoNote({
-        url: url.trim(),
+        url: trimmedUrl,
         title: isLocalTask ? (activeUpload?.filename?.replace(/\.[^.]+$/, '') || 'Local video') : undefined,
-        platform: detectedPlatform,
+        platform: submissionPlatform,
         style,
         formats,
         quality,
@@ -313,6 +316,12 @@ export default function VideoNoteForm({ onTaskCreated, hideTitle }: Props) {
         grid_cols: gridCols,
         grid_rows: gridRows,
       })
+      let initialTask: VideoTask | null = null
+      try {
+        initialTask = await fetchVideoTask(result.task_id)
+      } catch (e) {
+        console.debug('Failed to fetch created video task:', e)
+      }
       const localTitle = activeUpload?.filename?.replace(/\.[^.]+$/, '') || 'Local video'
       if (isLocalTask && activeUpload) {
         upsertUploadSession({
@@ -327,9 +336,10 @@ export default function VideoNoteForm({ onTaskCreated, hideTitle }: Props) {
       }
       onTaskCreated?.({
         taskId: result.task_id,
-        title: isLocalTask ? localTitle : '',
-        url: url.trim(),
-        platform: detectedPlatform,
+        title: initialTask?.title || (isLocalTask ? localTitle : ''),
+        url: trimmedUrl,
+        platform: initialTask?.platform || submissionPlatform,
+        initialTask,
       })
       if (isLocalTask) {
         setActiveUploadId(prev => prev || activeUpload?.id || null)
@@ -339,7 +349,7 @@ export default function VideoNoteForm({ onTaskCreated, hideTitle }: Props) {
     } catch (e: any) {
       const msg = e?.message || 'Unknown error'
       console.error('Failed to generate note:', msg)
-      if (detectedPlatform === 'local' && isLocalFile && activeUpload) {
+      if (activeUpload && (detectPlatform(url.trim()) || (isLocalFile ? 'local' : '')) === 'local') {
         upsertUploadSession({
           ...activeUpload,
           id: activeUpload.id,
