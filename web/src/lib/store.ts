@@ -4,6 +4,18 @@
 import { create } from 'zustand'
 import type { ProcessingJob, VideoTask, VideoUploadProgress } from './api'
 
+const LOCAL_VIDEO_TASK_GRACE_MS = 20000
+
+function normalizeVideoTask(task: VideoTask): VideoTask {
+  if (task.platform !== 'local' && task.message?.startsWith('Upload complete.')) {
+    return {
+      ...task,
+      message: 'Queued for processing...',
+    }
+  }
+  return task
+}
+
 export interface VideoUploadSession extends VideoUploadProgress {
   id: string
   path?: string
@@ -108,32 +120,34 @@ export const useStore = create<AppState>((set) => ({
       const hasAnyActiveTasks =
         serverTasks.some(task => isActive(task.status)) ||
         state.videoTasks.some(task => isActive(task.status))
+      const now = Date.now()
 
       const mergeTask = (existing: VideoTask | undefined, incoming: VideoTask): VideoTask => {
-        if (!existing) return incoming
+        const normalizedIncoming = normalizeVideoTask(incoming)
+        if (!existing) return normalizedIncoming
 
         const existingUpdatedAt = Date.parse(existing.updated_at || existing.created_at || '') || 0
-        const incomingUpdatedAt = Date.parse(incoming.updated_at || incoming.created_at || '') || 0
+        const incomingUpdatedAt = Date.parse(normalizedIncoming.updated_at || normalizedIncoming.created_at || '') || 0
         const keepExistingProgress =
           isActive(existing.status) &&
           incomingUpdatedAt < existingUpdatedAt &&
-          (incoming.progress ?? 0) < (existing.progress ?? 0)
+          (normalizedIncoming.progress ?? 0) < (existing.progress ?? 0)
 
         return {
           ...existing,
-          ...incoming,
-          title: incoming.title || existing.title,
-          thumbnail: incoming.thumbnail || existing.thumbnail,
-          channel: incoming.channel || existing.channel,
-          channel_url: incoming.channel_url || existing.channel_url,
-          channel_avatar: incoming.channel_avatar || existing.channel_avatar,
-          published_at: incoming.published_at || existing.published_at,
-          created_at: incoming.created_at || existing.created_at,
-          updated_at: incoming.updated_at || existing.updated_at,
-          progress: keepExistingProgress ? existing.progress : incoming.progress,
-          status: keepExistingProgress ? existing.status : incoming.status,
-          message: keepExistingProgress ? existing.message : incoming.message,
-          error: incoming.error || existing.error,
+          ...normalizedIncoming,
+          title: normalizedIncoming.title || existing.title,
+          thumbnail: normalizedIncoming.thumbnail || existing.thumbnail,
+          channel: normalizedIncoming.channel || existing.channel,
+          channel_url: normalizedIncoming.channel_url || existing.channel_url,
+          channel_avatar: normalizedIncoming.channel_avatar || existing.channel_avatar,
+          published_at: normalizedIncoming.published_at || existing.published_at,
+          created_at: normalizedIncoming.created_at || existing.created_at,
+          updated_at: normalizedIncoming.updated_at || existing.updated_at,
+          progress: keepExistingProgress ? existing.progress : normalizedIncoming.progress,
+          status: keepExistingProgress ? existing.status : normalizedIncoming.status,
+          message: keepExistingProgress ? existing.message : normalizedIncoming.message,
+          error: normalizedIncoming.error || existing.error,
         }
       }
 
@@ -146,7 +160,14 @@ export const useStore = create<AppState>((set) => ({
       if (hasAnyActiveTasks) {
         for (const localTask of state.videoTasks) {
           if (!mergedById.has(localTask.id)) {
-            mergedById.set(localTask.id, localTask)
+            const localUpdatedAt = Date.parse(localTask.updated_at || localTask.created_at || '') || 0
+            const isFreshLocalOnlyTask =
+              localUpdatedAt > 0 &&
+              now - localUpdatedAt <= LOCAL_VIDEO_TASK_GRACE_MS
+
+            if (isFreshLocalOnlyTask) {
+              mergedById.set(localTask.id, normalizeVideoTask(localTask))
+            }
           }
         }
       }
@@ -160,26 +181,27 @@ export const useStore = create<AppState>((set) => ({
     }),
   updateVideoTask: (task) =>
     set((state) => {
-      const idx = state.videoTasks.findIndex((t) => t.id === task.id)
+      const normalizedTask = normalizeVideoTask(task)
+      const idx = state.videoTasks.findIndex((t) => t.id === normalizedTask.id)
       if (idx >= 0) {
         const newTasks = [...state.videoTasks]
         const existingTask = newTasks[idx]
         newTasks[idx] = {
           ...existingTask,
-          ...task,
-          title: task.title || existingTask.title,
-          thumbnail: task.thumbnail || existingTask.thumbnail,
-          channel: task.channel || existingTask.channel,
-          channel_url: task.channel_url || existingTask.channel_url,
-          channel_avatar: task.channel_avatar || existingTask.channel_avatar,
-          published_at: task.published_at || existingTask.published_at,
-          created_at: task.created_at || existingTask.created_at,
-          updated_at: task.updated_at || existingTask.updated_at,
-          error: task.error || existingTask.error,
+          ...normalizedTask,
+          title: normalizedTask.title || existingTask.title,
+          thumbnail: normalizedTask.thumbnail || existingTask.thumbnail,
+          channel: normalizedTask.channel || existingTask.channel,
+          channel_url: normalizedTask.channel_url || existingTask.channel_url,
+          channel_avatar: normalizedTask.channel_avatar || existingTask.channel_avatar,
+          published_at: normalizedTask.published_at || existingTask.published_at,
+          created_at: normalizedTask.created_at || existingTask.created_at,
+          updated_at: normalizedTask.updated_at || existingTask.updated_at,
+          error: normalizedTask.error || existingTask.error,
         }
         return { videoTasks: newTasks }
       }
-      return { videoTasks: [task, ...state.videoTasks] }
+      return { videoTasks: [normalizedTask, ...state.videoTasks] }
     }),
   removeVideoTask: (taskId) =>
     set((state) => ({

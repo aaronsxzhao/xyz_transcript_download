@@ -56,7 +56,10 @@ export default function ProcessingPanel() {
     !['success', 'failed', 'cancelled', 'discovered'].includes(t.status)
   )
 
-  const visibleUploadSessions = uploadSessions.filter(session => session.phase !== 'queued')
+  const visibleUploadSessions = uploadSessions.filter(session =>
+    session.phase !== 'queued' &&
+    !(session.taskId && videoTasks.some(task => task.id === session.taskId))
+  )
   const activeUploadSessions = visibleUploadSessions.filter(session =>
     !['failed', 'success', 'cancelled'].includes(session.phase)
   )
