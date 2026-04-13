@@ -8,6 +8,10 @@ import { useStore } from './store'
 import { authFetch, type ProcessingJob } from './api'
 import { getAccessToken } from './auth'
 
+function isActiveVideoStatus(status: string): boolean {
+  return !['success', 'failed', 'cancelled', 'discovered'].includes(status)
+}
+
 let ws: WebSocket | null = null
 let pollInterval: number | null = null
 let wsWorking = false
@@ -23,24 +27,40 @@ async function pollJobs() {
   }
   
   try {
-    const response = await authFetch('/api/jobs')
-    if (response.ok) {
-      const data = await response.json()
+    const [jobsResponse, videoTasksResponse] = await Promise.all([
+      authFetch('/api/jobs'),
+      authFetch('/api/video-notes/tasks'),
+    ])
+
+    let stillHasActiveJobs = false
+    let stillHasActiveVideoTasks = false
+
+    if (jobsResponse.ok) {
+      const data = await jobsResponse.json()
       const serverJobs: ProcessingJob[] = data.jobs || []
-      
+
       serverJobs.forEach(job => {
         useStore.getState().updateJob(job)
       })
-      
-      const stillHasActiveJobs = serverJobs.some(job => 
+
+      stillHasActiveJobs = serverJobs.some(job =>
         !['completed', 'failed', 'cancelled'].includes(job.status)
       )
-      
-      const desiredInterval = stillHasActiveJobs ? 3000 : 15000
-      if (pollInterval) {
-        clearInterval(pollInterval)
-        pollInterval = window.setInterval(pollJobs, desiredInterval)
-      }
+    }
+
+    if (videoTasksResponse.ok) {
+      const data = await videoTasksResponse.json()
+      const serverTasks = data.tasks || []
+      useStore.getState().mergeVideoTasks(serverTasks)
+      stillHasActiveVideoTasks = serverTasks.some((task: { status: string }) =>
+        isActiveVideoStatus(task.status)
+      )
+    }
+
+    const desiredInterval = (stillHasActiveJobs || stillHasActiveVideoTasks) ? 3000 : 15000
+    if (pollInterval) {
+      clearInterval(pollInterval)
+      pollInterval = window.setInterval(pollJobs, desiredInterval)
     }
   } catch (e) {
     console.debug('Poll failed:', e)

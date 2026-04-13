@@ -1407,9 +1407,20 @@ async def websocket_progress(websocket: WebSocket, token: Optional[str] = None):
                 jobs_data = [job.model_dump() for job in jobs.values() if job.user_id == user_id]
             else:
                 jobs_data = [job.model_dump() for job in jobs.values() if job.user_id is None]
+        try:
+            from video_task_db import get_video_task_db
+            video_db = get_video_task_db()
+            video_tasks = video_db.list_tasks(user_id)
+            video_tasks = [
+                task for task in video_tasks
+                if task.get("status") not in ("success", "failed", "cancelled", "discovered")
+            ]
+        except Exception:
+            video_tasks = []
         await websocket.send_json({
             "type": "init",
             "jobs": jobs_data,
+            "video_tasks": video_tasks,
         })
         
         # Process any first message that wasn't an auth message
