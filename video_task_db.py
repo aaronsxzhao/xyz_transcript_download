@@ -544,7 +544,56 @@ class _SupabaseVideoTaskDB:
     def list_tasks(self, user_id: str = None, limit: int = 2000) -> List[dict]:
         if not user_id:
             return []
-        return self._sb.list_video_tasks(user_id, limit)
+        server_tasks = self._sb.list_video_tasks(user_id, limit)
+        with self._lock:
+            cached_tasks = [
+                self._cached_to_dict(dict(task))
+                for task in self._cache.values()
+                if task.get("user_id") == user_id
+            ]
+            dirty_ids = set(self._dirty.keys())
+
+        if not cached_tasks:
+            return server_tasks
+
+        server_ids = {task.get("id") for task in server_tasks if task.get("id")}
+        merged_by_id: dict[str, dict] = {}
+        ordered_tasks: list[dict] = []
+
+        for server_task in server_tasks:
+            task_id = server_task.get("id")
+            if not task_id:
+                continue
+            merged_by_id[task_id] = dict(server_task)
+
+        for cached_task in cached_tasks:
+            task_id = cached_task.get("id")
+            if not task_id:
+                continue
+            existing = merged_by_id.get(task_id, {})
+            merged_by_id[task_id] = {**existing, **cached_task}
+
+        for server_task in server_tasks:
+            task_id = server_task.get("id")
+            if task_id and task_id in merged_by_id:
+                ordered_tasks.append(merged_by_id.pop(task_id))
+
+        extra_cached_tasks = [
+            task for task_id, task in merged_by_id.items()
+            if task_id not in server_ids and (
+                task.get("status") not in self.TERMINAL_STATUSES or task_id in dirty_ids
+            )
+        ]
+        extra_cached_tasks.sort(
+            key=lambda task: (
+                task.get("published_at") or "",
+                task.get("updated_at") or "",
+                task.get("created_at") or "",
+            ),
+            reverse=True,
+        )
+
+        return (ordered_tasks + extra_cached_tasks)[:limit]
 
     def list_recent_success_tasks(self, user_id: str = None, limit: int = 6) -> List[dict]:
         if not user_id:

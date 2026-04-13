@@ -15,14 +15,24 @@ function isActiveVideoStatus(status: string): boolean {
 let ws: WebSocket | null = null
 let pollInterval: number | null = null
 let wsWorking = false
-let lastMessageTime = 0
-/** Set on socket open; used when no message was ever received (lastMessageTime still 0). */
+let lastDataMessageTime = 0
+/** Set on socket open; used when no data update was ever received yet. */
 let wsOpenTime = 0
 let staleCheckInterval: number | null = null
 let connected = false
 
 async function pollJobs() {
-  if (wsWorking && ws?.readyState === WebSocket.OPEN) {
+  const { jobs, videoTasks } = useStore.getState()
+  const hasActiveJobs = jobs.some(job =>
+    !['completed', 'failed', 'cancelled'].includes(job.status)
+  )
+  const hasActiveVideoTasks = videoTasks.some(task => isActiveVideoStatus(task.status))
+  const hasActiveWork = hasActiveJobs || hasActiveVideoTasks
+  const hasRecentDataUpdate =
+    lastDataMessageTime > 0 &&
+    Date.now() - lastDataMessageTime < 10000
+
+  if (wsWorking && ws?.readyState === WebSocket.OPEN && hasActiveWork && hasRecentDataUpdate) {
     return
   }
   
@@ -118,10 +128,11 @@ export function connectWebSocket() {
   ws.onmessage = (event) => {
     try {
       const data = JSON.parse(event.data)
-      lastMessageTime = Date.now()
+      const messageTime = Date.now()
       
       switch (data.type) {
         case 'init':
+          lastDataMessageTime = messageTime
           console.log('WebSocket init:', data.jobs?.length || 0, 'jobs')
           useStore.getState().mergeJobs(data.jobs || [])
           if (data.video_tasks?.length) {
@@ -132,6 +143,7 @@ export function connectWebSocket() {
         case 'job_update':
           if (data.job) {
             wsWorking = true
+            lastDataMessageTime = messageTime
             useStore.getState().updateJob(data.job)
           }
           break
@@ -139,6 +151,7 @@ export function connectWebSocket() {
         case 'video_job_update':
           if (data.task) {
             wsWorking = true
+            lastDataMessageTime = messageTime
             useStore.getState().updateVideoTask(data.task)
           }
           break
@@ -156,16 +169,20 @@ export function connectWebSocket() {
   
   if (staleCheckInterval) clearInterval(staleCheckInterval)
   staleCheckInterval = window.setInterval(() => {
-    const jobs = useStore.getState().jobs
+    const { jobs, videoTasks } = useStore.getState()
     const hasActiveJobs = jobs.some(job => 
       !['completed', 'failed', 'cancelled'].includes(job.status)
     )
-    
-    const lastActivity = lastMessageTime > 0 ? lastMessageTime : wsOpenTime
+    const hasActiveVideoTasks = videoTasks.some(task =>
+      isActiveVideoStatus(task.status)
+    )
+    const hasActiveWork = hasActiveJobs || hasActiveVideoTasks
+
+    const lastActivity = lastDataMessageTime > 0 ? lastDataMessageTime : wsOpenTime
     const trustWs =
-      lastMessageTime > 0 ? wsWorking : true
+      lastDataMessageTime > 0 ? wsWorking : true
     if (
-      hasActiveJobs &&
+      hasActiveWork &&
       trustWs &&
       lastActivity > 0 &&
       Date.now() - lastActivity > 30000
