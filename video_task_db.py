@@ -545,11 +545,25 @@ class _SupabaseVideoTaskDB:
         if not user_id:
             return []
         server_tasks = self._sb.list_video_tasks(user_id, limit)
+        return self._merge_cached_task_list(
+            server_tasks,
+            user_id=user_id,
+            limit=limit,
+        )
+
+    def _merge_cached_task_list(
+        self,
+        server_tasks: List[dict],
+        *,
+        user_id: str,
+        limit: int,
+        predicate=None,
+    ) -> List[dict]:
         with self._lock:
             cached_tasks = [
                 self._cached_to_dict(dict(task))
                 for task in self._cache.values()
-                if task.get("user_id") == user_id
+                if task.get("user_id") == user_id and (predicate(task) if predicate else True)
             ]
             dirty_ids = set(self._dirty.keys())
 
@@ -633,7 +647,13 @@ class _SupabaseVideoTaskDB:
     def list_tasks_by_channel(self, channel: str, platform: str, user_id: str = None) -> List[dict]:
         if not user_id or not channel:
             return []
-        return self._sb.list_video_tasks_by_channel(channel, platform, user_id)
+        server_tasks = self._sb.list_video_tasks_by_channel(channel, platform, user_id)
+        return self._merge_cached_task_list(
+            server_tasks,
+            user_id=user_id,
+            limit=max(len(server_tasks), 2000),
+            predicate=lambda task: task.get("channel") == channel and task.get("platform") == platform,
+        )
 
     def delete_task(self, task_id: str, user_id: str = None) -> bool:
         with self._lock:
