@@ -7,7 +7,14 @@ import type { ProcessingJob, VideoTask, VideoUploadProgress } from './api'
 const LOCAL_VIDEO_TASK_GRACE_MS = 20000
 
 function normalizeVideoTask(task: VideoTask): VideoTask {
-  if (task.platform !== 'local' && task.message?.startsWith('Upload complete.')) {
+  if (task.message?.startsWith('Upload complete.')) {
+    return {
+      ...task,
+      message: 'Queued for processing...',
+    }
+  }
+
+  if (task.status === 'pending' && !task.message) {
     return {
       ...task,
       message: 'Queued for processing...',

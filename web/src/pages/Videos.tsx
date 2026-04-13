@@ -255,7 +255,7 @@ export default function Videos() {
         channel_avatar: '',
         status: 'pending',
         progress: 0,
-        message: isOptimisticLocalTask ? 'Upload complete. Queued for processing...' : 'Queued for processing...',
+        message: 'Queued for processing...',
         markdown: '', transcript: null, style: '', model: '', formats: [],
         quality: '', extras: '', video_understanding: false, video_interval: 4,
         grid_cols: 3, grid_rows: 3, duration: 0, error: '',
