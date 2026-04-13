@@ -240,18 +240,19 @@ export default function Videos() {
   }
 
   const handleTaskCreated = (task: { taskId: string; title: string; url: string; platform: string }) => {
+    const isLocalTask = task.platform === 'local'
     useStore.getState().updateVideoTask({
       id: task.taskId,
       url: task.url || '',
       platform: task.platform || '',
       title: task.title || '',
       thumbnail: '',
-      channel: task.platform === 'local' ? 'Local Uploads' : '',
+      channel: isLocalTask ? 'Local Uploads' : '',
       channel_url: '',
       channel_avatar: '',
       status: 'pending',
       progress: 0,
-      message: 'Upload complete. Queued for processing...',
+      message: isLocalTask ? 'Upload complete. Queued for processing...' : 'Queued for processing...',
       markdown: '', transcript: null, style: '', model: '', formats: [],
       quality: '', extras: '', video_understanding: false, video_interval: 4,
       grid_cols: 3, grid_rows: 3, duration: 0, error: '',
@@ -260,7 +261,11 @@ export default function Videos() {
     addToast({
       type: 'success',
       title: 'Video queued',
-      message: task.title ? `${task.title} is now processing` : 'Your local video is now processing',
+      message: task.title
+        ? `${task.title} is now processing`
+        : isLocalTask
+          ? 'Your local video is now processing'
+          : 'Your video is now processing',
     })
     setFormOpen(false)
     // Refresh channel list so new channel/count appears
