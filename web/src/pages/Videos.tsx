@@ -6,7 +6,7 @@ import {
 } from 'lucide-react'
 import VideoNoteForm from '../components/video/VideoNoteForm'
 import PlatformIcon, { PLATFORM_COLORS } from '../components/PlatformIcon'
-import { useStore } from '../lib/store'
+import { useStore, mergeVideoTaskPair } from '../lib/store'
 import { useToast } from '../components/Toast'
 import { markSeen, isNewItem } from '../lib/seen'
 import {
@@ -317,9 +317,12 @@ export default function Videos() {
       const updatedAt = Date.parse(task.updated_at || task.created_at || '') || 0
       return updatedAt > 0 && now - updatedAt <= RECENT_TERMINAL_TASK_WINDOW_MS
     })
-    if (extra.length === 0) return channelTasks
-    return [...extra, ...channelTasks]
-  }, [channelTasks, currentViewStoreTasks, view])
+    const base = extra.length === 0 ? channelTasks : [...extra, ...channelTasks]
+    return base.map(row => {
+      const fromStore = videoTasks.find(t => t.id === row.id)
+      return fromStore ? mergeVideoTaskPair(fromStore, row) : row
+    })
+  }, [channelTasks, currentViewStoreTasks, view, videoTasks])
 
   // Filtered tasks for the channel view
   const filteredChannelTasks = useMemo(() => {
@@ -929,20 +932,25 @@ function VideoList({ videos, onDelete, onRetry, onCancel }: {
                 }
 
                 if (isProcessing(task.status)) {
+                  const pct = Math.min(Math.max(task.progress ?? 0, 0), 100)
+                  const indeterminate = task.status === 'pending' || pct <= 0
                   return (
-                    <div className="flex items-center gap-3 px-4 py-2 bg-dark-hover rounded-lg min-w-[140px]">
-                      <Loader2 size={16} className="animate-spin text-indigo-400" />
-                      <div className="flex-1">
-                        <div className="text-xs text-gray-400 mb-1">
-                          {task.progress > 0
-                            ? `${getStatusLabel(task.status)} ${Math.round(task.progress)}%`
-                            : getStatusLabel(task.status)}
+                    <div className="flex items-center gap-3 px-4 py-2 bg-dark-hover rounded-lg min-w-[160px] min-h-[52px]">
+                      <Loader2 size={16} className="animate-spin text-indigo-400 flex-shrink-0" />
+                      <div className="flex-1 min-w-0 flex flex-col justify-center gap-1.5">
+                        <div className="text-xs text-gray-400 leading-tight tabular-nums">
+                          {getStatusLabel(task.status)} · {Math.round(pct)}%
                         </div>
-                        <div className="h-1.5 bg-dark-border rounded-full overflow-hidden">
+                        <div className="relative h-1.5 bg-dark-border rounded-full overflow-hidden">
                           <div
-                            className="h-full bg-indigo-500 transition-all duration-300"
-                            style={{ width: `${Math.min(task.progress, 100)}%` }}
+                            className="h-full bg-indigo-500 transition-[width] duration-500 ease-out"
+                            style={{ width: `${pct}%` }}
                           />
+                          {indeterminate && (
+                            <div className="absolute inset-0 pointer-events-none overflow-hidden rounded-full">
+                              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent animate-shimmer" />
+                            </div>
+                          )}
                         </div>
                       </div>
                     </div>

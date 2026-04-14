@@ -6,6 +6,7 @@ import {
   Search, X, CheckCircle, AlertTriangle,
 } from 'lucide-react'
 import { fetchVideoTask, retryVideoTask, fetchNotionPages, exportMarkdownToNotion, type VideoTask, type NotionPage } from '../lib/api'
+import { useStore, mergeVideoTaskPair } from '../lib/store'
 import MarkdownPreview from '../components/video/MarkdownPreview'
 import TranscriptPanel from '../components/video/TranscriptPanel'
 import MindMapView from '../components/video/MindMapView'
@@ -74,6 +75,13 @@ export default function VideoViewer() {
   const { taskId } = useParams<{ taskId: string }>()
   const navigate = useNavigate()
   const [task, setTask] = useState<VideoTask | null>(null)
+  const taskRef = useRef(task)
+  taskRef.current = task
+  const storeTaskSlice = useStore(s => (taskId ? s.videoTasks.find(t => t.id === taskId) : undefined))
+  const displayTask = useMemo(() => {
+    if (!task) return null
+    return storeTaskSlice ? mergeVideoTaskPair(storeTaskSlice, task) : task
+  }, [task, storeTaskSlice])
   const [loading, setLoading] = useState(true)
   const [viewMode, setViewMode] = useState<ViewMode>('markdown')
   const [selectedVersion, setSelectedVersion] = useState<string>('')
@@ -113,7 +121,8 @@ export default function VideoViewer() {
 
     load()
     const interval = setInterval(() => {
-      if (task && !['success', 'failed'].includes(task.status)) {
+      const t = taskRef.current
+      if (t && !['success', 'failed', 'cancelled'].includes(t.status)) {
         load()
       }
     }, 3000)
@@ -347,6 +356,7 @@ export default function VideoViewer() {
     )
   }
 
+  const uiTask = displayTask ?? task
   const versions = task.versions || []
 
   return (
@@ -599,36 +609,39 @@ export default function VideoViewer() {
 
         {/* Right: main content — scrolls independently */}
         <div className="flex-1 min-w-0 overflow-y-auto custom-scrollbar bg-dark-surface rounded-xl border border-dark-border p-4" id="video-content-scroll">
-          {!['success', 'failed', 'cancelled'].includes(task.status) && !content ? (
-            <div className="flex flex-col items-center justify-center py-20 text-center space-y-4">
-              <Loader2 className="w-10 h-10 animate-spin text-indigo-500" />
-              <p className="text-lg text-white font-medium">
-                {task.status === 'pending' ? 'Queued for processing...' :
-                 task.status === 'downloading' ? 'Downloading video...' :
-                 task.status === 'transcribing' ? 'Transcribing audio...' :
-                 task.status === 'summarizing' ? 'Generating notes...' :
-                 task.status === 'saving' ? 'Saving results...' :
+          {!['success', 'failed', 'cancelled'].includes(uiTask.status) && !content ? (
+            <div className="flex flex-col items-center justify-center py-20 text-center space-y-4 w-full max-w-md mx-auto">
+              <Loader2 className="w-10 h-10 animate-spin text-indigo-500 flex-shrink-0" />
+              <p className="text-lg text-white font-medium min-h-[1.75rem]">
+                {uiTask.status === 'pending' ? 'Queued for processing...' :
+                 uiTask.status === 'downloading' ? 'Downloading video...' :
+                 uiTask.status === 'transcribing' ? 'Transcribing audio...' :
+                 uiTask.status === 'summarizing' ? 'Generating notes...' :
+                 uiTask.status === 'saving' ? 'Saving results...' :
                  'Processing...'}
               </p>
-              {task.progress > 0 && (
-                <div className="w-48">
-                  <div className="h-1.5 bg-dark-border rounded-full overflow-hidden">
-                    <div
-                      className="h-full bg-indigo-500 transition-all duration-500"
-                      style={{ width: `${Math.min(task.progress, 100)}%` }}
-                    />
-                  </div>
-                  <p className="text-xs text-gray-500 mt-1">{Math.round(task.progress)}%</p>
+              <div className="w-full min-h-[2.25rem] flex flex-col gap-1">
+                <div className="relative h-2 bg-dark-border rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-indigo-500 transition-[width] duration-500 ease-out"
+                    style={{ width: `${Math.min(Math.max(uiTask.progress ?? 0, 0), 100)}%` }}
+                  />
+                  {(uiTask.status === 'pending' || (uiTask.progress ?? 0) <= 0) && (
+                    <div className="absolute inset-0 pointer-events-none overflow-hidden rounded-full">
+                      <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent animate-shimmer" />
+                    </div>
+                  )}
                 </div>
-              )}
-              {task.message && (
-                <p className="text-sm text-gray-400 max-w-md">{task.message}</p>
-              )}
+                <p className="text-xs text-gray-500 tabular-nums">{Math.round(Math.min(Math.max(uiTask.progress ?? 0, 0), 100))}%</p>
+              </div>
+              <p className="text-sm text-gray-400 max-w-md min-h-[1.25rem]">
+                {uiTask.message || '\u00a0'}
+              </p>
             </div>
           ) : (
             <>
               {viewMode === 'markdown' && (
-                <MarkdownPreview task={{ ...task, markdown: content }} />
+                <MarkdownPreview task={{ ...uiTask, markdown: content }} />
               )}
               {viewMode === 'mindmap' && (
                 <MindMapView markdown={content} />

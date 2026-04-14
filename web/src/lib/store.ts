@@ -6,6 +6,10 @@ import type { ProcessingJob, VideoTask, VideoUploadProgress } from './api'
 
 const LOCAL_VIDEO_TASK_GRACE_MS = 20000
 
+function isActiveVideoTaskStatus(status: string) {
+  return !['success', 'failed', 'cancelled', 'discovered'].includes(status)
+}
+
 function normalizeVideoTask(task: VideoTask): VideoTask {
   if (task.message?.startsWith('Upload complete.')) {
     return {
@@ -21,6 +25,36 @@ function normalizeVideoTask(task: VideoTask): VideoTask {
     }
   }
   return task
+}
+
+/** Merge websocket/store snapshot with a server fetch (e.g. list poll). Keeps fresher progress when API lags. */
+export function mergeVideoTaskPair(existing: VideoTask | undefined, incoming: VideoTask): VideoTask {
+  const normalizedIncoming = normalizeVideoTask(incoming)
+  if (!existing) return normalizedIncoming
+
+  const existingUpdatedAt = Date.parse(existing.updated_at || existing.created_at || '') || 0
+  const incomingUpdatedAt = Date.parse(normalizedIncoming.updated_at || normalizedIncoming.created_at || '') || 0
+  const keepExistingProgress =
+    isActiveVideoTaskStatus(existing.status) &&
+    incomingUpdatedAt < existingUpdatedAt &&
+    (normalizedIncoming.progress ?? 0) < (existing.progress ?? 0)
+
+  return {
+    ...existing,
+    ...normalizedIncoming,
+    title: normalizedIncoming.title || existing.title,
+    thumbnail: normalizedIncoming.thumbnail || existing.thumbnail,
+    channel: normalizedIncoming.channel || existing.channel,
+    channel_url: normalizedIncoming.channel_url || existing.channel_url,
+    channel_avatar: normalizedIncoming.channel_avatar || existing.channel_avatar,
+    published_at: normalizedIncoming.published_at || existing.published_at,
+    created_at: normalizedIncoming.created_at || existing.created_at,
+    updated_at: normalizedIncoming.updated_at || existing.updated_at,
+    progress: keepExistingProgress ? existing.progress : normalizedIncoming.progress,
+    status: keepExistingProgress ? existing.status : normalizedIncoming.status,
+    message: keepExistingProgress ? existing.message : normalizedIncoming.message,
+    error: normalizedIncoming.error || existing.error,
+  }
 }
 
 export interface VideoUploadSession extends VideoUploadProgress {
@@ -123,45 +157,15 @@ export const useStore = create<AppState>((set) => ({
   setVideoTasks: (tasks) => set({ videoTasks: tasks }),
   mergeVideoTasks: (serverTasks) =>
     set((state) => {
-      const isActive = (status: string) => !['success', 'failed', 'cancelled', 'discovered'].includes(status)
       const hasAnyActiveTasks =
-        serverTasks.some(task => isActive(task.status)) ||
-        state.videoTasks.some(task => isActive(task.status))
+        serverTasks.some(task => isActiveVideoTaskStatus(task.status)) ||
+        state.videoTasks.some(task => isActiveVideoTaskStatus(task.status))
       const now = Date.now()
-
-      const mergeTask = (existing: VideoTask | undefined, incoming: VideoTask): VideoTask => {
-        const normalizedIncoming = normalizeVideoTask(incoming)
-        if (!existing) return normalizedIncoming
-
-        const existingUpdatedAt = Date.parse(existing.updated_at || existing.created_at || '') || 0
-        const incomingUpdatedAt = Date.parse(normalizedIncoming.updated_at || normalizedIncoming.created_at || '') || 0
-        const keepExistingProgress =
-          isActive(existing.status) &&
-          incomingUpdatedAt < existingUpdatedAt &&
-          (normalizedIncoming.progress ?? 0) < (existing.progress ?? 0)
-
-        return {
-          ...existing,
-          ...normalizedIncoming,
-          title: normalizedIncoming.title || existing.title,
-          thumbnail: normalizedIncoming.thumbnail || existing.thumbnail,
-          channel: normalizedIncoming.channel || existing.channel,
-          channel_url: normalizedIncoming.channel_url || existing.channel_url,
-          channel_avatar: normalizedIncoming.channel_avatar || existing.channel_avatar,
-          published_at: normalizedIncoming.published_at || existing.published_at,
-          created_at: normalizedIncoming.created_at || existing.created_at,
-          updated_at: normalizedIncoming.updated_at || existing.updated_at,
-          progress: keepExistingProgress ? existing.progress : normalizedIncoming.progress,
-          status: keepExistingProgress ? existing.status : normalizedIncoming.status,
-          message: keepExistingProgress ? existing.message : normalizedIncoming.message,
-          error: normalizedIncoming.error || existing.error,
-        }
-      }
 
       const mergedById = new Map<string, VideoTask>()
       for (const serverTask of serverTasks) {
         const existing = state.videoTasks.find(task => task.id === serverTask.id)
-        mergedById.set(serverTask.id, mergeTask(existing, serverTask))
+        mergedById.set(serverTask.id, mergeVideoTaskPair(existing, serverTask))
       }
 
       if (hasAnyActiveTasks) {
@@ -192,20 +196,7 @@ export const useStore = create<AppState>((set) => ({
       const idx = state.videoTasks.findIndex((t) => t.id === normalizedTask.id)
       if (idx >= 0) {
         const newTasks = [...state.videoTasks]
-        const existingTask = newTasks[idx]
-        newTasks[idx] = {
-          ...existingTask,
-          ...normalizedTask,
-          title: normalizedTask.title || existingTask.title,
-          thumbnail: normalizedTask.thumbnail || existingTask.thumbnail,
-          channel: normalizedTask.channel || existingTask.channel,
-          channel_url: normalizedTask.channel_url || existingTask.channel_url,
-          channel_avatar: normalizedTask.channel_avatar || existingTask.channel_avatar,
-          published_at: normalizedTask.published_at || existingTask.published_at,
-          created_at: normalizedTask.created_at || existingTask.created_at,
-          updated_at: normalizedTask.updated_at || existingTask.updated_at,
-          error: normalizedTask.error || existingTask.error,
-        }
+        newTasks[idx] = mergeVideoTaskPair(newTasks[idx], normalizedTask)
         return { videoTasks: newTasks }
       }
       return { videoTasks: [normalizedTask, ...state.videoTasks] }

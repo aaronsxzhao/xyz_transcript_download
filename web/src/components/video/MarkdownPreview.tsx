@@ -37,19 +37,45 @@ export default function MarkdownPreview({ task }: Props) {
   const isFailed = task.status === 'failed'
   const isCancelled = task.status === 'cancelled'
   const isSuccess = task.status === 'success'
+  const isInFlight =
+    task.status !== '' &&
+    !['success', 'failed', 'cancelled', 'discovered'].includes(task.status)
+  const progressPct = Math.min(Math.max(task.progress ?? 0, 0), 100)
+  const progressIndeterminate = task.status === 'pending' || progressPct <= 0
 
   return (
     <div>
 
-      {/* Progress bar for active tasks */}
-      {isActive && (
-        <div className="mb-4 flex-shrink-0">
-          <StepBar currentStatus={task.status} progress={task.progress} />
-          <div className="flex items-center justify-center gap-3 mt-3">
-            <p className="text-xs text-gray-500">
-              {task.message || 'Processing...'}
+      {/* Stable-height progress chrome for queued + all active pipeline states */}
+      {isInFlight && (
+        <div className="mb-4 flex-shrink-0 min-h-[5.5rem] flex flex-col justify-start gap-2">
+          <div className="min-h-[4.5rem] flex flex-col justify-center">
+            {task.status === 'pending' ? (
+              <div className="flex items-center justify-center gap-2 py-2 text-xs text-gray-400">
+                <Loader2 size={16} className="animate-spin text-indigo-400" />
+                <span>Queued for processing…</span>
+              </div>
+            ) : (
+              <StepBar currentStatus={task.status} progress={task.progress} />
+            )}
+          </div>
+          <div className="relative h-1.5 bg-dark-border rounded-full overflow-hidden flex-shrink-0">
+            <div
+              className="h-full bg-indigo-500 transition-[width] duration-500 ease-out"
+              style={{ width: `${progressPct}%` }}
+            />
+            {progressIndeterminate && (
+              <div className="absolute inset-0 pointer-events-none overflow-hidden rounded-full">
+                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/15 to-transparent animate-shimmer" />
+              </div>
+            )}
+          </div>
+          <div className="flex items-center justify-center gap-3 min-h-[1.25rem]">
+            <p className="text-xs text-gray-500 truncate max-w-[min(100%,20rem)] text-center">
+              {task.message || (task.status === 'pending' ? 'Waiting in server queue…' : 'Processing…')}
             </p>
             <button
+              type="button"
               onClick={async () => {
                 try {
                   const { cancelVideoTask } = await import('../../lib/api')
@@ -58,20 +84,12 @@ export default function MarkdownPreview({ task }: Props) {
                   console.error('Cancel failed:', e)
                 }
               }}
-              className="flex items-center gap-1 px-2 py-0.5 text-xs text-orange-400 hover:text-orange-300 border border-orange-500/30 hover:border-orange-400/50 rounded transition-colors"
+              className="flex items-center gap-1 px-2 py-0.5 text-xs text-orange-400 hover:text-orange-300 border border-orange-500/30 hover:border-orange-400/50 rounded transition-colors flex-shrink-0"
             >
               <Square size={10} className="fill-current" />
               Cancel
             </button>
           </div>
-        </div>
-      )}
-
-      {/* Pending state */}
-      {task.status === 'pending' && (
-        <div className="flex flex-col items-center justify-center py-20 text-gray-500">
-          <Loader2 size={32} className="animate-spin mb-3 text-indigo-400" />
-          <p>Queued for processing...</p>
         </div>
       )}
 
@@ -341,28 +359,9 @@ export default function MarkdownPreview({ task }: Props) {
         </div>
       )}
 
-      {/* Loading state for active but no markdown yet */}
-      {isActive && !task.markdown && task.status !== 'pending' && (
-        <div className="flex flex-col items-center justify-center py-20 text-gray-500">
-          {/* Circular progress */}
-          <div className="relative w-16 h-16 mb-4">
-            <svg className="w-full h-full -rotate-90" viewBox="0 0 64 64">
-              <circle cx="32" cy="32" r="28" fill="none" stroke="currentColor" strokeWidth="3" className="text-dark-border" />
-              <circle
-                cx="32" cy="32" r="28" fill="none" strokeWidth="3"
-                className="text-indigo-500"
-                strokeLinecap="round"
-                strokeDasharray={`${2 * Math.PI * 28}`}
-                strokeDashoffset={`${2 * Math.PI * 28 * (1 - task.progress / 100)}`}
-                style={{ transition: 'stroke-dashoffset 1.2s ease-out' }}
-              />
-            </svg>
-            <span className="absolute inset-0 flex items-center justify-center text-xs font-medium text-gray-300">
-              {Math.round(task.progress)}%
-            </span>
-          </div>
-          <p className="text-sm text-gray-400">{task.message || 'Processing...'}</p>
-        </div>
+      {/* In-flight with no markdown yet: keep a calm spacer so layout does not jump when notes start streaming */}
+      {isInFlight && !task.markdown && (
+        <div className="min-h-[8rem]" aria-hidden />
       )}
     </div>
   )
