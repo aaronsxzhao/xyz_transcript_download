@@ -198,9 +198,11 @@ REQUEST_TIMEOUT_CONNECT = _get_env_int("REQUEST_TIMEOUT_CONNECT", 30, min_val=5)
 REQUEST_TIMEOUT_READ = _get_env_int("REQUEST_TIMEOUT_READ", 60, min_val=10)
 
 # Upload tuning for hosted local video uploads
-VIDEO_UPLOAD_CHUNK_SIZE_MB = _get_env_int("VIDEO_UPLOAD_CHUNK_SIZE_MB", 8, min_val=1)
+# 4 MB chunks complete well within Cloudflare / Render request timeouts;
+# 3 concurrent workers avoid saturating the origin or triggering rate limits.
+VIDEO_UPLOAD_CHUNK_SIZE_MB = _get_env_int("VIDEO_UPLOAD_CHUNK_SIZE_MB", 4, min_val=1)
 VIDEO_UPLOAD_CHUNK_SIZE = VIDEO_UPLOAD_CHUNK_SIZE_MB * 1024 * 1024
-VIDEO_UPLOAD_CLIENT_CONCURRENCY = _get_env_int("VIDEO_UPLOAD_CLIENT_CONCURRENCY", 6, min_val=1)
+VIDEO_UPLOAD_CLIENT_CONCURRENCY = _get_env_int("VIDEO_UPLOAD_CLIENT_CONCURRENCY", 3, min_val=1)
 VIDEO_UPLOAD_ASSEMBLY_COPY_MB = _get_env_int("VIDEO_UPLOAD_ASSEMBLY_COPY_MB", 4, min_val=1)
 VIDEO_UPLOAD_ASSEMBLY_COPY_BYTES = VIDEO_UPLOAD_ASSEMBLY_COPY_MB * 1024 * 1024
 

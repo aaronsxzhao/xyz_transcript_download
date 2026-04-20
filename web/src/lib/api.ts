@@ -314,10 +314,11 @@ async function uploadLocalPodcastAudioChunked(
         chunkData.append('index', String(index))
         chunkData.append('chunk', file.slice(start, end), `${file.name}.part-${index}`)
 
-        const chunkRes = await authFetch(`${API_BASE}/podcasts/upload-audio/chunk`, {
-          method: 'POST',
-          body: chunkData,
-        })
+        const chunkRes = await authFetchWithTimeout(
+          `${API_BASE}/podcasts/upload-audio/chunk`,
+          { method: 'POST', body: chunkData },
+          CHUNK_UPLOAD_TIMEOUT_MS,
+        )
         if (!chunkRes.ok) {
           const canRetry = attempt < CHUNK_RETRY_ATTEMPTS && shouldRetryVideoUploadAsChunked(chunkRes.status)
           if (canRetry) {
@@ -759,8 +760,8 @@ export async function cancelVideoTask(taskId: string): Promise<{ message: string
 
 /** Below this size we still try one-shot upload first; on CDN 5xx / 413 we fall back to chunked. */
 const CHUNKED_VIDEO_UPLOAD_THRESHOLD = 8 * 1024 * 1024
-const DEFAULT_CHUNKED_VIDEO_UPLOAD_CONCURRENCY = 4
-const MAX_CHUNKED_VIDEO_UPLOAD_CONCURRENCY = 8
+const DEFAULT_CHUNKED_VIDEO_UPLOAD_CONCURRENCY = 3
+const MAX_CHUNKED_VIDEO_UPLOAD_CONCURRENCY = 6
 const VIDEO_UPLOAD_ASSEMBLY_POLL_MS = 1500
 
 export interface VideoUploadStatus {
@@ -875,6 +876,22 @@ function isNetworkOrTimeoutError(error: unknown): boolean {
 
 const CHUNK_RETRY_ATTEMPTS = 3
 const CHUNK_RETRY_BASE_MS = 1500
+const CHUNK_UPLOAD_TIMEOUT_MS = 45_000
+
+/** Wrapper around authFetch that aborts if the request takes longer than `timeoutMs`. */
+async function authFetchWithTimeout(
+  url: string,
+  options: RequestInit,
+  timeoutMs: number,
+): Promise<Response> {
+  const controller = new AbortController()
+  const timer = window.setTimeout(() => controller.abort(), timeoutMs)
+  try {
+    return await authFetch(url, { ...options, signal: controller.signal })
+  } finally {
+    window.clearTimeout(timer)
+  }
+}
 
 async function startAssemblyStatusPolling(
   uploadId: string,
@@ -995,10 +1012,11 @@ async function uploadVideoFileChunked(
         chunkForm.append('index', String(index))
         chunkForm.append('chunk', chunkBlob, `${file.name}.part-${index}`)
 
-        const chunkRes = await authFetch(`${API_BASE}/video-notes/upload/chunk`, {
-          method: 'POST',
-          body: chunkForm,
-        })
+        const chunkRes = await authFetchWithTimeout(
+          `${API_BASE}/video-notes/upload/chunk`,
+          { method: 'POST', body: chunkForm },
+          CHUNK_UPLOAD_TIMEOUT_MS,
+        )
         if (!chunkRes.ok) {
           const canRetry = attempt < CHUNK_RETRY_ATTEMPTS && shouldRetryVideoUploadAsChunked(chunkRes.status)
           if (canRetry) {

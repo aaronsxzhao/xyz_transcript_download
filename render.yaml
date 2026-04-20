@@ -24,9 +24,9 @@ services:
       - key: XYZ_DATA_DIR
         value: /data
       - key: VIDEO_UPLOAD_CHUNK_SIZE_MB
-        value: "8"
+        value: "4"
       - key: VIDEO_UPLOAD_CLIENT_CONCURRENCY
-        value: "6"
+        value: "3"
       - key: VIDEO_UPLOAD_ASSEMBLY_COPY_MB
         value: "4"
       - key: GROQ_API_KEY
