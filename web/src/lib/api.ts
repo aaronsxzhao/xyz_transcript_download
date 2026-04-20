@@ -229,15 +229,23 @@ export async function uploadLocalPodcastAudio(
     return uploadLocalPodcastAudioChunked(file, options)
   }
 
-  const formData = new FormData()
-  formData.append('file', file)
-  if (options.title) formData.append('title', options.title)
-  if (options.description) formData.append('description', options.description)
+  let res: Response
+  try {
+    const formData = new FormData()
+    formData.append('file', file)
+    if (options.title) formData.append('title', options.title)
+    if (options.description) formData.append('description', options.description)
 
-  const res = await authFetch(`${API_BASE}/podcasts/upload-audio`, {
-    method: 'POST',
-    body: formData,
-  })
+    res = await authFetch(`${API_BASE}/podcasts/upload-audio`, {
+      method: 'POST',
+      body: formData,
+    })
+  } catch (error) {
+    if (isNetworkOrTimeoutError(error)) {
+      return uploadLocalPodcastAudioChunked(file, options)
+    }
+    throw error
+  }
   if (res.status === 413) {
     return uploadLocalPodcastAudioChunked(file, options)
   }
@@ -298,17 +306,34 @@ async function uploadLocalPodcastAudioChunked(
   for (let index = 0; index < init.total_chunks; index += 1) {
     const start = index * init.chunk_size
     const end = Math.min(file.size, start + init.chunk_size)
-    const chunkData = new FormData()
-    chunkData.append('upload_id', init.upload_id)
-    chunkData.append('index', String(index))
-    chunkData.append('chunk', file.slice(start, end), `${file.name}.part-${index}`)
 
-    const chunkRes = await authFetch(`${API_BASE}/podcasts/upload-audio/chunk`, {
-      method: 'POST',
-      body: chunkData,
-    })
-    if (!chunkRes.ok) {
-      throw new Error(await parseLocalAudioUploadError(chunkRes))
+    for (let attempt = 0; attempt <= CHUNK_RETRY_ATTEMPTS; attempt++) {
+      try {
+        const chunkData = new FormData()
+        chunkData.append('upload_id', init.upload_id)
+        chunkData.append('index', String(index))
+        chunkData.append('chunk', file.slice(start, end), `${file.name}.part-${index}`)
+
+        const chunkRes = await authFetch(`${API_BASE}/podcasts/upload-audio/chunk`, {
+          method: 'POST',
+          body: chunkData,
+        })
+        if (!chunkRes.ok) {
+          const canRetry = attempt < CHUNK_RETRY_ATTEMPTS && shouldRetryVideoUploadAsChunked(chunkRes.status)
+          if (canRetry) {
+            await sleep(CHUNK_RETRY_BASE_MS * 2 ** attempt)
+            continue
+          }
+          throw new Error(await parseLocalAudioUploadError(chunkRes))
+        }
+        break
+      } catch (error) {
+        if (isNetworkOrTimeoutError(error) && attempt < CHUNK_RETRY_ATTEMPTS) {
+          await sleep(CHUNK_RETRY_BASE_MS * 2 ** attempt)
+          continue
+        }
+        throw error
+      }
     }
   }
 
@@ -837,6 +862,20 @@ function sleep(ms: number): Promise<void> {
   return new Promise(resolve => window.setTimeout(resolve, ms))
 }
 
+/** Detect network-level failures (connection refused, timeout, DNS, etc.)
+ *  that never produce an HTTP status code — the browser throws a TypeError. */
+function isNetworkOrTimeoutError(error: unknown): boolean {
+  if (error instanceof TypeError) {
+    const msg = error.message.toLowerCase()
+    return msg.includes('failed to fetch') || msg.includes('network') || msg.includes('abort')
+  }
+  if (error instanceof DOMException && error.name === 'AbortError') return true
+  return false
+}
+
+const CHUNK_RETRY_ATTEMPTS = 3
+const CHUNK_RETRY_BASE_MS = 1500
+
 async function startAssemblyStatusPolling(
   uploadId: string,
   filename: string,
@@ -947,46 +986,63 @@ async function uploadVideoFileChunked(
   const uploadChunk = async (index: number) => {
     const start = index * init.chunk_size
     const end = Math.min(file.size, start + init.chunk_size)
-    const chunkBlob = file.slice(start, end)
-    const chunkForm = new FormData()
-    chunkForm.append('upload_id', init.upload_id)
-    chunkForm.append('index', String(index))
-    chunkForm.append('chunk', chunkBlob, `${file.name}.part-${index}`)
 
-    const chunkRes = await authFetch(`${API_BASE}/video-notes/upload/chunk`, {
-      method: 'POST',
-      body: chunkForm,
-    })
-    if (!chunkRes.ok) {
-      throw new Error(await parseUploadError(chunkRes, `Failed to upload chunk ${index + 1}`))
-    }
-
-    completedChunks += 1
-    const chunkText = await chunkRes.text()
-    let body = {} as { status?: VideoUploadStatus }
-    if (chunkText.trim()) {
+    for (let attempt = 0; attempt <= CHUNK_RETRY_ATTEMPTS; attempt++) {
       try {
-        body = JSON.parse(chunkText) as { status?: VideoUploadStatus }
-      } catch {
-        // Server may return 200 with empty or non-JSON body; progress still advances.
+        const chunkBlob = file.slice(start, end)
+        const chunkForm = new FormData()
+        chunkForm.append('upload_id', init.upload_id)
+        chunkForm.append('index', String(index))
+        chunkForm.append('chunk', chunkBlob, `${file.name}.part-${index}`)
+
+        const chunkRes = await authFetch(`${API_BASE}/video-notes/upload/chunk`, {
+          method: 'POST',
+          body: chunkForm,
+        })
+        if (!chunkRes.ok) {
+          const canRetry = attempt < CHUNK_RETRY_ATTEMPTS && shouldRetryVideoUploadAsChunked(chunkRes.status)
+          if (canRetry) {
+            await sleep(CHUNK_RETRY_BASE_MS * 2 ** attempt)
+            continue
+          }
+          throw new Error(await parseUploadError(chunkRes, `Failed to upload chunk ${index + 1}`))
+        }
+
+        completedChunks += 1
+        const chunkText = await chunkRes.text()
+        let body = {} as { status?: VideoUploadStatus }
+        if (chunkText.trim()) {
+          try {
+            body = JSON.parse(chunkText) as { status?: VideoUploadStatus }
+          } catch {
+            // Server may return 200 with empty or non-JSON body; progress still advances.
+          }
+        }
+        if (body.status) {
+          onProgress?.(toUploadProgress(body.status, file.name))
+        } else {
+          onProgress?.({
+            uploadId: init.upload_id,
+            phase: completedChunks >= init.total_chunks ? 'uploaded' : 'uploading',
+            filename: file.name,
+            uploadedBytes: end,
+            assembledBytes: 0,
+            totalBytes: file.size,
+            uploadedChunks: completedChunks,
+            totalChunks: init.total_chunks,
+            percent: Math.min(100, Math.round((completedChunks / init.total_chunks) * 100)),
+            statusText: `Uploading to server... ${completedChunks}/${init.total_chunks} chunks sent`,
+            locationLabel: 'Temporary server upload area',
+          })
+        }
+        return
+      } catch (error) {
+        if (isNetworkOrTimeoutError(error) && attempt < CHUNK_RETRY_ATTEMPTS) {
+          await sleep(CHUNK_RETRY_BASE_MS * 2 ** attempt)
+          continue
+        }
+        throw error
       }
-    }
-    if (body.status) {
-      onProgress?.(toUploadProgress(body.status, file.name))
-    } else {
-      onProgress?.({
-        uploadId: init.upload_id,
-        phase: completedChunks >= init.total_chunks ? 'uploaded' : 'uploading',
-        filename: file.name,
-        uploadedBytes: end,
-        assembledBytes: 0,
-        totalBytes: file.size,
-        uploadedChunks: completedChunks,
-        totalChunks: init.total_chunks,
-        percent: Math.min(100, Math.round((completedChunks / init.total_chunks) * 100)),
-        statusText: `Uploading to server... ${completedChunks}/${init.total_chunks} chunks sent`,
-        locationLabel: 'Temporary server upload area',
-      })
     }
   }
 
@@ -1069,6 +1125,9 @@ export async function uploadVideoFile(
     result = await uploadVideoFileSimple(file)
   } catch (error) {
     if (error instanceof UploadResponseError && shouldRetryVideoUploadAsChunked(error.status)) {
+      return uploadVideoFileChunked(file, onProgress)
+    }
+    if (isNetworkOrTimeoutError(error)) {
       return uploadVideoFileChunked(file, onProgress)
     }
     throw error
