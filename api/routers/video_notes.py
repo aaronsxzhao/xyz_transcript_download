@@ -1479,6 +1479,10 @@ async def complete_chunked_upload(
                 })
     except Exception:
         save_path.unlink(missing_ok=True)
+        # Best-effort cleanup of any chunks not yet unlinked by the loop above
+        # so a failed assembly doesn't leak ~hundreds of MB on the persistent
+        # disk until the 24h stale sweep runs.
+        _cleanup_upload_parts(upload_id)
         _mark_upload_failed(upload_id, "Failed to assemble uploaded file")
         raise HTTPException(status_code=500, detail="Failed to assemble uploaded file")
 
