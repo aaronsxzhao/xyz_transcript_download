@@ -284,7 +284,9 @@ class SupabaseDatabase:
         page_size = 1000
         
         while True:
-            segments_result = self.client.table("transcript_segments").select("*").eq(
+            segments_result = self.client.table("transcript_segments").select(
+                "start_time, end_time, text"
+            ).eq(
                 "transcript_id", transcript["id"]
             ).order("start_time").range(offset, offset + page_size - 1).execute()
             
@@ -384,16 +386,32 @@ class SupabaseDatabase:
         
         transcript = result.data[0]
         
-        # Get segments
-        segments_result = self.client.table("transcript_segments").select("*").eq("transcript_id", transcript["id"]).order("start_time").execute()
+        # Get ALL segments — paginate because PostgREST caps each response
+        # at 1000 rows by default, and some transcripts have 7000+ segments.
+        all_segments: List[Dict[str, Any]] = []
+        offset = 0
+        page_size = 1000
+        while True:
+            segments_result = self.client.table("transcript_segments").select(
+                "start_time, end_time, text"
+            ).eq("transcript_id", transcript["id"]).order("start_time").range(
+                offset, offset + page_size - 1
+            ).execute()
+            if not segments_result.data:
+                break
+            all_segments.extend(segments_result.data)
+            if len(segments_result.data) < page_size:
+                break
+            offset += page_size
+
         segments = [
             {
                 "start": seg["start_time"],
                 "end": seg["end_time"],
                 "text": seg["text"]
             }
-            for seg in segments_result.data
-        ] if segments_result.data else []
+            for seg in all_segments
+        ]
         
         return TranscriptRecord(
             id=transcript["id"],
@@ -466,14 +484,18 @@ class SupabaseDatabase:
         )
     
     def get_all_summaries(self, user_id: str) -> List[SummaryRecord]:
-        """Get all summaries for a user with key points via FK join."""
+        """Get all summaries for a user (lightweight — list view only).
+
+        Excludes heavy `overview`, `takeaways`, and full key-point text since
+        the only callers (list endpoints) just use title/topics counts and
+        episode_id. Use get_summary() for the full record.
+        """
         if not self.client:
             return []
 
-        # Use Supabase FK join to fetch summaries + key points in one query
         result = (
             self.client.table("summaries")
-            .select("*, summary_key_points(topic, summary, original_quote, timestamp)")
+            .select("id, user_id, episode_id, title, topics, created_at, summary_key_points(id)")
             .eq("user_id", user_id)
             .order("created_at", desc=True)
             .execute()
@@ -490,10 +512,10 @@ class SupabaseDatabase:
                 id=row["id"],
                 user_id=row["user_id"],
                 episode_id=row["episode_id"],
-                title=row["title"],
-                overview=row["overview"],
+                title=row.get("title", ""),
+                overview="",
                 topics=row.get("topics", []),
-                takeaways=row.get("takeaways", []),
+                takeaways=[],
                 key_points=kp_list,
                 created_at=row.get("created_at"),
             ))
@@ -935,10 +957,20 @@ class SupabaseDatabase:
         return self._video_task_to_dict(result.data[0])
 
     def get_video_task_by_url(self, url: str, user_id: str = None) -> Optional[dict]:
-        """Get a video task by URL."""
+        """Get a video task by URL (lightweight — for duplicate-check only).
+
+        Excludes the heavy `markdown` and `transcript_json` columns (~16 KB
+        per row) since callers only need id/title/published_at to detect
+        existing tasks before kicking off work.
+        """
         if not self.client or not url:
             return None
-        query = self.client.table("video_tasks").select("*").eq("url", url)
+        cols = (
+            "id, url, platform, title, thumbnail, status, progress, message,"
+            "style, duration, error, channel, channel_url, channel_avatar,"
+            "published_at, created_at, updated_at"
+        )
+        query = self.client.table("video_tasks").select(cols).eq("url", url)
         if user_id:
             query = query.eq("user_id", user_id)
         result = query.limit(1).execute()
