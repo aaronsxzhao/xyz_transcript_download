@@ -760,7 +760,7 @@ export async function cancelVideoTask(taskId: string): Promise<{ message: string
 
 /** Below this size we still try one-shot upload first; on CDN 5xx / 413 we fall back to chunked. */
 const CHUNKED_VIDEO_UPLOAD_THRESHOLD = 8 * 1024 * 1024
-const DEFAULT_CHUNKED_VIDEO_UPLOAD_CONCURRENCY = 3
+const DEFAULT_CHUNKED_VIDEO_UPLOAD_CONCURRENCY = 4
 const MAX_CHUNKED_VIDEO_UPLOAD_CONCURRENCY = 6
 const VIDEO_UPLOAD_ASSEMBLY_POLL_MS = 1500
 

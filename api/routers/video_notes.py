@@ -1470,6 +1470,7 @@ async def complete_chunked_upload(
                 with open(part_path, "rb") as src:
                     shutil.copyfileobj(src, out, length=VIDEO_UPLOAD_ASSEMBLY_COPY_BYTES)
                 bytes_written += part_path.stat().st_size
+                part_path.unlink(missing_ok=True)
                 _snapshot = bytes_written
                 _update_upload_meta(upload_id, lambda current, _bw=_snapshot: {
                     **current,
