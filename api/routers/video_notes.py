@@ -6,12 +6,14 @@ import shutil
 import threading
 import time
 import uuid
+import weakref
 from concurrent.futures import ThreadPoolExecutor, TimeoutError as FutureTimeout
 from pathlib import Path
 from typing import Optional, Set
 
 from fastapi import APIRouter, HTTPException, BackgroundTasks, Depends, UploadFile, File, Form, Query, Request
 
+from api.media import sign_media_urls
 from api.auth import get_current_user, User
 from api.local_media import LOCAL_VIDEO_CHANNEL, LOCAL_VIDEO_EXTENSIONS
 from api.routers.processing import (
@@ -45,6 +47,9 @@ def _invalidate_list_cache(user_id: str = None):
 
 _cancel_lock = threading.Lock()
 _cancelled_tasks: Set[str] = set()
+_video_attempts: dict[str, int] = {}
+_video_worker = threading.local()
+_video_locks: weakref.WeakValueDictionary = weakref.WeakValueDictionary()
 _upload_meta_lock = threading.Lock()
 _last_upload_cleanup = 0.0
 
@@ -63,6 +68,9 @@ def _local_video_title(path_value: str) -> str:
 
 
 def _upload_session_dir(upload_id: str) -> Path:
+    import re
+    if not re.fullmatch(r"[a-f0-9-]{12,36}", upload_id):
+        raise HTTPException(status_code=400, detail="Invalid upload session")
     return CHUNK_UPLOAD_DIR / upload_id
 
 
@@ -207,12 +215,27 @@ def _has_active_video_tasks(tasks: list[dict]) -> bool:
 
 def is_video_task_cancelled(task_id: str) -> bool:
     with _cancel_lock:
-        return task_id in _cancelled_tasks
+        return task_id in _cancelled_tasks or _attempt_superseded(task_id)
+
+
+def _attempt_superseded(task_id: str) -> bool:
+    attempt = getattr(_video_worker, "attempt_id", None)
+    return (getattr(_video_worker, "task_id", None) == task_id and attempt is not None
+            and attempt != _video_attempts.get(task_id))
+
+
+def _new_video_attempt(task_id: str) -> int:
+    with _cancel_lock:
+        attempt = _video_attempts.get(task_id, 0) + 1
+        _video_attempts[task_id] = attempt
+        _cancelled_tasks.discard(task_id)
+        return attempt
 
 
 def _clear_cancelled(task_id: str):
     with _cancel_lock:
-        _cancelled_tasks.discard(task_id)
+        if not _attempt_superseded(task_id):
+            _cancelled_tasks.discard(task_id)
 
 UPLOAD_DIR = DATA_DIR / "uploads"
 UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
@@ -222,9 +245,10 @@ CHUNK_UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 
 async def broadcast_video_job(task_id: str, task_data: dict, user_id: Optional[str] = None):
     """Broadcast video task update to WebSocket clients."""
+    from api.media import sign_media_urls
     await manager.broadcast_to_user({
         "type": "video_job_update",
-        "task": task_data,
+        "task": sign_media_urls(task_data, task_id),
     }, user_id)
 
 
@@ -247,7 +271,7 @@ def _update_task_status(db, task_id: str, status: str, progress: float = 0,
     Uses the in-memory cache (get_task reads from cache first in Supabase
     mode) so the WebSocket broadcast never blocks on an extra HTTP call.
     """
-    if status not in ("cancelled", "failed") and is_video_task_cancelled(task_id):
+    if _attempt_superseded(task_id) or (status not in ("cancelled", "failed") and is_video_task_cancelled(task_id)):
         return
     current_task = db.get_task(task_id, user_id)
     current_progress = 0.0
@@ -264,6 +288,8 @@ def _update_task_status(db, task_id: str, status: str, progress: float = 0,
     updates = {"status": status, "progress": progress, "message": message}
     updates.update(kwargs)
     db.update_task(task_id, updates)
+    if status in ("success", "failed", "cancelled"):
+        _invalidate_list_cache(user_id)
     # get_task now returns from in-memory cache on Supabase backend,
     # so this is essentially free (no extra HTTP round-trip).
     task = db.get_task(task_id, user_id)
@@ -302,7 +328,8 @@ def _discover_channel_videos(
             return
 
         logger.info(f"New channel detected: '{channel}' — fetching latest videos from {channel_url}")
-        videos = list_channel_videos(channel_url, platform, limit=15)
+        from cookie_manager import get_cookie_manager
+        videos = list_channel_videos(channel_url, platform, cookies=get_cookie_manager(user_id).get_cookie(platform), limit=15)
         if not videos:
             logger.info(f"No videos found for channel '{channel}'")
             return
@@ -359,9 +386,15 @@ def process_video_note_sync(
     grid_rows: int,
     user_id: Optional[str],
     video_quality: str = "720",
+    attempt_id: Optional[int] = None,
 ):
     """Synchronous video note processing pipeline."""
+    _video_worker.task_id = task_id
+    _video_worker.attempt_id = attempt_id
     try:
+        from api.user_settings import get_user_settings
+        preferences = get_user_settings(user_id)
+        llm_model = llm_model or preferences.get("llm_model", "")
         from video_task_db import get_video_task_db
         from video_downloader import get_downloader, detect_platform, normalize_video_url, VideoDownloadError
         from cookie_manager import get_cookie_manager
@@ -375,7 +408,7 @@ def process_video_note_sync(
         )
 
         db = get_video_task_db()
-        cookie_mgr = get_cookie_manager()
+        cookie_mgr = get_cookie_manager(user_id)
         if is_video_task_cancelled(task_id):
             _update_task_status(db, task_id, "cancelled", 0, "Cancelled", user_id)
             _clear_cancelled(task_id)
@@ -383,6 +416,8 @@ def process_video_note_sync(
 
         # Check if we already have a transcript from a previous run (for retry)
         existing_task = db.get_task(task_id, user_id)
+        if not existing_task:
+            return
         existing_transcript = existing_task.get("transcript") if existing_task else None
         has_saved_transcript = (
             existing_transcript
@@ -556,7 +591,7 @@ def process_video_note_sync(
                 _update_task_status(db, task_id, "transcribing", 42, "Transcribing audio with Whisper...", user_id)
 
                 from transcriber import get_transcriber
-                transcriber = get_transcriber()
+                transcriber = get_transcriber(model=preferences.get("whisper_model") or None)
 
                 last_progress = [42]
 
@@ -760,6 +795,8 @@ def process_video_note_sync(
             progress_callback=summarize_progress,
             duration=duration,
         )
+        if is_video_task_cancelled(task_id):
+            raise VideoCancelledException("Cancelled during summarization")
 
         if not markdown:
             _update_task_status(db, task_id, "failed", 0, "Note generation failed", user_id,
@@ -823,11 +860,16 @@ def process_video_note_sync(
 
 async def process_video_note_async(task_id: str, **kwargs):
     loop = asyncio.get_event_loop()
+    lock = _video_locks.setdefault(task_id, asyncio.Lock())
     try:
-        await loop.run_in_executor(
-            VIDEO_EXECUTOR,
-            lambda: process_video_note_sync(task_id, **kwargs),
-        )
+        async with lock:
+            attempt = kwargs.get("attempt_id")
+            if attempt is not None and attempt != _video_attempts.get(task_id):
+                return
+            await loop.run_in_executor(
+                VIDEO_EXECUTOR,
+                lambda: process_video_note_sync(task_id, **kwargs),
+            )
     except Exception as e:
         logger.error(f"[Video {task_id}] Unhandled error: {e}")
 
@@ -873,6 +915,13 @@ async def generate_note(
     _invalidate_list_cache(user_id)
 
     existing = db.get_task_by_url(url, user_id)
+    if is_local and USE_SUPABASE:
+        from api.local_media import get_local_video_dir
+        candidate = Path(url).resolve()
+        owned_root = get_local_video_dir(user_id).resolve()
+        legacy_owned = existing and candidate.is_relative_to(UPLOAD_DIR.resolve())
+        if not candidate.is_file() or not (candidate.is_relative_to(owned_root) or legacy_owned):
+            raise HTTPException(status_code=403, detail="Upload this video from your own account before processing it")
     if existing:
         task_id = existing["id"]
         db.update_task(task_id, {
@@ -920,6 +969,7 @@ async def generate_note(
     background_tasks.add_task(
         process_video_note_async,
         task_id,
+        attempt_id=_new_video_attempt(task_id),
         url=url,
         platform=platform,
         style=style,
@@ -967,6 +1017,13 @@ async def generate_note_json(
     _invalidate_list_cache(user_id)
 
     existing = db.get_task_by_url(url, user_id)
+    if is_local and USE_SUPABASE:
+        from api.local_media import get_local_video_dir
+        candidate = Path(url).resolve()
+        owned_root = get_local_video_dir(user_id).resolve()
+        legacy_owned = existing and candidate.is_relative_to(UPLOAD_DIR.resolve())
+        if not candidate.is_file() or not (candidate.is_relative_to(owned_root) or legacy_owned):
+            raise HTTPException(status_code=403, detail="Upload this video from your own account before processing it")
     if existing:
         task_id = existing["id"]
         db.update_task(task_id, {
@@ -1015,6 +1072,7 @@ async def generate_note_json(
     background_tasks.add_task(
         process_video_note_async,
         task_id,
+        attempt_id=_new_video_attempt(task_id),
         url=url,
         platform=platform,
         style=data.get("style", "detailed"),
@@ -1045,7 +1103,7 @@ async def list_tasks(user: Optional[User] = Depends(get_current_user)):
         return entry["data"]
     db = get_video_task_db()
     tasks = db.list_tasks(user_id)
-    result = {"tasks": tasks}
+    result = {"tasks": sign_media_urls(tasks)}
     if not _has_active_video_tasks(tasks):
         _list_cache[cache_key] = {"t": now, "data": result}
     else:
@@ -1065,7 +1123,7 @@ async def list_channels(user: Optional[User] = Depends(get_current_user)):
         return entry["data"]
     db = get_video_task_db()
     channels = db.list_channels_with_stats(user_id)
-    result = {"channels": channels}
+    result = {"channels": [sign_media_urls(ch, Path(ch.get("thumbnail") or "").stem.split("_")[0]) for ch in channels]}
     _list_cache[cache_key] = {"t": now, "data": result}
     return result
 
@@ -1086,7 +1144,7 @@ async def list_tasks_by_channel(
         return entry["data"]
     db = get_video_task_db()
     tasks = db.list_tasks_by_channel(channel, platform, user_id)
-    result = {"tasks": tasks}
+    result = {"tasks": sign_media_urls(tasks)}
     if not _has_active_video_tasks(tasks):
         _list_cache[cache_key] = {"t": now, "data": result}
     else:
@@ -1110,7 +1168,7 @@ async def list_recent_tasks(
 
     db = get_video_task_db()
     tasks = db.list_recent_success_tasks(user_id, limit)
-    result = {"tasks": tasks}
+    result = {"tasks": sign_media_urls(tasks)}
     _list_cache[cache_key] = {"t": now, "data": result}
     return result
 
@@ -1125,7 +1183,8 @@ async def get_task(task_id: str, user: Optional[User] = Depends(get_current_user
     if not task:
         raise HTTPException(status_code=404, detail="Task not found")
     task["versions"] = db.get_versions(task_id)
-    return task
+    from api.media import sign_media_urls
+    return sign_media_urls(task, task_id)
 
 
 @router.delete("/tasks/{task_id}")
@@ -1135,7 +1194,8 @@ async def delete_task(task_id: str, user: Optional[User] = Depends(get_current_u
     from video_task_db import get_video_task_db
     db = get_video_task_db()
     user_id = user.id if user else None
-
+    if not db.get_task(task_id, user_id):
+        raise HTTPException(status_code=404, detail="Task not found")
     with _cancel_lock:
         _cancelled_tasks.add(task_id)
 
@@ -1162,6 +1222,8 @@ async def delete_channel(channel_name: str, user: Optional[User] = Depends(get_c
     count = db.delete_channel(channel_name, user_id)
     if count == 0:
         raise HTTPException(status_code=404, detail="Channel not found or no tasks to delete")
+    with _cancel_lock:
+        _cancelled_tasks.update(task["id"] for task in tasks if task.get("id"))
     for task in tasks:
         task_id = task.get("id")
         if task_id:
@@ -1228,6 +1290,7 @@ async def retry_task(
     background_tasks.add_task(
         process_video_note_async,
         task_id,
+        attempt_id=_new_video_attempt(task_id),
         url=task["url"],
         platform=task["platform"],
         style=style,
@@ -1243,6 +1306,7 @@ async def retry_task(
         video_quality=video_quality,
     )
 
+    _invalidate_list_cache(user_id)
     return {"message": "Retry started", "task_id": task_id}
 
 
@@ -1267,6 +1331,7 @@ async def cancel_task(
         _cancelled_tasks.add(task_id)
 
     db.update_task(task_id, {"status": "cancelled", "message": "Cancelling..."})
+    _invalidate_list_cache(user_id)
     logger.info(f"Cancel requested for video task: {task_id}")
     return {"message": "Cancel requested", "task_id": task_id}
 
@@ -1285,7 +1350,8 @@ async def upload_video(
         raise HTTPException(status_code=400, detail=f"Unsupported format: {ext}")
 
     file_id = str(uuid.uuid4())[:12]
-    save_path = UPLOAD_DIR / f"{file_id}{ext}"
+    from api.local_media import get_local_video_dir
+    save_path = get_local_video_dir(user.id if user else None) / f"{file_id}{ext}"
     total_size = 0
 
     try:
@@ -1461,7 +1527,8 @@ async def complete_chunked_upload(
 
     file_id = str(uuid.uuid4())[:12]
     ext = meta.get("ext") or Path(meta.get("filename", "")).suffix.lower()
-    save_path = UPLOAD_DIR / f"{file_id}{ext}"
+    from api.local_media import get_local_video_dir
+    save_path = get_local_video_dir(user.id if user else None) / f"{file_id}{ext}"
     bytes_written = 0
 
     try:
@@ -1553,6 +1620,7 @@ async def check_channels_for_updates(
     """
     from video_task_db import get_video_task_db
     from video_downloader import list_channel_videos
+    from cookie_manager import get_cookie_manager
 
     db = get_video_task_db()
     user_id = user.id if user else None
@@ -1587,7 +1655,7 @@ async def check_channels_for_updates(
             continue
         try:
             videos = await loop.run_in_executor(
-                None, lambda cu=channel_url, p=ch_platform: list_channel_videos(cu, p, limit=15)
+                None, lambda cu=channel_url, p=ch_platform: list_channel_videos(cu, p, cookies=get_cookie_manager(user_id).get_cookie(p), limit=15)
             )
             if not videos:
                 continue

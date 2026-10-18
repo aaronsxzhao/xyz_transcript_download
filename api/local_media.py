@@ -66,3 +66,9 @@ def get_local_audio_dir(user_id: Optional[str]) -> Path:
     path = LOCAL_AUDIO_DIR / owner_storage_key(user_id)
     path.mkdir(parents=True, exist_ok=True)
     return path
+
+
+def get_local_video_dir(user_id: Optional[str]) -> Path:
+    path = DATA_DIR / "uploads" / owner_storage_key(user_id)
+    path.mkdir(parents=True, exist_ok=True)
+    return path

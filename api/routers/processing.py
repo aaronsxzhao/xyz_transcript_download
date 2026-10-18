@@ -59,6 +59,8 @@ def _load_jobs_from_file():
                 }
                 # Mark any "in-progress" jobs as failed (they didn't complete before shutdown)
                 for job_id, job in jobs.items():
+                    if not USE_SUPABASE and job.user_id is None:
+                        job.user_id = "local"
                     if job.status in ("pending", "fetching", "downloading", "transcribing", "summarizing", "cancelling"):
                         job.status = "failed"
                         job.message = "Interrupted by server restart"
@@ -71,6 +73,7 @@ def _load_jobs_from_file():
 def _save_jobs_to_file_unlocked():
     """Persist jobs to file (caller must hold _jobs_lock)."""
     try:
+        _jobs_cache.clear()
         DATA_DIR.mkdir(parents=True, exist_ok=True)
         data = {job_id: job.model_dump() for job_id, job in jobs.items()}
         # Use atomic write: write to temp file then rename
@@ -375,7 +378,8 @@ def _background_refinement(audio_path, episode, fast_summary, db_interface, tran
             takeaways=final_summary.takeaways,
             key_points=[{"topic": kp.topic, "summary": kp.summary, "original_quote": kp.original_quote, "timestamp": kp.timestamp} for kp in final_summary.key_points],
         )
-        db_interface.save_summary(summary_data)
+        if not db_interface.save_summary(summary_data):
+            raise RuntimeError("Could not save the generated summary")
         
         elapsed = time.time() - start_time
         logger.info(f"Background refinement completed for {episode.eid} in {elapsed/60:.1f} minutes")
@@ -388,7 +392,7 @@ def _background_refinement(audio_path, episode, fast_summary, db_interface, tran
 
 def process_episode_sync(job_id: str, episode_url: str, transcribe_only: bool = False, force: bool = False, 
                          user_id: Optional[str] = None, whisper_model: Optional[str] = None, 
-                         llm_model: Optional[str] = None):
+                         llm_model: Optional[str] = None, resummarize: bool = False):
     """
     Synchronous episode processing with optimized dual-track processing.
     
@@ -414,10 +418,11 @@ def process_episode_sync(job_id: str, episode_url: str, transcribe_only: bool = 
         from transcriber import get_transcriber, Transcript, TranscriptSegment as TSeg
         from summarizer import get_summarizer
         
+        from api.user_settings import get_user_settings
+        preferences = get_user_settings(user_id)
+        whisper_model = whisper_model or preferences.get("whisper_model")
+        llm_model = llm_model or preferences.get("llm_model")
         client = get_client()
-        downloader = get_downloader()
-        transcriber = get_transcriber(model=whisper_model)
-        summarizer = get_summarizer(model=llm_model)
         
         db_interface = get_db(user_id)
         # Check for cancellation before starting
@@ -572,7 +577,7 @@ def process_episode_sync(job_id: str, episode_url: str, transcribe_only: bool = 
                 update_job_status(job_id, "fetching", 12, "Found shared transcript, reusing...")
         
         # Quick check: if both exist and transcript is not truncated, skip processing
-        if existing_transcript and existing_summary and not force:
+        if existing_transcript and existing_summary and not force and not resummarize:
             transcript_duration = existing_transcript.duration or 0
             episode_duration = episode.duration or 0
             
@@ -595,55 +600,6 @@ def process_episode_sync(job_id: str, episode_url: str, transcribe_only: bool = 
             mark_job_cancelled(job_id)
             return
         
-        # ===== PHASE 2: Download audio (10-25%) =====
-        update_job_status(job_id, "downloading", 15, "Downloading audio...")
-        audio_path = downloader.download(episode)
-        
-        if not audio_path:
-            update_job_status(job_id, "failed", 0, "Download failed")
-            return
-        
-        update_job_status(job_id, "downloading", 25, "Download complete")
-        
-        # Check for cancellation before processing
-        if is_job_cancelled(job_id):
-            update_job_status(job_id, "cancelled", 25, "Cancelled")
-            mark_job_cancelled(job_id)
-            return
-        
-        # ===== PHASE 3: Prepare optimized audio (25-30%) =====
-        # Skip compression for API mode (cloud) - Groq API is fast, compression is slow on cloud
-        from config import WHISPER_MODE
-        
-        if WHISPER_MODE == "api":
-            # Cloud mode: skip compression, use original audio directly
-            update_job_status(job_id, "transcribing", 30, "Using original audio (API mode)...")
-            process_path = audio_path
-            use_fast_track = False  # No background refinement in API mode
-        else:
-            # Local mode: compress audio for faster transcription
-            update_job_status(job_id, "transcribing", 28, "Preparing audio...")
-            compressed_path = compress_audio(audio_path)
-            
-            # If compression failed, the original audio might be truncated
-            # Try to re-download and compress again
-            if compressed_path is None:
-                update_job_status(job_id, "downloading", 20, "Re-downloading audio (compression failed)...")
-                
-                # Force re-download (deletes existing and downloads fresh)
-                audio_path = downloader.download(episode, force=True)
-                if not audio_path:
-                    update_job_status(job_id, "failed", 0, "Re-download failed")
-                    return
-                
-                # Try compression again
-                update_job_status(job_id, "transcribing", 28, "Compressing audio (retry)...")
-                compressed_path = compress_audio(audio_path)
-            
-            # Determine processing mode
-            use_fast_track = compressed_path is not None and compressed_path != audio_path
-            process_path = compressed_path if use_fast_track else audio_path
-        
         # If we have existing transcript, check if it's complete (not truncated)
         # A transcript is considered truncated if duration < 85% of episode duration
         transcript_is_valid = False
@@ -663,8 +619,68 @@ def process_episode_sync(job_id: str, episode_url: str, transcribe_only: bool = 
                 transcript_is_valid = True
                 logger.info(f"Existing transcript found ({transcript_duration/60:.1f} min), episode duration unknown - assuming valid")
         
+        use_fast_track = False
+        audio_path = None
+        if not transcript_is_valid:
+            downloader = get_downloader()
+            # ===== PHASE 2: Download audio (10-25%) =====
+            update_job_status(job_id, "downloading", 15, "Downloading audio...")
+            audio_path = downloader.download(episode)
+
+            if not audio_path:
+                update_job_status(job_id, "failed", 0, "Download failed")
+                return
+
+            update_job_status(job_id, "downloading", 25, "Download complete")
+
+            # Check for cancellation before processing
+            if is_job_cancelled(job_id):
+                update_job_status(job_id, "cancelled", 25, "Cancelled")
+                mark_job_cancelled(job_id)
+                return
+
+            # ===== PHASE 3: Prepare optimized audio (25-30%) =====
+            # Skip compression for API mode (cloud) - Groq API is fast, compression is slow on cloud
+            from config import WHISPER_MODE
+
+            if WHISPER_MODE == "api":
+                # Cloud mode: skip compression, use original audio directly
+                update_job_status(job_id, "transcribing", 30, "Using original audio (API mode)...")
+                process_path = audio_path
+                use_fast_track = False  # No background refinement in API mode
+            else:
+                # Local mode: compress audio for faster transcription
+                update_job_status(job_id, "transcribing", 28, "Preparing audio...")
+                compressed_path = compress_audio(audio_path)
+
+                # If compression failed, the original audio might be truncated
+                # Try to re-download and compress again
+                if compressed_path is None:
+                    update_job_status(job_id, "downloading", 20, "Re-downloading audio (compression failed)...")
+
+                    # Force re-download (deletes existing and downloads fresh)
+                    audio_path = downloader.download(episode, force=True)
+                    if not audio_path:
+                        update_job_status(job_id, "failed", 0, "Re-download failed")
+                        return
+
+                    # Try compression again
+                    update_job_status(job_id, "transcribing", 28, "Compressing audio (retry)...")
+                    compressed_path = compress_audio(audio_path)
+
+                # Determine processing mode
+                use_fast_track = compressed_path is not None and compressed_path != audio_path
+                process_path = compressed_path if use_fast_track else audio_path
+
+        class CancelledException(Exception):
+            pass
+
         # If we have a valid existing transcript, just summarize
         if transcript_is_valid and existing_transcript:
+            if transcribe_only:
+                update_job_status(job_id, "completed", 100, "Transcript already available")
+                return
+            summarizer = get_summarizer(model=llm_model)
             # Check for cancellation before starting
             if is_job_cancelled(job_id):
                 update_job_status(job_id, "cancelled", 70, "Cancelled")
@@ -716,7 +732,8 @@ def process_episode_sync(job_id: str, episode_url: str, transcribe_only: bool = 
                     takeaways=summary.takeaways,
                     key_points=[{"topic": kp.topic, "summary": kp.summary, "original_quote": kp.original_quote, "timestamp": kp.timestamp} for kp in summary.key_points],
                 )
-                db_interface.save_summary(summary_data)
+                if not db_interface.save_summary(summary_data):
+                    raise RuntimeError("Could not save the generated summary")
                 update_job_status(job_id, "completed", 100, "Processing complete!")
                 
                 # Send Discord notification
@@ -736,9 +753,7 @@ def process_episode_sync(job_id: str, episode_url: str, transcribe_only: bool = 
         # ===== PHASE 4: Transcribe (30-70%) =====
         update_job_status(job_id, "transcribing", 30, "Starting transcription...")
         
-        # Custom exception for cancellation
-        class CancelledException(Exception):
-            pass
+        transcriber = get_transcriber(model=whisper_model)
         
         last_progress = [30]
         def progress_callback(progress: float):
@@ -810,6 +825,7 @@ def process_episode_sync(job_id: str, episode_url: str, transcribe_only: bool = 
         
         # ===== PHASE 5: Summarize (70-95%) =====
         update_job_status(job_id, "summarizing", 75, "Generating summary...")
+        summarizer = get_summarizer(model=llm_model)
         
         # Progress callback for summarization with cancellation check
         last_summary_progress = [75]
@@ -867,7 +883,8 @@ def process_episode_sync(job_id: str, episode_url: str, transcribe_only: bool = 
             takeaways=summary.takeaways,
             key_points=[{"topic": kp.topic, "summary": kp.summary, "original_quote": kp.original_quote, "timestamp": kp.timestamp} for kp in summary.key_points],
         )
-        db_interface.save_summary(summary_data)
+        if not db_interface.save_summary(summary_data):
+            raise RuntimeError("Could not save the generated summary")
         
         # ===== PHASE 6: Complete! (100%) =====
         update_job_status(job_id, "completed", 100, "Processing complete!")
@@ -907,7 +924,7 @@ def process_episode_sync(job_id: str, episode_url: str, transcribe_only: bool = 
 
 async def process_episode_async(job_id: str, episode_url: str, transcribe_only: bool = False, force: bool = False, 
                                 user_id: Optional[str] = None, whisper_model: Optional[str] = None, 
-                                llm_model: Optional[str] = None):
+                                llm_model: Optional[str] = None, resummarize: bool = False):
     """Async wrapper for episode processing.
     
     Uses PROCESSING_EXECUTOR with limited workers to prevent resource exhaustion.
@@ -918,7 +935,7 @@ async def process_episode_async(job_id: str, episode_url: str, transcribe_only: 
     try:
         await loop.run_in_executor(
             PROCESSING_EXECUTOR,
-            lambda: process_episode_sync(job_id, episode_url, transcribe_only, force, user_id, whisper_model, llm_model)
+            lambda: process_episode_sync(job_id, episode_url, transcribe_only, force, user_id, whisper_model, llm_model, resummarize)
         )
     except Exception as e:
         logger.error(f"[Job {job_id}] Unhandled error in process_episode_sync: {e}")
@@ -1181,6 +1198,7 @@ async def retry_job(
     with _jobs_lock:
         jobs[new_job_id] = ProcessingStatus(
             job_id=new_job_id,
+            user_id=user_id,
             status="pending",
             progress=0,
             message="Retrying...",
@@ -1243,8 +1261,7 @@ async def resummarize_episode(
             detail="Episode transcript not found. Use normal processing instead."
         )
     
-    # Delete existing summary to force regeneration
-    db.delete_summary(episode_id)
+    # Preserve the last successful summary until its replacement is ready.
     
     # Detect platform from episode data
     db_ep = db.get_episode(episode_id)
@@ -1258,6 +1275,7 @@ async def resummarize_episode(
     with _jobs_lock:
         jobs[job_id] = ProcessingStatus(
             job_id=job_id,
+            user_id=user_id,
             status="pending",
             progress=0,
             message="Re-summarizing...",
@@ -1279,7 +1297,7 @@ async def resummarize_episode(
     background_tasks.add_task(
         process_episode_async, job_id, episode_url, 
         transcribe_only=False, force=False, user_id=user_id,
-        whisper_model=None, llm_model=llm_model
+        whisper_model=None, llm_model=llm_model, resummarize=True
     )
     
     return {
@@ -1347,6 +1365,10 @@ async def websocket_progress(websocket: WebSocket, token: Optional[str] = None):
         except Exception as e:
             logger.warning(f"[WS] URL token verification exception: {type(e).__name__}: {e}")
 
+    if USE_SUPABASE and not user_id:
+        await websocket.close(code=4401, reason="Authentication required")
+        return
+
     # In local mode (no Supabase auth), use "local" to match get_current_user
     if not user_id and not USE_SUPABASE:
         user_id = "local"
@@ -1410,7 +1432,8 @@ async def websocket_progress(websocket: WebSocket, token: Optional[str] = None):
         try:
             from video_task_db import get_video_task_db
             video_db = get_video_task_db()
-            video_tasks = video_db.list_tasks(user_id)
+            from api.media import sign_media_urls
+            video_tasks = sign_media_urls(video_db.list_tasks(user_id))
             video_tasks = [
                 task for task in video_tasks
                 if task.get("status") not in ("success", "failed", "cancelled", "discovered")

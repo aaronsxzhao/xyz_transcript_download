@@ -1,3 +1,5 @@
+import { escapeHtml, markdownToSafeHtml } from '../lib/safeHtml'
+import { getPreference } from '../lib/preferences'
 import { useEffect, useState, useMemo, useCallback, useRef } from 'react'
 import { useParams, Link, useNavigate } from 'react-router-dom'
 import {
@@ -83,6 +85,8 @@ export default function VideoViewer() {
     return storeTaskSlice ? mergeVideoTaskPair(storeTaskSlice, task) : task
   }, [task, storeTaskSlice])
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
+  const [loadAttempt, setLoadAttempt] = useState(0)
   const [viewMode, setViewMode] = useState<ViewMode>('markdown')
   const [selectedVersion, setSelectedVersion] = useState<string>('')
   const [copied, setCopied] = useState(false)
@@ -102,18 +106,22 @@ export default function VideoViewer() {
   useEffect(() => {
     if (!taskId) return
     let cancelled = false
+    setLoading(true)
+    if (taskRef.current?.id !== taskId) {
+      setTask(null)
+      setSelectedVersion('')
+    }
 
     const load = async () => {
       try {
         const data = await fetchVideoTask(taskId)
         if (!cancelled) {
           setTask(data)
-          if (data.versions?.length && !selectedVersion) {
-            setSelectedVersion(data.versions[0].id)
-          }
+          setError('')
         }
       } catch (e) {
         console.error('Failed to load task:', e)
+        if (!cancelled) setError(e instanceof Error ? e.message : 'Cannot load video notes')
       } finally {
         if (!cancelled) setLoading(false)
       }
@@ -131,15 +139,13 @@ export default function VideoViewer() {
       cancelled = true
       clearInterval(interval)
     }
-  }, [taskId])
+  }, [taskId, loadAttempt])
 
   const handleCopy = async () => {
     const md = getCurrentContent()
     if (!md) return
     try {
-      const { marked } = await import('marked')
-      marked.setOptions({ gfm: true, breaks: false })
-      const html = await marked.parse(md)
+      const html = await markdownToSafeHtml(md)
       const blob = new Blob([html], { type: 'text/html' })
       const textBlob = new Blob([md], { type: 'text/plain' })
       await navigator.clipboard.write([
@@ -173,15 +179,13 @@ export default function VideoViewer() {
     if (!md || pdfLoading) return
     setPdfLoading(true)
     try {
-      const markedModule = await import('marked')
-      const { marked } = markedModule
-      marked.setOptions({ gfm: true, breaks: false })
-      const body = await marked.parse(md)
+      const body = await markdownToSafeHtml(md)
 
       const html = `<!DOCTYPE html>
 <html><head>
 <meta charset="utf-8">
-<title>${task?.title || 'Notes'}</title>
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src https: http: data: blob:; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'">
+<title>${escapeHtml(task?.title || 'Notes')}</title>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto Sans SC", "PingFang SC", "Microsoft YaHei", sans-serif; color: #1f2937; background: #fff; padding: 20px 30px; font-size: 13px; line-height: 1.75; }
@@ -220,6 +224,7 @@ export default function VideoViewer() {
       iframe.style.width = '0'
       iframe.style.height = '0'
       iframe.style.border = 'none'
+      iframe.setAttribute('sandbox', 'allow-same-origin allow-modals')
       iframe.src = url
       iframe.onload = () => {
         setTimeout(() => {
@@ -239,10 +244,17 @@ export default function VideoViewer() {
   const handleRegenerate = async () => {
     if (!task || regenerating) return
     setRegenerating(true)
+    setError('')
     try {
       await retryVideoTask(task.id)
+      const pending = { ...task, status: 'pending', progress: 0, message: 'Queued for processing...', error: '' }
+      taskRef.current = pending
+      setTask(pending)
+      useStore.getState().updateVideoTask(pending)
+      setSelectedVersion('')
     } catch (e) {
       console.error('Regenerate failed:', e)
+      setError(e instanceof Error ? e.message : 'Could not regenerate notes')
     } finally {
       setRegenerating(false)
     }
@@ -280,7 +292,7 @@ export default function VideoViewer() {
     }
   }
 
-  const hasNotionKey = !!localStorage.getItem('notion_api_key')
+  const hasNotionKey = !!getPreference('notion_api_key')
 
   const openNotionModal = useCallback(async () => {
     setNotionOpen(true)
@@ -350,7 +362,8 @@ export default function VideoViewer() {
   if (!task) {
     return (
       <div className="flex flex-col items-center justify-center h-[60vh] text-gray-500">
-        <p>Task not found</p>
+        <p role="alert">{error || 'Task not found'}</p>
+        <button onClick={() => setLoadAttempt(value => value + 1)} className="text-indigo-400 mt-2">Retry</button>
         <button onClick={() => navigate(-1)} className="text-indigo-400 mt-2">Go Back</button>
       </div>
     )
@@ -362,11 +375,13 @@ export default function VideoViewer() {
   return (
     <div className="flex flex-col h-[calc(100vh-5rem)] md:h-[calc(100vh-6rem)]">
       {/* Fixed header bar */}
-      <div className="flex items-center justify-between pb-3 flex-shrink-0">
+      {error && <div role="alert" className="text-sm text-red-300 mb-3">{error} <button className="underline" onClick={() => setLoadAttempt(value => value + 1)}>Retry</button></div>}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 pb-3 flex-shrink-0">
         <div className="flex items-center gap-2 min-w-0">
           <button
             onClick={() => navigate(-1)}
             className="p-1.5 text-gray-400 hover:text-white transition-colors flex-shrink-0"
+            aria-label="Go back"
           >
             <ArrowLeft size={18} />
           </button>
@@ -385,7 +400,7 @@ export default function VideoViewer() {
               })() : 'Untitled')}
             </h1>
             <div className="flex items-center gap-2 text-xs text-gray-500 mt-0.5">
-              {task.status === 'failed' && (
+              {uiTask.status === 'failed' && (
                 <span className="px-1.5 py-0.5 bg-red-600/20 text-red-400 rounded-full text-[10px]">
                   Failed
                 </span>
@@ -405,13 +420,15 @@ export default function VideoViewer() {
           </div>
         </div>
 
-        <div className="flex items-center gap-1.5 flex-shrink-0">
-          {versions.length > 1 && (
+        <div className="flex flex-wrap items-center gap-1.5 min-w-0">
+          {versions.length > 0 && (
             <select
+              aria-label="Note version"
               value={selectedVersion}
               onChange={e => setSelectedVersion(e.target.value)}
               className="px-2 py-1 bg-dark-hover border border-dark-border rounded text-xs text-white"
             >
+              <option value="">Latest</option>
               {versions.map((v, i) => (
                 <option key={v.id} value={v.id}>
                   v{versions.length - i} - {v.style || 'default'}
@@ -465,7 +482,7 @@ export default function VideoViewer() {
               >
                 <Download size={14} />
               </button>
-              {task.status === 'success' && (
+              {uiTask.status === 'success' && (
                 <>
                   <button
                     onClick={handleDownloadPdf}
@@ -488,7 +505,7 @@ export default function VideoViewer() {
               )}
             </>
           )}
-          {(['success', 'failed', 'cancelled'].includes(task.status)) && (
+          {(['success', 'failed', 'cancelled'].includes(uiTask.status)) && (
             <button
               onClick={handleRegenerate}
               disabled={regenerating}
@@ -503,7 +520,7 @@ export default function VideoViewer() {
       </div>
 
       {/* Failed state banner */}
-      {task.status === 'failed' && (
+      {uiTask.status === 'failed' && (
         <div className="flex-shrink-0 mb-3 p-4 bg-red-500/10 border border-red-500/30 rounded-xl">
           <div className="flex items-start gap-3">
             <XCircle className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" />

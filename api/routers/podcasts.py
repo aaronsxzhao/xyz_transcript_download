@@ -8,7 +8,7 @@ import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import List, Optional
-from fastapi import APIRouter, HTTPException, Depends, UploadFile, File, Form
+from fastapi import APIRouter, HTTPException, Depends, UploadFile, File, Form, Query
 
 from api.schemas import (
     PodcastResponse, PodcastCreate, EpisodeResponse, LocalAudioUploadResponse,
@@ -67,6 +67,9 @@ def _get_media_duration_seconds(file_path: Path) -> int:
 
 
 def _audio_upload_session_dir(upload_id: str) -> Path:
+    import re
+    if not re.fullmatch(r"[a-f0-9-]{12,36}", upload_id):
+        raise HTTPException(status_code=400, detail="Invalid upload session")
     return LOCAL_AUDIO_CHUNK_DIR / upload_id
 
 
@@ -212,10 +215,14 @@ async def add_podcast(data: PodcastCreate, user: Optional[User] = Depends(get_cu
     url = data.url.strip()
     platform = detect_podcast_platform(url) or "xiaoyuzhou"
     
-    if platform == "apple":
-        return await _add_apple_podcast(url, db)
-    else:
+    try:
+        if platform == "apple":
+            return await _add_apple_podcast(url, db)
         return await _add_xyz_podcast(url, db)
+    except HTTPException:
+        raise
+    except Exception:
+        raise HTTPException(status_code=502, detail="Could not fetch podcast information. Please retry.")
 
 
 @router.post("/upload-audio", response_model=LocalAudioUploadResponse)
@@ -637,14 +644,14 @@ async def remove_podcast(pid: str, user: Optional[User] = Depends(get_current_us
 
 
 @router.get("/{pid}/episodes", response_model=List[EpisodeResponse])
-async def list_podcast_episodes(pid: str, limit: int = 50, user: Optional[User] = Depends(get_current_user)):
+async def list_podcast_episodes(pid: str, limit: int = Query(50, ge=1, le=200), offset: int = Query(0, ge=0), user: Optional[User] = Depends(get_current_user)):
     """List episodes for a podcast."""
     db = get_db(user.id if user else None)
     
     # Fetch podcast, episodes, transcript/summary status, and all summaries in parallel
     podcast, episodes, transcript_ids, summary_ids, all_summaries = await asyncio.gather(
         run_sync(db.get_podcast, pid),
-        run_sync(db.get_episodes_by_podcast, pid),
+        run_sync(db.get_episodes_by_podcast, pid, offset, limit),
         run_sync(db.get_transcript_episode_ids),
         run_sync(db.get_summary_episode_ids),
         run_sync(db.get_all_summaries),
@@ -677,7 +684,7 @@ async def list_podcast_episodes(pid: str, limit: int = 50, user: Optional[User] 
             key_points_count=summary_counts.get(ep.eid, (0, 0))[1],
             created_at=ep.created_at,
         )
-        for ep in episodes[:limit]
+        for ep in episodes
     ]
 
 

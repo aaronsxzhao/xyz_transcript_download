@@ -87,28 +87,12 @@ class _SQLiteCookieManager:
 
 
 class _SupabaseCookieManager:
-    """
-    Supabase backend for cookies (cloud deployment).
-    Persists cookies across container restarts.
+    """Account-owned credentials; legacy server-wide cookies are never reused."""
 
-    Requires table in Supabase (run in SQL Editor):
-
-        CREATE TABLE IF NOT EXISTS platform_cookies (
-            id BIGSERIAL PRIMARY KEY,
-            platform TEXT UNIQUE NOT NULL,
-            cookie_data TEXT NOT NULL DEFAULT '',
-            updated_at TIMESTAMPTZ DEFAULT NOW()
-        );
-
-        -- No RLS needed: cookies are server-wide, accessed only via service role key.
-        ALTER TABLE platform_cookies ENABLE ROW LEVEL SECURITY;
-        CREATE POLICY "Service role full access" ON platform_cookies
-            FOR ALL USING (true) WITH CHECK (true);
-    """
-
-    def __init__(self):
+    def __init__(self, user_id: str):
         from api.supabase_client import get_supabase_admin_client
         self.client = get_supabase_admin_client()
+        self.user_id = user_id
         if not self.client:
             raise RuntimeError("Supabase admin client not available for cookie storage")
         logger.info("CookieManager using Supabase backend")
@@ -116,8 +100,9 @@ class _SupabaseCookieManager:
     def get_cookie(self, platform: str) -> str:
         try:
             result = (
-                self.client.table("platform_cookies")
+                self.client.table("user_platform_cookies")
                 .select("cookie_data")
+                .eq("user_id", self.user_id)
                 .eq("platform", platform)
                 .maybe_single()
                 .execute()
@@ -132,13 +117,14 @@ class _SupabaseCookieManager:
     def set_cookie(self, platform: str, cookie_data: str):
         try:
             from datetime import datetime, timezone
-            self.client.table("platform_cookies").upsert(
+            self.client.table("user_platform_cookies").upsert(
                 {
+                    "user_id": self.user_id,
                     "platform": platform,
                     "cookie_data": cookie_data,
                     "updated_at": datetime.now(timezone.utc).isoformat(),
                 },
-                on_conflict="platform",
+                on_conflict="user_id,platform",
             ).execute()
             logger.info(f"Cookie updated for platform: {platform} (Supabase)")
         except Exception as e:
@@ -148,8 +134,9 @@ class _SupabaseCookieManager:
     def delete_cookie(self, platform: str) -> bool:
         try:
             result = (
-                self.client.table("platform_cookies")
+                self.client.table("user_platform_cookies")
                 .delete()
+                .eq("user_id", self.user_id)
                 .eq("platform", platform)
                 .execute()
             )
@@ -161,8 +148,9 @@ class _SupabaseCookieManager:
     def list_cookies(self) -> list:
         try:
             result = (
-                self.client.table("platform_cookies")
+                self.client.table("user_platform_cookies")
                 .select("platform, cookie_data, updated_at")
+                .eq("user_id", self.user_id)
                 .execute()
             )
             return [
@@ -184,34 +172,34 @@ class CookieManager:
     Routes to SQLite (local) or Supabase (cloud) based on USE_SUPABASE.
     """
 
-    def __init__(self, db_path: Optional[Path] = None):
+    def __init__(self, db_path: Optional[Path] = None, user_id: Optional[str] = None):
         if USE_SUPABASE:
-            try:
-                self._backend = _SupabaseCookieManager()
-            except Exception as e:
-                logger.warning(f"Supabase cookie backend failed, falling back to SQLite: {e}")
-                self._backend = _SQLiteCookieManager(db_path)
+            self._backend = _SupabaseCookieManager(user_id) if user_id else None
         else:
             self._backend = _SQLiteCookieManager(db_path)
             logger.info("CookieManager using SQLite backend")
 
     def get_cookie(self, platform: str) -> str:
-        return self._backend.get_cookie(platform)
+        return self._backend.get_cookie(platform) if self._backend else ""
 
     def set_cookie(self, platform: str, cookie_data: str):
+        if not self._backend:
+            raise PermissionError("An account is required to save platform cookies")
         self._backend.set_cookie(platform, cookie_data)
 
     def delete_cookie(self, platform: str) -> bool:
-        return self._backend.delete_cookie(platform)
+        return self._backend.delete_cookie(platform) if self._backend else False
 
     def list_cookies(self) -> list:
-        return self._backend.list_cookies()
+        return self._backend.list_cookies() if self._backend else []
 
 
 _cookie_manager: Optional[CookieManager] = None
 
 
-def get_cookie_manager() -> CookieManager:
+def get_cookie_manager(user_id: Optional[str] = None) -> CookieManager:
+    if USE_SUPABASE:
+        return CookieManager(user_id=user_id)
     global _cookie_manager
     if _cookie_manager is None:
         _cookie_manager = CookieManager()

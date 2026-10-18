@@ -57,7 +57,7 @@ async def bilibili_qr_generate(user: Optional[User] = Depends(get_current_user))
     qr_url = qr_data["url"]
     qrcode_key = qr_data["qrcode_key"]
 
-    _qr_sessions[qrcode_key] = {"created_at": time.time(), "status": "pending"}
+    _qr_sessions[qrcode_key] = {"created_at": time.time(), "status": "pending", "user_id": user.id if user else None}
     logger.info(f"BiliBili QR generated: key={qrcode_key[:8]}..., url_len={len(qr_url)}")
 
     return {
@@ -72,6 +72,12 @@ async def bilibili_qr_poll(
     user: Optional[User] = Depends(get_current_user),
 ):
     """Poll BiliBili QR code login status."""
+    session = _qr_sessions.get(qrcode_key)
+    if not session or session.get("user_id") != (user.id if user else None):
+        raise HTTPException(status_code=404, detail="QR session not found")
+    if time.time() - session["created_at"] > 180:
+        _qr_sessions.pop(qrcode_key, None)
+        return {"status": "expired", "message": "QR code expired"}
     try:
         async with httpx.AsyncClient(
             headers=BILIBILI_HEADERS,
@@ -124,7 +130,7 @@ async def bilibili_qr_poll(
         if all_cookies:
             cookie_str = _cookies_to_netscape(all_cookies)
             from cookie_manager import get_cookie_manager
-            mgr = get_cookie_manager()
+            mgr = get_cookie_manager(user.id if user else None)
             mgr.set_cookie("bilibili", cookie_str)
             logger.info(f"BiliBili QR login success, saved {len(all_cookies)} cookies: "
                          f"{list(all_cookies.keys())}")
@@ -183,7 +189,7 @@ def _cookies_to_netscape(cookies: dict) -> str:
 async def bilibili_validate_cookie(user: Optional[User] = Depends(get_current_user)):
     """Check if saved BiliBili cookies are still valid by calling a lightweight API."""
     from cookie_manager import get_cookie_manager
-    mgr = get_cookie_manager()
+    mgr = get_cookie_manager(user.id if user else None)
     cookie_str = mgr.get_cookie("bilibili")
     if not cookie_str:
         return {"valid": False, "reason": "no_cookie", "message": "Not logged in"}
@@ -255,7 +261,7 @@ async def douyin_diagnose_cookie(user: Optional[User] = Depends(get_current_user
     """Inspect saved Douyin cookies and report whether they look strong enough."""
     from cookie_manager import get_cookie_manager
 
-    raw = get_cookie_manager().get_cookie("douyin")
+    raw = get_cookie_manager(user.id if user else None).get_cookie("douyin")
     if not raw:
         return {
             "has_cookie": False,
@@ -409,6 +415,7 @@ async def douyin_qr_generate(user: Optional[User] = Depends(get_current_user)):
     _douyin_sessions[token] = {
         "created_at": time.time(),
         "session_cookies": session_cookies,
+        "user_id": user.id if user else None,
     }
 
     return {"qr_url": qr_url, "token": token}
@@ -420,7 +427,7 @@ async def douyin_qr_poll(
     user: Optional[User] = Depends(get_current_user),
 ):
     """Poll Douyin QR code login status."""
-    if token not in _douyin_sessions:
+    if token not in _douyin_sessions or _douyin_sessions[token].get("user_id") != (user.id if user else None):
         raise HTTPException(status_code=404, detail="QR session not found")
 
     session = _douyin_sessions[token]
@@ -488,7 +495,7 @@ async def douyin_qr_poll(
         if all_cookies:
             cookie_str = _cookies_dict_to_netscape(all_cookies, ".douyin.com")
             from cookie_manager import get_cookie_manager
-            get_cookie_manager().set_cookie("douyin", cookie_str)
+            get_cookie_manager(user.id if user else None).set_cookie("douyin", cookie_str)
             logger.info(f"Douyin QR login success, saved {len(all_cookies)} cookies")
 
         _douyin_sessions.pop(token, None)
@@ -520,6 +527,9 @@ async def import_browser_cookies(data: BrowserImportRequest, user: Optional[User
     Works when the server runs on the same machine as the browser (local mode).
     On cloud/Docker deployments, returns a clear error suggesting file upload instead.
     """
+    from config import USE_SUPABASE
+    if USE_SUPABASE:
+        raise HTTPException(status_code=400, detail="Upload a cookies.txt file from your device when using the cloud app")
     domain = PLATFORM_DOMAINS.get(data.platform)
     if not domain:
         raise HTTPException(status_code=400, detail=f"Unknown platform: {data.platform}")
@@ -570,7 +580,7 @@ async def import_browser_cookies(data: BrowserImportRequest, user: Optional[User
 
         netscape = "\n".join(filtered) + "\n"
         from cookie_manager import get_cookie_manager
-        get_cookie_manager().set_cookie(data.platform, netscape)
+        get_cookie_manager(user.id if user else None).set_cookie(data.platform, netscape)
         logger.info(f"Browser import ({data.browser}) for {data.platform}: {count} cookies saved")
         return {
             "success": True,
@@ -666,7 +676,7 @@ async def save_simple_cookie(data: SimpleCookieUpdate, user: Optional[User] = De
     netscape = _simple_cookie_to_netscape(data.cookie_string, domain)
     from cookie_manager import get_cookie_manager
     try:
-        get_cookie_manager().set_cookie(data.platform, netscape)
+        get_cookie_manager(user.id if user else None).set_cookie(data.platform, netscape)
     except Exception as e:
         logger.error(f"Failed to save cookies for {data.platform}: {e}")
         raise HTTPException(
@@ -742,7 +752,7 @@ async def upload_cookie_file(
     netscape = "\n".join(filtered_lines) + "\n"
     from cookie_manager import get_cookie_manager
     try:
-        get_cookie_manager().set_cookie(platform, netscape)
+        get_cookie_manager(user.id if user else None).set_cookie(platform, netscape)
     except Exception as e:
         logger.error(f"Failed to save cookies for {platform}: {e}")
         raise HTTPException(
@@ -760,7 +770,7 @@ async def upload_cookie_file(
 async def get_cookie(platform: str, user: Optional[User] = Depends(get_current_user)):
     """Get cookie status for a platform (does not return actual cookie data for security)."""
     from cookie_manager import get_cookie_manager
-    mgr = get_cookie_manager()
+    mgr = get_cookie_manager(user.id if user else None)
     cookie = mgr.get_cookie(platform)
     return {
         "platform": platform,
@@ -773,7 +783,7 @@ async def get_cookie(platform: str, user: Optional[User] = Depends(get_current_u
 async def update_cookie(data: CookieUpdate, user: Optional[User] = Depends(get_current_user)):
     """Set or update cookie for a platform."""
     from cookie_manager import get_cookie_manager
-    mgr = get_cookie_manager()
+    mgr = get_cookie_manager(user.id if user else None)
     mgr.set_cookie(data.platform, data.cookie_data)
     return {"message": f"Cookie updated for {data.platform}"}
 
@@ -782,7 +792,7 @@ async def update_cookie(data: CookieUpdate, user: Optional[User] = Depends(get_c
 async def delete_cookie(platform: str, user: Optional[User] = Depends(get_current_user)):
     """Delete cookie for a platform."""
     from cookie_manager import get_cookie_manager
-    mgr = get_cookie_manager()
+    mgr = get_cookie_manager(user.id if user else None)
     deleted = mgr.delete_cookie(platform)
     if not deleted:
         raise HTTPException(status_code=404, detail="Cookie not found")
@@ -793,5 +803,5 @@ async def delete_cookie(platform: str, user: Optional[User] = Depends(get_curren
 async def list_cookies(user: Optional[User] = Depends(get_current_user)):
     """List all stored platform cookies."""
     from cookie_manager import get_cookie_manager
-    mgr = get_cookie_manager()
+    mgr = get_cookie_manager(user.id if user else None)
     return {"cookies": mgr.list_cookies()}

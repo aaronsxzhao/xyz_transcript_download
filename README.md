@@ -189,6 +189,11 @@ The project includes a GitHub Actions workflow (`.github/workflows/deploy-oracle
 
 Deploys are triggered automatically on push to `main` when build-relevant files change (Python, frontend, Dockerfile, dependencies). Use `workflow_dispatch` for manual deploys.
 
+Deployment succeeds only when the public health endpoint reports the exact
+commit built into the image. A failed restart, unhealthy API, or old image causes
+the workflow to fail. Merge release pull requests after both backend and frontend
+checks pass.
+
 ### Supabase Setup (Multi-User Storage)
 
 1. Create a project at [supabase.com](https://supabase.com)
@@ -231,6 +236,34 @@ Supabase usage on the billing page is averaged across the billing period and ref
 ---
 
 ## Data Storage
+
+### Upgrading an existing cloud deployment
+
+Before deploying the account-isolation fixes, run
+`supabase/migrations/20261018114840_account_isolation.sql` in the Supabase SQL Editor.
+It adds account-owned cookies and model preferences, makes summary replacement
+transactional, and closes access to legacy shared cookies. This step is compatible
+with the previous API. Deploy the updated backend and frontend next, then make
+generated image buckets private:
+
+```sql
+UPDATE storage.buckets SET public = FALSE WHERE id IN ('screenshots', 'thumbnails');
+```
+
+Run that final step only after the new API is live, so existing image previews
+continue working during deployment. New installations can use the updated
+`supabase_schema.sql`, which configures private buckets immediately.
+
+Users must reconnect their platform accounts after this upgrade. Shared cookies
+are retained for administrative recovery but are never reused for another account.
+Cloud Notion exports require each user's integration token in Settings.
+
+Generated images use file-specific links for previews and exports, valid for the
+configured media-retention period. The signing key is derived from the configured
+Supabase service key, so links work across replicas and restarts. An optional
+`MEDIA_SIGNING_KEY` can provide a separate stable secret; use the same value on
+every replica. Rotating either signing secret invalidates existing image links;
+reopen the note to get fresh links.
 
 ### Local Mode (Default)
 
@@ -299,5 +332,19 @@ MIT
 ---
 
 ## Contributing
+
+Run the backend and frontend regression suites before submitting changes:
+
+```bash
+python -m pytest
+cd web
+npm ci
+npm test
+npm run build
+```
+
+Tests use temporary data and mocked provider responses. Live platform downloads,
+AI providers, Notion, and native desktop packaging need their own configured
+integration checks.
 
 Issues and PRs welcome! This tool is actively maintained.

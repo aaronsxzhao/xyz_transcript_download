@@ -1,5 +1,5 @@
 import { lazy, Suspense } from 'react'
-import { Routes, Route, Navigate, Outlet } from 'react-router-dom'
+import { Routes, Route, Navigate, Outlet, Link } from 'react-router-dom'
 import { AuthProvider, useAuth } from './contexts/AuthContext'
 import Layout from './components/Layout'
 import { Loader2 } from 'lucide-react'
@@ -74,6 +74,7 @@ function AppRoutes() {
             <Route path="/videos" element={<Videos />} />
             <Route path="/videos/:taskId" element={<VideoViewer />} />
             <Route path="/settings" element={<Settings />} />
+            <Route path="*" element={<div className="space-y-3"><h1 className="text-xl font-semibold">Page not found</h1><Link to="/" className="text-indigo-300 underline">Return to dashboard</Link></div>} />
           </Route>
         </Route>
       </Routes>

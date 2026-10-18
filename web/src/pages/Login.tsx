@@ -52,10 +52,9 @@ export default function Login() {
         await signIn(email, password)
         navigate('/')
       } else {
-        await signUp(email, password)
-        setMessage('Check your email for a confirmation link')
-        // If signup auto-logs in, navigate
-        navigate('/')
+        const signedIn = await signUp(email, password)
+        if (signedIn) navigate('/')
+        else setMessage('Check your email for a confirmation link')
       }
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Authentication failed')
@@ -83,13 +82,15 @@ export default function Login() {
           <form onSubmit={handleSubmit} className="space-y-4">
             {/* Email */}
             <div>
-              <label className="block text-sm font-medium text-gray-300 mb-1">
+              <label htmlFor="auth-email" className="block text-sm font-medium text-gray-300 mb-1">
                 Email
               </label>
               <div className="relative">
                 <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-500" />
                 <input
                   type="email"
+                  id="auth-email"
+                  autoComplete="username"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="you@example.com"
@@ -100,13 +101,15 @@ export default function Login() {
 
             {/* Password */}
             <div>
-              <label className="block text-sm font-medium text-gray-300 mb-1">
+              <label htmlFor="auth-password" className="block text-sm font-medium text-gray-300 mb-1">
                 Password
               </label>
               <div className="relative">
                 <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-500" />
                 <input
                   type="password"
+                  id="auth-password"
+                  autoComplete={mode === 'signin' ? 'current-password' : 'new-password'}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="••••••••"
@@ -118,13 +121,15 @@ export default function Login() {
             {/* Confirm Password (signup only) */}
             {mode === 'signup' && (
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-1">
+                <label htmlFor="auth-confirm-password" className="block text-sm font-medium text-gray-300 mb-1">
                   Confirm Password
                 </label>
                 <div className="relative">
                   <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-500" />
                   <input
                     type="password"
+                    id="auth-confirm-password"
+                    autoComplete="new-password"
                     value={confirmPassword}
                     onChange={(e) => setConfirmPassword(e.target.value)}
                     placeholder="••••••••"

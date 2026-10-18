@@ -6,7 +6,7 @@ Security Model:
 - Local mode (USE_SUPABASE=False): No authentication required, single user
 - Supabase mode (USE_SUPABASE=True): Authentication provides user_id for data isolation
   - All database queries filter by user_id
-  - Unauthenticated requests get user_id=None, resulting in empty query results
+  - Unauthenticated requests receive HTTP 401
   - Jobs, WebSocket broadcasts, and caches are all user-scoped
   - This ensures complete data isolation between users
 
@@ -219,22 +219,22 @@ async def get_current_user(
 ) -> Optional[User]:
     """
     Dependency to get the current authenticated user.
-    Returns None if not authenticated (for optional auth).
+    Local mode uses a single local user; cloud mode requires a valid session.
     """
     if not USE_SUPABASE:
         return User(id="local", email="local@localhost")
 
     if not credentials:
-        return None
+        raise HTTPException(status_code=401, detail="Not authenticated", headers={"WWW-Authenticate": "Bearer"})
 
     token = credentials.credentials
     try:
         payload = await verify_jwt_token_async(token)
     except Exception:
-        return None
+        payload = None
 
-    if not payload:
-        return None
+    if not payload or not payload.get("sub"):
+        raise HTTPException(status_code=401, detail="Session expired or invalid", headers={"WWW-Authenticate": "Bearer"})
 
     return User(
         id=payload.get("sub", ""),
@@ -259,11 +259,10 @@ async def require_auth(
 
 
 async def require_debug_access(
-    user: Optional[User] = Depends(get_current_user),
     x_debug_key: Optional[str] = Header(None, alias="X-Debug-Key"),
 ) -> None:
     """
-    Protect /api/debug/* routes: DEBUG_API_KEY header, or Supabase JWT, or local-only without RENDER.
+    Protect server-wide diagnostics with an admin key in cloud deployments.
     """
     import os
 
@@ -272,15 +271,7 @@ async def require_debug_access(
         if x_debug_key != expected:
             raise HTTPException(status_code=403, detail="Invalid or missing X-Debug-Key")
         return
-    if USE_SUPABASE:
-        if not user:
-            raise HTTPException(
-                status_code=401,
-                detail="Not authenticated",
-                headers={"WWW-Authenticate": "Bearer"},
-            )
-        return
-    if os.environ.get("RENDER"):
+    if USE_SUPABASE or os.environ.get("RENDER"):
         raise HTTPException(
             status_code=403,
             detail="Set DEBUG_API_KEY to use debug endpoints on this host",
@@ -311,13 +302,13 @@ async def get_user_from_token_param(
     # Try header first
     if credentials:
         payload = await verify_jwt_token_async(credentials.credentials)
-        if payload:
+        if payload and payload.get("sub"):
             return User(id=payload.get("sub", ""), email=payload.get("email", ""))
     
     # Fall back to query parameter
     if token:
         payload = await verify_jwt_token_async(token)
-        if payload:
+        if payload and payload.get("sub"):
             return User(id=payload.get("sub", ""), email=payload.get("email", ""))
     
-    return None
+    raise HTTPException(status_code=401, detail="Not authenticated", headers={"WWW-Authenticate": "Bearer"})

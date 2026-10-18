@@ -46,7 +46,7 @@ def _ensure_supabase_bucket(client, bucket_name: str):
         try:
             client.storage.create_bucket(
                 bucket_name,
-                options={"public": True, "file_size_limit": 2 * 1024 * 1024},
+                options={"public": False, "file_size_limit": 2 * 1024 * 1024},
             )
             logger.info(f"Created Supabase storage bucket: {bucket_name}")
         except Exception as e:
@@ -55,7 +55,7 @@ def _ensure_supabase_bucket(client, bucket_name: str):
 
 
 def _upload_to_supabase(local_path: Path, bucket: str, remote_name: str) -> Optional[str]:
-    """Upload a file to Supabase Storage and return its public URL."""
+    """Upload an image to private Storage and return its API media path."""
     if not USE_SUPABASE_STORAGE:
         return None
     try:
@@ -69,8 +69,7 @@ def _upload_to_supabase(local_path: Path, bucket: str, remote_name: str) -> Opti
             remote_name, data,
             file_options={"content-type": "image/jpeg", "upsert": "true"},
         )
-        url = client.storage.from_(bucket).get_public_url(remote_name)
-        return url
+        return f"/data/{bucket}/{remote_name}"
     except Exception as e:
         logger.warning(f"Supabase upload failed for {remote_name}: {e}")
         return None
@@ -387,18 +386,9 @@ def replace_screenshot_markers(
 ) -> str:
     """Replace Screenshot-[timestamp] markers in markdown with actual image tags.
 
-    In Supabase storage mode, uses public Supabase Storage URLs so
-    screenshots are accessible regardless of which server processed the video.
+    The API signs image paths for the owning account. Missing local images can
+    be fetched from private Supabase Storage by the media endpoint.
     """
-    supabase_base = None
-    if USE_SUPABASE_STORAGE:
-        try:
-            client = _get_supabase_storage_client()
-            if client:
-                supabase_base = client.storage.from_(_SUPABASE_BUCKET).get_public_url("").rstrip("/")
-        except Exception:
-            pass
-
     def replacer(match):
         ts_str = match.group(1) or match.group(2)
         total_seconds = _parse_timestamp_str(ts_str)
@@ -408,8 +398,6 @@ def replace_screenshot_markers(
         filename = f"{task_id}_{ts_str}.jpg"
         screenshot_path = SCREENSHOTS_DIR / filename
         if screenshot_path.exists():
-            if supabase_base:
-                return f"![Screenshot at {m:02d}:{s:02d}]({supabase_base}/{filename})"
             return f"![Screenshot at {m:02d}:{s:02d}]({base_url}/{filename})"
         return match.group(0)
 

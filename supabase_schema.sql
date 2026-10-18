@@ -4,6 +4,7 @@
 -- Existing database missing columns? Run:
 --   supabase/migrations/20250224_podcasts_feed_url.sql
 --   supabase/migrations/20250225_video_tasks_columns.sql
+--   supabase/migrations/20261017_account_isolation.sql
 
 -- Enable Row Level Security (RLS) for all tables
 -- This ensures users can only access their own data
@@ -237,7 +238,7 @@ CREATE POLICY "Users can delete own video task versions" ON video_task_versions
         EXISTS (SELECT 1 FROM video_tasks t WHERE t.id = video_task_versions.task_id AND t.user_id = auth.uid())
     );
 
--- Platform cookies table (server-wide, not user-scoped)
+-- Legacy platform cookies table (retained for upgrade compatibility; no application access)
 CREATE TABLE IF NOT EXISTS platform_cookies (
     id BIGSERIAL PRIMARY KEY,
     platform TEXT UNIQUE NOT NULL,
@@ -246,8 +247,7 @@ CREATE TABLE IF NOT EXISTS platform_cookies (
 );
 
 ALTER TABLE platform_cookies ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "Service role full access platform_cookies" ON platform_cookies
-    FOR ALL USING (true) WITH CHECK (true);
+REVOKE ALL ON TABLE platform_cookies FROM anon, authenticated;
 
 -- Service role policies for server-side operations
 CREATE POLICY "Service role full access video_tasks" ON video_tasks
@@ -268,3 +268,67 @@ CREATE INDEX IF NOT EXISTS idx_video_task_versions_task ON video_task_versions(t
 -- Storage bucket for audio files (optional, for future use)
 -- Run this in the Supabase Dashboard under Storage:
 -- Create bucket named "audio" with public access disabled
+
+-- Run before deploying the account-isolation fixes.
+-- Shared cookies cannot safely be assigned to an account. Users must reconnect.
+CREATE TABLE IF NOT EXISTS public.platform_cookies (
+    id BIGSERIAL PRIMARY KEY, platform TEXT UNIQUE NOT NULL,
+    cookie_data TEXT NOT NULL DEFAULT '', updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+ALTER TABLE public.platform_cookies ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON TABLE public.platform_cookies FROM anon, authenticated;
+GRANT ALL ON TABLE public.platform_cookies TO service_role;
+DROP POLICY IF EXISTS "Service role full access platform_cookies" ON public.platform_cookies;
+DROP POLICY IF EXISTS "Service role full access" ON public.platform_cookies;
+
+CREATE TABLE IF NOT EXISTS public.user_platform_cookies (
+    user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+    platform TEXT NOT NULL,
+    cookie_data TEXT NOT NULL DEFAULT '',
+    updated_at TIMESTAMPTZ DEFAULT NOW(),
+    PRIMARY KEY (user_id, platform)
+);
+ALTER TABLE public.user_platform_cookies ENABLE ROW LEVEL SECURITY;
+-- The API checks ownership and accesses credentials through its service role.
+REVOKE ALL ON TABLE public.user_platform_cookies FROM anon, authenticated;
+GRANT ALL ON TABLE public.user_platform_cookies TO service_role;
+
+CREATE TABLE IF NOT EXISTS public.user_settings (
+    user_id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
+    preferences JSONB NOT NULL DEFAULT '{}'
+);
+ALTER TABLE public.user_settings ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON TABLE public.user_settings FROM anon, authenticated;
+GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.user_settings TO authenticated;
+DROP POLICY IF EXISTS "Users manage own settings" ON public.user_settings;
+CREATE POLICY "Users manage own settings" ON public.user_settings
+    FOR ALL TO authenticated USING ((SELECT auth.uid()) = user_id) WITH CHECK ((SELECT auth.uid()) = user_id);
+GRANT ALL ON TABLE public.user_settings TO service_role;
+
+-- Replace metadata and key points in one transaction. A failed replacement
+-- leaves the last successful summary intact.
+CREATE OR REPLACE FUNCTION public.save_user_summary(
+    p_user_id UUID, p_episode_id TEXT, p_title TEXT, p_overview TEXT,
+    p_topics TEXT[], p_takeaways TEXT[], p_key_points JSONB
+) RETURNS BOOLEAN LANGUAGE plpgsql SECURITY INVOKER SET search_path = public AS $$
+DECLARE summary_row_id INTEGER;
+BEGIN
+    INSERT INTO summaries (user_id, episode_id, title, overview, topics, takeaways)
+    VALUES (p_user_id, p_episode_id, p_title, p_overview, p_topics, p_takeaways)
+    ON CONFLICT (user_id, episode_id) DO UPDATE SET
+        title = EXCLUDED.title, overview = EXCLUDED.overview,
+        topics = EXCLUDED.topics, takeaways = EXCLUDED.takeaways
+    RETURNING id INTO summary_row_id;
+    DELETE FROM summary_key_points WHERE summary_id = summary_row_id;
+    INSERT INTO summary_key_points (summary_id, topic, summary, original_quote, timestamp)
+    SELECT summary_row_id, COALESCE(point->>'topic', ''), COALESCE(point->>'summary', ''),
+        COALESCE(point->>'original_quote', ''), COALESCE(point->>'timestamp', '')
+    FROM jsonb_array_elements(p_key_points) AS point;
+    RETURN TRUE;
+END;
+$$;
+REVOKE ALL ON FUNCTION public.save_user_summary(UUID, TEXT, TEXT, TEXT, TEXT[], TEXT[], JSONB) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.save_user_summary(UUID, TEXT, TEXT, TEXT, TEXT[], TEXT[], JSONB) TO service_role;
+
+-- Existing notes are rewritten to file-specific signed links by the API.
+UPDATE storage.buckets SET public = FALSE WHERE id IN ('screenshots', 'thumbnails');

@@ -358,7 +358,8 @@ class _SQLiteVideoTaskDB:
                     "DELETE FROM video_tasks WHERE id = ? AND user_id IS NULL",
                     (task_id,),
                 )
-            conn.execute("DELETE FROM video_task_versions WHERE task_id = ?", (task_id,))
+            if cursor.rowcount > 0:
+                conn.execute("DELETE FROM video_task_versions WHERE task_id = ?", (task_id,))
             conn.commit()
             return cursor.rowcount > 0
 

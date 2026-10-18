@@ -1,3 +1,5 @@
+import LoadError from '../components/LoadError'
+import { getAccountId } from '../lib/preferences'
 import { useState, useEffect, useMemo, useRef } from 'react'
 import { Link } from 'react-router-dom'
 import { Radio, FileText, MessageSquare, Loader2, Plus, ArrowRight, Bell, RefreshCw, X, Video, CheckCircle, Users } from 'lucide-react'
@@ -25,6 +27,7 @@ export default function Dashboard() {
   const [summaries, setSummaries] = useState<SummaryListItem[]>([])
   const [recentVideos, setRecentVideos] = useState<VideoTask[]>([])
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
   const [episodeUrl, setEpisodeUrl] = useState('')
   const [processing, setProcessing] = useState(false)
   const [newEpisodes, setNewEpisodes] = useState<NewEpisode[]>([])
@@ -107,6 +110,8 @@ export default function Dashboard() {
   }, [])
 
   async function loadData() {
+    const owner = getAccountId()
+    setError('')
     const cachedStats = getCache<Stats>(CacheKeys.STATS)
     const cachedSummaries = getCache<SummaryListItem[]>(CacheKeys.RECENT_SUMMARIES)
     const cachedRecentVideos = getCache<VideoTask[]>(CacheKeys.RECENT_VIDEOS)
@@ -120,17 +125,18 @@ export default function Dashboard() {
       const [statsData, summariesData, videoData] = await Promise.all([
         fetchStats(),
         fetchRecentSummaries(),
-        fetchRecentVideoTasks().catch(() => ({ tasks: [] })),
+        fetchRecentVideoTasks(),
       ])
       setStats(statsData)
       setSummaries(summariesData)
       setRecentVideos(videoData.tasks)
 
-      setCache(CacheKeys.STATS, statsData)
-      setCache(CacheKeys.RECENT_SUMMARIES, summariesData)
-      setCache(CacheKeys.RECENT_VIDEOS, videoData.tasks)
+      setCache(CacheKeys.STATS, statsData, owner)
+      setCache(CacheKeys.RECENT_SUMMARIES, summariesData, owner)
+      setCache(CacheKeys.RECENT_VIDEOS, videoData.tasks, owner)
     } catch (err) {
       console.error('Failed to load data:', err)
+      setError('Cannot refresh the dashboard. Any saved content may be out of date.')
     } finally {
       setLoading(false)
       void loadQueueData()
@@ -251,6 +257,7 @@ export default function Dashboard() {
 
   return (
     <div className="space-y-8">
+      {error && <LoadError message={error} onRetry={() => { void loadData() }} />}
       <div className="flex items-start justify-between">
         <div>
           <h1 className="text-2xl font-bold text-white mb-2">Dashboard</h1>

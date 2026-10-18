@@ -1,3 +1,4 @@
+import { getPreference, setPreference } from '../lib/preferences'
 import { useState, useEffect, useRef, useCallback } from 'react'
 import {
   Cpu, MessageSquare, Clock, Loader2, CheckCircle, Trash2, AlertTriangle,
@@ -137,6 +138,8 @@ export default function Settings() {
   const [settings, setSettings] = useState<SettingsData | null>(null)
   const [loading, setLoading] = useState(true)
 
+  const localWhisperModels = ['tiny', 'base', 'small', 'medium', 'large-v3', 'turbo'].map(value => ({ value, label: value, description: 'Local Whisper model' }))
+  const whisperModels = settings?.whisper_mode === 'local' ? localWhisperModels : WHISPER_MODELS
   const [whisperModel, setWhisperModel] = useState('')
   const [llmModel, setLlmModel] = useState('')
   const [saving, setSaving] = useState(false)
@@ -222,19 +225,19 @@ export default function Settings() {
     { id: 'best', label: 'Best' },
   ]
 
-  const [vdStyle, setVdStyle] = useState(() => localStorage.getItem('vd_style') || 'detailed')
+  const [vdStyle, setVdStyle] = useState(() => getPreference('vd_style') || 'detailed')
   const [vdFormats, setVdFormats] = useState<string[]>(() => {
-    try { return JSON.parse(localStorage.getItem('vd_formats') || '["toc","summary","screenshot"]') }
+    try { return JSON.parse(getPreference('vd_formats') || '["toc","summary","screenshot"]') }
     catch { return ['toc', 'summary', 'screenshot'] }
   })
-  const [vdQuality, setVdQuality] = useState(() => localStorage.getItem('vd_quality') || 'medium')
-  const [vdVideoQuality, setVdVideoQuality] = useState(() => localStorage.getItem('vd_video_quality') || '720')
+  const [vdQuality, setVdQuality] = useState(() => getPreference('vd_quality') || 'medium')
+  const [vdVideoQuality, setVdVideoQuality] = useState(() => getPreference('vd_video_quality') || '720')
 
   const toggleVdFormat = (id: string) => {
     setVdFormats(prev => prev.includes(id) ? prev.filter(f => f !== id) : [...prev, id])
   }
 
-  const [notionKey, setNotionKey] = useState(() => localStorage.getItem('notion_api_key') || '')
+  const [notionKey, setNotionKey] = useState(() => getPreference('notion_api_key') || '')
   const [notionTestResult, setNotionTestResult] = useState<{ ok: boolean; message: string } | null>(null)
   const [notionTesting, setNotionTesting] = useState(false)
 
@@ -424,9 +427,9 @@ export default function Settings() {
 
   useEffect(() => {
     if (settings) {
-      const savedWhisperModel = localStorage.getItem('whisper_model') || settings.whisper_model
-      const savedLlmModel = localStorage.getItem('llm_model') || settings.llm_model
-      setWhisperModel(savedWhisperModel)
+      const savedWhisperModel = getPreference('whisper_model') || settings.whisper_model
+      const savedLlmModel = getPreference('llm_model') || settings.llm_model
+      setWhisperModel(whisperModels.some(model => model.value === savedWhisperModel) ? savedWhisperModel : settings.whisper_model)
       setLlmModel(savedLlmModel)
     }
   }, [settings])
@@ -446,16 +449,16 @@ export default function Settings() {
     setSaving(true)
     setSaveResult(null)
     try {
-      localStorage.setItem('whisper_model', whisperModel)
-      localStorage.setItem('llm_model', llmModel)
-      localStorage.setItem('vd_style', vdStyle)
-      localStorage.setItem('vd_formats', JSON.stringify(vdFormats))
-      localStorage.setItem('vd_quality', vdQuality)
-      localStorage.setItem('vd_video_quality', vdVideoQuality)
       await updateSettings({
         whisper_model: whisperModel,
         llm_model: llmModel,
       })
+      setPreference('whisper_model', whisperModel)
+      setPreference('llm_model', llmModel)
+      setPreference('vd_style', vdStyle)
+      setPreference('vd_formats', JSON.stringify(vdFormats))
+      setPreference('vd_quality', vdQuality)
+      setPreference('vd_video_quality', vdVideoQuality)
       setSaveResult('Settings saved successfully!')
       setTimeout(() => setSaveResult(null), 3000)
     } catch (err) {
@@ -575,17 +578,18 @@ export default function Settings() {
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 py-2 border-b border-dark-border">
                 <span className="text-gray-400 text-sm">Model</span>
                 <select
+                  aria-label="Transcription model"
                   value={whisperModel}
                   onChange={e => setWhisperModel(e.target.value)}
                   className="bg-dark-hover border border-dark-border text-white text-sm rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent w-full sm:w-auto"
                 >
-                  {WHISPER_MODELS.map(m => (
+                  {whisperModels.map(m => (
                     <option key={m.value} value={m.value}>{m.label}</option>
                   ))}
                 </select>
               </div>
               <p className="text-xs text-gray-500">
-                {WHISPER_MODELS.find(m => m.value === whisperModel)?.description || 'Select a model'}
+                {whisperModels.find(m => m.value === whisperModel)?.description || 'Select a model'}
               </p>
             </div>
           </section>
@@ -600,6 +604,7 @@ export default function Settings() {
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 py-2 border-b border-dark-border">
                 <span className="text-gray-400 text-sm">Model</span>
                 <select
+                  aria-label="Summary model"
                   value={llmModel}
                   onChange={e => setLlmModel(e.target.value)}
                   className="bg-dark-hover border border-dark-border text-white text-sm rounded-lg px-3 py-2 focus:ring-2 focus:ring-purple-500 focus:border-transparent w-full sm:w-auto sm:max-w-[220px] truncate"
@@ -645,8 +650,9 @@ export default function Settings() {
                     className="flex-1 bg-dark-hover border border-dark-border text-white text-sm rounded-lg px-3 py-2 focus:ring-2 focus:ring-orange-500 focus:border-transparent font-mono"
                   />
                   <button
+                    aria-label="Save Notion integration token"
                     onClick={() => {
-                      localStorage.setItem('notion_api_key', notionKey.trim())
+                      setPreference('notion_api_key', notionKey.trim())
                       setNotionTestResult(null)
                     }}
                     className="px-3 py-2 bg-dark-hover hover:bg-dark-border text-white text-sm rounded-lg transition-colors"
@@ -661,7 +667,7 @@ export default function Settings() {
                     setNotionTestResult({ ok: false, message: 'Enter a Notion API key first' })
                     return
                   }
-                  localStorage.setItem('notion_api_key', notionKey.trim())
+                  setPreference('notion_api_key', notionKey.trim())
                   setNotionTesting(true)
                   setNotionTestResult(null)
                   try {

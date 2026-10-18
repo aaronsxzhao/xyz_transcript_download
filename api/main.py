@@ -1,5 +1,6 @@
 """FastAPI application for Podcast Transcript Tool."""
 import asyncio
+import os
 import sys
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -8,11 +9,11 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from typing import Optional
-from fastapi import FastAPI, Depends
+from fastapi import FastAPI, Depends, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, Response
 
 from api.routers import podcasts, episodes, transcripts, summaries, processing
 from api.routers import auth_router, video_notes, cookies, notion
@@ -66,22 +67,30 @@ async def _scan_podcasts_for_new_episodes(db, inter_podcast_delay: Optional[floa
     """
     from xyz_client import get_client
 
-    all_podcasts = db.get_all_podcasts()
+    all_podcasts = await asyncio.to_thread(db.get_all_podcasts)
     if not all_podcasts:
         return 0, []
 
-    client = get_client()
     total_new = 0
     new_episodes_list = []
 
     for podcast in all_podcasts:
         try:
-            episodes = client.get_episodes_from_page(podcast.pid, limit=10)
+            platform = getattr(podcast, "platform", "xiaoyuzhou")
+            if platform == "local":
+                continue
+            if platform == "apple":
+                from apple_podcasts_client import get_episodes_from_feed
+                if not podcast.feed_url:
+                    continue
+                episodes = await asyncio.to_thread(get_episodes_from_feed, podcast.feed_url, podcast.pid, 50)
+            else:
+                episodes = await asyncio.to_thread(get_client().get_episodes_from_page, podcast.pid, limit=50)
 
             new_count = 0
             for ep in episodes:
-                if not db.episode_exists(ep.eid):
-                    db.add_episode(
+                if not await asyncio.to_thread(db.episode_exists, ep.eid):
+                    await asyncio.to_thread(db.add_episode,
                         eid=ep.eid,
                         pid=ep.pid,
                         podcast_id=podcast.id,
@@ -103,7 +112,7 @@ async def _scan_podcasts_for_new_episodes(db, inter_podcast_delay: Optional[floa
                 logger.info(f"[PodcastChecker] Found {new_count} new episode(s) for '{podcast.title}'")
                 total_new += new_count
 
-            db.update_podcast_checked(podcast.pid)
+            await asyncio.to_thread(db.update_podcast_checked, podcast.pid)
 
         except Exception as e:
             logger.warning(f"[PodcastChecker] Error checking '{podcast.title}': {e}")
@@ -129,14 +138,7 @@ async def check_podcasts_for_updates():
 
             logger.info("[PodcastChecker] Checking podcasts for updates...")
 
-            db = get_db(None)
-            total_new, new_episodes_list = await _scan_podcasts_for_new_episodes(
-                db, inter_podcast_delay=2.0
-            )
-
-            if new_episodes_list:
-                _store_new_episodes_cache("_anonymous", new_episodes_list)
-                logger.info(f"[PodcastChecker] Total: {total_new} new episodes found")
+            await check_subscription_owners()
 
         except asyncio.CancelledError:
             logger.info("[PodcastChecker] Background checker stopped")
@@ -144,6 +146,22 @@ async def check_podcasts_for_updates():
         except Exception as e:
             logger.error(f"[PodcastChecker] Error in background checker: {e}")
             await asyncio.sleep(60)  # Wait before retry on error
+
+
+async def check_subscription_owners():
+    from config import USE_SUPABASE
+    from api.db import get_db
+    if USE_SUPABASE:
+        from api.supabase_db import get_supabase_database
+        owners = await asyncio.to_thread(get_supabase_database().get_subscription_user_ids)
+    else:
+        owners = ["local"]
+    for owner in owners:
+        try:
+            _, episodes = await _scan_podcasts_for_new_episodes(get_db(owner), inter_podcast_delay=2.0)
+            _store_new_episodes_cache(owner, episodes)
+        except Exception:
+            logger.exception("[PodcastChecker] Could not update subscriptions for an account")
 
 
 async def cleanup_generated_media_loop():
@@ -281,13 +299,35 @@ app.include_router(video_notes.router, prefix="/api/video-notes", tags=["Video N
 app.include_router(cookies.router, prefix="/api/cookies", tags=["Cookies"])
 app.include_router(notion.router, prefix="/api/notion", tags=["Notion"])
 
-# Mount static files for data — use the same DATA_DIR that the rest of the app uses
+# Private data is never exposed by a StaticFiles mount.
 from config import DATA_DIR as _data_dir
 _data_dir.mkdir(parents=True, exist_ok=True)
 (_data_dir / "screenshots").mkdir(parents=True, exist_ok=True)
 (_data_dir / "thumbnails").mkdir(parents=True, exist_ok=True)
 (_data_dir / "uploads").mkdir(parents=True, exist_ok=True)
-app.mount("/data", StaticFiles(directory=str(_data_dir)), name="data")
+
+
+@app.get("/data/{folder}/{filename}")
+async def generated_media(folder: str, filename: str, expires: int = Query(0), signature: str = Query("")):
+    from config import USE_SUPABASE
+    from api.media import media_file, verify_media_signature
+    path = media_file(folder, filename)
+    if USE_SUPABASE and not verify_media_signature(f"/data/{folder}/{filename}", expires, signature):
+        raise HTTPException(status_code=403, detail="Media link is invalid or expired")
+    headers = {"Cache-Control": "private, max-age=3600", "X-Content-Type-Options": "nosniff"}
+    if path.is_file():
+        return FileResponse(path, headers=headers)
+    if USE_SUPABASE:
+        from api.supabase_client import get_supabase_admin_client
+        client = get_supabase_admin_client()
+        if client:
+            try:
+                content = await asyncio.to_thread(client.storage.from_(folder).download, filename)
+                media_type = "image/jpeg" if path.suffix in {".jpg", ".jpeg"} else f"image/{path.suffix[1:]}"
+                return Response(content, media_type=media_type, headers=headers)
+            except Exception:
+                pass
+    raise HTTPException(status_code=404, detail="File not found")
 
 # Check for pre-built frontend
 frontend_dist = Path(__file__).parent.parent / "web" / "dist"
@@ -298,9 +338,10 @@ if frontend_dist.exists():
 
 @app.get("/api/health")
 @app.head("/api/health")
-async def health_check():
+async def health_check(response: Response):
     """Health check endpoint."""
-    return {"status": "ok"}
+    response.headers["Cache-Control"] = "no-store"
+    return {"status": "ok", "revision": os.getenv("APP_REVISION", "unknown")}
 
 
 @app.get("/api/debug/screenshots")
@@ -448,7 +489,7 @@ async def trigger_podcast_check(user: Optional[User] = Depends(get_current_user)
     from api.db import get_db
 
     db = get_db(user.id if user else None)
-    all_podcasts = db.get_all_podcasts()
+    all_podcasts = await asyncio.to_thread(db.get_all_podcasts)
 
     if not all_podcasts:
         return {"message": "No podcasts subscribed", "new_episodes": 0}
@@ -456,8 +497,7 @@ async def trigger_podcast_check(user: Optional[User] = Depends(get_current_user)
     total_new, new_episodes_list = await _scan_podcasts_for_new_episodes(db, inter_podcast_delay=None)
 
     user_id = user.id if user else "_anonymous"
-    if new_episodes_list:
-        _store_new_episodes_cache(user_id, new_episodes_list)
+    _store_new_episodes_cache(user_id, new_episodes_list)
     
     return {
         "message": f"Found {total_new} new episode(s)",
@@ -488,7 +528,10 @@ async def image_proxy(url: str):
     from urllib.parse import urlparse
     parsed = urlparse(url)
 
-    if not any(domain in parsed.netloc for domain in allowed_domains):
+    hostname = parsed.hostname or ""
+    if parsed.scheme not in {"http", "https"} or parsed.username or parsed.password or not any(
+        hostname == domain or hostname.endswith("." + domain) for domain in allowed_domains
+    ):
         return Response(status_code=403, content="Domain not allowed")
 
     try:
@@ -497,6 +540,8 @@ async def image_proxy(url: str):
             resp = await client.get(url, headers=headers)
             if resp.status_code == 200:
                 content_type = resp.headers.get("content-type", "image/jpeg")
+                if content_type.split(";", 1)[0] not in {"image/jpeg", "image/png", "image/gif", "image/webp", "image/avif"}:
+                    return Response(status_code=415)
                 return Response(
                     content=resp.content,
                     media_type=content_type,
@@ -534,14 +579,18 @@ async def get_stats(user: Optional["User"] = Depends(get_current_user)):
 
 
 @app.get("/api/settings")
-async def get_settings():
+async def get_settings(user: User = Depends(get_current_user)):
     """Get current settings."""
     from config import (
         WHISPER_MODE, WHISPER_BACKEND,
-        WHISPER_DEVICE, CHECK_INTERVAL, get_runtime_settings
+        WHISPER_DEVICE, CHECK_INTERVAL
     )
     
-    runtime = get_runtime_settings()
+    from api.user_settings import get_user_settings
+    try:
+        runtime = await asyncio.to_thread(get_user_settings, user.id)
+    except Exception:
+        raise HTTPException(status_code=503, detail="Account settings unavailable. Check the user settings database migration.")
     
     return {
         "whisper_mode": WHISPER_MODE,
@@ -554,14 +603,19 @@ async def get_settings():
 
 
 @app.post("/api/settings")
-async def update_settings(settings: dict):
-    """Update runtime settings."""
-    from config import set_runtime_settings
+async def update_settings(settings: dict, user: User = Depends(get_current_user)):
+    """Update this account's model preferences."""
+    from api.user_settings import save_user_settings
     
     allowed_keys = {"whisper_model", "llm_model"}
     filtered = {k: v for k, v in settings.items() if k in allowed_keys}
     
-    set_runtime_settings(filtered)
+    if any(not isinstance(v, str) or len(v) > 200 for v in filtered.values()):
+        raise HTTPException(status_code=422, detail="Model names must be strings of at most 200 characters")
+    try:
+        await asyncio.to_thread(save_user_settings, user.id, filtered)
+    except Exception:
+        raise HTTPException(status_code=503, detail="Could not save account settings. Check the user settings database migration.")
     
     return {"message": "Settings updated successfully"}
 
@@ -570,19 +624,17 @@ async def update_settings(settings: dict):
 @app.get("/{path:path}")
 async def serve_frontend(path: str):
     """Serve React frontend for client-side routing."""
-    # Serve files from the data directory (screenshots, uploads, etc.)
-    if path.startswith("data/"):
-        data_file = _data_dir / path[len("data/"):]
-        if data_file.exists() and data_file.is_file():
-            return FileResponse(data_file)
-
-    frontend_dist = Path(__file__).parent.parent / "web" / "dist"
+    if path.split("/", 1)[0] in {"api", "data"}:
+        raise HTTPException(status_code=404, detail="Not found")
+    frontend_dist = (Path(__file__).parent.parent / "web" / "dist").resolve()
     
     if not frontend_dist.exists():
         return {"error": "Frontend not built. Run 'cd web && npm run build'"}
     
     # Check if requesting a static file
-    file_path = frontend_dist / path
+    file_path = (frontend_dist / path).resolve()
+    if not file_path.is_relative_to(frontend_dist):
+        raise HTTPException(status_code=404, detail="Not found")
     if file_path.exists() and file_path.is_file():
         return FileResponse(file_path)
     

@@ -21,6 +21,10 @@ class SignInRequest(BaseModel):
     password: str
 
 
+class RefreshRequest(BaseModel):
+    refresh_token: str
+
+
 class AuthResponse(BaseModel):
     access_token: str
     refresh_token: str
@@ -122,7 +126,7 @@ async def sign_out(user: User = Depends(get_current_user)):
 
 
 @router.post("/refresh", response_model=AuthResponse)
-async def refresh_token(refresh_token: str):
+async def refresh_token(data: RefreshRequest):
     """Refresh the access token."""
     if not USE_SUPABASE:
         raise HTTPException(status_code=400, detail="Authentication not configured")
@@ -132,7 +136,7 @@ async def refresh_token(refresh_token: str):
         raise HTTPException(status_code=500, detail="Supabase not initialized")
     
     try:
-        result = client.auth.refresh_session(refresh_token)
+        result = client.auth.refresh_session(data.refresh_token)
         
         if result.user is None or result.session is None:
             raise HTTPException(status_code=401, detail="Invalid refresh token")

@@ -76,6 +76,19 @@ class SupabaseDatabase:
     
     def __init__(self):
         self.client = get_supabase_admin_client()
+
+    def get_subscription_user_ids(self) -> list[str]:
+        """Enumerate subscription owners for the server's scheduled update job."""
+        if not self.client:
+            return []
+        owners = set()
+        offset = 0
+        while True:
+            rows = self.client.table("podcasts").select("user_id").order("id").range(offset, offset + 999).execute().data or []
+            owners.update(row["user_id"] for row in rows if row.get("user_id"))
+            if len(rows) < 1000:
+                return sorted(owners)
+            offset += 1000
     
     # ==================== Podcasts ====================
     
@@ -194,13 +207,21 @@ class SupabaseDatabase:
     
     # ==================== Episodes ====================
     
-    def get_episodes_by_podcast(self, user_id: str, pid: str) -> List[EpisodeRecord]:
+    def get_episodes_by_podcast(self, user_id: str, pid: str, offset: int = 0, limit: Optional[int] = None) -> List[EpisodeRecord]:
         """Get all episodes for a podcast."""
-        if not self.client:
+        if not self.client or not user_id:
             return []
         
-        result = self.client.table("episodes").select("*").eq("user_id", user_id).eq("pid", pid).order("pub_date", desc=True).execute()
-        return [EpisodeRecord(**row) for row in result.data]
+        records = []
+        while True:
+            size = min(limit - len(records), 1000) if limit is not None else 1000
+            result = (self.client.table("episodes").select("*").eq("user_id", user_id).eq("pid", pid)
+                      .order("pub_date", desc=True).order("id", desc=True).range(offset, offset + size - 1).execute())
+            rows = result.data or []
+            records.extend(EpisodeRecord(**row) for row in rows)
+            if len(rows) < size or (limit is not None and len(records) >= limit):
+                return records
+            offset += len(rows)
     
     def get_episode(self, user_id: str, eid: str) -> Optional[EpisodeRecord]:
         """Get an episode by eid."""
@@ -559,39 +580,13 @@ class SupabaseDatabase:
         if not self.client:
             return False
         
-        # Upsert summary
-        result = self.client.table("summaries").upsert({
-            "user_id": user_id,
-            "episode_id": episode_id,
-            "title": title,
-            "overview": overview,
-            "topics": topics,
-            "takeaways": takeaways,
-        }, on_conflict="user_id,episode_id").execute()
+        result = self.client.rpc("save_user_summary", {
+            "p_user_id": user_id, "p_episode_id": episode_id, "p_title": title,
+            "p_overview": overview, "p_topics": topics, "p_takeaways": takeaways,
+            "p_key_points": key_points,
+        }).execute()
+        return bool(result.data)
 
-        if not result.data:
-            return False
-
-        summary_id = result.data[0]["id"]
-
-        # Replace key points
-        self.client.table("summary_key_points").delete().eq("summary_id", summary_id).execute()
-
-        if key_points:
-            kp_rows = [
-                {
-                    "summary_id": summary_id,
-                    "topic": kp.get("topic", ""),
-                    "summary": kp.get("summary", ""),
-                    "original_quote": kp.get("original_quote", ""),
-                    "timestamp": kp.get("timestamp", ""),
-                }
-                for kp in key_points
-            ]
-            self.client.table("summary_key_points").insert(kp_rows).execute()
-
-        return True
-    
     def has_summary(self, user_id: str, episode_id: str) -> bool:
         """Check if a summary exists."""
         if not self.client:
@@ -1077,19 +1072,17 @@ class SupabaseDatabase:
 
     def delete_video_task(self, task_id: str, user_id: str = None) -> bool:
         """Delete a video task and its versions."""
-        if not self.client:
+        if not self.client or not user_id:
             return False
 
         # Versions are CASCADE deleted via FK
-        query = self.client.table("video_tasks").delete().eq("id", task_id)
-        if user_id:
-            query = query.eq("user_id", user_id)
+        query = self.client.table("video_tasks").delete().eq("id", task_id).eq("user_id", user_id)
         result = query.execute()
         return bool(result.data)
 
     def delete_video_channel(self, channel: str, user_id: str = None) -> int:
         """Delete all video tasks for a channel."""
-        if not self.client or not channel:
+        if not self.client or not channel or not user_id:
             return 0
         if channel == "__unknown__":
             empty_query = self.client.table("video_tasks").delete().eq("channel", "")

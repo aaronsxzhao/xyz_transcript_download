@@ -1,9 +1,10 @@
+import { getAccountId } from './preferences'
 /**
  * Browser localStorage cache for offline access and fast loading
  */
 
 const CACHE_PREFIX = 'xyz_cache_'
-const CACHE_VERSION = 'v4'  // Bumped to invalidate old cached data
+const CACHE_VERSION = 'v5'  // Bumped to invalidate old cached data
 const CACHE_TTL_MS = 24 * 60 * 60 * 1000 // 24 hours
 
 interface CacheEntry<T> {
@@ -17,20 +18,20 @@ interface CacheEntry<T> {
  */
 export function getCache<T>(key: string): T | null {
   try {
-    const stored = localStorage.getItem(`${CACHE_PREFIX}${key}`)
+    const stored = localStorage.getItem(`${CACHE_PREFIX}${getAccountId()}:${key}`)
     if (!stored) return null
 
     const entry: CacheEntry<T> = JSON.parse(stored)
 
     // Check version
     if (entry.version !== CACHE_VERSION) {
-      localStorage.removeItem(`${CACHE_PREFIX}${key}`)
+      localStorage.removeItem(`${CACHE_PREFIX}${getAccountId()}:${key}`)
       return null
     }
 
     // Check TTL
     if (Date.now() - entry.timestamp > CACHE_TTL_MS) {
-      localStorage.removeItem(`${CACHE_PREFIX}${key}`)
+      localStorage.removeItem(`${CACHE_PREFIX}${getAccountId()}:${key}`)
       return null
     }
 
@@ -43,14 +44,15 @@ export function getCache<T>(key: string): T | null {
 /**
  * Set cached data
  */
-export function setCache<T>(key: string, data: T): void {
+export function setCache<T>(key: string, data: T, owner = getAccountId()): void {
+  if (owner !== getAccountId()) return
   try {
     const entry: CacheEntry<T> = {
       data,
       timestamp: Date.now(),
       version: CACHE_VERSION,
     }
-    localStorage.setItem(`${CACHE_PREFIX}${key}`, JSON.stringify(entry))
+    localStorage.setItem(`${CACHE_PREFIX}${getAccountId()}:${key}`, JSON.stringify(entry))
   } catch (e) {
     // localStorage might be full or disabled
     console.warn('Failed to cache data:', e)
@@ -61,7 +63,7 @@ export function setCache<T>(key: string, data: T): void {
  * Remove cached data
  */
 export function removeCache(key: string): void {
-  localStorage.removeItem(`${CACHE_PREFIX}${key}`)
+  localStorage.removeItem(`${CACHE_PREFIX}${getAccountId()}:${key}`)
 }
 
 /**
@@ -102,6 +104,7 @@ export async function fetchWithCache<T>(
     onError?: (error: Error) => void
   } = {}
 ): Promise<T> {
+  const owner = getAccountId()
   // Return cached data immediately if available
   const cached = getCache<T>(key)
   if (cached && options.onCached) {
@@ -111,7 +114,8 @@ export async function fetchWithCache<T>(
   // Fetch fresh data
   try {
     const fresh = await fetchFn()
-    setCache(key, fresh)
+    if (owner !== getAccountId()) throw new DOMException('Account changed', 'AbortError')
+    setCache(key, fresh, owner)
     if (options.onFresh) {
       options.onFresh(fresh)
     }

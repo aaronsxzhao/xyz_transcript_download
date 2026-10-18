@@ -1,3 +1,4 @@
+import LoadError from '../components/LoadError'
 import { useState, useEffect, useMemo, useCallback } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { Radio, Plus, Trash2, RefreshCw, Loader2, ExternalLink, ArrowLeft, ChevronRight, Search, Upload } from 'lucide-react'
@@ -31,6 +32,7 @@ function detectPlatform(url: string): string {
 export default function Podcasts() {
   const [podcasts, setPodcasts] = useState<Podcast[]>([])
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
   const [adding, setAdding] = useState(false)
   const [uploading, setUploading] = useState(false)
   const [newUrl, setNewUrl] = useState('')
@@ -56,17 +58,19 @@ export default function Podcasts() {
   const setView = useCallback((v: View) => {
     const params: Record<string, string> = {}
     if (v.type === 'podcasts') params.platform = v.platform
-    setSearchParams(params, { replace: true })
+    setSearchParams(params)
   }, [setSearchParams])
 
   useEffect(() => { loadPodcasts() }, [])
 
   async function loadPodcasts() {
+    setError('')
     try {
       const data = await fetchPodcasts()
       setPodcasts(data)
     } catch (err) {
       console.error('Failed to load podcasts:', err)
+      setError('Cannot load your podcasts. Check the connection and retry.')
     } finally {
       setLoading(false)
     }
@@ -247,6 +251,8 @@ export default function Podcasts() {
       </div>
     )
   }
+
+  if (error) return <LoadError message={error} onRetry={() => { void loadPodcasts() }} />
 
   return (
     <div className="space-y-6">

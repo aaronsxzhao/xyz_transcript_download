@@ -1,195 +1,105 @@
-/**
- * WebSocket client for real-time updates with polling fallback
- * 
- * Connected once at app startup (main.tsx), never tied to component lifecycle.
- * This avoids React StrictMode double-mount issues entirely.
- */
+/** Account-bound real-time updates with polling when the socket is unavailable. */
 import { useStore } from './store'
-import { authFetch, type ProcessingJob } from './api'
-import { getAccessToken } from './auth'
+import { authFetch } from './api'
+import { getAccessToken, refreshToken } from './auth'
 
-function isActiveVideoStatus(status: string): boolean {
-  return !['success', 'failed', 'cancelled', 'discovered'].includes(status)
-}
-
+let running = false
+let epoch = 0
 let ws: WebSocket | null = null
-let pollInterval: number | null = null
-let wsWorking = false
-let lastDataMessageTime = 0
-/** Set on socket open; used when no data update was ever received yet. */
-let wsOpenTime = 0
-let staleCheckInterval: number | null = null
-let connected = false
+let pollTimer: number | undefined
+let reconnectTimer: number | undefined
+let staleTimer: number | undefined
+let lastUpdate = 0
 
-async function pollJobs() {
-  const { jobs, videoTasks } = useStore.getState()
-  const hasActiveJobs = jobs.some(job =>
-    !['completed', 'failed', 'cancelled'].includes(job.status)
-  )
-  const hasActiveVideoTasks = videoTasks.some(task => isActiveVideoStatus(task.status))
-  const hasActiveWork = hasActiveJobs || hasActiveVideoTasks
-  const hasRecentDataUpdate =
-    lastDataMessageTime > 0 &&
-    Date.now() - lastDataMessageTime < 10000
+const active = (status: string) => !['completed', 'success', 'failed', 'cancelled', 'discovered'].includes(status)
 
-  if (wsWorking && ws?.readyState === WebSocket.OPEN && hasActiveWork && hasRecentDataUpdate) {
-    return
-  }
-  
+async function pollJobs(owner: number) {
+  if (!running || owner !== epoch) return
   try {
-    const [jobsResponse, videoTasksResponse] = await Promise.all([
-      authFetch('/api/jobs'),
-      authFetch('/api/video-notes/tasks'),
-    ])
-
-    let stillHasActiveJobs = false
-    let stillHasActiveVideoTasks = false
-
-    if (jobsResponse.ok) {
-      const data = await jobsResponse.json()
-      const serverJobs: ProcessingJob[] = data.jobs || []
-
-      serverJobs.forEach(job => {
-        useStore.getState().updateJob(job)
-      })
-
-      stillHasActiveJobs = serverJobs.some(job =>
-        !['completed', 'failed', 'cancelled'].includes(job.status)
-      )
+    if (!(ws?.readyState === WebSocket.OPEN && Date.now() - lastUpdate < 10000)) {
+      const [jobsResponse, tasksResponse] = await Promise.all([
+        authFetch('/api/jobs'), authFetch('/api/video-notes/tasks'),
+      ])
+      const jobs = jobsResponse.ok ? (await jobsResponse.json()).jobs : null
+      const tasks = tasksResponse.ok ? (await tasksResponse.json()).tasks : null
+      if (!running || owner !== epoch) return
+      if (jobs) useStore.getState().mergeJobs(jobs)
+      if (tasks) useStore.getState().mergeVideoTasks(tasks)
     }
-
-    if (videoTasksResponse.ok) {
-      const data = await videoTasksResponse.json()
-      const serverTasks = data.tasks || []
-      useStore.getState().mergeVideoTasks(serverTasks)
-      stillHasActiveVideoTasks = serverTasks.some((task: { status: string }) =>
-        isActiveVideoStatus(task.status)
-      )
+  } catch (error) {
+    if (running && owner === epoch) console.debug('Progress poll failed:', error)
+  } finally {
+    if (running && owner === epoch) {
+      const state = useStore.getState()
+      const busy = state.jobs.some(job => active(job.status)) || state.videoTasks.some(task => active(task.status))
+      pollTimer = window.setTimeout(() => { void pollJobs(owner) }, busy ? 3000 : 15000)
     }
-
-    const desiredInterval = (stillHasActiveJobs || stillHasActiveVideoTasks) ? 3000 : 15000
-    if (pollInterval) {
-      clearInterval(pollInterval)
-      pollInterval = window.setInterval(pollJobs, desiredInterval)
-    }
-  } catch (e) {
-    console.debug('Poll failed:', e)
   }
 }
 
-function startPolling() {
-  if (pollInterval) return
-  pollJobs()
-  pollInterval = window.setInterval(pollJobs, 5000)
+function openSocket(owner: number) {
+  if (!running || owner !== epoch) return
+  const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
+  const socket = new WebSocket(`${protocol}//${window.location.host}/api/ws/progress`)
+  ws = socket
+  const current = () => running && owner === epoch && ws === socket
+  socket.onopen = () => {
+    if (current()) socket.send(JSON.stringify({ type: 'auth', token: getAccessToken() || undefined }))
+  }
+  socket.onmessage = event => {
+    if (!current()) return
+    try {
+      const data = JSON.parse(event.data)
+      if (data.type === 'init') {
+        lastUpdate = Date.now()
+        useStore.getState().setWsConnected(true)
+        useStore.getState().mergeJobs(data.jobs || [])
+        useStore.getState().mergeVideoTasks(data.video_tasks || [])
+      } else if (data.type === 'job_update' && data.job) {
+        lastUpdate = Date.now()
+        useStore.getState().updateJob(data.job)
+      } else if (data.type === 'video_job_update' && data.task) {
+        lastUpdate = Date.now()
+        useStore.getState().updateVideoTask(data.task)
+      } else if (data.type === 'heartbeat') {
+        socket.send(JSON.stringify({ type: 'ping' }))
+      }
+    } catch (error) { console.debug('Invalid progress message:', error) }
+  }
+  socket.onclose = event => {
+    if (!current()) return
+    useStore.getState().setWsConnected(false)
+    lastUpdate = 0
+    reconnectTimer = window.setTimeout(async () => {
+      try { if (event.code === 4401) await refreshToken() } catch { /* polling retries later */ }
+      if (current()) openSocket(owner)
+    }, 3000)
+  }
+  socket.onerror = () => { if (current()) useStore.getState().setWsConnected(false) }
 }
 
 export function connectWebSocket() {
-  if (connected) return
-  connected = true
-
-  if (ws?.readyState === WebSocket.OPEN || ws?.readyState === WebSocket.CONNECTING) return
-  
-  startPolling()
-  
-  const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
-  const wsUrl = `${protocol}//${window.location.host}/api/ws/progress`
-  
-  ws = new WebSocket(wsUrl)
-  
-  ws.onopen = () => {
-    wsOpenTime = Date.now()
-    console.log('WebSocket connected')
-    useStore.getState().setWsConnected(true)
-    
-    const token = getAccessToken()
-    if (token && ws?.readyState === WebSocket.OPEN) {
-      ws.send(JSON.stringify({ type: 'auth', token }))
-    } else if (ws?.readyState === WebSocket.OPEN) {
-      ws.send(JSON.stringify({ type: 'auth' }))
-    }
-  }
-  
-  ws.onclose = () => {
-    console.log('WebSocket disconnected')
-    useStore.getState().setWsConnected(false)
-    wsWorking = false
-    
-    window.setTimeout(() => {
-      connected = false
-      connectWebSocket()
-    }, 3000)
-  }
-  
-  ws.onerror = (error) => {
-    console.error('WebSocket error:', error)
-    wsWorking = false
-  }
-  
-  ws.onmessage = (event) => {
-    try {
-      const data = JSON.parse(event.data)
-      const messageTime = Date.now()
-      
-      switch (data.type) {
-        case 'init':
-          lastDataMessageTime = messageTime
-          console.log('WebSocket init:', data.jobs?.length || 0, 'jobs')
-          useStore.getState().mergeJobs(data.jobs || [])
-          if (data.video_tasks?.length) {
-            useStore.getState().mergeVideoTasks(data.video_tasks)
-          }
-          break
-        
-        case 'job_update':
-          if (data.job) {
-            wsWorking = true
-            lastDataMessageTime = messageTime
-            useStore.getState().updateJob(data.job)
-          }
-          break
-        
-        case 'video_job_update':
-          if (data.task) {
-            wsWorking = true
-            lastDataMessageTime = messageTime
-            useStore.getState().updateVideoTask(data.task)
-          }
-          break
-        
-        case 'heartbeat':
-          if (ws?.readyState === WebSocket.OPEN) {
-            ws.send(JSON.stringify({ type: 'ping' }))
-          }
-          break
-      }
-    } catch (e) {
-      console.error('Failed to parse WebSocket message:', e)
-    }
-  }
-  
-  if (staleCheckInterval) clearInterval(staleCheckInterval)
-  staleCheckInterval = window.setInterval(() => {
-    const { jobs, videoTasks } = useStore.getState()
-    const hasActiveJobs = jobs.some(job => 
-      !['completed', 'failed', 'cancelled'].includes(job.status)
-    )
-    const hasActiveVideoTasks = videoTasks.some(task =>
-      isActiveVideoStatus(task.status)
-    )
-    const hasActiveWork = hasActiveJobs || hasActiveVideoTasks
-
-    const lastActivity = lastDataMessageTime > 0 ? lastDataMessageTime : wsOpenTime
-    const trustWs =
-      lastDataMessageTime > 0 ? wsWorking : true
-    if (
-      hasActiveWork &&
-      trustWs &&
-      lastActivity > 0 &&
-      Date.now() - lastActivity > 30000
-    ) {
-      console.log('WebSocket appears stale (no message for 30s), reconnecting...')
-      wsWorking = false
-      ws?.close()
-    }
+  if (running) return
+  running = true
+  const owner = ++epoch
+  void pollJobs(owner)
+  openSocket(owner)
+  staleTimer = window.setInterval(() => {
+    const state = useStore.getState()
+    if ((state.jobs.some(job => active(job.status)) || state.videoTasks.some(task => active(task.status))) &&
+        ws?.readyState === WebSocket.OPEN && Date.now() - lastUpdate > 30000) ws.close()
   }, 15000)
+}
+
+export function disconnectWebSocket() {
+  running = false
+  epoch += 1
+  window.clearTimeout(pollTimer)
+  window.clearTimeout(reconnectTimer)
+  window.clearInterval(staleTimer)
+  const socket = ws
+  ws = null
+  if (socket) { socket.onclose = null; socket.close() }
+  lastUpdate = 0
+  useStore.getState().setWsConnected(false)
 }

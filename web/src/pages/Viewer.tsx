@@ -1,3 +1,6 @@
+import LoadError from '../components/LoadError'
+import { escapeHtml, markdownToSafeHtml } from '../lib/safeHtml'
+import { getPreference } from '../lib/preferences'
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useParams, Link, useNavigate } from 'react-router-dom'
 import { 
@@ -20,7 +23,7 @@ import {
   X,
   AlertTriangle,
 } from 'lucide-react'
-import { fetchSummary, fetchTranscript, resummarizeEpisode, fetchNotionPages, exportMarkdownToNotion, type Summary, type Transcript, type KeyPoint, type TranscriptSegment, type NotionPage } from '../lib/api'
+import { fetchJob, fetchSummary, fetchTranscript, resummarizeEpisode, fetchNotionPages, exportMarkdownToNotion, type Summary, type Transcript, type KeyPoint, type TranscriptSegment, type NotionPage } from '../lib/api'
 import { getAccessToken } from '../lib/auth'
 import { useStore } from '../lib/store'
 
@@ -91,11 +94,14 @@ function summaryToMarkdown(summary: Summary, transcript?: Transcript | null): st
 export default function Viewer() {
   const { eid } = useParams<{ eid: string }>()
   const navigate = useNavigate()
+  const currentEid = useRef(eid)
+  currentEid.current = eid
   const [activeTab, setActiveTab] = useState<Tab>('summary')
   const [summary, setSummary] = useState<Summary | null>(null)
   const [transcript, setTranscript] = useState<Transcript | null>(null)
   const [loading, setLoading] = useState(true)
   const [resummarizing, setResummarizing] = useState(false)
+  const [error, setError] = useState('')
   const [expandedTopics, setExpandedTopics] = useState<Set<string>>(new Set())
   const [copied, setCopied] = useState(false)
   const [pdfLoading, setPdfLoading] = useState(false)
@@ -110,17 +116,20 @@ export default function Viewer() {
   const notionSearchTimeout = useRef<ReturnType<typeof setTimeout> | null>(null)
   
   useEffect(() => {
-    if (eid) loadData()
+    if (eid) { setSummary(null); setTranscript(null); setResummarizing(false); void loadData() }
   }, [eid])
   
   async function loadData() {
     setLoading(true)
+    setError('')
+    const requestedEid = eid
     try {
       const [summaryData, transcriptData] = await Promise.allSettled([
         fetchSummary(eid!),
         fetchTranscript(eid!),
       ])
       
+      if (requestedEid !== currentEid.current) return
       if (summaryData.status === 'fulfilled') {
         setSummary(summaryData.value)
         if (summaryData.value.topics.length > 0) {
@@ -129,11 +138,13 @@ export default function Viewer() {
       }
       if (transcriptData.status === 'fulfilled') {
         setTranscript(transcriptData.value)
+        if (summaryData.status === 'rejected') setActiveTab('transcript')
       }
+      if (summaryData.status === 'rejected' && transcriptData.status === 'rejected') setError('Cannot load this episode. Please retry.')
     } catch (err) {
       console.error('Failed to load data:', err)
     } finally {
-      setLoading(false)
+      if (requestedEid === currentEid.current) setLoading(false)
     }
   }
   
@@ -142,14 +153,14 @@ export default function Viewer() {
 
   useEffect(() => {
     return () => { if (pollRef.current) clearInterval(pollRef.current) }
-  }, [])
+  }, [eid])
 
   async function handleResummarize() {
     if (!eid || resummarizing) return
     
     try {
       setResummarizing(true)
-      setSummary(null)
+      setError('')
       const result = await resummarizeEpisode(eid)
 
       updateJob({
@@ -163,22 +174,25 @@ export default function Viewer() {
 
       pollRef.current = setInterval(async () => {
         try {
-          const newSummary = await fetchSummary(eid)
-          if (newSummary && newSummary.topics && newSummary.topics.length > 0) {
-            setSummary(newSummary)
+          const job = await fetchJob(result.job_id)
+          if (eid !== currentEid.current) return
+          updateJob(job)
+          if (job.status === 'completed') {
+            const fresh = await fetchSummary(eid)
+            setSummary(fresh)
+            setExpandedTopics(new Set(fresh.topics.slice(0, 1)))
             setResummarizing(false)
-            if (newSummary.topics.length > 0) {
-              setExpandedTopics(new Set([newSummary.topics[0]]))
-            }
+            if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null }
+          } else if (['failed', 'cancelled'].includes(job.status)) {
+            setError(job.message || 'Re-summarization did not complete. Your previous summary is still available.')
+            setResummarizing(false)
             if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null }
           }
-        } catch {
-          // Summary not ready yet, keep polling
-        }
-      }, 5000)
+        } catch { /* Keep polling through temporary connection failures. */ }
+      }, 3000)
     } catch (err) {
       console.error('Failed to start re-summarization:', err)
-      alert('Failed to start re-summarization')
+      setError('Could not start re-summarization. Your previous summary is still available.')
       setResummarizing(false)
     }
   }
@@ -192,9 +206,7 @@ export default function Viewer() {
     const md = getMarkdown()
     if (!md) return
     try {
-      const { marked } = await import('marked')
-      marked.setOptions({ gfm: true, breaks: false })
-      const html = await marked.parse(md)
+      const html = await markdownToSafeHtml(md)
       const blob = new Blob([html], { type: 'text/html' })
       const textBlob = new Blob([md], { type: 'text/plain' })
       await navigator.clipboard.write([
@@ -225,13 +237,12 @@ export default function Viewer() {
     if (!md || pdfLoading) return
     setPdfLoading(true)
     try {
-      const { marked } = await import('marked')
-      marked.setOptions({ gfm: true, breaks: false })
-      const body = await marked.parse(md)
+      const body = await markdownToSafeHtml(md)
       const html = `<!DOCTYPE html>
 <html><head>
 <meta charset="utf-8">
-<title>${summary?.title || 'Summary'}</title>
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src https: http: data: blob:; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'">
+<title>${escapeHtml(summary?.title || 'Summary')}</title>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto Sans SC", "PingFang SC", "Microsoft YaHei", sans-serif; color: #1f2937; background: #fff; padding: 20px 30px; font-size: 13px; line-height: 1.75; }
@@ -256,6 +267,7 @@ export default function Viewer() {
       iframe.style.width = '0'
       iframe.style.height = '0'
       iframe.style.border = 'none'
+      iframe.setAttribute('sandbox', 'allow-same-origin allow-modals')
       iframe.src = url
       iframe.onload = () => {
         setTimeout(() => {
@@ -272,7 +284,7 @@ export default function Viewer() {
     }
   }
 
-  const hasNotionKey = !!localStorage.getItem('notion_api_key')
+  const hasNotionKey = !!getPreference('notion_api_key')
 
   const openNotionModal = useCallback(async () => {
     setNotionOpen(true)
@@ -350,10 +362,13 @@ export default function Viewer() {
   
   return (
     <div className="space-y-4 md:space-y-6">
+      {error && <LoadError message={error} onRetry={() => { void loadData() }} />}
+
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-start gap-3 md:gap-4">
         <div className="flex items-start gap-3">
           <button
+            aria-label="Go back"
             onClick={() => navigate(-1)}
             className="p-2 bg-dark-surface border border-dark-border rounded-lg hover:bg-dark-hover transition-colors flex-shrink-0"
           >
@@ -439,6 +454,7 @@ export default function Viewer() {
             <span className="hidden sm:inline">{resummarizing ? 'Processing...' : 'Re-summarize'}</span>
           </button>
           <a
+            aria-label="Open summary as HTML"
             href={`/api/summaries/${eid}/html${getAccessToken() ? `?token=${getAccessToken()}` : ''}`}
             target="_blank"
             rel="noopener noreferrer"

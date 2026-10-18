@@ -210,14 +210,14 @@ class DatabaseInterface:
     
     # ==================== Episodes ====================
     
-    def get_episodes_by_podcast(self, pid: str) -> List[EpisodeData]:
+    def get_episodes_by_podcast(self, pid: str, offset: int = 0, limit: Optional[int] = None) -> List[EpisodeData]:
         """Get all episodes for a podcast."""
         if self._anonymous_supabase:
             return []
         if self.use_supabase:
-            records = self.db.get_episodes_by_podcast(self.user_id, pid)
+            records = self.db.get_episodes_by_podcast(self.user_id, pid, offset=offset, limit=limit)
         else:
-            records = self.db.get_episodes_by_podcast(pid)
+            records = self.db.get_episodes_by_podcast(pid, offset=offset, limit=limit)
         
         return [
             EpisodeData(
@@ -230,7 +230,7 @@ class DatabaseInterface:
                 duration=getattr(r, 'duration', 0),
                 pub_date=getattr(r, 'pub_date', ''),
                 audio_url=getattr(r, 'audio_url', ''),
-                status=str(getattr(r, 'status', 'pending')),
+                status=getattr(r.status, 'value', r.status),
                 user_id=self.user_id,
                 created_at=getattr(r, 'created_at', '') or '',
             )
@@ -259,7 +259,7 @@ class DatabaseInterface:
             duration=getattr(r, 'duration', 0),
             pub_date=getattr(r, 'pub_date', ''),
             audio_url=getattr(r, 'audio_url', ''),
-            status=str(getattr(r, 'status', 'pending')),
+            status=getattr(r.status, 'value', r.status),
             user_id=self.user_id,
             created_at=getattr(r, 'created_at', '') or '',
         )
@@ -598,8 +598,15 @@ class DatabaseInterface:
                 "takeaways": summary_data.takeaways,
                 "key_points": summary_data.key_points,
             }
-            with open(summary_path, "w", encoding="utf-8") as f:
+            import tempfile
+            from pathlib import Path
+            with tempfile.NamedTemporaryFile(mode="w", encoding="utf-8", dir=summaries_dir, suffix=".tmp", delete=False) as f:
+                temporary = Path(f.name)
                 json.dump(data, f, ensure_ascii=False, indent=2)
+            try:
+                temporary.replace(summary_path)
+            finally:
+                temporary.unlink(missing_ok=True)
             return True
     
     def delete_summary(self, episode_id: str) -> bool:

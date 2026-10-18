@@ -42,6 +42,8 @@ COPY --from=frontend-build /web/dist /app/web/dist
 
 RUN mkdir -p /data
 
+ARG APP_REVISION=unknown
+ENV APP_REVISION=${APP_REVISION}
 ENV PYTHONUNBUFFERED=1
 ENV XYZ_DATA_DIR=/data
 ENV WHISPER_MODE=api

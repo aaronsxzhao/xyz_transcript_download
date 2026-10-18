@@ -32,7 +32,7 @@ export default function TopNav() {
     <header className="sticky top-0 z-40 bg-dark-surface border-b border-dark-border">
       <div className="flex items-center justify-between h-12 px-4">
         {/* Logo */}
-        <Link to="/" className="flex items-center gap-2 flex-shrink-0">
+        <Link to="/" aria-label="Podcast and Video Tool home" className="flex items-center gap-2 flex-shrink-0">
           <Radio className="w-5 h-5 text-indigo-500" />
           <span className="font-semibold text-sm text-white hidden sm:inline">Podcast & Video Tool</span>
         </Link>
@@ -82,6 +82,8 @@ export default function TopNav() {
 
           {/* Mobile menu button */}
           <button
+            aria-label={mobileOpen ? 'Close navigation' : 'Open navigation'}
+            aria-expanded={mobileOpen}
             onClick={() => setMobileOpen(!mobileOpen)}
             className="p-1.5 rounded-lg hover:bg-dark-hover transition-colors md:hidden"
           >
