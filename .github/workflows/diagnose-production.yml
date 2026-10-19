@@ -7,6 +7,7 @@ on:
       - '.github/workflows/diagnose-production.yml'
       - 'scripts/diagnose_deployment.py'
       - 'scripts/profile_library.py'
+      - 'scripts/profile_live_browser.py'
   workflow_dispatch:
   workflow_run:
     workflows: ['Deploy to Oracle Cloud']
@@ -19,6 +20,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       CONTAINER_INSTANCE_ID: ocid1.computecontainerinstance.oc1.iad.anuwcljrram2hqqaueqbs2y4opn3tm2jfpmx4a7gdsscygwyjgnac5vrqgta
+      XYZ_PROFILE_BROWSER: '1'
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -38,5 +40,7 @@ jobs:
           chmod 600 ~/.oci/key.pem
           printf '[DEFAULT]\nuser=%s\nfingerprint=%s\ntenancy=%s\nregion=%s\nkey_file=~/.oci/key.pem\n' \
             "$OCI_CLI_USER" "$OCI_CLI_FINGERPRINT" "$OCI_CLI_TENANCY" "$OCI_CLI_REGION" > ~/.oci/config
+      - name: Install browser for live page checks
+        run: python -m playwright install --with-deps chromium
       - name: Read deployment diagnostics
         run: python scripts/diagnose_deployment.py

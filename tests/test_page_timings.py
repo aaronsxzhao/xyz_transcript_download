@@ -35,3 +35,20 @@ async def test_browser_timings_require_authentication(monkeypatch):
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
         assert (await client.get('/timings')).status_code == 401
         assert (await client.post('/timings', json={"page": "videos", "elapsed_ms": 1, "document_ms": 1, "api_ms": 1, "cached": False})).status_code == 401
+
+
+@pytest.mark.asyncio
+async def test_slow_and_failed_settings_visits_are_not_hidden_by_cached_revisit():
+    app = FastAPI()
+    app.include_router(router, prefix='/timings')
+    app.dependency_overrides[get_current_user] = lambda: User('owner', '')
+    _samples.clear()
+    base = {'page': 'settings', 'document_ms': 0, 'api_ms': 0, 'server_ms': 0, 'cached': False}
+    async with AsyncClient(transport=ASGITransport(app=app), base_url='http://test') as client:
+        for elapsed, outcome in [(10000, 'slow'), (10001, 'error'), (3, 'ready')]:
+            assert (await client.post('/timings', json={**base, 'elapsed_ms': elapsed, 'outcome': outcome})).status_code == 204
+        result = (await client.get('/timings')).json()['pages']['settings']
+        assert result['worst_ms'] == 10001
+        assert result['error_count'] == result['slow_count'] == 1
+        assert result['samples'] == 3 and result['elapsed_ms'] == 3
+    _samples.clear()

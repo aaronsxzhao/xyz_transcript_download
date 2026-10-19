@@ -10,12 +10,29 @@ const API_BASE = '/api'
 const UNKNOWN_CHANNEL_SENTINEL = '__unknown__'
 const pendingReads = new Map<string, Promise<unknown>>()
 
+export class ApiError extends Error {
+  constructor(message: string, public readonly status: number) { super(message) }
+}
+
 function readJson<T>(url: string, operation: string): Promise<T> {
   const key = `${getAuthGeneration()}:${url}`
   const existing = pendingReads.get(key)
   if (existing) return existing as Promise<T>
-  const request = authFetch(url).then(response => parseApiResponseAsJson<T>(response, operation))
-    .finally(() => { if (pendingReads.get(key) === request) pendingReads.delete(key) })
+  const controller = new AbortController()
+  let timer: ReturnType<typeof setTimeout>
+  const deadline = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => {
+      controller.abort()
+      reject(new Error('Loading timed out. Please retry.'))
+    }, 10000)
+  })
+  const request = Promise.race([
+    authFetch(url, { signal: controller.signal }).then(response => parseApiResponseAsJson<T>(response, operation)),
+    deadline,
+  ]).finally(() => {
+    clearTimeout(timer)
+    if (pendingReads.get(key) === request) pendingReads.delete(key)
+  })
   pendingReads.set(key, request)
   return request
 }
@@ -54,8 +71,9 @@ async function parseApiResponseAsJson<T>(res: Response, operation: string): Prom
   } catch {
     const snippet = text.slice(0, 240).replace(/\s+/g, ' ').trim()
     if (!res.ok) {
-      throw new Error(
+      throw new ApiError(
         `${operation} (${res.status}): ${snippet || 'non-JSON error response (check server / reverse proxy logs)'}`,
+        res.status,
       )
     }
     throw new Error(`${operation}: invalid JSON — ${snippet.slice(0, 120)}…`)
@@ -63,7 +81,7 @@ async function parseApiResponseAsJson<T>(res: Response, operation: string): Prom
 
   if (!res.ok) {
     const msg = detailFromApiBody(body) || `${operation} (${res.status})`
-    throw new Error(msg)
+    throw new ApiError(msg, res.status)
   }
 
   if (body === null || body === undefined) {
@@ -441,9 +459,7 @@ export async function fetchSettings(): Promise<{
   whisper_provider: string
   check_interval: number
 }> {
-  const res = await authFetch(`${API_BASE}/settings`)
-  if (!res.ok) throw new Error('Failed to fetch settings')
-  return res.json()
+  return readJson(`${API_BASE}/settings`, 'Cannot load settings. Please retry.')
 }
 
 export async function updateSettings(settings: {
@@ -696,16 +712,12 @@ export interface VideoChannelStat {
 }
 
 export async function fetchVideoChannels(): Promise<{ channels: VideoChannelStat[] }> {
-  const res = await authFetch(`${API_BASE}/video-notes/channels`)
-  if (!res.ok) throw new Error('Failed to fetch video channels')
-  return res.json()
+  return readJson(`${API_BASE}/video-notes/channels`, 'Cannot load video channels. Please retry.')
 }
 
 export async function fetchVideoTasksByChannel(platform: string, channel: string): Promise<{ tasks: VideoTask[] }> {
   const params = new URLSearchParams({ platform, channel })
-  const res = await authFetch(`${API_BASE}/video-notes/tasks/by-channel?${params}`)
-  if (!res.ok) throw new Error('Failed to fetch channel tasks')
-  return res.json()
+  return readJson(`${API_BASE}/video-notes/tasks/by-channel?${params}`, 'Cannot load channel videos. Please retry.')
 }
 
 export async function fetchRecentVideoTasks(limit: number = 6): Promise<{ tasks: VideoTask[] }> {

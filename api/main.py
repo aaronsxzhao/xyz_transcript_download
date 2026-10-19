@@ -14,6 +14,9 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, Response
+from fastapi.responses import JSONResponse
+import httpx
+from api.request_timing import RequestTimingMiddleware
 
 from api.routers import podcasts, episodes, transcripts, summaries, processing
 from api.routers import auth_router, video_notes, cookies, notion
@@ -288,6 +291,14 @@ app.add_middleware(
 )
 
 app.add_middleware(GZipMiddleware, minimum_size=500)
+app.add_middleware(RequestTimingMiddleware)
+
+
+@app.exception_handler(httpx.TransportError)
+async def upstream_connection_error(request, error):
+    logger.warning('Upstream connection unavailable (%s)', type(error).__name__)
+    return JSONResponse(status_code=503, content={"detail": "The server connection was interrupted. Please retry."},
+                        headers={"Retry-After": "1"})
 
 # Include routers
 app.include_router(auth_router.router, prefix="/api/auth", tags=["Authentication"])

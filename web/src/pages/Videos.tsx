@@ -49,7 +49,6 @@ export default function Videos() {
   // Channel list state (loaded once, lightweight)
   const [channels, setChannels] = useState<VideoChannelStat[]>(() => getCache(CacheKeys.VIDEO_CHANNELS) || [])
   const [channelsLoading, setChannelsLoading] = useState(() => !getCache(CacheKeys.VIDEO_CHANNELS))
-  usePageTiming('videos', !channelsLoading, CacheKeys.VIDEO_CHANNELS)
 
   // Per-channel video state (loaded on demand when drilling into a channel)
   const [channelTasks, setChannelTasks] = useState<VideoTask[]>([])
@@ -64,6 +63,11 @@ export default function Videos() {
     if (platform) return { type: 'channels', platform }
     return { type: 'platforms' }
   }, [searchParams])
+
+  usePageTiming(view.type === 'videos' ? 'channel' : 'videos',
+    view.type === 'videos' ? loadedChannelRef.current === `${view.platform}::${view.channel}` && !channelTasksLoading : !channelsLoading,
+    view.type === 'videos' ? CacheKeys.CHANNEL_VIDEOS(view.platform, view.channel) : CacheKeys.VIDEO_CHANNELS,
+    !!error)
 
   const setView = useCallback((v: View) => {
     const params: Record<string, string> = {}

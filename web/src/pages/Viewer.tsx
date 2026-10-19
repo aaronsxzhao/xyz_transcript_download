@@ -24,7 +24,7 @@ import {
   X,
   AlertTriangle,
 } from 'lucide-react'
-import { fetchJob, fetchSummary, fetchTranscript, resummarizeEpisode, fetchNotionPages, exportMarkdownToNotion, type Summary, type Transcript, type KeyPoint, type NotionPage } from '../lib/api'
+import { ApiError, fetchJob, fetchSummary, fetchTranscript, resummarizeEpisode, fetchNotionPages, exportMarkdownToNotion, type Summary, type Transcript, type KeyPoint, type NotionPage } from '../lib/api'
 import { getAccessToken } from '../lib/auth'
 import { useStore } from '../lib/store'
 import { getCache, setCache, CacheKeys } from '../lib/cache'
@@ -104,10 +104,10 @@ export default function Viewer() {
   const [summary, setSummary] = useState<Summary | null>(() => getCache(CacheKeys.SUMMARY(eid!)))
   const [transcript, setTranscript] = useState<Transcript | null>(null)
   const [loading, setLoading] = useState(() => !getCache(CacheKeys.SUMMARY(eid!)))
-  usePageTiming('viewer', !loading && (summary?.episode_id === eid || transcript?.episode_id === eid), CacheKeys.SUMMARY(eid!))
   const [transcriptLoading, setTranscriptLoading] = useState(false)
   const [resummarizing, setResummarizing] = useState(false)
   const [error, setError] = useState('')
+  usePageTiming('viewer', !loading && (summary?.episode_id === eid || transcript?.episode_id === eid), CacheKeys.SUMMARY(eid!), !!error && !loading)
   const [expandedTopics, setExpandedTopics] = useState<Set<string>>(() => new Set(getCache<Summary>(CacheKeys.SUMMARY(eid!))?.topics.slice(0, 1)))
   const [copied, setCopied] = useState(false)
   const [pdfLoading, setPdfLoading] = useState(false)
@@ -166,13 +166,13 @@ export default function Viewer() {
     } catch (err) {
       if (requestedEid !== currentEid.current || owner !== getAccountId()) return
       if (cached) setError('Cannot refresh this summary. Please retry.')
-      else {
+      else if (err instanceof ApiError && err.status === 404) {
         // Episodes with a transcript but no summary still open normally.
         const fallback = await loadTranscript()
         if (requestedEid !== currentEid.current) return
         if (fallback) setActiveTab('transcript')
         else setError('Cannot load this episode. Please retry.')
-      }
+      } else setError(err instanceof Error ? err.message : 'Cannot load this summary. Please retry.')
     } finally {
       if (requestedEid === currentEid.current) setLoading(false)
     }
@@ -662,7 +662,7 @@ export default function Viewer() {
         </div>
       )}
       
-      {!summary && !transcript && (
+      {!summary && !transcript && !error && (
         <div className="p-12 bg-dark-surface border border-dark-border rounded-xl text-center">
           <FileText className="w-16 h-16 text-gray-600 mx-auto mb-4" />
           <p className="text-xl text-gray-400 mb-2">No content available</p>

@@ -68,7 +68,7 @@ async def measure(browser, origin, verify):
     await session.send('Emulation.setCPUThrottlingRate', {"rate": 4})
     errors, requests = [], []
     page.on('pageerror', lambda error: errors.append(str(error)))
-    state = {"delay": 2, "revoked": False, "summary_missing": False}
+    state = {"delay": 2, "revoked": False, "summary_missing": False, "summary_unavailable": False, "settings_error": False}
     podcast = {"pid": "bench", "title": "Synthetic podcast", "author": "Author", "description": "Description",
                "cover_url": "", "episode_count": 1, "summarized_count": 1, "platform": "xiaoyuzhou", "feed_url": ""}
     episode = {"eid": "bench", "pid": "bench", "title": "Synthetic episode", "description": "Description",
@@ -100,6 +100,12 @@ async def measure(browser, origin, verify):
         elif path.startswith('/api/summaries/'):
             body = summary
             if state['summary_missing']: status = 404
+            if state['summary_unavailable']:
+                status, body = 503, {'detail': 'Temporary summary connection failure'}
+        elif path == '/api/settings':
+            body = {"whisper_mode": "api", "whisper_model": "whisper-large-v3", "llm_provider": "groq",
+                    "llm_model": "openai/gpt-oss-120b", "groq_available": True, "check_interval": 3600}
+            if state['settings_error']: status, body = 503, {'detail': 'Temporary settings connection failure'}
         elif path.startswith('/api/transcripts/'):
             body = {"episode_id": "bench", "language": "en", "text": "Full transcript on demand.", "duration": 30, "segments": []}
         elif path == '/api/jobs': body = {"jobs": []}
@@ -140,7 +146,27 @@ async def measure(browser, origin, verify):
         warm[label] = round((time.perf_counter() - started) * 1000)
     if verify:
         assert max(warm.values()) < 2000, warm
+        await page.evaluate("history.pushState({},'','/settings');dispatchEvent(new PopStateEvent('popstate'))")
+        await page.get_by_role('heading', name='Settings', exact=True).wait_for(timeout=2000)
+        await page.get_by_role('button', name='Platform Accounts', exact=True).click()
+        assert await page.get_by_role('button', name='General', exact=True).is_enabled()
+        await page.get_by_role('button', name='General', exact=True).click()
+        # Finish this deliberately slow request before testing a separate failed
+        # refresh; overlapping reads correctly share the pending request.
+        await page.wait_for_function("!document.querySelector('select[aria-label=\"Summary provider\"]')?.disabled")
         state['delay'] = .2
+        state['summary_unavailable'] = True
+        await page.evaluate("history.pushState({},'','/viewer/unavailable');dispatchEvent(new PopStateEvent('popstate'))")
+        await page.get_by_text('Temporary summary connection failure', exact=True).wait_for()
+        assert not any(path == '/api/transcripts/unavailable' for path, _ in requests), 'A server failure must not trigger a second, unrelated content request'
+        assert await page.get_by_text('Process this episode to generate transcript and summary', exact=True).count() == 0
+        state['summary_unavailable'] = False
+        state['settings_error'] = True
+        await page.evaluate("history.pushState({},'','/settings');dispatchEvent(new PopStateEvent('popstate'))")
+        await page.get_by_text('Temporary settings connection failure', exact=True).wait_for()
+        state['settings_error'] = False
+        await page.get_by_role('button', name='Retry', exact=True).click()
+        await page.wait_for_function("!document.querySelector('select[aria-label=\"Summary provider\"]')?.disabled")
         state['summary_missing'] = True
         await page.evaluate("history.pushState({},'','/viewer/transcript-only');dispatchEvent(new PopStateEvent('popstate'))")
         await page.get_by_text('Full transcript on demand.', exact=True).wait_for()
