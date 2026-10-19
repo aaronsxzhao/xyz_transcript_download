@@ -29,7 +29,7 @@ def profile_public_routes(owner: str, routes: list[tuple[str, str]]) -> list[dic
     token = jwt.encode({"sub": owner, "aud": "authenticated", "role": "authenticated",
                         "iat": now, "exp": now + 300}, secret, algorithm="HS256")
     selected = [("auth", "/api/auth/me"), *[(label, path) for label, path in routes
-                if label in {"podcasts", "channels", "episodes", "summary", "transcript"}]]
+                if label in {"podcasts", "channels", "episodes", "summary", "transcript", "settings", "channel_videos", "reported_episodes", "reported_summary"}]]
     reports = []
     for label, path in selected:
         result = subprocess.run([
@@ -90,6 +90,15 @@ async def profile() -> list[dict]:
     if podcasts:
         pid = podcasts[0]["pid"]
         routes.extend([("podcast_detail", f"/api/podcasts/{pid}"), ("episodes", f"/api/podcasts/{pid}/episodes")])
+        # These reported failures belong to this podcast owner. Check ownership
+        # before probing; diagnostics must never read another account's data.
+        reported = database.table("podcasts").select("pid").eq("user_id", owner).eq("pid", "62382c1103bea1ebfffa1c00").execute().data or []
+        if reported:
+            routes.extend([
+                ("reported_episodes", "/api/podcasts/62382c1103bea1ebfffa1c00/episodes"),
+                ("reported_summary", "/api/summaries/694b7d6d0b60b7bf752e007b"),
+                ("channel_videos", "/api/video-notes/tasks/by-channel?platform=youtube&channel=Brooks+Trading+Course"),
+            ])
     if summaries:
         eid = summaries[0]["episode_id"]
         routes.extend([("summary", f"/api/summaries/{eid}"), ("transcript", f"/api/transcripts/{eid}")])
