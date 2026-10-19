@@ -23,6 +23,8 @@ def recover():
     from cookie_manager import get_cookie_manager
     from video_downloader import get_downloader
     from screenshot_extractor import _iter_bucket_objects, extract_screenshot
+    import screenshot_extractor
+    screenshot_extractor.USE_SUPABASE_STORAGE = False  # Recovery uploads are create-only.
     client = get_supabase_admin_client()
     owner = client.table('podcasts').select('user_id').eq('pid', '62382c1103bea1ebfffa1c00').limit(1).execute().data[0]['user_id']
     tasks = client.table('video_tasks').select('id,url,platform,markdown').eq('user_id', owner).order('id').execute().data
@@ -30,8 +32,8 @@ def recover():
     shard, shards = int(os.getenv('REPAIR_SHARD', '0')), int(os.getenv('REPAIR_SHARDS', '1'))
     report = {'operation': 'media_recovery', 'shard': shard, 'restored': 0, 'remaining': 0, 'source_required': 0, 'failed_sources': 0, 'notes_changed': 0}
     journal = []
-    for index, task in enumerate(tasks):
-        if index % shards != shard:
+    for task in tasks:
+        if int(hashlib.sha256(task['id'].encode()).hexdigest(), 16) % shards != shard:
             continue
         references = frames(task['markdown'], task['id'])
         missing = {n: t for n, t in references.items() if n not in existing}
@@ -53,6 +55,14 @@ def recover():
                 raise RuntimeError('Source unavailable')
             for name, timestamp in missing.items():
                 if extract_screenshot(str(path), timestamp, task['id']) != name:
+                    continue
+                frame = screenshot_extractor.SCREENSHOTS_DIR / name
+                try:
+                    client.storage.from_('screenshots').upload(name, frame.read_bytes(),
+                        file_options={'content-type': 'image/jpeg', 'upsert': 'false'})
+                except Exception:
+                    # Never replace an existing frame or journal another writer's file.
+                    existing.add(name) if name in {o['name'] for o in _iter_bucket_objects(client, 'screenshots')} else None
                     continue
                 content = client.storage.from_('screenshots').download(name)
                 if content.startswith(b'\xff\xd8') and len(content) > 100:
