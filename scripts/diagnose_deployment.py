@@ -29,6 +29,8 @@ def safe_log_summary(text: str) -> dict:
         "tunnel_connected": "Registered tunnel connection" in text,
         "origin_unreachable": bool(re.search(r"Unable to reach the origin service|connection refused", text, re.I)),
         "tunnel_configuration_error": bool(re.search(r"failed to parse tunnel|error parsing tunnel token", text, re.I)),
+        "auth_jwks_failures": text.count("[Auth] Failed to fetch JWKS"),
+        "auth_api_failures": text.count("[Auth] Supabase API failed"),
     }
 
 
@@ -196,10 +198,11 @@ def profile_library(settings: dict) -> None:
                 continue
             label = report.get("library_profile")
             if label not in {"stats", "podcasts", "recent_summaries", "channels", "queue", "settings",
-                             "podcast_detail", "episodes", "summary", "transcript", "video_detail", "video_note", "empty", "failed"}:
+                             "podcast_detail", "episodes", "summary", "transcript", "video_detail", "video_note", "empty", "failed",
+                             "live_auth", "live_podcasts", "live_channels", "live_episodes", "live_summary", "live_transcript", "live_unavailable"}:
                 continue
             safe = {"library_profile": label}
-            safe.update({key: report[key] for key in ("milliseconds", "database_requests", "response_bytes", "gzip_bytes", "status")
+            safe.update({key: report[key] for key in ("milliseconds", "first_byte_ms", "wire_bytes", "database_requests", "response_bytes", "gzip_bytes", "status")
                          if isinstance(report.get(key), int) and 0 <= report[key] <= 10**9})
             print(json.dumps(safe))
             valid = True
