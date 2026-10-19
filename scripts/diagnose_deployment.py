@@ -91,7 +91,7 @@ def inspect_containers() -> None:
     instance = oci_json([
         "container-instances", "container-instance", "get", "--container-instance-id",
         os.environ["CONTAINER_INSTANCE_ID"],
-    ], 'data.{state:"lifecycle-state",containers:containers[*].id}')
+    ], 'data.{state:"lifecycle-state",containers:containers[*]."container-id"}')
     print(json.dumps({"instance_state": instance.get("state"), "container_count": len(instance.get("containers") or [])}))
     for container_id in instance.get("containers") or []:
         container = oci_json([
