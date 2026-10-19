@@ -152,6 +152,12 @@ export default function VideoViewer() {
   }, [taskId, loadAttempt])
 
   useEffect(() => {
+    // An empty transcript during processing must not become the cached final
+    // result. Invalidate older content on regeneration and fetch on completion.
+    if (!task || task.id !== taskId || !['success', 'failed', 'cancelled'].includes(task.status)) {
+      setTranscript(undefined)
+      return
+    }
     if (!taskId || viewMode !== 'transcript' || transcript !== undefined) return
     let active = true
     setTranscriptLoading(true)
@@ -161,7 +167,7 @@ export default function VideoViewer() {
       if (active) setError(error instanceof Error ? error.message : 'Cannot load transcript')
     }).finally(() => { if (active) setTranscriptLoading(false) })
     return () => { active = false }
-  }, [taskId, viewMode, transcript, loadAttempt])
+  }, [taskId, task?.id, task?.status, viewMode, transcript, loadAttempt])
 
   useEffect(() => {
     setVersionLoading(false)
