@@ -425,6 +425,10 @@ export async function fetchSettings(): Promise<{
   whisper_backend: string
   whisper_device: string
   llm_model: string
+  llm_provider: 'server' | 'groq'
+  groq_available: boolean
+  llm_configured: boolean
+  whisper_provider: string
   check_interval: number
 }> {
   const res = await authFetch(`${API_BASE}/settings`)
@@ -435,6 +439,7 @@ export async function fetchSettings(): Promise<{
 export async function updateSettings(settings: {
   whisper_model?: string
   llm_model?: string
+  llm_provider?: 'server' | 'groq'
 }): Promise<{ message: string }> {
   const res = await authFetch(`${API_BASE}/settings`, {
     method: 'POST',
@@ -443,6 +448,12 @@ export async function updateSettings(settings: {
   })
   if (!res.ok) throw new Error('Failed to update settings')
   return res.json()
+}
+
+export async function testLlmConnection(settings: { llm_provider: string; llm_model: string }): Promise<{ message: string; model: string }> {
+  return parseApiResponseAsJson(await authFetch(`${API_BASE}/settings/test-llm`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(settings),
+  }), 'Summary connection failed')
 }
 
 /**

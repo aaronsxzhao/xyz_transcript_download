@@ -1,7 +1,5 @@
-import DOMPurify from 'dompurify'
-import { marked } from 'marked'
-
 export async function markdownToSafeHtml(markdown: string): Promise<string> {
+  const [{ default: DOMPurify }, { marked }] = await Promise.all([import('dompurify'), import('marked')])
   const container = document.createElement('div')
   container.innerHTML = DOMPurify.sanitize(await marked.parse(markdown, { gfm: true, breaks: false }))
   // Blob print documents and clipboard consumers need absolute image URLs.

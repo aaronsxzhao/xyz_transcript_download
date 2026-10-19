@@ -391,11 +391,17 @@ def process_video_note_sync(
     """Synchronous video note processing pipeline."""
     _video_worker.task_id = task_id
     _video_worker.attempt_id = attempt_id
+    from video_task_db import get_video_task_db
+    db = get_video_task_db()
     try:
         from api.user_settings import get_user_settings
         preferences = get_user_settings(user_id)
         llm_model = llm_model or preferences.get("llm_model", "")
-        from video_task_db import get_video_task_db
+        from api.llm_settings import resolve_llm_settings
+        llm_settings = resolve_llm_settings(preferences, llm_model)
+        llm_model = llm_settings["model"]
+        if video_understanding and llm_settings["base_url"].rstrip('/') == "https://api.groq.com/openai/v1":
+            raise ValueError("Groq summaries use the transcript. Turn off Video Understanding, or choose a vision-capable provider in Settings.")
         from video_downloader import get_downloader, detect_platform, normalize_video_url, VideoDownloadError
         from cookie_manager import get_cookie_manager
         from note_summarizer import get_note_summarizer, NOTE_CHUNK_CHARS
@@ -407,7 +413,6 @@ def process_video_note_sync(
             extract_first_frame_thumbnail,
         )
 
-        db = get_video_task_db()
         cookie_mgr = get_cookie_manager(user_id)
         if is_video_task_cancelled(task_id):
             _update_task_status(db, task_id, "cancelled", 0, "Cancelled", user_id)
@@ -711,7 +716,7 @@ def process_video_note_sync(
                 if grids:
                     _update_task_status(db, task_id, "transcribing", 68, "Running vision analysis...", user_id)
                     visual_context = analyze_grids(
-                        grids, title=title, model=llm_model,
+                        grids, title=title, **llm_settings,
                     )
             except Exception as e:
                 logger.warning(f"Video understanding failed: {e}")
@@ -741,7 +746,7 @@ def process_video_note_sync(
 
         # Phase 4: Generate notes (72-92%)
         note_summarizer = get_note_summarizer(
-            model=llm_model if llm_model else "",
+            **llm_settings,
         )
 
         last_summarize_progress = [72]
@@ -875,7 +880,7 @@ async def process_video_note_async(task_id: str, **kwargs):
 
 
 @router.post("/generate")
-async def generate_note(
+def generate_note(
     background_tasks: BackgroundTasks,
     url: str = Form(""),
     title: str = Form(""),
@@ -989,7 +994,7 @@ async def generate_note(
 
 
 @router.post("/generate-json")
-async def generate_note_json(
+def generate_note_json(
     data: dict,
     background_tasks: BackgroundTasks,
     user: Optional[User] = Depends(get_current_user),
@@ -1092,7 +1097,7 @@ async def generate_note_json(
 
 
 @router.get("/tasks")
-async def list_tasks(user: Optional[User] = Depends(get_current_user)):
+def list_tasks(user: Optional[User] = Depends(get_current_user)):
     """List all video note tasks (cached for 5s to avoid excessive Supabase calls)."""
     from video_task_db import get_video_task_db
     user_id = user.id if user else None
@@ -1112,7 +1117,7 @@ async def list_tasks(user: Optional[User] = Depends(get_current_user)):
 
 
 @router.get("/channels")
-async def list_channels(user: Optional[User] = Depends(get_current_user)):
+def list_channels(user: Optional[User] = Depends(get_current_user)):
     """List all channels with aggregated stats (count, done, thumbnail). No task payload."""
     from video_task_db import get_video_task_db
     user_id = user.id if user else None
@@ -1129,7 +1134,7 @@ async def list_channels(user: Optional[User] = Depends(get_current_user)):
 
 
 @router.get("/tasks/by-channel")
-async def list_tasks_by_channel(
+def list_tasks_by_channel(
     channel: str = Query(...),
     platform: str = Query(...),
     user: Optional[User] = Depends(get_current_user),
@@ -1153,7 +1158,7 @@ async def list_tasks_by_channel(
 
 
 @router.get("/recent")
-async def list_recent_tasks(
+def list_recent_tasks(
     limit: int = Query(6, ge=1, le=20),
     user: Optional[User] = Depends(get_current_user),
 ):
@@ -1174,7 +1179,7 @@ async def list_recent_tasks(
 
 
 @router.get("/tasks/{task_id}")
-async def get_task(task_id: str, user: Optional[User] = Depends(get_current_user)):
+def get_task(task_id: str, user: Optional[User] = Depends(get_current_user)):
     """Get a video note task with versions."""
     from video_task_db import get_video_task_db
     db = get_video_task_db()
@@ -1188,7 +1193,7 @@ async def get_task(task_id: str, user: Optional[User] = Depends(get_current_user
 
 
 @router.delete("/tasks/{task_id}")
-async def delete_task(task_id: str, user: Optional[User] = Depends(get_current_user)):
+def delete_task(task_id: str, user: Optional[User] = Depends(get_current_user)):
     """Delete a video note task and cancel any in-progress processing."""
     from screenshot_extractor import delete_task_assets
     from video_task_db import get_video_task_db
@@ -1209,7 +1214,7 @@ async def delete_task(task_id: str, user: Optional[User] = Depends(get_current_u
 
 
 @router.delete("/channels/{channel_name}")
-async def delete_channel(channel_name: str, user: Optional[User] = Depends(get_current_user)):
+def delete_channel(channel_name: str, user: Optional[User] = Depends(get_current_user)):
     """Delete all video tasks for a channel."""
     from screenshot_extractor import delete_task_assets
     from video_task_db import get_video_task_db
@@ -1311,7 +1316,7 @@ async def retry_task(
 
 
 @router.post("/tasks/{task_id}/cancel")
-async def cancel_task(
+def cancel_task(
     task_id: str,
     user: Optional[User] = Depends(get_current_user),
 ):
@@ -1378,7 +1383,7 @@ async def upload_video(
 
 
 @router.post("/upload/init")
-async def init_chunked_upload(
+def init_chunked_upload(
     filename: str = Form(...),
     size: int = Form(...),
     content_type: str = Form(""),
@@ -1494,7 +1499,7 @@ async def upload_video_chunk(
 
 
 @router.post("/upload/complete")
-async def complete_chunked_upload(
+def complete_chunked_upload(
     upload_id: str = Form(...),
     user: Optional[User] = Depends(get_current_user),
 ):
@@ -1586,7 +1591,7 @@ async def complete_chunked_upload(
 
 
 @router.get("/upload/status")
-async def get_chunked_upload_status(
+def get_chunked_upload_status(
     upload_id: str = Query(...),
     user: Optional[User] = Depends(get_current_user),
 ):
@@ -1706,7 +1711,7 @@ async def check_channels_for_updates(
 
 
 @router.get("/sys-health")
-async def sys_health():
+def sys_health():
     """Check system dependencies (FFmpeg, yt-dlp)."""
     from video_downloader import check_ffmpeg, check_ytdlp
     result = {
@@ -1717,7 +1722,7 @@ async def sys_health():
 
 
 @router.get("/styles")
-async def get_styles():
+def get_styles():
     """Get available note styles."""
     from note_summarizer import get_available_styles
     return {"styles": get_available_styles()}

@@ -16,7 +16,7 @@ const active = (status: string) => !['completed', 'success', 'failed', 'cancelle
 async function pollJobs(owner: number) {
   if (!running || owner !== epoch) return
   try {
-    if (!(ws?.readyState === WebSocket.OPEN && Date.now() - lastUpdate < 10000)) {
+    if (document.visibilityState !== 'hidden' && !(ws?.readyState === WebSocket.OPEN && Date.now() - lastUpdate < 45000)) {
       const [jobsResponse, tasksResponse] = await Promise.all([
         authFetch('/api/jobs'), authFetch('/api/video-notes/tasks'),
       ])
@@ -62,6 +62,7 @@ function openSocket(owner: number) {
         lastUpdate = Date.now()
         useStore.getState().updateVideoTask(data.task)
       } else if (data.type === 'heartbeat') {
+        lastUpdate = Date.now()
         socket.send(JSON.stringify({ type: 'ping' }))
       }
     } catch (error) { console.debug('Invalid progress message:', error) }
@@ -82,7 +83,7 @@ export function connectWebSocket() {
   if (running) return
   running = true
   const owner = ++epoch
-  void pollJobs(owner)
+  pollTimer = window.setTimeout(() => { void pollJobs(owner) }, 5000)
   openSocket(owner)
   staleTimer = window.setInterval(() => {
     const state = useStore.getState()

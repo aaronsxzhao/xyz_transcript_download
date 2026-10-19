@@ -163,6 +163,18 @@ GROQ_API_KEY=your-groq-key
 
 ### LLM (Summarization)
 
+If `GROQ_API_KEY` is configured, the web app uses it for both transcription and
+summaries by default (`openai/gpt-oss-120b`). No OpenAI API key is required.
+In **Settings → General → LLM Configuration**, use **Test and save summaries**
+to verify the connection. Choose **Server configured provider** to use the
+`LLM_*` configuration below instead. These preferences are saved per account;
+API keys stay on the server. ChatGPT subscriptions do not include OpenAI API credits.
+
+Groq token and request limits depend on your plan. Long recordings are split to
+fit the model's context window while preserving the full summary prompts.
+Groq summary models use
+transcripts; optional video frame analysis needs a vision-capable provider.
+
 ```bash
 LLM_API_KEY=your-key
 LLM_BASE_URL=https://api.openai.com/v1

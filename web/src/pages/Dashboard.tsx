@@ -3,7 +3,7 @@ import { getAccountId } from '../lib/preferences'
 import { useState, useEffect, useMemo, useRef } from 'react'
 import { Link } from 'react-router-dom'
 import { Radio, FileText, MessageSquare, Loader2, Plus, ArrowRight, Bell, RefreshCw, X, Video, CheckCircle, Users } from 'lucide-react'
-import { fetchStats, fetchRecentSummaries, processEpisode, fetchNewEpisodes, checkPodcastsForUpdates, checkVideoChannelsForUpdates, fetchVideoTasks, fetchRecentVideoTasks, cancelJob, cancelVideoTask, generateVideoNote, getVideoProcessingDefaults, getUserModelSettings, type Stats, type SummaryListItem, type ProcessingJob, type NewEpisode, type VideoTask } from '../lib/api'
+import { fetchStats, fetchRecentSummaries, processEpisode, fetchNewEpisodes, checkPodcastsForUpdates, checkVideoChannelsForUpdates, fetchRecentVideoTasks, cancelJob, cancelVideoTask, generateVideoNote, getVideoProcessingDefaults, getUserModelSettings, type Stats, type SummaryListItem, type ProcessingJob, type NewEpisode, type VideoTask } from '../lib/api'
 import { useStore } from '../lib/store'
 import { getCache, setCache, CacheKeys } from '../lib/cache'
 import { useToast } from '../components/Toast'
@@ -34,7 +34,7 @@ export default function Dashboard() {
   const [checkingUpdates, setCheckingUpdates] = useState(false)
   const [showNewEpisodes, setShowNewEpisodes] = useState(true)
 
-  const { jobs, updateJob, removeJob, videoTasks, setVideoTasks, mergeVideoTasks } = useStore()
+  const { jobs, updateJob, removeJob, videoTasks, setVideoTasks } = useStore()
   const { addToast } = useToast()
 
   async function handleCancelQueueItem(id: string, kind: 'podcast' | 'video') {
@@ -106,7 +106,6 @@ export default function Dashboard() {
   useEffect(() => {
     loadData()
     loadNewEpisodes()
-    loadQueueData()
   }, [])
 
   async function loadData() {
@@ -139,16 +138,6 @@ export default function Dashboard() {
       setError('Cannot refresh the dashboard. Any saved content may be out of date.')
     } finally {
       setLoading(false)
-      void loadQueueData()
-    }
-  }
-
-  async function loadQueueData() {
-    try {
-      const videoData = await fetchVideoTasks()
-      mergeVideoTasks(videoData.tasks)
-    } catch (err) {
-      console.error('Failed to load video queue data:', err)
     }
   }
 

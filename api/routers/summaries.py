@@ -28,21 +28,11 @@ async def list_summaries(user: Optional[User] = Depends(get_current_user)):
 
 def _build_summary_list_items(db, summaries) -> List[SummaryListItem]:
     """Convert summary records into lightweight list items with podcast metadata."""
-    podcast_cache: dict = {}
-    def get_podcast_info(episode_id: str) -> tuple:
-        ep = db.get_episode(episode_id)
-        if not ep or not ep.pid:
-            return ("", "")
-        if ep.pid in podcast_cache:
-            return podcast_cache[ep.pid]
-        p = db.get_podcast(ep.pid)
-        info = (p.title if p else "", p.cover_url if p else "")
-        podcast_cache[ep.pid] = info
-        return info
+    metadata = db.get_summary_podcast_metadata([s.episode_id for s in summaries])
 
     results = []
     for s in summaries:
-        pt, pc = get_podcast_info(s.episode_id)
+        pt, pc = metadata.get(s.episode_id, ("", ""))
         results.append(SummaryListItem(
             episode_id=s.episode_id,
             title=s.title,

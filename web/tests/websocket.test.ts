@@ -45,3 +45,14 @@ it('ignores late progress messages from the previous account', () => {
   expect(useStore.getState().jobs).toEqual([])
   expect(FakeSocket.instances).toHaveLength(2)
 })
+
+it('uses socket heartbeats to avoid redundant idle database polls', async () => {
+  connectWebSocket()
+  const socket = FakeSocket.instances[0]
+  socket.onmessage!({ data: JSON.stringify({ type: 'init', jobs: [], video_tasks: [] }) })
+  for (let i = 0; i < 8; i++) {
+    await vi.advanceTimersByTimeAsync(15000)
+    socket.onmessage!({ data: JSON.stringify({ type: 'heartbeat' }) })
+  }
+  expect(fetch).not.toHaveBeenCalled()
+})

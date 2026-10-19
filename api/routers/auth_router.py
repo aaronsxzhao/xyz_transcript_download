@@ -39,7 +39,7 @@ class UserResponse(BaseModel):
 
 
 @router.get("/config")
-async def get_auth_config():
+def get_auth_config():
     """Get authentication configuration for frontend."""
     return {
         "supabase_enabled": USE_SUPABASE,
@@ -48,7 +48,7 @@ async def get_auth_config():
 
 
 @router.post("/signup", response_model=AuthResponse)
-async def sign_up(data: SignUpRequest):
+def sign_up(data: SignUpRequest):
     """Register a new user."""
     if not USE_SUPABASE:
         raise HTTPException(status_code=400, detail="Authentication not configured")
@@ -87,7 +87,7 @@ async def sign_up(data: SignUpRequest):
 
 
 @router.post("/signin", response_model=AuthResponse)
-async def sign_in(data: SignInRequest):
+def sign_in(data: SignInRequest):
     """Sign in an existing user."""
     if not USE_SUPABASE:
         raise HTTPException(status_code=400, detail="Authentication not configured")
@@ -116,7 +116,7 @@ async def sign_in(data: SignInRequest):
 
 
 @router.post("/signout")
-async def sign_out(user: User = Depends(get_current_user)):
+def sign_out(user: User = Depends(get_current_user)):
     """Sign out the current user."""
     if not USE_SUPABASE:
         return {"message": "Signed out"}
@@ -126,7 +126,7 @@ async def sign_out(user: User = Depends(get_current_user)):
 
 
 @router.post("/refresh", response_model=AuthResponse)
-async def refresh_token(data: RefreshRequest):
+def refresh_token(data: RefreshRequest):
     """Refresh the access token."""
     if not USE_SUPABASE:
         raise HTTPException(status_code=400, detail="Authentication not configured")
@@ -152,7 +152,7 @@ async def refresh_token(data: RefreshRequest):
 
 
 @router.get("/me", response_model=UserResponse)
-async def get_current_user_info(user: Optional[User] = Depends(get_current_user)):
+def get_current_user_info(user: Optional[User] = Depends(get_current_user)):
     """Get the current user's information."""
     if not user:
         return UserResponse(id="", email="", authenticated=False)

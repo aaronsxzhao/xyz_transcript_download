@@ -7,7 +7,7 @@ import {
 } from 'lucide-react'
 import { QRCodeSVG } from 'qrcode.react'
 import {
-  fetchSettings, updateSettings, authFetch, importUserSubscriptions,
+  fetchSettings, updateSettings, testLlmConnection, authFetch, importUserSubscriptions,
   ImportSubscriptionsResult, fetchSysHealth, fetchAllCookies,
   bilibiliQrGenerate, bilibiliQrPoll, douyinQrGenerate, douyinQrPoll,
   uploadCookieFile, importBrowserCookies, saveSimpleCookie,
@@ -21,6 +21,10 @@ interface SettingsData {
   whisper_backend: string
   whisper_device: string
   llm_model: string
+  llm_provider: 'server' | 'groq'
+  groq_available: boolean
+  llm_configured: boolean
+  whisper_provider: string
   check_interval: number
 }
 
@@ -142,6 +146,11 @@ export default function Settings() {
   const whisperModels = settings?.whisper_mode === 'local' ? localWhisperModels : WHISPER_MODELS
   const [whisperModel, setWhisperModel] = useState('')
   const [llmModel, setLlmModel] = useState('')
+  const [llmProvider, setLlmProvider] = useState<'server' | 'groq'>('server')
+  const [testingLlm, setTestingLlm] = useState(false)
+  const [llmTestResult, setLlmTestResult] = useState('')
+  const groqModels = ['openai/gpt-oss-120b', 'openai/gpt-oss-20b']
+  const llmModels = llmProvider === 'groq' ? groqModels.map(value => ({ value, label: value })) : LLM_MODELS
   const [saving, setSaving] = useState(false)
   const [saveResult, setSaveResult] = useState<string | null>(null)
 
@@ -428,9 +437,10 @@ export default function Settings() {
   useEffect(() => {
     if (settings) {
       const savedWhisperModel = getPreference('whisper_model') || settings.whisper_model
-      const savedLlmModel = getPreference('llm_model') || settings.llm_model
+      const savedLlmModel = settings.llm_model
       setWhisperModel(whisperModels.some(model => model.value === savedWhisperModel) ? savedWhisperModel : settings.whisper_model)
       setLlmModel(savedLlmModel)
+      setLlmProvider(settings.llm_provider)
     }
   }, [settings])
 
@@ -452,6 +462,7 @@ export default function Settings() {
       await updateSettings({
         whisper_model: whisperModel,
         llm_model: llmModel,
+        llm_provider: llmProvider,
       })
       setPreference('whisper_model', whisperModel)
       setPreference('llm_model', llmModel)
@@ -467,6 +478,20 @@ export default function Settings() {
     } finally {
       setSaving(false)
     }
+  }
+
+  async function verifyAndSaveLlm() {
+    setTestingLlm(true)
+    setLlmTestResult('')
+    try {
+      const result = await testLlmConnection({ llm_provider: llmProvider, llm_model: llmModel })
+      await updateSettings({ llm_provider: llmProvider, llm_model: result.model })
+      setLlmModel(result.model)
+      setPreference('llm_model', result.model)
+      setLlmTestResult('Connected and saved. Podcast and video summaries are ready.')
+    } catch (error) {
+      setLlmTestResult(error instanceof Error ? error.message : 'Could not connect to the summary provider')
+    } finally { setTestingLlm(false) }
   }
 
   async function checkTruncated() {
@@ -574,7 +599,7 @@ export default function Settings() {
               Transcription (Whisper)
             </h2>
             <div className="space-y-3">
-              <SettingRow label="Provider" value={settings?.whisper_mode === 'api' ? 'Groq API (cloud)' : 'Local model'} />
+              <SettingRow label="Provider" value={settings?.whisper_mode === 'api' ? `${settings.whisper_provider} API` : 'Local model'} />
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 py-2 border-b border-dark-border">
                 <span className="text-gray-400 text-sm">Model</span>
                 <select
@@ -601,19 +626,38 @@ export default function Settings() {
               LLM Configuration
             </h2>
             <div className="space-y-3">
+              <label className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 text-sm text-gray-400">
+                Summary provider
+                <select aria-label="Summary provider" disabled={testingLlm || saving} value={llmProvider} onChange={e => {
+                  const provider = e.target.value as 'server' | 'groq'
+                  setLlmProvider(provider)
+                  setLlmModel(provider === 'groq' ? groqModels[0] : settings?.llm_model || '')
+                  setLlmTestResult('')
+                }} className="bg-dark-hover border border-dark-border text-white rounded-lg px-3 py-2">
+                  <option value="groq" disabled={!settings?.groq_available}>Groq — reuse transcription API key</option>
+                  <option value="server">Server configured provider</option>
+                </select>
+              </label>
+              <p className="text-xs text-gray-400">Groq generates summaries with the existing transcription key and your current Groq plan. No OpenAI API account is needed. Video frame analysis requires a vision-capable provider.</p>
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 py-2 border-b border-dark-border">
                 <span className="text-gray-400 text-sm">Model</span>
                 <select
                   aria-label="Summary model"
+                  disabled={testingLlm || saving}
                   value={llmModel}
-                  onChange={e => setLlmModel(e.target.value)}
+                  onChange={e => { setLlmModel(e.target.value); setLlmTestResult('') }}
                   className="bg-dark-hover border border-dark-border text-white text-sm rounded-lg px-3 py-2 focus:ring-2 focus:ring-purple-500 focus:border-transparent w-full sm:w-auto sm:max-w-[220px] truncate"
                 >
-                  {LLM_MODELS.map(m => (
+                  {!llmModels.some(m => m.value === llmModel) && <option value={llmModel}>{llmModel || 'Server default'}</option>}
+                  {llmModels.map(m => (
                     <option key={m.value} value={m.value}>{m.label}</option>
                   ))}
                 </select>
               </div>
+              <button onClick={verifyAndSaveLlm} disabled={testingLlm || (llmProvider === 'groq' && !settings?.groq_available)} className="px-4 py-2 bg-purple-600 text-white rounded-lg disabled:opacity-50 flex items-center gap-2">
+                {testingLlm && <Loader2 size={16} className="animate-spin" />} Test and save summaries
+              </button>
+              {llmTestResult && <p role="status" className="text-sm text-gray-300">{llmTestResult}</p>}
             </div>
           </section>
 
