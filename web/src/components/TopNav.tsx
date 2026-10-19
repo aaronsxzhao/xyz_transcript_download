@@ -11,6 +11,7 @@ import {
 } from 'lucide-react'
 import { useState } from 'react'
 import { useAuth } from '../contexts/AuthContext'
+import { preloadPage } from '../lib/pages'
 
 const navItems = [
   { path: '/', icon: LayoutDashboard, label: 'Dashboard' },
@@ -49,6 +50,9 @@ export default function TopNav() {
               <Link
                 key={item.path}
                 to={item.path}
+                onPointerEnter={() => preloadPage(item.path)}
+                onFocus={() => preloadPage(item.path)}
+                onTouchStart={() => preloadPage(item.path)}
                 className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm transition-colors ${
                   isActive
                     ? 'bg-indigo-600 text-white'
@@ -105,6 +109,9 @@ export default function TopNav() {
               <Link
                 key={item.path}
                 to={item.path}
+                onPointerEnter={() => preloadPage(item.path)}
+                onFocus={() => preloadPage(item.path)}
+                onTouchStart={() => preloadPage(item.path)}
                 onClick={() => setMobileOpen(false)}
                 className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors ${
                   isActive

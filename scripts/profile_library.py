@@ -45,6 +45,27 @@ def profile_public_routes(owner: str, routes: list[tuple[str, str]]) -> list[dic
                         "milliseconds": round(float(metrics.get("time_total") or 0) * 1000),
                         "first_byte_ms": round(float(metrics.get("time_starttransfer") or 0) * 1000),
                         "wire_bytes": int(metrics.get("size_download") or 0)})
+    # Optional until the new release is live. Only this owner's bounded numeric
+    # browser measurements are returned, never URLs or page contents.
+    observed = subprocess.run([
+        "curl", "--silent", "--compressed", "--max-time", "15", "--max-filesize", "16384",
+        "--header", "@-", "--write-out", "\n%{http_code}",
+        "https://aipodcastsummary.online/api/performance",
+    ], input="Authorization: Bearer " + token + "\n", capture_output=True, text=True, timeout=20)
+    body, _, status = observed.stdout.rpartition("\n")
+    if status == "200":
+        try:
+            pages = json.loads(body).get("pages", {})
+        except ValueError:
+            pages = {}
+        for label in {"dashboard", "podcasts", "videos", "episodes", "viewer"} & pages.keys():
+            row = pages[label]
+            safe = {"library_profile": "browser_" + label}
+            for source, target in {"elapsed_ms": "milliseconds", "document_ms": "document_ms",
+                                   "api_ms": "api_ms", "samples": "samples", "cached": "cached"}.items():
+                if isinstance(row.get(source), int) and 0 <= row[source] <= 300000:
+                    safe[target] = int(row[source])
+            reports.append(safe)
     return reports
 
 

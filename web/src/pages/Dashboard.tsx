@@ -10,6 +10,7 @@ import { useToast } from '../components/Toast'
 import { markSeen, shouldDismissCompleted } from '../lib/seen'
 import SummaryCard from '../components/SummaryCard'
 import ProcessingProgress from '../components/ProcessingProgress'
+import { usePageTiming } from '../lib/pageTiming'
 
 const VIDEO_QUEUE_STATUSES = new Set(['pending', 'parsing', 'downloading', 'transcribing', 'summarizing', 'saving', 'success', 'failed'])
 
@@ -27,6 +28,7 @@ export default function Dashboard() {
   const [summaries, setSummaries] = useState<SummaryListItem[]>([])
   const [recentVideos, setRecentVideos] = useState<VideoTask[]>([])
   const [loading, setLoading] = useState(true)
+  usePageTiming('dashboard', !loading, CacheKeys.STATS)
   const [error, setError] = useState('')
   const [episodeUrl, setEpisodeUrl] = useState('')
   const [processing, setProcessing] = useState(false)

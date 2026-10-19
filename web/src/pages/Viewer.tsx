@@ -27,6 +27,9 @@ import {
 import { fetchJob, fetchSummary, fetchTranscript, resummarizeEpisode, fetchNotionPages, exportMarkdownToNotion, type Summary, type Transcript, type KeyPoint, type NotionPage } from '../lib/api'
 import { getAccessToken } from '../lib/auth'
 import { useStore } from '../lib/store'
+import { getCache, setCache, CacheKeys } from '../lib/cache'
+import { getAccountId } from '../lib/preferences'
+import { usePageTiming } from '../lib/pageTiming'
 
 type Tab = 'summary' | 'transcript'
 
@@ -98,12 +101,14 @@ export default function Viewer() {
   const currentEid = useRef(eid)
   currentEid.current = eid
   const [activeTab, setActiveTab] = useState<Tab>('summary')
-  const [summary, setSummary] = useState<Summary | null>(null)
+  const [summary, setSummary] = useState<Summary | null>(() => getCache(CacheKeys.SUMMARY(eid!)))
   const [transcript, setTranscript] = useState<Transcript | null>(null)
-  const [loading, setLoading] = useState(true)
+  const [loading, setLoading] = useState(() => !getCache(CacheKeys.SUMMARY(eid!)))
+  usePageTiming('viewer', !loading && (summary?.episode_id === eid || transcript?.episode_id === eid), CacheKeys.SUMMARY(eid!))
+  const [transcriptLoading, setTranscriptLoading] = useState(false)
   const [resummarizing, setResummarizing] = useState(false)
   const [error, setError] = useState('')
-  const [expandedTopics, setExpandedTopics] = useState<Set<string>>(new Set())
+  const [expandedTopics, setExpandedTopics] = useState<Set<string>>(() => new Set(getCache<Summary>(CacheKeys.SUMMARY(eid!))?.topics.slice(0, 1)))
   const [copied, setCopied] = useState(false)
   const [pdfLoading, setPdfLoading] = useState(false)
 
@@ -116,34 +121,58 @@ export default function Viewer() {
   const [notionResult, setNotionResult] = useState<{ ok: boolean; message: string; url?: string } | null>(null)
   const notionSearchTimeout = useRef<ReturnType<typeof setTimeout> | null>(null)
   
-  useEffect(() => {
-    if (eid) { setSummary(null); setTranscript(null); setResummarizing(false); void loadData() }
+  const loadTranscript = useCallback(async () => {
+    const requestedEid = eid
+    setTranscriptLoading(true)
+    try {
+      const data = await fetchTranscript(eid!)
+      if (requestedEid === currentEid.current) setTranscript(data)
+      return data
+    } catch {
+      if (requestedEid === currentEid.current) setError('Cannot load the transcript. Please retry.')
+      return null
+    } finally {
+      if (requestedEid === currentEid.current) setTranscriptLoading(false)
+    }
   }, [eid])
+
+  useEffect(() => {
+    if (!eid) return
+    const cached = getCache<Summary>(CacheKeys.SUMMARY(eid))
+    setSummary(cached)
+    setExpandedTopics(new Set(cached?.topics.slice(0, 1)))
+    setTranscript(null)
+    setActiveTab('summary')
+    setResummarizing(false)
+    void loadData()
+  }, [eid])
+
+  useEffect(() => {
+    if (activeTab === 'transcript' && !transcript) void loadTranscript()
+  }, [activeTab, transcript, loadTranscript])
   
   async function loadData() {
-    setLoading(true)
+    const cached = getCache<Summary>(CacheKeys.SUMMARY(eid!))
+    setLoading(!cached)
     setError('')
     const requestedEid = eid
+    const owner = getAccountId()
     try {
-      // Render the summary as soon as it arrives; a long transcript must not
-      // hold the page behind a spinner. Transcript-only episodes still work.
-      const summaryRequest = fetchSummary(eid!).then(data => {
-        if (requestedEid !== currentEid.current) return
-        setSummary(data)
-        setExpandedTopics(new Set(data.topics.slice(0, 1)))
-        setLoading(false)
-        return data
-      })
-      const transcriptRequest = fetchTranscript(eid!).then(data => {
-        if (requestedEid === currentEid.current) setTranscript(data)
-        return data
-      })
-      const [summaryData, transcriptData] = await Promise.allSettled([summaryRequest, transcriptRequest])
-      if (requestedEid !== currentEid.current) return
-      if (summaryData.status === 'rejected' && transcriptData.status === 'fulfilled') setActiveTab('transcript')
-      if (summaryData.status === 'rejected' && transcriptData.status === 'rejected') setError('Cannot load this episode. Please retry.')
+      const data = await fetchSummary(eid!)
+      if (requestedEid !== currentEid.current || owner !== getAccountId()) return
+      setSummary(data)
+      setCache(CacheKeys.SUMMARY(eid!), data, owner)
+      setExpandedTopics(new Set(data.topics.slice(0, 1)))
     } catch (err) {
-      console.error('Failed to load data:', err)
+      if (requestedEid !== currentEid.current || owner !== getAccountId()) return
+      if (cached) setError('Cannot refresh this summary. Please retry.')
+      else {
+        // Episodes with a transcript but no summary still open normally.
+        const fallback = await loadTranscript()
+        if (requestedEid !== currentEid.current) return
+        if (fallback) setActiveTab('transcript')
+        else setError('Cannot load this episode. Please retry.')
+      }
     } finally {
       if (requestedEid === currentEid.current) setLoading(false)
     }
@@ -181,6 +210,7 @@ export default function Viewer() {
           if (job.status === 'completed') {
             const fresh = await fetchSummary(eid)
             setSummary(fresh)
+            setCache(CacheKeys.SUMMARY(eid), fresh)
             setExpandedTopics(new Set(fresh.topics.slice(0, 1)))
             setResummarizing(false)
             if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null }
@@ -363,7 +393,11 @@ export default function Viewer() {
   
   return (
     <div className="space-y-4 md:space-y-6">
-      {error && <LoadError message={error} onRetry={() => { void loadData() }} />}
+      {error && <LoadError message={error} onRetry={() => {
+        setError('')
+        if (activeTab === 'transcript') void loadTranscript()
+        else void loadData()
+      }} />}
 
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-start gap-3 md:gap-4">
@@ -504,7 +538,6 @@ export default function Viewer() {
         </button>
         <button
           onClick={() => setActiveTab('transcript')}
-          disabled={!transcript}
           className={`flex items-center gap-1.5 md:gap-2 px-3 md:px-4 py-2.5 md:py-3 border-b-2 transition-colors text-sm md:text-base disabled:opacity-50 disabled:cursor-not-allowed ${
             activeTab === 'transcript'
               ? 'border-indigo-500 text-white'
@@ -517,6 +550,9 @@ export default function Viewer() {
       </div>
       
       {/* Content */}
+      {activeTab === 'transcript' && transcriptLoading && <div role="status" className="flex justify-center py-12">
+        <Loader2 className="w-6 h-6 animate-spin text-indigo-500" aria-label="Loading transcript" />
+      </div>}
       {activeTab === 'summary' && resummarizing && !summary && (
         <div className="flex flex-col items-center justify-center py-20 text-center space-y-4">
           <Loader2 className="w-10 h-10 animate-spin text-indigo-500" />

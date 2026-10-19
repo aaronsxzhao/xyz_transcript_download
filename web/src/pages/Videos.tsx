@@ -1,6 +1,7 @@
 import LoadError from '../components/LoadError'
 import { getCache, setCache, CacheKeys } from '../lib/cache'
 import { getAccountId } from '../lib/preferences'
+import { usePageTiming } from '../lib/pageTiming'
 import { useCallback, useEffect, useState, useMemo, useRef } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import {
@@ -48,6 +49,7 @@ export default function Videos() {
   // Channel list state (loaded once, lightweight)
   const [channels, setChannels] = useState<VideoChannelStat[]>(() => getCache(CacheKeys.VIDEO_CHANNELS) || [])
   const [channelsLoading, setChannelsLoading] = useState(() => !getCache(CacheKeys.VIDEO_CHANNELS))
+  usePageTiming('videos', !channelsLoading, CacheKeys.VIDEO_CHANNELS)
 
   // Per-channel video state (loaded on demand when drilling into a channel)
   const [channelTasks, setChannelTasks] = useState<VideoTask[]>([])

@@ -5,6 +5,10 @@ import { Radio, Plus, Trash2, RefreshCw, Loader2, ExternalLink, ArrowLeft, Chevr
 import { fetchPodcasts, addPodcast, removePodcast, refreshPodcast, uploadLocalPodcastAudio, type Podcast } from '../lib/api'
 import { useToast } from '../components/Toast'
 import PlatformIcon, { PLATFORM_COLORS } from '../components/PlatformIcon'
+import { getCache, setCache, CacheKeys } from '../lib/cache'
+import { getAccountId } from '../lib/preferences'
+import { preloadPage } from '../lib/pages'
+import { usePageTiming } from '../lib/pageTiming'
 
 const PODCAST_PLATFORMS: { id: string; label: string }[] = [
   { id: 'xiaoyuzhou', label: '小宇宙' },
@@ -30,8 +34,9 @@ function detectPlatform(url: string): string {
 }
 
 export default function Podcasts() {
-  const [podcasts, setPodcasts] = useState<Podcast[]>([])
-  const [loading, setLoading] = useState(true)
+  const [podcasts, setPodcasts] = useState<Podcast[]>(() => getCache(CacheKeys.PODCASTS) || [])
+  const [loading, setLoading] = useState(() => !getCache(CacheKeys.PODCASTS))
+  usePageTiming('podcasts', !loading, CacheKeys.PODCASTS)
   const [error, setError] = useState('')
   const [adding, setAdding] = useState(false)
   const [uploading, setUploading] = useState(false)
@@ -64,10 +69,13 @@ export default function Podcasts() {
   useEffect(() => { loadPodcasts() }, [])
 
   async function loadPodcasts() {
+    const owner = getAccountId()
     setError('')
     try {
       const data = await fetchPodcasts()
+      if (owner !== getAccountId()) return
       setPodcasts(data)
+      setCache(CacheKeys.PODCASTS, data, owner)
     } catch (err) {
       console.error('Failed to load podcasts:', err)
       setError('Cannot load your podcasts. Check the connection and retry.')
@@ -252,10 +260,11 @@ export default function Podcasts() {
     )
   }
 
-  if (error) return <LoadError message={error} onRetry={() => { void loadPodcasts() }} />
+  if (error && !podcasts.length) return <LoadError message={error} onRetry={() => { void loadPodcasts() }} />
 
   return (
     <div className="space-y-6">
+      {error && <LoadError message={error} onRetry={() => { void loadPodcasts() }} />}
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="flex items-center gap-3">
@@ -517,6 +526,8 @@ export default function Podcasts() {
                 <div
                   key={podcast.pid}
                   onClick={() => navigate(`/podcasts/${podcast.pid}/episodes`)}
+                  onPointerEnter={() => preloadPage('/podcasts/podcast/episodes')}
+                  onTouchStart={() => preloadPage('/podcasts/podcast/episodes')}
                   className="p-4 md:p-6 bg-dark-surface border border-dark-border rounded-xl hover:border-dark-hover transition-colors cursor-pointer"
                 >
                   <div className="flex flex-col sm:flex-row sm:items-start gap-4">
@@ -545,6 +556,7 @@ export default function Podcasts() {
                     <div className="flex items-center gap-2 justify-end sm:justify-start" onClick={e => e.stopPropagation()}>
                       <Link
                         to={`/podcasts/${podcast.pid}/episodes`}
+                        onFocus={() => preloadPage('/podcasts/podcast/episodes')}
                         className="flex items-center gap-1 px-3 py-2 bg-dark-hover hover:bg-dark-border text-white rounded-lg transition-colors text-sm"
                       >
                         <ExternalLink size={16} />

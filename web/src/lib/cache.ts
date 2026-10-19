@@ -84,6 +84,7 @@ export function clearCache(): void {
 export const CacheKeys = {
   STATS: 'stats',
   PODCASTS: 'podcasts',
+  PODCAST: (pid: string) => `podcast_${pid}`,
   SUMMARIES: 'summaries',
   RECENT_SUMMARIES: 'recent_summaries',
   RECENT_VIDEOS: 'recent_videos',
