@@ -47,7 +47,31 @@ def token(exp):
     return "e30." + encoded + ".synthetic-signature"
 
 
-async def measure(browser, origin, verify):
+async def check_release_navigation(context, origin, api, asset, state, asset_failures):
+    state.update(revoked=False, delay=.05)
+    page = await context.new_page()
+    await page.route('**/api/**', api)
+    await page.route('**/assets/**', asset)
+    await page.goto(origin + '/podcasts', wait_until='domcontentloaded')
+    await page.get_by_text('小宇宙', exact=True).first.wait_for()
+    asset_failures['mode'] = 'once'
+    async with page.expect_navigation(wait_until='domcontentloaded', timeout=10000):
+        await page.evaluate("history.pushState({},'','/settings');dispatchEvent(new PopStateEvent('popstate'))")
+    await page.get_by_role('heading', name='Settings', exact=True).wait_for()
+    assert asset_failures['count'] == 1
+    # A continuing outage gets a usable error screen instead of reloads.
+    await page.goto(origin + '/podcasts', wait_until='domcontentloaded')
+    await page.get_by_text('小宇宙', exact=True).first.wait_for()
+    asset_failures['mode'] = 'always'
+    await page.evaluate("history.pushState({},'','/settings');dispatchEvent(new PopStateEvent('popstate'))")
+    await page.get_by_role('button', name='Reload page', exact=True).wait_for()
+    await page.wait_for_timeout(500)
+    assert await page.get_by_role('button', name='Reload page', exact=True).is_visible()
+    await page.close()
+    return {"deployment_navigation": "passed", "persistent_asset_error": "passed"}
+
+
+async def measure(browser, origin, verify, recovery_only=False):
     context = await browser.new_context(viewport={"width": 390, "height": 844})
     fresh_token = token(int(time.time()) + 3600)
     await context.add_init_script("""
@@ -69,6 +93,7 @@ async def measure(browser, origin, verify):
     errors, requests = [], []
     page.on('pageerror', lambda error: errors.append(str(error)))
     state = {"delay": 2, "revoked": False, "summary_missing": False, "summary_unavailable": False, "settings_error": False}
+    asset_failures = {'mode': '', 'count': 0}
     podcast = {"pid": "bench", "title": "Synthetic podcast", "author": "Author", "description": "Description",
                "cover_url": "", "episode_count": 1, "summarized_count": 1, "platform": "xiaoyuzhou", "feed_url": ""}
     episode = {"eid": "bench", "pid": "bench", "title": "Synthetic episode", "description": "Description",
@@ -119,10 +144,18 @@ async def measure(browser, origin, verify):
 
     async def asset(route):
         await asyncio.sleep(.4)
+        if '/Settings-' in route.request.url and asset_failures['mode']:
+            asset_failures['count'] += 1
+            if asset_failures['mode'] == 'once': asset_failures['mode'] = ''
+            return await route.fulfill(status=404, body='Page file replaced', content_type='text/plain')
         await route.continue_()
 
     await page.route('**/api/**', api)
     await page.route('**/assets/**', asset)
+    if recovery_only:
+        result = await check_release_navigation(context, origin, api, asset, state, asset_failures)
+        await context.close()
+        return result
     paths = [('/podcasts', '小宇宙'), ('/videos', '1/1 completed'),
              ('/podcasts/bench/episodes', 'Synthetic episode'), ('/viewer/bench', 'Readable saved overview.')]
     cold, warm = {}, {}
@@ -185,6 +218,7 @@ async def measure(browser, origin, verify):
         await page.wait_for_url('**/login', timeout=12000)
         await page.wait_for_timeout(2500)
         assert urlparse(page.url).path == '/login', 'Late session response restored a revoked account'
+        await check_release_navigation(context, origin, api, asset, state, asset_failures)
     assert not errors, errors
     await context.close()
     return {"cold_ms": cold, "revisit_ms": warm, "eager_transcript_reads": transcript_reads,
@@ -197,6 +231,7 @@ async def main(args):
     try:
         async with async_playwright() as playwright:
             for label, directory in [('before', args.baseline_dist), ('after', args.current_dist)]:
+                if args.recovery_only and label == 'before': continue
                 server = ThreadingHTTPServer(('127.0.0.1', 0), functools.partial(Preview, directory=str(Path(directory).resolve()), bootstrap=label == 'after'))
                 threading.Thread(target=server.serve_forever, daemon=True).start()
                 servers.append(server)
@@ -204,7 +239,7 @@ async def main(args):
                 if args.browser_path: options['executable_path'] = args.browser_path
                 if args.browser_args: options['args'] = json.loads(Path(args.browser_args).read_text())
                 browser = await playwright.chromium.launch(**options)
-                result = await measure(browser, f'http://127.0.0.1:{server.server_port}', verify=label == 'after')
+                result = await measure(browser, f'http://127.0.0.1:{server.server_port}', verify=label == 'after', recovery_only=args.recovery_only)
                 await browser.close()
                 print(json.dumps({label: result}), flush=True)
     finally:
@@ -217,4 +252,5 @@ if __name__ == '__main__':
     parser.add_argument('--current-dist', default='web/dist')
     parser.add_argument('--browser-path')
     parser.add_argument('--browser-args')
+    parser.add_argument('--recovery-only', action='store_true')
     asyncio.run(main(parser.parse_args()))
