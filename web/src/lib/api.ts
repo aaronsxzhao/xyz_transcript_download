@@ -9,6 +9,8 @@ import { clearCache } from './cache'
 const API_BASE = '/api'
 const UNKNOWN_CHANNEL_SENTINEL = '__unknown__'
 const pendingReads = new Map<string, Promise<unknown>>()
+let readRevision = 0
+export function getReadRevision() { return readRevision }
 
 export class ApiError extends Error {
   constructor(message: string, public readonly status: number) { super(message) }
@@ -104,7 +106,7 @@ export async function authFetch(url: string, options: RequestInit = {}): Promise
   }
   if (token) headers.set('Authorization', `Bearer ${token}`)
   const mutating = !['GET', 'HEAD'].includes((options.method || 'GET').toUpperCase())
-  if (mutating) pendingReads.clear()
+  if (mutating) { readRevision += 1; pendingReads.clear() }
   
   const res = await fetch(url, { ...options, headers })
   if (ownerGeneration !== getAuthGeneration()) throw new DOMException('Account changed', 'AbortError')
@@ -727,9 +729,7 @@ export async function fetchRecentVideoTasks(limit: number = 6): Promise<{ tasks:
 }
 
 export async function fetchVideoTask(taskId: string): Promise<VideoTask> {
-  const res = await authFetch(`${API_BASE}/video-notes/tasks/${encodeURIComponent(taskId)}?view=note`)
-  if (!res.ok) throw new Error('Failed to fetch video task')
-  return res.json()
+  return readJson(`${API_BASE}/video-notes/tasks/${encodeURIComponent(taskId)}?view=note`, 'Cannot load video notes. Please retry.')
 }
 
 export async function fetchVideoTranscript(taskId: string): Promise<{ transcript: VideoTask['transcript'] }> {

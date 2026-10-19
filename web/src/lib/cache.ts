@@ -92,6 +92,7 @@ export const CacheKeys = {
   VIDEO_CHANNELS: 'video_channels',
   CHANNEL_VIDEOS: (platform: string, channel: string) => `channel_videos_${JSON.stringify([platform, channel])}`,
   SUMMARY: (eid: string) => `summary_${eid}`,
+  VIDEO_NOTE: (id: string) => `video_note_${id}`,
   TRANSCRIPT: (eid: string) => `transcript_${eid}`,
   EPISODES: (pid: string) => `episodes_${pid}`,
 }

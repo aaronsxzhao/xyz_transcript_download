@@ -2,6 +2,7 @@ import LoadError from '../components/LoadError'
 import { getCache, setCache, CacheKeys } from '../lib/cache'
 import { getAccountId } from '../lib/preferences'
 import { usePageTiming } from '../lib/pageTiming'
+import { prefetchVideoNote } from '../lib/summaryPrefetch'
 import { useCallback, useEffect, useState, useMemo, useRef } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import {
@@ -53,6 +54,9 @@ export default function Videos() {
   // Per-channel video state (loaded on demand when drilling into a channel)
   const [channelTasks, setChannelTasks] = useState<VideoTask[]>([])
   const [channelTasksLoading, setChannelTasksLoading] = useState(false)
+  useEffect(() => {
+    channelTasks.slice(0, 4).filter(task => task.status === 'success').slice(0, 2).forEach(task => prefetchVideoNote(task.id))
+  }, [channelTasks])
   // Track which channel is currently loaded
   const loadedChannelRef = useRef<string>('')
 
@@ -812,6 +816,8 @@ function VideoList({ videos, onDelete, onRetry, onCancel }: {
         <div
           key={task.id}
           onClick={isClickable ? () => navigate(`/videos/${task.id}`) : undefined}
+          onPointerEnter={isClickable ? () => prefetchVideoNote(task.id) : undefined}
+          onTouchStart={isClickable ? () => prefetchVideoNote(task.id) : undefined}
           className={`p-3 md:p-4 bg-dark-surface border rounded-xl transition-colors ${
             isFailed ? 'border-red-500/30 hover:border-red-500/50' : 'border-dark-border hover:border-dark-hover'
           } ${isClickable ? 'cursor-pointer' : ''}`}
@@ -931,6 +937,7 @@ function VideoList({ videos, onDelete, onRetry, onCancel }: {
                       </button>
                       <Link
                         to={`/videos/${task.id}`}
+                        onFocus={() => prefetchVideoNote(task.id)}
                         className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-colors"
                       >
                         <CheckCircle size={16} />

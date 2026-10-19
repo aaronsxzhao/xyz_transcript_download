@@ -179,6 +179,15 @@ async def measure(browser, origin, verify, recovery_only=False):
         warm[label] = round((time.perf_counter() - started) * 1000)
     if verify:
         assert max(warm.values()) < 2000, warm
+        state['delay'] = .2
+        await page.evaluate("localStorage.removeItem('xyz_cache_bench:summary_bench');history.pushState({},'','/podcasts/bench/episodes');dispatchEvent(new PopStateEvent('popstate'))")
+        await page.wait_for_function("localStorage.getItem('xyz_cache_bench:summary_bench') !== null")
+        state['delay'] = 8
+        prefetch_started = time.perf_counter()
+        await page.get_by_role('link', name='View', exact=True).click()
+        await page.get_by_text('Readable saved overview.', exact=True).wait_for(timeout=1500)
+        prefetched_summary_ms = round((time.perf_counter() - prefetch_started) * 1000)
+        assert prefetched_summary_ms < 1500
         await page.evaluate("history.pushState({},'','/settings');dispatchEvent(new PopStateEvent('popstate'))")
         await page.get_by_role('heading', name='Settings', exact=True).wait_for(timeout=2000)
         await page.get_by_role('button', name='Platform Accounts', exact=True).click()
@@ -222,6 +231,7 @@ async def measure(browser, origin, verify, recovery_only=False):
     assert not errors, errors
     await context.close()
     return {"cold_ms": cold, "revisit_ms": warm, "eager_transcript_reads": transcript_reads,
+            **({"prefetched_summary_ms": prefetched_summary_ms} if verify else {}),
             **({"lazy_transcript": "passed", "transcript_only": "passed", "expired_session": "passed", "revoked_session": "passed"} if verify else {})}
 
 

@@ -13,97 +13,32 @@
       "_react-vendor-BjF3Nqrh.js"
     ]
   },
-  "_VideoViewer-!~{009}~.js": {
-    "file": "assets/VideoViewer-ASjZcBK0.css",
-    "src": "_VideoViewer-!~{009}~.js"
-  },
-  "_VideoViewer-CV2HDa8X.js": {
-    "file": "assets/VideoViewer-CV2HDa8X.js",
+  "_VideoViewer-XVpvWay5.js": {
+    "file": "assets/VideoViewer-XVpvWay5.js",
     "name": "VideoViewer",
     "isDynamicEntry": true,
     "imports": [
       "_react-vendor-BjF3Nqrh.js",
-      "_safeHtml-DXqqD0h0.js",
+      "_safeHtml-CLzjTOik.js",
       "index.html",
       "_icons-CiL-tseX.js",
-      "_YouTubeCookieGuide-Dr1jIsYF.js"
+      "_YouTubeCookieGuide-gFzrQtaq.js"
     ],
     "dynamicImports": [
       "src/components/video/HighlightedCode.tsx",
       "index.html",
       "index.html",
       "index.html",
+      "node_modules/remark-math/index.js",
+      "node_modules/rehype-katex/index.js",
       "node_modules/markmap-lib/dist/browser/index.mjs",
       "node_modules/markmap-view/dist/index.js",
+      "_katex-D1XgGWV1.js",
       "node_modules/highlight.js/es/common.js"
-    ],
-    "css": [
-      "assets/VideoViewer-ASjZcBK0.css"
-    ],
-    "assets": [
-      "assets/KaTeX_AMS-Regular-BQhdFMY1.woff2",
-      "assets/KaTeX_AMS-Regular-DMm9YOAa.woff",
-      "assets/KaTeX_AMS-Regular-DRggAlZN.ttf",
-      "assets/KaTeX_Caligraphic-Bold-Dq_IR9rO.woff2",
-      "assets/KaTeX_Caligraphic-Bold-BEiXGLvX.woff",
-      "assets/KaTeX_Caligraphic-Bold-ATXxdsX0.ttf",
-      "assets/KaTeX_Caligraphic-Regular-Di6jR-x-.woff2",
-      "assets/KaTeX_Caligraphic-Regular-CTRA-rTL.woff",
-      "assets/KaTeX_Caligraphic-Regular-wX97UBjC.ttf",
-      "assets/KaTeX_Fraktur-Bold-CL6g_b3V.woff2",
-      "assets/KaTeX_Fraktur-Bold-BsDP51OF.woff",
-      "assets/KaTeX_Fraktur-Bold-BdnERNNW.ttf",
-      "assets/KaTeX_Fraktur-Regular-CTYiF6lA.woff2",
-      "assets/KaTeX_Fraktur-Regular-Dxdc4cR9.woff",
-      "assets/KaTeX_Fraktur-Regular-CB_wures.ttf",
-      "assets/KaTeX_Main-Bold-Cx986IdX.woff2",
-      "assets/KaTeX_Main-Bold-Jm3AIy58.woff",
-      "assets/KaTeX_Main-Bold-waoOVXN0.ttf",
-      "assets/KaTeX_Main-BoldItalic-DxDJ3AOS.woff2",
-      "assets/KaTeX_Main-BoldItalic-SpSLRI95.woff",
-      "assets/KaTeX_Main-BoldItalic-DzxPMmG6.ttf",
-      "assets/KaTeX_Main-Italic-NWA7e6Wa.woff2",
-      "assets/KaTeX_Main-Italic-BMLOBm91.woff",
-      "assets/KaTeX_Main-Italic-3WenGoN9.ttf",
-      "assets/KaTeX_Main-Regular-B22Nviop.woff2",
-      "assets/KaTeX_Main-Regular-Dr94JaBh.woff",
-      "assets/KaTeX_Main-Regular-ypZvNtVU.ttf",
-      "assets/KaTeX_Math-BoldItalic-CZnvNsCZ.woff2",
-      "assets/KaTeX_Math-BoldItalic-iY-2wyZ7.woff",
-      "assets/KaTeX_Math-BoldItalic-B3XSjfu4.ttf",
-      "assets/KaTeX_Math-Italic-t53AETM-.woff2",
-      "assets/KaTeX_Math-Italic-DA0__PXp.woff",
-      "assets/KaTeX_Math-Italic-flOr_0UB.ttf",
-      "assets/KaTeX_SansSerif-Bold-D1sUS0GD.woff2",
-      "assets/KaTeX_SansSerif-Bold-DbIhKOiC.woff",
-      "assets/KaTeX_SansSerif-Bold-CFMepnvq.ttf",
-      "assets/KaTeX_SansSerif-Italic-C3H0VqGB.woff2",
-      "assets/KaTeX_SansSerif-Italic-DN2j7dab.woff",
-      "assets/KaTeX_SansSerif-Italic-YYjJ1zSn.ttf",
-      "assets/KaTeX_SansSerif-Regular-DDBCnlJ7.woff2",
-      "assets/KaTeX_SansSerif-Regular-CS6fqUqJ.woff",
-      "assets/KaTeX_SansSerif-Regular-BNo7hRIc.ttf",
-      "assets/KaTeX_Script-Regular-D3wIWfF6.woff2",
-      "assets/KaTeX_Script-Regular-D5yQViql.woff",
-      "assets/KaTeX_Script-Regular-C5JkGWo-.ttf",
-      "assets/KaTeX_Size1-Regular-mCD8mA8B.woff2",
-      "assets/KaTeX_Size1-Regular-C195tn64.woff",
-      "assets/KaTeX_Size1-Regular-Dbsnue_I.ttf",
-      "assets/KaTeX_Size2-Regular-Dy4dx90m.woff2",
-      "assets/KaTeX_Size2-Regular-oD1tc_U0.woff",
-      "assets/KaTeX_Size2-Regular-B7gKUWhC.ttf",
-      "assets/KaTeX_Size3-Regular-CTq5MqoE.woff",
-      "assets/KaTeX_Size3-Regular-DgpXs0kz.ttf",
-      "assets/KaTeX_Size4-Regular-Dl5lxZxV.woff2",
-      "assets/KaTeX_Size4-Regular-BF-4gkZK.woff",
-      "assets/KaTeX_Size4-Regular-DWFBv043.ttf",
-      "assets/KaTeX_Typewriter-Regular-CO6r4hn1.woff2",
-      "assets/KaTeX_Typewriter-Regular-C0xS9mPB.woff",
-      "assets/KaTeX_Typewriter-Regular-D3Ib7_Hf.ttf"
     ]
   },
-  "_YouTubeCookieGuide-Dr1jIsYF.js": {
-    "file": "assets/YouTubeCookieGuide-Dr1jIsYF.js",
+  "_YouTubeCookieGuide-gFzrQtaq.js": {
+    "file": "assets/YouTubeCookieGuide-gFzrQtaq.js",
     "name": "YouTubeCookieGuide",
     "imports": [
       "_react-vendor-BjF3Nqrh.js",
@@ -118,16 +53,28 @@
       "_react-vendor-BjF3Nqrh.js"
     ]
   },
+  "_index-CpfFb3qe.js": {
+    "file": "assets/index-CpfFb3qe.js",
+    "name": "index",
+    "imports": [
+      "_VideoViewer-XVpvWay5.js"
+    ]
+  },
   "_index-oBzmppsD.js": {
     "file": "assets/index-oBzmppsD.js",
     "name": "index"
+  },
+  "_katex-D1XgGWV1.js": {
+    "file": "assets/katex-D1XgGWV1.js",
+    "name": "katex",
+    "isDynamicEntry": true
   },
   "_react-vendor-BjF3Nqrh.js": {
     "file": "assets/react-vendor-BjF3Nqrh.js",
     "name": "react-vendor"
   },
-  "_safeHtml-DXqqD0h0.js": {
-    "file": "assets/safeHtml-DXqqD0h0.js",
+  "_safeHtml-CLzjTOik.js": {
+    "file": "assets/safeHtml-CLzjTOik.js",
     "name": "safeHtml",
     "imports": [
       "_react-vendor-BjF3Nqrh.js",
@@ -138,8 +85,15 @@
       "node_modules/marked/lib/marked.esm.js"
     ]
   },
+  "_summaryPrefetch-DzoqwqDm.js": {
+    "file": "assets/summaryPrefetch-DzoqwqDm.js",
+    "name": "summaryPrefetch",
+    "imports": [
+      "index.html"
+    ]
+  },
   "index.html": {
-    "file": "assets/index-Ci-BsP8g.js",
+    "file": "assets/index-L1UeMhOO.js",
     "name": "index",
     "src": "index.html",
     "isEntry": true,
@@ -154,7 +108,7 @@
       "src/pages/Episodes.tsx",
       "src/pages/Viewer.tsx",
       "src/pages/Videos.tsx",
-      "_VideoViewer-CV2HDa8X.js",
+      "_VideoViewer-XVpvWay5.js",
       "src/pages/Settings.tsx",
       "src/pages/Login.tsx"
     ],
@@ -413,6 +367,10 @@
     "file": "assets/KaTeX_Typewriter-Regular-CO6r4hn1.woff2",
     "src": "node_modules/katex/dist/fonts/KaTeX_Typewriter-Regular.woff2"
   },
+  "node_modules/katex/dist/katex.min.css": {
+    "file": "assets/katex-ASjZcBK0.css",
+    "src": "node_modules/katex/dist/katex.min.css"
+  },
   "node_modules/marked/lib/marked.esm.js": {
     "file": "assets/marked.esm-CFQ4CE8_.js",
     "name": "marked.esm",
@@ -420,18 +378,14 @@
     "isDynamicEntry": true
   },
   "node_modules/markmap-lib/dist/browser/index.mjs": {
-    "file": "assets/index-g_llmzN7.js",
+    "file": "assets/index-DY4RWLDa.js",
     "name": "index",
     "src": "node_modules/markmap-lib/dist/browser/index.mjs",
     "isDynamicEntry": true,
     "imports": [
       "_index-oBzmppsD.js",
       "_react-vendor-BjF3Nqrh.js",
-      "_VideoViewer-CV2HDa8X.js",
-      "_safeHtml-DXqqD0h0.js",
-      "index.html",
-      "_icons-CiL-tseX.js",
-      "_YouTubeCookieGuide-Dr1jIsYF.js"
+      "_katex-D1XgGWV1.js"
     ]
   },
   "node_modules/markmap-view/dist/index.js": {
@@ -443,22 +397,53 @@
       "_index-oBzmppsD.js"
     ]
   },
+  "node_modules/rehype-katex/index.js": {
+    "file": "assets/index-C-GZ6D53.js",
+    "name": "index",
+    "src": "node_modules/rehype-katex/index.js",
+    "isDynamicEntry": true,
+    "imports": [
+      "_index-CpfFb3qe.js",
+      "_katex-D1XgGWV1.js",
+      "_VideoViewer-XVpvWay5.js",
+      "_react-vendor-BjF3Nqrh.js",
+      "_safeHtml-CLzjTOik.js",
+      "index.html",
+      "_icons-CiL-tseX.js",
+      "_YouTubeCookieGuide-gFzrQtaq.js"
+    ]
+  },
+  "node_modules/remark-math/index.js": {
+    "file": "assets/index-BSXS1ewG.js",
+    "name": "index",
+    "src": "node_modules/remark-math/index.js",
+    "isDynamicEntry": true,
+    "imports": [
+      "_VideoViewer-XVpvWay5.js",
+      "_react-vendor-BjF3Nqrh.js",
+      "_safeHtml-CLzjTOik.js",
+      "index.html",
+      "_icons-CiL-tseX.js",
+      "_YouTubeCookieGuide-gFzrQtaq.js"
+    ]
+  },
   "src/components/video/HighlightedCode.tsx": {
-    "file": "assets/HighlightedCode-DctSSQTa.js",
+    "file": "assets/HighlightedCode-CHRyl1Km.js",
     "name": "HighlightedCode",
     "src": "src/components/video/HighlightedCode.tsx",
     "isDynamicEntry": true,
     "imports": [
       "_react-vendor-BjF3Nqrh.js",
-      "_VideoViewer-CV2HDa8X.js",
-      "_safeHtml-DXqqD0h0.js",
+      "_index-CpfFb3qe.js",
+      "_VideoViewer-XVpvWay5.js",
+      "_safeHtml-CLzjTOik.js",
       "index.html",
       "_icons-CiL-tseX.js",
-      "_YouTubeCookieGuide-Dr1jIsYF.js"
+      "_YouTubeCookieGuide-gFzrQtaq.js"
     ]
   },
   "src/pages/Dashboard.tsx": {
-    "file": "assets/Dashboard-CbfJW2pH.js",
+    "file": "assets/Dashboard-CqOb7YXI.js",
     "name": "Dashboard",
     "src": "src/pages/Dashboard.tsx",
     "isDynamicEntry": true,
@@ -466,11 +451,12 @@
       "_react-vendor-BjF3Nqrh.js",
       "_LoadError-D02nYgrA.js",
       "index.html",
+      "_summaryPrefetch-DzoqwqDm.js",
       "_icons-CiL-tseX.js"
     ]
   },
   "src/pages/Episodes.tsx": {
-    "file": "assets/Episodes-xdLSxHR1.js",
+    "file": "assets/Episodes-DOZDiKRh.js",
     "name": "Episodes",
     "src": "src/pages/Episodes.tsx",
     "isDynamicEntry": true,
@@ -478,11 +464,12 @@
       "_react-vendor-BjF3Nqrh.js",
       "index.html",
       "_LoadError-D02nYgrA.js",
+      "_summaryPrefetch-DzoqwqDm.js",
       "_icons-CiL-tseX.js"
     ]
   },
   "src/pages/Login.tsx": {
-    "file": "assets/Login-B212TXDd.js",
+    "file": "assets/Login-BZov87Ah.js",
     "name": "Login",
     "src": "src/pages/Login.tsx",
     "isDynamicEntry": true,
@@ -493,7 +480,7 @@
     ]
   },
   "src/pages/Podcasts.tsx": {
-    "file": "assets/Podcasts-FtE6Xbue.js",
+    "file": "assets/Podcasts-E4Hucywu.js",
     "name": "Podcasts",
     "src": "src/pages/Podcasts.tsx",
     "isDynamicEntry": true,
@@ -506,7 +493,7 @@
     ]
   },
   "src/pages/Settings.tsx": {
-    "file": "assets/Settings-DTXymgYX.js",
+    "file": "assets/Settings-pBbzM8PL.js",
     "name": "Settings",
     "src": "src/pages/Settings.tsx",
     "isDynamicEntry": true,
@@ -519,7 +506,7 @@
     ]
   },
   "src/pages/Videos.tsx": {
-    "file": "assets/Videos-k6Od6YC3.js",
+    "file": "assets/Videos-DrzQZtpz.js",
     "name": "Videos",
     "src": "src/pages/Videos.tsx",
     "isDynamicEntry": true,
@@ -527,20 +514,21 @@
       "_react-vendor-BjF3Nqrh.js",
       "_LoadError-D02nYgrA.js",
       "index.html",
-      "_YouTubeCookieGuide-Dr1jIsYF.js",
+      "_summaryPrefetch-DzoqwqDm.js",
+      "_YouTubeCookieGuide-gFzrQtaq.js",
       "_PlatformIcon-D_m02t1i.js",
       "_icons-CiL-tseX.js"
     ]
   },
   "src/pages/Viewer.tsx": {
-    "file": "assets/Viewer-DOd6ML0c.js",
+    "file": "assets/Viewer-DjXO2tDG.js",
     "name": "Viewer",
     "src": "src/pages/Viewer.tsx",
     "isDynamicEntry": true,
     "imports": [
       "_react-vendor-BjF3Nqrh.js",
       "_LoadError-D02nYgrA.js",
-      "_safeHtml-DXqqD0h0.js",
+      "_safeHtml-CLzjTOik.js",
       "index.html",
       "_icons-CiL-tseX.js"
     ]

@@ -77,6 +77,19 @@ class SupabaseDatabase:
     def __init__(self):
         self.client = get_supabase_admin_client()
 
+    def get_saved_media_task_ids(self) -> set[str]:
+        """Global cleanup inventory. Return identifiers only, without note data."""
+        if not self.client:
+            raise RuntimeError('Cannot verify saved media ownership')
+        ids = set()
+        offset = 0
+        while True:
+            rows = self.client.table('video_tasks').select('id').order('id').range(offset, offset + 999).execute().data or []
+            ids.update(row['id'] for row in rows)
+            if len(rows) < 1000:
+                return ids
+            offset += len(rows)
+
     def get_episode_annotations(self, user_id: str, episode_ids: List[str]) -> dict:
         if not self.client or not episode_ids:
             return {}

@@ -235,13 +235,13 @@ And if you want to reclaim space immediately:
 ./venv/bin/python scripts/manage_supabase_storage.py --empty screenshots --empty thumbnails --yes
 ```
 
-Or delete only generated screenshots/thumbnails older than 21 days:
+Or delete orphaned screenshots/thumbnails older than 21 days:
 
 ```bash
 ./venv/bin/python scripts/manage_supabase_storage.py --cleanup-expired 21 --yes
 ```
 
-The API server also runs this cleanup automatically in the background. By default it deletes generated screenshots/thumbnails after 21 days and checks every 6 hours. You can tune this with `GENERATED_MEDIA_RETENTION_DAYS` and `GENERATED_MEDIA_CLEANUP_INTERVAL_HOURS`.
+The API server also runs this cleanup automatically every 6 hours. Images belonging to saved video notes and their versions are retained. Only orphaned screenshots/thumbnails older than 21 days are removed. Cleanup skips deletion if it cannot check the saved task inventory. You can tune the orphan retention with `GENERATED_MEDIA_RETENTION_DAYS` and `GENERATED_MEDIA_CLEANUP_INTERVAL_HOURS`.
 
 Supabase usage on the billing page is averaged across the billing period and refreshes hourly, so the chart may not drop immediately after cleanup.
 

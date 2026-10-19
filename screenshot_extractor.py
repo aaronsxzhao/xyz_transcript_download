@@ -199,7 +199,7 @@ def _object_created_at(item: dict) -> Optional[datetime]:
 
 
 def cleanup_expired_assets(retention_days: int, now: Optional[datetime] = None) -> dict:
-    """Delete local and remote generated media older than the retention window."""
+    """Delete old orphaned media; screenshots of saved notes remain available."""
     if retention_days <= 0:
         return {
             "retention_days": retention_days,
@@ -211,11 +211,22 @@ def cleanup_expired_assets(retention_days: int, now: Optional[datetime] = None) 
 
     now_utc = now.astimezone(timezone.utc) if now else datetime.now(timezone.utc)
     cutoff = now_utc - timedelta(days=retention_days)
+    from video_task_db import get_video_task_db
+    # Verify before deleting anything. Database failure must fail closed, so a
+    # temporary outage cannot destroy images still referenced by saved notes.
+    saved_ids = get_video_task_db().get_saved_media_task_ids()
+
+    def belongs_to_saved_task(name):
+        stem = Path(name).stem
+        return stem in saved_ids or any(stem[:i] in saved_ids for i, char in enumerate(stem) if char == '_')
+
     local_deleted = 0
 
     for directory in (SCREENSHOTS_DIR, THUMBNAILS_DIR):
         for path in directory.glob("*.jpg"):
             try:
+                if belongs_to_saved_task(path.name):
+                    continue
                 modified_at = datetime.fromtimestamp(path.stat().st_mtime, tz=timezone.utc)
                 if modified_at < cutoff:
                     path.unlink(missing_ok=True)
@@ -231,6 +242,8 @@ def cleanup_expired_assets(retention_days: int, now: Optional[datetime] = None) 
             try:
                 to_delete: List[str] = []
                 for item in _iter_bucket_objects(client, bucket):
+                    if belongs_to_saved_task(item.get('name', '')):
+                        continue
                     created_at = _object_created_at(item)
                     if not created_at:
                         remote_skipped_unknown_age += 1
