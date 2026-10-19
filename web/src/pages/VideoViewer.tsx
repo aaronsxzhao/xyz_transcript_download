@@ -88,6 +88,7 @@ export default function VideoViewer() {
     return storeTaskSlice ? mergeVideoTaskPair(storeTaskSlice, task) : task
   }, [task, storeTaskSlice])
   const [loading, setLoading] = useState(() => !getCache(CacheKeys.VIDEO_NOTE(taskId!)))
+  const [taskVerified, setTaskVerified] = useState(false)
   const [error, setError] = useState('')
   usePageTiming('video_note', !loading && task?.id === taskId, CacheKeys.VIDEO_NOTE(taskId!), !!error && !loading)
   const [loadAttempt, setLoadAttempt] = useState(0)
@@ -115,6 +116,7 @@ export default function VideoViewer() {
     if (!taskId) return
     let cancelled = false
     let inFlight = false
+    setTaskVerified(false)
     const cached = getCache<VideoTask>(CacheKeys.VIDEO_NOTE(taskId))
     setLoading(!cached && taskRef.current?.id !== taskId)
     if (taskRef.current?.id !== taskId) {
@@ -132,6 +134,7 @@ export default function VideoViewer() {
         const data = await fetchVideoTask(taskId)
         if (!cancelled && owner === getAccountId()) {
           setTask(data)
+          setTaskVerified(true)
           if (data.status === 'success') setCache(CacheKeys.VIDEO_NOTE(taskId), data, owner)
           else removeCache(CacheKeys.VIDEO_NOTE(taskId))
           setError('')
@@ -166,7 +169,9 @@ export default function VideoViewer() {
       setTranscript(undefined)
       return
     }
-    if (!taskId || viewMode !== 'transcript' || transcript !== undefined) return
+    // Cached notes may predate a regeneration started in another tab. Confirm
+    // the current task status before caching its separately loaded transcript.
+    if (!taskVerified || !taskId || viewMode !== 'transcript' || transcript !== undefined) return
     let active = true
     setTranscriptLoading(true)
     fetchVideoTranscript(taskId).then(data => {
@@ -175,7 +180,7 @@ export default function VideoViewer() {
       if (active) setError(error instanceof Error ? error.message : 'Cannot load transcript')
     }).finally(() => { if (active) setTranscriptLoading(false) })
     return () => { active = false }
-  }, [taskId, task?.id, task?.status, viewMode, transcript, loadAttempt])
+  }, [taskId, task?.id, task?.status, taskVerified, viewMode, transcript, loadAttempt])
 
   useEffect(() => {
     setVersionLoading(false)

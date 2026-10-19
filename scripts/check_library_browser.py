@@ -91,6 +91,10 @@ async def measure(browser, origin, check_processing=False):
         elif path == "/api/jobs": body = {"jobs": []}
         elif path == "/api/video-notes/tasks": body = {"tasks": []}
         data = json.dumps(body, ensure_ascii=False).encode()
+        if path == "/api/video-notes/tasks/bench" and body.get("status") == "transcribing":
+            # Keep the status check pending while the cached completed note is
+            # visible, so clicking Transcript reliably exercises that race.
+            await asyncio.sleep(0.75)
         await asyncio.sleep(0.15 + len(gzip.compress(data)) / 187500)
         await route.fulfill(body=data, content_type="application/json")
     await page.route("**/api/**", api)

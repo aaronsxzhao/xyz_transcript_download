@@ -13,16 +13,16 @@
       "_react-vendor-BjF3Nqrh.js"
     ]
   },
-  "_VideoViewer-XVpvWay5.js": {
-    "file": "assets/VideoViewer-XVpvWay5.js",
+  "_VideoViewer-DhY0cSXb.js": {
+    "file": "assets/VideoViewer-DhY0cSXb.js",
     "name": "VideoViewer",
     "isDynamicEntry": true,
     "imports": [
       "_react-vendor-BjF3Nqrh.js",
-      "_safeHtml-CLzjTOik.js",
+      "_safeHtml-uwc6HQtt.js",
       "index.html",
       "_icons-CiL-tseX.js",
-      "_YouTubeCookieGuide-gFzrQtaq.js"
+      "_YouTubeCookieGuide-1W1tF5ju.js"
     ],
     "dynamicImports": [
       "src/components/video/HighlightedCode.tsx",
@@ -37,8 +37,8 @@
       "node_modules/highlight.js/es/common.js"
     ]
   },
-  "_YouTubeCookieGuide-gFzrQtaq.js": {
-    "file": "assets/YouTubeCookieGuide-gFzrQtaq.js",
+  "_YouTubeCookieGuide-1W1tF5ju.js": {
+    "file": "assets/YouTubeCookieGuide-1W1tF5ju.js",
     "name": "YouTubeCookieGuide",
     "imports": [
       "_react-vendor-BjF3Nqrh.js",
@@ -53,11 +53,11 @@
       "_react-vendor-BjF3Nqrh.js"
     ]
   },
-  "_index-CpfFb3qe.js": {
-    "file": "assets/index-CpfFb3qe.js",
+  "_index-_MX4n51o.js": {
+    "file": "assets/index-_MX4n51o.js",
     "name": "index",
     "imports": [
-      "_VideoViewer-XVpvWay5.js"
+      "_VideoViewer-DhY0cSXb.js"
     ]
   },
   "_index-oBzmppsD.js": {
@@ -73,8 +73,8 @@
     "file": "assets/react-vendor-BjF3Nqrh.js",
     "name": "react-vendor"
   },
-  "_safeHtml-CLzjTOik.js": {
-    "file": "assets/safeHtml-CLzjTOik.js",
+  "_safeHtml-uwc6HQtt.js": {
+    "file": "assets/safeHtml-uwc6HQtt.js",
     "name": "safeHtml",
     "imports": [
       "_react-vendor-BjF3Nqrh.js",
@@ -85,15 +85,15 @@
       "node_modules/marked/lib/marked.esm.js"
     ]
   },
-  "_summaryPrefetch-DzoqwqDm.js": {
-    "file": "assets/summaryPrefetch-DzoqwqDm.js",
+  "_summaryPrefetch-CQ8K8-YW.js": {
+    "file": "assets/summaryPrefetch-CQ8K8-YW.js",
     "name": "summaryPrefetch",
     "imports": [
       "index.html"
     ]
   },
   "index.html": {
-    "file": "assets/index-L1UeMhOO.js",
+    "file": "assets/index-h7cW17bL.js",
     "name": "index",
     "src": "index.html",
     "isEntry": true,
@@ -108,7 +108,7 @@
       "src/pages/Episodes.tsx",
       "src/pages/Viewer.tsx",
       "src/pages/Videos.tsx",
-      "_VideoViewer-XVpvWay5.js",
+      "_VideoViewer-DhY0cSXb.js",
       "src/pages/Settings.tsx",
       "src/pages/Login.tsx"
     ],
@@ -398,52 +398,52 @@
     ]
   },
   "node_modules/rehype-katex/index.js": {
-    "file": "assets/index-C-GZ6D53.js",
+    "file": "assets/index-DIrqH-gW.js",
     "name": "index",
     "src": "node_modules/rehype-katex/index.js",
     "isDynamicEntry": true,
     "imports": [
-      "_index-CpfFb3qe.js",
+      "_index-_MX4n51o.js",
       "_katex-D1XgGWV1.js",
-      "_VideoViewer-XVpvWay5.js",
+      "_VideoViewer-DhY0cSXb.js",
       "_react-vendor-BjF3Nqrh.js",
-      "_safeHtml-CLzjTOik.js",
+      "_safeHtml-uwc6HQtt.js",
       "index.html",
       "_icons-CiL-tseX.js",
-      "_YouTubeCookieGuide-gFzrQtaq.js"
+      "_YouTubeCookieGuide-1W1tF5ju.js"
     ]
   },
   "node_modules/remark-math/index.js": {
-    "file": "assets/index-BSXS1ewG.js",
+    "file": "assets/index-4XQqU006.js",
     "name": "index",
     "src": "node_modules/remark-math/index.js",
     "isDynamicEntry": true,
     "imports": [
-      "_VideoViewer-XVpvWay5.js",
+      "_VideoViewer-DhY0cSXb.js",
       "_react-vendor-BjF3Nqrh.js",
-      "_safeHtml-CLzjTOik.js",
+      "_safeHtml-uwc6HQtt.js",
       "index.html",
       "_icons-CiL-tseX.js",
-      "_YouTubeCookieGuide-gFzrQtaq.js"
+      "_YouTubeCookieGuide-1W1tF5ju.js"
     ]
   },
   "src/components/video/HighlightedCode.tsx": {
-    "file": "assets/HighlightedCode-CHRyl1Km.js",
+    "file": "assets/HighlightedCode-B1VqX7Wm.js",
     "name": "HighlightedCode",
     "src": "src/components/video/HighlightedCode.tsx",
     "isDynamicEntry": true,
     "imports": [
       "_react-vendor-BjF3Nqrh.js",
-      "_index-CpfFb3qe.js",
-      "_VideoViewer-XVpvWay5.js",
-      "_safeHtml-CLzjTOik.js",
+      "_index-_MX4n51o.js",
+      "_VideoViewer-DhY0cSXb.js",
+      "_safeHtml-uwc6HQtt.js",
       "index.html",
       "_icons-CiL-tseX.js",
-      "_YouTubeCookieGuide-gFzrQtaq.js"
+      "_YouTubeCookieGuide-1W1tF5ju.js"
     ]
   },
   "src/pages/Dashboard.tsx": {
-    "file": "assets/Dashboard-CqOb7YXI.js",
+    "file": "assets/Dashboard-DYDJHWiw.js",
     "name": "Dashboard",
     "src": "src/pages/Dashboard.tsx",
     "isDynamicEntry": true,
@@ -451,12 +451,12 @@
       "_react-vendor-BjF3Nqrh.js",
       "_LoadError-D02nYgrA.js",
       "index.html",
-      "_summaryPrefetch-DzoqwqDm.js",
+      "_summaryPrefetch-CQ8K8-YW.js",
       "_icons-CiL-tseX.js"
     ]
   },
   "src/pages/Episodes.tsx": {
-    "file": "assets/Episodes-DOZDiKRh.js",
+    "file": "assets/Episodes-DkgLIvxd.js",
     "name": "Episodes",
     "src": "src/pages/Episodes.tsx",
     "isDynamicEntry": true,
@@ -464,12 +464,12 @@
       "_react-vendor-BjF3Nqrh.js",
       "index.html",
       "_LoadError-D02nYgrA.js",
-      "_summaryPrefetch-DzoqwqDm.js",
+      "_summaryPrefetch-CQ8K8-YW.js",
       "_icons-CiL-tseX.js"
     ]
   },
   "src/pages/Login.tsx": {
-    "file": "assets/Login-BZov87Ah.js",
+    "file": "assets/Login-C848agS7.js",
     "name": "Login",
     "src": "src/pages/Login.tsx",
     "isDynamicEntry": true,
@@ -480,7 +480,7 @@
     ]
   },
   "src/pages/Podcasts.tsx": {
-    "file": "assets/Podcasts-E4Hucywu.js",
+    "file": "assets/Podcasts-DA1-Npt0.js",
     "name": "Podcasts",
     "src": "src/pages/Podcasts.tsx",
     "isDynamicEntry": true,
@@ -493,7 +493,7 @@
     ]
   },
   "src/pages/Settings.tsx": {
-    "file": "assets/Settings-pBbzM8PL.js",
+    "file": "assets/Settings-DfL2OndI.js",
     "name": "Settings",
     "src": "src/pages/Settings.tsx",
     "isDynamicEntry": true,
@@ -506,7 +506,7 @@
     ]
   },
   "src/pages/Videos.tsx": {
-    "file": "assets/Videos-DrzQZtpz.js",
+    "file": "assets/Videos-C1CByEo1.js",
     "name": "Videos",
     "src": "src/pages/Videos.tsx",
     "isDynamicEntry": true,
@@ -514,21 +514,21 @@
       "_react-vendor-BjF3Nqrh.js",
       "_LoadError-D02nYgrA.js",
       "index.html",
-      "_summaryPrefetch-DzoqwqDm.js",
-      "_YouTubeCookieGuide-gFzrQtaq.js",
+      "_summaryPrefetch-CQ8K8-YW.js",
+      "_YouTubeCookieGuide-1W1tF5ju.js",
       "_PlatformIcon-D_m02t1i.js",
       "_icons-CiL-tseX.js"
     ]
   },
   "src/pages/Viewer.tsx": {
-    "file": "assets/Viewer-DjXO2tDG.js",
+    "file": "assets/Viewer-khhPR4LV.js",
     "name": "Viewer",
     "src": "src/pages/Viewer.tsx",
     "isDynamicEntry": true,
     "imports": [
       "_react-vendor-BjF3Nqrh.js",
       "_LoadError-D02nYgrA.js",
-      "_safeHtml-CLzjTOik.js",
+      "_safeHtml-uwc6HQtt.js",
       "index.html",
       "_icons-CiL-tseX.js"
     ]
