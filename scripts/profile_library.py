@@ -9,7 +9,43 @@ import gzip
 import io
 import json
 import logging
+import os
+import subprocess
 import time
+
+
+def profile_public_routes(owner: str, routes: list[tuple[str, str]]) -> list[dict]:
+    """Measure the deployed stack, including its auth and database connections.
+
+    A five-minute read probe uses the existing server signing secret. Its token
+    stays in memory/stdin, never command arguments, files, logs, or reports.
+    The only public requests this function can issue are GETs to fixed API paths.
+    """
+    secret = os.environ.get("SUPABASE_JWT_SECRET")
+    if not secret:
+        return [{"library_profile": "live_unavailable"}]
+    from jose import jwt
+    now = int(time.time())
+    token = jwt.encode({"sub": owner, "aud": "authenticated", "role": "authenticated",
+                        "iat": now, "exp": now + 300}, secret, algorithm="HS256")
+    selected = [("auth", "/api/auth/me"), *[(label, path) for label, path in routes
+                if label in {"podcasts", "channels", "episodes", "summary", "transcript"}]]
+    reports = []
+    for label, path in selected:
+        result = subprocess.run([
+            "curl", "--silent", "--compressed", "--max-time", "25", "--header", "@-",
+            "--output", os.devnull, "--write-out", "%{json}",
+            "https://aipodcastsummary.online" + path,
+        ], input="Authorization: Bearer " + token + "\n", capture_output=True, text=True, timeout=30)
+        try:
+            metrics = json.loads(result.stdout)
+        except ValueError:
+            metrics = {}
+        reports.append({"library_profile": "live_" + label, "status": int(metrics.get("http_code") or 0),
+                        "milliseconds": round(float(metrics.get("time_total") or 0) * 1000),
+                        "first_byte_ms": round(float(metrics.get("time_starttransfer") or 0) * 1000),
+                        "wire_bytes": int(metrics.get("size_download") or 0)})
+    return reports
 
 
 async def profile() -> list[dict]:
@@ -65,6 +101,7 @@ async def profile() -> list[dict]:
     finally:
         httpx.Client.send = original
         app.dependency_overrides.clear()
+    reports.extend(await asyncio.to_thread(profile_public_routes, owner, routes))
     return reports
 
 
