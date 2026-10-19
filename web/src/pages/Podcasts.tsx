@@ -598,7 +598,7 @@ function PodcastImage({ url, alt }: { url?: string; alt: string }) {
   const proxyUrl = `/api/image-proxy?url=${encodeURIComponent(url)}`
 
   return (
-    <img
+    <img loading="lazy" decoding="async"
       src={proxyUrl}
       alt={alt}
       className="w-14 h-14 md:w-20 md:h-20 rounded-lg object-cover bg-dark-hover flex-shrink-0"

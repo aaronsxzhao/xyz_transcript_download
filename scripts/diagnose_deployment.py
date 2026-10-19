@@ -187,6 +187,8 @@ def profile_library(settings: dict) -> None:
         result = subprocess.run(["python", "scripts/profile_library.py"], env=environment,
                                 capture_output=True, text=True, timeout=240)
         # Child output is still whitelisted so future logging cannot leak data.
+        valid = False
+        failed = result.returncode != 0
         for line in result.stdout.splitlines():
             try:
                 report = json.loads(line)
@@ -200,6 +202,10 @@ def profile_library(settings: dict) -> None:
             safe.update({key: report[key] for key in ("milliseconds", "database_requests", "response_bytes", "gzip_bytes", "status")
                          if isinstance(report.get(key), int) and 0 <= report[key] <= 10**9})
             print(json.dumps(safe))
+            valid = True
+            failed = failed or label == "failed" or ("status" in safe and safe["status"] != 200)
+        if not valid or failed:
+            raise RuntimeError("Read-only library profile did not pass")
 
 
 def probe_groq_summary(api_key: str) -> None:

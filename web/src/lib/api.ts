@@ -620,7 +620,7 @@ export interface VideoTask {
   published_at: string
   created_at: string
   updated_at: string
-  versions?: VideoTaskVersion[]
+  versions?: Omit<VideoTaskVersion, 'content'>[]
 }
 
 export interface VideoTaskVersion {
@@ -705,9 +705,17 @@ export async function fetchRecentVideoTasks(limit: number = 6): Promise<{ tasks:
 }
 
 export async function fetchVideoTask(taskId: string): Promise<VideoTask> {
-  const res = await authFetch(`${API_BASE}/video-notes/tasks/${taskId}`)
+  const res = await authFetch(`${API_BASE}/video-notes/tasks/${encodeURIComponent(taskId)}?view=note`)
   if (!res.ok) throw new Error('Failed to fetch video task')
   return res.json()
+}
+
+export async function fetchVideoTranscript(taskId: string): Promise<{ transcript: VideoTask['transcript'] }> {
+  return parseApiResponseAsJson(await authFetch(`${API_BASE}/video-notes/tasks/${encodeURIComponent(taskId)}/transcript`), 'Cannot load video transcript')
+}
+
+export async function fetchVideoVersion(taskId: string, versionId: string): Promise<VideoTaskVersion> {
+  return parseApiResponseAsJson(await authFetch(`${API_BASE}/video-notes/tasks/${encodeURIComponent(taskId)}/versions/${encodeURIComponent(versionId)}`), 'Cannot load saved version')
 }
 
 export async function deleteVideoTask(taskId: string): Promise<{ message: string }> {

@@ -422,10 +422,11 @@ export default function Settings() {
   useEffect(() => { loadSettings() }, [])
 
   useEffect(() => {
+    if (activeTab !== 'accounts') return
     fetchAllCookies()
       .then(data => setCookies(data.cookies))
       .catch(() => {})
-  }, [])
+  }, [activeTab])
 
   useEffect(() => {
     if (activeTab !== 'accounts' || activePlatform !== 'douyin') return

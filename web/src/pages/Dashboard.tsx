@@ -121,18 +121,11 @@ export default function Dashboard() {
     if (cachedStats || cachedSummaries || cachedRecentVideos) setLoading(false)
 
     try {
-      const [statsData, summariesData, videoData] = await Promise.all([
-        fetchStats(),
-        fetchRecentSummaries(),
-        fetchRecentVideoTasks(),
+      await Promise.all([
+        fetchStats().then(data => { setStats(data); setCache(CacheKeys.STATS, data, owner); setLoading(false) }),
+        fetchRecentSummaries().then(data => { setSummaries(data); setCache(CacheKeys.RECENT_SUMMARIES, data, owner); setLoading(false) }),
+        fetchRecentVideoTasks().then(data => { setRecentVideos(data.tasks); setCache(CacheKeys.RECENT_VIDEOS, data.tasks, owner); setLoading(false) }),
       ])
-      setStats(statsData)
-      setSummaries(summariesData)
-      setRecentVideos(videoData.tasks)
-
-      setCache(CacheKeys.STATS, statsData, owner)
-      setCache(CacheKeys.RECENT_SUMMARIES, summariesData, owner)
-      setCache(CacheKeys.RECENT_VIDEOS, videoData.tasks, owner)
     } catch (err) {
       console.error('Failed to load data:', err)
       setError('Cannot refresh the dashboard. Any saved content may be out of date.')
@@ -408,7 +401,7 @@ export default function Dashboard() {
                   className="flex gap-4 p-4 min-h-[104px] bg-dark-surface border border-dark-border rounded-xl hover:border-indigo-500/50 transition-colors"
                 >
                   {task.thumbnail ? (
-                    <img
+                    <img loading="lazy" decoding="async"
                       src={task.thumbnail}
                       alt=""
                       className="w-20 h-14 rounded object-cover flex-shrink-0 bg-dark-hover my-auto"
@@ -436,7 +429,7 @@ export default function Dashboard() {
                       {task.channel && (
                         <span className="flex items-center gap-1.5 truncate">
                           {task.channel_avatar ? (
-                            <img src={task.channel_avatar} alt="" className="w-4 h-4 rounded-full flex-shrink-0 bg-dark-hover" referrerPolicy="no-referrer" onError={e => { (e.target as HTMLImageElement).style.display = 'none' }} />
+                            <img loading="lazy" decoding="async" src={task.channel_avatar} alt="" className="w-4 h-4 rounded-full flex-shrink-0 bg-dark-hover" referrerPolicy="no-referrer" onError={e => { (e.target as HTMLImageElement).style.display = 'none' }} />
                           ) : (
                             <Video size={14} className="text-cyan-400 flex-shrink-0" />
                           )}

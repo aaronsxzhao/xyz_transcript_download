@@ -1,4 +1,6 @@
 import LoadError from '../components/LoadError'
+import { getCache, setCache, CacheKeys } from '../lib/cache'
+import { getAccountId } from '../lib/preferences'
 import { useCallback, useEffect, useState, useMemo, useRef } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import {
@@ -35,7 +37,7 @@ function isActiveVideoStatus(status: string) {
 }
 
 export default function Videos() {
-  const { videoTasks, mergeVideoTasks, removeVideoTask } = useStore()
+  const { videoTasks, mergeVideoTasks, removeVideoTask, wsConnected } = useStore()
   const [formOpen, setFormOpen] = useState(false)
   const [search, setSearch] = useState('')
   const [error, setError] = useState('')
@@ -44,8 +46,8 @@ export default function Videos() {
   const { addToast } = useToast()
 
   // Channel list state (loaded once, lightweight)
-  const [channels, setChannels] = useState<VideoChannelStat[]>([])
-  const [channelsLoading, setChannelsLoading] = useState(true)
+  const [channels, setChannels] = useState<VideoChannelStat[]>(() => getCache(CacheKeys.VIDEO_CHANNELS) || [])
+  const [channelsLoading, setChannelsLoading] = useState(() => !getCache(CacheKeys.VIDEO_CHANNELS))
 
   // Per-channel video state (loaded on demand when drilling into a channel)
   const [channelTasks, setChannelTasks] = useState<VideoTask[]>([])
@@ -70,10 +72,12 @@ export default function Videos() {
 
   // Load channel list (called on mount and after mutations)
   const loadChannels = useCallback(async () => {
+    const owner = getAccountId()
     setError('')
     try {
       const data = await fetchVideoChannels()
       setChannels(data.channels)
+      setCache(CacheKeys.VIDEO_CHANNELS, data.channels, owner)
     } catch (e) {
       console.error('Failed to load channels:', e)
       setError('Cannot load your video channels. Please retry.')
@@ -89,12 +93,16 @@ export default function Videos() {
     options: { preserveExisting?: boolean } = {},
   ) => {
     const key = `${platform}::${channel}`
+    const owner = getAccountId()
     const preserveExisting = options.preserveExisting === true
     if (!preserveExisting) {
       if (loadedChannelRef.current !== key) {
-        setChannelTasks([])
+        const cached = getCache<VideoTask[]>(CacheKeys.CHANNEL_VIDEOS(platform, channel))
+        setChannelTasks(cached || [])
+        setChannelTasksLoading(!cached)
+      } else {
+        setChannelTasksLoading(false)
       }
-      setChannelTasksLoading(true)
     }
     loadedChannelRef.current = key
     try {
@@ -102,6 +110,7 @@ export default function Videos() {
       // Only apply if still viewing the same channel
       if (loadedChannelRef.current === key) {
         setChannelTasks(data.tasks)
+        setCache(CacheKeys.CHANNEL_VIDEOS(platform, channel), data.tasks, owner)
         // Also push into store so active-task polling stays in sync
         mergeVideoTasks(data.tasks)
       }
@@ -134,18 +143,18 @@ export default function Videos() {
   // Poll active tasks from store (for in-progress processing)
   const hasActiveTasks = videoTasks.some(t => isActiveVideoStatus(t.status))
   useEffect(() => {
-    if (!hasActiveTasks) return
+    if (!hasActiveTasks || wsConnected) return
     // When there are active tasks in a channel view, re-fetch that channel periodically
     if (view.type !== 'videos') return
     const interval = setInterval(() => {
-      loadChannelTasks(view.platform, view.channel, { preserveExisting: true })
+      if (document.visibilityState !== 'hidden') void loadChannelTasks(view.platform, view.channel, { preserveExisting: true })
     }, 5000)
     return () => clearInterval(interval)
-  }, [hasActiveTasks, view, loadChannelTasks])
+  }, [hasActiveTasks, wsConnected, view, loadChannelTasks])
 
   // Periodically refresh channel stats
   useEffect(() => {
-    const interval = setInterval(loadChannels, hasActiveTasks ? 10000 : 60000)
+    const interval = setInterval(() => { if (document.visibilityState !== 'hidden') void loadChannels() }, hasActiveTasks ? 10000 : 60000)
     return () => clearInterval(interval)
   }, [loadChannels, hasActiveTasks])
 
@@ -596,7 +605,7 @@ function ChannelList({ channels, onSelectChannel, onDeleteChannel, onCheckUpdate
             <div className="flex flex-col sm:flex-row sm:items-start gap-4">
               <div className="flex items-start gap-3 sm:gap-4 flex-1 min-w-0 cursor-pointer" onClick={() => onSelectChannel(ch.channel)}>
                 {imgSrc ? (
-                  <img
+                  <img loading="lazy" decoding="async"
                     src={imgSrc}
                     alt=""
                     className={`w-14 h-14 md:w-20 md:h-20 flex-shrink-0 bg-dark-hover object-cover ${ch.channel_avatar ? 'rounded-full' : 'rounded-lg'}`}
@@ -803,7 +812,7 @@ function VideoList({ videos, onDelete, onRetry, onCancel }: {
         >
           <div className="flex flex-col sm:flex-row sm:items-start gap-3 md:gap-4">
             {task.thumbnail ? (
-              <img
+              <img loading="lazy" decoding="async"
                 src={task.thumbnail}
                 alt=""
                 className="w-full sm:w-40 md:w-48 h-24 sm:h-24 md:h-28 rounded-lg object-cover flex-shrink-0 bg-dark-hover"

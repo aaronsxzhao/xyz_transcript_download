@@ -122,6 +122,22 @@ class DatabaseInterface:
     
     # ==================== Podcasts ====================
 
+    def get_episode_annotations(self, episode_ids: List[str]) -> dict:
+        """Load status/counts for only the visible episode page."""
+        if self._anonymous_supabase or not episode_ids:
+            return {}
+        if self.use_supabase:
+            return self.db.get_episode_annotations(self.user_id, episode_ids)
+        transcripts = self.get_transcript_episode_ids()
+        summaries = self.get_summary_episode_ids()
+        result = {}
+        for eid in episode_ids:
+            summary = self.get_summary(eid) if eid in summaries else None
+            result[eid] = {"has_transcript": eid in transcripts, "has_summary": summary is not None,
+                           "topics_count": len(summary.topics) if summary else 0,
+                           "key_points_count": len(summary.key_points) if summary else 0}
+        return result
+
     def get_summary_podcast_metadata(self, episode_ids: List[str]) -> dict:
         """Resolve all summary cards' podcast metadata in one cloud query."""
         if self._anonymous_supabase:

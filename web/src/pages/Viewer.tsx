@@ -1,4 +1,5 @@
 import LoadError from '../components/LoadError'
+import TranscriptSegments from '../components/TranscriptSegments'
 import { escapeHtml, markdownToSafeHtml } from '../lib/safeHtml'
 import { getPreference } from '../lib/preferences'
 import { useState, useEffect, useRef, useCallback } from 'react'
@@ -23,7 +24,7 @@ import {
   X,
   AlertTriangle,
 } from 'lucide-react'
-import { fetchJob, fetchSummary, fetchTranscript, resummarizeEpisode, fetchNotionPages, exportMarkdownToNotion, type Summary, type Transcript, type KeyPoint, type TranscriptSegment, type NotionPage } from '../lib/api'
+import { fetchJob, fetchSummary, fetchTranscript, resummarizeEpisode, fetchNotionPages, exportMarkdownToNotion, type Summary, type Transcript, type KeyPoint, type NotionPage } from '../lib/api'
 import { getAccessToken } from '../lib/auth'
 import { useStore } from '../lib/store'
 
@@ -124,22 +125,22 @@ export default function Viewer() {
     setError('')
     const requestedEid = eid
     try {
-      const [summaryData, transcriptData] = await Promise.allSettled([
-        fetchSummary(eid!),
-        fetchTranscript(eid!),
-      ])
-      
+      // Render the summary as soon as it arrives; a long transcript must not
+      // hold the page behind a spinner. Transcript-only episodes still work.
+      const summaryRequest = fetchSummary(eid!).then(data => {
+        if (requestedEid !== currentEid.current) return
+        setSummary(data)
+        setExpandedTopics(new Set(data.topics.slice(0, 1)))
+        setLoading(false)
+        return data
+      })
+      const transcriptRequest = fetchTranscript(eid!).then(data => {
+        if (requestedEid === currentEid.current) setTranscript(data)
+        return data
+      })
+      const [summaryData, transcriptData] = await Promise.allSettled([summaryRequest, transcriptRequest])
       if (requestedEid !== currentEid.current) return
-      if (summaryData.status === 'fulfilled') {
-        setSummary(summaryData.value)
-        if (summaryData.value.topics.length > 0) {
-          setExpandedTopics(new Set([summaryData.value.topics[0]]))
-        }
-      }
-      if (transcriptData.status === 'fulfilled') {
-        setTranscript(transcriptData.value)
-        if (summaryData.status === 'rejected') setActiveTab('transcript')
-      }
+      if (summaryData.status === 'rejected' && transcriptData.status === 'fulfilled') setActiveTab('transcript')
       if (summaryData.status === 'rejected' && transcriptData.status === 'rejected') setError('Cannot load this episode. Please retry.')
     } catch (err) {
       console.error('Failed to load data:', err)
@@ -616,16 +617,7 @@ export default function Viewer() {
           </h2>
           
           {transcript.segments.length > 0 ? (
-            <div className="space-y-4 max-h-[600px] overflow-y-auto">
-              {transcript.segments.map((seg: TranscriptSegment, idx: number) => (
-                <div key={idx} className="flex gap-4">
-                  <span className="text-xs text-gray-500 font-mono w-12 flex-shrink-0 pt-0.5">
-                    {formatTime(seg.start)}
-                  </span>
-                  <p className="text-gray-300">{seg.text}</p>
-                </div>
-              ))}
-            </div>
+            <TranscriptSegments key={eid} segments={transcript.segments} />
           ) : (
             <p className="text-gray-300 whitespace-pre-line leading-relaxed">
               {transcript.text}

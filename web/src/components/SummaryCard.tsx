@@ -20,7 +20,7 @@ export default function SummaryCard({ summary }: SummaryCardProps) {
         {summary.podcast_title && (
           <span className="flex items-center gap-1.5 truncate">
             {summary.podcast_cover ? (
-              <img
+              <img loading="lazy" decoding="async"
                 src={summary.podcast_cover}
                 alt=""
                 className="w-4 h-4 rounded-full flex-shrink-0 bg-dark-hover"

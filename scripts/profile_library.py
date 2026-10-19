@@ -38,8 +38,8 @@ async def profile() -> list[dict]:
         routes.extend([("summary", f"/api/summaries/{eid}"), ("transcript", f"/api/transcripts/{eid}")])
     if videos:
         task = videos[0]
-        routes.extend([("video_detail", f"/api/video-notes/tasks/{task['id']}"),
-                       ("video_note", f"/api/video-notes/tasks/{task['id']}?view=note")])
+        routes.extend([("video_note", f"/api/video-notes/tasks/{task['id']}?view=note"),
+                       ("video_detail", f"/api/video-notes/tasks/{task['id']}")])
 
     calls = []
     original = httpx.Client.send

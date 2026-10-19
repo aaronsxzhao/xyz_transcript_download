@@ -648,23 +648,15 @@ async def list_podcast_episodes(pid: str, limit: int = Query(50, ge=1, le=200), 
     """List episodes for a podcast."""
     db = get_db(user.id if user else None)
     
-    # Fetch podcast, episodes, transcript/summary status, and all summaries in parallel
-    podcast, episodes, transcript_ids, summary_ids, all_summaries = await asyncio.gather(
+    podcast, episodes = await asyncio.gather(
         run_sync(db.get_podcast, pid),
         run_sync(db.get_episodes_by_podcast, pid, offset, limit),
-        run_sync(db.get_transcript_episode_ids),
-        run_sync(db.get_summary_episode_ids),
-        run_sync(db.get_all_summaries),
     )
     
     if not podcast:
         raise HTTPException(status_code=404, detail="Podcast not found")
     
-    # Build a map of episode_id -> (topics_count, key_points_count)
-    summary_counts = {
-        s.episode_id: (len(s.topics), len(s.key_points))
-        for s in all_summaries
-    }
+    annotations = await run_sync(db.get_episode_annotations, [ep.eid for ep in episodes])
     
     # Build episode list using pre-fetched status sets
     return [
@@ -678,10 +670,7 @@ async def list_podcast_episodes(pid: str, limit: int = Query(50, ge=1, le=200), 
             cover_url="",
             audio_url=ep.audio_url,
             status=ep.status,
-            has_transcript=ep.eid in transcript_ids,
-            has_summary=ep.eid in summary_ids,
-            topics_count=summary_counts.get(ep.eid, (0, 0))[0],
-            key_points_count=summary_counts.get(ep.eid, (0, 0))[1],
+            **annotations.get(ep.eid, {"has_transcript": False, "has_summary": False}),
             created_at=ep.created_at,
         )
         for ep in episodes

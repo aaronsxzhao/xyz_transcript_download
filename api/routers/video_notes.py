@@ -1179,17 +1179,38 @@ def list_recent_tasks(
 
 
 @router.get("/tasks/{task_id}")
-def get_task(task_id: str, user: Optional[User] = Depends(get_current_user)):
+def get_task(task_id: str, view: str = Query("full", pattern="^(full|note)$"), user: Optional[User] = Depends(get_current_user)):
     """Get a video note task with versions."""
     from video_task_db import get_video_task_db
     db = get_video_task_db()
     user_id = user.id if user else None
-    task = db.get_task(task_id, user_id)
+    task = db.get_task(task_id, user_id, include_transcript=view == "full")
     if not task:
         raise HTTPException(status_code=404, detail="Task not found")
-    task["versions"] = db.get_versions(task_id)
+    task["versions"] = db.get_versions(task_id, include_content=view == "full")
     from api.media import sign_media_urls
     return sign_media_urls(task, task_id)
+
+
+@router.get("/tasks/{task_id}/transcript")
+def get_task_transcript(task_id: str, user: User = Depends(get_current_user)):
+    from video_task_db import get_video_task_db
+    task = get_video_task_db().get_task(task_id, user.id)
+    if not task:
+        raise HTTPException(status_code=404, detail="Task not found")
+    return {"transcript": task.get("transcript")}
+
+
+@router.get("/tasks/{task_id}/versions/{version_id}")
+def get_task_version(task_id: str, version_id: str, user: User = Depends(get_current_user)):
+    from video_task_db import get_video_task_db
+    db = get_video_task_db()
+    if not db.get_task(task_id, user.id, include_transcript=False):
+        raise HTTPException(status_code=404, detail="Task not found")
+    version = db.get_version(task_id, version_id)
+    if not version:
+        raise HTTPException(status_code=404, detail="Version not found")
+    return sign_media_urls(version, task_id)
 
 
 @router.delete("/tasks/{task_id}")

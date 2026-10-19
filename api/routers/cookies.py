@@ -257,7 +257,7 @@ def _parse_netscape_cookies(netscape_str: str) -> list[dict]:
 
 
 @router.get("/douyin/diagnose")
-async def douyin_diagnose_cookie(user: Optional[User] = Depends(get_current_user)):
+def douyin_diagnose_cookie(user: Optional[User] = Depends(get_current_user)):
     """Inspect saved Douyin cookies and report whether they look strong enough."""
     from cookie_manager import get_cookie_manager
 
@@ -521,7 +521,7 @@ class BrowserImportRequest(BaseModel):
 
 
 @router.post("/import-browser")
-async def import_browser_cookies(data: BrowserImportRequest, user: Optional[User] = Depends(get_current_user)):
+def import_browser_cookies(data: BrowserImportRequest, user: Optional[User] = Depends(get_current_user)):
     """Extract cookies from a local browser using yt-dlp's cookies_from_browser.
 
     Works when the server runs on the same machine as the browser (local mode).
@@ -649,7 +649,7 @@ class SimpleCookieUpdate(BaseModel):
 
 
 @router.post("/save-simple")
-async def save_simple_cookie(data: SimpleCookieUpdate, user: Optional[User] = Depends(get_current_user)):
+def save_simple_cookie(data: SimpleCookieUpdate, user: Optional[User] = Depends(get_current_user)):
     """Accept a simple 'key=val; key=val' cookie string and save it in Netscape format."""
     domain = PLATFORM_DOMAINS.get(data.platform)
     if not domain:
@@ -767,7 +767,7 @@ async def upload_cookie_file(
 
 
 @router.get("/{platform}")
-async def get_cookie(platform: str, user: Optional[User] = Depends(get_current_user)):
+def get_cookie(platform: str, user: Optional[User] = Depends(get_current_user)):
     """Get cookie status for a platform (does not return actual cookie data for security)."""
     from cookie_manager import get_cookie_manager
     mgr = get_cookie_manager(user.id if user else None)
@@ -780,7 +780,7 @@ async def get_cookie(platform: str, user: Optional[User] = Depends(get_current_u
 
 
 @router.post("")
-async def update_cookie(data: CookieUpdate, user: Optional[User] = Depends(get_current_user)):
+def update_cookie(data: CookieUpdate, user: Optional[User] = Depends(get_current_user)):
     """Set or update cookie for a platform."""
     from cookie_manager import get_cookie_manager
     mgr = get_cookie_manager(user.id if user else None)
@@ -789,7 +789,7 @@ async def update_cookie(data: CookieUpdate, user: Optional[User] = Depends(get_c
 
 
 @router.delete("/{platform}")
-async def delete_cookie(platform: str, user: Optional[User] = Depends(get_current_user)):
+def delete_cookie(platform: str, user: Optional[User] = Depends(get_current_user)):
     """Delete cookie for a platform."""
     from cookie_manager import get_cookie_manager
     mgr = get_cookie_manager(user.id if user else None)
@@ -800,7 +800,7 @@ async def delete_cookie(platform: str, user: Optional[User] = Depends(get_curren
 
 
 @router.get("")
-async def list_cookies(user: Optional[User] = Depends(get_current_user)):
+def list_cookies(user: Optional[User] = Depends(get_current_user)):
     """List all stored platform cookies."""
     from cookie_manager import get_cookie_manager
     mgr = get_cookie_manager(user.id if user else None)

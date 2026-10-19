@@ -77,6 +77,27 @@ class SupabaseDatabase:
     def __init__(self):
         self.client = get_supabase_admin_client()
 
+    def get_episode_annotations(self, user_id: str, episode_ids: List[str]) -> dict:
+        if not self.client or not episode_ids:
+            return {}
+        from concurrent.futures import ThreadPoolExecutor
+        def transcripts():
+            return self.client.table("transcripts").select("episode_id").eq("user_id", user_id).in_("episode_id", episode_ids).execute().data or []
+        def summaries():
+            return self.client.table("summaries").select("episode_id,topics,summary_key_points(count)").eq("user_id", user_id).in_("episode_id", episode_ids).execute().data or []
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            transcript_job, summary_job = pool.submit(transcripts), pool.submit(summaries)
+            transcript_ids = {row["episode_id"] for row in transcript_job.result()}
+            summary_rows = {row["episode_id"]: row for row in summary_job.result()}
+        result = {}
+        for eid in episode_ids:
+            summary = summary_rows.get(eid)
+            counts = (summary or {}).get("summary_key_points") or []
+            result[eid] = {"has_transcript": eid in transcript_ids, "has_summary": summary is not None,
+                           "topics_count": len((summary or {}).get("topics") or []),
+                           "key_points_count": counts[0].get("count", 0) if counts else 0}
+        return result
+
     def get_summary_podcast_metadata(self, user_id: str, episode_ids: List[str]) -> dict:
         if not self.client or not episode_ids:
             return {}
@@ -951,12 +972,13 @@ class SupabaseDatabase:
         fields["updated_at"] = datetime.utcnow().isoformat()
         self.client.table("video_tasks").update(fields).eq("id", task_id).execute()
 
-    def get_video_task(self, task_id: str, user_id: str = None) -> Optional[dict]:
+    def get_video_task(self, task_id: str, user_id: str = None, include_transcript: bool = True) -> Optional[dict]:
         """Get a video task by ID."""
         if not self.client:
             return None
 
-        query = self.client.table("video_tasks").select("*").eq("id", task_id)
+        cols = "*" if include_transcript else "id,user_id,url,platform,title,thumbnail,status,progress,message,markdown,style,model,formats,quality,video_quality,video_understanding,video_interval,grid_cols,grid_rows,duration,error,channel,channel_url,channel_avatar,published_at,created_at,updated_at"
+        query = self.client.table("video_tasks").select(cols).eq("id", task_id)
         if user_id:
             query = query.eq("user_id", user_id)
         result = query.execute()
@@ -1128,19 +1150,25 @@ class SupabaseDatabase:
         }).execute()
         return version_id
 
-    def get_video_task_versions(self, task_id: str) -> List[dict]:
+    def get_video_task_versions(self, task_id: str, include_content: bool = True) -> List[dict]:
         """Get all versions for a video task."""
         if not self.client:
             return []
 
         result = (
             self.client.table("video_task_versions")
-            .select("*")
+            .select("*" if include_content else "id,task_id,style,model_name,created_at")
             .eq("task_id", task_id)
             .order("created_at", desc=True)
             .execute()
         )
         return [dict(r) for r in result.data]
+
+    def get_video_task_version(self, task_id: str, version_id: str) -> Optional[dict]:
+        if not self.client:
+            return None
+        rows = self.client.table("video_task_versions").select("*").eq("task_id", task_id).eq("id", version_id).limit(1).execute().data or []
+        return dict(rows[0]) if rows else None
 
     @staticmethod
     def _video_task_to_dict(row: dict) -> dict:
