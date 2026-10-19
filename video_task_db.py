@@ -266,7 +266,7 @@ class _SQLiteVideoTaskDB:
 
     def get_task(self, task_id: str, user_id: str = None, include_transcript: bool = True) -> Optional[dict]:
         with self._conn() as conn:
-            cols = "*" if include_transcript else "id,user_id,url,platform,title,thumbnail,status,progress,message,markdown,style,model,duration,error,channel,channel_url,channel_avatar,published_at,created_at,updated_at"
+            cols = "*" if include_transcript else "id,user_id,url,platform,title,thumbnail,status,progress,message,markdown,style,model,formats,quality,video_quality,video_understanding,video_interval,grid_cols,grid_rows,duration,error,channel,channel_url,channel_avatar,published_at,created_at,updated_at"
             if user_id:
                 row = conn.execute(
                     f"SELECT {cols} FROM video_tasks WHERE id = ? AND user_id = ?",

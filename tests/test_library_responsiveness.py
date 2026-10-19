@@ -11,7 +11,7 @@ import pytest
 async def test_note_load_excludes_large_transcript_and_historical_content(client):
     from video_task_db import get_video_task_db
     db = get_video_task_db()
-    task_id = db.create_task({"user_id": "local", "url": "fixture://large-note", "platform": "youtube"})
+    task_id = db.create_task({"user_id": "local", "url": "fixture://large-note", "platform": "youtube", "formats": ["summary", "toc"]})
     transcript = {"text": "Synthetic transcript " * 20000, "duration": 30000,
                   "segments": [{"start": i * 4, "end": i * 4 + 4, "text": f"Segment {i} content"} for i in range(7555)]}
     db.update_task(task_id, {"markdown": "# Latest note\n" * 100, "transcript_json": json.dumps(transcript)})
@@ -21,6 +21,7 @@ async def test_note_load_excludes_large_transcript_and_historical_content(client
     assert full.status_code == compact.status_code == 200
     assert len(compact.content) < len(full.content) * 0.05
     assert compact.json()["markdown"] == full.json()["markdown"]
+    assert compact.json()["formats"] == full.json()["formats"] == ["summary", "toc"]
     assert compact.json().get("transcript") is None
     assert all("content" not in version for version in compact.json()["versions"])
     assert (await client.get(f"/api/video-notes/tasks/{task_id}/transcript")).json()["transcript"] == transcript
