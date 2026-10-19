@@ -14,6 +14,8 @@ def safe_log_summary(text: str) -> dict:
         "ModuleNotFoundError", "ImportError", "SyntaxError", "IndentationError",
         "TypeError", "NameError", "AttributeError", "RuntimeError", "ValueError",
         "OSError", "PermissionError", "FileNotFoundError", "MemoryError",
+        "ReadTimeout", "ConnectTimeout", "PoolTimeout", "WriteTimeout",
+        "RemoteProtocolError", "LocalProtocolError", "ConnectError", "ReadError", "APIError",
     ) if name + ":" in text]
     missing = re.findall(r"ModuleNotFoundError: No module named ['\"]([A-Za-z0-9_.]{1,100})['\"]", text)
     missing = [name for name in missing if not name.startswith(("eyJ", "sb_", "ghp_"))]
@@ -31,6 +33,10 @@ def safe_log_summary(text: str) -> dict:
         "tunnel_configuration_error": bool(re.search(r"failed to parse tunnel|error parsing tunnel token", text, re.I)),
         "auth_jwks_failures": text.count("[Auth] Failed to fetch JWKS"),
         "auth_api_failures": text.count("[Auth] Supabase API failed"),
+        "database_error_codes": sorted(set(re.findall(r"\b(?:PGRST[0-9]{3}|42P01|42703|57014|53300)\b", text))),
+        "http2_terminated": text.count("ConnectionTerminated"),
+        "http2_stream_reset": text.count("StreamReset"),
+        "timeout_mentions": len(re.findall(r"ReadTimeout|ConnectTimeout|PoolTimeout|timed out", text)),
     }
 
 
@@ -198,8 +204,8 @@ def profile_library(settings: dict) -> None:
                 continue
             label = report.get("library_profile")
             if label not in {"stats", "podcasts", "recent_summaries", "channels", "queue", "settings",
-                             "podcast_detail", "episodes", "summary", "transcript", "video_detail", "video_note", "empty", "failed",
-                             "live_auth", "live_podcasts", "live_channels", "live_episodes", "live_summary", "live_transcript", "live_unavailable",
+                             "podcast_detail", "episodes", "summary", "transcript", "channel_videos", "reported_episodes", "reported_summary", "video_detail", "video_note", "empty", "failed",
+                             "live_auth", "live_podcasts", "live_channels", "live_episodes", "live_summary", "live_transcript", "live_settings", "live_channel_videos", "live_reported_episodes", "live_reported_summary", "live_unavailable",
                              "browser_dashboard", "browser_podcasts", "browser_videos", "browser_episodes", "browser_viewer"}:
                 continue
             safe = {"library_profile": label}

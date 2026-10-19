@@ -48,7 +48,7 @@ def test_public_probes_only_get_and_keep_credentials_out_of_arguments(monkeypatc
                                                   "time_starttransfer": .2, "size_download": 123}))
     monkeypatch.setattr("scripts.profile_library.subprocess.run", run)
     reports = profile_public_routes("private-owner", [("podcasts", "/api/podcasts"), ("settings", "/api/settings")])
-    assert [r["library_profile"] for r in reports] == ["live_auth", "live_podcasts"]
+    assert [r["library_profile"] for r in reports] == ["live_auth", "live_podcasts", "live_settings"]
     assert all(r["status"] == 200 and r["milliseconds"] == 250 for r in reports)
     for command, kwargs in calls:
         assert "--data" not in command and "--request" not in command
