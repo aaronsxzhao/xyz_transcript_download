@@ -14,11 +14,12 @@ export default defineConfig({
     emptyOutDir: true,
     rollupOptions: {
       output: {
-        manualChunks: {
-          'react-vendor': ['react', 'react-dom', 'react-router-dom'],
-          'markdown': ['react-markdown', 'remark-gfm', 'remark-math', 'rehype-katex', 'rehype-slug'],
-          'syntax': ['react-syntax-highlighter'],
-          'markmap': ['markmap-lib', 'markmap-view'],
+        manualChunks(id) {
+          // CommonJS/JSX helpers belong to the app runtime, otherwise Rollup
+          // pulls the entire viewer dependency chunk into the initial page.
+          if (id.includes('commonjsHelpers') || /\/node_modules\/(react|react-dom|react-router|react-router-dom|scheduler)\//.test(id)) {
+            return 'react-vendor'
+          }
         },
       },
     },

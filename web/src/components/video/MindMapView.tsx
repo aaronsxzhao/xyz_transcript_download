@@ -16,12 +16,17 @@ export default function MindMapView({ markdown }: Props) {
 
     async function initMindMap() {
       try {
-        const { Transformer } = await import('markmap-lib')
-        const { Markmap } = await import('markmap-view')
+        const [{ Transformer }, { Markmap }, { default: katex }, { default: hljs }] = await Promise.all([
+          import('markmap-lib'), import('markmap-view'), import('katex'), import('highlight.js/lib/common'),
+        ])
 
         if (cancelled || !svgRef.current) return
 
+        // Markmap's browser plugins otherwise fetch these from a public CDN.
+        Object.assign(window, { katex, hljs })
+
         const transformer = new Transformer()
+        transformer.md.set({ html: false })
         const { root } = transformer.transform(markdown)
 
         svgRef.current.innerHTML = ''

@@ -10,19 +10,25 @@ let pollTimer: number | undefined
 let reconnectTimer: number | undefined
 let staleTimer: number | undefined
 let lastUpdate = 0
+let lastProgress = 0
 
 const active = (status: string) => !['completed', 'success', 'failed', 'cancelled', 'discovered'].includes(status)
 
 async function pollJobs(owner: number) {
   if (!running || owner !== epoch) return
   try {
-    if (!(ws?.readyState === WebSocket.OPEN && Date.now() - lastUpdate < 10000)) {
+    const state = useStore.getState()
+    const busy = state.jobs.some(job => active(job.status)) || state.videoTasks.some(task => active(task.status))
+    const healthySocket = ws?.readyState === WebSocket.OPEN && Date.now() - lastUpdate < 45000
+    // Reconcile quiet active jobs occasionally in case a progress event was lost.
+    if (document.visibilityState !== 'hidden' && (!healthySocket || (busy && Date.now() - lastProgress > 15000))) {
       const [jobsResponse, tasksResponse] = await Promise.all([
         authFetch('/api/jobs'), authFetch('/api/video-notes/tasks'),
       ])
       const jobs = jobsResponse.ok ? (await jobsResponse.json()).jobs : null
       const tasks = tasksResponse.ok ? (await tasksResponse.json()).tasks : null
       if (!running || owner !== epoch) return
+      lastProgress = Date.now()
       if (jobs) useStore.getState().mergeJobs(jobs)
       if (tasks) useStore.getState().mergeVideoTasks(tasks)
     }
@@ -52,16 +58,20 @@ function openSocket(owner: number) {
       const data = JSON.parse(event.data)
       if (data.type === 'init') {
         lastUpdate = Date.now()
+        lastProgress = lastUpdate
         useStore.getState().setWsConnected(true)
         useStore.getState().mergeJobs(data.jobs || [])
         useStore.getState().mergeVideoTasks(data.video_tasks || [])
       } else if (data.type === 'job_update' && data.job) {
         lastUpdate = Date.now()
+        lastProgress = lastUpdate
         useStore.getState().updateJob(data.job)
       } else if (data.type === 'video_job_update' && data.task) {
         lastUpdate = Date.now()
+        lastProgress = lastUpdate
         useStore.getState().updateVideoTask(data.task)
       } else if (data.type === 'heartbeat') {
+        lastUpdate = Date.now()
         socket.send(JSON.stringify({ type: 'ping' }))
       }
     } catch (error) { console.debug('Invalid progress message:', error) }
@@ -82,7 +92,7 @@ export function connectWebSocket() {
   if (running) return
   running = true
   const owner = ++epoch
-  void pollJobs(owner)
+  pollTimer = window.setTimeout(() => { void pollJobs(owner) }, 5000)
   openSocket(owner)
   staleTimer = window.setInterval(() => {
     const state = useStore.getState()
@@ -101,5 +111,6 @@ export function disconnectWebSocket() {
   ws = null
   if (socket) { socket.onclose = null; socket.close() }
   lastUpdate = 0
+  lastProgress = 0
   useStore.getState().setWsConnected(false)
 }

@@ -32,6 +32,7 @@ security = HTTPBearer(auto_error=False)
 _jwks_cache = {
     "keys": None,
     "fetched_at": 0,
+    "attempted_at": 0,
     "lock": threading.Lock()
 }
 _JWKS_CACHE_TTL = 3600  # Cache JWKS for 1 hour
@@ -80,11 +81,15 @@ def _get_cached_jwks(force_refresh: bool = False) -> Optional[dict]:
     now = time.time()
     
     with _jwks_cache["lock"]:
+        # Failed/empty key endpoints must not serialize every request on a fetch.
+        if now - _jwks_cache.get("attempted_at", 0) < 30:
+            return _jwks_cache["keys"]
         # Check if cache is valid
-        if not force_refresh and _jwks_cache["keys"] and (now - _jwks_cache["fetched_at"]) < _JWKS_CACHE_TTL:
+        if not force_refresh and _jwks_cache["keys"] is not None and (now - _jwks_cache["fetched_at"]) < _JWKS_CACHE_TTL:
             return _jwks_cache["keys"]
         
         # Fetch new JWKS
+        _jwks_cache["attempted_at"] = now
         jwks = _fetch_jwks()
         if jwks:
             _jwks_cache["keys"] = jwks
@@ -162,23 +167,34 @@ def verify_jwt_token(token: str) -> Optional[dict]:
         logger.debug("verify_jwt_token: USE_SUPABASE is False, returning None")
         return None
     
-    # Try JWKS/ES256 first (new Supabase projects use this)
-    jwks = _get_cached_jwks()
-    if jwks:
+    from jose import jwt
+    try:
+        header = jwt.get_unverified_header(token)
+    except Exception:
+        return None
+    algorithm = header.get("alg")
+    if algorithm not in {"HS256", "ES256", "RS256"}:
+        return None
+
+    # Symmetric tokens cannot be verified with public JWKS keys.
+    jwks = _get_cached_jwks() if algorithm != "HS256" else None
+    if jwks is not None:
         payload = _verify_with_jwks(token, jwks)
         if payload:
             return payload
         
-        # If verification failed, try refreshing JWKS (key might have rotated)
-        logger.debug("[Auth] JWKS verification failed, refreshing keys")
-        jwks = _get_cached_jwks(force_refresh=True)
-        if jwks:
-            payload = _verify_with_jwks(token, jwks)
-            if payload:
-                return payload
+        # Refresh only for an unknown key; expired/invalid tokens need no network.
+        if not any(key.get("kid") == header.get("kid") for key in jwks.get("keys", [])):
+            jwks = _get_cached_jwks(force_refresh=True)
+            if jwks:
+                payload = _verify_with_jwks(token, jwks)
+                if payload:
+                    return payload
+        if jwks and any(key.get("kid") == header.get("kid") for key in jwks.get("keys", [])):
+            return None
     
     # Try HS256 with legacy JWT secret (older projects)
-    if SUPABASE_JWT_SECRET:
+    if algorithm == "HS256" and SUPABASE_JWT_SECRET:
         try:
             from jose import jwt
             logger.debug("[Auth] Trying HS256 with legacy JWT secret")
@@ -192,6 +208,7 @@ def verify_jwt_token(token: str) -> Optional[dict]:
             return payload
         except Exception as e:
             logger.debug(f"[Auth] HS256 failed: {type(e).__name__}")
+            return None
     
     # Last resort: Supabase API (slowest but always works)
     try:

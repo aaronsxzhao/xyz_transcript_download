@@ -12,7 +12,6 @@ import {
   signIn as authSignIn,
   signUp as authSignUp,
   signOut as authSignOut,
-  getStoredUser,
   isAuthenticated,
 } from '../lib/auth'
 
@@ -58,7 +57,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setAuthError('')
       try {
         // First check if auth is enabled
-        const config = await getAuthConfig()
+        const [config, currentUser] = await Promise.all([
+          getAuthConfig(),
+          isAuthenticated() ? getCurrentUser() : Promise.resolve(null),
+        ])
         if (!active) return
         setAuthEnabled(config.supabase_enabled)
 
@@ -69,26 +71,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           return
         }
 
-        // Check if we have stored tokens
-        if (isAuthenticated()) {
-          // Try to get current user
-          const currentUser = await getCurrentUser()
-          if (!active) return
-          if (currentUser) {
-            setUser(currentUser)
-          } else {
-            // Token expired or invalid
-            setUser(null)
-          }
-        } else {
-          // Check for stored user (for quick UI)
-          const stored = getStoredUser()
-          if (stored) {
-            // Verify with server
-            const currentUser = await getCurrentUser()
-            if (active) setUser(currentUser)
-          }
-        }
+        setUser(currentUser)
       } catch (error) {
         if (!active) return
         console.error('Auth check failed:', error)

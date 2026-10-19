@@ -158,6 +158,8 @@ def inspect_containers() -> None:
                 "GROQ_API_KEY", "LLM_API_KEY", "LLM_BASE_URL", "SUPABASE_JWT_SECRET",
             )
         }}))
+        if settings.get("GROQ_API_KEY"):
+            probe_groq_summary(settings["GROQ_API_KEY"])
         for previous in (False, True):
             with tempfile.TemporaryDirectory() as directory:
                 path = Path(directory) / "container.log"
@@ -172,6 +174,29 @@ def inspect_containers() -> None:
                 else:
                     result["logs_available"] = False
                 print(json.dumps(result))
+
+
+def probe_groq_summary(api_key: str) -> None:
+    """Verify the existing key with synthetic content; never log response bodies."""
+    payload = {"model": "openai/gpt-oss-120b", "messages": [
+        {"role": "user", "content": 'Reply with JSON: {"ok":true}'}
+    ], "response_format": {"type": "json_object"}, "max_completion_tokens": 1024, "reasoning_effort": "low"}
+    request = urllib.request.Request("https://api.groq.com/openai/v1/chat/completions",
+                                     data=json.dumps(payload).encode(), headers={
+                                         "Authorization": "Bearer " + api_key,
+                                         "Content-Type": "application/json", "User-Agent": "podcast-provider-check/1.0",
+                                     })
+    report = {"summary_provider_probe": "groq", "model": payload["model"]}
+    try:
+        with urllib.request.urlopen(request, timeout=30) as response:
+            data = json.load(response)
+            content = data["choices"][0]["message"]["content"]
+            report.update(http_status=response.status, valid_json=isinstance(json.loads(content), dict))
+    except urllib.error.HTTPError as error:
+        report.update(http_status=error.code, valid_json=False)
+    except Exception as error:
+        report.update(error_type=type(error).__name__, valid_json=False)
+    print(json.dumps(report))
 
 
 if __name__ == "__main__":

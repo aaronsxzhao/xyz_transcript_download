@@ -77,6 +77,19 @@ class SupabaseDatabase:
     def __init__(self):
         self.client = get_supabase_admin_client()
 
+    def get_summary_podcast_metadata(self, user_id: str, episode_ids: List[str]) -> dict:
+        if not self.client or not episode_ids:
+            return {}
+        metadata = {}
+        for offset in range(0, len(episode_ids), 100):
+            rows = (self.client.table("episodes").select("eid, podcasts(title, cover_url)")
+                    .eq("user_id", user_id).eq("podcasts.user_id", user_id)
+                    .in_("eid", episode_ids[offset:offset + 100]).execute().data or [])
+            for row in rows:
+                podcast = row.get("podcasts") or {}
+                metadata[row["eid"]] = (podcast.get("title", ""), podcast.get("cover_url", ""))
+        return metadata
+
     def get_subscription_user_ids(self) -> list[str]:
         """Enumerate subscription owners for the server's scheduled update job."""
         if not self.client:
@@ -648,7 +661,7 @@ class SupabaseDatabase:
             max_retries = 3
             for attempt in range(max_retries):
                 try:
-                    result = self.client.table(table).select("id", count="exact").eq("user_id", user_id).execute()
+                    result = self.client.table(table).select("id", count="exact", head=True).eq("user_id", user_id).execute()
                     return result.count or 0
                 except Exception as e:
                     if attempt < max_retries - 1:
@@ -788,7 +801,7 @@ class SupabaseDatabase:
             return 0
         result = (
             self.client.table("video_tasks")
-            .select("id", count="exact")
+            .select("id", count="exact", head=True)
             .eq("user_id", user_id)
             .eq("channel", channel)
             .execute()
@@ -1057,13 +1070,13 @@ class SupabaseDatabase:
             return {"total": 0, "completed": 0}
         total_r = (
             self.client.table("video_tasks")
-            .select("id", count="exact")
+            .select("id", count="exact", head=True)
             .eq("user_id", user_id)
             .execute()
         )
         done_r = (
             self.client.table("video_tasks")
-            .select("id", count="exact")
+            .select("id", count="exact", head=True)
             .eq("user_id", user_id)
             .eq("status", "success")
             .execute()

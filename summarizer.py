@@ -250,6 +250,10 @@ class Summarizer:
         self.api_key = api_key or LLM_API_KEY
         self.base_url = base_url or LLM_BASE_URL
         self.model = model or LLM_MODEL
+        self._groq = self.base_url.rstrip('/') == "https://api.groq.com/openai/v1"
+        # Groq GPT-OSS has a 131K-token context. Leave room for Chinese text,
+        # the complete prompts, and a detailed output, independent of plan limits.
+        self.chunk_chars = 30000 if self._groq else SUMMARIZER_CHUNK_CHARS
         
         if not self.api_key:
             raise ValueError("LLM API key is required for summarization")
@@ -292,7 +296,7 @@ class Summarizer:
         # Use chunked summarization if:
         # 1. Duration > 1 hour (1 chunk per hour), OR
         # 2. Text exceeds max chars (fallback for unknown duration)
-        use_chunking = duration_hours > 1.0 or len(transcript_text) > SUMMARIZER_MAX_CHARS
+        use_chunking = duration_hours > 1.0 or len(transcript_text) > (self.chunk_chars if self._groq else SUMMARIZER_MAX_CHARS)
         
         if use_chunking:
             num_chunks = max(1, int(duration_hours + 0.5)) if duration > 0 else None  # Round to nearest hour
@@ -357,6 +361,9 @@ class Summarizer:
             return None
         except Exception as e:
             logger.error(f"Summarization failed: {e}")
+            if self._groq and "cancel" not in type(e).__name__.lower():
+                from api.llm_settings import safe_provider_error
+                raise RuntimeError(safe_provider_error(e)) from None
             return None
 
     @retry(
@@ -430,10 +437,10 @@ class Summarizer:
         segments = transcript.segments
         duration = transcript.duration or 0
         
-        if not segments:
+        if self._groq or not segments:
             # Fall back to text splitting - estimate 1 hour ≈ 15000 chars
             text = transcript.text
-            chunk_length = SUMMARIZER_CHUNK_CHARS
+            chunk_length = self.chunk_chars
             chunks = [text[i:i+chunk_length] for i in range(0, len(text), chunk_length)]
         else:
             # Duration-based chunking: 1 hour = 1 chunk
@@ -485,6 +492,9 @@ class Summarizer:
                 chunk_summaries.append(summary)
                 # Estimate chars generated for this chunk
                 total_chars_generated += 2000  # rough estimate per chunk
+            else:
+                # An incomplete episode must not replace the previous summary.
+                return None
 
         if not chunk_summaries:
             return None
@@ -686,7 +696,7 @@ def merge_summaries(fast_summary: Summary, accurate_summary: Summary) -> Summary
 _summarizer: Optional[Summarizer] = None
 
 
-def get_summarizer(model: Optional[str] = None) -> Summarizer:
+def get_summarizer(model: Optional[str] = None, *, api_key: str = "", base_url: str = "") -> Summarizer:
     """
     Get or create a Summarizer instance.
     
@@ -699,8 +709,8 @@ def get_summarizer(model: Optional[str] = None) -> Summarizer:
     """
     global _summarizer
     
-    if model is not None:
-        return Summarizer(model=model)
+    if model is not None or api_key or base_url:
+        return Summarizer(model=model, api_key=api_key, base_url=base_url)
     
     if _summarizer is None:
         _summarizer = Summarizer()

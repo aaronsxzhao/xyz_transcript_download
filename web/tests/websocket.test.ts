@@ -45,3 +45,30 @@ it('ignores late progress messages from the previous account', () => {
   expect(useStore.getState().jobs).toEqual([])
   expect(FakeSocket.instances).toHaveLength(2)
 })
+
+it('uses socket heartbeats to avoid redundant idle database polls', async () => {
+  connectWebSocket()
+  const socket = FakeSocket.instances[0]
+  socket.onmessage!({ data: JSON.stringify({ type: 'init', jobs: [], video_tasks: [] }) })
+  for (let i = 0; i < 8; i++) {
+    await vi.advanceTimersByTimeAsync(15000)
+    socket.onmessage!({ data: JSON.stringify({ type: 'heartbeat' }) })
+  }
+  expect(fetch).not.toHaveBeenCalled()
+})
+
+it('reconciles active jobs when a completion event was missed', async () => {
+  vi.spyOn(document, 'visibilityState', 'get').mockReturnValue('visible')
+  vi.stubGlobal('fetch', vi.fn(async (url: string) => Response.json(url.endsWith('/jobs')
+    ? { jobs: [{ job_id: 'quiet-job', status: 'completed' }] } : { tasks: [] })))
+  connectWebSocket()
+  const socket = FakeSocket.instances[0]
+  socket.onmessage!({ data: JSON.stringify({ type: 'init', jobs: [{ job_id: 'quiet-job', status: 'pending' }], video_tasks: [] }) })
+  for (let i = 0; i < 8; i++) {
+    await vi.advanceTimersByTimeAsync(3000)
+    socket.onmessage!({ data: JSON.stringify({ type: 'heartbeat' }) })
+  }
+  expect(useStore.getState().jobs.find(job => job.job_id === 'quiet-job')?.status).toBe('completed')
+  expect(fetch).toHaveBeenCalledTimes(2)
+  vi.restoreAllMocks()
+})

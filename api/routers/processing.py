@@ -422,6 +422,8 @@ def process_episode_sync(job_id: str, episode_url: str, transcribe_only: bool = 
         preferences = get_user_settings(user_id)
         whisper_model = whisper_model or preferences.get("whisper_model")
         llm_model = llm_model or preferences.get("llm_model")
+        from api.llm_settings import resolve_llm_settings
+        llm_settings = resolve_llm_settings(preferences, llm_model) if not transcribe_only else {}
         client = get_client()
         
         db_interface = get_db(user_id)
@@ -680,7 +682,7 @@ def process_episode_sync(job_id: str, episode_url: str, transcribe_only: bool = 
             if transcribe_only:
                 update_job_status(job_id, "completed", 100, "Transcript already available")
                 return
-            summarizer = get_summarizer(model=llm_model)
+            summarizer = get_summarizer(**llm_settings)
             # Check for cancellation before starting
             if is_job_cancelled(job_id):
                 update_job_status(job_id, "cancelled", 70, "Cancelled")
@@ -825,7 +827,7 @@ def process_episode_sync(job_id: str, episode_url: str, transcribe_only: bool = 
         
         # ===== PHASE 5: Summarize (70-95%) =====
         update_job_status(job_id, "summarizing", 75, "Generating summary...")
-        summarizer = get_summarizer(model=llm_model)
+        summarizer = get_summarizer(**llm_settings)
         
         # Progress callback for summarization with cancellation check
         last_summary_progress = [75]
@@ -1433,7 +1435,7 @@ async def websocket_progress(websocket: WebSocket, token: Optional[str] = None):
             from video_task_db import get_video_task_db
             video_db = get_video_task_db()
             from api.media import sign_media_urls
-            video_tasks = sign_media_urls(video_db.list_tasks(user_id))
+            video_tasks = sign_media_urls(await asyncio.to_thread(video_db.list_tasks, user_id))
             video_tasks = [
                 task for task in video_tasks
                 if task.get("status") not in ("success", "failed", "cancelled", "discovered")

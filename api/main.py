@@ -221,7 +221,7 @@ async def startup_event():
             logger.info("[Auth] Legacy JWT secret: not configured")
         # Pre-fetch JWKS for faster first request
         logger.info("[Auth] Pre-fetching JWKS keys...")
-        jwks = _get_cached_jwks()
+        jwks = await asyncio.to_thread(_get_cached_jwks)
         if jwks:
             logger.info(f"[Auth] JWKS keys cached ({len(jwks.get('keys', []))} keys)")
         else:
@@ -333,7 +333,13 @@ async def generated_media(folder: str, filename: str, expires: int = Query(0), s
 frontend_dist = Path(__file__).parent.parent / "web" / "dist"
 if frontend_dist.exists():
     # Mount static assets
-    app.mount("/assets", StaticFiles(directory=str(frontend_dist / "assets")), name="assets")
+    class VersionedStaticFiles(StaticFiles):
+        async def get_response(self, path, scope):
+            response = await super().get_response(path, scope)
+            response.headers["Cache-Control"] = "public, max-age=31536000, immutable"
+            return response
+
+    app.mount("/assets", VersionedStaticFiles(directory=str(frontend_dist / "assets")), name="assets")
 
 
 @app.get("/api/health")
@@ -553,7 +559,7 @@ async def image_proxy(url: str):
 
 
 @app.get("/api/stats")
-async def get_stats(user: Optional["User"] = Depends(get_current_user)):
+def get_stats(user: Optional["User"] = Depends(get_current_user)):
     """Get dashboard statistics."""
     from api.db import get_db
     from video_task_db import get_video_task_db
@@ -583,20 +589,23 @@ async def get_settings(user: User = Depends(get_current_user)):
     """Get current settings."""
     from config import (
         WHISPER_MODE, WHISPER_BACKEND,
-        WHISPER_DEVICE, CHECK_INTERVAL
+        WHISPER_DEVICE, WHISPER_API_PROVIDER, CHECK_INTERVAL
     )
     
     from api.user_settings import get_user_settings
+    from api.llm_settings import provider_status
     try:
         runtime = await asyncio.to_thread(get_user_settings, user.id)
     except Exception:
         raise HTTPException(status_code=503, detail="Account settings unavailable. Check the user settings database migration.")
     
     return {
+        **provider_status(runtime),
         "whisper_mode": WHISPER_MODE,
         "whisper_model": runtime.get("whisper_model", "whisper-large-v3-turbo"),
         "whisper_backend": WHISPER_BACKEND,
         "whisper_device": WHISPER_DEVICE,
+        "whisper_provider": WHISPER_API_PROVIDER,
         "llm_model": runtime.get("llm_model", "openrouter/openai/gpt-4o"),
         "check_interval": CHECK_INTERVAL,
     }
@@ -607,17 +616,35 @@ async def update_settings(settings: dict, user: User = Depends(get_current_user)
     """Update this account's model preferences."""
     from api.user_settings import save_user_settings
     
-    allowed_keys = {"whisper_model", "llm_model"}
+    allowed_keys = {"whisper_model", "llm_model", "llm_provider"}
     filtered = {k: v for k, v in settings.items() if k in allowed_keys}
     
     if any(not isinstance(v, str) or len(v) > 200 for v in filtered.values()):
         raise HTTPException(status_code=422, detail="Model names must be strings of at most 200 characters")
+    if filtered.get("llm_provider", "server") not in {"server", "groq"}:
+        raise HTTPException(status_code=422, detail="Choose a supported summary provider")
     try:
         await asyncio.to_thread(save_user_settings, user.id, filtered)
     except Exception:
         raise HTTPException(status_code=503, detail="Could not save account settings. Check the user settings database migration.")
     
     return {"message": "Settings updated successfully"}
+
+
+@app.post("/api/settings/test-llm")
+def test_llm_connection(settings: dict, user: User = Depends(get_current_user)):
+    """Verify the selected summary provider without processing private content."""
+    from api.llm_settings import test_summary_connection, safe_provider_error
+    from api.user_settings import get_user_settings
+    provider = settings.get("llm_provider", "server")
+    model = settings.get("llm_model", "")
+    if not isinstance(provider, str) or provider not in {"server", "groq"} or not isinstance(model, str) or len(model) > 200:
+        raise HTTPException(status_code=422, detail="Choose a supported summary provider and model")
+    preferences = {**get_user_settings(user.id), "llm_provider": provider, "llm_model": model}
+    try:
+        return test_summary_connection(preferences)
+    except Exception as error:
+        raise HTTPException(status_code=502, detail=safe_provider_error(error))
 
 
 # Serve React frontend for all non-API routes (must be last)
@@ -636,11 +663,12 @@ async def serve_frontend(path: str):
     if not file_path.is_relative_to(frontend_dist):
         raise HTTPException(status_code=404, detail="Not found")
     if file_path.exists() and file_path.is_file():
-        return FileResponse(file_path)
+        cache_control = "public, max-age=31536000, immutable" if path.startswith("assets/") else "no-cache"
+        return FileResponse(file_path, headers={"Cache-Control": cache_control})
     
     # Otherwise serve index.html for client-side routing
     index_path = frontend_dist / "index.html"
     if index_path.exists():
-        return FileResponse(index_path)
+        return FileResponse(index_path, headers={"Cache-Control": "no-cache"})
     
     return {"error": "Frontend not found"}

@@ -1,12 +1,11 @@
-import { useState } from 'react'
+import { lazy, Suspense, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import remarkMath from 'remark-math'
 import rehypeKatex from 'rehype-katex'
 import rehypeSlug from 'rehype-slug'
-import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter'
-import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism'
+import 'katex/dist/katex.min.css'
 import {
   AlertCircle, Loader2, RotateCcw, Square,
   Play, ExternalLink, X, ImageIcon, FileText,
@@ -14,6 +13,8 @@ import {
 import StepBar from './StepBar'
 import YouTubeCookieGuide from './YouTubeCookieGuide'
 import type { VideoTask } from '../../lib/api'
+
+const HighlightedCode = lazy(() => import('./HighlightedCode'))
 
 interface Props {
   task: VideoTask | null
@@ -243,18 +244,9 @@ export default function MarkdownPreview({ task }: Props) {
                   const codeStr = String(children).replace(/\n$/, '')
                   if (match) {
                     return (
-                      <SyntaxHighlighter
-                        style={vscDarkPlus}
-                        language={match[1]}
-                        PreTag="div"
-                        customStyle={{
-                          margin: 0,
-                          borderRadius: '0.5rem',
-                          fontSize: '0.8125rem',
-                        }}
-                      >
-                        {codeStr}
-                      </SyntaxHighlighter>
+                      <Suspense fallback={<code className={className}>{codeStr}</code>}>
+                        <HighlightedCode language={match[1]}>{codeStr}</HighlightedCode>
+                      </Suspense>
                     )
                   }
                   return (

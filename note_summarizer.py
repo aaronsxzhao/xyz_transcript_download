@@ -217,6 +217,8 @@ class NoteSummarizer:
         self.api_key = api_key or LLM_API_KEY
         self.base_url = base_url or LLM_BASE_URL
         self.model = model or LLM_MODEL
+        self._groq = self.base_url.rstrip('/') == "https://api.groq.com/openai/v1"
+        self.chunk_chars = NOTE_CHUNK_CHARS
 
         if not self.api_key:
             raise ValueError("LLM API key is required for note generation")
@@ -255,7 +257,7 @@ class NoteSummarizer:
         )
 
         try:
-            if transcript_len > NOTE_CHUNK_CHARS:
+            if transcript_len > self.chunk_chars:
                 result = self._generate_chunked(
                     title, transcript_text, style, formats,
                     visual_context, tags, extras, progress_callback,
@@ -281,6 +283,9 @@ class NoteSummarizer:
             if "cancel" in type(e).__name__.lower() or "cancel" in str(e).lower():
                 raise
             logger.error(f"Note generation failed: {e}")
+            if self._groq:
+                from api.llm_settings import safe_provider_error
+                raise RuntimeError(safe_provider_error(e)) from None
             return None
 
     def _generate_single(
@@ -356,7 +361,7 @@ class NoteSummarizer:
                 if "cancel" in type(e).__name__.lower() or "cancel" in str(e).lower():
                     raise
                 logger.error(f"Chunk {i + 1}/{num_chunks} failed: {e}")
-                continue
+                raise
 
             if result:
                 chunk_results.append(result)
@@ -370,20 +375,20 @@ class NoteSummarizer:
 
     def _split_transcript(self, text: str) -> List[str]:
         """Split transcript text into chunks at sentence boundaries."""
-        if len(text) <= NOTE_CHUNK_CHARS:
+        if len(text) <= self.chunk_chars:
             return [text]
 
         chunks = []
         start = 0
         while start < len(text):
-            end = start + NOTE_CHUNK_CHARS
+            end = start + self.chunk_chars
             if end >= len(text):
                 chunks.append(text[start:])
                 break
 
             split_at = end
             for sep in ["。", ".", "\n\n", "\n", "，", ", ", " "]:
-                pos = text.rfind(sep, start + NOTE_CHUNK_CHARS // 2, end)
+                pos = text.rfind(sep, start + self.chunk_chars // 2, end)
                 if pos != -1:
                     split_at = pos + len(sep)
                     break
@@ -564,11 +569,11 @@ class NoteSummarizer:
 _note_summarizer: Optional[NoteSummarizer] = None
 
 
-def get_note_summarizer(model: str = "") -> NoteSummarizer:
+def get_note_summarizer(model: str = "", *, api_key: str = "", base_url: str = "") -> NoteSummarizer:
     """Get or create a NoteSummarizer instance, reusing the existing LLM config."""
     global _note_summarizer
-    if model:
-        return NoteSummarizer(model=model)
+    if model or api_key or base_url:
+        return NoteSummarizer(model=model, api_key=api_key, base_url=base_url)
     if _note_summarizer is None:
         _note_summarizer = NoteSummarizer()
     return _note_summarizer

@@ -121,6 +121,23 @@ class DatabaseInterface:
         return self._db
     
     # ==================== Podcasts ====================
+
+    def get_summary_podcast_metadata(self, episode_ids: List[str]) -> dict:
+        """Resolve all summary cards' podcast metadata in one cloud query."""
+        if self._anonymous_supabase:
+            return {}
+        if self.use_supabase:
+            return self.db.get_summary_podcast_metadata(self.user_id, episode_ids)
+        result, podcasts = {}, {}
+        for eid in episode_ids:
+            episode = self.get_episode(eid)
+            if episode:
+                if episode.pid not in podcasts:
+                    podcasts[episode.pid] = self.get_podcast(episode.pid)
+                podcast = podcasts[episode.pid]
+                if podcast:
+                    result[eid] = (podcast.title, podcast.cover_url)
+        return result
     
     def get_all_podcasts(self) -> List[PodcastData]:
         """Get all podcasts."""
