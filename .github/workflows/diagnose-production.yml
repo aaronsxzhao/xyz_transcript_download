@@ -6,6 +6,7 @@ on:
     paths:
       - '.github/workflows/diagnose-production.yml'
       - 'scripts/diagnose_deployment.py'
+      - 'scripts/profile_library.py'
   workflow_dispatch:
   workflow_run:
     workflows: ['Deploy to Oracle Cloud']
@@ -31,7 +32,7 @@ jobs:
           OCI_CLI_REGION: us-ashburn-1
           OCI_PRIVATE_KEY: ${{ secrets.OCI_PRIVATE_KEY }}
         run: |
-          pip install oci-cli
+          pip install oci-cli -r requirements-cloud.txt
           mkdir -p ~/.oci
           printf '%s\n' "$OCI_PRIVATE_KEY" > ~/.oci/key.pem
           chmod 600 ~/.oci/key.pem
