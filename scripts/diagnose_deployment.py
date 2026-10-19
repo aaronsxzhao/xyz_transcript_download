@@ -160,6 +160,7 @@ def inspect_containers() -> None:
         }}))
         if settings.get("GROQ_API_KEY"):
             probe_groq_summary(settings["GROQ_API_KEY"])
+        profile_library(settings)
         for previous in (False, True):
             with tempfile.TemporaryDirectory() as directory:
                 path = Path(directory) / "container.log"
@@ -174,6 +175,31 @@ def inspect_containers() -> None:
                 else:
                     result["logs_available"] = False
                 print(json.dumps(result))
+
+
+def profile_library(settings: dict) -> None:
+    bindings = {key: value for key, value in settings.items() if key.startswith("SUPABASE_") or key in {
+        "GROQ_API_KEY", "LLM_API_KEY", "LLM_BASE_URL", "LLM_MODEL", "USE_SUPABASE",
+    }}
+    with tempfile.TemporaryDirectory() as directory:
+        environment = {**os.environ, **bindings, "XYZ_DATA_DIR": directory,
+                       "DISCORD_WEBHOOK_URL": "", "WHISPER_MODE": "api", "PYTHONPATH": "."}
+        result = subprocess.run(["python", "scripts/profile_library.py"], env=environment,
+                                capture_output=True, text=True, timeout=240)
+        # Child output is still whitelisted so future logging cannot leak data.
+        for line in result.stdout.splitlines():
+            try:
+                report = json.loads(line)
+            except ValueError:
+                continue
+            label = report.get("library_profile")
+            if label not in {"stats", "podcasts", "recent_summaries", "channels", "queue", "settings",
+                             "podcast_detail", "episodes", "summary", "transcript", "video_detail", "video_note", "empty", "failed"}:
+                continue
+            safe = {"library_profile": label}
+            safe.update({key: report[key] for key in ("milliseconds", "database_requests", "response_bytes", "gzip_bytes", "status")
+                         if isinstance(report.get(key), int) and 0 <= report[key] <= 10**9})
+            print(json.dumps(safe))
 
 
 def probe_groq_summary(api_key: str) -> None:
