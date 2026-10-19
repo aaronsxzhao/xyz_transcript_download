@@ -2,11 +2,23 @@
  * API client for backend communication
  */
 
-import { getAccessToken, getAuthGeneration, refreshToken } from './auth'
+import { getAccessToken, getAuthGeneration, getRefreshToken, accessTokenNeedsRefresh, refreshToken } from './auth'
 import { getPreference } from './preferences'
+import { clearCache } from './cache'
 
 const API_BASE = '/api'
 const UNKNOWN_CHANNEL_SENTINEL = '__unknown__'
+const pendingReads = new Map<string, Promise<unknown>>()
+
+function readJson<T>(url: string, operation: string): Promise<T> {
+  const key = `${getAuthGeneration()}:${url}`
+  const existing = pendingReads.get(key)
+  if (existing) return existing as Promise<T>
+  const request = authFetch(url).then(response => parseApiResponseAsJson<T>(response, operation))
+    .finally(() => { if (pendingReads.get(key) === request) pendingReads.delete(key) })
+  pendingReads.set(key, request)
+  return request
+}
 
 /** Dev-only visibility for swallowed parse errors (non-fatal fallbacks). */
 function logIgnoredJsonError(context: string, err: unknown): void {
@@ -67,11 +79,18 @@ async function parseApiResponseAsJson<T>(res: Response, operation: string): Prom
 export async function authFetch(url: string, options: RequestInit = {}): Promise<Response> {
   const ownerGeneration = getAuthGeneration()
   const headers = new Headers(options.headers)
-  const token = getAccessToken()
+  let token = getAccessToken()
+  if (accessTokenNeedsRefresh(token) && getRefreshToken()) {
+    token = (await refreshToken())?.access_token || null
+    if (ownerGeneration !== getAuthGeneration()) throw new DOMException('Account changed', 'AbortError')
+  }
   if (token) headers.set('Authorization', `Bearer ${token}`)
+  const mutating = !['GET', 'HEAD'].includes((options.method || 'GET').toUpperCase())
+  if (mutating) pendingReads.clear()
   
   const res = await fetch(url, { ...options, headers })
   if (ownerGeneration !== getAuthGeneration()) throw new DOMException('Account changed', 'AbortError')
+  if (mutating && res.ok) clearCache()
 
   if (res.status === 401) {
     const tokens = await refreshToken()
@@ -80,6 +99,7 @@ export async function authFetch(url: string, options: RequestInit = {}): Promise
       headers.set('Authorization', `Bearer ${tokens.access_token}`)
       const retry = await fetch(url, { ...options, headers })
       if (ownerGeneration !== getAuthGeneration()) throw new DOMException('Account changed', 'AbortError')
+      if (mutating && retry.ok) clearCache()
       return retry
     }
   }
@@ -195,9 +215,7 @@ export async function fetchStats(): Promise<Stats> {
 }
 
 export async function fetchPodcasts(): Promise<Podcast[]> {
-  const res = await authFetch(`${API_BASE}/podcasts`)
-  if (!res.ok) throw new Error('Failed to fetch podcasts')
-  return res.json()
+  return readJson(`${API_BASE}/podcasts`, 'Failed to fetch podcasts')
 }
 
 export async function addPodcast(url: string): Promise<Podcast> {
@@ -350,15 +368,11 @@ export async function removePodcast(pid: string): Promise<void> {
 }
 
 export async function fetchPodcast(pid: string): Promise<Podcast> {
-  const res = await authFetch(`${API_BASE}/podcasts/${pid}`)
-  if (!res.ok) throw new Error('Failed to fetch podcast')
-  return res.json()
+  return readJson(`${API_BASE}/podcasts/${pid}`, 'Failed to fetch podcast')
 }
 
 export async function fetchEpisodes(pid: string, offset = 0, limit = 50): Promise<Episode[]> {
-  const res = await authFetch(`${API_BASE}/podcasts/${pid}/episodes?offset=${offset}&limit=${limit}`)
-  if (!res.ok) throw new Error('Failed to fetch episodes')
-  return res.json()
+  return readJson(`${API_BASE}/podcasts/${pid}/episodes?offset=${offset}&limit=${limit}`, 'Failed to fetch episodes')
 }
 
 export async function fetchEpisode(eid: string): Promise<Episode> {
@@ -378,15 +392,11 @@ export async function fetchRecentSummaries(limit: number = 6): Promise<SummaryLi
 }
 
 export async function fetchSummary(eid: string): Promise<Summary> {
-  const res = await authFetch(`${API_BASE}/summaries/${eid}`)
-  if (!res.ok) throw new Error('Failed to fetch summary')
-  return res.json()
+  return readJson(`${API_BASE}/summaries/${eid}`, 'Failed to fetch summary')
 }
 
 export async function fetchTranscript(eid: string): Promise<Transcript> {
-  const res = await authFetch(`${API_BASE}/transcripts/${eid}`)
-  if (!res.ok) throw new Error('Failed to fetch transcript')
-  return res.json()
+  return readJson(`${API_BASE}/transcripts/${eid}`, 'Failed to fetch transcript')
 }
 
 export async function processEpisode(

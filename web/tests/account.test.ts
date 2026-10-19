@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { beforeEach, afterEach, describe, expect, it, vi } from 'vitest'
-import { authFetch } from '../src/lib/api'
+import { authFetch, fetchPodcasts } from '../src/lib/api'
 import { clearTokens, getAccessToken, getAuthConfig, refreshToken, signIn } from '../src/lib/auth'
 import { getCache, setCache } from '../src/lib/cache'
 import { getAccountId, getPreference, setPreference } from '../src/lib/preferences'
@@ -38,6 +38,19 @@ describe('account isolation', () => {
 })
 
 describe('session refresh', () => {
+  it('refreshes an expired JWT before sending parallel reads instead of waiting for 401s', async () => {
+    const expired = `e30.${btoa(JSON.stringify({ exp: Math.floor(Date.now() / 1000) - 60 }))}.signature`
+    seed('owner-a', expired)
+    const fetch = vi.fn(async (url: string, options: RequestInit = {}) => {
+      if (url.endsWith('/auth/refresh')) return Response.json({ access_token: 'new', refresh_token: 'next', user_id: 'owner-a', email: 'a@example.com' })
+      expect(new Headers(options.headers).get('Authorization')).toBe('Bearer new')
+      return Response.json({ ok: true })
+    })
+    vi.stubGlobal('fetch', fetch)
+    await Promise.all([authFetch('/api/podcasts'), authFetch('/api/jobs')])
+    expect(fetch).toHaveBeenCalledTimes(3)
+    expect(fetch.mock.calls.filter(([url]) => url.endsWith('/auth/refresh'))).toHaveLength(1)
+  })
   it('refreshes once for concurrent expired requests and retries with the new token', async () => {
     seed('owner-a')
     const fetch = vi.fn(async (url: string, options: RequestInit = {}) => {
@@ -74,4 +87,30 @@ describe('session refresh', () => {
     finish(Response.json([{ title: 'Private A show' }]))
     await expect(response).rejects.toMatchObject({ name: 'AbortError' })
   })
+})
+
+it('shares an overlapping library read and invalidates cached data after a successful mutation', async () => {
+  seed('owner-a')
+  setCache('previous-summary', 'old note')
+  const fetch = vi.fn(async (url: string) => Response.json(url === '/api/podcasts' ? [{ pid: 'one' }] : { ok: true }))
+  vi.stubGlobal('fetch', fetch)
+  const [a, b] = await Promise.all([fetchPodcasts(), fetchPodcasts()])
+  expect(a).toEqual(b)
+  expect(fetch).toHaveBeenCalledOnce()
+  await authFetch('/api/episodes/one', { method: 'DELETE' })
+  expect(getCache('previous-summary')).toBeNull()
+})
+
+it('uses only public bootstrap config from HTML without another network round trip', async () => {
+  const node = document.createElement('script')
+  node.id = 'xyz-auth-config'
+  node.type = 'application/json'
+  node.textContent = JSON.stringify({ supabase_enabled: true, supabase_url: 'https://example.supabase.co' })
+  document.head.append(node)
+  const fetch = vi.fn()
+  vi.stubGlobal('fetch', fetch)
+  try {
+    expect((await getAuthConfig()).supabase_enabled).toBe(true)
+    expect(fetch).not.toHaveBeenCalled()
+  } finally { node.remove() }
 })

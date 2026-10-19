@@ -29,6 +29,7 @@ const USER_KEY = 'xyz_user'
 const REMEMBER_ME_KEY = 'xyz_remember_me'
 let generation = 0
 let refreshInFlight: Promise<AuthTokens | null> | null = null
+let configInFlight: Promise<AuthConfig> | null = null
 
 export function getAuthGeneration(): number { return generation }
 
@@ -66,12 +67,32 @@ export function getRememberMe(): boolean {
 /**
  * Get the authentication configuration from the server
  */
-export async function getAuthConfig(): Promise<AuthConfig> {
-  const res = await fetch(`${API_BASE}/config`)
-  if (!res.ok) {
-    throw new Error('Cannot check the server connection. Please retry.')
+export function getAuthConfig(): Promise<AuthConfig> {
+  const embedded = document.getElementById('xyz-auth-config')?.textContent
+  if (embedded) {
+    try {
+      const config = JSON.parse(embedded)
+      if (typeof config.supabase_enabled === 'boolean' &&
+          (config.supabase_url === null || typeof config.supabase_url === 'string')) return Promise.resolve(config)
+    } catch { /* Development/older HTML falls back to the same-origin API. */ }
   }
-  return res.json()
+  if (configInFlight) return configInFlight
+  const request = fetch(`${API_BASE}/config`).then(res => {
+    if (!res.ok) throw new Error('Cannot check the server connection. Please retry.')
+    return res.json() as Promise<AuthConfig>
+  }).finally(() => { if (configInFlight === request) configInFlight = null })
+  configInFlight = request
+  return request
+}
+
+/** Expiry is a scheduling hint only; the server still verifies every request. */
+export function accessTokenNeedsRefresh(token = getAccessToken()): boolean {
+  if (!token) return false
+  try {
+    const encoded = token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')
+    const payload = JSON.parse(atob(encoded))
+    return typeof payload.exp === 'number' && payload.exp <= Date.now() / 1000 + 30
+  } catch { return false }
 }
 
 /**
@@ -165,9 +186,13 @@ export async function getCurrentUser(): Promise<AuthUser | null> {
     return user
   }
 
-  const token = getAccessToken()
+  let token = getAccessToken()
   if (!token) {
     return null
+  }
+  if (accessTokenNeedsRefresh(token) && getRefreshToken()) {
+    token = (await refreshToken())?.access_token || null
+    if (!token) return null
   }
 
   const currentUser = await fetchUser(token)

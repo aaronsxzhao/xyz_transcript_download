@@ -8,15 +8,25 @@ import { getStatusColor } from '../lib/statusUtils'
 import { markSeen, isNewItem } from '../lib/seen'
 import { fetchEpisode } from '../lib/api'
 import LoadError from '../components/LoadError'
+import { getCache, setCache, CacheKeys } from '../lib/cache'
+import { getAccountId } from '../lib/preferences'
+import { preloadPage } from '../lib/pages'
+import { usePageTiming } from '../lib/pageTiming'
 
 export default function Episodes() {
   const { pid } = useParams<{ pid: string }>()
-  const [podcast, setPodcast] = useState<Podcast | null>(null)
-  const [episodes, setEpisodes] = useState<Episode[]>([])
-  const [loading, setLoading] = useState(true)
+  const cachedPodcast = () => getCache<Podcast>(CacheKeys.PODCAST(pid!))
+    || getCache<Podcast[]>(CacheKeys.PODCASTS)?.find(item => item.pid === pid) || null
+  const [podcast, setPodcast] = useState<Podcast | null>(cachedPodcast)
+  const [episodes, setEpisodes] = useState<Episode[]>(() => getCache(CacheKeys.EPISODES(pid!)) || [])
+  const [loading, setLoading] = useState(() => !getCache(CacheKeys.EPISODES(pid!)))
+  usePageTiming('episodes', !loading && (episodes[0]?.pid === pid || podcast?.pid === pid), CacheKeys.EPISODES(pid!))
   const [error, setError] = useState('')
   const [loadingMore, setLoadingMore] = useState(false)
-  const [hasMore, setHasMore] = useState(false)
+  const [hasMore, setHasMore] = useState(() => {
+    const cached = getCache<Episode[]>(CacheKeys.EPISODES(pid!))
+    return !!cached && cached.length < (cachedPodcast()?.episode_count ?? cached.length)
+  })
   const completedJobsRef = useRef(new Set<string>())
   const [processingEid, setProcessingEid] = useState<string | null>(null)
   const [regeneratingEid, setRegeneratingEid] = useState<string | null>(null)
@@ -28,6 +38,8 @@ export default function Episodes() {
   const { addToast } = useToast()
   const { jobs, updateJob } = useStore()
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const currentPid = useRef(pid)
+  currentPid.current = pid
   
   // Helper to find active job for an episode
   function getActiveJob(eid: string) {
@@ -38,7 +50,17 @@ export default function Episodes() {
   }
   
   useEffect(() => {
-    if (pid) loadData()
+    if (!pid) return
+    const cached = getCache<Episode[]>(CacheKeys.EPISODES(pid))
+    setEpisodes(cached || [])
+    const metadata = cachedPodcast()
+    setPodcast(metadata)
+    setHasMore(!!cached && cached.length < (metadata?.episode_count ?? cached.length))
+    setLoading(!cached)
+    setLoadingMore(false)
+    completedJobsRef.current.clear()
+    seenMarkedRef.current = false
+    void loadData()
   }, [pid])
 
   const seenMarkedRef = useRef(false)
@@ -50,33 +72,53 @@ export default function Episodes() {
   }, [episodes])
   
   async function loadData() {
+    if (!pid) return
+    const requestedPid = pid
+    const owner = getAccountId()
+    const current = () => currentPid.current === requestedPid && owner === getAccountId()
     setError('')
     try {
-      const [podcastData, episodesData] = await Promise.all([
-        fetchPodcast(pid!),
-        fetchEpisodes(pid!),
+      const [podcastData, episodesData] = await Promise.allSettled([
+        fetchPodcast(pid).then(data => {
+          if (current()) { setPodcast(data); setCache(CacheKeys.PODCAST(pid), data, owner) }
+          return data
+        }),
+        fetchEpisodes(pid).then(data => {
+          if (current()) {
+            setEpisodes(data)
+            setCache(CacheKeys.EPISODES(pid), data, owner)
+            setLoading(false)
+          }
+          return data
+        }),
       ])
-      setPodcast(podcastData)
-      setEpisodes(episodesData)
-      setHasMore(episodesData.length < podcastData.episode_count)
+      if (!current()) return
+      if (episodesData.status === 'fulfilled') {
+        const count = podcastData.status === 'fulfilled' ? podcastData.value.episode_count : cachedPodcast()?.episode_count
+        setHasMore(count === undefined ? episodesData.value.length === 50 : episodesData.value.length < count)
+      } else setError('Cannot load episodes. Please retry.')
     } catch (err) {
       console.error('Failed to load data:', err)
-      setError('Cannot load episodes. Please retry.')
+      if (current()) setError('Cannot load episodes. Please retry.')
     } finally {
-      setLoading(false)
+      if (current()) setLoading(false)
     }
   }
 
   async function loadMore() {
     if (!pid || loadingMore) return
+    const requestedPid = pid
+    const owner = getAccountId()
+    const current = () => requestedPid === currentPid.current && owner === getAccountId()
     setLoadingMore(true)
     setError('')
     try {
       const next = await fetchEpisodes(pid, episodes.length)
+      if (!current()) return
       setEpisodes(previous => [...previous, ...next])
       setHasMore(next.length === 50 && episodes.length + next.length < (podcast?.episode_count || 0))
-    } catch { setError('Cannot load more episodes. Please retry.') }
-    finally { setLoadingMore(false) }
+    } catch { if (current()) setError('Cannot load more episodes. Please retry.') }
+    finally { if (current()) setLoadingMore(false) }
   }
 
   useEffect(() => {
@@ -293,6 +335,8 @@ export default function Episodes() {
           <div
             key={episode.eid}
             onClick={episode.has_summary ? () => navigate(`/viewer/${episode.eid}`) : undefined}
+            onPointerEnter={() => { if (episode.has_summary) preloadPage('/viewer/episode') }}
+            onTouchStart={() => { if (episode.has_summary) preloadPage('/viewer/episode') }}
             className={`p-3 md:p-4 bg-dark-surface border border-dark-border rounded-xl hover:border-dark-hover transition-colors${episode.has_summary ? ' cursor-pointer' : ''}`}
           >
             <div className="flex flex-col sm:flex-row sm:items-start gap-3 md:gap-4">
@@ -354,6 +398,7 @@ export default function Episodes() {
                         </button>
                         <Link
                           to={`/viewer/${episode.eid}`}
+                          onFocus={() => preloadPage('/viewer/episode')}
                           className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-colors"
                         >
                           <CheckCircle size={16} />

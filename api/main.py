@@ -17,6 +17,7 @@ from fastapi.responses import FileResponse, Response
 
 from api.routers import podcasts, episodes, transcripts, summaries, processing
 from api.routers import auth_router, video_notes, cookies, notion
+from api.routers import performance
 from api.auth import get_current_user, require_debug_access, User
 from logger import get_logger
 
@@ -298,6 +299,7 @@ app.include_router(processing.router, prefix="/api", tags=["Processing"])
 app.include_router(video_notes.router, prefix="/api/video-notes", tags=["Video Notes"])
 app.include_router(cookies.router, prefix="/api/cookies", tags=["Cookies"])
 app.include_router(notion.router, prefix="/api/notion", tags=["Notion"])
+app.include_router(performance.router, prefix="/api/performance", tags=["Performance"])
 
 # Private data is never exposed by a StaticFiles mount.
 from config import DATA_DIR as _data_dir
@@ -651,7 +653,7 @@ def test_llm_connection(settings: dict, user: User = Depends(get_current_user)):
 
 # Serve React frontend for all non-API routes (must be last)
 @app.get("/{path:path}")
-async def serve_frontend(path: str):
+def serve_frontend(path: str):
     """Serve React frontend for client-side routing."""
     if path.split("/", 1)[0] in {"api", "data"}:
         raise HTTPException(status_code=404, detail="Not found")
@@ -664,13 +666,16 @@ async def serve_frontend(path: str):
     file_path = (frontend_dist / path).resolve()
     if not file_path.is_relative_to(frontend_dist):
         raise HTTPException(status_code=404, detail="Not found")
-    if file_path.exists() and file_path.is_file():
+    if path != "index.html" and file_path.exists() and file_path.is_file():
         cache_control = "public, max-age=31536000, immutable" if path.startswith("assets/") else "no-cache"
         return FileResponse(file_path, headers={"Cache-Control": cache_control})
     
     # Otherwise serve index.html for client-side routing
     index_path = frontend_dist / "index.html"
     if index_path.exists():
-        return FileResponse(index_path, headers={"Cache-Control": "no-cache"})
+        from api.frontend import frontend_html
+        from config import USE_SUPABASE, SUPABASE_URL
+        return Response(frontend_html(frontend_dist, path, USE_SUPABASE, SUPABASE_URL),
+                        media_type="text/html", headers={"Cache-Control": "no-cache"})
     
     return {"error": "Frontend not found"}

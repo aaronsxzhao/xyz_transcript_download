@@ -1,17 +1,24 @@
 import { lazy, Suspense } from 'react'
-import { Routes, Route, Navigate, Outlet, Link } from 'react-router-dom'
+import { Routes, Route, Navigate, Outlet, Link, useLocation } from 'react-router-dom'
 import { AuthProvider, useAuth } from './contexts/AuthContext'
 import Layout from './components/Layout'
 import { Loader2 } from 'lucide-react'
+import pages, { preloadPage } from './lib/pages'
+import { getAuthConfig } from './lib/auth'
+import { markPageNavigation } from './lib/pageTiming'
 
-const Dashboard = lazy(() => import('./pages/Dashboard'))
-const Podcasts = lazy(() => import('./pages/Podcasts'))
-const Episodes = lazy(() => import('./pages/Episodes'))
-const Viewer = lazy(() => import('./pages/Viewer'))
-const Videos = lazy(() => import('./pages/Videos'))
-const VideoViewer = lazy(() => import('./pages/VideoViewer'))
-const Settings = lazy(() => import('./pages/Settings'))
-const Login = lazy(() => import('./pages/Login'))
+// Start these independent requests together instead of fetching the route only
+// after config/session verification has finished.
+preloadPage(window.location.pathname)
+void getAuthConfig().catch(() => {})
+const Dashboard = lazy(pages.dashboard)
+const Podcasts = lazy(pages.podcasts)
+const Episodes = lazy(pages.episodes)
+const Viewer = lazy(pages.viewer)
+const Videos = lazy(pages.videos)
+const VideoViewer = lazy(pages.videoViewer)
+const Settings = lazy(pages.settings)
+const Login = lazy(pages.login)
 
 function ProtectedRoute() {
   const { user, loading, authEnabled } = useAuth()
@@ -43,6 +50,7 @@ const PageSpinner = () => (
 
 function AppRoutes() {
   const { authEnabled, user, loading } = useAuth()
+  markPageNavigation(useLocation().pathname)
 
   if (loading) {
     return (

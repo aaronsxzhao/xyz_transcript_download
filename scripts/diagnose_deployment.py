@@ -199,10 +199,11 @@ def profile_library(settings: dict) -> None:
             label = report.get("library_profile")
             if label not in {"stats", "podcasts", "recent_summaries", "channels", "queue", "settings",
                              "podcast_detail", "episodes", "summary", "transcript", "video_detail", "video_note", "empty", "failed",
-                             "live_auth", "live_podcasts", "live_channels", "live_episodes", "live_summary", "live_transcript", "live_unavailable"}:
+                             "live_auth", "live_podcasts", "live_channels", "live_episodes", "live_summary", "live_transcript", "live_unavailable",
+                             "browser_dashboard", "browser_podcasts", "browser_videos", "browser_episodes", "browser_viewer"}:
                 continue
             safe = {"library_profile": label}
-            safe.update({key: report[key] for key in ("milliseconds", "first_byte_ms", "wire_bytes", "database_requests", "response_bytes", "gzip_bytes", "status")
+            safe.update({key: report[key] for key in ("milliseconds", "first_byte_ms", "wire_bytes", "document_ms", "api_ms", "samples", "cached", "database_requests", "response_bytes", "gzip_bytes", "status")
                          if isinstance(report.get(key), int) and 0 <= report[key] <= 10**9})
             print(json.dumps(safe))
             valid = True
