@@ -7,9 +7,14 @@ on:
       - '.github/workflows/diagnose-production.yml'
       - 'scripts/diagnose_deployment.py'
   workflow_dispatch:
+  workflow_run:
+    workflows: ['Deploy to Oracle Cloud']
+    types: [completed]
+    branches: [main]
 
 jobs:
   diagnose:
+    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
     env:
       CONTAINER_INSTANCE_ID: ocid1.computecontainerinstance.oc1.iad.anuwcljrram2hqqaueqbs2y4opn3tm2jfpmx4a7gdsscygwyjgnac5vrqgta
