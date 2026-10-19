@@ -1,0 +1,74 @@
+name: Private backup and media recovery
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/backup-and-recovery.yml', 'scripts/backup_application.py', 'scripts/recover_library_media.py', 'scripts/admin_runtime.py']
+  schedule:
+    - cron: '20 19 * * 0'
+  workflow_dispatch:
+    inputs:
+      recover_images:
+        description: Restore missing frames from original sources
+        type: boolean
+        default: false
+concurrency:
+  group: private-library-maintenance
+  cancel-in-progress: false
+env:
+  CONTAINER_INSTANCE_ID: ocid1.computecontainerinstance.oc1.iad.anuwcljrram2hqqaueqbs2y4opn3tm2jfpmx4a7gdsscygwyjgnac5vrqgta
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.11'}
+      - name: Configure maintenance client
+        env:
+          OCI_CLI_USER: ${{ secrets.OCI_USER_OCID }}
+          OCI_CLI_FINGERPRINT: ${{ secrets.OCI_FINGERPRINT }}
+          OCI_CLI_TENANCY: ${{ secrets.OCI_TENANCY_OCID }}
+          OCI_PRIVATE_KEY: ${{ secrets.OCI_PRIVATE_KEY }}
+        run: |
+          pip install oci-cli -r requirements-cloud.txt
+          mkdir -p ~/.oci
+          printf '%s\n' "$OCI_PRIVATE_KEY" > ~/.oci/key.pem
+          chmod 600 ~/.oci/key.pem
+          printf '[DEFAULT]\nuser=%s\nfingerprint=%s\ntenancy=%s\nregion=us-ashburn-1\nkey_file=~/.oci/key.pem\n' "$OCI_CLI_USER" "$OCI_CLI_FINGERPRINT" "$OCI_CLI_TENANCY" > ~/.oci/config
+      - name: Back up and verify private application data and media
+        run: python scripts/backup_application.py
+  recover:
+    needs: backup
+    if: github.event_name == 'push' || inputs.recover_images == true
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    strategy:
+      fail-fast: false
+      max-parallel: 2
+      matrix: {shard: [0, 1, 2, 3, 4, 5, 6, 7]}
+    env:
+      REPAIR_SHARD: ${{ matrix.shard }}
+      REPAIR_SHARDS: '8'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.11'}
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - name: Install frame extraction tools
+        run: sudo apt-get update && sudo apt-get install -y ffmpeg
+      - name: Configure maintenance client
+        env:
+          OCI_CLI_USER: ${{ secrets.OCI_USER_OCID }}
+          OCI_CLI_FINGERPRINT: ${{ secrets.OCI_FINGERPRINT }}
+          OCI_CLI_TENANCY: ${{ secrets.OCI_TENANCY_OCID }}
+          OCI_PRIVATE_KEY: ${{ secrets.OCI_PRIVATE_KEY }}
+        run: |
+          pip install oci-cli -r requirements-cloud.txt
+          mkdir -p ~/.oci
+          printf '%s\n' "$OCI_PRIVATE_KEY" > ~/.oci/key.pem
+          chmod 600 ~/.oci/key.pem
+          printf '[DEFAULT]\nuser=%s\nfingerprint=%s\ntenancy=%s\nregion=us-ashburn-1\nkey_file=~/.oci/key.pem\n' "$OCI_CLI_USER" "$OCI_CLI_FINGERPRINT" "$OCI_CLI_TENANCY" > ~/.oci/config
+      - name: Restore missing frames without changing notes
+        run: python scripts/recover_library_media.py

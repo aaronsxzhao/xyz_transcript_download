@@ -1,0 +1,51 @@
+name: Roll back website
+on:
+  workflow_dispatch:
+    inputs:
+      revision:
+        description: Previously deployed commit (default is the saved pre-improvement version)
+        default: '440009e42e7574a45fddca717e5451dd98d2cb15'
+        required: true
+env:
+  CONTAINER_INSTANCE_ID: ocid1.computecontainerinstance.oc1.iad.anuwcljrram2hqqaueqbs2y4opn3tm2jfpmx4a7gdsscygwyjgnac5vrqgta
+concurrency:
+  group: production-deployment
+  cancel-in-progress: false
+jobs:
+  rollback:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: iad.ocir.io
+          username: ide2oawxnq9y/vincentjyzhao@gmail.com
+          password: ${{ secrets.OCIR_AUTH_TOKEN }}
+      - name: Select the previously built application image
+        env:
+          ROLLBACK_REVISION: ${{ inputs.revision }}
+        run: |
+          [[ "$ROLLBACK_REVISION" =~ ^[a-f0-9]{40}$ ]] || exit 1
+          docker buildx imagetools inspect "iad.ocir.io/ide2oawxnq9y/podcast-tool:$ROLLBACK_REVISION"
+          docker buildx imagetools create -t iad.ocir.io/ide2oawxnq9y/podcast-tool:latest "iad.ocir.io/ide2oawxnq9y/podcast-tool:$ROLLBACK_REVISION"
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.11'}
+      - name: Configure Oracle client
+        env:
+          OCI_CLI_USER: ${{ secrets.OCI_USER_OCID }}
+          OCI_CLI_FINGERPRINT: ${{ secrets.OCI_FINGERPRINT }}
+          OCI_CLI_TENANCY: ${{ secrets.OCI_TENANCY_OCID }}
+          OCI_PRIVATE_KEY: ${{ secrets.OCI_PRIVATE_KEY }}
+        run: |
+          pip install oci-cli
+          mkdir -p ~/.oci
+          printf '%s\n' "$OCI_PRIVATE_KEY" > ~/.oci/key.pem
+          chmod 600 ~/.oci/key.pem
+          printf '[DEFAULT]\nuser=%s\nfingerprint=%s\ntenancy=%s\nregion=us-ashburn-1\nkey_file=~/.oci/key.pem\n' "$OCI_CLI_USER" "$OCI_CLI_FINGERPRINT" "$OCI_CLI_TENANCY" > ~/.oci/config
+      - name: Restart and verify the selected version
+        env:
+          EXPECTED_REVISION: ${{ inputs.revision }}
+        run: |
+          oci container-instances container-instance restart --container-instance-id "$CONTAINER_INSTANCE_ID"
+          python scripts/verify_deployment.py
