@@ -87,6 +87,21 @@ def oci_json(arguments: list[str], query: str) -> dict:
     return json.loads(command.stdout)
 
 
+def probe_access_controls() -> None:
+    for path, expected in (
+        ("/api/podcasts", 401), ("/api/settings", 401),
+        ("/data/screenshots/__deployment_probe__.jpg", 403), ("/data/jobs.json", 404),
+    ):
+        result = subprocess.run([
+            "curl", "--silent", "--show-error", "--location", "--max-time", "15",
+            "--output", os.devnull, "--write-out", "%{http_code}",
+            "https://aipodcastsummary.online" + path,
+        ], capture_output=True, text=True, timeout=20)
+        status = int(result.stdout) if result.stdout.isdigit() else 0
+        print(json.dumps({"access_probe": path, "http_status": status,
+                          "expected_status": expected, "passed": status == expected}))
+
+
 def inspect_containers() -> None:
     instance = oci_json([
         "container-instances", "container-instance", "get", "--container-instance-id",
@@ -123,4 +138,5 @@ def inspect_containers() -> None:
 
 if __name__ == "__main__":
     probe_public_api()
+    probe_access_controls()
     inspect_containers()
