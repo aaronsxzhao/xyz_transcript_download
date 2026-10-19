@@ -123,7 +123,10 @@ async def get_summary_html(
     
     html_content = await run_sync(export_html, summary)
     
-    return HTMLResponse(content=html_content)
+    return HTMLResponse(content=html_content, headers={
+        "Content-Security-Policy": "default-src 'none'; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'",
+        "X-Content-Type-Options": "nosniff",
+    })
 
 
 @router.get("/{eid}/markdown")

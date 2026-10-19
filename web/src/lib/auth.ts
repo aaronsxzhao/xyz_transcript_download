@@ -27,6 +27,15 @@ const ACCESS_TOKEN_KEY = 'xyz_access_token'
 const REFRESH_TOKEN_KEY = 'xyz_refresh_token'
 const USER_KEY = 'xyz_user'
 const REMEMBER_ME_KEY = 'xyz_remember_me'
+let generation = 0
+let refreshInFlight: Promise<AuthTokens | null> | null = null
+
+export function getAuthGeneration(): number { return generation }
+
+function sessionChanged(): void {
+  generation += 1
+  window.dispatchEvent(new Event('xyz:session-changed'))
+}
 
 /**
  * Get the appropriate storage based on "Remember Me" setting
@@ -60,7 +69,7 @@ export function getRememberMe(): boolean {
 export async function getAuthConfig(): Promise<AuthConfig> {
   const res = await fetch(`${API_BASE}/config`)
   if (!res.ok) {
-    return { supabase_enabled: false, supabase_url: null }
+    throw new Error('Cannot check the server connection. Please retry.')
   }
   return res.json()
 }
@@ -118,6 +127,7 @@ export async function signIn(email: string, password: string): Promise<AuthToken
  */
 export async function signOut(): Promise<void> {
   const token = getAccessToken()
+  clearTokens()
   
   try {
     await fetch(`${API_BASE}/signout`, {
@@ -130,8 +140,6 @@ export async function signOut(): Promise<void> {
     // Ignore errors
   }
   
-  // Clear stored tokens
-  clearTokens()
 }
 
 /**
@@ -145,9 +153,10 @@ export async function getCurrentUser(): Promise<AuthUser | null> {
       },
     })
 
-    if (!res.ok) {
+    if (res.status === 401) {
       return null
     }
+    if (!res.ok) throw new Error('Cannot verify your session. Please retry.')
 
     const user = await res.json()
     if (!user.authenticated) {
@@ -178,9 +187,20 @@ export async function getCurrentUser(): Promise<AuthUser | null> {
  * Refresh the access token
  */
 export async function refreshToken(): Promise<AuthTokens | null> {
+  if (refreshInFlight) return refreshInFlight
+  const request = performRefresh()
+  refreshInFlight = request
+  try { return await request } finally {
+    if (refreshInFlight === request) refreshInFlight = null
+  }
+}
+
+async function performRefresh(): Promise<AuthTokens | null> {
+  const startedGeneration = generation
   const refresh = getRefreshToken()
   
   if (!refresh) {
+    if (getAccessToken()) clearTokens()
     return null
   }
   
@@ -190,12 +210,15 @@ export async function refreshToken(): Promise<AuthTokens | null> {
     body: JSON.stringify({ refresh_token: refresh }),
   })
   
-  if (!res.ok) {
+  if (startedGeneration !== generation || refresh !== getRefreshToken()) return null
+  if (res.status === 401 || res.status === 400) {
     clearTokens()
     return null
   }
+  if (!res.ok) throw new Error('Cannot refresh your session. Please retry.')
   
   const tokens = await res.json()
+  if (startedGeneration !== generation || refresh !== getRefreshToken()) return null
   saveTokens(tokens)
   
   return tokens
@@ -233,6 +256,7 @@ export function getStoredUser(): AuthUser | null {
  * Save tokens to storage based on "Remember Me" setting
  */
 function saveTokens(tokens: AuthTokens): void {
+  const previousOwner = getStoredUser()?.id
   const storage = getStorage()
   const otherStorage = storage === localStorage ? sessionStorage : localStorage
 
@@ -249,6 +273,7 @@ function saveTokens(tokens: AuthTokens): void {
     email: tokens.email,
     authenticated: true,
   }))
+  if (previousOwner !== tokens.user_id) sessionChanged()
 }
 
 /**
@@ -262,6 +287,8 @@ export function clearTokens(): void {
   sessionStorage.removeItem(ACCESS_TOKEN_KEY)
   sessionStorage.removeItem(REFRESH_TOKEN_KEY)
   sessionStorage.removeItem(USER_KEY)
+  refreshInFlight = null
+  sessionChanged()
 }
 
 /**

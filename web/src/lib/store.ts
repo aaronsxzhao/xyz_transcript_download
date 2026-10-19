@@ -34,10 +34,7 @@ export function mergeVideoTaskPair(existing: VideoTask | undefined, incoming: Vi
 
   const existingUpdatedAt = Date.parse(existing.updated_at || existing.created_at || '') || 0
   const incomingUpdatedAt = Date.parse(normalizedIncoming.updated_at || normalizedIncoming.created_at || '') || 0
-  const keepExistingProgress =
-    isActiveVideoTaskStatus(existing.status) &&
-    incomingUpdatedAt < existingUpdatedAt &&
-    (normalizedIncoming.progress ?? 0) < (existing.progress ?? 0)
+  const keepExistingProgress = incomingUpdatedAt < existingUpdatedAt
 
   return {
     ...existing,
@@ -53,7 +50,7 @@ export function mergeVideoTaskPair(existing: VideoTask | undefined, incoming: Vi
     progress: keepExistingProgress ? existing.progress : normalizedIncoming.progress,
     status: keepExistingProgress ? existing.status : normalizedIncoming.status,
     message: keepExistingProgress ? existing.message : normalizedIncoming.message,
-    error: normalizedIncoming.error || existing.error,
+    error: keepExistingProgress ? existing.error : (normalizedIncoming.error ?? existing.error),
   }
 }
 
@@ -65,6 +62,7 @@ export interface VideoUploadSession extends VideoUploadProgress {
 }
 
 interface AppState {
+  reset: () => void
   // Processing jobs
   jobs: ProcessingJob[]
   setJobs: (jobs: ProcessingJob[]) => void
@@ -93,6 +91,7 @@ interface AppState {
 }
 
 export const useStore = create<AppState>((set) => ({
+  reset: () => set({ jobs: [], videoTasks: [], uploadSessions: [], selectedVideoTaskId: null, wsConnected: false }),
   // Jobs
   jobs: [],
   setJobs: (jobs) => set({ jobs }),

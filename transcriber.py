@@ -1007,15 +1007,17 @@ class Transcriber:
     def __init__(self, model: Optional[str] = None):
         self.last_error = ""
         if WHISPER_MODE == "local":
+            from config import VALID_WHISPER_MODELS
+            local_model = model if model in VALID_WHISPER_MODELS else WHISPER_LOCAL_MODEL
             backend = WHISPER_BACKEND
             if backend == "auto":
                 backend = _detect_best_backend()
             if backend == "mlx-whisper":
                 logger.info("Using MLX-Whisper (Apple Silicon GPU) — local mode")
-                self._transcriber = MLXTranscriber(model_name=WHISPER_LOCAL_MODEL)
+                self._transcriber = MLXTranscriber(model_name=local_model)
             else:
                 logger.info("Using faster-whisper (CTranslate2) — local mode")
-                self._transcriber = FastLocalTranscriber(model_name=WHISPER_LOCAL_MODEL)
+                self._transcriber = FastLocalTranscriber(model_name=local_model)
         else:
             logger.info(f"Using Whisper API ({WHISPER_API_PROVIDER})")
             self._transcriber = APITranscriber(model=model)

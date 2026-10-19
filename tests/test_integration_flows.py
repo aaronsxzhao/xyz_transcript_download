@@ -14,7 +14,7 @@ class TestPodcastSubscriptionFlow:
     
     async def test_subscribe_and_list_podcasts(self, client: AsyncClient):
         """Test subscribing to a podcast and listing it."""
-        with patch("api.routers.podcasts.get_client") as mock_client:
+        with patch("xyz_client.get_client") as mock_client:
             # Mock podcast
             mock_podcast = MagicMock()
             mock_podcast.pid = "flow-test-podcast"
@@ -48,7 +48,7 @@ class TestPodcastSubscriptionFlow:
     
     async def test_subscribe_and_unsubscribe(self, client: AsyncClient):
         """Test subscribing and then unsubscribing from a podcast."""
-        with patch("api.routers.podcasts.get_client") as mock_client:
+        with patch("xyz_client.get_client") as mock_client:
             mock_podcast = MagicMock()
             mock_podcast.pid = "unsub-test-podcast"
             mock_podcast.title = "Unsub Test"
@@ -84,7 +84,7 @@ class TestEpisodeProcessingFlow:
     
     async def test_start_processing_job(self, client: AsyncClient):
         """Test starting and monitoring a processing job."""
-        with patch("api.routers.processing.get_client") as mock_client:
+        with patch("xyz_client.get_client") as mock_client:
             mock_episode = MagicMock()
             mock_episode.eid = "process-test-episode"
             mock_episode.title = "Process Test Episode"
@@ -120,6 +120,7 @@ class TestEpisodeProcessingFlow:
         # Create a fake running job
         jobs["cancel-flow-job"] = ProcessingStatus(
             job_id="cancel-flow-job",
+            user_id="local",
             status="transcribing",
             progress=40,
             message="Transcribing...",
@@ -287,7 +288,7 @@ class TestErrorHandlingFlow:
     
     async def test_graceful_error_handling(self, client: AsyncClient):
         """Test that errors are handled gracefully."""
-        with patch("api.routers.podcasts.get_client") as mock_client:
+        with patch("xyz_client.get_client") as mock_client:
             # Simulate API error
             mock_client.return_value.get_podcast_by_url.side_effect = Exception("API Error")
             mock_client.return_value._extract_id_from_url.return_value = None
@@ -299,17 +300,20 @@ class TestErrorHandlingFlow:
             )
             
             # Should return error, not crash
-            assert response.status_code in [400, 404, 500]
+            assert response.status_code == 502
 
 
 class TestHealthAndStatsFlow:
     """Test health check and stats endpoints."""
     
-    async def test_health_check(self, client: AsyncClient):
+    async def test_health_check(self, client: AsyncClient, monkeypatch):
         """Test health check endpoint."""
+        monkeypatch.setenv("APP_REVISION", "release-test-revision")
         response = await client.get("/api/health")
         assert response.status_code == 200
         assert response.json()["status"] == "ok"
+        assert response.json()["revision"] == "release-test-revision"
+        assert response.headers["cache-control"] == "no-store"
     
     async def test_stats_endpoint(self, client: AsyncClient):
         """Test stats endpoint."""

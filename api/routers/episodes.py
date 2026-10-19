@@ -3,10 +3,11 @@ import asyncio
 from pathlib import Path
 from typing import Optional
 from fastapi import APIRouter, HTTPException, Depends
+from fastapi.responses import FileResponse
 
 from api.local_media import LOCAL_PODCAST_PID
 from api.schemas import EpisodeResponse
-from api.auth import get_current_user, User
+from api.auth import get_current_user, get_user_from_token_param, User
 from api.db import get_db
 from config import DATA_DIR
 
@@ -86,27 +87,44 @@ async def get_episode_audio_info(eid: str, user: Optional[User] = Depends(get_cu
     return {
         "eid": eid,
         "remote_url": episode.audio_url,
-        "local_path": audio_path,
+        "local_path": f"/api/episodes/{eid}/audio/file" if audio_path else None,
         "downloaded": audio_path is not None,
     }
+
+
+@router.get("/{eid}/audio/file")
+async def get_episode_audio_file(eid: str, user: User = Depends(get_user_from_token_param)):
+    db = get_db(user.id)
+    episode = await run_sync(db.get_episode, eid)
+    if not episode:
+        raise HTTPException(status_code=404, detail="Episode not found")
+    candidates = []
+    if episode.audio_url and "://" not in episode.audio_url:
+        candidates.append(Path(episode.audio_url))
+    for ext in (".m4a", ".mp3", ".wav"):
+        candidates.extend((DATA_DIR / "audio" / episode.pid / f"{eid}{ext}", DATA_DIR / "audio" / "unknown" / f"{eid}{ext}"))
+    for candidate in candidates:
+        path = candidate.resolve()
+        if path.is_relative_to(DATA_DIR.resolve()) and path.is_file():
+            return FileResponse(path, headers={"Cache-Control": "private, no-store"})
+    raise HTTPException(status_code=404, detail="Audio not found")
 
 
 @router.delete("/{eid}")
 async def delete_episode(eid: str, user: Optional[User] = Depends(get_current_user)):
     """Delete an episode and its associated data (transcript, summary, audio)."""
-    from api.routers.processing import cancelled_jobs, jobs
+    from api.routers.processing import cancelled_jobs, jobs, _jobs_lock
     
     db = get_db(user.id if user else None)
-    
-    # Cancel any in-progress job for this episode
-    for job_id, job in list(jobs.items()):
-        if job.episode_id == eid and job.status not in ("completed", "failed", "cancelled"):
-            cancelled_jobs.add(job_id)
     
     episode = await run_sync(db.get_episode, eid)
     
     if not episode:
         raise HTTPException(status_code=404, detail="Episode not found")
+    with _jobs_lock:
+        for job_id, job in jobs.items():
+            if job.user_id == (user.id if user else None) and job.episode_id == eid and job.status not in ("completed", "failed", "cancelled"):
+                cancelled_jobs.add(job_id)
     
     episode_title = episode.title
     episode_pid = episode.pid

@@ -2,7 +2,8 @@
  * API client for backend communication
  */
 
-import { getAccessToken, refreshToken } from './auth'
+import { getAccessToken, getAuthGeneration, refreshToken } from './auth'
+import { getPreference } from './preferences'
 
 const API_BASE = '/api'
 const UNKNOWN_CHANNEL_SENTINEL = '__unknown__'
@@ -61,42 +62,25 @@ async function parseApiResponseAsJson<T>(res: Response, operation: string): Prom
 }
 
 /**
- * Helper to create headers with auth token
- */
-function getAuthHeaders(token?: string | null, contentType?: string): HeadersInit {
-  const headers: HeadersInit = {}
-  
-  const t = token ?? getAccessToken()
-  if (t) {
-    headers['Authorization'] = `Bearer ${t}`
-  }
-  
-  if (contentType) {
-    headers['Content-Type'] = contentType
-  }
-  
-  return headers
-}
-
-/**
  * Authenticated fetch wrapper with automatic token refresh on 401.
  */
 export async function authFetch(url: string, options: RequestInit = {}): Promise<Response> {
-  const headers = {
-    ...getAuthHeaders(),
-    ...options.headers,
-  }
+  const ownerGeneration = getAuthGeneration()
+  const headers = new Headers(options.headers)
+  const token = getAccessToken()
+  if (token) headers.set('Authorization', `Bearer ${token}`)
   
   const res = await fetch(url, { ...options, headers })
+  if (ownerGeneration !== getAuthGeneration()) throw new DOMException('Account changed', 'AbortError')
 
   if (res.status === 401) {
     const tokens = await refreshToken()
     if (tokens) {
-      const retryHeaders = {
-        ...getAuthHeaders(tokens.access_token),
-        ...options.headers,
-      }
-      return fetch(url, { ...options, headers: retryHeaders })
+      if (ownerGeneration !== getAuthGeneration()) throw new DOMException('Account changed', 'AbortError')
+      headers.set('Authorization', `Bearer ${tokens.access_token}`)
+      const retry = await fetch(url, { ...options, headers })
+      if (ownerGeneration !== getAuthGeneration()) throw new DOMException('Account changed', 'AbortError')
+      return retry
     }
   }
 
@@ -197,6 +181,10 @@ export interface ProcessingJob {
   message: string
   episode_id?: string
   episode_title?: string
+}
+
+export async function fetchJob(jobId: string): Promise<ProcessingJob> {
+  return parseApiResponseAsJson(await authFetch(`${API_BASE}/jobs/${encodeURIComponent(jobId)}`), 'Cannot load processing status')
 }
 
 // API functions
@@ -367,10 +355,14 @@ export async function fetchPodcast(pid: string): Promise<Podcast> {
   return res.json()
 }
 
-export async function fetchEpisodes(pid: string): Promise<Episode[]> {
-  const res = await authFetch(`${API_BASE}/podcasts/${pid}/episodes`)
+export async function fetchEpisodes(pid: string, offset = 0, limit = 50): Promise<Episode[]> {
+  const res = await authFetch(`${API_BASE}/podcasts/${pid}/episodes?offset=${offset}&limit=${limit}`)
   if (!res.ok) throw new Error('Failed to fetch episodes')
   return res.json()
+}
+
+export async function fetchEpisode(eid: string): Promise<Episode> {
+  return parseApiResponseAsJson(await authFetch(`${API_BASE}/episodes/${encodeURIComponent(eid)}`), 'Cannot load episode')
 }
 
 export async function fetchSummaries(): Promise<SummaryListItem[]> {
@@ -462,8 +454,8 @@ export function getUserModelSettings(): {
   llm_model: string
 } {
   return {
-    whisper_model: localStorage.getItem('whisper_model') || 'whisper-large-v3-turbo',
-    llm_model: localStorage.getItem('llm_model') || '',
+    whisper_model: getPreference('whisper_model') || '',
+    llm_model: getPreference('llm_model') || '',
   }
 }
 
@@ -727,11 +719,11 @@ export async function deleteVideoChannel(channelName: string): Promise<{ message
 export function getVideoProcessingDefaults(): Record<string, unknown> {
   const d: Record<string, unknown> = {}
   try {
-    const s = localStorage.getItem('vd_style'); if (s) d.style = s
-    const f = localStorage.getItem('vd_formats'); if (f) d.formats = JSON.parse(f)
-    const q = localStorage.getItem('vd_quality'); if (q) d.quality = q
-    const vq = localStorage.getItem('vd_video_quality'); if (vq) d.video_quality = vq
-    const lm = localStorage.getItem('llm_model'); if (lm) d.llm_model = lm
+    const s = getPreference('vd_style'); if (s) d.style = s
+    const f = getPreference('vd_formats'); if (f) d.formats = JSON.parse(f)
+    const q = getPreference('vd_quality'); if (q) d.quality = q
+    const vq = getPreference('vd_video_quality'); if (vq) d.video_quality = vq
+    const lm = getPreference('llm_model'); if (lm) d.llm_model = lm
   } catch (e) {
     logIgnoredJsonError('getVideoProcessingDefaults', e)
   }
@@ -1334,7 +1326,7 @@ export async function importBrowserCookies(
 // ==================== Notion ====================
 
 function getNotionKey(): string {
-  return localStorage.getItem('notion_api_key') || ''
+  return getPreference('notion_api_key') || ''
 }
 
 export interface NotionPage {

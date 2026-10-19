@@ -14,7 +14,7 @@ class TestProcessEpisode:
     
     async def test_process_episode_start(self, client: AsyncClient):
         """Test starting episode processing."""
-        with patch("api.routers.processing.get_client") as mock_client:
+        with patch("xyz_client.get_client") as mock_client:
             mock_episode = MagicMock()
             mock_episode.eid = "test-episode"
             mock_episode.title = "Test Episode"
@@ -37,7 +37,7 @@ class TestProcessEpisode:
     
     async def test_process_episode_transcribe_only(self, client: AsyncClient):
         """Test processing with transcribe_only flag."""
-        with patch("api.routers.processing.get_client") as mock_client:
+        with patch("xyz_client.get_client") as mock_client:
             mock_episode = MagicMock()
             mock_episode.eid = "test-episode"
             mock_episode.title = "Test Episode"
@@ -55,7 +55,7 @@ class TestProcessEpisode:
     
     async def test_process_episode_force(self, client: AsyncClient):
         """Test processing with force flag."""
-        with patch("api.routers.processing.get_client") as mock_client:
+        with patch("xyz_client.get_client") as mock_client:
             mock_episode = MagicMock()
             mock_episode.eid = "test-episode"
             mock_episode.title = "Test Episode"
@@ -91,6 +91,7 @@ class TestListJobs:
         # Add a test job
         jobs["test-job-1"] = PS(
             job_id="test-job-1",
+            user_id="local",
             status="processing",
             progress=50,
             message="Transcribing...",
@@ -119,6 +120,7 @@ class TestGetJob:
         
         jobs["test-job-2"] = ProcessingStatus(
             job_id="test-job-2",
+            user_id="local",
             status="transcribing",
             progress=30,
             message="Transcribing audio...",
@@ -151,6 +153,7 @@ class TestCancelJob:
         
         jobs["test-job-3"] = ProcessingStatus(
             job_id="test-job-3",
+            user_id="local",
             status="transcribing",
             progress=40,
             message="Transcribing...",
@@ -175,6 +178,7 @@ class TestCancelJob:
         
         jobs["test-job-4"] = ProcessingStatus(
             job_id="test-job-4",
+            user_id="local",
             status="completed",
             progress=100,
             message="Done",
@@ -198,6 +202,7 @@ class TestDeleteJob:
         
         jobs["test-job-5"] = ProcessingStatus(
             job_id="test-job-5",
+            user_id="local",
             status="completed",
             progress=100,
             message="Done",
@@ -222,7 +227,7 @@ class TestBatchProcess:
     
     async def test_batch_process_podcast(self, client: AsyncClient):
         """Test batch processing a podcast."""
-        with patch("api.routers.processing.get_client") as mock_client:
+        with patch("xyz_client.get_client") as mock_client:
             mock_podcast = MagicMock()
             mock_podcast.title = "Test Podcast"
             
@@ -247,7 +252,7 @@ class TestBatchProcess:
     
     async def test_batch_process_with_limit(self, client: AsyncClient):
         """Test batch processing with limit."""
-        with patch("api.routers.processing.get_client") as mock_client:
+        with patch("xyz_client.get_client") as mock_client:
             mock_podcast = MagicMock()
             mock_podcast.title = "Test Podcast"
             
@@ -275,7 +280,7 @@ class TestBatchProcess:
     
     async def test_batch_process_podcast_not_found(self, client: AsyncClient):
         """Test batch processing non-existent podcast."""
-        with patch("api.routers.processing.get_client") as mock_client:
+        with patch("xyz_client.get_client") as mock_client:
             mock_client.return_value.get_podcast_by_url.return_value = None
             mock_client.return_value.get_podcast.return_value = None
             mock_client.return_value._extract_id_from_url.return_value = "nonexistent"

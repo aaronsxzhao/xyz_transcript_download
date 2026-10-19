@@ -2,6 +2,7 @@
 Beautiful summary viewer with multiple output formats.
 """
 import json
+from html import escape
 from pathlib import Path
 from typing import Optional
 from dataclasses import dataclass
@@ -226,29 +227,29 @@ def export_html(summary: Summary) -> str:
     for topic, points in topics_map.items():
         points_html = ""
         for kp in points:
-            quote_html = f'<blockquote class="quote">{kp.original_quote}</blockquote>' if kp.original_quote else ""
+            quote_html = f'<blockquote class="quote">{escape(kp.original_quote)}</blockquote>' if kp.original_quote else ""
             points_html += f'''
             <div class="key-point">
-                <p class="summary">{kp.summary}</p>
+                <p class="summary">{escape(kp.summary)}</p>
                 {quote_html}
             </div>
             '''
         key_points_html += f'''
         <div class="topic-section">
-            <h3 class="topic-title">{topic}</h3>
+            <h3 class="topic-title">{escape(topic)}</h3>
             {points_html}
         </div>
         '''
     
-    topics_pills = " ".join(f'<span class="topic-pill">{t}</span>' for t in summary.topics)
-    takeaways_html = "\n".join(f'<li>{t}</li>' for t in summary.takeaways)
+    topics_pills = " ".join(f'<span class="topic-pill">{escape(t)}</span>' for t in summary.topics)
+    takeaways_html = "\n".join(f'<li>{escape(t)}</li>' for t in summary.takeaways)
     
     html = f'''<!DOCTYPE html>
 <html lang="zh">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{summary.title}</title>
+    <title>{escape(summary.title)}</title>
     <style>
         :root {{
             --primary: #6366f1;
@@ -389,11 +390,11 @@ def export_html(summary: Summary) -> str:
 </head>
 <body>
     <div class="container">
-        <h1>📻 {summary.title}</h1>
+        <h1>📻 {escape(summary.title)}</h1>
         
         <div class="section">
             <div class="section-title">📝 Overview</div>
-            <div class="overview">{summary.overview}</div>
+            <div class="overview">{escape(summary.overview)}</div>
         </div>
         
         <div class="section">

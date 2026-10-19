@@ -1,3 +1,4 @@
+import LoadError from '../components/LoadError'
 import { useCallback, useEffect, useState, useMemo, useRef } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import {
@@ -37,6 +38,7 @@ export default function Videos() {
   const { videoTasks, mergeVideoTasks, removeVideoTask } = useStore()
   const [formOpen, setFormOpen] = useState(false)
   const [search, setSearch] = useState('')
+  const [error, setError] = useState('')
   const [checking, setChecking] = useState(false)
   const [searchParams, setSearchParams] = useSearchParams()
   const { addToast } = useToast()
@@ -63,16 +65,18 @@ export default function Videos() {
     const params: Record<string, string> = {}
     if (v.type === 'channels') params.platform = v.platform
     else if (v.type === 'videos') { params.platform = v.platform; params.channel = v.channel }
-    setSearchParams(params, { replace: true })
+    setSearchParams(params)
   }, [setSearchParams])
 
   // Load channel list (called on mount and after mutations)
   const loadChannels = useCallback(async () => {
+    setError('')
     try {
       const data = await fetchVideoChannels()
       setChannels(data.channels)
     } catch (e) {
       console.error('Failed to load channels:', e)
+      setError('Cannot load your video channels. Please retry.')
     } finally {
       setChannelsLoading(false)
     }
@@ -103,6 +107,7 @@ export default function Videos() {
       }
     } catch (e) {
       console.error('Failed to load channel tasks:', e)
+      setError('Cannot load videos in this channel. Please retry.')
     } finally {
       if (!preserveExisting && loadedChannelRef.current === key) {
         setChannelTasksLoading(false)
@@ -386,11 +391,13 @@ export default function Videos() {
 
   return (
     <div className="space-y-5">
+      {error && <LoadError message={error} onRetry={() => { void loadChannels(); if (view.type === 'videos') void loadChannelTasks(view.platform, view.channel) }} />}
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="flex items-center gap-2">
           {view.type !== 'platforms' && (
             <button
+              aria-label="Back to library"
               onClick={() => {
                 if (view.type === 'videos') setView({ type: 'channels', platform: view.platform })
                 else setView({ type: 'platforms' })

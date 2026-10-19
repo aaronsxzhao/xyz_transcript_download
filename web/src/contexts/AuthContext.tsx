@@ -2,6 +2,9 @@
  * Authentication context for managing user state
  */
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react'
+import { clearCache } from '../lib/cache'
+import { useStore } from '../lib/store'
+import { connectWebSocket, disconnectWebSocket } from '../lib/websocket'
 import {
   AuthUser,
   getAuthConfig,
@@ -18,7 +21,7 @@ interface AuthContextType {
   loading: boolean
   authEnabled: boolean
   signIn: (email: string, password: string) => Promise<void>
-  signUp: (email: string, password: string) => Promise<void>
+  signUp: (email: string, password: string) => Promise<boolean>
   signOut: () => Promise<void>
 }
 
@@ -28,13 +31,35 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null)
   const [loading, setLoading] = useState(true)
   const [authEnabled, setAuthEnabled] = useState(false)
+  const [authError, setAuthError] = useState('')
+  const [attempt, setAttempt] = useState(0)
+
+  useEffect(() => {
+    const changed = () => {
+      disconnectWebSocket()
+      useStore.getState().reset()
+      clearCache()
+      if (!isAuthenticated()) setUser(null)
+    }
+    window.addEventListener('xyz:session-changed', changed)
+    return () => window.removeEventListener('xyz:session-changed', changed)
+  }, [])
+
+  useEffect(() => {
+    if (!loading && user) connectWebSocket()
+    return disconnectWebSocket
+  }, [user?.id, loading])
 
   // Check auth status on mount
   useEffect(() => {
+    let active = true
     async function checkAuth() {
+      setLoading(true)
+      setAuthError('')
       try {
         // First check if auth is enabled
         const config = await getAuthConfig()
+        if (!active) return
         setAuthEnabled(config.supabase_enabled)
 
         if (!config.supabase_enabled) {
@@ -48,6 +73,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (isAuthenticated()) {
           // Try to get current user
           const currentUser = await getCurrentUser()
+          if (!active) return
           if (currentUser) {
             setUser(currentUser)
           } else {
@@ -60,19 +86,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           if (stored) {
             // Verify with server
             const currentUser = await getCurrentUser()
-            setUser(currentUser)
+            if (active) setUser(currentUser)
           }
         }
       } catch (error) {
+        if (!active) return
         console.error('Auth check failed:', error)
         setUser(null)
+        setAuthError(error instanceof Error ? error.message : 'Cannot connect to the server')
       } finally {
-        setLoading(false)
+        if (active) setLoading(false)
       }
     }
 
     checkAuth()
-  }, [])
+    return () => { active = false }
+  }, [attempt])
 
   const signIn = async (email: string, password: string) => {
     const tokens = await authSignIn(email, password)
@@ -91,14 +120,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         email: tokens.email,
         authenticated: true,
       })
+      return true
     }
-    // If no access token, email confirmation may be required
+    return false
   }
 
   const signOut = async () => {
-    await authSignOut()
     setUser(null)
+    await authSignOut()
   }
+
+  if (authError) return (
+    <div className="min-h-screen bg-dark-bg text-gray-200 flex flex-col items-center justify-center gap-4 p-6" role="alert">
+      <p>{authError}</p>
+      <button className="px-4 py-2 bg-indigo-600 rounded-lg" onClick={() => setAttempt(value => value + 1)}>Retry connection</button>
+    </div>
+  )
 
   return (
     <AuthContext.Provider value={{ user, loading, authEnabled, signIn, signUp, signOut }}>

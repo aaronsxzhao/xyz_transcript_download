@@ -356,6 +356,8 @@ class Database:
         self,
         pid: str,
         status: Optional[ProcessingStatus] = None,
+        offset: int = 0,
+        limit: Optional[int] = None,
     ) -> List[EpisodeRecord]:
         """Get all episodes for a podcast, optionally filtered by status."""
         with self._get_connection() as conn:
@@ -365,14 +367,14 @@ class Database:
                 cursor.execute("""
                     SELECT * FROM episodes 
                     WHERE pid = ? AND status = ?
-                    ORDER BY pub_date DESC
-                """, (pid, status.value))
+                    ORDER BY pub_date DESC, id DESC LIMIT ? OFFSET ?
+                """, (pid, status.value, limit if limit is not None else -1, offset))
             else:
                 cursor.execute("""
                     SELECT * FROM episodes 
                     WHERE pid = ?
-                    ORDER BY pub_date DESC
-                """, (pid,))
+                    ORDER BY pub_date DESC, id DESC LIMIT ? OFFSET ?
+                """, (pid, limit if limit is not None else -1, offset))
             
             return [self._row_to_episode(row) for row in cursor.fetchall()]
 

@@ -1,3 +1,4 @@
+import { getPreference, setPreference } from './preferences'
 /**
  * Tracks how many times a user has "seen" an item on screen.
  * Used for:
@@ -16,7 +17,7 @@ interface SeenMap {
 
 function load(): SeenMap {
   try {
-    return JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}')
+    return JSON.parse(getPreference(STORAGE_KEY) || '{}')
   } catch {
     return {}
   }
@@ -30,7 +31,7 @@ function save(map: SeenMap) {
       delete map[k]
     }
   }
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(map))
+  setPreference(STORAGE_KEY, JSON.stringify(map))
 }
 
 /** Increment view count for a batch of IDs. Call once per page load. */

@@ -9,6 +9,8 @@ on:
       - 'web/**'
       - 'Dockerfile'
       - 'requirements.txt'
+      - 'requirements-cloud.txt'
+      - 'scripts/verify_deployment.py'
       - 'package.json'
       - 'package-lock.json'
       - '.github/workflows/deploy-oracle.yml'
@@ -53,6 +55,8 @@ jobs:
           context: .
           platforms: linux/arm64
           push: true
+          build-args: |
+            APP_REVISION=${{ github.sha }}
           tags: |
             ${{ env.OCIR_REGISTRY }}/${{ env.OCIR_NAMESPACE }}/${{ env.OCIR_REPO }}:latest
             ${{ env.OCIR_REGISTRY }}/${{ env.OCIR_NAMESPACE }}/${{ env.OCIR_REPO }}:${{ github.sha }}
@@ -82,32 +86,23 @@ jobs:
         run: |
           echo "Restarting container instance..."
           oci container-instances container-instance restart \
-            --container-instance-id ${{ env.CONTAINER_INSTANCE_ID }} \
-            2>&1 || echo "Restart initiated"
+            --container-instance-id ${{ env.CONTAINER_INSTANCE_ID }}
           sleep 5
-          for i in 1 2 3 4 5; do
+          for i in $(seq 1 18); do
             STATE=$(oci container-instances container-instance get \
               --container-instance-id ${{ env.CONTAINER_INSTANCE_ID }} \
-              --query 'data."lifecycle-state"' --raw-output 2>&1)
+              --query 'data."lifecycle-state"' --raw-output)
             echo "Attempt $i: State=$STATE"
             if [ "$STATE" = "ACTIVE" ]; then
               echo "Container is active!"
-              break
-            fi
-            sleep 10
-          done
-
-      - name: Verify health
-        run: |
-          echo "Waiting for container to be healthy..."
-          sleep 15
-          for i in 1 2 3 4 5; do
-            STATUS=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 https://aipodcastsummary.online/api/health || echo "000")
-            echo "Attempt $i: HTTP $STATUS"
-            if [ "$STATUS" = "200" ]; then
-              echo "Deployment successful!"
               exit 0
             fi
             sleep 10
           done
-          echo "Warning: Health check not passing yet, but deployment may still be in progress"
+          echo "Container did not become active"
+          exit 1
+
+      - name: Verify health
+        env:
+          EXPECTED_REVISION: ${{ github.sha }}
+        run: python scripts/verify_deployment.py

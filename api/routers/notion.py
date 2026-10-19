@@ -7,7 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException, Header, Request
 from pydantic import BaseModel
 
 from api.auth import get_current_user, User
-from config import NOTION_API_KEY
+from config import NOTION_API_KEY, USE_SUPABASE
 from logger import get_logger
 
 logger = get_logger("notion")
@@ -21,7 +21,7 @@ _HTML_ATTR_URL_PATTERN = re.compile(r'((?:src|href)=["\'])([^"\']+)(["\'])', re.
 
 
 def _get_notion_key(x_notion_key: Optional[str] = Header(None)) -> str:
-    key = x_notion_key or NOTION_API_KEY
+    key = x_notion_key or (NOTION_API_KEY if not USE_SUPABASE else "")
     if not key:
         raise HTTPException(
             status_code=400,
@@ -244,6 +244,8 @@ async def export_to_notion(
         raise HTTPException(status_code=404, detail="Video task not found")
 
     markdown = task.get("markdown", "")
+    from api.media import sign_media_urls
+    markdown = sign_media_urls(markdown, req.task_id)
     if not markdown:
         raise HTTPException(status_code=400, detail="No note content to export")
 

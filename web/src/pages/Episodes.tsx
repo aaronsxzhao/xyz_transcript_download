@@ -6,12 +6,18 @@ import { useToast } from '../components/Toast'
 import { useStore } from '../lib/store'
 import { getStatusColor } from '../lib/statusUtils'
 import { markSeen, isNewItem } from '../lib/seen'
+import { fetchEpisode } from '../lib/api'
+import LoadError from '../components/LoadError'
 
 export default function Episodes() {
   const { pid } = useParams<{ pid: string }>()
   const [podcast, setPodcast] = useState<Podcast | null>(null)
   const [episodes, setEpisodes] = useState<Episode[]>([])
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
+  const [loadingMore, setLoadingMore] = useState(false)
+  const [hasMore, setHasMore] = useState(false)
+  const completedJobsRef = useRef(new Set<string>())
   const [processingEid, setProcessingEid] = useState<string | null>(null)
   const [regeneratingEid, setRegeneratingEid] = useState<string | null>(null)
   const [deletingEid, setDeletingEid] = useState<string | null>(null)
@@ -44,6 +50,7 @@ export default function Episodes() {
   }, [episodes])
   
   async function loadData() {
+    setError('')
     try {
       const [podcastData, episodesData] = await Promise.all([
         fetchPodcast(pid!),
@@ -51,12 +58,37 @@ export default function Episodes() {
       ])
       setPodcast(podcastData)
       setEpisodes(episodesData)
+      setHasMore(episodesData.length < podcastData.episode_count)
     } catch (err) {
       console.error('Failed to load data:', err)
+      setError('Cannot load episodes. Please retry.')
     } finally {
       setLoading(false)
     }
   }
+
+  async function loadMore() {
+    if (!pid || loadingMore) return
+    setLoadingMore(true)
+    setError('')
+    try {
+      const next = await fetchEpisodes(pid, episodes.length)
+      setEpisodes(previous => [...previous, ...next])
+      setHasMore(next.length === 50 && episodes.length + next.length < (podcast?.episode_count || 0))
+    } catch { setError('Cannot load more episodes. Please retry.') }
+    finally { setLoadingMore(false) }
+  }
+
+  useEffect(() => {
+    for (const job of jobs) {
+      if (job.status !== 'completed' || !job.episode_id || completedJobsRef.current.has(job.job_id)) continue
+      if (!episodes.some(episode => episode.eid === job.episode_id)) continue
+      completedJobsRef.current.add(job.job_id)
+      void fetchEpisode(job.episode_id).then(fresh => {
+        setEpisodes(previous => previous.map(episode => episode.eid === fresh.eid ? fresh : episode))
+      }).catch(() => completedJobsRef.current.delete(job.job_id))
+    }
+  }, [jobs, episodes])
   
   async function handleProcess(episode: Episode) {
     setProcessingEid(episode.eid)
@@ -195,16 +227,18 @@ export default function Episodes() {
   
   return (
     <div className="space-y-4 md:space-y-6">
+      {error && <LoadError message={error} onRetry={() => { void (episodes.length ? loadMore() : loadData()) }} />}
       <div className="flex items-center gap-3 md:gap-4">
         <button
-          onClick={() => navigate(-1)}
+          aria-label="Go back"
+            onClick={() => navigate(-1)}
           className="p-2 bg-dark-surface border border-dark-border rounded-lg hover:bg-dark-hover transition-colors flex-shrink-0"
         >
           <ArrowLeft size={20} />
         </button>
         <div className="min-w-0">
           <h1 className="text-lg md:text-2xl font-bold text-white line-clamp-1">{podcast?.title || 'Episodes'}</h1>
-          <p className="text-sm md:text-base text-gray-400">{episodes.length} episodes</p>
+          <p className="text-sm md:text-base text-gray-400">{episodes.length}{hasMore ? ` of ${podcast?.episode_count}` : ''} episodes</p>
         </div>
       </div>
 
@@ -382,6 +416,7 @@ export default function Episodes() {
             </div>
           </div>
         ))}
+        {hasMore && <button disabled={loadingMore} onClick={() => { void loadMore() }} className="px-4 py-2 bg-dark-surface border border-dark-border rounded-lg text-indigo-300 disabled:opacity-50">{loadingMore ? 'Loading...' : 'Load more episodes'}</button>}
       </div>
     </div>
   )

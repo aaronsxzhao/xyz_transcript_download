@@ -6,6 +6,7 @@ import json
 from pathlib import Path
 from typing import Dict, Any
 from unittest.mock import patch, MagicMock
+from database import ProcessingStatus
 
 pytestmark = [pytest.mark.db]
 
@@ -237,10 +238,10 @@ class TestEpisodeOperations:
             audio_url=ed["audio_url"],
         )
         
-        mock_database.update_episode_status(ed["eid"], "completed")
+        mock_database.update_episode_status(ed["eid"], ProcessingStatus.COMPLETED)
         
         episode = mock_database.get_episode(ed["eid"])
-        assert episode.status == "completed"
+        assert episode.status == ProcessingStatus.COMPLETED
     
     def test_delete_episode(self, mock_database, sample_podcast_data, sample_episode_data):
         """Test deleting an episode."""

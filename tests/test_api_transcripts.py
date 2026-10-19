@@ -53,7 +53,7 @@ class TestGetTranscript:
         self, client: AsyncClient, create_test_transcript
     ):
         """Test that transcript handles Chinese content correctly."""
-        create_test_transcript()
+        create_test_transcript({"text": "这是中文转录内容，包含标点符号。"})
         
         response = await client.get("/api/transcripts/test-episode-456")
         assert response.status_code == 200

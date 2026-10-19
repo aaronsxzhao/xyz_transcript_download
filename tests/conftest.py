@@ -7,7 +7,7 @@ import json
 import tempfile
 from pathlib import Path
 from typing import Generator, Dict, Any
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch, MagicMock, AsyncMock
 
 import pytest
 from httpx import AsyncClient, ASGITransport
@@ -21,6 +21,10 @@ os.environ["WHISPER_MODE"] = "local"
 os.environ["LLM_API_KEY"] = "test-key"
 os.environ["LLM_BASE_URL"] = "https://test.api.com"
 os.environ["LLM_MODEL"] = "test-model"
+os.environ["SUPABASE_URL"] = ""
+os.environ["SUPABASE_KEY"] = ""
+os.environ["DISCORD_WEBHOOK_URL"] = ""
+os.environ["XYZ_DATA_DIR"] = tempfile.mkdtemp(prefix="xyz-tests-")
 
 
 # ==================== Sample Data Fixtures ====================
@@ -125,9 +129,9 @@ def db_interface(mock_database, temp_data_dir: Path):
     from api.db import DatabaseInterface
     
     with patch("api.db.DATA_DIR", temp_data_dir):
-        with patch("api.db.get_database", return_value=mock_database):
+        with patch("database.get_database", return_value=mock_database):
             interface = DatabaseInterface(user_id=None)
-            interface.db = mock_database
+            interface._db = mock_database
             yield interface
 
 
@@ -144,14 +148,22 @@ def app():
 @pytest.fixture
 async def client(app, temp_data_dir: Path, mock_database) -> AsyncClient:
     """Create async test client for API testing."""
-    from api.db import get_database
-    
-    with patch("api.db.DATA_DIR", temp_data_dir):
-        with patch("api.db.get_database", return_value=mock_database):
-            with patch("database.get_database", return_value=mock_database):
-                transport = ASGITransport(app=app)
-                async with AsyncClient(transport=transport, base_url="http://test") as ac:
-                    yield ac
+    from api.routers import processing, video_notes
+    from video_task_db import VideoTaskDB
+    processing.jobs.clear()
+    processing.cancelled_jobs.clear()
+    processing._jobs_cache.clear()
+    video_notes._list_cache.clear()
+    with patch("api.db.DATA_DIR", temp_data_dir), \
+         patch("database.get_database", return_value=mock_database), \
+         patch("api.routers.processing.DATA_DIR", temp_data_dir), \
+         patch("api.routers.processing.JOBS_FILE", temp_data_dir / "jobs.json"), \
+         patch("video_task_db.get_video_task_db", return_value=VideoTaskDB(mock_database.db_path)), \
+         patch("api.user_settings.DATABASE_PATH", mock_database.db_path), \
+         patch("api.routers.processing.process_episode_async", new_callable=AsyncMock):
+        transport = ASGITransport(app=app)
+        async with AsyncClient(transport=transport, base_url="http://test") as ac:
+            yield ac
 
 
 @pytest.fixture
