@@ -1,11 +1,9 @@
-import { lazy, memo, Suspense, useState } from 'react'
+import { lazy, memo, Suspense, useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
-import remarkMath from 'remark-math'
-import rehypeKatex from 'rehype-katex'
 import rehypeSlug from 'rehype-slug'
-import 'katex/dist/katex.min.css'
+import type { PluggableList } from 'unified'
 import {
   AlertCircle, Loader2, RotateCcw, Square,
   Play, ExternalLink, X, ImageIcon, FileText,
@@ -15,6 +13,17 @@ import YouTubeCookieGuide from './YouTubeCookieGuide'
 import type { VideoTask } from '../../lib/api'
 
 const HighlightedCode = lazy(() => import('./HighlightedCode'))
+
+function NoteImage({ src, alt, onImage }: { src?: string; alt?: string; onImage: (src: string) => void }) {
+  const [failed, setFailed] = useState(false)
+  if (failed) return <span className="inline-flex items-center gap-2 rounded-lg border border-dark-border p-3 text-sm text-gray-400">
+    <ImageIcon size={16} />{alt || 'Image'} — unavailable
+    <button className="underline" onClick={() => setFailed(false)}>Retry image</button>
+  </span>
+  return <img loading="lazy" decoding="async" src={src} alt={alt || ''}
+    className="max-w-[min(100%,480px)] max-h-64 w-auto rounded-lg border border-dark-border cursor-pointer hover:opacity-90 transition-opacity"
+    referrerPolicy="no-referrer" onError={() => setFailed(true)} onClick={() => src && onImage(src)} />
+}
 
 interface Props {
   task: VideoTask | null
@@ -244,10 +253,25 @@ export default function MarkdownPreview({ task }: Props) {
 }
 
 const NoteMarkdown = memo(function NoteMarkdown({ markdown, onImage }: { markdown: string; onImage: (src: string) => void }) {
+  const [math, setMath] = useState<{
+    remark: typeof import('remark-math').default
+    rehype: typeof import('rehype-katex').default
+  } | null>(null)
+  const hasMath = /\$\$[\s\S]+?\$\$|(^|[^\\])\$[^\n$]+\$/.test(markdown)
+  useEffect(() => {
+    if (!hasMath || math) return
+    let active = true
+    void Promise.all([import('remark-math'), import('rehype-katex'), import('katex/dist/katex.min.css')])
+      .then(([remark, rehype]) => { if (active) setMath({ remark: remark.default, rehype: rehype.default }) })
+      .catch(() => {})
+    return () => { active = false }
+  }, [hasMath, math])
+  const rehypePlugins: PluggableList = [rehypeSlug]
+  if (math) rehypePlugins.push([math.rehype, { throwOnError: false, errorColor: '#94a3b8' }])
   return (
             <ReactMarkdown
-              remarkPlugins={[remarkGfm, remarkMath]}
-              rehypePlugins={[rehypeSlug, [rehypeKatex, { throwOnError: false, errorColor: '#94a3b8' }]]}
+              remarkPlugins={math ? [remarkGfm, math.remark] : [remarkGfm]}
+              rehypePlugins={rehypePlugins}
               components={{
                 p({ children, ...props }) {
                   const childArray = Array.isArray(children) ? children : [children]
@@ -291,15 +315,7 @@ const NoteMarkdown = memo(function NoteMarkdown({ markdown, onImage }: { markdow
                   )
                 },
                 img({ src, alt }) {
-                  return (
-                    <img loading="lazy" decoding="async"
-                      src={src}
-                      alt={alt || ''}
-                      className="max-w-[min(100%,480px)] max-h-64 w-auto rounded-lg border border-dark-border cursor-pointer hover:opacity-90 transition-opacity"
-                      referrerPolicy="no-referrer"
-                      onClick={() => src && onImage(src)}
-                    />
-                  )
+                  return <NoteImage key={src} src={src} alt={alt} onImage={onImage} />
                 },
                 a({ href, children }) {
                   const text = String(children)

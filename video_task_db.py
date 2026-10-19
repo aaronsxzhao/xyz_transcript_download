@@ -36,6 +36,11 @@ class _SQLiteVideoTaskDB:
         finally:
             conn.close()
 
+    def get_saved_media_task_ids(self) -> set[str]:
+        """Internal cleanup inventory; never exposed by a user-facing route."""
+        with self._conn() as conn:
+            return {row['id'] for row in conn.execute('SELECT id FROM video_tasks')}
+
     def _init_tables(self):
         with self._conn() as conn:
             conn.execute("PRAGMA journal_mode=WAL")
@@ -555,6 +560,9 @@ class _SupabaseVideoTaskDB:
         with self._lock:
             self._last_flush.pop(task_id, None)
 
+    def get_saved_media_task_ids(self) -> set[str]:
+        return self._sb.get_saved_media_task_ids()
+
     def list_tasks(self, user_id: str = None, limit: int = 2000) -> List[dict]:
         if not user_id:
             return []
@@ -735,6 +743,10 @@ class VideoTaskDB:
         else:
             self._backend = _SQLiteVideoTaskDB(db_path)
             logger.info("VideoTaskDB using SQLite backend")
+
+    def get_saved_media_task_ids(self) -> set[str]:
+        """Server maintenance only: retain media belonging to saved tasks."""
+        return self._backend.get_saved_media_task_ids()
 
     def create_task(self, task_data: dict) -> str:
         return self._backend.create_task(task_data)

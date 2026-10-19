@@ -29,7 +29,7 @@ def profile_public_routes(owner: str, routes: list[tuple[str, str]]) -> list[dic
     token = jwt.encode({"sub": owner, "aud": "authenticated", "role": "authenticated",
                         "iat": now, "exp": now + 300}, secret, algorithm="HS256")
     selected = [("auth", "/api/auth/me"), *[(label, path) for label, path in routes
-                if label in {"podcasts", "channels", "episodes", "summary", "transcript", "settings", "channel_videos", "reported_episodes", "reported_summary"}]]
+                if label in {"podcasts", "channels", "episodes", "summary", "transcript", "settings", "channel_videos", "reported_episodes", "reported_summary", "reported_video_note"}]]
     reports = []
     for label, path in selected:
         result = subprocess.run([
@@ -58,7 +58,7 @@ def profile_public_routes(owner: str, routes: list[tuple[str, str]]) -> list[dic
             pages = json.loads(body).get("pages", {})
         except ValueError:
             pages = {}
-        for label in {"dashboard", "podcasts", "videos", "channel", "episodes", "viewer", "settings"} & pages.keys():
+        for label in {"dashboard", "podcasts", "videos", "channel", "episodes", "viewer", "video_note", "settings"} & pages.keys():
             row = pages[label]
             safe = {"library_profile": "browser_" + label}
             for source, target in {"elapsed_ms": "milliseconds", "document_ms": "document_ms",
@@ -102,6 +102,7 @@ async def profile() -> list[dict]:
                 ("reported_episodes", "/api/podcasts/62382c1103bea1ebfffa1c00/episodes"),
                 ("reported_summary", "/api/summaries/694b7d6d0b60b7bf752e007b"),
                 ("channel_videos", "/api/video-notes/tasks/by-channel?platform=youtube&channel=Brooks+Trading+Course"),
+                ("reported_video_note", "/api/video-notes/tasks/bc2c988b-2b4?view=note"),
             ])
     if summaries:
         eid = summaries[0]["episode_id"]

@@ -1,6 +1,7 @@
 """Read-only live browser checks. Emit numbers, never page data or credentials."""
 import asyncio
 import json
+import re
 import time
 from urllib.parse import urlparse
 
@@ -37,6 +38,7 @@ async def profile_browser(owner: str, token: str) -> list[dict]:
             ('episodes', '/podcasts/62382c1103bea1ebfffa1c00/episodes', '/api/podcasts/62382c1103bea1ebfffa1c00/episodes'),
             ('channel', '/videos?platform=youtube&channel=Brooks+Trading+Course', '/api/video-notes/tasks/by-channel'),
             ('summary', '/viewer/694b7d6d0b60b7bf752e007b', '/api/summaries/694b7d6d0b60b7bf752e007b'),
+            ('video_note', '/videos/bc2c988b-2b4', '/api/video-notes/tasks/bc2c988b-2b4'),
             ('settings', '/settings', '/api/settings'),
         ]
         for label, path, critical in routes:
@@ -61,6 +63,19 @@ async def profile_browser(owner: str, token: str) -> list[dict]:
                     rows = data if isinstance(data, list) else data['tasks']
                     if rows:
                         await page.get_by_text(rows[0]['title'], exact=True).first.wait_for(timeout=10000)
+                elif label == 'video_note':
+                    await page.locator('article').wait_for(timeout=10000)
+                    images = await page.locator('article img').element_handles()
+                    loaded = 0
+                    for img in images:
+                        try:
+                            await img.scroll_into_view_if_needed(timeout=3000)
+                            await page.wait_for_function('(image) => image.complete', arg=img, timeout=10000)
+                            loaded += int(await img.evaluate('(image) => image.naturalWidth > 0'))
+                        except Exception:
+                            pass
+                    expected = len(set(re.findall(r'/data/screenshots/[A-Za-z0-9_.-]+', data.get('markdown', ''))))
+                    report.update(loaded_images=loaded, missing_images=max(expected, len(images)) - loaded)
                 else:
                     await page.wait_for_function("!document.querySelector('select[aria-label=\"Summary provider\"]')?.disabled")
                 report['milliseconds'] = round((time.perf_counter() - started) * 1000)

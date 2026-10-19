@@ -10,7 +10,7 @@ import { fetchEpisode } from '../lib/api'
 import LoadError from '../components/LoadError'
 import { getCache, setCache, CacheKeys } from '../lib/cache'
 import { getAccountId } from '../lib/preferences'
-import { preloadPage } from '../lib/pages'
+import { prefetchSummary } from '../lib/summaryPrefetch'
 import { usePageTiming } from '../lib/pageTiming'
 
 export default function Episodes() {
@@ -40,6 +40,10 @@ export default function Episodes() {
   const fileInputRef = useRef<HTMLInputElement>(null)
   const currentPid = useRef(pid)
   currentPid.current = pid
+
+  useEffect(() => {
+    episodes.slice(0, 4).filter(episode => episode.has_summary).slice(0, 2).forEach(episode => prefetchSummary(episode.eid))
+  }, [episodes])
   
   // Helper to find active job for an episode
   function getActiveJob(eid: string) {
@@ -335,8 +339,8 @@ export default function Episodes() {
           <div
             key={episode.eid}
             onClick={episode.has_summary ? () => navigate(`/viewer/${episode.eid}`) : undefined}
-            onPointerEnter={() => { if (episode.has_summary) preloadPage('/viewer/episode') }}
-            onTouchStart={() => { if (episode.has_summary) preloadPage('/viewer/episode') }}
+            onPointerEnter={() => { if (episode.has_summary) prefetchSummary(episode.eid) }}
+            onTouchStart={() => { if (episode.has_summary) prefetchSummary(episode.eid) }}
             className={`p-3 md:p-4 bg-dark-surface border border-dark-border rounded-xl hover:border-dark-hover transition-colors${episode.has_summary ? ' cursor-pointer' : ''}`}
           >
             <div className="flex flex-col sm:flex-row sm:items-start gap-3 md:gap-4">
@@ -398,7 +402,7 @@ export default function Episodes() {
                         </button>
                         <Link
                           to={`/viewer/${episode.eid}`}
-                          onFocus={() => preloadPage('/viewer/episode')}
+                          onFocus={() => prefetchSummary(episode.eid)}
                           className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-colors"
                         >
                           <CheckCircle size={16} />

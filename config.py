@@ -255,8 +255,8 @@ USE_SUPABASE = bool(SUPABASE_URL and SUPABASE_KEY)
 # without continuously uploading screenshots and thumbnails to Storage.
 USE_SUPABASE_STORAGE = USE_SUPABASE and _get_env_bool("SUPABASE_STORAGE_ENABLED", True)
 
-# Generated screenshot/thumbnail retention. Defaults to 21 days so hosted
-# deployments do not accumulate storage indefinitely.
+# Unreferenced screenshot/thumbnail retention. Saved video notes keep their
+# images; only orphaned generated media is removed after this interval.
 GENERATED_MEDIA_RETENTION_DAYS = _get_env_int("GENERATED_MEDIA_RETENTION_DAYS", 21, min_val=0)
 GENERATED_MEDIA_CLEANUP_INTERVAL_HOURS = _get_env_int("GENERATED_MEDIA_CLEANUP_INTERVAL_HOURS", 6, min_val=1)
 

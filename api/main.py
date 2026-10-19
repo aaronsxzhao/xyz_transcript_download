@@ -340,7 +340,7 @@ async def generated_media(folder: str, filename: str, expires: int = Query(0), s
                 return Response(content, media_type=media_type, headers=headers)
             except Exception:
                 pass
-    raise HTTPException(status_code=404, detail="File not found")
+    raise HTTPException(status_code=404, detail="File not found", headers={"Cache-Control": "private, no-store"})
 
 # Check for pre-built frontend
 frontend_dist = Path(__file__).parent.parent / "web" / "dist"

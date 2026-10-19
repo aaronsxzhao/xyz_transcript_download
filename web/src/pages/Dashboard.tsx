@@ -11,6 +11,7 @@ import { markSeen, shouldDismissCompleted } from '../lib/seen'
 import SummaryCard from '../components/SummaryCard'
 import ProcessingProgress from '../components/ProcessingProgress'
 import { usePageTiming } from '../lib/pageTiming'
+import { prefetchVideoNote } from '../lib/summaryPrefetch'
 
 const VIDEO_QUEUE_STATUSES = new Set(['pending', 'parsing', 'downloading', 'transcribing', 'summarizing', 'saving', 'success', 'failed'])
 
@@ -30,6 +31,7 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true)
   usePageTiming('dashboard', !loading, CacheKeys.STATS)
   const [error, setError] = useState('')
+  useEffect(() => { recentVideos.slice(0, 2).forEach(task => prefetchVideoNote(task.id)) }, [recentVideos])
   const [episodeUrl, setEpisodeUrl] = useState('')
   const [processing, setProcessing] = useState(false)
   const [newEpisodes, setNewEpisodes] = useState<NewEpisode[]>([])
@@ -400,6 +402,9 @@ export default function Dashboard() {
                 <Link
                   key={task.id}
                   to={`/videos/${task.id}`}
+                  onPointerEnter={() => prefetchVideoNote(task.id)}
+                  onFocus={() => prefetchVideoNote(task.id)}
+                  onTouchStart={() => prefetchVideoNote(task.id)}
                   className="flex gap-4 p-4 min-h-[104px] bg-dark-surface border border-dark-border rounded-xl hover:border-indigo-500/50 transition-colors"
                 >
                   {task.thumbnail ? (

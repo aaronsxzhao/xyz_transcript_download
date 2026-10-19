@@ -1,5 +1,8 @@
 import { escapeHtml, markdownToSafeHtml } from '../lib/safeHtml'
 import { getPreference } from '../lib/preferences'
+import { getAccountId } from '../lib/preferences'
+import { CacheKeys, getCache, setCache, removeCache } from '../lib/cache'
+import { usePageTiming } from '../lib/pageTiming'
 import { useEffect, useState, useMemo, useCallback, useRef } from 'react'
 import { useParams, Link, useNavigate } from 'react-router-dom'
 import {
@@ -76,7 +79,7 @@ function buildNotionExportMarkdown(task: VideoTask, content: string): string {
 export default function VideoViewer() {
   const { taskId } = useParams<{ taskId: string }>()
   const navigate = useNavigate()
-  const [task, setTask] = useState<VideoTask | null>(null)
+  const [task, setTask] = useState<VideoTask | null>(() => getCache(CacheKeys.VIDEO_NOTE(taskId!)))
   const taskRef = useRef(task)
   taskRef.current = task
   const storeTaskSlice = useStore(s => (taskId ? s.videoTasks.find(t => t.id === taskId) : undefined))
@@ -84,8 +87,10 @@ export default function VideoViewer() {
     if (!task) return null
     return storeTaskSlice ? mergeVideoTaskPair(storeTaskSlice, task) : task
   }, [task, storeTaskSlice])
-  const [loading, setLoading] = useState(true)
+  const [loading, setLoading] = useState(() => !getCache(CacheKeys.VIDEO_NOTE(taskId!)))
+  const [taskVerified, setTaskVerified] = useState(false)
   const [error, setError] = useState('')
+  usePageTiming('video_note', !loading && task?.id === taskId, CacheKeys.VIDEO_NOTE(taskId!), !!error && !loading)
   const [loadAttempt, setLoadAttempt] = useState(0)
   const [viewMode, setViewMode] = useState<ViewMode>('markdown')
   const [selectedVersion, setSelectedVersion] = useState<string>('')
@@ -111,9 +116,11 @@ export default function VideoViewer() {
     if (!taskId) return
     let cancelled = false
     let inFlight = false
-    setLoading(true)
+    setTaskVerified(false)
+    const cached = getCache<VideoTask>(CacheKeys.VIDEO_NOTE(taskId))
+    setLoading(!cached && taskRef.current?.id !== taskId)
     if (taskRef.current?.id !== taskId) {
-      setTask(null)
+      setTask(cached)
       setSelectedVersion('')
       setVersionContents({})
       setTranscript(undefined)
@@ -122,10 +129,14 @@ export default function VideoViewer() {
     const load = async () => {
       if (cancelled || inFlight) return
       inFlight = true
+      const owner = getAccountId()
       try {
         const data = await fetchVideoTask(taskId)
-        if (!cancelled) {
+        if (!cancelled && owner === getAccountId()) {
           setTask(data)
+          setTaskVerified(true)
+          if (data.status === 'success') setCache(CacheKeys.VIDEO_NOTE(taskId), data, owner)
+          else removeCache(CacheKeys.VIDEO_NOTE(taskId))
           setError('')
         }
       } catch (e) {
@@ -158,7 +169,9 @@ export default function VideoViewer() {
       setTranscript(undefined)
       return
     }
-    if (!taskId || viewMode !== 'transcript' || transcript !== undefined) return
+    // Cached notes may predate a regeneration started in another tab. Confirm
+    // the current task status before caching its separately loaded transcript.
+    if (!taskVerified || !taskId || viewMode !== 'transcript' || transcript !== undefined) return
     let active = true
     setTranscriptLoading(true)
     fetchVideoTranscript(taskId).then(data => {
@@ -167,7 +180,7 @@ export default function VideoViewer() {
       if (active) setError(error instanceof Error ? error.message : 'Cannot load transcript')
     }).finally(() => { if (active) setTranscriptLoading(false) })
     return () => { active = false }
-  }, [taskId, task?.id, task?.status, viewMode, transcript, loadAttempt])
+  }, [taskId, task?.id, task?.status, taskVerified, viewMode, transcript, loadAttempt])
 
   useEffect(() => {
     setVersionLoading(false)
