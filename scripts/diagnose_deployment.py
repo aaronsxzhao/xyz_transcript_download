@@ -102,6 +102,36 @@ def probe_access_controls() -> None:
                           "expected_status": expected, "passed": status == expected}))
 
 
+def probe_loading() -> None:
+    """Measure public page/assets without credentials or publishing page contents."""
+    with tempfile.TemporaryDirectory() as directory:
+        paths = ["/", "/api/auth/config"]
+        for index, path in enumerate(paths):
+            body = Path(directory) / f"body-{index}"
+            headers = Path(directory) / f"headers-{index}"
+            result = subprocess.run([
+                "curl", "--silent", "--show-error", "--compressed", "--max-time", "20",
+                "--output", str(body), "--dump-header", str(headers),
+                "--write-out", '%{json}', "https://aipodcastsummary.online" + path,
+            ], capture_output=True, text=True, timeout=25)
+            try:
+                metrics = json.loads(result.stdout)
+            except ValueError:
+                metrics = {}
+            report = {key: metrics.get(key) for key in (
+                "http_code", "time_connect", "time_starttransfer", "time_total", "size_download",
+            )}
+            if headers.exists():
+                for line in headers.read_text().splitlines():
+                    key, _, value = line.partition(":")
+                    if key.lower() in {"cache-control", "content-encoding", "cf-cache-status"}:
+                        report[key.lower()] = value.strip()[:100]
+            print(json.dumps({"loading_probe": path, **report}))
+            if path == "/" and body.exists():
+                assets = re.findall(r'(?:src|href)="(/assets/[A-Za-z0-9_.-]+\.(?:js|css))"', body.read_text())
+                paths.extend(list(dict.fromkeys(assets))[:8])
+
+
 def inspect_containers() -> None:
     instance = oci_json([
         "container-instances", "container-instance", "get", "--container-instance-id",
@@ -120,6 +150,14 @@ def inspect_containers() -> None:
             image = image.rsplit("@", 1)[-1]
         container["image"] = image
         print(json.dumps({"container": container}))
+        settings = oci_json([
+            "container-instances", "container", "get", "--container-id", container_id,
+        ], 'data."environment-variables"') or {}
+        print(json.dumps({"provider_configuration": {
+            name: bool(settings.get(name)) for name in (
+                "GROQ_API_KEY", "LLM_API_KEY", "LLM_BASE_URL", "SUPABASE_JWT_SECRET",
+            )
+        }}))
         for previous in (False, True):
             with tempfile.TemporaryDirectory() as directory:
                 path = Path(directory) / "container.log"
@@ -139,4 +177,5 @@ def inspect_containers() -> None:
 if __name__ == "__main__":
     probe_public_api()
     probe_access_controls()
+    probe_loading()
     inspect_containers()
