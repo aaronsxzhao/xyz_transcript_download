@@ -50,7 +50,8 @@ const PageSpinner = () => (
 
 function AppRoutes() {
   const { authEnabled, user, loading } = useAuth()
-  markPageNavigation(useLocation().pathname)
+  const location = useLocation()
+  markPageNavigation(location.pathname + location.search)
 
   if (loading) {
     return (

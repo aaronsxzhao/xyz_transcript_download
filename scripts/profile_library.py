@@ -58,14 +58,18 @@ def profile_public_routes(owner: str, routes: list[tuple[str, str]]) -> list[dic
             pages = json.loads(body).get("pages", {})
         except ValueError:
             pages = {}
-        for label in {"dashboard", "podcasts", "videos", "episodes", "viewer"} & pages.keys():
+        for label in {"dashboard", "podcasts", "videos", "channel", "episodes", "viewer", "settings"} & pages.keys():
             row = pages[label]
             safe = {"library_profile": "browser_" + label}
             for source, target in {"elapsed_ms": "milliseconds", "document_ms": "document_ms",
-                                   "api_ms": "api_ms", "samples": "samples", "cached": "cached"}.items():
+                                   "api_ms": "api_ms", "server_ms": "server_ms", "samples": "samples", "cached": "cached",
+                                   "worst_ms": "worst_ms", "error_count": "error_count", "slow_count": "slow_count"}.items():
                 if isinstance(row.get(source), int) and 0 <= row[source] <= 300000:
                     safe[target] = int(row[source])
             reports.append(safe)
+    if os.environ.get('XYZ_PROFILE_BROWSER') == '1':
+        from scripts.profile_live_browser import profile_browser
+        reports.extend(asyncio.run(profile_browser(owner, token)))
     return reports
 
 

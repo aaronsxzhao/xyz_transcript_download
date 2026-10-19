@@ -1,4 +1,7 @@
-import { getPreference, setPreference } from '../lib/preferences'
+import { getAccountId, getPreference, setPreference } from '../lib/preferences'
+import { CacheKeys, getCache, setCache } from '../lib/cache'
+import { usePageTiming } from '../lib/pageTiming'
+import LoadError from '../components/LoadError'
 import { useState, useEffect, useRef, useCallback } from 'react'
 import {
   Cpu, MessageSquare, Clock, Loader2, CheckCircle, Trash2, AlertTriangle,
@@ -139,7 +142,8 @@ const TOP_TABS: { id: TopTab; label: string; icon: React.ReactNode }[] = [
 
 export default function Settings() {
   const [activeTab, setActiveTab] = useState<TopTab>('general')
-  const [settings, setSettings] = useState<SettingsData | null>(null)
+  const [settings, setSettings] = useState<SettingsData | null>(() => getCache(CacheKeys.SETTINGS))
+  const [loadError, setLoadError] = useState('')
   const [loading, setLoading] = useState(true)
 
   const localWhisperModels = ['tiny', 'base', 'small', 'medium', 'large-v3', 'turbo'].map(value => ({ value, label: value, description: 'Local Whisper model' }))
@@ -446,13 +450,18 @@ export default function Settings() {
   }, [settings])
 
   async function loadSettings() {
+    const owner = getAccountId()
+    setLoading(true)
+    setLoadError('')
     try {
       const data = await fetchSettings()
+      if (owner !== getAccountId()) return
       setSettings(data)
+      setCache(CacheKeys.SETTINGS, data, owner)
     } catch (err) {
-      console.error('Failed to load settings:', err)
+      if (owner === getAccountId()) setLoadError(err instanceof Error ? err.message : 'Cannot load settings. Please retry.')
     } finally {
-      setLoading(false)
+      if (owner === getAccountId()) setLoading(false)
     }
   }
 
@@ -554,13 +563,7 @@ export default function Settings() {
     }
   }
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <Loader2 className="w-8 h-8 animate-spin text-indigo-500" />
-      </div>
-    )
-  }
+  usePageTiming('settings', !!settings, CacheKeys.SETTINGS, !!loadError)
 
   const platformLabel = (p: string) =>
     p === 'bilibili' ? 'BiliBili' : p === 'youtube' ? 'YouTube' : p.charAt(0).toUpperCase() + p.slice(1)
@@ -571,6 +574,9 @@ export default function Settings() {
         <h1 className="text-2xl font-bold text-white mb-1">Settings</h1>
         <p className="text-sm text-gray-500">Configure AI models, platform logins, and system tools</p>
       </div>
+
+      {loading && <p role="status" className="text-sm text-gray-400 mb-4 flex items-center gap-2"><Loader2 className="w-4 h-4 animate-spin" />{settings ? 'Refreshing settings…' : 'Loading account settings…'}</p>}
+      {loadError && <LoadError message={loadError} onRetry={() => void loadSettings()} />}
 
       {/* Top-level tab bar */}
       <div className="flex gap-1 p-1 bg-dark-surface border border-dark-border rounded-xl mb-5">
@@ -600,11 +606,11 @@ export default function Settings() {
               Transcription (Whisper)
             </h2>
             <div className="space-y-3">
-              <SettingRow label="Provider" value={settings?.whisper_mode === 'api' ? `${settings.whisper_provider} API` : 'Local model'} />
+              <SettingRow label="Provider" value={!settings ? 'Loading…' : settings.whisper_mode === 'api' ? `${settings.whisper_provider} API` : 'Local model'} />
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 py-2 border-b border-dark-border">
                 <span className="text-gray-400 text-sm">Model</span>
                 <select
-                  aria-label="Transcription model"
+                  aria-label="Transcription model" disabled={!settings}
                   value={whisperModel}
                   onChange={e => setWhisperModel(e.target.value)}
                   className="bg-dark-hover border border-dark-border text-white text-sm rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent w-full sm:w-auto"
@@ -629,7 +635,7 @@ export default function Settings() {
             <div className="space-y-3">
               <label className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 text-sm text-gray-400">
                 Summary provider
-                <select aria-label="Summary provider" disabled={testingLlm || saving} value={llmProvider} onChange={e => {
+                <select aria-label="Summary provider" disabled={!settings || testingLlm || saving} value={llmProvider} onChange={e => {
                   const provider = e.target.value as 'server' | 'groq'
                   setLlmProvider(provider)
                   setLlmModel(provider === 'groq' ? groqModels[0] : settings?.llm_model || '')
@@ -644,7 +650,7 @@ export default function Settings() {
                 <span className="text-gray-400 text-sm">Model</span>
                 <select
                   aria-label="Summary model"
-                  disabled={testingLlm || saving}
+                  disabled={!settings || testingLlm || saving}
                   value={llmModel}
                   onChange={e => { setLlmModel(e.target.value); setLlmTestResult('') }}
                   className="bg-dark-hover border border-dark-border text-white text-sm rounded-lg px-3 py-2 focus:ring-2 focus:ring-purple-500 focus:border-transparent w-full sm:w-auto sm:max-w-[220px] truncate"
@@ -655,7 +661,7 @@ export default function Settings() {
                   ))}
                 </select>
               </div>
-              <button onClick={verifyAndSaveLlm} disabled={testingLlm || (llmProvider === 'groq' && !settings?.groq_available)} className="px-4 py-2 bg-purple-600 text-white rounded-lg disabled:opacity-50 flex items-center gap-2">
+              <button onClick={verifyAndSaveLlm} disabled={!settings || testingLlm || (llmProvider === 'groq' && !settings?.groq_available)} className="px-4 py-2 bg-purple-600 text-white rounded-lg disabled:opacity-50 flex items-center gap-2">
                 {testingLlm && <Loader2 size={16} className="animate-spin" />} Test and save summaries
               </button>
               {llmTestResult && <p role="status" className="text-sm text-gray-300">{llmTestResult}</p>}
@@ -856,7 +862,7 @@ export default function Settings() {
           <div className="flex flex-wrap items-center gap-3">
             <button
               onClick={saveSettings}
-              disabled={saving}
+              disabled={!settings || saving}
               className="inline-flex items-center gap-2 px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium rounded-lg transition-colors disabled:opacity-50"
             >
               {saving ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}

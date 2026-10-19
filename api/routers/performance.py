@@ -10,10 +10,12 @@ _samples = OrderedDict()
 
 
 class PageTiming(BaseModel):
-    page: Literal["dashboard", "podcasts", "videos", "episodes", "viewer"]
+    page: Literal["dashboard", "podcasts", "videos", "channel", "episodes", "viewer", "settings"]
     elapsed_ms: int = Field(ge=0, le=300000)
     document_ms: int = Field(ge=0, le=300000)
     api_ms: int = Field(ge=0, le=300000)
+    server_ms: int = Field(default=0, ge=0, le=300000)
+    outcome: Literal['ready', 'slow', 'error'] = 'ready'
     cached: bool
 
     class Config:
@@ -33,6 +35,11 @@ async def record_timing(timing: PageTiming, user: User = Depends(get_current_use
 async def get_timings(user: User = Depends(get_current_user)):
     # Return only this account's latest measurements, aggregated by fixed page.
     records = list(_samples.get(user.id, []))
-    return {"pages": {page: {**[r for r in records if r["page"] == page][-1],
-                             "samples": sum(r["page"] == page for r in records)}
-                      for page in {r["page"] for r in records}}}
+    pages = {}
+    for page in {r['page'] for r in records}:
+        rows = [r for r in records if r['page'] == page]
+        elapsed = sorted(r['elapsed_ms'] for r in rows)
+        pages[page] = {**rows[-1], 'samples': len(rows), 'worst_ms': elapsed[-1],
+                       'error_count': sum(r['outcome'] == 'error' for r in rows),
+                       'slow_count': sum(r['outcome'] == 'slow' for r in rows)}
+    return {'pages': pages}

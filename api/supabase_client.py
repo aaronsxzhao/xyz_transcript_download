@@ -13,6 +13,15 @@ if USE_SUPABASE:
     from supabase import create_client, Client
 
 
+def _create_server_client(key):
+    from supabase import create_client
+    from supabase.client import ClientOptions
+    from api.supabase_http import SupabaseHTTPClient
+    return create_client(SUPABASE_URL, key, options=ClientOptions(
+        httpx_client=SupabaseHTTPClient(), auto_refresh_token=False, persist_session=False,
+    ))
+
+
 @lru_cache()
 def get_supabase_client() -> Optional["Client"]:
     """
@@ -21,7 +30,7 @@ def get_supabase_client() -> Optional["Client"]:
     """
     if not USE_SUPABASE:
         return None
-    return create_client(SUPABASE_URL, SUPABASE_KEY)
+    return _create_server_client(SUPABASE_KEY)
 
 
 @lru_cache()
@@ -32,7 +41,7 @@ def get_supabase_admin_client() -> Optional["Client"]:
     """
     if not USE_SUPABASE or not SUPABASE_SERVICE_KEY:
         return None
-    return create_client(SUPABASE_URL, SUPABASE_SERVICE_KEY)
+    return _create_server_client(SUPABASE_SERVICE_KEY)
 
 
 def get_user_client(access_token: str) -> Optional["Client"]:
@@ -43,6 +52,6 @@ def get_user_client(access_token: str) -> Optional["Client"]:
     if not USE_SUPABASE:
         return None
     
-    client = create_client(SUPABASE_URL, SUPABASE_KEY)
+    client = _create_server_client(SUPABASE_KEY)
     client.auth.set_session(access_token, "")
     return client

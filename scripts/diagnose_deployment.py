@@ -193,7 +193,7 @@ def profile_library(settings: dict) -> None:
         environment = {**os.environ, **bindings, "XYZ_DATA_DIR": directory,
                        "DISCORD_WEBHOOK_URL": "", "WHISPER_MODE": "api", "PYTHONPATH": "."}
         result = subprocess.run(["python", "scripts/profile_library.py"], env=environment,
-                                capture_output=True, text=True, timeout=240)
+                                capture_output=True, text=True, timeout=360)
         # Child output is still whitelisted so future logging cannot leak data.
         valid = False
         failed = result.returncode != 0
@@ -206,10 +206,11 @@ def profile_library(settings: dict) -> None:
             if label not in {"stats", "podcasts", "recent_summaries", "channels", "queue", "settings",
                              "podcast_detail", "episodes", "summary", "transcript", "channel_videos", "reported_episodes", "reported_summary", "video_detail", "video_note", "empty", "failed",
                              "live_auth", "live_podcasts", "live_channels", "live_episodes", "live_summary", "live_transcript", "live_settings", "live_channel_videos", "live_reported_episodes", "live_reported_summary", "live_unavailable",
-                             "browser_dashboard", "browser_podcasts", "browser_videos", "browser_episodes", "browser_viewer"}:
+                             "browser_dashboard", "browser_podcasts", "browser_videos", "browser_channel", "browser_episodes", "browser_viewer", "browser_settings",
+                             "check_episodes", "check_channel", "check_summary", "check_settings"}:
                 continue
             safe = {"library_profile": label}
-            safe.update({key: report[key] for key in ("milliseconds", "first_byte_ms", "wire_bytes", "document_ms", "api_ms", "samples", "cached", "database_requests", "response_bytes", "gzip_bytes", "status")
+            safe.update({key: report[key] for key in ("milliseconds", "first_byte_ms", "wire_bytes", "document_ms", "api_ms", "server_ms", "samples", "cached", "worst_ms", "error_count", "slow_count", "js_errors", "failed_requests", "database_requests", "response_bytes", "gzip_bytes", "status")
                          if isinstance(report.get(key), int) and 0 <= report[key] <= 10**9})
             print(json.dumps(safe))
             valid = True
