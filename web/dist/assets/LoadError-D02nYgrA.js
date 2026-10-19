@@ -1,0 +1,1 @@
+import{j as e}from"./react-vendor-BjF3Nqrh.js";function s({message:r,onRetry:t}){return e.jsxs("div",{role:"alert",className:"flex flex-wrap items-center gap-3 p-3 border border-red-500/30 bg-red-500/10 rounded-lg text-sm text-red-300",children:[e.jsx("span",{children:r}),e.jsx("button",{onClick:t,className:"underline font-medium",children:"Retry"})]})}export{s as L};

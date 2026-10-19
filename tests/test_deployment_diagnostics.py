@@ -20,3 +20,17 @@ def test_diagnostics_only_report_public_health_fields():
     assert safe_health(b'{"status":"ok","revision":"unknown","token":"secret"}') == {"status":"ok", "revision":"unknown"}
     assert safe_health(b'{"revision":"private-value","password":"secret"}') == {}
     assert safe_health(b'invalid json') == {}
+
+
+def test_library_profile_never_logs_credentials_or_arbitrary_child_output(capsys):
+    import json
+    from types import SimpleNamespace
+    from unittest.mock import patch
+    from scripts.diagnose_deployment import profile_library
+    output = json.dumps({"library_profile": "video_note", "status": 200, "milliseconds": 12,
+                         "api_key": "secret-value", "content": "private-note"})
+    with patch("scripts.diagnose_deployment.subprocess.run", return_value=SimpleNamespace(returncode=0, stdout=output)):
+        profile_library({"SUPABASE_SERVICE_KEY": "secret-value", "UNRELATED_SECRET": "private-note"})
+    text = capsys.readouterr().out
+    assert "secret-value" not in text and "private-note" not in text
+    assert json.loads(text) == {"library_profile": "video_note", "status": 200, "milliseconds": 12}

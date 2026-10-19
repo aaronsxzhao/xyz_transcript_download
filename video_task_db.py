@@ -232,12 +232,12 @@ class _SQLiteVideoTaskDB:
         with self._conn() as conn:
             if user_id:
                 rows = conn.execute(
-                    f"SELECT * FROM video_tasks WHERE channel = ? AND platform = ? AND user_id = ? {order}",
+                    f"SELECT id,url,platform,title,thumbnail,status,progress,message,style,duration,error,channel,channel_url,channel_avatar,published_at,created_at,updated_at FROM video_tasks WHERE channel = ? AND platform = ? AND user_id = ? {order}",
                     (channel, platform, user_id),
                 ).fetchall()
             else:
                 rows = conn.execute(
-                    f"SELECT * FROM video_tasks WHERE channel = ? AND platform = ? AND user_id IS NULL {order}",
+                    f"SELECT id,url,platform,title,thumbnail,status,progress,message,style,duration,error,channel,channel_url,channel_avatar,published_at,created_at,updated_at FROM video_tasks WHERE channel = ? AND platform = ? AND user_id IS NULL {order}",
                     (channel, platform),
                 ).fetchall()
             return [self._row_to_dict(r) for r in rows]
@@ -264,16 +264,17 @@ class _SQLiteVideoTaskDB:
             )
             conn.commit()
 
-    def get_task(self, task_id: str, user_id: str = None) -> Optional[dict]:
+    def get_task(self, task_id: str, user_id: str = None, include_transcript: bool = True) -> Optional[dict]:
         with self._conn() as conn:
+            cols = "*" if include_transcript else "id,user_id,url,platform,title,thumbnail,status,progress,message,markdown,style,model,duration,error,channel,channel_url,channel_avatar,published_at,created_at,updated_at"
             if user_id:
                 row = conn.execute(
-                    "SELECT * FROM video_tasks WHERE id = ? AND user_id = ?",
+                    f"SELECT {cols} FROM video_tasks WHERE id = ? AND user_id = ?",
                     (task_id, user_id),
                 ).fetchone()
             else:
                 row = conn.execute(
-                    "SELECT * FROM video_tasks WHERE id = ? AND user_id IS NULL",
+                    f"SELECT {cols} FROM video_tasks WHERE id = ? AND user_id IS NULL",
                     (task_id,),
                 ).fetchone()
             if not row:
@@ -301,12 +302,12 @@ class _SQLiteVideoTaskDB:
         with self._conn() as conn:
             if user_id:
                 rows = conn.execute(
-                    f"SELECT * FROM video_tasks WHERE user_id = ? {order} LIMIT ?",
+                    f"SELECT id,url,platform,title,thumbnail,status,progress,message,style,duration,error,channel,channel_url,channel_avatar,published_at,created_at,updated_at FROM video_tasks WHERE user_id = ? {order} LIMIT ?",
                     (user_id, limit),
                 ).fetchall()
             else:
                 rows = conn.execute(
-                    f"SELECT * FROM video_tasks WHERE user_id IS NULL {order} LIMIT ?",
+                    f"SELECT id,url,platform,title,thumbnail,status,progress,message,style,duration,error,channel,channel_url,channel_avatar,published_at,created_at,updated_at FROM video_tasks WHERE user_id IS NULL {order} LIMIT ?",
                     (limit,),
                 ).fetchall()
             return [self._row_to_dict(r) for r in rows]
@@ -416,13 +417,19 @@ class _SQLiteVideoTaskDB:
             conn.commit()
         return ver_id
 
-    def get_versions(self, task_id: str) -> List[dict]:
+    def get_versions(self, task_id: str, include_content: bool = True) -> List[dict]:
         with self._conn() as conn:
+            cols = "*" if include_content else "id,task_id,style,model_name,created_at"
             rows = conn.execute(
-                "SELECT * FROM video_task_versions WHERE task_id = ? ORDER BY created_at DESC",
+                f"SELECT {cols} FROM video_task_versions WHERE task_id = ? ORDER BY created_at DESC",
                 (task_id,),
             ).fetchall()
             return [dict(r) for r in rows]
+
+    def get_version(self, task_id: str, version_id: str) -> Optional[dict]:
+        with self._conn() as conn:
+            row = conn.execute("SELECT * FROM video_task_versions WHERE task_id = ? AND id = ?", (task_id, version_id)).fetchone()
+            return dict(row) if row else None
 
     def _row_to_dict(self, row) -> dict:
         d = dict(row)
@@ -515,15 +522,21 @@ class _SupabaseVideoTaskDB:
         if self._should_flush(task_id, updates):
             self._flush(task_id)
 
-    def get_task(self, task_id: str, user_id: str = None) -> Optional[dict]:
+    def get_task(self, task_id: str, user_id: str = None, include_transcript: bool = True) -> Optional[dict]:
+        if not user_id:
+            return None
         with self._lock:
-            cached = self._cache.get(task_id)
-        if cached is not None:
+            cached = dict(self._cache.get(task_id) or {})
+        if cached.get("user_id") == user_id:
+            if not include_transcript:
+                cached.pop("transcript_json", None)
+                cached.pop("transcript", None)
             return self._cached_to_dict(cached)
-        task = self._sb.get_video_task(task_id, user_id)
-        if task:
+        task = self._sb.get_video_task(task_id, user_id, include_transcript=include_transcript)
+        if task and include_transcript:
             with self._lock:
-                self._cache[task_id] = task
+                pending = self._cache.get(task_id) or {}
+                self._cache[task_id] = {**task, **pending} if pending.get("user_id") in (None, user_id) else task
         return task
 
     def get_task_by_url(self, url: str, user_id: str = None) -> Optional[dict]:
@@ -562,7 +575,7 @@ class _SupabaseVideoTaskDB:
     ) -> List[dict]:
         with self._lock:
             cached_tasks = [
-                self._cached_to_dict(dict(task))
+                self._cached_to_dict({key: value for key, value in task.items() if key not in {"markdown", "transcript", "transcript_json", "versions", "extras"}})
                 for task in self._cache.values()
                 if task.get("user_id") == user_id and (predicate(task) if predicate else True)
             ]
@@ -684,8 +697,11 @@ class _SupabaseVideoTaskDB:
         ver_id = str(uuid.uuid4())[:8]
         return self._sb.add_video_task_version(task_id, ver_id, content, style, model_name)
 
-    def get_versions(self, task_id: str) -> List[dict]:
-        return self._sb.get_video_task_versions(task_id)
+    def get_versions(self, task_id: str, include_content: bool = True) -> List[dict]:
+        return self._sb.get_video_task_versions(task_id, include_content=include_content)
+
+    def get_version(self, task_id: str, version_id: str) -> Optional[dict]:
+        return self._sb.get_video_task_version(task_id, version_id)
 
     @staticmethod
     def _cached_to_dict(cached: dict) -> dict:
@@ -726,8 +742,8 @@ class VideoTaskDB:
     def update_task(self, task_id: str, updates: dict):
         self._backend.update_task(task_id, updates)
 
-    def get_task(self, task_id: str, user_id: str = None) -> Optional[dict]:
-        return self._backend.get_task(task_id, user_id)
+    def get_task(self, task_id: str, user_id: str = None, include_transcript: bool = True) -> Optional[dict]:
+        return self._backend.get_task(task_id, user_id, include_transcript=include_transcript)
 
     def get_task_by_url(self, url: str, user_id: str = None) -> Optional[dict]:
         return self._backend.get_task_by_url(url, user_id)
@@ -810,8 +826,11 @@ class VideoTaskDB:
     def add_version(self, task_id: str, content: str, style: str = "", model_name: str = "") -> str:
         return self._backend.add_version(task_id, content, style, model_name)
 
-    def get_versions(self, task_id: str) -> List[dict]:
-        return self._backend.get_versions(task_id)
+    def get_versions(self, task_id: str, include_content: bool = True) -> List[dict]:
+        return self._backend.get_versions(task_id, include_content=include_content)
+
+    def get_version(self, task_id: str, version_id: str) -> Optional[dict]:
+        return self._backend.get_version(task_id, version_id)
 
     def flush_task(self, task_id: str):
         """Flush pending writes (Supabase cache). No-op for SQLite."""

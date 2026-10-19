@@ -1,4 +1,4 @@
-import { lazy, Suspense, useState } from 'react'
+import { lazy, memo, Suspense, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
@@ -210,6 +210,41 @@ export default function MarkdownPreview({ task }: Props) {
             prose-table:border-collapse prose-th:bg-dark-hover prose-th:border prose-th:border-dark-border prose-th:px-3 prose-th:py-2
             prose-td:border prose-td:border-dark-border prose-td:px-3 prose-td:py-2
           ">
+            <NoteMarkdown markdown={task.markdown} onImage={setZoomedImg} />
+          </article>
+        </div>
+      )}
+
+      {/* Image zoom overlay */}
+      {zoomedImg && (
+        <div
+          className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center cursor-zoom-out"
+          onClick={() => setZoomedImg(null)}
+        >
+          <button
+            onClick={() => setZoomedImg(null)}
+            className="absolute top-4 right-4 text-white/70 hover:text-white p-2"
+          >
+            <X size={24} />
+          </button>
+          <img loading="lazy" decoding="async"
+            src={zoomedImg}
+            alt="Zoomed screenshot"
+            className="max-w-[90vw] max-h-[90vh] rounded-lg shadow-2xl"
+          />
+        </div>
+      )}
+
+      {/* In-flight with no markdown yet: keep a calm spacer so layout does not jump when notes start streaming */}
+      {isInFlight && !task.markdown && (
+        <div className="min-h-[8rem]" aria-hidden />
+      )}
+    </div>
+  )
+}
+
+const NoteMarkdown = memo(function NoteMarkdown({ markdown, onImage }: { markdown: string; onImage: (src: string) => void }) {
+  return (
             <ReactMarkdown
               remarkPlugins={[remarkGfm, remarkMath]}
               rehypePlugins={[rehypeSlug, [rehypeKatex, { throwOnError: false, errorColor: '#94a3b8' }]]}
@@ -257,13 +292,12 @@ export default function MarkdownPreview({ task }: Props) {
                 },
                 img({ src, alt }) {
                   return (
-                    <img
+                    <img loading="lazy" decoding="async"
                       src={src}
                       alt={alt || ''}
                       className="max-w-[min(100%,480px)] max-h-64 w-auto rounded-lg border border-dark-border cursor-pointer hover:opacity-90 transition-opacity"
-                      loading="lazy"
                       referrerPolicy="no-referrer"
-                      onClick={() => src && setZoomedImg(src)}
+                      onClick={() => src && onImage(src)}
                     />
                   )
                 },
@@ -322,39 +356,10 @@ export default function MarkdownPreview({ task }: Props) {
                 },
               }}
             >
-              {task.markdown
+              {markdown
                 .replace(/^##\s*(?:目录|Table of Contents)\s*\n(?:[\s\S]*?)(?=\n---\n|\n## )/m, '')
                 .replace(/^\n---\n/m, '\n')
               }
             </ReactMarkdown>
-          </article>
-        </div>
-      )}
-
-      {/* Image zoom overlay */}
-      {zoomedImg && (
-        <div
-          className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center cursor-zoom-out"
-          onClick={() => setZoomedImg(null)}
-        >
-          <button
-            onClick={() => setZoomedImg(null)}
-            className="absolute top-4 right-4 text-white/70 hover:text-white p-2"
-          >
-            <X size={24} />
-          </button>
-          <img
-            src={zoomedImg}
-            alt="Zoomed screenshot"
-            className="max-w-[90vw] max-h-[90vh] rounded-lg shadow-2xl"
-          />
-        </div>
-      )}
-
-      {/* In-flight with no markdown yet: keep a calm spacer so layout does not jump when notes start streaming */}
-      {isInFlight && !task.markdown && (
-        <div className="min-h-[8rem]" aria-hidden />
-      )}
-    </div>
   )
-}
+})

@@ -563,14 +563,16 @@ def get_stats(user: Optional["User"] = Depends(get_current_user)):
     """Get dashboard statistics."""
     from api.db import get_db
     from video_task_db import get_video_task_db
+    from concurrent.futures import ThreadPoolExecutor
 
     db = get_db(user.id if user else None)
-    stats = db.get_stats()
-
     video_db = get_video_task_db()
     user_id = user.id if user else None
-    vcounts = video_db.count_tasks(user_id)
-    channel_count = video_db.count_distinct_channels(user_id)
+    with ThreadPoolExecutor(max_workers=3) as pool:
+        stats_job = pool.submit(db.get_stats)
+        videos_job = pool.submit(video_db.count_tasks, user_id)
+        channels_job = pool.submit(video_db.count_distinct_channels, user_id)
+        stats, vcounts, channel_count = stats_job.result(), videos_job.result(), channels_job.result()
 
     return {
         "total_podcasts": stats["podcasts"],

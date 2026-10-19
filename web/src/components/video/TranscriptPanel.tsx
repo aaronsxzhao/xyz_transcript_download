@@ -1,3 +1,5 @@
+import TranscriptSegments from '../TranscriptSegments'
+
 interface Segment {
   start: number
   end: number
@@ -44,19 +46,7 @@ export default function TranscriptPanel({ transcript }: Props) {
 
       <div className="flex-1 overflow-y-auto custom-scrollbar space-y-1">
         {segments.length > 0 ? (
-          segments.map((seg, idx) => (
-            <div
-              key={idx}
-              className="flex gap-2 py-1.5 px-2 rounded hover:bg-dark-hover transition-colors group"
-            >
-              <span className="text-xs text-indigo-400 font-mono flex-shrink-0 mt-0.5 min-w-[40px]">
-                {formatTime(seg.start)}
-              </span>
-              <p className="text-sm text-gray-300 leading-relaxed">
-                {seg.text}
-              </p>
-            </div>
-          ))
+          <TranscriptSegments segments={segments} />
         ) : (
           <div className="p-3 text-sm text-gray-300 leading-relaxed whitespace-pre-wrap">
             {transcript.text}

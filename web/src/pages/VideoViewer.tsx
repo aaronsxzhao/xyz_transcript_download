@@ -7,7 +7,7 @@ import {
   ChevronRight, FileDown, RefreshCw, XCircle, ExternalLink, RotateCcw,
   Search, X, CheckCircle, AlertTriangle,
 } from 'lucide-react'
-import { fetchVideoTask, retryVideoTask, fetchNotionPages, exportMarkdownToNotion, type VideoTask, type NotionPage } from '../lib/api'
+import { fetchVideoTask, fetchVideoTranscript, fetchVideoVersion, retryVideoTask, fetchNotionPages, exportMarkdownToNotion, type VideoTask, type NotionPage } from '../lib/api'
 import { useStore, mergeVideoTaskPair } from '../lib/store'
 import MarkdownPreview from '../components/video/MarkdownPreview'
 import TranscriptPanel from '../components/video/TranscriptPanel'
@@ -89,6 +89,10 @@ export default function VideoViewer() {
   const [loadAttempt, setLoadAttempt] = useState(0)
   const [viewMode, setViewMode] = useState<ViewMode>('markdown')
   const [selectedVersion, setSelectedVersion] = useState<string>('')
+  const [versionContents, setVersionContents] = useState<Record<string, string>>({})
+  const [versionLoading, setVersionLoading] = useState(false)
+  const [transcript, setTranscript] = useState<VideoTask['transcript'] | undefined>()
+  const [transcriptLoading, setTranscriptLoading] = useState(false)
   const [copied, setCopied] = useState(false)
   const [pdfLoading, setPdfLoading] = useState(false)
   const [regenerating, setRegenerating] = useState(false)
@@ -106,13 +110,18 @@ export default function VideoViewer() {
   useEffect(() => {
     if (!taskId) return
     let cancelled = false
+    let inFlight = false
     setLoading(true)
     if (taskRef.current?.id !== taskId) {
       setTask(null)
       setSelectedVersion('')
+      setVersionContents({})
+      setTranscript(undefined)
     }
 
     const load = async () => {
+      if (cancelled || inFlight) return
+      inFlight = true
       try {
         const data = await fetchVideoTask(taskId)
         if (!cancelled) {
@@ -123,6 +132,7 @@ export default function VideoViewer() {
         console.error('Failed to load task:', e)
         if (!cancelled) setError(e instanceof Error ? e.message : 'Cannot load video notes')
       } finally {
+        inFlight = false
         if (!cancelled) setLoading(false)
       }
     }
@@ -130,7 +140,7 @@ export default function VideoViewer() {
     load()
     const interval = setInterval(() => {
       const t = taskRef.current
-      if (t && !['success', 'failed', 'cancelled'].includes(t.status)) {
+      if (document.visibilityState !== 'hidden' && t && !['success', 'failed', 'cancelled'].includes(t.status)) {
         load()
       }
     }, 3000)
@@ -140,6 +150,31 @@ export default function VideoViewer() {
       clearInterval(interval)
     }
   }, [taskId, loadAttempt])
+
+  useEffect(() => {
+    if (!taskId || viewMode !== 'transcript' || transcript !== undefined) return
+    let active = true
+    setTranscriptLoading(true)
+    fetchVideoTranscript(taskId).then(data => {
+      if (active) setTranscript(data.transcript)
+    }).catch(error => {
+      if (active) setError(error instanceof Error ? error.message : 'Cannot load transcript')
+    }).finally(() => { if (active) setTranscriptLoading(false) })
+    return () => { active = false }
+  }, [taskId, viewMode, transcript, loadAttempt])
+
+  useEffect(() => {
+    setVersionLoading(false)
+    if (!taskId || !selectedVersion || selectedVersion in versionContents) return
+    let active = true
+    setVersionLoading(true)
+    fetchVideoVersion(taskId, selectedVersion).then(version => {
+      if (active) setVersionContents(cache => ({ ...cache, [version.id]: version.content }))
+    }).catch(error => {
+      if (active) setError(error instanceof Error ? error.message : 'Cannot load version')
+    }).finally(() => { if (active) setVersionLoading(false) })
+    return () => { active = false }
+  }, [taskId, selectedVersion, versionContents, loadAttempt])
 
   const handleCopy = async () => {
     const md = getCurrentContent()
@@ -262,10 +297,7 @@ export default function VideoViewer() {
 
   const getCurrentContent = (): string => {
     if (!task) return ''
-    if (selectedVersion && task.versions?.length) {
-      const ver = task.versions.find(v => v.id === selectedVersion)
-      if (ver?.content) return ver.content
-    }
+    if (selectedVersion) return versionContents[selectedVersion] || ''
     return task.markdown || ''
   }
 
@@ -657,14 +689,15 @@ export default function VideoViewer() {
             </div>
           ) : (
             <>
-              {viewMode === 'markdown' && (
-                <MarkdownPreview task={{ ...uiTask, markdown: content }} />
-              )}
+              {viewMode === 'markdown' && (versionLoading
+                ? <div role="status" className="p-8 flex justify-center"><Loader2 className="animate-spin" aria-label="Loading saved version" /></div>
+                : <MarkdownPreview task={{ ...uiTask, markdown: content }} />)}
               {viewMode === 'mindmap' && (
                 <MindMapView markdown={content} />
               )}
               {viewMode === 'transcript' && (
-                <TranscriptPanel transcript={task.transcript} />
+                transcriptLoading ? <div role="status" className="p-8 flex justify-center"><Loader2 className="animate-spin" aria-label="Loading transcript" /></div>
+                  : <TranscriptPanel transcript={transcript || null} />
               )}
             </>
           )}
