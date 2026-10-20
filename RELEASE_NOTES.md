@@ -1,3 +1,16 @@
+# Document-contained startup — 20 October 2026
+
+- The user's browser recorded a Podcasts visit of 120,574ms despite a 14ms cached document. Successful US-runner visits had hidden this startup failure.
+- Deliver the initial program with the public document instead of waiting for three separate module requests. Preserve a single module identity so optional rich formatting shares the same React runtime.
+- Put navigation and early authenticated reads before the embedded program, so streaming HTML can paint and fetch data before all program bytes arrive. Optional formatters and mindmaps retain hashed public URLs and readable fallbacks.
+- Report pre-framework slow/error startup with fixed page labels and bounded numeric counters. No URLs, content, error text or credentials are retained. Manual startup retry bypasses an older cached shell.
+- Test first-ever visits with all external JS/CSS denied, a streamed document, interactive navigation, optional module recovery, public-cache privacy, upgrade and rollback. Include Chromium and WebKit.
+- Initial compressed document and assets remain within the existing 175 KiB limit (about 171.5 KiB); the measurement now includes all inline code and markup. No notes, uploads, account settings or schema are changed.
+
+Rollback: `safety/pre-document-startup-20261020`, image `2bee12fc16f122b536fc56adf36c45ee054b3a84`.
+
+---
+
 # Completed uploads, readers and Settings repair — 20 October 2026
 
 - Settings, podcast readers and video readers now share the initial workspace program. A failed optional file cannot prevent their controls and data reads from opening.

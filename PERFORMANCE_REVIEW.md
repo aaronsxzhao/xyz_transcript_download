@@ -6,6 +6,32 @@ and routing graph, every page's fetch/cache/polling lifecycle, rendering and
 reader dependencies, FastAPI route scheduling, database access, progress jobs,
 private media delivery, and deployment/rollback.
 
+## Follow-up: startup still stalled in the user's browser
+
+A new real-user Podcasts record is 120,574ms with only 14ms spent on the cached
+document. The supplied screenshot is the pre-framework public shell, so the
+previous route-boundary checks covered the wrong failure boundary. US-runner
+success does not establish the user's actual startup performance.
+
+The initial static module graph now travels inside the public document. The
+browser creates document-local module URLs and an import map so optional
+formatters reuse the same runtime; no initial JS/CSS downloads are required.
+Only public program text is embedded. User data still uses authenticated APIs.
+The public shell and early reads precede the program to retain streaming paint.
+The complete compressed document/assets fit the existing 175 KiB limit.
+
+Cold checks deny every external JS/CSS request: all four baseline pages fail;
+the replacement opens Settings, Podcasts, a summary and a completed local note,
+with interactive navigation and fallback screenshots. A three-second streamed
+program pause leaves navigation visible and starts the settings read before the
+program arrives. The watchdog is checked with no framework executing at all.
+Startup telemetry distinguishes bootstrap from application measurements using
+fixed labels and numeric counters; it rejects URLs and remains account scoped.
+
+These controlled checks prove removal of the startup asset dependency; they do
+not measure China's physical connection latency. Historical local screenshots
+missing from Storage remain a separate data-recovery limitation.
+
 ## Follow-up: completed pages fail to open
 
 The reported podcast and video notes exist, and both completed local videos have
@@ -36,7 +62,7 @@ local video. No stored note bodies, uploads, or schema are modified.
 
 ## Validation
 
-- 248 backend tests and 32 frontend tests pass.
+- 249 backend tests and 32 frontend tests pass.
 - Controlled network test (one second per asset): Settings usable 2,522→1,326ms;
   initial program requests 11→6; Library navigation 1,367→146ms with no new
   program requests. These are synthetic comparisons, not China timings.

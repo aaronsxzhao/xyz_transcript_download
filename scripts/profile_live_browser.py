@@ -101,6 +101,8 @@ async def profile_browser(owner: str, token: str, local_video: str | None = None
                 else:
                     await page.locator('select[aria-label="Summary provider"]').wait_for(timeout=10000)
                     await page.wait_for_function("!document.querySelector('select[aria-label=\"Summary provider\"]')?.disabled")
+                document = await page.evaluate("(() => {const n=performance.getEntriesByType('navigation')[0];return [n?.encodedBodySize||0,n?.decodedBodySize||0]})()")
+                report['document_wire_bytes'], report['document_decoded_bytes'] = document
                 report['first_paint_ms'] = await page.evaluate("Math.round(performance.getEntriesByName('first-contentful-paint')[0]?.startTime || 0)")
                 sizes = await page.evaluate("(() => {const r=performance.getEntriesByType('resource').filter(e=>new URL(e.name).pathname.startsWith('/assets/'));return [r.reduce((s,e)=>s+e.encodedBodySize,0),r.reduce((s,e)=>s+e.decodedBodySize,0)]})()")
                 report['asset_wire_bytes'], report['asset_decoded_bytes'] = sizes

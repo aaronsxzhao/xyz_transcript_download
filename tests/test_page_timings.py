@@ -53,3 +53,22 @@ async def test_slow_and_failed_settings_visits_are_not_hidden_by_cached_revisit(
         assert result['error_count'] == result['slow_count'] == 1
         assert result['samples'] == 3 and result['elapsed_ms'] == 3
     _samples.clear()
+
+
+@pytest.mark.asyncio
+async def test_pre_framework_failures_remain_visible_without_recording_request_urls():
+    app = FastAPI()
+    app.include_router(router, prefix='/timings')
+    app.dependency_overrides[get_current_user] = lambda: User('owner', '')
+    _samples.clear()
+    record = {'page': 'podcasts', 'stage': 'bootstrap', 'elapsed_ms': 12000,
+              'document_ms': 14, 'api_ms': 0, 'outcome': 'slow', 'cached': True,
+              'program_embedded': False, 'module_requests': 1, 'module_failures': 1, 'script_errors': 1}
+    async with AsyncClient(transport=ASGITransport(app=app), base_url='http://test') as client:
+        assert (await client.post('/timings', json=record)).status_code == 204
+        result = (await client.get('/timings')).json()['pages']['podcasts']
+        assert result['stage'] == 'bootstrap' and result['slow_count'] == 1
+        assert result['document_ms'] == 14 and result['module_failures'] == 1
+        assert (await client.post('/timings', json={**record, 'module_url': 'private-path'})).status_code == 422
+        assert (await client.post('/timings', json={**record, 'script_errors': 1001})).status_code == 422
+    _samples.clear()

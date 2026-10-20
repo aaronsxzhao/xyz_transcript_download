@@ -44,7 +44,7 @@ export function usePageTiming(page: Page, ready: boolean, cacheKey: string, fail
       // Fixed labels and durations only; no private URLs or page contents.
       void fetch('/api/performance', { method: 'POST', keepalive: true,
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ page, outcome, elapsed_ms: bounded(performance.now() - started),
+        body: JSON.stringify({ page, outcome, program_embedded: !!document.querySelector('[data-document-program]'), elapsed_ms: bounded(performance.now() - started),
           first_paint_ms: bounded(started === 0 ? performance.getEntriesByName('first-contentful-paint')[0]?.startTime || 0 : 0),
           document_ms: bounded(started === 0 ? navigation?.responseEnd || 0 : 0),
           api_ms: bounded(longest?.duration || 0),

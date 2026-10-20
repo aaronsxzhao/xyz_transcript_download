@@ -1,5 +1,14 @@
 # Restore the previous website
 
+## Document-contained startup checkpoint (20 October 2026)
+
+The preceding release is `safety/pre-document-startup-20261020`, image
+`2bee12fc16f122b536fc56adf36c45ee054b3a84`. Use that revision in **Roll back
+website**. This is also the automatic health-check fallback for this release.
+It restores separate program downloads without changing notes or uploads.
+Earlier checkpoints below remain available. Public-shell revalidation supports
+both delivery formats and private API/media responses remain network-only.
+
 ## Reader/Settings repair checkpoint (20 October 2026)
 
 The version immediately before the reader/Settings loading repair is
