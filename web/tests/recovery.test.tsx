@@ -18,7 +18,7 @@ afterEach(() => { cleanup?.(); cleanup=undefined; vi.unstubAllGlobals(); window.
 
 it('retains recovery token through Strict Mode and strips it from the address', async () => {
   window.history.replaceState(null, '', '/reset-password#type=recovery&access_token=private-recovery-token')
-  const fetch = vi.fn().mockResolvedValue({ok:true,json:async()=>({message:'updated'})}); vi.stubGlobal('fetch',fetch)
+  const fetch = vi.fn().mockResolvedValue(Response.json({message:'updated'})); vi.stubGlobal('fetch',fetch)
   const node = mount(<StrictMode><MemoryRouter><ResetPassword /></MemoryRouter></StrictMode>)
   expect(node.querySelectorAll('input[type="password"]').length).toBe(2)
   expect(window.location.hash).toBe('')

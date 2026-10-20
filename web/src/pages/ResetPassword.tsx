@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { clearTokens } from '../lib/auth'
+import { clearTokens, requestAuth } from '../lib/auth'
 
 export default function ResetPassword() {
   const [token] = useState(() => {
@@ -16,9 +16,7 @@ export default function ResetPassword() {
     if (password !== confirm) { setError('Passwords do not match'); return }
     setBusy(true)
     try {
-      const response = await fetch('/api/auth/password', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify({ password }) })
-      const body = await response.json()
-      if (!response.ok) throw new Error(body.detail || 'Could not update your password')
+      await requestAuth('password', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify({ password }) })
       clearTokens(); setDone(true)
     } catch (e) { setError(e instanceof Error ? e.message : 'Please retry') }
     finally { setBusy(false) }

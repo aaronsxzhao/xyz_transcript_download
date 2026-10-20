@@ -1,5 +1,12 @@
 # Restore the previous website
 
+## Workflow reliability checkpoint (20 October 2026)
+
+Use `safety/pre-workflow-review-20261020`, image
+`b6dfe4a7345a5b392c0c5f95ca985be2cb10500a`, to undo this workflow review.
+This is the current automatic deployment fallback. Database records, notes and
+media are unchanged; this checkpoint retains the single-column reader.
+
 ## Single-column summary checkpoint (20 October 2026)
 
 Use `safety/pre-single-column-summary-20261020`, image

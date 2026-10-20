@@ -296,7 +296,7 @@ export default function Videos() {
       removeVideoTask(taskId)
       setChannelTasks(prev => prev.filter(t => t.id !== taskId))
       loadChannels()
-    } catch (e) { console.error('Delete failed:', e) }
+    } catch (e) { addToast({ type: 'error', title: 'Could not delete video', message: e instanceof Error ? e.message : 'Please retry.' }) }
   }
   const handleRetry = async (taskId: string) => {
     try {
@@ -313,7 +313,7 @@ export default function Videos() {
     try {
       await cancelVideoTask(taskId)
       if (view.type === 'videos') loadChannelTasks(view.platform, view.channel, { preserveExisting: true })
-    } catch (e) { console.error('Cancel failed:', e) }
+    } catch (e) { addToast({ type: 'error', title: 'Could not cancel processing', message: e instanceof Error ? e.message : 'Please retry.' }) }
   }
 
   // Merge in-progress store tasks into the channel task list so they show immediately,

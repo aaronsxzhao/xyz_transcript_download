@@ -62,7 +62,7 @@ function AppRoutes() {
 
   return (
     <Suspense fallback={<PageSpinner />}>
-      <Routes>
+      <Routes key={user?.id || 'signed-out'}>
         <Route path="/reset-password" element={<ResetPassword />} />
         <Route
           path="/login"

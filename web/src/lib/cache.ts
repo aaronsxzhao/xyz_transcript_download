@@ -126,6 +126,7 @@ export async function fetchWithCache<T>(
     }
     return fresh
   } catch (error) {
+    if (owner !== getAccountId()) throw new DOMException('Account changed', 'AbortError')
     if (options.onError) {
       options.onError(error as Error)
     }

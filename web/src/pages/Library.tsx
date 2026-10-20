@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { fetchSummaries, fetchVideoTasks } from '../lib/api'
 import { getCache, setCache } from '../lib/cache'
-import { getAccountId } from '../lib/preferences'
+import { getAccountId, getPreference, setPreference } from '../lib/preferences'
 import { prefetchSummary, prefetchVideoNote } from '../lib/summaryPrefetch'
 import { usePageTiming } from '../lib/pageTiming'
 import { useReadingPosition } from '../lib/reading'
@@ -15,7 +15,7 @@ export default function Library() {
   const [items, setItems] = useState<Item[]>(() => getCache('library') || [])
   const [loading, setLoading] = useState(() => !getCache('library'))
   const request = useRef(0)
-  const [layout, setLayout] = useState<'grid' | 'list'>('grid')
+  const [layout, setLayout] = useState<'grid' | 'list'>(() => getPreference('library_layout') === 'list' ? 'list' : 'grid')
   const [limit, setLimit] = useState(60)
   const [refreshing, setRefreshing] = useState(false)
   const [error, setError] = useState('')
@@ -59,7 +59,8 @@ export default function Library() {
       <select aria-label="Media type" value={kind} onChange={e => update('kind', e.target.value)} className="px-3 py-3 bg-dark-surface rounded-lg"><option value="">All media</option><option value="podcast">Podcasts</option><option value="video">Videos</option></select>
       <select aria-label="Note status" value={status} onChange={e => update('status', e.target.value)} className="px-3 py-3 bg-dark-surface rounded-lg"><option value="">All statuses</option><option value="completed">Completed</option><option value="failed">Needs attention</option><option value="pending">Queued</option><option value="summarizing">Summarizing</option><option value="transcribing">Transcribing</option><option value="downloading">Downloading</option><option value="cancelled">Cancelled</option></select>
     </div>
-    <div className="flex items-center justify-between gap-3"><p role="status" className="text-sm text-gray-400">{loading ? 'Loading your notes…' : `${shown.length} notes`}{refreshing && !loading ? ' · Updating sources…' : ''}</p><div className="flex gap-1 rounded-lg border border-dark-border p-1">{(['grid', 'list'] as const).map(mode => <button key={mode} aria-label={`${mode} layout`} aria-pressed={layout === mode} onClick={() => setLayout(mode)} className={`p-2 rounded ${layout === mode ? 'bg-indigo-600 text-white' : 'text-gray-400 hover:bg-dark-hover'}`}>{mode === 'grid' ? <LayoutGrid size={16} /> : <List size={16} />}</button>)}</div></div>
+    <div className="flex items-center justify-between gap-3"><p role="status" className="text-sm text-gray-400">{loading ? 'Loading your notes…' : `${shown.length} notes`}{refreshing && !loading ? ' · Updating sources…' : ''}</p><div className="flex gap-1 rounded-lg border border-dark-border p-1">{(['grid', 'list'] as const).map(mode => <button key={mode} aria-label={`${mode} layout`} aria-pressed={layout === mode} onClick={() => { setLayout(mode); setPreference('library_layout', mode) }} className={`p-2 rounded ${layout === mode ? 'bg-indigo-600 text-white' : 'text-gray-400 hover:bg-dark-hover'}`}>{mode === 'grid' ? <LayoutGrid size={16} /> : <List size={16} />}</button>)}</div></div>
+    {(query || kind || status || source) && <button onClick={() => setParams({}, { replace: true })} className="text-sm text-indigo-300 underline">Clear filters</button>}
     {(loading || (refreshing && items.length === 0)) && <div aria-hidden className="grid sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-4">{Array.from({length:8}, (_,i) => <div key={i} className="h-40 rounded-xl border border-dark-border bg-dark-surface animate-pulse" />)}</div>}
     <div className={layout === 'grid' ? 'grid sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-4' : 'grid gap-2'}>{shown.slice(0, limit).map(i => <Link key={`${i.kind}:${i.id}`} to={i.href} onPointerEnter={() => i.kind === 'podcast' ? prefetchSummary(i.id) : prefetchVideoNote(i.id)} onFocus={() => i.kind === 'podcast' ? prefetchSummary(i.id) : prefetchVideoNote(i.id)} className={`group min-w-0 p-4 rounded-xl border border-dark-border bg-dark-surface hover:border-indigo-400 hover:bg-slate-800 transition-colors ${layout === 'list' ? 'flex items-center gap-4' : 'flex flex-col gap-4'}`}>
       <div className="flex items-center gap-2 text-xs text-indigo-300">{i.kind === 'podcast' ? <Headphones size={18} /> : <Video size={18} />}<span className={layout === 'list' ? 'hidden sm:inline' : ''}>{i.kind === 'podcast' ? 'Podcast' : 'Video'}</span></div>

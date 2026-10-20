@@ -210,13 +210,17 @@ export default function Viewer() {
         episode_title: summary?.title || '',
       })
 
+      let polling = false
       pollRef.current = setInterval(async () => {
+        if (polling || eid !== currentEid.current) return
+        polling = true
         try {
           const job = await fetchJob(result.job_id)
           if (eid !== currentEid.current) return
           updateJob(job)
           if (job.status === 'completed') {
             const fresh = await fetchSummary(eid)
+            if (eid !== currentEid.current) return
             setSummary(fresh)
             setCache(CacheKeys.SUMMARY(eid), fresh)
             setExpandedTopics(new Set(fresh.topics.slice(0, 1)))
@@ -228,6 +232,7 @@ export default function Viewer() {
             if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null }
           }
         } catch { /* Keep polling through temporary connection failures. */ }
+        finally { polling = false }
       }, 3000)
     } catch (err) {
       console.error('Failed to start re-summarization:', err)

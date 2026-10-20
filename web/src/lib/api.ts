@@ -19,7 +19,8 @@ export class ApiError extends Error {
 }
 
 function readJson<T>(url: string, operation: string): Promise<T> {
-  const key = `${getAuthGeneration()}:${url}`
+  const generation = getAuthGeneration()
+  const key = `${generation}:${url}`
   const existing = pendingReads.get(key)
   if (existing) return existing as Promise<T>
   const controller = new AbortController()
@@ -31,7 +32,10 @@ function readJson<T>(url: string, operation: string): Promise<T> {
     }, 10000)
   })
   const request = Promise.race([
-    authFetch(url, { signal: controller.signal }).then(response => parseApiResponseAsJson<T>(response, operation)),
+    authFetch(url, { signal: controller.signal }).then(response => parseApiResponseAsJson<T>(response, operation)).then(data => {
+      if (generation !== getAuthGeneration()) throw new DOMException('Account changed', 'AbortError')
+      return data
+    }),
     deadline,
   ]).finally(() => {
     clearTimeout(timer)
@@ -906,7 +910,7 @@ function isNetworkOrTimeoutError(error: unknown): boolean {
     const msg = error.message.toLowerCase()
     return msg.includes('failed to fetch') || msg.includes('network') || msg.includes('abort')
   }
-  if (error instanceof DOMException && error.name === 'AbortError') return true
+  if (error instanceof DOMException && ['AbortError', 'TimeoutError'].includes(error.name)) return true
   return false
 }
 
@@ -921,36 +925,41 @@ async function authFetchWithTimeout(
   timeoutMs: number,
 ): Promise<Response> {
   const controller = new AbortController()
-  const timer = window.setTimeout(() => controller.abort(), timeoutMs)
-  try {
-    return await authFetch(url, { ...options, signal: controller.signal })
-  } finally {
-    window.clearTimeout(timer)
-  }
+  let timer: ReturnType<typeof setTimeout>
+  let abort!: () => void
+  const deadline = new Promise<never>((_, reject) => {
+    abort = () => { controller.abort(); reject(new DOMException('Upload cancelled', 'AbortError')) }
+    timer = setTimeout(() => {
+      controller.abort()
+      reject(new DOMException('Upload connection timed out. Please retry.', 'TimeoutError'))
+    }, timeoutMs)
+    options.signal?.addEventListener('abort', abort, { once: true })
+    if (options.signal?.aborted) abort()
+  })
+  const request = authFetch(url, { ...options, signal: controller.signal }).then(async response =>
+    new Response([204, 205, 304].includes(response.status) ? null : await response.text(), { status: response.status, headers: response.headers }))
+  try { return await Promise.race([request, deadline]) }
+  finally { clearTimeout(timer!); options.signal?.removeEventListener('abort', abort) }
 }
 
-async function startAssemblyStatusPolling(
+function startAssemblyStatusPolling(
   uploadId: string,
   filename: string,
   onProgress?: (progress: VideoUploadProgress) => void,
-): Promise<() => Promise<void>> {
-  let stopPolling = false
-  const pollPromise = (async () => {
-    while (!stopPolling) {
-      try {
-        const status = await fetchVideoUploadStatus(uploadId)
-        onProgress?.(toUploadProgress(status, filename))
-      } catch (e) {
-        logIgnoredJsonError('assembly status poll', e)
-      }
-      await sleep(VIDEO_UPLOAD_ASSEMBLY_POLL_MS)
+): () => void {
+  const controller = new AbortController()
+  let timer: ReturnType<typeof setTimeout> | undefined
+  const poll = async () => {
+    try {
+      const status = await fetchVideoUploadStatus(uploadId, controller.signal)
+      if (!controller.signal.aborted) onProgress?.(toUploadProgress(status, filename))
+    } catch (e) {
+      if (!controller.signal.aborted) logIgnoredJsonError('assembly status poll', e)
     }
-  })()
-
-  return async () => {
-    stopPolling = true
-    await pollPromise
+    if (!controller.signal.aborted) timer = setTimeout(() => void poll(), VIDEO_UPLOAD_ASSEMBLY_POLL_MS)
   }
+  void poll()
+  return () => { controller.abort(); clearTimeout(timer) }
 }
 
 function toUploadProgress(status: VideoUploadStatus, fallbackName = ''): VideoUploadProgress {
@@ -969,8 +978,8 @@ function toUploadProgress(status: VideoUploadStatus, fallbackName = ''): VideoUp
   }
 }
 
-async function fetchVideoUploadStatus(uploadId: string): Promise<VideoUploadStatus> {
-  const res = await authFetch(`${API_BASE}/video-notes/upload/status?upload_id=${encodeURIComponent(uploadId)}`)
+async function fetchVideoUploadStatus(uploadId: string, signal?: AbortSignal): Promise<VideoUploadStatus> {
+  const res = await authFetchWithTimeout(`${API_BASE}/video-notes/upload/status?upload_id=${encodeURIComponent(uploadId)}`, { signal }, 10000)
   if (!res.ok) {
     throw new Error(await parseUploadError(res, 'Failed to fetch upload status'))
   }
@@ -980,10 +989,10 @@ async function fetchVideoUploadStatus(uploadId: string): Promise<VideoUploadStat
 async function uploadVideoFileSimple(file: File): Promise<{ file_id: string; path: string }> {
   const formData = new FormData()
   formData.append('file', file)
-  const res = await authFetch(`${API_BASE}/video-notes/upload`, {
+  const res = await authFetchWithTimeout(`${API_BASE}/video-notes/upload`, {
     method: 'POST',
     body: formData,
-  })
+  }, 120000)
   if (!res.ok) {
     throw new UploadResponseError(await parseUploadError(res), res.status)
   }
@@ -999,10 +1008,10 @@ async function uploadVideoFileChunked(
   initData.append('size', String(file.size))
   initData.append('content_type', file.type || 'application/octet-stream')
 
-  const initRes = await authFetch(`${API_BASE}/video-notes/upload/init`, {
+  const initRes = await authFetchWithTimeout(`${API_BASE}/video-notes/upload/init`, {
     method: 'POST',
     body: initData,
-  })
+  }, 15000)
   if (!initRes.ok) {
     throw new Error(await parseUploadError(initRes, 'Failed to initialize video upload'))
   }
@@ -1030,6 +1039,8 @@ async function uploadVideoFileChunked(
 
   let nextIndex = 0
   let completedChunks = 0
+  let completedBytes = 0
+  let failed = false
   const requestedConcurrency = init.recommended_concurrency ?? DEFAULT_CHUNKED_VIDEO_UPLOAD_CONCURRENCY
   const concurrency = Math.min(
     Math.max(1, requestedConcurrency),
@@ -1041,6 +1052,7 @@ async function uploadVideoFileChunked(
     const end = Math.min(file.size, start + init.chunk_size)
 
     for (let attempt = 0; attempt <= CHUNK_RETRY_ATTEMPTS; attempt++) {
+      if (failed) return
       try {
         const chunkBlob = file.slice(start, end)
         const chunkForm = new FormData()
@@ -1062,7 +1074,9 @@ async function uploadVideoFileChunked(
           throw new Error(await parseUploadError(chunkRes, `Failed to upload chunk ${index + 1}`))
         }
 
+        if (failed) return
         completedChunks += 1
+        completedBytes += end - start
         const chunkText = await chunkRes.text()
         let body = {} as { status?: VideoUploadStatus }
         if (chunkText.trim()) {
@@ -1079,7 +1093,7 @@ async function uploadVideoFileChunked(
             uploadId: init.upload_id,
             phase: completedChunks >= init.total_chunks ? 'uploaded' : 'uploading',
             filename: file.name,
-            uploadedBytes: end,
+            uploadedBytes: completedBytes,
             assembledBytes: 0,
             totalBytes: file.size,
             uploadedChunks: completedChunks,
@@ -1104,8 +1118,9 @@ async function uploadVideoFileChunked(
     while (true) {
       const current = nextIndex
       nextIndex += 1
-      if (current >= init.total_chunks) return
-      await uploadChunk(current)
+      if (failed || current >= init.total_chunks) return
+      try { await uploadChunk(current) }
+      catch (error) { failed = true; throw error }
     }
   }
 
@@ -1129,28 +1144,20 @@ async function uploadVideoFileChunked(
     locationLabel: 'Temporary server upload area',
   })
 
-  const stopPolling = await startAssemblyStatusPolling(init.upload_id, file.name, onProgress)
+  const stopPolling = startAssemblyStatusPolling(init.upload_id, file.name, onProgress)
+  try {
+    const completeForm = new FormData()
+    completeForm.append('upload_id', init.upload_id)
+    const completeRes = await authFetchWithTimeout(`${API_BASE}/video-notes/upload/complete`, {
+      method: 'POST', body: completeForm,
+    }, 120000)
+    if (!completeRes.ok) throw new Error(await parseUploadError(completeRes, 'Failed to finalize video upload'))
+    const completeBody = await completeRes.json() as {file_id:string;path:string;status?:VideoUploadStatus}
+    stopPolling()
+    if (completeBody.status) onProgress?.(toUploadProgress(completeBody.status, file.name))
+    return completeBody
+  } finally { stopPolling() }
 
-  const completeForm = new FormData()
-  completeForm.append('upload_id', init.upload_id)
-  const completeRes = await authFetch(`${API_BASE}/video-notes/upload/complete`, {
-    method: 'POST',
-    body: completeForm,
-  })
-  if (!completeRes.ok) {
-    await stopPolling()
-    throw new Error(await parseUploadError(completeRes, 'Failed to finalize video upload'))
-  }
-  const completeBody = await completeRes.json() as {
-    file_id: string
-    path: string
-    status?: VideoUploadStatus
-  }
-  await stopPolling()
-  if (completeBody.status) {
-    onProgress?.(toUploadProgress(completeBody.status, file.name))
-  }
-  return completeBody
 }
 
 export async function uploadVideoFile(

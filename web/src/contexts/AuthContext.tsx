@@ -15,6 +15,7 @@ import {
   isAuthenticated,
   getStoredUser,
   getAuthGeneration,
+  watchStoredSession,
 } from '../lib/auth'
 
 interface AuthContextType {
@@ -46,10 +47,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       disconnectWebSocket()
       useStore.getState().reset()
       clearCache()
-      if (!isAuthenticated()) setUser(null)
+      setUser(isAuthenticated() ? getStoredUser() : null)
+      setAuthError('')
     }
     window.addEventListener('xyz:session-changed', changed)
-    return () => window.removeEventListener('xyz:session-changed', changed)
+    const stop = watchStoredSession()
+    return () => { stop(); window.removeEventListener('xyz:session-changed', changed) }
   }, [])
 
   useEffect(() => {
