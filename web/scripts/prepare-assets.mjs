@@ -4,8 +4,8 @@ import { createHash } from 'node:crypto'
 const root = new URL('../dist/', import.meta.url)
 let html = readFileSync(new URL('index.html', root), 'utf8')
 html = html.replace('<!-- xyz-startup -->', '<script>' + readFileSync(new URL('../src/startup.js', import.meta.url), 'utf8') + '</script>')
-html = html.replace(/<link rel="stylesheet"([^>]*href="([^"]+)"[^>]*)>/g, (_, attrs, href) =>
-  `<link rel="preload" as="style" href="${href}" crossorigin><link rel="stylesheet"${attrs} media="print" data-app-style onload="this.media='all';this.dataset.ready='true'">`)
+html = html.replace(/<link rel="stylesheet"[^>]*href="(\/assets\/[^\"]+\.css)"[^>]*>/g, (_, href) =>
+  `<style data-app-style data-asset="${href}">${readFileSync(new URL('../dist' + href, import.meta.url),'utf8')}</style>`)
 html = html.replace(/<script type="module"([^>]+)>/g, '<script type="module"$1 onerror="window.__xyzEntryFailed=true;window.dispatchEvent(new Event(\'xyz:entry-error\'))">')
 writeFileSync(new URL('index.html', root), html)
 const workerSource = readFileSync(new URL('../src/service-worker.js', import.meta.url), 'utf8')

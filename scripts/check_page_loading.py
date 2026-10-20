@@ -54,6 +54,16 @@ async def check_release_navigation(context, origin, api, asset, state, asset_fai
     await page.route('**/assets/**', asset)
     await page.goto(origin + '/podcasts', wait_until='domcontentloaded')
     await page.get_by_text('小宇宙', exact=True).first.wait_for()
+    manifest = await (await context.request.get(origin+'/manifest.json')).json()
+    if not manifest.get('src/pages/Settings.tsx', {}).get('isDynamicEntry'):
+        # With all page controllers bundled, denied route chunks must not be
+        # needed for Settings at all. Entry replacement is checked separately.
+        asset_failures['mode'] = 'always'
+        await page.evaluate("history.pushState({},'','/settings');dispatchEvent(new PopStateEvent('popstate'))")
+        await page.locator('select[aria-label="Summary provider"]').wait_for(timeout=5000)
+        assert asset_failures['count'] == 0
+        await page.close()
+        return {'deployment_navigation':'passed','route_chunk_not_required':'passed'}
     asset_failures['mode'] = 'once'
     async with page.expect_navigation(wait_until='domcontentloaded', timeout=10000):
         await page.evaluate("history.pushState({},'','/settings');dispatchEvent(new PopStateEvent('popstate'))")

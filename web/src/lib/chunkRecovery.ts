@@ -9,5 +9,13 @@ export function recoverPageImport(event: Event) {
     sessionStorage.setItem(key, String(Date.now()))
   } catch { return }
   event.preventDefault()
-  window.location.reload()
+  const fresh = new URL(window.location.href)
+  fresh.searchParams.set('__xyz_boot', String(Date.now()))
+  window.location.replace(fresh.href)
+}
+
+export function reloadFreshPage() {
+  const fresh = new URL(window.location.href)
+  fresh.searchParams.set('__xyz_boot', String(Date.now()))
+  window.location.replace(fresh.href)
 }

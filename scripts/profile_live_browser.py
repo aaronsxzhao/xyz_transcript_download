@@ -8,7 +8,7 @@ from urllib.parse import urlparse
 ORIGIN = 'https://aipodcastsummary.online'
 
 
-async def profile_browser(owner: str, token: str) -> list[dict]:
+async def profile_browser(owner: str, token: str, local_video: str | None = None) -> list[dict]:
     from playwright.async_api import async_playwright
     reports = []
     async with async_playwright() as playwright:
@@ -42,6 +42,9 @@ async def profile_browser(owner: str, token: str) -> list[dict]:
             ('library', '/library', '/api/summaries'),
             ('settings', '/settings', '/api/settings'),
         ]
+        routes.append(('latest_summary', '/viewer/699acfb5de29766da924dee1', '/api/summaries/699acfb5de29766da924dee1'))
+        if local_video:
+            routes.append(('local_video_note', '/videos/' + local_video, '/api/video-notes/tasks/' + local_video))
         for label, path, critical in routes:
             page = await context.new_page()
             errors, failed = [], []
@@ -58,7 +61,7 @@ async def profile_browser(owner: str, token: str) -> list[dict]:
                 data = await response.json()
                 if response.status != 200:
                     raise RuntimeError('Page API check failed')
-                if label == 'summary':
+                if label in {'summary', 'latest_summary'}:
                     await page.get_by_role('heading', name='Overview', exact=True).wait_for(timeout=10000)
                 elif label in {'episodes', 'channel'}:
                     rows = data if isinstance(data, list) else data['tasks']
@@ -67,9 +70,13 @@ async def profile_browser(owner: str, token: str) -> list[dict]:
                 elif label == 'library':
                     await page.get_by_role('heading', name='Library', exact=True).wait_for(timeout=10000)
                     await page.locator('main a[href^="/viewer/"], main a[href^="/videos/"]').first.wait_for(timeout=10000)
-                elif label == 'video_note':
+                elif label in {'video_note', 'local_video_note'}:
                     await page.locator('article').wait_for(timeout=10000)
                     report['note_ready_ms'] = round((time.perf_counter() - started) * 1000)
+                    try:
+                        await page.locator('article[data-rendering="formatted"]').wait_for(timeout=5000)
+                    except Exception:
+                        await page.wait_for_timeout(300)
                     images = await page.locator('article img').element_handles()
                     loaded = 0
                     for img in images:

@@ -3,7 +3,8 @@ import SummaryText from '../components/SummaryText'
 import ReaderControls from '../components/ReaderControls'
 import { useReadingPosition, useDialog } from '../lib/reading'
 import LoadError from '../components/LoadError'
-import TranscriptSegments from '../components/TranscriptSegments'
+import { deferView } from '../components/DeferredView'
+const TranscriptSegments = deferView(()=>import('../components/TranscriptSegments'))
 import { escapeHtml, markdownToSafeHtml } from '../lib/safeHtml'
 import { getPreference } from '../lib/preferences'
 import { useState, useEffect, useRef, useCallback } from 'react'
@@ -648,7 +649,7 @@ export default function Viewer() {
           </h2>
           
           {transcript.segments.length > 0 ? (
-            <TranscriptSegments key={eid} segments={transcript.segments} />
+            <TranscriptSegments key={eid} segments={transcript.segments} fallback={<p className="whitespace-pre-wrap">{transcript.text}</p>} />
           ) : (
             <p className="text-gray-300 whitespace-pre-line leading-relaxed">
               {transcript.text}

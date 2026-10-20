@@ -14,7 +14,7 @@ import subprocess
 import time
 
 
-def profile_public_routes(owner: str, routes: list[tuple[str, str]]) -> list[dict]:
+def profile_public_routes(owner: str, routes: list[tuple[str, str]], local_video: str | None = None) -> list[dict]:
     """Measure the deployed stack, including its auth and database connections.
 
     A five-minute read probe uses the existing server signing secret. Its token
@@ -29,7 +29,7 @@ def profile_public_routes(owner: str, routes: list[tuple[str, str]]) -> list[dic
     token = jwt.encode({"sub": owner, "aud": "authenticated", "role": "authenticated",
                         "iat": now, "exp": now + 300}, secret, algorithm="HS256")
     selected = [("auth", "/api/auth/me"), *[(label, path) for label, path in routes
-                if label in {"progress", "podcasts", "channels", "episodes", "summary", "transcript", "settings", "channel_videos", "reported_episodes", "reported_summary", "reported_video_note"}]]
+                if label in {"progress", "podcasts", "channels", "episodes", "summary", "transcript", "settings", "channel_videos", "reported_episodes", "reported_summary", "reported_video_note", "reported_latest_summary", "completed_local_video"}]]
     reports = []
     for label, path in selected:
         result = subprocess.run([
@@ -69,7 +69,7 @@ def profile_public_routes(owner: str, routes: list[tuple[str, str]]) -> list[dic
             reports.append(safe)
     if os.environ.get('XYZ_PROFILE_BROWSER') == '1':
         from scripts.profile_live_browser import profile_browser
-        reports.extend(asyncio.run(profile_browser(owner, token)))
+        reports.extend(asyncio.run(profile_browser(owner, token, local_video)))
     return reports
 
 
@@ -80,7 +80,9 @@ async def profile() -> list[dict]:
     from api.supabase_client import get_supabase_admin_client
 
     database = get_supabase_admin_client()
-    videos = database.table("video_tasks").select("id,user_id,channel,platform").eq("status", "success").limit(1).execute().data or []
+    videos = database.table("video_tasks").select("id,user_id,channel,platform").eq("id", "bc2c988b-2b4").eq("status", "success").limit(1).execute().data or []
+    if not videos:
+        videos = database.table("video_tasks").select("id,user_id,channel,platform").eq("status", "success").limit(1).execute().data or []
     owners = videos or database.table("podcasts").select("user_id").limit(1).execute().data or []
     if not owners:
         return [{"library_profile": "empty"}]
@@ -112,6 +114,14 @@ async def profile() -> list[dict]:
         routes.extend([("video_note", f"/api/video-notes/tasks/{task['id']}?view=note"),
                        ("video_detail", f"/api/video-notes/tasks/{task['id']}")])
 
+    latest = database.table("summaries").select("episode_id").eq("user_id", owner).eq("episode_id", "699acfb5de29766da924dee1").limit(1).execute().data or []
+    if latest:
+        routes.append(("reported_latest_summary", "/api/summaries/699acfb5de29766da924dee1"))
+    local = database.table("video_tasks").select("id").eq("user_id", owner).eq("platform", "local").eq("status", "success").limit(1).execute().data or []
+    local_video = local[0]["id"] if local else None
+    if local_video:
+        routes.append(("completed_local_video", f"/api/video-notes/tasks/{local_video}?view=note"))
+
     calls = []
     original = httpx.Client.send
     def read_only(client, request, *args, **kwargs):
@@ -136,7 +146,7 @@ async def profile() -> list[dict]:
     finally:
         httpx.Client.send = original
         app.dependency_overrides.clear()
-    reports.extend(await asyncio.to_thread(profile_public_routes, owner, routes))
+    reports.extend(await asyncio.to_thread(profile_public_routes, owner, routes, local_video))
     return reports
 
 

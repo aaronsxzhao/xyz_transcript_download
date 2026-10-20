@@ -1,10 +1,10 @@
 # Restore the previous website
 
-## Network repair checkpoint (20 October 2026)
+## Reader/Settings repair checkpoint (20 October 2026)
 
-The version immediately before the public-file cache and navigation repair is
-`safety/pre-network-repair-20261020`, image
-`c460b553cca557aa4c56beba986cd7aaad79f506`. Use that revision in **Roll back
+The version immediately before the reader/Settings loading repair is
+`safety/pre-page-repair-20261020`, image
+`10ed582f084d2633e7b43e4008f3398c742f33c8`. Use that revision in **Roll back
 website**. Deployment health failures restore it automatically.
 
 The public-file worker also revalidates its HTML in the background and prepares

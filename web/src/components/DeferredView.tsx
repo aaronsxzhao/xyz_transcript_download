@@ -1,0 +1,18 @@
+import { Component, lazy, Suspense, type ComponentType, type ReactNode } from 'react'
+import { reloadFreshPage } from '../lib/chunkRecovery'
+
+class OptionalBoundary extends Component<{children:ReactNode; fallback:ReactNode}, {failed:boolean}> {
+  state = {failed:false}
+  static getDerivedStateFromError() { return {failed:true} }
+  render() { return this.state.failed ? this.props.fallback : this.props.children }
+}
+
+/** Optional formatting must never prevent the actual page/data from opening. */
+export function deferView<P extends object>(load:()=>Promise<{default:ComponentType<P>}>) {
+  const View = lazy(load) as unknown as ComponentType<P>
+  return function DeferredView({fallback, ...props}:P & {fallback:ReactNode}) {
+    return <OptionalBoundary fallback={<>{fallback}<p role="status" className="text-sm text-gray-400 py-3">Formatting could not load. <button className="underline text-indigo-300" onClick={reloadFreshPage}>Reload formatting</button></p></>}>
+      <Suspense fallback={fallback}><View {...props as P} /></Suspense>
+    </OptionalBoundary>
+  }
+}
