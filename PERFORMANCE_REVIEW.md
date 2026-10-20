@@ -6,6 +6,24 @@ and routing graph, every page's fetch/cache/polling lifecycle, rendering and
 reader dependencies, FastAPI route scheduling, database access, progress jobs,
 private media delivery, and deployment/rollback.
 
+## Follow-up: completed pages fail to open
+
+The reported podcast and video notes exist, and both completed local videos have
+saved Markdown. The three failing controllers were still separate route files.
+Denying optional JavaScript requests reproduces all four failures on the previous
+build. The replacement keeps every controller in the main workspace and defers
+only formatting/virtualization, with readable text and screenshot fallbacks.
+WebKit also retains failed module URLs across reloads: explicit recovery installs a public import map before module evaluation to refresh the entire module graph, while normal visits keep stable URLs. Inline app CSS also removes the stylesheet readiness gate. Cold startup includes
+167.4 KiB compressed program/styles (175 KiB limit); this deliberate increase
+eliminates additional controller requests. Public-cache privacy rules remain.
+
+Regression coverage denies every additional optional JS file while navigating
+to Settings, the reported podcast/video, and a completed local video; checks
+fallback screenshots and recovery; and separately denies stylesheet requests.
+This is controlled failure testing, not a claim about the user's China latency.
+Live diagnostics also cover the newly reported summary and an owned completed
+local video. No stored note bodies, uploads, or schema are modified.
+
 ## Evidence and repairs
 
 | Finding | Evidence | Repair |
@@ -18,7 +36,7 @@ private media delivery, and deployment/rollback.
 
 ## Validation
 
-- 248 backend tests and 30 frontend tests pass.
+- 248 backend tests and 32 frontend tests pass.
 - Controlled network test (one second per asset): Settings usable 2,522→1,326ms;
   initial program requests 11→6; Library navigation 1,367→146ms with no new
   program requests. These are synthetic comparisons, not China timings.

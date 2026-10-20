@@ -205,7 +205,7 @@ export default function MarkdownPreview({ task }: Props) {
               <span>Writing notes...</span>
             </div>
           )}
-          <article className="note-prose prose prose-invert max-w-none pb-4
+          <article data-rendering="formatted" className="note-prose prose prose-invert max-w-none pb-4
             prose-headings:text-gray-100 prose-headings:font-bold
             prose-h1:text-2xl prose-h1:border-b prose-h1:border-dark-border prose-h1:pb-2 prose-h1:mb-6
             prose-h2:text-xl prose-h2:mt-8 prose-h2:mb-4 prose-h2:text-indigo-300

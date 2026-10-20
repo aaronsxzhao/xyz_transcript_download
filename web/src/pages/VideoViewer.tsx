@@ -16,8 +16,10 @@ import {
 } from 'lucide-react'
 import { fetchVideoTask, fetchVideoTranscript, fetchVideoVersion, retryVideoTask, fetchNotionPages, exportMarkdownToNotion, type VideoTask, type NotionPage } from '../lib/api'
 import { useStore, mergeVideoTaskPair } from '../lib/store'
-import MarkdownPreview from '../components/video/MarkdownPreview'
-import TranscriptPanel from '../components/video/TranscriptPanel'
+import { deferView } from '../components/DeferredView'
+import PlainNote from '../components/PlainNote'
+const MarkdownPreview = deferView(()=>import('../components/video/MarkdownPreview'))
+const TranscriptPanel = deferView(()=>import('../components/video/TranscriptPanel'))
 import MindMapView, { preloadMindMap } from '../components/video/MindMapView'
 
 type ViewMode = 'markdown' | 'mindmap' | 'transcript'
@@ -710,11 +712,11 @@ export default function VideoViewer() {
             <>
               <div hidden={viewMode !== 'markdown'} id="video-content-scroll" tabIndex={0} aria-label="Video note content" className="reader-body h-full overflow-y-auto custom-scrollbar p-4 md:p-6">{versionLoading
                 ? <div role="status" className="p-8 flex justify-center"><Loader2 className="animate-spin" aria-label="Loading saved version" /></div>
-                : <MarkdownPreview task={{ ...uiTask, markdown: content }} />}</div>
+                : <MarkdownPreview task={{ ...uiTask, markdown: content }} fallback={<PlainNote markdown={content} />} />}</div>
               {mapVisited && <div hidden={viewMode !== 'mindmap'} className="h-full">{versionLoading ? <p role="status">Loading saved version…</p> : <MindMapView markdown={content} />}</div>}
               {viewMode === 'transcript' && <div className="reader-body h-full overflow-y-auto custom-scrollbar p-4 md:p-6">{
                 transcriptLoading ? <div role="status" className="p-8 flex justify-center"><Loader2 className="animate-spin" aria-label="Loading transcript" /></div>
-                  : <TranscriptPanel transcript={transcript || null} />
+                  : <TranscriptPanel transcript={transcript || null} fallback={<p className="whitespace-pre-wrap">{transcript?.text || 'No transcript available.'}</p>} />
               }</div>}
             </>
           )}

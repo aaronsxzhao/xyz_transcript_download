@@ -1,0 +1,1 @@
+import{C as e}from"./workspace-JDtWVXYv.js";import{n as t,t as n}from"./lib-BXOqc8M3.js";var r=e();function i({children:e}){return(0,r.jsx)(t,{remarkPlugins:[n],skipHtml:!0,children:e})}export{i as default};
