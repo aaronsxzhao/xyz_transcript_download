@@ -1,0 +1,141 @@
+"""Exercise real reader interactions against synthetic notes and delayed APIs.
+
+No external accounts, private notes or mutations. Saves screenshots and JSON.
+"""
+import argparse
+import asyncio
+import json
+import re
+import sys
+import time
+from pathlib import Path
+from urllib.parse import urlparse
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from scripts.check_library_browser import fixtures, serve
+from scripts.check_page_loading import token
+from playwright.async_api import async_playwright
+
+
+async def check(browser, origin, width, output, label):
+    task, summary = fixtures()
+    task['markdown'] = '# Trading review / 交易复盘\n\nA practical summary with screenshots, a table, and key decisions.\n\n' + '\n\n'.join(
+        f'## {i+1}. Review the trend / 趋势分析\n\n- Identify the context before entering.\n- Wait for confirmation and manage risk.\n\n![Chart at {i}:00](/data/screenshots/bench_{i}.jpg)\n\n| Signal | Action |\n| --- | --- |\n| Breakout | Review the follow-through |\n\n' for i in range(8))
+    context = await browser.new_context(viewport={'width':width,'height':960}, permissions=['clipboard-read','clipboard-write'])
+    await context.add_init_script('''
+        localStorage.setItem('xyz_remember_me','true');
+        localStorage.setItem('xyz_access_token',TOKEN);
+        localStorage.setItem('xyz_user',JSON.stringify({id:'bench',email:'bench@example.com',authenticated:true}));
+        window.WebSocket=class {static OPEN=1;readyState=1;constructor(){setTimeout(()=>this.onopen?.(),10)}send(v){if(JSON.parse(v).type==='auth')setTimeout(()=>this.onmessage?.({data:JSON.stringify({type:'init',jobs:[],video_tasks:[]})}),5)}close(){this.readyState=3}};
+    '''.replace('TOKEN',json.dumps(token(int(time.time())+3600))))
+    page = await context.new_page()
+    session = await context.new_cdp_session(page)
+    await session.send('Emulation.setCPUThrottlingRate', {'rate':4})
+    errors=[]; images=[]; requests=[]
+    page.on('pageerror',lambda e: errors.append(str(e)))
+    fail_videos = False
+    async def api(route):
+        path=urlparse(route.request.url).path
+        requests.append(path)
+        body={}; delay=.15
+        if path=='/api/auth/config': body={'supabase_enabled':True}
+        elif path=='/api/auth/me':body={'id':'bench','email':'bench@example.com','authenticated':True}
+        elif path=='/api/video-notes/tasks/bench':body={**task,'transcript':None,'versions':[{k:v for k,v in row.items() if k!='content'} for row in task['versions']]}
+        elif path.endswith('/transcript'):body={'transcript':task['transcript']};delay=.6
+        elif '/versions/' in path:body=task['versions'][0];delay=.6
+        elif path=='/api/video-notes/tasks':body={'tasks':[{**task,'markdown':'','transcript':None}]};delay=2.5
+        elif path=='/api/summaries':body=[{**summary,'podcast_title':'Learning lab','created_at':'2026-10-20','episode_id':f'episode-{i}','title':f'Podcast lesson {i}'} for i in range(30)]
+        await asyncio.sleep(delay)
+        if fail_videos and path == '/api/video-notes/tasks':
+            await route.fulfill(status=503,body=json.dumps({'detail':'Synthetic video service unavailable'}),content_type='application/json');return
+        await route.fulfill(body=json.dumps(body),content_type='application/json')
+    await page.route('**/api/**',api)
+    async def image(route):
+        images.append(urlparse(route.request.url).path)
+        await asyncio.sleep(.4)
+        await route.fulfill(content_type='image/svg+xml',body='<svg xmlns="http://www.w3.org/2000/svg" width="960" height="540"><rect width="960" height="540" fill="#0f172a"/><path d="M0 450 L130 320 L230 380 L420 160 L530 220 L700 80 L960 30" fill="none" stroke="#34d399" stroke-width="6"/><text x="40" y="70" fill="#e2e8f0" font-size="28">Synthetic screenshot — trend review</text></svg>')
+    await page.route('**/data/screenshots/**',image)
+    result={'label':label,'width':width}
+    start=time.monotonic()
+    await page.goto(origin+'/library')
+    await page.get_by_role('heading',name='Podcast lesson 0',exact=True).wait_for()
+    result['library_first_note_ms']=round((time.monotonic()-start)*1000)
+    result['first_note_before_video_response']=not await page.get_by_role('heading',name='Synthetic video',exact=True).count()
+    await page.get_by_role('heading',name='Synthetic video',exact=True).wait_for()
+    await page.screenshot(path=str(output/f'{label}-{width}-library.png'))
+    start=time.monotonic()
+    await page.goto(origin+'/videos/bench')
+    await page.get_by_role('heading',name='Trading review / 交易复盘',exact=True).wait_for()
+    await page.locator('article img').first.wait_for()
+    await page.wait_for_function("document.querySelector('article img')?.naturalWidth>0")
+    result['note_and_first_image_ms']=round((time.monotonic()-start)*1000)
+    result['layout']=await page.evaluate('''()=>{const a=document.querySelector('article').getBoundingClientRect(),c=document.querySelector('#video-content-scroll').getBoundingClientRect();return {article:a.width,content:c.width,viewport:innerWidth,overflow:document.documentElement.scrollWidth>innerWidth}}''')
+    await page.screenshot(path=str(output/f'{label}-{width}-note.png'))
+    image_count=len(images)
+    loaded_paths=set(images)
+    start=time.monotonic()
+    await page.locator('#video-content-scroll').evaluate('(e)=>e.scrollTop=160')
+    saved_scroll=await page.locator('#video-content-scroll').evaluate('(e)=>e.scrollTop')
+    await page.get_by_role('button',name='Mind Map',exact=True).click()
+    await page.locator('svg.markmap foreignObject').first.wait_for(timeout=20000)
+    result['mindmap_ms']=round((time.monotonic()-start)*1000)
+    await page.wait_for_timeout(150)
+    group=page.locator('svg.markmap > g').first
+    transform=await group.get_attribute('transform')
+    await page.get_by_role('button',name=re.compile('zoom in',re.I)).click()
+    await page.wait_for_timeout(100)
+    result['zoom_changes_transform']=await group.get_attribute('transform')!=transform
+    await page.get_by_role('button',name=re.compile('fit to view',re.I)).click()
+    await page.screenshot(path=str(output/f'{label}-{width}-mindmap.png'))
+    start=time.monotonic()
+    await page.get_by_role('button',name='Note',exact=True).click()
+    await page.locator('article').wait_for(state='visible')
+    result['reading_position_retained']=await page.locator('#video-content-scroll').evaluate('(e)=>e.scrollTop')>=saved_scroll-1
+    result['return_to_note_ms']=round((time.monotonic()-start)*1000)
+    result['duplicate_image_requests_after_tab']=sum(path in loaded_paths for path in images[image_count:])
+    await page.get_by_role('button',name='Transcript',exact=True).click()
+    await page.get_by_text('Line 00000:',exact=False).first.wait_for()
+    await page.get_by_role('button',name='Note',exact=True).click()
+    copy=page.get_by_role('button',name='Copy note',exact=True)
+    if await copy.count():
+        await copy.click()
+        await page.get_by_role('button',name='Copied',exact=True).wait_for(timeout=10000)
+        result['copy_works']=bool(await page.evaluate('navigator.clipboard.readText()'))
+    if label == 'after' and width == 1440:
+        fail_videos=True
+        await page.goto(origin+'/library')
+        await page.get_by_text('Could not refresh videos.',exact=False).wait_for(timeout=10000)
+        result['partial_failure_keeps_notes']=await page.get_by_role('heading',name='Podcast lesson 0',exact=True).is_visible()
+        assert result['partial_failure_keeps_notes']
+    result['errors']=errors
+    await context.close()
+    return result
+
+
+async def main():
+    parser=argparse.ArgumentParser();parser.add_argument('--browser-path');parser.add_argument('--browser-args',type=Path);parser.add_argument('--baseline-dist',type=Path);parser.add_argument('--output',type=Path,default=Path('/tmp/xyz-reader-check'));args=parser.parse_args()
+    args.output.mkdir(parents=True,exist_ok=True)
+    reports=[]
+    async with async_playwright() as p:
+        for label,dist in [('before',args.baseline_dist),('after',Path(__file__).resolve().parents[1]/'web/dist')]:
+            if not dist: continue
+            server=serve(dist)
+            try:
+                for width in [390,768,1440,1920]:
+                    browser=await p.chromium.launch(executable_path=args.browser_path,headless=True,args=json.loads(args.browser_args.read_text()) if args.browser_args else ['--no-sandbox'])
+                    report=await check(browser,f'http://127.0.0.1:{server.server_port}',width,args.output,label)
+                    reports.append(report);print(json.dumps(report),flush=True)
+                    await browser.close()
+            finally:server.shutdown()
+    (args.output/'results.json').write_text(json.dumps(reports,indent=2))
+    for report in reports:
+        if report['label']=='after':
+            assert not report['errors'],report
+            assert not report['layout']['overflow'],report
+            assert report['layout']['article']>report['layout']['content']*.85,report
+            assert report['zoom_changes_transform'] and report.get('copy_works'),report
+            assert report['reading_position_retained'],report
+            assert report['first_note_before_video_response'],report
+            assert report['duplicate_image_requests_after_tab']==0,report
+
+if __name__=='__main__':asyncio.run(main())

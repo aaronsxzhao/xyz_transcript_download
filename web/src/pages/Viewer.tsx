@@ -1,3 +1,4 @@
+import SummaryText from '../components/SummaryText'
 import ReaderControls from '../components/ReaderControls'
 import { useReadingPosition, useDialog } from '../lib/reading'
 import LoadError from '../components/LoadError'
@@ -112,6 +113,7 @@ export default function Viewer() {
   usePageTiming('viewer', !loading && (summary?.episode_id === eid || transcript?.episode_id === eid), CacheKeys.SUMMARY(eid!), !!error && !loading)
   const [expandedTopics, setExpandedTopics] = useState<Set<string>>(() => new Set(getCache<Summary>(CacheKeys.SUMMARY(eid!))?.topics.slice(0, 1)))
   const [copied, setCopied] = useState(false)
+  const [copying, setCopying] = useState(false)
   const [pdfLoading, setPdfLoading] = useState(false)
 
   useReadingPosition(`podcast:${eid}`, undefined, !loading)
@@ -239,19 +241,20 @@ export default function Viewer() {
 
   const handleCopy = async () => {
     const md = getMarkdown()
-    if (!md) return
+    if (!md || copying) return
+    setCopying(true)
     try {
-      const html = await markdownToSafeHtml(md)
-      const blob = new Blob([html], { type: 'text/html' })
-      const textBlob = new Blob([md], { type: 'text/plain' })
-      await navigator.clipboard.write([
-        new ClipboardItem({ 'text/html': blob, 'text/plain': textBlob }),
-      ])
-    } catch {
-      await navigator.clipboard.writeText(md)
-    }
-    setCopied(true)
-    setTimeout(() => setCopied(false), 2000)
+      try {
+        // Passing promised HTML keeps clipboard permission tied to the click
+        // on Safari, even while the formatter module is still downloading.
+        const html = markdownToSafeHtml(md).then(value => new Blob([value], { type: 'text/html' }))
+        void html.catch(() => {})
+        await navigator.clipboard.write([new ClipboardItem({ 'text/html': html, 'text/plain': new Blob([md], {type:'text/plain'}) })])
+      } catch { await navigator.clipboard.writeText(md) }
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    } catch { setError('Copy failed. Please allow clipboard access or download the Markdown file.') }
+    finally { setCopying(false) }
   }
 
   const handleDownloadMd = () => {
@@ -453,10 +456,12 @@ export default function Viewer() {
             <>
               <button
                 onClick={handleCopy}
+                disabled={copying}
+                aria-label={copying ? 'Copying note' : copied ? 'Copied' : 'Copy note'}
                 className="p-2 text-gray-400 hover:text-white transition-colors"
                 title="Copy as rich text (paste into Notion)"
               >
-                {copied ? <Check size={16} className="text-green-400" /> : <Copy size={16} />}
+                {copying ? <Loader2 size={14} className="animate-spin" /> : copied ? <Check size={16} className="text-green-400" /> : <Copy size={16} />}
               </button>
               <button
                 onClick={handleDownloadMd}
@@ -575,14 +580,12 @@ export default function Viewer() {
               <FileText className="text-indigo-500" size={20} />
               Overview
             </h2>
-            <p className="text-gray-300 whitespace-pre-line leading-relaxed">
-              {summary.overview}
-            </p>
+            <SummaryText>{summary.overview}</SummaryText>
           </div>
           
           {/* Topics/Key Points */}
-          <div className="space-y-4">
-            <h2 id="summary-key-points" className="text-lg font-semibold text-white flex items-center gap-2">
+          <div className="grid xl:grid-cols-2 items-start gap-4">
+            <h2 id="summary-key-points" className="xl:col-span-2 text-lg font-semibold text-white flex items-center gap-2">
               <MessageSquare className="text-purple-500" size={20} />
               Key Points by Topic
             </h2>
@@ -594,6 +597,7 @@ export default function Viewer() {
               >
                 <button
                   onClick={() => toggleTopic(topic)}
+                  aria-expanded={expandedTopics.has(topic)}
                   className="w-full flex items-center justify-between p-4 hover:bg-dark-hover transition-colors"
                 >
                   <div className="flex items-center gap-3">
@@ -614,7 +618,7 @@ export default function Viewer() {
                   <div className="border-t border-dark-border p-4 space-y-4">
                     {points.map((kp, idx) => (
                       <div key={idx} className="pl-4 border-l-2 border-indigo-500/50">
-                        <p className="text-gray-200 mb-2">{kp.summary}</p>
+                        <SummaryText>{kp.summary}</SummaryText>
                         {kp.original_quote && (
                           <div className="flex items-start gap-2 p-3 bg-dark-hover rounded-lg">
                             <Quote className="text-gray-500 flex-shrink-0 mt-0.5" size={16} />
@@ -642,7 +646,7 @@ export default function Viewer() {
                 {summary.takeaways.map((takeaway: string, idx: number) => (
                   <li key={idx} className="flex items-start gap-3">
                     <CheckCircle className="text-green-500 flex-shrink-0 mt-0.5" size={16} />
-                    <span className="text-gray-300">{takeaway}</span>
+                    <SummaryText>{takeaway}</SummaryText>
                   </li>
                 ))}
               </ul>

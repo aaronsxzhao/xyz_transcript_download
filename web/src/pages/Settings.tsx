@@ -1255,7 +1255,7 @@ export default function Settings() {
             <p className="text-sm text-gray-400 mb-3">
               Check for truncated transcripts (duration &lt; 85% of expected).
             </p>
-            <div className="flex gap-3 mb-3">
+            <div className="flex flex-col sm:flex-row gap-3 mb-3">
               <button
                 onClick={checkTruncated}
                 disabled={checking}
@@ -1315,13 +1315,13 @@ export default function Settings() {
             <p className="text-sm text-gray-400 mb-3">
               Import podcasts from Xiaoyuzhou (小宇宙). <span className="text-yellow-400">Profile must be public.</span>
             </p>
-            <div className="flex gap-3 mb-3">
+            <div className="flex flex-col sm:flex-row gap-3 mb-3">
               <input
                 type="text"
                 value={importUsername}
                 onChange={e => setImportUsername(e.target.value)}
                 placeholder="Username or profile URL"
-                className="flex-1 bg-dark-hover border border-dark-border text-white text-sm rounded-lg px-3 py-2 focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
+                className="min-w-0 flex-1 bg-dark-hover border border-dark-border text-white text-sm rounded-lg px-3 py-2 focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
                 onKeyDown={e => e.key === 'Enter' && !importing && handleImportSubscriptions()}
               />
               <button

@@ -39,6 +39,7 @@ async def profile_browser(owner: str, token: str) -> list[dict]:
             ('channel', '/videos?platform=youtube&channel=Brooks+Trading+Course', '/api/video-notes/tasks/by-channel'),
             ('summary', '/viewer/694b7d6d0b60b7bf752e007b', '/api/summaries/694b7d6d0b60b7bf752e007b'),
             ('video_note', '/videos/bc2c988b-2b4', '/api/video-notes/tasks/bc2c988b-2b4'),
+            ('library', '/library', '/api/summaries'),
             ('settings', '/settings', '/api/settings'),
         ]
         for label, path, critical in routes:
@@ -58,13 +59,17 @@ async def profile_browser(owner: str, token: str) -> list[dict]:
                 if response.status != 200:
                     raise RuntimeError('Page API check failed')
                 if label == 'summary':
-                    await page.get_by_text(data['overview'], exact=True).first.wait_for(timeout=10000)
+                    await page.get_by_role('heading', name='Overview', exact=True).wait_for(timeout=10000)
                 elif label in {'episodes', 'channel'}:
                     rows = data if isinstance(data, list) else data['tasks']
                     if rows:
                         await page.get_by_text(rows[0]['title'], exact=True).first.wait_for(timeout=10000)
+                elif label == 'library':
+                    await page.get_by_role('heading', name='Library', exact=True).wait_for(timeout=10000)
+                    await page.locator('main a[href^="/viewer/"], main a[href^="/videos/"]').first.wait_for(timeout=10000)
                 elif label == 'video_note':
                     await page.locator('article').wait_for(timeout=10000)
+                    report['note_ready_ms'] = round((time.perf_counter() - started) * 1000)
                     images = await page.locator('article img').element_handles()
                     loaded = 0
                     for img in images:
@@ -76,6 +81,16 @@ async def profile_browser(owner: str, token: str) -> list[dict]:
                             pass
                     expected = len(set(re.findall(r'/data/screenshots/[A-Za-z0-9_.-]+', data.get('markdown', ''))))
                     report.update(loaded_images=loaded, missing_images=max(expected, len(images)) - loaded)
+                    mark_started = time.perf_counter()
+                    await page.get_by_role('button', name='Mind Map', exact=True).click()
+                    await page.locator('svg.markmap foreignObject').first.wait_for(timeout=15000)
+                    report['mindmap_ms'] = round((time.perf_counter() - mark_started) * 1000)
+                    await page.get_by_role('button', name=re.compile('zoom in', re.I)).click()
+                    await page.get_by_role('button', name=re.compile('fit to view', re.I)).click()
+                    note_started = time.perf_counter()
+                    await page.get_by_role('button', name='Note', exact=True).click()
+                    await page.locator('article').wait_for(state='visible', timeout=5000)
+                    report['return_to_note_ms'] = round((time.perf_counter() - note_started) * 1000)
                 else:
                     await page.wait_for_function("!document.querySelector('select[aria-label=\"Summary provider\"]')?.disabled")
                 report['milliseconds'] = round((time.perf_counter() - started) * 1000)

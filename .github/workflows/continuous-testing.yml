@@ -56,6 +56,7 @@ jobs:
           python -m playwright install --with-deps chromium
           python scripts/check_library_browser.py --baseline-dist /tmp/library-baseline/web/dist
           python scripts/check_page_loading.py --baseline-dist /tmp/library-baseline/web/dist
+          python scripts/check_reader_interactions.py
 
   test:
     name: Run Tests

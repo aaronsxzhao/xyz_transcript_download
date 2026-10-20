@@ -15,16 +15,16 @@ import type { VideoTask } from '../../lib/api'
 
 const HighlightedCode = lazy(() => import('./HighlightedCode'))
 
-function NoteImage({ src, alt, onImage }: { src?: string; alt?: string; onImage: (src: string) => void }) {
+function NoteImage({ src, alt, onImage, priority = false }: { src?: string; alt?: string; onImage: (src: string) => void; priority?: boolean }) {
   const [failed, setFailed] = useState(false)
-  useEffect(() => setFailed(false), [src])
+  const [ready, setReady] = useState(false)
   if (failed) return <span className="inline-flex items-center gap-2 rounded-lg border border-dark-border p-3 text-sm text-gray-400">
     <ImageIcon size={16} />{alt || 'Image'} — unavailable
-    <button className="underline" onClick={() => setFailed(false)}>Retry image</button>
+    <button className="underline" onClick={() => { setReady(false); setFailed(false) }}>Retry image</button>
   </span>
-  return <button type="button" className="inline-block max-w-full rounded-lg" aria-label={`Enlarge ${alt || 'screenshot'}`} onClick={() => src && onImage(src)}><img loading="lazy" decoding="async" src={src} alt={alt || ''}
-    className="max-w-[min(100%,480px)] max-h-64 w-auto rounded-lg border border-dark-border cursor-pointer hover:opacity-90 transition-opacity"
-    referrerPolicy="no-referrer" onError={() => setFailed(true)} /></button>
+  return <button type="button" className="relative inline-block w-full max-w-full aspect-video rounded-lg bg-dark-bg/40 overflow-hidden" aria-label={`Enlarge ${alt || 'screenshot'}`} onClick={() => src && onImage(src)}>{!ready && <span className="absolute inset-0 flex items-center justify-center gap-2 text-sm text-gray-400" role="status"><Loader2 size={18} className="animate-spin" />Loading screenshot…</span>}<img loading={priority ? 'eager' : 'lazy'} fetchPriority={priority ? 'high' : 'auto'} decoding="async" src={src} alt={alt || ''}
+    className="w-full max-w-full h-full object-contain rounded-lg border border-dark-border cursor-pointer hover:opacity-90 transition-opacity"
+    referrerPolicy="no-referrer" onLoad={() => setReady(true)} onError={() => setFailed(true)} /></button>
 }
 
 interface Props {
@@ -205,7 +205,7 @@ export default function MarkdownPreview({ task }: Props) {
               <span>Writing notes...</span>
             </div>
           )}
-          <article className="prose prose-invert max-w-none pb-4
+          <article className="note-prose prose prose-invert max-w-none pb-4
             prose-headings:text-gray-100 prose-headings:font-bold
             prose-h1:text-2xl prose-h1:border-b prose-h1:border-dark-border prose-h1:pb-2 prose-h1:mb-6
             prose-h2:text-xl prose-h2:mt-8 prose-h2:mb-4 prose-h2:text-indigo-300
@@ -270,6 +270,7 @@ const NoteMarkdown = memo(function NoteMarkdown({ markdown, onImage }: { markdow
       .catch(() => {})
     return () => { active = false }
   }, [hasMath, math])
+  const priorityImages = Array.from(markdown.matchAll(/!\[[^\]]*\]\(([^\s)]+)/g)).slice(0, 2).map(match => match[1])
   const rehypePlugins: PluggableList = [rehypeSlug]
   if (math) rehypePlugins.push([math.rehype, { throwOnError: false, errorColor: '#94a3b8' }])
   return (
@@ -319,7 +320,7 @@ const NoteMarkdown = memo(function NoteMarkdown({ markdown, onImage }: { markdow
                   )
                 },
                 img({ src, alt }) {
-                  return <NoteImage key={src} src={src} alt={alt} onImage={onImage} />
+                  return <NoteImage key={src} src={src} alt={alt} onImage={onImage} priority={!!src && priorityImages.includes(src)} />
                 },
                 a({ href, children }) {
                   const text = String(children)

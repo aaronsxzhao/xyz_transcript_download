@@ -1,3 +1,15 @@
+# Reader and Library repair — 20 October 2026
+
+- Library fills the available width with responsive cards or a list, shows the first returning source immediately, and keeps readable notes when another source fails. Large results load 60 at a time.
+- The video reader uses the available content width, shows labeled export buttons, reserves screenshot space, and preserves notes and their scroll position across view changes. Podcast summary fields render Markdown and topic cards fill two columns on wide screens.
+- Mind Map uses a smaller local-only transformer, a defined canvas height, proper zoom APIs, loading/retry states, resize handling and instance cleanup. Screenshots are excluded from the map to avoid duplicate image downloads; they remain in the note.
+- Generated image links stay stable within a day. A private 256 MiB, 24-hour read-through cache shares concurrent downloads; valid file signatures remain required even for cache hits. The first two note screenshots load eagerly.
+- Copy displays progress and supports Safari's clipboard activation rules. Backup and repair actions are grouped under a disclosure.
+
+Rollback: `safety/pre-reader-repair-20261020`; deployed image `aca4f9bb29b90cb08b1fef6a97ab4f8efdd3d7e9`. No saved note bodies or database schema are changed. Earlier rollback checkpoints remain available. See [ROLLBACK.md](ROLLBACK.md).
+
+---
+
 # Reliability and usability release — 20 October 2026
 
 The old release is preserved. See [ROLLBACK.md](ROLLBACK.md) for the exact source tag, built image, private backups and the GitHub rollback workflow. Rollback does not erase newer notes or images.

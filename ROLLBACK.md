@@ -24,3 +24,11 @@ new files and their hashes for targeted reversal if ever needed. Existing notes
 and version history are never rewritten during image recovery. Do not restore a
 whole historical database snapshot over newer work merely to undo an interface
 change.
+
+## Reader and Library repair checkpoint (20 October 2026)
+
+The version immediately before this repair is preserved at
+`safety/pre-reader-repair-20261020` (source `14d6561`). To restore that deployed
+application, run **Roll back website** with revision
+`aca4f9bb29b90cb08b1fef6a97ab4f8efdd3d7e9`. The original October 19 checkpoint
+above remains available. This repair changes no saved notes or database schema.

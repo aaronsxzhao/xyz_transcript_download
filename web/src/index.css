@@ -20,7 +20,21 @@ body {
 }
 :where(button,a,select) { touch-action: manipulation; }
 .reader-body, .reader-body p, .reader-body li { font-size: var(--reader-font-size, 16px); line-height: 1.8; }
-.reader-body article { max-width: 75ch; margin-inline: auto; }
+.reader-body article { max-width: none; width: 100%; margin-inline: 0; overflow-wrap: anywhere; }
+.note-prose { --tw-prose-body: #d1d5db; }
+.note-prose > :first-child { margin-top: 0; }
+.note-prose h2 { scroll-margin-top: 1rem; border-bottom: 1px solid #334155; padding-bottom: .5rem; }
+.note-prose p, .note-prose li { line-height: 1.75; }
+.note-prose table { display: block; max-width: 100%; overflow-x: auto; }
+.note-prose pre { max-width: 100%; overflow-x: auto; }
+.note-prose img { margin-block: .75rem; }
+.note-prose button img { margin: 0; }
+.reader-workspace { height: calc(100dvh - 6rem); min-height: 480px; }
+@media (max-width: 767px) { .reader-workspace { height: calc(100dvh - 5rem); min-height: 420px; } }
+.mindmap-canvas { height: 100%; min-height: 460px; }
+.mindmap-canvas .markmap { color: #e2e8f0; }
+.mindmap-canvas .markmap-foreign a { color: #a5b4fc; }
+
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; scroll-behavior: auto !important; }
 }
