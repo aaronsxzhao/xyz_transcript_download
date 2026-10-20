@@ -141,7 +141,7 @@ def test_groq_video_chunks_fail_instead_of_saving_partial_notes():
 async def test_assets_cache_immutably_but_html_revalidates(client):
     import re
     html = await client.get("/")
-    assert html.headers["cache-control"].startswith("public, max-age=60")
+    assert html.headers["cache-control"] == "no-cache"
     assert "set-cookie" not in html.headers
     unchanged = await client.get("/", headers={"If-None-Match": html.headers["etag"]})
     assert unchanged.status_code == 304 and not unchanged.content

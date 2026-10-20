@@ -700,7 +700,7 @@ def serve_frontend(path: str, request: Request):
         import hashlib
         html = frontend_html(frontend_dist, path, USE_SUPABASE, SUPABASE_URL)
         etag = '"' + hashlib.sha256(html.encode()).hexdigest()[:24] + '"'
-        headers = {"Cache-Control": "public, max-age=60, s-maxage=300, stale-while-revalidate=300", "ETag": etag}
+        headers = {"Cache-Control": "no-cache", "ETag": etag}
         if request.headers.get("if-none-match") == etag:
             return Response(status_code=304, headers=headers)
         return Response(html, media_type="text/html", headers=headers)

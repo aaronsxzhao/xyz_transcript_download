@@ -12,7 +12,7 @@ The old release is preserved. See [ROLLBACK.md](ROLLBACK.md) for the exact sourc
 - Mobile forms expose the Generate button sooner, with quality controls under Advanced. Cloud platform connection instructions reflect supported methods; saved credentials are not presented as verified sessions.
 - Both readers have font-size controls, mobile contents navigation and reading-position retention. Dialogs support Escape/focus trapping; images are keyboard accessible. Secondary text contrast and accessible control names are improved.
 - Login supports password recovery. New passwords receive an anonymous five-character hash-prefix breach check. Supabase's separate native leaked-password setting still requires its dashboard control; the app's check does not change that setting.
-- Public account-neutral HTML has short caching and ETags, hashed assets remain immutable, and the Library receives route preloads and bounded API reads. Private API responses and account caches remain isolated.
+- Public account-neutral HTML uses ETag validation, hashed assets remain immutable, and the Library receives route preloads and bounded API reads. Private API responses and account caches remain isolated.
 - Updated frontend packages and lockfile; npm audit reports zero known advisories. Removed tracked node_modules. Node 22 builds the frontend/runtime tools.
 - Added two foreign-key indexes, optimized ownership policies, and kept job/credential/backup tables inaccessible to browser roles. Database changes remain compatible with the preserved release.
 
