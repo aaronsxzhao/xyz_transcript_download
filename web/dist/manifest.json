@@ -3,8 +3,8 @@
     "file": "assets/dist-9mZ0N9zs.js",
     "name": "dist"
   },
-  "_lib-Dd_jkmJX.js": {
-    "file": "assets/lib-Dd_jkmJX.js",
+  "_lib-u2C--ZyL.js": {
+    "file": "assets/lib-u2C--ZyL.js",
     "name": "lib",
     "imports": [
       "src/components/video/MarkdownPreview.tsx"
@@ -14,14 +14,18 @@
     "file": "assets/rolldown-runtime-XKyaHtl9.js",
     "name": "rolldown-runtime"
   },
-  "_workspace-CEwfrkYF.js": {
-    "file": "assets/workspace-CEwfrkYF.js",
+  "_workspace-BuLJ9WXd.css": {
+    "file": "assets/workspace-BuLJ9WXd.css",
+    "src": "_workspace-BuLJ9WXd.css"
+  },
+  "_workspace-Ce3uKzNm.js": {
+    "file": "assets/workspace-Ce3uKzNm.js",
     "name": "workspace",
     "imports": [
       "_rolldown-runtime-XKyaHtl9.js"
     ],
     "dynamicImports": [
-      "_workspace-CEwfrkYF.js",
+      "_workspace-Ce3uKzNm.js",
       "node_modules/dompurify/dist/purify.es.mjs",
       "node_modules/markmap-lib/dist/index.no-plugins.mjs",
       "node_modules/markmap-view/dist/index.js",
@@ -30,20 +34,16 @@
       "src/components/TranscriptSegments.tsx"
     ],
     "css": [
-      "assets/workspace-SaBv4nuf.css"
+      "assets/workspace-BuLJ9WXd.css"
     ]
   },
-  "_workspace-SaBv4nuf.css": {
-    "file": "assets/workspace-SaBv4nuf.css",
-    "src": "_workspace-SaBv4nuf.css"
-  },
   "index.html": {
-    "file": "assets/index-Cna7OyOK.js",
+    "file": "assets/index-DZc6ji86.js",
     "name": "index",
     "src": "index.html",
     "isEntry": true,
     "imports": [
-      "_workspace-CEwfrkYF.js"
+      "_workspace-Ce3uKzNm.js"
     ]
   },
   "node_modules/dompurify/dist/purify.es.mjs": {
@@ -303,27 +303,27 @@
     ]
   },
   "node_modules/markmap-view/dist/index.js": {
-    "file": "assets/dist-ZCH1FmWh.js",
+    "file": "assets/dist-BafXF2bn.js",
     "name": "dist",
     "src": "node_modules/markmap-view/dist/index.js",
     "isDynamicEntry": true,
     "imports": [
-      "_workspace-CEwfrkYF.js",
+      "_workspace-Ce3uKzNm.js",
       "_dist-9mZ0N9zs.js"
     ]
   },
   "node_modules/rehype-katex/index.js": {
-    "file": "assets/rehype-katex-B9z0VrcJ.js",
+    "file": "assets/rehype-katex-B5XqGDT_.js",
     "name": "rehype-katex",
     "src": "node_modules/rehype-katex/index.js",
     "isDynamicEntry": true,
     "imports": [
-      "_lib-Dd_jkmJX.js",
+      "_lib-u2C--ZyL.js",
       "src/components/video/MarkdownPreview.tsx"
     ]
   },
   "node_modules/remark-math/index.js": {
-    "file": "assets/remark-math-BIrNcb38.js",
+    "file": "assets/remark-math-BWIMrkDu.js",
     "name": "remark-math",
     "src": "node_modules/remark-math/index.js",
     "isDynamicEntry": true,
@@ -332,50 +332,50 @@
     ]
   },
   "src/components/TranscriptSegments.tsx": {
-    "file": "assets/TranscriptSegments-DgXFiLIH.js",
+    "file": "assets/TranscriptSegments-CZcR0YaD.js",
     "name": "TranscriptSegments",
     "src": "src/components/TranscriptSegments.tsx",
     "isDynamicEntry": true,
     "imports": [
       "_rolldown-runtime-XKyaHtl9.js",
-      "_workspace-CEwfrkYF.js"
+      "_workspace-Ce3uKzNm.js"
     ]
   },
   "src/components/video/HighlightedCode.tsx": {
-    "file": "assets/HighlightedCode-CHONLAgz.js",
+    "file": "assets/HighlightedCode-DJVIIGoO.js",
     "name": "HighlightedCode",
     "src": "src/components/video/HighlightedCode.tsx",
     "isDynamicEntry": true,
     "imports": [
       "_rolldown-runtime-XKyaHtl9.js",
-      "_workspace-CEwfrkYF.js",
-      "_lib-Dd_jkmJX.js",
+      "_workspace-Ce3uKzNm.js",
+      "_lib-u2C--ZyL.js",
       "src/components/video/MarkdownPreview.tsx"
     ]
   },
   "src/components/video/MarkdownPreview.tsx": {
-    "file": "assets/MarkdownPreview-PJ7F7Kri.js",
+    "file": "assets/MarkdownPreview-DQ2ODB9y.js",
     "name": "MarkdownPreview",
     "src": "src/components/video/MarkdownPreview.tsx",
     "isDynamicEntry": true,
     "imports": [
       "_rolldown-runtime-XKyaHtl9.js",
-      "_workspace-CEwfrkYF.js"
+      "_workspace-Ce3uKzNm.js"
     ],
     "dynamicImports": [
       "src/components/video/HighlightedCode.tsx",
-      "_workspace-CEwfrkYF.js",
+      "_workspace-Ce3uKzNm.js",
       "node_modules/remark-math/index.js",
       "node_modules/rehype-katex/index.js"
     ]
   },
   "src/components/video/TranscriptPanel.tsx": {
-    "file": "assets/TranscriptPanel-DjHaN9qt.js",
+    "file": "assets/TranscriptPanel-P6PRF81t.js",
     "name": "TranscriptPanel",
     "src": "src/components/video/TranscriptPanel.tsx",
     "isDynamicEntry": true,
     "imports": [
-      "_workspace-CEwfrkYF.js",
+      "_workspace-Ce3uKzNm.js",
       "src/components/TranscriptSegments.tsx"
     ]
   }

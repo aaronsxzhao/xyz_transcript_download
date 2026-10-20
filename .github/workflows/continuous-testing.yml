@@ -54,12 +54,12 @@ jobs:
           git archive "$BASE_REVISION" web/dist | tar -x -C /tmp/library-baseline
           pip install playwright
           python -m playwright install --with-deps chromium webkit
+          python scripts/check_reader_layout.py --webkit
           python scripts/check_document_startup.py --baseline-dist /tmp/library-baseline/web/dist --webkit
           python scripts/check_page_boundaries.py --baseline-dist /tmp/library-baseline/web/dist --webkit
           python scripts/check_library_browser.py --baseline-dist /tmp/library-baseline/web/dist
           python scripts/check_page_loading.py --baseline-dist /tmp/library-baseline/web/dist
           python scripts/check_reader_interactions.py
-          python scripts/check_reader_layout.py --webkit
           python scripts/check_first_paint.py
           python scripts/check_network_resilience.py --baseline-dist /tmp/library-baseline/web/dist
 

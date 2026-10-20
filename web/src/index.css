@@ -104,8 +104,10 @@ body {
 
 /* Reader measure and image previews stay usable on very wide displays. */
 .podcast-reader, .video-reader { width: 100%; max-width: 1600px; margin-inline: auto; }
-.reader-screenshot { display: flex; align-items: center; justify-content: center; width: 100%; max-width: 760px; aspect-ratio: 16 / 9; max-height: 420px; margin: 1.25rem 0; overflow: hidden; border: 1px solid #334155; border-radius: .75rem; background: #0f172a; cursor: zoom-in; }
-.note-prose .reader-screenshot img { display: block; width: auto; height: auto; max-width: 100%; max-height: 100%; margin: 0; object-fit: contain; }
+.reader-screenshot { position: relative; display: flex; align-items: center; justify-content: center; width: 100%; max-width: 760px; aspect-ratio: 16 / 9; max-height: 420px; margin: 1.25rem 0; overflow: hidden; border: 1px solid #334155; border-radius: .75rem; background: #0f172a; cursor: zoom-in; }
+/* Absolute positioning gives WebKit a definite containing height for portrait
+   images; max-height:100% in normal flex flow can resolve as unbounded there. */
+.note-prose .reader-screenshot img { position: absolute; inset: 0; display: block; width: auto; height: auto; max-width: 100%; max-height: 100%; margin: auto; object-fit: contain; }
 .markdown-table { width: 100%; overflow-x: auto; }
 .note-prose h1 { font-size: 1.65em; line-height: 1.35; margin: 0 0 1.25rem; }
 .note-prose h2 { font-size: 1.3em; margin-top: 1.8rem; margin-bottom: .8rem; color: #b7c1ff; }
