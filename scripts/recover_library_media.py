@@ -18,6 +18,13 @@ def frames(text, task_id):
     return {m.group(0): int(m[1]) * 60 + int(m[2]) for m in re.finditer(pattern, text or '') if int(m[2]) < 60}
 
 
+def task_frames(task, versions):
+    result = frames(task.get('markdown'), task['id'])
+    for content in versions:
+        result.update(frames(content, task['id']))
+    return result
+
+
 def recover():
     from api.supabase_client import get_supabase_admin_client
     from cookie_manager import get_cookie_manager
@@ -27,15 +34,36 @@ def recover():
     screenshot_extractor.USE_SUPABASE_STORAGE = False  # Recovery uploads are create-only.
     client = get_supabase_admin_client()
     owner = client.table('podcasts').select('user_id').eq('pid', '62382c1103bea1ebfffa1c00').limit(1).execute().data[0]['user_id']
-    tasks = client.table('video_tasks').select('id,url,platform,markdown').eq('user_id', owner).order('id').execute().data
+    tasks = []
+    offset = 0
+    while True:
+        page = client.table('video_tasks').select('id,url,platform,markdown').eq('user_id', owner).order('id').range(offset, offset + 499).execute().data
+        tasks.extend(page)
+        if len(page) < 500:
+            break
+        offset += 500
+    versions = {}
+    for start in range(0, len(tasks), 100):
+        ids = [t['id'] for t in tasks[start:start + 100]]
+        offset = 0
+        while True:
+            page = client.table('video_task_versions').select('id,task_id,content').in_('task_id', ids).order('id').range(offset, offset + 499).execute().data
+            for row in page:
+                versions.setdefault(row['task_id'], []).append(row['content'])
+            if len(page) < 500:
+                break
+            offset += 500
+    platforms = set(os.getenv('REPAIR_PLATFORMS', 'youtube,bilibili').split(','))
     existing = {o['name'] for o in _iter_bucket_objects(client, 'screenshots')}
     shard, shards = int(os.getenv('REPAIR_SHARD', '0')), int(os.getenv('REPAIR_SHARDS', '1'))
     report = {'operation': 'media_recovery', 'shard': shard, 'restored': 0, 'remaining': 0, 'source_required': 0, 'failed_sources': 0, 'notes_changed': 0}
     journal = []
     for task in tasks:
+        if task['platform'] not in platforms:
+            continue
         if int(hashlib.sha256(task['id'].encode()).hexdigest(), 16) % shards != shard:
             continue
-        references = frames(task['markdown'], task['id'])
+        references = task_frames(task, versions.get(task['id'], []))
         missing = {n: t for n, t in references.items() if n not in existing}
         if not missing:
             continue
