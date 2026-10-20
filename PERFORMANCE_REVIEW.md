@@ -13,7 +13,7 @@ saved Markdown. The three failing controllers were still separate route files.
 Denying optional JavaScript requests reproduces all four failures on the previous
 build. The replacement keeps every controller in the main workspace and defers
 only formatting/virtualization, with readable text and screenshot fallbacks.
-Inline app CSS also removes the stylesheet readiness gate. Cold startup includes
+WebKit also retains failed module URLs across reloads: explicit recovery installs a public import map before module evaluation to refresh the entire module graph, while normal visits keep stable URLs. Inline app CSS also removes the stylesheet readiness gate. Cold startup includes
 167.4 KiB compressed program/styles (175 KiB limit); this deliberate increase
 eliminates additional controller requests. Public-cache privacy rules remain.
 

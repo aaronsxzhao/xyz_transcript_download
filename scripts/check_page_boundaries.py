@@ -90,6 +90,7 @@ async def check(browser,dist,label):
                     print(json.dumps({'label':label,'recovery_failure':{'path':urlparse(page.url).path,'boot_parameter':'__xyz_boot' in page.url,'fallback':await page.locator('article[data-rendering="plain"]').count(),'reload_button':await page.get_by_role('button',name='Reload formatting',exact=True).count(),'startup':await page.locator('#startup-shell').count(),'errors':browser_errors[-8:]}}),flush=True)
                     raise
                 assert '__xyz_boot' not in page.url
+                assert await page.locator('script[type="importmap"]').count()==1
                 results['formatting_recovers']=True
             await page.close()
         mode.update(block=False,css=True);page=await context.new_page()

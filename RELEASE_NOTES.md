@@ -1,7 +1,7 @@
 # Completed uploads, readers and Settings repair — 20 October 2026
 
 - Settings, podcast readers and video readers now share the initial workspace program. A failed optional file cannot prevent their controls and data reads from opening.
-- Rich formatting and transcript virtualization load separately. Until available, saved text and video screenshots remain readable; a formatting failure offers a fresh-document retry that bypasses an older cached shell.
+- Rich formatting and transcript virtualization load separately. Until available, saved text and video screenshots remain readable; a formatting failure offers a fresh-document retry that bypasses an older cached shell. Recovery uses fresh URLs for the public module graph because WebKit can retain failed import URLs across reloads.
 - Inline the application stylesheet in the public HTML and mount React immediately, removing the stylesheet-event wait that could strand startup.
 - Add Chromium and WebKit checks for blocked optional program files and separate stylesheets, including completed local videos, screenshot fallback and formatting recovery.
 - Keep saved notes, uploads, settings, account authorization and database schema intact. The compressed initial program/style budget is now 175 KiB (167.4 KiB measured), covering every page controller; large formatting libraries remain optional.
