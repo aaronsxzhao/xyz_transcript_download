@@ -62,6 +62,7 @@ jobs:
           docker buildx imagetools inspect "$OCIR_REGISTRY/$OCIR_NAMESPACE/$OCIR_REPO:10ed582f084d2633e7b43e4008f3398c742f33c8" > /dev/null
           docker buildx imagetools inspect "$OCIR_REGISTRY/$OCIR_NAMESPACE/$OCIR_REPO:2bee12fc16f122b536fc56adf36c45ee054b3a84" > /dev/null
           docker buildx imagetools inspect "$OCIR_REGISTRY/$OCIR_NAMESPACE/$OCIR_REPO:1275fbc876542df16266ea212084b4db9d8a56f0" > /dev/null
+          docker buildx imagetools inspect "$OCIR_REGISTRY/$OCIR_NAMESPACE/$OCIR_REPO:45b83cd76ee204d2f8cc7462d3a2c095e9a82b03" > /dev/null
 
       - name: Build and push ARM image
         uses: docker/build-push-action@v6
@@ -125,7 +126,7 @@ jobs:
       - name: Restore preserved image if release verification fails
         if: failure() && steps.verify.outcome == 'failure'
         env:
-          EXPECTED_REVISION: 1275fbc876542df16266ea212084b4db9d8a56f0
+          EXPECTED_REVISION: 45b83cd76ee204d2f8cc7462d3a2c095e9a82b03
         run: |
           docker buildx imagetools create --tag "$OCIR_REGISTRY/$OCIR_NAMESPACE/$OCIR_REPO:latest" "$OCIR_REGISTRY/$OCIR_NAMESPACE/$OCIR_REPO:$EXPECTED_REVISION"
           oci container-instances container-instance restart --container-instance-id "$CONTAINER_INSTANCE_ID"
