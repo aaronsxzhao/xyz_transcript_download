@@ -110,6 +110,16 @@ jobs:
           exit 1
 
       - name: Verify health
+        id: verify
         env:
           EXPECTED_REVISION: ${{ github.sha }}
         run: python scripts/verify_deployment.py
+
+      - name: Restore preserved image if release verification fails
+        if: failure() && steps.verify.outcome == 'failure'
+        env:
+          EXPECTED_REVISION: 440009e42e7574a45fddca717e5451dd98d2cb15
+        run: |
+          docker buildx imagetools create --tag "$OCIR_REGISTRY/$OCIR_NAMESPACE/$OCIR_REPO:latest" "$OCIR_REGISTRY/$OCIR_NAMESPACE/$OCIR_REPO:$EXPECTED_REVISION"
+          oci container-instances container-instance restart --container-instance-id "$CONTAINER_INSTANCE_ID"
+          python scripts/verify_deployment.py
