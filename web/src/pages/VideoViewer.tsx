@@ -334,7 +334,7 @@ export default function VideoViewer() {
   }
 
   const content = getCurrentContent()
-  useReadingPosition(`video:${taskId}`, 'video-content-scroll', !loading && !!task)
+  useReadingPosition(`video:${taskId}`, 'video-content-scroll', !loading && !!task && !!content)
   const toc = useMemo(() => extractToc(content), [content])
 
   const scrollToHeading = (slug: string) => {
@@ -693,7 +693,7 @@ export default function VideoViewer() {
         {/* Right: main content — scrolls independently */}
         <div className="flex-1 min-w-0 overflow-hidden bg-dark-surface rounded-xl border border-dark-border">
           {!['success', 'failed', 'cancelled'].includes(uiTask.status) && !content ? (
-            <div className="flex flex-col items-center justify-center py-20 text-center space-y-4 w-full max-w-md mx-auto">
+            <div className="h-full overflow-y-auto flex flex-col items-center py-8 text-center space-y-4 w-full max-w-md mx-auto">
               <Loader2 className="w-10 h-10 animate-spin text-indigo-500 flex-shrink-0" />
               <p className="text-lg text-white font-medium min-h-[1.75rem]">
                 {uiTask.status === 'pending' ? 'Queued for processing...' :
