@@ -19,6 +19,8 @@ from playwright.async_api import async_playwright
 class NetworkPreview(Preview):
     state = None
     def do_GET(self):
+        if self.state.get('rollback_dist'):
+            self.directory = str(self.state['rollback_dist'])
         path = urlparse(self.path).path
         self.state['reads'].append(path)
         if path.startswith('/api/'):
@@ -49,7 +51,7 @@ class PreviewServer(ThreadingHTTPServer):
         super().handle_error(request, client_address)
 
 
-async def check(browser, dist, label):
+async def check(browser, dist, label, rollback_dist=None):
     state={'reads':[],'asset_delay':1,'document_delay':0,'release':False}
     handler=type('Handler',(NetworkPreview,),{'state':state})
     server=PreviewServer(('127.0.0.1',0),functools.partial(handler,directory=str(dist),bootstrap=True))
@@ -103,6 +105,18 @@ async def check(browser, dist, label):
             await page.locator('select[aria-label="Summary provider"]').wait_for(timeout=5000)
             assert len(await page.evaluate("caches.keys()"))<=2
             report['rollback_usable']=True
+            if rollback_dist and not (rollback_dist/'sw.js').exists():
+                # The actual preceding image has no worker. Its public HTML
+                # must replace the shell even when worker updates are unavailable.
+                state['rollback_dist']=rollback_dist
+                await page.goto(origin+'/settings?rollback-check=keep',wait_until='domcontentloaded')
+                await page.get_by_role('button',name='Reload',exact=True).wait_for(timeout=20000)
+                await page.get_by_role('button',name='Reload',exact=True).click()
+                await page.locator('select[aria-label="Summary provider"]').wait_for(timeout=15000)
+                old_entry=re.search(r'<script type="module"[^>]*src="([^"]+)"',(rollback_dist/'index.html').read_text()).group(1)
+                assert await page.evaluate("entry=>performance.getEntriesByType('resource').some(resource=>new URL(resource.name).pathname===entry)",old_entry)
+                assert page.url.endswith('?rollback-check=keep')
+                report['rollback_to_pre_cache_image_usable']=True
         assert not errors,errors
         report['js_errors']=0
         print(json.dumps(report),flush=True)
@@ -117,5 +131,5 @@ async def main():
         for label,dist in [('before',args.baseline_dist),('after',Path(__file__).resolve().parents[1]/'web/dist')]:
             if not dist:continue
             browser=await playwright.chromium.launch(executable_path=args.browser_path,headless=True,args=json.loads(args.browser_args.read_text()) if args.browser_args else ['--no-sandbox'])
-            await check(browser,dist,label);await browser.close()
+            await check(browser,dist,label,args.baseline_dist if label=='after' else None);await browser.close()
 if __name__=='__main__':asyncio.run(main())
