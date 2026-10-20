@@ -1,5 +1,11 @@
 # Restore the previous website
 
+## Single-column summary checkpoint (20 October 2026)
+
+Use `safety/pre-single-column-summary-20261020`, image
+`45b83cd76ee204d2f8cc7462d3a2c095e9a82b03`, to restore the previous two-column
+reader. This is the automatic fallback for the single-column release.
+
 ## Reader layout checkpoint (20 October 2026)
 
 The version before semantic fallback formatting and bounded screenshot previews

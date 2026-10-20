@@ -104,14 +104,12 @@ async def check(browser, origin, width, blocked, output):
         await page.goto(origin + '/viewer/bench')
         await page.locator('[data-topic-card]').first.wait_for()
         await page.locator('[data-topic-card] button').nth(8).click()
-        if width >= 1280:
-            assert await page.locator('[data-topic-column]').count() == 2
-            for column in await page.locator('[data-topic-column]').element_handles():
-                gaps = await column.evaluate('(node)=>{const r=Array.from(node.children,n=>n.getBoundingClientRect());return r.slice(1).map((n,i)=>n.top-r[i].bottom)}')
-                assert all(0 <= gap <= 17 for gap in gaps), gaps
-        else:
-            labels = await page.locator('[data-topic-card] button').evaluate_all('(nodes)=>nodes.map(n=>n.textContent)')
-            assert all(f'主题 {i:02}' in text for i, text in enumerate(labels))
+        assert await page.locator('[data-topic-column]').count() == 1
+        cards = await page.locator('[data-topic-card]').evaluate_all('(nodes)=>nodes.map(n=>{const r=n.getBoundingClientRect();return {top:r.top,bottom:r.bottom,left:r.left,width:r.width}})')
+        assert all(abs(card['left']-cards[0]['left']) < 1 and abs(card['width']-cards[0]['width']) < 1 for card in cards)
+        assert all(0 <= card['top']-cards[i]['bottom'] <= 17 for i, card in enumerate(cards[1:])), cards
+        labels = await page.locator('[data-topic-card] button').evaluate_all('(nodes)=>nodes.map(n=>n.textContent)')
+        assert all(f'主题 {i:02}' in text for i, text in enumerate(labels))
         assert not await page.evaluate('document.documentElement.scrollWidth>innerWidth')
         assert not errors, errors
         await page.screenshot(path=str(output / f'podcast-{width}.png'))

@@ -375,8 +375,6 @@ export default function Viewer() {
   }, {} as Record<string, KeyPoint[]>) || {}
   
   const topicEntries = Object.entries(keyPointsByTopic) as [string, KeyPoint[]][]
-  const topicMiddle = Math.ceil(topicEntries.length / 2)
-  const topicColumns = [topicEntries.slice(0, topicMiddle), topicEntries.slice(topicMiddle)].filter(topics => topics.length > 0)
 
   if (loading) {
     return (
@@ -580,9 +578,8 @@ export default function Viewer() {
               Key Points by Topic
             </h2>
             
-            <div className="grid xl:grid-cols-2 items-start gap-4">
-            {topicColumns.map((topics,column)=><div key={column} className="space-y-3" data-topic-column>
-            {topics.map(([topic, points]) => (
+            <div className="space-y-3" data-topic-column>
+            {topicEntries.map(([topic, points]) => (
               <div
                 key={topic} data-topic-card
                 className="bg-dark-surface border border-dark-border rounded-xl overflow-hidden"
@@ -625,7 +622,6 @@ export default function Viewer() {
                 )}
               </div>
             ))}
-            </div>)}
             </div>
           </section>
           
