@@ -1,5 +1,14 @@
 # Restore the previous website
 
+## Reader layout checkpoint (20 October 2026)
+
+The version before semantic fallback formatting and bounded screenshot previews
+is `safety/pre-reader-layout-20261020`, image
+`1275fbc876542df16266ea212084b4db9d8a56f0`. Select that revision in **Roll back
+website** to undo the reader changes. It is the automatic health-check fallback
+for this release. Notes, original Markdown, screenshots and database schema are
+unchanged. This checkpoint retains document-contained startup.
+
 ## Document-contained startup checkpoint (20 October 2026)
 
 The preceding release is `safety/pre-document-startup-20261020`, image
