@@ -45,6 +45,7 @@ export function usePageTiming(page: Page, ready: boolean, cacheKey: string, fail
       void fetch('/api/performance', { method: 'POST', keepalive: true,
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({ page, outcome, elapsed_ms: bounded(performance.now() - started),
+          first_paint_ms: bounded(started === 0 ? performance.getEntriesByName('first-contentful-paint')[0]?.startTime || 0 : 0),
           document_ms: bounded(started === 0 ? navigation?.responseEnd || 0 : 0),
           api_ms: bounded(longest?.duration || 0),
           server_ms: bounded(longest?.serverTiming?.find(timing => timing.name === 'app')?.duration || 0),

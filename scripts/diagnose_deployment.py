@@ -210,7 +210,7 @@ def profile_library(settings: dict) -> None:
                              "check_episodes", "check_channel", "check_summary", "check_video_note", "check_settings", "check_library"}:
                 continue
             safe = {"library_profile": label}
-            safe.update({key: report[key] for key in ("milliseconds", "first_byte_ms", "wire_bytes", "document_ms", "api_ms", "server_ms", "samples", "cached", "worst_ms", "error_count", "slow_count", "js_errors", "failed_requests", "loaded_images", "missing_images", "note_ready_ms", "mindmap_ms", "return_to_note_ms", "database_requests", "response_bytes", "gzip_bytes", "status")
+            safe.update({key: report[key] for key in ("first_paint_ms", "asset_wire_bytes", "asset_decoded_bytes", "milliseconds", "first_byte_ms", "wire_bytes", "document_ms", "api_ms", "server_ms", "samples", "cached", "worst_ms", "error_count", "slow_count", "js_errors", "failed_requests", "loaded_images", "missing_images", "note_ready_ms", "mindmap_ms", "return_to_note_ms", "database_requests", "response_bytes", "gzip_bytes", "status")
                          if isinstance(report.get(key), int) and 0 <= report[key] <= 10**9})
             print(json.dumps(safe))
             valid = True

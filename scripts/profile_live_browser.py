@@ -92,7 +92,11 @@ async def profile_browser(owner: str, token: str) -> list[dict]:
                     await page.locator('article').wait_for(state='visible', timeout=5000)
                     report['return_to_note_ms'] = round((time.perf_counter() - note_started) * 1000)
                 else:
+                    await page.locator('select[aria-label="Summary provider"]').wait_for(timeout=10000)
                     await page.wait_for_function("!document.querySelector('select[aria-label=\"Summary provider\"]')?.disabled")
+                report['first_paint_ms'] = await page.evaluate("Math.round(performance.getEntriesByName('first-contentful-paint')[0]?.startTime || 0)")
+                sizes = await page.evaluate("(() => {const r=performance.getEntriesByType('resource').filter(e=>new URL(e.name).pathname.startsWith('/assets/'));return [r.reduce((s,e)=>s+e.encodedBodySize,0),r.reduce((s,e)=>s+e.decodedBodySize,0)]})()")
+                report['asset_wire_bytes'], report['asset_decoded_bytes'] = sizes
                 report['milliseconds'] = round((time.perf_counter() - started) * 1000)
             except Exception:
                 report['status'] = 500

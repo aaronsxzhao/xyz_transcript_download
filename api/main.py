@@ -357,11 +357,7 @@ async def generated_media(folder: str, filename: str, expires: int = Query(0), s
 frontend_dist = Path(__file__).parent.parent / "web" / "dist"
 if frontend_dist.exists():
     # Mount static assets
-    class VersionedStaticFiles(StaticFiles):
-        async def get_response(self, path, scope):
-            response = await super().get_response(path, scope)
-            response.headers["Cache-Control"] = "public, max-age=31536000, immutable"
-            return response
+    from api.static_assets import VersionedStaticFiles
 
     app.mount("/assets", VersionedStaticFiles(directory=str(frontend_dist / "assets")), name="assets")
 

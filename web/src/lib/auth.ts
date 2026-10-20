@@ -64,6 +64,18 @@ export function getRememberMe(): boolean {
   return localStorage.getItem(REMEMBER_ME_KEY) === 'true'
 }
 
+/** Startup auth must not leave every page waiting on a hung connection. */
+function startupAuthFetch(url: string, options: RequestInit = {}): Promise<Response> {
+  const controller = new AbortController()
+  let timer: ReturnType<typeof setTimeout>
+  const timeout = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => { controller.abort(); reject(new Error('Server connection timed out. Please retry.')) }, 10000)
+  })
+  const request = fetch(url, { ...options, signal: controller.signal }).then(async response =>
+    new Response(await response.text(), {status:response.status, headers:response.headers}))
+  return Promise.race([request, timeout]).finally(() => clearTimeout(timer))
+}
+
 /**
  * Get the authentication configuration from the server
  */
@@ -77,7 +89,7 @@ export function getAuthConfig(): Promise<AuthConfig> {
     } catch { /* Development/older HTML falls back to the same-origin API. */ }
   }
   if (configInFlight) return configInFlight
-  const request = fetch(`${API_BASE}/config`).then(res => {
+  const request = startupAuthFetch(`${API_BASE}/config`).then(res => {
     if (!res.ok) throw new Error('Cannot check the server connection. Please retry.')
     return res.json() as Promise<AuthConfig>
   }).finally(() => { if (configInFlight === request) configInFlight = null })
@@ -168,7 +180,7 @@ export async function signOut(): Promise<void> {
  */
 export async function getCurrentUser(): Promise<AuthUser | null> {
   const fetchUser = async (token: string): Promise<AuthUser | null> => {
-    const res = await fetch(`${API_BASE}/me`, {
+    const res = await startupAuthFetch(`${API_BASE}/me`, {
       headers: {
         'Authorization': `Bearer ${token}`,
       },
@@ -229,7 +241,7 @@ async function performRefresh(): Promise<AuthTokens | null> {
     return null
   }
   
-  const res = await fetch(`${API_BASE}/refresh`, {
+  const res = await startupAuthFetch(`${API_BASE}/refresh`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ refresh_token: refresh }),

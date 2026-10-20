@@ -10,16 +10,17 @@ from api.routers.performance import router, _samples
 async def test_browser_timings_reject_content_and_separate_accounts():
     app = FastAPI()
     app.include_router(router, prefix='/timings')
-    owner = ["first"]
+    owner = ["private-owner-one"]
     app.dependency_overrides[get_current_user] = lambda: User(owner[0], "unused@localhost")
     _samples.clear()
-    record = {"page": "episodes", "elapsed_ms": 9000, "document_ms": 1000, "api_ms": 4000, "cached": False}
+    record = {"page": "episodes", "elapsed_ms": 9000, "first_paint_ms": 700, "document_ms": 1000, "api_ms": 4000, "cached": False}
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
         for _ in range(65):
             assert (await client.post('/timings', json=record)).status_code == 204
         data = (await client.get('/timings')).json()
         assert data["pages"]["episodes"]["samples"] == 64
-        assert "first" not in str(data) and "unused@localhost" not in str(data)
+        assert data["pages"]["episodes"]["first_paint_ms"] == 700
+        assert owner[0] not in str(data) and "unused@localhost" not in str(data)
         assert (await client.post('/timings', json={**record, "url": "private-url"})).status_code == 422
         assert (await client.post('/timings', json={**record, "page": "private-url"})).status_code == 422
         owner[0] = "second"

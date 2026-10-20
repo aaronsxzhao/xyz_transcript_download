@@ -6,6 +6,8 @@ import { getAccessToken, getAuthGeneration, getRefreshToken, accessTokenNeedsRef
 import { getPreference } from './preferences'
 import { clearCache } from './cache'
 
+import { takeStartupRead } from './startupReads'
+
 const API_BASE = '/api'
 const UNKNOWN_CHANNEL_SENTINEL = '__unknown__'
 const pendingReads = new Map<string, Promise<unknown>>()
@@ -108,7 +110,10 @@ export async function authFetch(url: string, options: RequestInit = {}): Promise
   const mutating = !['GET', 'HEAD'].includes((options.method || 'GET').toUpperCase())
   if (mutating) { readRevision += 1; pendingReads.clear() }
   
-  const res = await fetch(url, { ...options, headers })
+  const pendingStartup = (options.method || 'GET').toUpperCase() === 'GET' && !options.body ? takeStartupRead(url, token) : null
+  const early = pendingStartup ? await pendingStartup : null
+  if (ownerGeneration !== getAuthGeneration()) throw new DOMException('Account changed', 'AbortError')
+  const res = early || await fetch(url, { ...options, headers })
   if (ownerGeneration !== getAuthGeneration()) throw new DOMException('Account changed', 'AbortError')
   if (mutating && res.ok) clearCache()
 
