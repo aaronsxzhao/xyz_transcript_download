@@ -7,6 +7,10 @@ import PageErrorBoundary from './components/PageErrorBoundary'
 import { recoverPageImport } from './lib/chunkRecovery'
 import './index.css'
 
+if (new URLSearchParams(window.location.hash.slice(1)).get('type') === 'recovery') {
+  window.history.replaceState(null, '', '/reset-password' + window.location.hash)
+}
+
 window.addEventListener('vite:preloadError', recoverPageImport)
 
 ReactDOM.createRoot(document.getElementById('root')!).render(

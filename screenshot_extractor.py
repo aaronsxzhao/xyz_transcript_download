@@ -305,6 +305,8 @@ def extract_screenshot(
     output_path = SCREENSHOTS_DIR / filename
 
     if output_path.exists():
+        if USE_SUPABASE_STORAGE and not _upload_to_supabase(output_path, _SUPABASE_BUCKET, filename):
+            return None
         return filename
 
     try:
@@ -336,7 +338,8 @@ def extract_screenshot(
             result = subprocess.run(cmd, capture_output=True, timeout=30)
             if result.returncode == 0 and output_path.exists() and output_path.stat().st_size > 0:
                 if USE_SUPABASE_STORAGE:
-                    _upload_to_supabase(output_path, _SUPABASE_BUCKET, filename)
+                    if not _upload_to_supabase(output_path, _SUPABASE_BUCKET, filename):
+                        return None
                 return filename
 
         logger.error(f"Screenshot extraction failed at {timestamp}s: {result.stderr[:200]}")
@@ -396,6 +399,7 @@ def replace_screenshot_markers(
     markdown: str,
     task_id: str,
     base_url: str = "/data/screenshots",
+    keep_missing: bool = False,
 ) -> str:
     """Replace Screenshot-[timestamp] markers in markdown with actual image tags.
 
@@ -410,7 +414,7 @@ def replace_screenshot_markers(
         ts_str = f"{m:02d}-{s:02d}"
         filename = f"{task_id}_{ts_str}.jpg"
         screenshot_path = SCREENSHOTS_DIR / filename
-        if screenshot_path.exists():
+        if screenshot_path.exists() or keep_missing:
             return f"![Screenshot at {m:02d}:{s:02d}]({base_url}/{filename})"
         return match.group(0)
 

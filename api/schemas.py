@@ -119,6 +119,8 @@ class BatchProcessRequest(BaseModel):
 
 class ProcessingStatus(BaseModel):
     job_id: str
+    source_url: str = ""
+    transcribe_only: bool = False
     user_id: Optional[str] = None  # User who owns this job (for isolation)
     # Status values:
     # - pending: Job queued

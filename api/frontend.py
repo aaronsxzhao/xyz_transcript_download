@@ -12,7 +12,7 @@ def page_name(path: str) -> str:
         return "Viewer"
     if path.startswith("videos/"):
         return "VideoViewer"
-    return {"podcasts": "Podcasts", "videos": "Videos", "settings": "Settings", "login": "Login"}.get(path, "Dashboard")
+    return {"podcasts": "Podcasts", "videos": "Videos", "library": "Library", "settings": "Settings", "login": "Login", "reset-password": "ResetPassword"}.get(path, "Dashboard")
 
 
 def frontend_html(directory: Path, path: str, auth_enabled: bool, supabase_url: str) -> str:

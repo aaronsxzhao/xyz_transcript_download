@@ -1,4 +1,6 @@
 const pages = {
+  resetPassword: () => import('../pages/ResetPassword'),
+  library: () => import('../pages/Library'),
   dashboard: () => import('../pages/Dashboard'),
   podcasts: () => import('../pages/Podcasts'),
   episodes: () => import('../pages/Episodes'),
@@ -12,7 +14,7 @@ const pages = {
 export default pages
 
 export function preloadPage(path: string) {
-  const load = path.startsWith('/podcasts/') ? pages.episodes
+  const load = path === '/library' ? pages.library : path.startsWith('/podcasts/') ? pages.episodes
     : path.startsWith('/viewer/') ? pages.viewer
     : path.startsWith('/videos/') ? pages.videoViewer
     : path === '/podcasts' ? pages.podcasts : path === '/videos' ? pages.videos

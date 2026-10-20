@@ -442,6 +442,7 @@ def process_video_note_sync(
         transcript_segments = []
         audio_path = None
         video_path = None
+        media_warning = ''
 
         if has_saved_transcript:
             logger.info(f"Reusing saved transcript for {task_id} ({len(existing_transcript['text'])} chars), skipping download+transcribe")
@@ -671,6 +672,7 @@ def process_video_note_sync(
                     )
             except VideoDownloadError as e:
                 logger.warning(f"Video download failed ({e.error_code}), continuing without video: {e}")
+                media_warning = 'Screenshots could not be downloaded. Check your platform connection and retry screenshots.'
                 video_path = None
 
         # Thumbnail fallback: extract first frame if no thumbnail was fetched
@@ -822,25 +824,24 @@ def process_video_note_sync(
                 if timestamps:
                     _update_task_status(db, task_id, "saving", 96,
                                         f"Extracting {len(timestamps)} screenshots...", user_id)
-                    extract_screenshots_batch(str(video_path), timestamps, task_id)
-                    markdown = replace_screenshot_markers(markdown, task_id)
+                    captured = extract_screenshots_batch(str(video_path), timestamps, task_id)
+                    if sum(bool(filename) for _, filename in captured) < len(set(timestamps)):
+                        media_warning = 'Some screenshots could not be extracted or uploaded. Retry screenshots to complete this note.'
+                    markdown = replace_screenshot_markers(markdown, task_id, keep_missing=True)
             else:
-                logger.warning(f"No video file for screenshots in task {task_id}, removing markers")
-                import re
-                markdown = re.sub(
-                    r'\*?Screenshot-(?:\[\d+(?::\d+){1,2}\]|\d+(?::\d+){1,2})\*?\n?', '', markdown
-                )
+                media_warning = 'Screenshots are unavailable. Use Repair screenshots after reconnecting the platform account.'
+                # Preserve deterministic image references so a screenshot-only
+                # retry can fill them later without changing the saved note.
+                markdown = replace_screenshot_markers(markdown, task_id, keep_missing=True)
 
-        # Save result
-        db.update_task(task_id, {"markdown": markdown, "status": "success", "progress": 100, "message": "Done"})
-
-        # Save version
-        db.add_version(task_id, markdown, style, llm_model)
-
-        # Ensure all pending writes are flushed to Supabase
-        db.flush_task(task_id)
-
-        _update_task_status(db, task_id, "success", 100, "Notes generated!", user_id)
+        if _attempt_superseded(task_id) or is_video_task_cancelled(task_id):
+            raise VideoCancelledException('Processing superseded or cancelled')
+        try:
+            db.complete_task(task_id, markdown, style, llm_model, user_id, media_warning)
+        except Exception as save_error:
+            raise RuntimeError('The final save could not be confirmed. A recovery copy was retained. Use Recover pending save before regenerating.') from save_error
+        _invalidate_list_cache(user_id)
+        _broadcast_from_thread(task_id, db.get_task(task_id, user_id), user_id)
         logger.info(f"Video note completed: {task_id} ({title})")
 
     except VideoCancelledException:

@@ -7,7 +7,7 @@ import { Loader2, Radio, Mail, Lock, AlertCircle } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 import { setRememberMe, getRememberMe } from '../lib/auth'
 
-type AuthMode = 'signin' | 'signup'
+type AuthMode = 'signin' | 'signup' | 'recovery'
 
 export default function Login() {
   const navigate = useNavigate()
@@ -27,7 +27,7 @@ export default function Login() {
     setError('')
     setMessage('')
 
-    if (!email || !password) {
+    if (!email || (mode !== 'recovery' && !password)) {
       setError('Please fill in all fields')
       return
     }
@@ -37,8 +37,8 @@ export default function Login() {
       return
     }
 
-    if (password.length < 6) {
-      setError('Password must be at least 6 characters')
+    if (mode !== 'recovery' && password.length < (mode === 'signup' ? 8 : 6)) {
+      setError(`Password must be at least ${mode === 'signup' ? 8 : 6} characters`)
       return
     }
 
@@ -48,7 +48,12 @@ export default function Login() {
       // Set remember me preference before signing in
       setRememberMe(rememberMe)
       
-      if (mode === 'signin') {
+      if (mode === 'recovery') {
+        const response = await fetch('/api/auth/password-reset', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email})})
+        const result = await response.json()
+        if (!response.ok) throw new Error(result.detail || 'Cannot request password recovery')
+        setMessage(result.message)
+      } else if (mode === 'signin') {
         await signIn(email, password)
         navigate('/')
       } else {
@@ -73,7 +78,7 @@ export default function Login() {
           </div>
           <h1 className="text-2xl font-bold text-white">Podcast Transcript Tool</h1>
           <p className="text-gray-400 mt-2">
-            {mode === 'signin' ? 'Sign in to your account' : 'Create a new account'}
+            {mode === 'signin' ? 'Sign in to your account' : mode === 'recovery' ? 'Recover your account' : 'Create a new account'}
           </p>
         </div>
 
@@ -100,7 +105,7 @@ export default function Login() {
             </div>
 
             {/* Password */}
-            <div>
+            {mode !== 'recovery' && <div>
               <label htmlFor="auth-password" className="block text-sm font-medium text-gray-300 mb-1">
                 Password
               </label>
@@ -118,6 +123,7 @@ export default function Login() {
               </div>
             </div>
 
+            }
             {/* Confirm Password (signup only) */}
             {mode === 'signup' && (
               <div>
@@ -179,14 +185,15 @@ export default function Login() {
               {loading ? (
                 <>
                   <Loader2 className="w-5 h-5 animate-spin" />
-                  {mode === 'signin' ? 'Signing in...' : 'Creating account...'}
+                  {mode === 'signin' ? 'Signing in...' : mode === 'recovery' ? 'Sending recovery link…' : 'Creating account…'}
                 </>
               ) : (
-                mode === 'signin' ? 'Sign In' : 'Create Account'
+                mode === 'signin' ? 'Sign In' : mode === 'recovery' ? 'Send recovery link' : 'Create Account'
               )}
             </button>
           </form>
 
+          <button type="button" className="mt-4 text-indigo-200 underline" onClick={() => { setMode(mode === 'recovery' ? 'signin' : 'recovery'); setError(''); setMessage('') }}>{mode === 'recovery' ? 'Back to sign in' : 'Forgot password?'}</button>
           {/* Toggle Mode */}
           <div className="mt-6 text-center">
             <p className="text-gray-400">

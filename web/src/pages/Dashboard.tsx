@@ -153,11 +153,11 @@ export default function Dashboard() {
       const [podcastResult, videoResult] = await Promise.all([
         checkPodcastsForUpdates().catch(e => {
           console.error('Podcast check failed:', e)
-          return { new_episodes: 0, episodes: [] as NewEpisode[], message: '' }
+          throw e
         }),
         checkVideoChannelsForUpdates().catch(e => {
           console.error('Video channel check failed:', e)
-          return { new_videos: 0, channels_checked: 0, message: '' }
+          throw e
         }),
       ])
 
@@ -301,7 +301,7 @@ export default function Dashboard() {
             type="text"
             value={episodeUrl}
             onChange={(e) => setEpisodeUrl(e.target.value)}
-            placeholder="Paste podcast episode or video URL..."
+            aria-label="Podcast episode or video URL" placeholder="Paste podcast episode or video URL..."
             className="flex-1 px-4 py-3 bg-dark-hover border border-dark-border rounded-lg text-white placeholder:text-gray-500 focus:outline-none focus:border-indigo-500 text-base"
           />
           <button
@@ -314,19 +314,6 @@ export default function Dashboard() {
           </button>
         </form>
       </div>
-
-      {/* Stats — podcast + video combined */}
-      {stats && (
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-7 gap-3 md:gap-4">
-          <StatCard icon={Radio} label="Podcasts" value={stats.total_podcasts} color="text-indigo-500" />
-          <StatCard icon={FileText} label="Episodes" value={stats.total_episodes} color="text-blue-500" />
-          <StatCard icon={FileText} label="Transcripts" value={stats.total_transcripts} color="text-green-500" />
-          <StatCard icon={MessageSquare} label="Summaries" value={stats.total_summaries} color="text-purple-500" />
-          <StatCard icon={Users} label="Channels" value={stats.total_video_channels} color="text-orange-500" />
-          <StatCard icon={Video} label="Videos" value={stats.total_videos} color="text-cyan-500" />
-          <StatCard icon={CheckCircle} label="Completed" value={stats.completed_videos} color="text-emerald-500" />
-        </div>
-      )}
 
       {/* Processing jobs — podcast + video combined */}
       {allQueueItems.length > 0 && (
@@ -360,7 +347,7 @@ export default function Dashboard() {
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-lg font-semibold text-white">Recent Summaries</h2>
             <Link
-              to="/podcasts"
+              to="/library?kind=podcast"
               className="flex items-center gap-1 text-sm text-indigo-400 hover:text-indigo-300"
             >
               View all <ArrowRight size={16} />
@@ -385,7 +372,7 @@ export default function Dashboard() {
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-lg font-semibold text-white">Recent Video Notes</h2>
             <Link
-              to="/videos"
+              to="/library?kind=video"
               className="flex items-center gap-1 text-sm text-indigo-400 hover:text-indigo-300"
             >
               View all <ArrowRight size={16} />
@@ -452,6 +439,19 @@ export default function Dashboard() {
           )}
         </div>
       </div>
+      {/* Stats — podcast + video combined */}
+      {stats && (
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-7 gap-3 md:gap-4">
+          <StatCard icon={Radio} label="Podcasts" value={stats.total_podcasts} color="text-indigo-500" />
+          <StatCard icon={FileText} label="Episodes" value={stats.total_episodes} color="text-blue-500" />
+          <StatCard icon={FileText} label="Transcripts" value={stats.total_transcripts} color="text-green-500" />
+          <StatCard icon={MessageSquare} label="Summaries" value={stats.total_summaries} color="text-purple-500" />
+          <StatCard icon={Users} label="Channels" value={stats.total_video_channels} color="text-orange-500" />
+          <StatCard icon={Video} label="Videos" value={stats.total_videos} color="text-cyan-500" />
+          <StatCard icon={CheckCircle} label="Completed" value={stats.completed_videos} color="text-emerald-500" />
+        </div>
+      )}
+
 
     </div>
   )

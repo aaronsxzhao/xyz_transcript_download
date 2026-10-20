@@ -92,6 +92,19 @@ def _save_jobs_to_file():
         _save_jobs_to_file_unlocked()
 
 
+async def _persist_new_job(job):
+    from api.job_persistence import save_job
+    try:
+        await asyncio.to_thread(save_job, job)
+    except Exception:
+        with _jobs_lock:
+            job.status = 'failed'
+            job.message = 'Cloud history is temporarily unavailable. Retry this job shortly.'
+            _jobs_cache.clear()
+            _save_jobs_to_file_unlocked()
+        raise HTTPException(status_code=503, detail=job.message)
+
+
 def _cleanup_old_jobs(max_completed_jobs: int = 100):
     """Remove old completed/failed jobs to prevent unbounded growth."""
     global jobs
@@ -230,6 +243,7 @@ def _episode_url_from_db_episode(db_ep) -> str:
 def update_job_status(job_id: str, status: str, progress: float = 0, message: str = "",
                       episode_id: str = None, episode_title: str = None):
     """Update job status, persist to file, and notify clients."""
+    checkpoint = None
     with _jobs_lock:
         if job_id in jobs:
             jobs[job_id].status = status
@@ -240,13 +254,22 @@ def update_job_status(job_id: str, status: str, progress: float = 0, message: st
             if episode_title:
                 jobs[job_id].episode_title = episode_title
             
-            # Persist to file on terminal states or significant progress changes
+            # Persist terminal/milestone states outside the request response;
+            # cloud job history survives container filesystem replacement.
             if status in ("completed", "failed", "cancelled") or progress % 10 < 1:
                 _save_jobs_to_file_unlocked()
+                checkpoint = jobs[job_id].model_copy(deep=True)
         
         # Invalidate all user caches so next poll gets fresh data
         _jobs_cache.clear()
     
+    if checkpoint is not None:
+        from api.job_persistence import save_job
+        try:
+            save_job(checkpoint)
+        except Exception:
+            logger.warning("Cloud job-history update failed; local recovery record retained")
+
     # Broadcast update to all connected WebSocket clients (outside lock to avoid deadlock)
     # Use the cached main event loop for thread-safe broadcasting
     try:
@@ -984,7 +1007,7 @@ async def process_episode(
             pass  # Will be fetched again in background task
         
         # Create job with episode info if available
-        job_id = str(uuid.uuid4())[:8]
+        job_id = str(uuid.uuid4())
         with _jobs_lock:
             jobs[job_id] = ProcessingStatus(
                 job_id=job_id,
@@ -992,11 +1015,14 @@ async def process_episode(
                 status="pending",
                 progress=0,
                 message="Starting...",
+                source_url=data.episode_url,
+                transcribe_only=data.transcribe_only,
                 episode_id=episode_id,
                 episode_title=episode_title,
             )
         
         # Persist new job and cleanup old ones (these functions acquire their own locks)
+        await _persist_new_job(jobs[job_id])
         _cleanup_old_jobs()
         _save_jobs_to_file()
         
@@ -1092,6 +1118,8 @@ async def delete_job(job_id: str, user: Optional[User] = Depends(get_current_use
             raise HTTPException(status_code=404, detail="Job not found")
         
         # Also cancel if still running
+        from api.job_persistence import delete_job as delete_saved_job
+        delete_saved_job(job_id, user_id)
         cancelled_jobs.add(job_id)
         del jobs[job_id]
         _save_jobs_to_file_unlocked()
@@ -1166,13 +1194,13 @@ async def retry_job(
             )
         
         episode_id = old_job.episode_id
-        if not episode_id:
-            raise HTTPException(status_code=400, detail="Job has no episode_id to retry")
+        if not episode_id and not old_job.source_url:
+            raise HTTPException(status_code=400, detail="The original source is unavailable. Paste its URL to start again.")
     
     # Detect platform from episode ID to construct the right URL
     db_interface = get_db(user_id)
-    db_ep = db_interface.get_episode(episode_id)
-    episode_url = _episode_url_from_db_episode(db_ep)
+    db_ep = db_interface.get_episode(episode_id) if episode_id else None
+    episode_url = _episode_url_from_db_episode(db_ep) or old_job.source_url
     if not episode_url:
         raise HTTPException(status_code=404, detail="Episode not found")
     
@@ -1196,7 +1224,7 @@ async def retry_job(
         pass  # Best effort - proceed with retry anyway
     
     # Create new job
-    new_job_id = str(uuid.uuid4())[:8]
+    new_job_id = str(uuid.uuid4())
     with _jobs_lock:
         jobs[new_job_id] = ProcessingStatus(
             job_id=new_job_id,
@@ -1204,13 +1232,16 @@ async def retry_job(
             status="pending",
             progress=0,
             message="Retrying...",
+            source_url=episode_url,
+            transcribe_only=old_job.transcribe_only,
             episode_id=episode_id,
             episode_title=old_job.episode_title,
         )
         
-        # Remove old job
-        del jobs[job_id]
+        # Retain the failed attempt in durable history for diagnosis.
+
     
+    await _persist_new_job(jobs[new_job_id])
     _save_jobs_to_file()
     
     # Broadcast new job
@@ -1221,8 +1252,8 @@ async def retry_job(
         process_episode_async,
         new_job_id,
         episode_url,
-        False,  # transcribe_only
-        True,   # force - bypass caches
+        old_job.transcribe_only,
+        False,  # reuse already saved transcript/summary work
         user_id,
     )
     
@@ -1273,7 +1304,7 @@ async def resummarize_episode(
     
     llm_model = data.llm_model if data else None
     
-    job_id = str(uuid.uuid4())[:8]
+    job_id = str(uuid.uuid4())
     with _jobs_lock:
         jobs[job_id] = ProcessingStatus(
             job_id=job_id,
@@ -1281,10 +1312,12 @@ async def resummarize_episode(
             status="pending",
             progress=0,
             message="Re-summarizing...",
+            source_url=episode_url,
             episode_id=episode_id,
             episode_title=None,  # Will be filled during processing
         )
     
+    await _persist_new_job(jobs[job_id])
     _save_jobs_to_file()
     
     # Broadcast new job
@@ -1510,18 +1543,37 @@ async def batch_process(
     job_ids = []
     with _jobs_lock:
         for ep in episodes:
-            job_id = str(uuid.uuid4())[:8]
+            job_id = str(uuid.uuid4())
             jobs[job_id] = ProcessingStatus(
                 job_id=job_id,
                 user_id=user_id,  # Track job ownership
                 status="pending",
                 progress=0,
                 message="Queued",
+                source_url=f"https://www.xiaoyuzhoufm.com/episode/{ep.eid}",
+                transcribe_only=data.transcribe_only,
                 episode_id=ep.eid,
                 episode_title=ep.title,
             )
             job_ids.append(job_id)
     
+    # Persist before scheduling; database I/O must not block the event loop.
+    from api.job_persistence import save_jobs
+    batch = [jobs[job_id] for job_id in job_ids]
+    try:
+        await asyncio.to_thread(save_jobs, batch)
+    except Exception:
+        with _jobs_lock:
+            for job in batch:
+                job.status = 'failed'
+                job.message = 'Batch could not start. Retry when the cloud connection is available.'
+            _jobs_cache.clear()
+            _save_jobs_to_file_unlocked()
+        try:
+            await asyncio.to_thread(save_jobs, batch)
+        except Exception:
+            pass
+        raise HTTPException(status_code=503, detail='Batch could not start. Please retry shortly.')
     # Queue background tasks (outside lock to avoid holding it during task scheduling)
     for job_id, ep in zip(job_ids, episodes):
         episode_url = f"https://www.xiaoyuzhoufm.com/episode/{ep.eid}"

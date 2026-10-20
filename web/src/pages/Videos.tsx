@@ -465,11 +465,11 @@ export default function Videos() {
         <div className="bg-dark-surface rounded-xl border border-dark-border overflow-hidden">
           <div className="flex items-center justify-between px-4 pt-3 pb-0">
             <h3 className="text-sm font-semibold text-white">Generate Video Notes</h3>
-            <button onClick={() => setFormOpen(false)} className="p-1 text-gray-500 hover:text-white transition-colors">
+            <button aria-label="Close new video note form" onClick={() => setFormOpen(false)} className="p-1 text-gray-500 hover:text-white transition-colors">
               <ChevronUp size={16} />
             </button>
           </div>
-          <div className="px-4 pb-4 pt-2 max-h-[50vh] overflow-y-auto custom-scrollbar">
+          <div className="px-4 pb-4 pt-2 ">
             <VideoNoteForm onTaskCreated={handleTaskCreated} hideTitle />
           </div>
         </div>
@@ -512,7 +512,7 @@ export default function Videos() {
               >
                 <PlatformIcon platform={p} size={15} className={isActive ? 'text-white' : PLATFORM_COLORS[p] || 'text-gray-400'} />
                 {meta.label}
-                <span className="text-xs opacity-70">({stats.total})</span>
+                <span className="text-xs">({stats.total})</span>
               </button>
             )
           })}
@@ -880,7 +880,7 @@ function VideoList({ videos, onDelete, onRetry, onCancel }: {
                 {task.status === 'failed' && (
                   <button
                     onClick={() => toggleError(task.id)}
-                    className="flex items-center gap-1 text-red-500 hover:text-red-400 transition-colors"
+                    className="flex items-center gap-1 text-red-300 hover:text-red-200 transition-colors"
                   >
                     <XCircle size={12} className="md:w-3.5 md:h-3.5" />
                     Failed
@@ -909,7 +909,7 @@ function VideoList({ videos, onDelete, onRetry, onCancel }: {
 
               {isFailed && errorMsg && (
                 <div className="mt-2">
-                  <p className={`text-xs text-red-400/80 ${expandedErrors.has(task.id) ? '' : 'line-clamp-1'}`}>
+                  <p className={`text-xs text-red-300 ${expandedErrors.has(task.id) ? '' : 'line-clamp-1'}`}>
                     {errorMsg}
                   </p>
                   {hint && (

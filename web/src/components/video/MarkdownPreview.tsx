@@ -1,5 +1,6 @@
 import { lazy, memo, Suspense, useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useDialog } from '../../lib/reading'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import rehypeSlug from 'rehype-slug'
@@ -16,13 +17,14 @@ const HighlightedCode = lazy(() => import('./HighlightedCode'))
 
 function NoteImage({ src, alt, onImage }: { src?: string; alt?: string; onImage: (src: string) => void }) {
   const [failed, setFailed] = useState(false)
+  useEffect(() => setFailed(false), [src])
   if (failed) return <span className="inline-flex items-center gap-2 rounded-lg border border-dark-border p-3 text-sm text-gray-400">
     <ImageIcon size={16} />{alt || 'Image'} — unavailable
     <button className="underline" onClick={() => setFailed(false)}>Retry image</button>
   </span>
-  return <img loading="lazy" decoding="async" src={src} alt={alt || ''}
+  return <button type="button" className="inline-block max-w-full rounded-lg" aria-label={`Enlarge ${alt || 'screenshot'}`} onClick={() => src && onImage(src)}><img loading="lazy" decoding="async" src={src} alt={alt || ''}
     className="max-w-[min(100%,480px)] max-h-64 w-auto rounded-lg border border-dark-border cursor-pointer hover:opacity-90 transition-opacity"
-    referrerPolicy="no-referrer" onError={() => setFailed(true)} onClick={() => src && onImage(src)} />
+    referrerPolicy="no-referrer" onError={() => setFailed(true)} /></button>
 }
 
 interface Props {
@@ -32,6 +34,7 @@ interface Props {
 export default function MarkdownPreview({ task }: Props) {
   const [zoomedImg, setZoomedImg] = useState<string | null>(null)
   const navigate = useNavigate()
+  useDialog(!!zoomedImg, () => setZoomedImg(null))
 
   if (!task) {
     return (
@@ -227,11 +230,12 @@ export default function MarkdownPreview({ task }: Props) {
       {/* Image zoom overlay */}
       {zoomedImg && (
         <div
-          className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center cursor-zoom-out"
+          role="dialog" aria-modal="true" aria-label="Enlarged screenshot" className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center cursor-zoom-out"
           onClick={() => setZoomedImg(null)}
         >
           <button
             onClick={() => setZoomedImg(null)}
+            aria-label="Close enlarged screenshot"
             className="absolute top-4 right-4 text-white/70 hover:text-white p-2"
           >
             <X size={24} />

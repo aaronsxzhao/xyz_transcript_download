@@ -9,7 +9,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from typing import Optional
-from fastapi import FastAPI, Depends, HTTPException, Query
+from fastapi import FastAPI, Depends, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.staticfiles import StaticFiles
@@ -20,7 +20,7 @@ from api.request_timing import RequestTimingMiddleware
 
 from api.routers import podcasts, episodes, transcripts, summaries, processing
 from api.routers import auth_router, video_notes, cookies, notion
-from api.routers import performance
+from api.routers import performance, maintenance
 from api.auth import get_current_user, require_debug_access, User
 from logger import get_logger
 
@@ -211,6 +211,16 @@ async def startup_event():
     
     loop = asyncio.get_running_loop()
     processing.set_main_loop(loop)
+    from api.job_persistence import restore_jobs, reconcile_video_jobs, save_job
+    from api.schemas import ProcessingStatus
+    for saved in await asyncio.to_thread(restore_jobs):
+        job = ProcessingStatus(**saved)
+        if job.status not in {'completed', 'failed', 'cancelled'}:
+            job.status = 'failed'
+            job.message = 'Interrupted by server restart. Retry to continue from saved data.'
+            await asyncio.to_thread(save_job, job)
+        processing.jobs[job.job_id] = job
+    await asyncio.to_thread(reconcile_video_jobs)
     print(f"[WS] Main event loop captured: {loop}")
     
     # Log auth configuration
@@ -311,6 +321,7 @@ app.include_router(video_notes.router, prefix="/api/video-notes", tags=["Video N
 app.include_router(cookies.router, prefix="/api/cookies", tags=["Cookies"])
 app.include_router(notion.router, prefix="/api/notion", tags=["Notion"])
 app.include_router(performance.router, prefix="/api/performance", tags=["Performance"])
+app.include_router(maintenance.router, prefix="/api/maintenance", tags=["Data recovery"])
 
 # Private data is never exposed by a StaticFiles mount.
 from config import DATA_DIR as _data_dir
@@ -664,7 +675,7 @@ def test_llm_connection(settings: dict, user: User = Depends(get_current_user)):
 
 # Serve React frontend for all non-API routes (must be last)
 @app.get("/{path:path}")
-def serve_frontend(path: str):
+def serve_frontend(path: str, request: Request):
     """Serve React frontend for client-side routing."""
     if path.split("/", 1)[0] in {"api", "data"}:
         raise HTTPException(status_code=404, detail="Not found")
@@ -686,7 +697,12 @@ def serve_frontend(path: str):
     if index_path.exists():
         from api.frontend import frontend_html
         from config import USE_SUPABASE, SUPABASE_URL
-        return Response(frontend_html(frontend_dist, path, USE_SUPABASE, SUPABASE_URL),
-                        media_type="text/html", headers={"Cache-Control": "no-cache"})
+        import hashlib
+        html = frontend_html(frontend_dist, path, USE_SUPABASE, SUPABASE_URL)
+        etag = '"' + hashlib.sha256(html.encode()).hexdigest()[:24] + '"'
+        headers = {"Cache-Control": "public, max-age=60, s-maxage=300, stale-while-revalidate=300", "ETag": etag}
+        if request.headers.get("if-none-match") == etag:
+            return Response(status_code=304, headers=headers)
+        return Response(html, media_type="text/html", headers=headers)
     
     return {"error": "Frontend not found"}

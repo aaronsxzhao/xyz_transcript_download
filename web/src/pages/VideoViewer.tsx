@@ -1,3 +1,6 @@
+import { NoteRecovery } from '../components/DataRecovery'
+import ReaderControls from '../components/ReaderControls'
+import { useReadingPosition, useDialog } from '../lib/reading'
 import { escapeHtml, markdownToSafeHtml } from '../lib/safeHtml'
 import { getPreference } from '../lib/preferences'
 import { getAccountId } from '../lib/preferences'
@@ -103,6 +106,7 @@ export default function VideoViewer() {
   const [regenerating, setRegenerating] = useState(false)
 
   const [notionOpen, setNotionOpen] = useState(false)
+  useDialog(notionOpen, () => setNotionOpen(false))
   const [notionPages, setNotionPages] = useState<NotionPage[]>([])
   const [notionSearch, setNotionSearch] = useState('')
   const [notionLoading, setNotionLoading] = useState(false)
@@ -327,6 +331,7 @@ export default function VideoViewer() {
   }
 
   const content = getCurrentContent()
+  useReadingPosition(`video:${taskId}`, 'video-content-scroll', !loading && !!task)
   const toc = useMemo(() => extractToc(content), [content])
 
   const scrollToHeading = (slug: string) => {
@@ -570,6 +575,8 @@ export default function VideoViewer() {
         </div>
       </div>
 
+      {(['success', 'failed', 'cancelled'].includes(uiTask.status)) && <NoteRecovery onRestored={() => setLoadAttempt(value => value + 1)} id={taskId!} version={selectedVersion || ''} warning={uiTask.status === 'success' ? task.error : ''} failed={uiTask.status === 'failed'} local={task.platform === 'local'} />}
+
       {/* Failed state banner */}
       {uiTask.status === 'failed' && (
         <div className="flex-shrink-0 mb-3 p-4 bg-red-500/10 border border-red-500/30 rounded-xl">
@@ -613,6 +620,7 @@ export default function VideoViewer() {
       )}
 
       {/* Two-column layout: both columns scroll independently within viewport */}
+<div className="flex flex-wrap justify-between items-center gap-2"><ReaderControls /><select aria-label="Jump to note section" className="lg:hidden min-w-0 max-w-full p-2 rounded bg-dark-surface" defaultValue="" onChange={e => scrollToHeading(e.target.value)}><option value="" disabled>Contents</option>{toc.map(t => <option key={t.slug} value={t.slug}>{t.text}</option>)}</select></div>
       <div className="flex-1 flex gap-4 min-h-0">
         {/* Left sidebar: scrolls independently */}
         <aside className="w-64 flex-shrink-0 hidden lg:flex flex-col gap-3 overflow-y-auto custom-scrollbar">
@@ -676,7 +684,7 @@ export default function VideoViewer() {
         </aside>
 
         {/* Right: main content — scrolls independently */}
-        <div className="flex-1 min-w-0 overflow-y-auto custom-scrollbar bg-dark-surface rounded-xl border border-dark-border p-4" id="video-content-scroll">
+        <div className="reader-body flex-1 min-w-0 overflow-y-auto custom-scrollbar bg-dark-surface rounded-xl border border-dark-border p-4" id="video-content-scroll" tabIndex={0} aria-label="Video note content">
           {!['success', 'failed', 'cancelled'].includes(uiTask.status) && !content ? (
             <div className="flex flex-col items-center justify-center py-20 text-center space-y-4 w-full max-w-md mx-auto">
               <Loader2 className="w-10 h-10 animate-spin text-indigo-500 flex-shrink-0" />
@@ -726,7 +734,7 @@ export default function VideoViewer() {
       {/* Notion export modal */}
       {notionOpen && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
+          role="dialog" aria-modal="true" aria-label="Export to Notion" className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
           onClick={e => { if (e.target === e.currentTarget) setNotionOpen(false) }}
         >
           <div

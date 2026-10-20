@@ -489,7 +489,7 @@ class _SupabaseVideoTaskDB:
             return True
         return False
 
-    def _flush(self, task_id: str):
+    def _flush(self, task_id: str, strict: bool = False):
         import time
         with self._lock:
             pending = self._dirty.pop(task_id, None)
@@ -502,6 +502,8 @@ class _SupabaseVideoTaskDB:
                     existing = self._dirty.get(task_id, {})
                     pending.update(existing)
                     self._dirty[task_id] = pending
+                if strict:
+                    raise RuntimeError('Your notes could not be saved. Please retry.') from e
             self._last_flush[task_id] = time.monotonic()
 
     def create_task(self, task_data: dict) -> str:
@@ -549,14 +551,14 @@ class _SupabaseVideoTaskDB:
             return None
         return self._sb.get_video_task_by_url(url, user_id)
 
-    def flush_task(self, task_id: str):
+    def flush_task(self, task_id: str, strict: bool = False):
         """Force-flush any pending writes for a task.
 
         Keeps the cache intact so subsequent get_task calls still return the
         full task data instead of falling back to a minimal partial entry
         created by a later update_task call.
         """
-        self._flush(task_id)
+        self._flush(task_id, strict=strict)
         with self._lock:
             self._last_flush.pop(task_id, None)
 
@@ -844,10 +846,45 @@ class VideoTaskDB:
     def get_version(self, task_id: str, version_id: str) -> Optional[dict]:
         return self._backend.get_version(task_id, version_id)
 
-    def flush_task(self, task_id: str):
+    def complete_task(self, task_id: str, content: str, style: str, model: str, user_id: str = None, warning: str = '', version_id: str = None):
+        """Persist the final note and its version together before exposing success."""
+        version_id = version_id or str(uuid.uuid4())
+        payload = dict(task_id=task_id, content=content, style=style, model=model, user_id=user_id, warning=warning, version_id=version_id)
+        from api.save_outbox import retain, clear
+        retain(payload)
+        backend = self._backend
+        if isinstance(backend, _SupabaseVideoTaskDB):
+            backend.flush_task(task_id, strict=True)
+            response = backend._sb.client.rpc('complete_user_video_note', {
+                'p_user_id': user_id, 'p_task_id': task_id, 'p_version_id': version_id,
+                'p_content': content, 'p_style': style, 'p_model': model, 'p_warning': warning,
+            }).execute()
+            if response.data is not True:
+                raise RuntimeError('Final save was not confirmed')
+            with backend._lock:
+                backend._cache.setdefault(task_id, {}).update(markdown=content, status='success', progress=100,
+                    error=warning, message='Notes saved; screenshots need attention' if warning else 'Notes saved')
+        else:
+            with backend._conn() as conn:
+                conn.execute('BEGIN IMMEDIATE')
+                task = conn.execute('SELECT user_id FROM video_tasks WHERE id=?', (task_id,)).fetchone()
+                if task is None or task['user_id'] != user_id:
+                    raise ValueError('Task not found')
+                existing = conn.execute('SELECT task_id,content FROM video_task_versions WHERE id=?', (version_id,)).fetchone()
+                if existing and (existing['task_id'] != task_id or existing['content'] != content):
+                    raise ValueError('Version already belongs to another save')
+                conn.execute('INSERT OR IGNORE INTO video_task_versions (id,task_id,content,style,model_name) VALUES (?,?,?,?,?)',
+                             (version_id,task_id,content,style,model))
+                conn.execute("UPDATE video_tasks SET markdown=?,status='success',progress=100,error=?,message=?,updated_at=CURRENT_TIMESTAMP WHERE id=?",
+                             (content,warning,'Notes saved; screenshots need attention' if warning else 'Notes saved',task_id))
+                conn.commit()
+
+        clear(payload)
+
+    def flush_task(self, task_id: str, strict: bool = False):
         """Flush pending writes (Supabase cache). No-op for SQLite."""
         if hasattr(self._backend, "flush_task"):
-            self._backend.flush_task(task_id)
+            self._backend.flush_task(task_id, strict=strict)
 
 
 _video_task_db: Optional[VideoTaskDB] = None

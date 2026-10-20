@@ -10,9 +10,10 @@ export function markPageNavigation(path: string) {
   if (path !== currentPath) { currentPath = path; started = performance.now() }
 }
 
-type Page = 'dashboard' | 'podcasts' | 'videos' | 'channel' | 'episodes' | 'viewer' | 'video_note' | 'settings'
+type Page = 'library' | 'dashboard' | 'podcasts' | 'videos' | 'channel' | 'episodes' | 'viewer' | 'video_note' | 'settings'
 
 function isPageRead(page: Page, path: string) {
+  if (page === 'library') return path === '/api/summaries' || path === '/api/video-notes/tasks'
   if (page === 'settings') return path === '/api/settings'
   if (page === 'viewer') return /^\/api\/(summaries|transcripts)\//.test(path)
   if (page === 'video_note') return /^\/api\/video-notes\/tasks\/[^/]+$/.test(path)
