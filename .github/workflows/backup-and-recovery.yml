@@ -40,7 +40,7 @@ jobs:
         run: python scripts/backup_application.py
   recover:
     needs: backup
-    if: github.event_name == 'push' || inputs.recover_images == true
+    if: github.event_name == 'workflow_dispatch' && inputs.recover_images == true
     runs-on: ubuntu-latest
     timeout-minutes: 40
     strategy:

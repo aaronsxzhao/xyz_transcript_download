@@ -1,9 +1,28 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
+@config "../tailwind.config.js";
 
 body {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+}
+
+/* Readable secondary text on both surfaces and controls. */
+.text-gray-400 { color: #d1d5db; }
+.text-gray-500 { color: #cbd5e1; }
+.placeholder-gray-500::placeholder { color: #cbd5e1; }
+.text-indigo-400 { color: #b7c1ff; }
+.text-purple-500 { color: #c4b5fd; }
+.text-blue-500 { color: #93c5fd; }
+.text-green-400 { color: #86efac; }
+.text-red-500 { color: #fca5a5; }
+:where(button,a,input,select,textarea,summary):focus-visible {
+  outline: 2px solid #c7d2fe;
+  outline-offset: 3px;
+}
+:where(button,a,select) { touch-action: manipulation; }
+.reader-body, .reader-body p, .reader-body li { font-size: var(--reader-font-size, 16px); line-height: 1.8; }
+.reader-body article { max-width: 75ch; margin-inline: auto; }
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; scroll-behavior: auto !important; }
 }
 
 /* Custom scrollbar */

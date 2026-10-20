@@ -3,7 +3,7 @@
 # Uses BuildKit cache mounts for fast rebuilds
 
 # --- Stage 1: Build frontend ---
-FROM node:20-slim AS frontend-build
+FROM node:22-slim AS frontend-build
 WORKDIR /web
 COPY web/package.json web/package-lock.json* ./
 RUN --mount=type=cache,target=/root/.npm \

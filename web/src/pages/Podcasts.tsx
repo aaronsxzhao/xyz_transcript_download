@@ -270,7 +270,8 @@ export default function Podcasts() {
         <div className="flex items-center gap-3">
           {view.type === 'podcasts' && (
             <button
-              onClick={() => setView({ type: 'platforms' })}
+              aria-label="Back to podcast platforms"
+                onClick={() => setView({ type: 'platforms' })}
               className="p-2 bg-dark-surface border border-dark-border rounded-lg hover:bg-dark-hover transition-colors flex-shrink-0"
             >
               <ArrowLeft size={20} />
@@ -417,7 +418,8 @@ export default function Podcasts() {
       {sortedPlatforms.length > 0 && (
         <div className="flex items-center gap-2 overflow-x-auto pb-1">
           <button
-            onClick={() => setView({ type: 'platforms' })}
+            aria-label="Back to podcast platforms"
+                onClick={() => setView({ type: 'platforms' })}
             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm whitespace-nowrap transition-colors ${
               view.type === 'platforms'
                 ? 'bg-indigo-600 text-white'
@@ -442,7 +444,7 @@ export default function Podcasts() {
               >
                 <PlatformIcon platform={p} size={15} className={isActive ? 'text-white' : PLATFORM_COLORS[p] || 'text-gray-400'} />
                 {label}
-                <span className="text-xs opacity-70">({count})</span>
+                <span className="text-xs">({count})</span>
               </button>
             )
           })}
@@ -556,6 +558,7 @@ export default function Podcasts() {
                     <div className="flex items-center gap-2 justify-end sm:justify-start" onClick={e => e.stopPropagation()}>
                       <Link
                         to={`/podcasts/${podcast.pid}/episodes`}
+                        aria-label={`Open episodes: ${podcast.title}`}
                         onFocus={() => preloadPage('/podcasts/podcast/episodes')}
                         className="flex items-center gap-1 px-3 py-2 bg-dark-hover hover:bg-dark-border text-white rounded-lg transition-colors text-sm"
                       >

@@ -58,3 +58,6 @@ desktop/node_modules/
 # Desktop packaging artifacts
 desktop/.stage/
 desktop/dist/
+
+# Supabase CLI transient project cache
+/supabase/.temp/

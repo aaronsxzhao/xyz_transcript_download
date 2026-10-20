@@ -14,7 +14,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 TABLES = ('podcasts', 'episodes', 'transcripts', 'summaries', 'summary_key_points',
-          'transcript_segments', 'video_tasks', 'video_task_versions', 'user_settings')
+          'transcript_segments', 'video_tasks', 'video_task_versions', 'user_settings', 'processing_jobs')
 BUCKET = 'application-backups'
 
 

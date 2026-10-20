@@ -10,7 +10,7 @@ _samples = OrderedDict()
 
 
 class PageTiming(BaseModel):
-    page: Literal["dashboard", "podcasts", "videos", "channel", "episodes", "viewer", "video_note", "settings"]
+    page: Literal["library", "dashboard", "podcasts", "videos", "channel", "episodes", "viewer", "video_note", "settings"]
     elapsed_ms: int = Field(ge=0, le=300000)
     document_ms: int = Field(ge=0, le=300000)
     api_ms: int = Field(ge=0, le=300000)

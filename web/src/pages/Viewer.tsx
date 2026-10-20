@@ -1,3 +1,5 @@
+import ReaderControls from '../components/ReaderControls'
+import { useReadingPosition, useDialog } from '../lib/reading'
 import LoadError from '../components/LoadError'
 import TranscriptSegments from '../components/TranscriptSegments'
 import { escapeHtml, markdownToSafeHtml } from '../lib/safeHtml'
@@ -112,7 +114,9 @@ export default function Viewer() {
   const [copied, setCopied] = useState(false)
   const [pdfLoading, setPdfLoading] = useState(false)
 
+  useReadingPosition(`podcast:${eid}`, undefined, !loading)
   const [notionOpen, setNotionOpen] = useState(false)
+  useDialog(notionOpen, () => setNotionOpen(false))
   const [notionPages, setNotionPages] = useState<NotionPage[]>([])
   const [notionSearch, setNotionSearch] = useState('')
   const [notionLoading, setNotionLoading] = useState(false)
@@ -392,7 +396,8 @@ export default function Viewer() {
   }
   
   return (
-    <div className="space-y-4 md:space-y-6">
+    <div className="reader-body space-y-4 md:space-y-6">
+      <ReaderControls />
       {error && <LoadError message={error} onRetry={() => {
         setError('')
         if (activeTab === 'transcript') void loadTranscript()
@@ -561,11 +566,12 @@ export default function Viewer() {
         </div>
       )}
 
+      {activeTab === 'summary' && summary && <label className="block sm:hidden text-sm">Contents<select aria-label="Summary contents" className="ml-2 max-w-full bg-dark-surface border border-dark-border rounded-lg p-2" defaultValue="" onChange={e => { if (e.target.value) document.getElementById(e.target.value)?.scrollIntoView({block:'start'}); e.target.value='' }}><option value="">Jump to section…</option><option value="summary-overview">Overview</option><option value="summary-key-points">Key points</option><option value="summary-takeaways">Takeaways</option></select></label>}
       {activeTab === 'summary' && summary && (
         <div className="space-y-6">
           {/* Overview */}
           <div className="p-6 bg-dark-surface border border-dark-border rounded-xl">
-            <h2 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+            <h2 id="summary-overview" className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
               <FileText className="text-indigo-500" size={20} />
               Overview
             </h2>
@@ -576,7 +582,7 @@ export default function Viewer() {
           
           {/* Topics/Key Points */}
           <div className="space-y-4">
-            <h2 className="text-lg font-semibold text-white flex items-center gap-2">
+            <h2 id="summary-key-points" className="text-lg font-semibold text-white flex items-center gap-2">
               <MessageSquare className="text-purple-500" size={20} />
               Key Points by Topic
             </h2>
@@ -628,7 +634,7 @@ export default function Viewer() {
           {/* Takeaways */}
           {summary.takeaways.length > 0 && (
             <div className="p-6 bg-dark-surface border border-dark-border rounded-xl">
-              <h2 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+              <h2 id="summary-takeaways" className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
                 <CheckCircle className="text-green-500" size={20} />
                 Takeaways
               </h2>
@@ -673,7 +679,7 @@ export default function Viewer() {
       {/* Notion export modal */}
       {notionOpen && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
+          role="dialog" aria-modal="true" aria-label="Export to Notion" className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
           onClick={e => { if (e.target === e.currentTarget) setNotionOpen(false) }}
         >
           <div className="bg-dark-surface border border-dark-border rounded-2xl w-full max-w-md mx-4 shadow-2xl">

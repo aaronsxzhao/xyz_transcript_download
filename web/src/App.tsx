@@ -11,6 +11,8 @@ import { markPageNavigation } from './lib/pageTiming'
 // after config/session verification has finished.
 preloadPage(window.location.pathname)
 void getAuthConfig().catch(() => {})
+const ResetPassword = lazy(pages.resetPassword)
+const Library = lazy(pages.library)
 const Dashboard = lazy(pages.dashboard)
 const Podcasts = lazy(pages.podcasts)
 const Episodes = lazy(pages.episodes)
@@ -64,6 +66,7 @@ function AppRoutes() {
   return (
     <Suspense fallback={<PageSpinner />}>
       <Routes>
+        <Route path="/reset-password" element={<ResetPassword />} />
         <Route
           path="/login"
           element={
@@ -77,6 +80,7 @@ function AppRoutes() {
         <Route element={<ProtectedRoute />}>
           <Route element={<Layout />}>
             <Route path="/" element={<Dashboard />} />
+            <Route path="/library" element={<Library />} />
             <Route path="/podcasts" element={<Podcasts />} />
             <Route path="/podcasts/:pid/episodes" element={<Episodes />} />
             <Route path="/viewer/:eid" element={<Viewer />} />

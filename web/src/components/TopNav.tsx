@@ -9,12 +9,13 @@ import {
   Menu,
   X,
 } from 'lucide-react'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useAuth } from '../contexts/AuthContext'
 import { preloadPage } from '../lib/pages'
 
 const navItems = [
   { path: '/', icon: LayoutDashboard, label: 'Dashboard' },
+  { path: '/library', icon: Radio, label: 'Library' },
   { path: '/podcasts', icon: Radio, label: 'Podcasts' },
   { path: '/videos', icon: Video, label: 'Videos' },
   { path: '/settings', icon: Settings, label: 'Settings' },
@@ -24,6 +25,8 @@ export default function TopNav() {
   const location = useLocation()
   const { user, authEnabled, signOut } = useAuth()
   const [mobileOpen, setMobileOpen] = useState(false)
+
+  useEffect(() => { const close = (e: KeyboardEvent) => { if (e.key === 'Escape') setMobileOpen(false) }; document.addEventListener('keydown', close); return () => document.removeEventListener('keydown', close) }, [])
 
   const handleSignOut = async () => {
     await signOut()
@@ -35,7 +38,7 @@ export default function TopNav() {
         {/* Logo */}
         <Link to="/" aria-label="Podcast and Video Tool home" className="flex items-center gap-2 flex-shrink-0">
           <Radio className="w-5 h-5 text-indigo-500" />
-          <span className="font-semibold text-sm text-white hidden sm:inline">Podcast & Video Tool</span>
+          <span className="font-semibold text-sm text-white hidden lg:inline">Podcast & Video Tool</span>
         </Link>
 
         {/* Desktop nav */}
@@ -49,6 +52,7 @@ export default function TopNav() {
             return (
               <Link
                 key={item.path}
+                aria-current={isActive ? 'page' : undefined}
                 to={item.path}
                 onPointerEnter={() => preloadPage(item.path)}
                 onFocus={() => preloadPage(item.path)}
@@ -69,7 +73,7 @@ export default function TopNav() {
         {/* Right side: user + mobile toggle */}
         <div className="flex items-center gap-2">
           {authEnabled && user && (
-            <div className="hidden sm:flex items-center gap-2">
+            <div className="hidden xl:flex items-center gap-2">
               <div className="flex items-center gap-1.5 text-xs text-gray-400">
                 <User size={14} />
                 <span className="max-w-[120px] truncate">{user.email}</span>
@@ -108,6 +112,7 @@ export default function TopNav() {
             return (
               <Link
                 key={item.path}
+                aria-current={isActive ? 'page' : undefined}
                 to={item.path}
                 onPointerEnter={() => preloadPage(item.path)}
                 onFocus={() => preloadPage(item.path)}

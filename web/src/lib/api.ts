@@ -400,9 +400,7 @@ export async function fetchEpisode(eid: string): Promise<Episode> {
 }
 
 export async function fetchSummaries(): Promise<SummaryListItem[]> {
-  const res = await authFetch(`${API_BASE}/summaries`)
-  if (!res.ok) throw new Error('Failed to fetch summaries')
-  return res.json()
+  return readJson(`${API_BASE}/summaries`, 'Failed to fetch summaries')
 }
 
 export async function fetchRecentSummaries(limit: number = 6): Promise<SummaryListItem[]> {
@@ -697,9 +695,7 @@ export async function generateVideoNote(data: VideoNoteRequest): Promise<{ task_
 }
 
 export async function fetchVideoTasks(): Promise<{ tasks: VideoTask[] }> {
-  const res = await authFetch(`${API_BASE}/video-notes/tasks`)
-  if (!res.ok) throw new Error('Failed to fetch video tasks')
-  return res.json()
+  return readJson(`${API_BASE}/video-notes/tasks`, 'Failed to fetch video tasks')
 }
 
 export interface VideoChannelStat {

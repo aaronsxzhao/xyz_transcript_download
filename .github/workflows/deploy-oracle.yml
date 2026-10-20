@@ -16,6 +16,10 @@ on:
       - '.github/workflows/deploy-oracle.yml'
   workflow_dispatch:
 
+concurrency:
+  group: production-deployment
+  cancel-in-progress: false
+
 env:
   OCIR_REGISTRY: iad.ocir.io
   OCIR_NAMESPACE: ide2oawxnq9y
@@ -48,6 +52,9 @@ jobs:
           registry: ${{ env.OCIR_REGISTRY }}
           username: ${{ env.OCIR_NAMESPACE }}/vincentjyzhao@gmail.com
           password: ${{ secrets.OCIR_AUTH_TOKEN }}
+
+      - name: Verify preserved rollback image exists
+        run: docker buildx imagetools inspect "$OCIR_REGISTRY/$OCIR_NAMESPACE/$OCIR_REPO:440009e42e7574a45fddca717e5451dd98d2cb15" > /dev/null
 
       - name: Build and push ARM image
         uses: docker/build-push-action@v6
@@ -103,6 +110,16 @@ jobs:
           exit 1
 
       - name: Verify health
+        id: verify
         env:
           EXPECTED_REVISION: ${{ github.sha }}
         run: python scripts/verify_deployment.py
+
+      - name: Restore preserved image if release verification fails
+        if: failure() && steps.verify.outcome == 'failure'
+        env:
+          EXPECTED_REVISION: 440009e42e7574a45fddca717e5451dd98d2cb15
+        run: |
+          docker buildx imagetools create --tag "$OCIR_REGISTRY/$OCIR_NAMESPACE/$OCIR_REPO:latest" "$OCIR_REGISTRY/$OCIR_NAMESPACE/$OCIR_REPO:$EXPECTED_REVISION"
+          oci container-instances container-instance restart --container-instance-id "$CONTAINER_INSTANCE_ID"
+          python scripts/verify_deployment.py

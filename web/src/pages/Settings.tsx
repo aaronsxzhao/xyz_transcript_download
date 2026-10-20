@@ -1,3 +1,5 @@
+import DataRecovery from '../components/DataRecovery'
+import { useAuth } from '../contexts/AuthContext'
 import { getAccountId, getPreference, setPreference } from '../lib/preferences'
 import { CacheKeys, getCache, setCache } from '../lib/cache'
 import { usePageTiming } from '../lib/pageTiming'
@@ -141,6 +143,7 @@ const TOP_TABS: { id: TopTab; label: string; icon: React.ReactNode }[] = [
 ]
 
 export default function Settings() {
+  const { authEnabled } = useAuth()
   const [activeTab, setActiveTab] = useState<TopTab>('general')
   const [settings, setSettings] = useState<SettingsData | null>(() => getCache(CacheKeys.SETTINGS))
   const [loadError, setLoadError] = useState('')
@@ -569,7 +572,7 @@ export default function Settings() {
     p === 'bilibili' ? 'BiliBili' : p === 'youtube' ? 'YouTube' : p.charAt(0).toUpperCase() + p.slice(1)
 
   return (
-    <div className="max-w-2xl mx-auto">
+    <div className="max-w-2xl min-w-0 mx-auto">
       <div className="mb-5">
         <h1 className="text-2xl font-bold text-white mb-1">Settings</h1>
         <p className="text-sm text-gray-500">Configure AI models, platform logins, and system tools</p>
@@ -579,12 +582,12 @@ export default function Settings() {
       {loadError && <LoadError message={loadError} onRetry={() => void loadSettings()} />}
 
       {/* Top-level tab bar */}
-      <div className="flex gap-1 p-1 bg-dark-surface border border-dark-border rounded-xl mb-5">
+      <div className="grid grid-cols-3 gap-1 p-1 bg-dark-surface border border-dark-border rounded-xl mb-5">
         {TOP_TABS.map(tab => (
           <button
             key={tab.id}
             onClick={() => setActiveTab(tab.id)}
-            className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium rounded-lg transition-colors ${
+            className={`min-w-0 flex flex-col sm:flex-row items-center justify-center gap-2 px-2 py-2.5 text-sm font-medium rounded-lg transition-colors ${
               activeTab === tab.id
                 ? 'bg-indigo-600 text-white'
                 : 'text-gray-400 hover:text-white hover:bg-dark-hover'
@@ -672,7 +675,7 @@ export default function Settings() {
           <section className="p-5 bg-dark-surface border border-dark-border rounded-xl">
             <h2 className="text-base font-semibold text-white mb-3 flex items-center gap-2">
               <Clock className="text-green-500" size={18} />
-              Daemon
+              Automatic checks
             </h2>
             <SettingRow
               label="Check Interval"
@@ -689,7 +692,7 @@ export default function Settings() {
             <div className="space-y-3">
               <div className="flex flex-col gap-2">
                 <label className="text-gray-400 text-sm">Integration Token</label>
-                <div className="flex gap-2">
+                <div className="flex flex-wrap gap-2">
                   <input
                     type="password"
                     value={notionKey}
@@ -881,14 +884,14 @@ export default function Settings() {
       {activeTab === 'accounts' && (
         <div className="p-5 bg-dark-surface border border-dark-border rounded-xl space-y-5">
           {/* Platform pill tabs */}
-          <div className="flex gap-1 p-1 bg-dark-hover rounded-lg">
+          <div className="flex flex-wrap gap-1 p-1 bg-dark-hover rounded-lg">
             {PLATFORMS.map(p => {
               const loggedIn = cookies.find(c => c.platform === p)?.has_cookie
               return (
                 <button
                   key={p}
                   onClick={() => handleSwitchPlatform(p)}
-                  className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-2 text-sm rounded-md transition-colors ${
+                  className={`flex-1 min-w-[110px] flex items-center justify-center gap-1.5 px-3 py-2 text-sm rounded-md transition-colors ${
                     activePlatform === p
                       ? 'bg-indigo-600 text-white'
                       : 'text-gray-400 hover:text-white hover:bg-dark-border'
@@ -911,6 +914,7 @@ export default function Settings() {
             if (isYT) {
               const ytLoggedIn = cookies.find(c => c.platform === 'youtube')?.has_cookie
               return <YouTubeLoginSection
+                cloud={authEnabled}
                 loggedIn={!!ytLoggedIn}
                 cookieLoading={cookieLoading}
                 cookieMessage={cookieMessage}
@@ -934,7 +938,7 @@ export default function Settings() {
                 {platformLoggedIn && (
                   <div className="flex items-center gap-2 p-3 bg-green-500/10 border border-green-500/30 rounded-lg">
                     <CheckCircle size={16} className="text-green-400" />
-                    <span className="text-sm text-green-400">{name} cookies are set</span>
+                    <span className="text-sm text-green-400">{name} connection saved</span>
                   </div>
                 )}
 
@@ -988,7 +992,7 @@ export default function Settings() {
                 )}
 
                 {/* ─── Method 1: Auto-import from browser ─── */}
-                <div className="space-y-3">
+                {!authEnabled && <div className="space-y-3">
                   <p className="text-sm text-gray-300 font-medium flex items-center gap-2">
                     <Chrome size={15} className="text-blue-400" />
                     Auto-import from browser
@@ -998,7 +1002,7 @@ export default function Settings() {
                     {hasQr ? ' Or use QR code below.' : ''}
                   </p>
                   <div className="flex items-center gap-2">
-                    <select
+                    <select aria-label="Browser for local cookie import"
                       value={selectedBrowser}
                       onChange={e => setSelectedBrowser(e.target.value)}
                       className="bg-dark-hover border border-dark-border text-white text-sm rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-500"
@@ -1019,7 +1023,7 @@ export default function Settings() {
                   <p className="text-xs text-gray-600">
                     Make sure you are logged in to {name} in your browser first. A system permission dialog may appear.
                   </p>
-                </div>
+                </div>}
 
                 {/* Status message */}
                 {cookieMessage && (
@@ -1178,7 +1182,7 @@ export default function Settings() {
                       {platformLabel(p)}
                     </span>
                     <span className={`text-xs ${info?.has_cookie ? 'text-green-400' : 'text-gray-500'}`}>
-                      {info?.has_cookie ? 'Logged in' : 'Not set'}
+                      {info?.has_cookie ? 'Saved' : 'Not set'}
                     </span>
                   </div>
                 )
@@ -1191,6 +1195,7 @@ export default function Settings() {
       {/* ═══════════════ TOOLS & DATA TAB ═══════════════ */}
       {activeTab === 'tools' && (
         <div className="space-y-5">
+          <DataRecovery />
           {/* Video Tools Health */}
           <section className="p-5 bg-dark-surface border border-dark-border rounded-xl">
             <h2 className="text-base font-semibold text-white mb-3 flex items-center gap-2">
@@ -1387,10 +1392,11 @@ export default function Settings() {
 }
 
 function YouTubeLoginSection({
-  loggedIn, cookieLoading, cookieMessage, setCookieMessage,
+  cloud, loggedIn, cookieLoading, cookieMessage, setCookieMessage,
   selectedBrowser, setSelectedBrowser,
   browsers, handleAutoImport, onCookiesSaved, handleCookieFileUpload,
 }: {
+  cloud: boolean
   loggedIn: boolean
   cookieLoading: boolean
   cookieMessage: string
@@ -1402,7 +1408,7 @@ function YouTubeLoginSection({
   onCookiesSaved: () => Promise<void>
   handleCookieFileUpload: (f: File) => void
 }) {
-  const [ytMethod, setYtMethod] = useState<'paste' | 'file' | 'browser'>('paste')
+  const [ytMethod, setYtMethod] = useState<'paste' | 'file' | 'browser'>('file')
   const [pasteValue, setPasteValue] = useState('')
   const [pasteSaving, setPasteSaving] = useState(false)
   const localFileRef = useRef<HTMLInputElement>(null)
@@ -1438,7 +1444,7 @@ function YouTubeLoginSection({
       {loggedIn ? (
         <div className="flex items-center gap-2 p-3 bg-green-500/10 border border-green-500/30 rounded-lg">
           <CheckCircle size={16} className="text-green-400" />
-          <span className="text-sm text-green-400">YouTube cookies are set</span>
+          <span className="text-sm text-green-400">YouTube connection saved — verified when a video is accessed</span>
         </div>
       ) : (
         <div className="p-3 bg-amber-500/10 border border-amber-500/30 rounded-lg">
@@ -1460,7 +1466,7 @@ function YouTubeLoginSection({
           { id: 'paste' as const, label: 'Paste Cookies', icon: <FileText size={13} /> },
           { id: 'file' as const, label: 'Upload File', icon: <Upload size={13} /> },
           { id: 'browser' as const, label: 'From Browser', icon: <Chrome size={13} /> },
-        ]).map(m => (
+        ]).filter(m => !cloud || m.id !== 'browser').map(m => (
           <button
             key={m.id}
             onClick={() => setYtMethod(m.id)}
@@ -1482,7 +1488,7 @@ function YouTubeLoginSection({
           <div className="p-3 bg-dark-hover/50 rounded-lg space-y-2">
             <p className="text-xs text-gray-300 font-medium">How to get your cookies:</p>
             <ol className="text-xs text-gray-400 space-y-1.5 list-decimal list-inside">
-              <li>Open <a href="https://www.youtube.com" target="_blank" rel="noopener noreferrer" className="text-indigo-400 hover:text-indigo-300">YouTube</a> in your browser and make sure you're logged in</li>
+              <li>Open <a href="https://www.youtube.com" target="_blank" rel="noopener noreferrer" className="text-indigo-400 hover:text-indigo-300 underline">YouTube</a> in your browser and make sure you're logged in</li>
               <li>Press <kbd className="px-1.5 py-0.5 bg-gray-700 rounded text-[11px] text-white">F12</kbd> to open DevTools</li>
               <li>Go to <strong className="text-white">Console</strong> tab, paste this and press Enter:</li>
             </ol>
@@ -1534,7 +1540,7 @@ function YouTubeLoginSection({
                 </a>{' '}
                 extension
               </li>
-              <li>Open <a href="https://www.youtube.com" target="_blank" rel="noopener noreferrer" className="text-indigo-400 hover:text-indigo-300">YouTube</a> and log in</li>
+              <li>Open <a href="https://www.youtube.com" target="_blank" rel="noopener noreferrer" className="text-indigo-400 hover:text-indigo-300 underline">YouTube</a> and log in</li>
               <li>Click the extension icon → Export</li>
               <li>Upload the downloaded file below</li>
             </ol>
@@ -1571,7 +1577,7 @@ function YouTubeLoginSection({
             </p>
           </div>
           <div className="flex items-center gap-2">
-            <select
+            <select aria-label="Browser for local cookie import"
               value={selectedBrowser}
               onChange={e => setSelectedBrowser(e.target.value)}
               className="bg-dark-hover border border-dark-border text-white text-sm rounded-lg px-3 py-2"

@@ -2,10 +2,11 @@
 
 from typing import Optional
 from fastapi import APIRouter, HTTPException, Depends
+from fastapi.security import HTTPAuthorizationCredentials
 from pydantic import BaseModel, EmailStr
 
 from config import USE_SUPABASE, SUPABASE_URL
-from api.auth import get_current_user, User
+from api.auth import get_current_user, User, security
 from api.supabase_client import get_supabase_client
 
 router = APIRouter()
@@ -23,6 +24,14 @@ class SignInRequest(BaseModel):
 
 class RefreshRequest(BaseModel):
     refresh_token: str
+
+
+class PasswordResetRequest(BaseModel):
+    email: EmailStr
+
+
+class PasswordChangeRequest(BaseModel):
+    password: str
 
 
 class AuthResponse(BaseModel):
@@ -56,7 +65,8 @@ def sign_up(data: SignUpRequest):
     client = get_supabase_client()
     if not client:
         raise HTTPException(status_code=500, detail="Supabase not initialized")
-    
+    from api.passwords import validate_new_password
+    validate_new_password(data.password)
     try:
         result = client.auth.sign_up({
             "email": data.email,
@@ -113,6 +123,37 @@ def sign_in(data: SignInRequest):
         )
     except Exception as e:
         raise HTTPException(status_code=401, detail=str(e))
+
+
+@router.post('/password-reset')
+def request_password_reset(data: PasswordResetRequest):
+    if not USE_SUPABASE:
+        raise HTTPException(status_code=400, detail='Password recovery requires an authenticated cloud installation.')
+    import os
+    from api.request_limits import check_limit
+    check_limit('reset:' + data.email.lower(), 3, 900)
+    # A fixed configured origin prevents redirect injection. Recovery fragments
+    # are routed to /reset-password by the web app, including default-site links.
+    redirect = os.getenv('PUBLIC_APP_URL', 'https://aipodcastsummary.online').rstrip('/') + '/'
+    try:
+        get_supabase_client().auth.reset_password_email(data.email, {'redirect_to': redirect})
+    except Exception:
+        raise HTTPException(status_code=503, detail='Password recovery is temporarily unavailable. Please try again shortly.')
+    return {'message': 'If an account exists for this email, a password reset link will arrive shortly.'}
+
+
+@router.post('/password')
+def change_password(data: PasswordChangeRequest, credentials: Optional[HTTPAuthorizationCredentials] = Depends(security), user: User = Depends(get_current_user)):
+    if not USE_SUPABASE or not credentials:
+        raise HTTPException(status_code=401, detail='Open the recovery link from your email to set a new password.')
+    from api.passwords import validate_new_password
+    from api.supabase_client import get_user_client
+    validate_new_password(data.password)
+    try:
+        get_user_client(credentials.credentials).auth.update_user({'password': data.password})
+    except Exception:
+        raise HTTPException(status_code=400, detail='This recovery link is invalid or expired. Request a new link.')
+    return {'message': 'Password updated. Sign in with your new password.'}
 
 
 @router.post("/signout")

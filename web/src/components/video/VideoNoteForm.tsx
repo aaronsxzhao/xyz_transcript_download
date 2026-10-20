@@ -419,6 +419,7 @@ export default function VideoNoteForm({ onTaskCreated, hideTitle }: Props) {
             <div className="flex-1 relative">
               <input
                 type="text"
+                aria-label="Video URL"
                 value={url}
                 onChange={e => {
                   const v = e.target.value
@@ -484,6 +485,7 @@ export default function VideoNoteForm({ onTaskCreated, hideTitle }: Props) {
       <div>
         <label className="block text-xs font-medium text-gray-500 uppercase tracking-wider mb-1.5">Note Style</label>
         <select
+          aria-label="Note style"
           value={style}
           onChange={e => setStyle(e.target.value)}
           className="w-full px-3 py-2 bg-dark-hover border border-dark-border rounded-lg text-white text-sm focus:outline-none focus:border-indigo-500"
@@ -511,7 +513,7 @@ export default function VideoNoteForm({ onTaskCreated, hideTitle }: Props) {
                 type="checkbox"
                 checked={formats.includes(f.id)}
                 onChange={() => toggleFormat(f.id)}
-                className="hidden"
+                className="sr-only peer"
               />
               {f.label}
             </label>
@@ -519,6 +521,19 @@ export default function VideoNoteForm({ onTaskCreated, hideTitle }: Props) {
         </div>
       </div>
 
+      {/* Advanced Options */}
+      <button
+        aria-expanded={showAdvanced}
+        onClick={() => setShowAdvanced(!showAdvanced)}
+        className="flex items-center gap-1.5 text-xs text-gray-500 hover:text-white transition-colors"
+      >
+        <Settings2 size={12} />
+        Advanced Options
+        {showAdvanced ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
+      </button>
+
+      {showAdvanced && (
+        <div className="p-3 bg-dark-hover/50 border border-dark-border rounded-lg space-y-3">
       {/* Audio Quality */}
       <div>
         <label className="block text-xs font-medium text-gray-500 uppercase tracking-wider mb-1.5">Audio Quality</label>
@@ -560,18 +575,7 @@ export default function VideoNoteForm({ onTaskCreated, hideTitle }: Props) {
         </div>
       </div>
 
-      {/* Advanced Options */}
-      <button
-        onClick={() => setShowAdvanced(!showAdvanced)}
-        className="flex items-center gap-1.5 text-xs text-gray-500 hover:text-white transition-colors"
-      >
-        <Settings2 size={12} />
-        Advanced Options
-        {showAdvanced ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
-      </button>
 
-      {showAdvanced && (
-        <div className="p-3 bg-dark-hover/50 border border-dark-border rounded-lg space-y-3">
           <label className="flex items-center gap-2 cursor-pointer">
             <input
               type="checkbox"
