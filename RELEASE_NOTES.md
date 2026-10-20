@@ -5,7 +5,7 @@ The old release is preserved. See [ROLLBACK.md](ROLLBACK.md) for the exact sourc
 ## Changes
 
 - Final video notes and version history commit together. Failed saves retain private recovery copies; the reader can recover them without another model call.
-- Podcast job history survives container replacement. Interrupted jobs become retryable and retain their original source; video retries retain saved transcripts. Cloud history writes run outside the event loop and job-status lock.
+- Podcast job history survives container replacement. Interrupted jobs become retryable and retain their original source, model choice and regeneration intent; video retries retain saved transcripts. Podcast source lookups, maintenance reads and cloud history writes run outside the event loop. Deletion prevents late checkpoints from restoring removed history.
 - Screenshot failures have visible warnings and separate repair controls. New notes retain missing-image references so future repairs work without changing note text. Original local videos can be uploaded again for screenshot recovery.
 - Per-note ZIP downloads include Markdown and available images. Settings → Tools & Data provides an account backup and an integrity check across current notes and versions. Exports exclude credentials/authentication sessions. Keep original media files separately.
 - The Library combines saved podcast/video notes with title/source search and type, source and status filters. Recent notes precede statistics on the dashboard.
@@ -18,7 +18,7 @@ The old release is preserved. See [ROLLBACK.md](ROLLBACK.md) for the exact sourc
 
 ## Validation and limits
 
-Local checks: 230 backend tests, 25 frontend tests, production build and dependency audit. Live database transaction checks verified atomic saving, idempotent retry, conflict preservation and unrelated-account isolation. The expanded browser review checked 54 states at 320, 390, 768 and 1280 pixels with no detected WCAG A/AA violations, horizontal overflow or browser errors. Browser regression scripts cover large transcripts, note versions, slow reads and revoked sessions. Synthetic network timings are not a guarantee for connections from China; origin and database remain in the US.
+Local checks: 233 backend tests, 25 frontend tests, production build and dependency audit. Live database transaction checks verified atomic saving, idempotent retry, conflict preservation and unrelated-account isolation. The expanded browser review checked 54 states at 320, 390, 768 and 1280 pixels with no detected WCAG A/AA violations, horizontal overflow or browser errors. Browser regression scripts cover large transcripts, note versions, slow reads and revoked sessions. Synthetic network timings are not a guarantee for connections from China; origin and database remain in the US.
 
 The recovery workflow restored 238 additional historical frames, with zero note-content changes. Some original sources remain unavailable or require the original local video. Tools & Data reports remaining missing frames instead of silently claiming complete recovery. Private backup restoration was verified by downloading/reconstructing the ZIP and checking every entry. Deployment verifies that the preserved rollback image exists and restores it automatically if release health verification fails.
 

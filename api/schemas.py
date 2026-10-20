@@ -121,6 +121,9 @@ class ProcessingStatus(BaseModel):
     job_id: str
     source_url: str = ""
     transcribe_only: bool = False
+    resummarize: bool = False
+    whisper_model: Optional[str] = None
+    llm_model: Optional[str] = None
     user_id: Optional[str] = None  # User who owns this job (for isolation)
     # Status values:
     # - pending: Job queued

@@ -194,3 +194,56 @@ async def test_cloud_history_failure_keeps_new_job_retryable_without_blocking_lo
     assert err.value.status_code == 503 and job.status == 'failed'
     assert observed[0] != loop_thread
     assert job.source_url.endswith('/example')
+
+
+@pytest.mark.asyncio
+async def test_slow_episode_lookup_does_not_pause_the_website(client):
+    import asyncio
+    entered, release = threading.Event(), threading.Event()
+    loop_thread = threading.get_ident()
+    observed = []
+    def lookup(url):
+        observed.append(threading.get_ident()); entered.set(); release.wait(2)
+        return None
+    with patch('xyz_client.get_client') as provider:
+        provider.return_value.get_episode_by_share_url.side_effect = lookup
+        pending = asyncio.create_task(client.post('/api/process', json={'episode_url': 'https://www.xiaoyuzhoufm.com/episode/slow'}))
+        try:
+            assert await asyncio.to_thread(entered.wait, 1)
+            response = await asyncio.wait_for(client.get('/api/health'), timeout=.3)
+            assert response.status_code == 200 and observed[0] != loop_thread
+        finally:
+            release.set()
+            await pending
+
+
+def test_late_checkpoint_cannot_resurrect_deleted_job_history(monkeypatch):
+    from api import job_persistence
+    from api.schemas import ProcessingStatus
+    provider = Mock()
+    monkeypatch.setattr(job_persistence, 'USE_SUPABASE', True)
+    monkeypatch.setattr(job_persistence, 'client', lambda: provider)
+    job = ProcessingStatus(job_id='deleted-history-check', user_id='owner', status='transcribing')
+    try:
+        job_persistence.delete_job(job.job_id, job.user_id)
+        job_persistence.save_job(job)
+        assert provider.table.return_value.upsert.call_count == 0
+        provider.table.return_value.delete.return_value.eq.assert_called_once_with('id', job.job_id)
+    finally:
+        job_persistence._deleted.discard(job.job_id)
+
+
+@pytest.mark.asyncio
+async def test_retry_preserves_regeneration_intent_and_model_choice(client):
+    from api.routers import processing
+    from api.schemas import ProcessingStatus
+    from api.auth import User
+    from fastapi import BackgroundTasks
+    processing.jobs['old-attempt'] = ProcessingStatus(job_id='old-attempt', user_id='local', status='failed',
+        source_url='apple://saved-episode', resummarize=True, llm_model='original-paid-model')
+    background = BackgroundTasks()
+    result = await processing.retry_job('old-attempt', background, User(id='local', email='local@localhost'))
+    retried = processing.jobs[result['new_job_id']]
+    assert retried.resummarize and retried.llm_model == 'original-paid-model'
+    assert background.tasks[0].kwargs['resummarize'] is True
+    assert background.tasks[0].kwargs['llm_model'] == 'original-paid-model'
