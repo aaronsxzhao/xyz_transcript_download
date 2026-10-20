@@ -37,6 +37,7 @@ async def check(browser, origin, width, output, label):
     page.on('pageerror',lambda e: errors.append(str(e)))
     fail_videos = False
     empty_podcasts = False
+    account_changed = False
     async def api(route):
         path=urlparse(route.request.url).path
         requests.append(path)
@@ -49,7 +50,7 @@ async def check(browser, origin, width, output, label):
         elif path=='/api/video-notes/tasks':body={'tasks':[{**task,'markdown':'','transcript':None}]};delay=2.5
         elif path=='/api/summaries/bench':body=summary
         elif path=='/api/notion/pages':body={'pages':[]};delay=.6
-        elif path=='/api/summaries':body=[] if empty_podcasts else [{**summary,'podcast_title':'Learning lab','created_at':'2026-10-20','episode_id':f'episode-{i}','title':f'Podcast lesson {i}'} for i in range(30)]
+        elif path=='/api/summaries':body=[] if empty_podcasts else [{**summary,'podcast_title':'Learning lab','created_at':'2026-10-20','episode_id':f'episode-{i}','title':f'{"New account" if account_changed else "Podcast lesson"} {i}'} for i in range(30)]
         await asyncio.sleep(delay)
         if fail_videos and path == '/api/video-notes/tasks':
             await route.fulfill(status=503,body=json.dumps({'detail':'Synthetic video service unavailable'}),content_type='application/json');return
@@ -159,6 +160,19 @@ async def check(browser, origin, width, output, label):
         result['empty_first_source_waits_for_video']=not await page.get_by_text('No matching notes',exact=True).count()
         assert result['empty_first_source_waits_for_video']
         await page.get_by_role('heading',name='Synthetic video',exact=True).wait_for()
+    if width==1440:
+        empty_podcasts=False
+        await page.goto(origin+'/library')
+        await page.get_by_role('heading',name='Podcast lesson 0',exact=True).wait_for()
+        account_changed=True
+        await page.evaluate("""()=>{
+          localStorage.setItem('xyz_user',JSON.stringify({id:'second',email:'second@example.com',authenticated:true}));
+          window.dispatchEvent(new StorageEvent('storage',{key:'xyz_user',storageArea:localStorage}));
+        }""")
+        await page.get_by_role('heading',name='New account 0',exact=True).wait_for()
+        assert await page.get_by_role('heading',name='Podcast lesson 0',exact=True).count()==0
+        assert await page.get_by_role('button',name='grid layout',exact=True).get_attribute('aria-pressed')=='true'
+        result['account_change_remounts_private_page']=True
     result['errors']=errors
     await context.close()
     return result
