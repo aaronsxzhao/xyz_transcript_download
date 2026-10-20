@@ -44,7 +44,8 @@ async def check(browser, dist, label, output):
         try:await route.fulfill(body=json.dumps(body),content_type='application/json')
         except Exception:pass
     failures={'mode':'','count':0}
-    entry=re.search(r'<script type="module"[^>]*src="([^"]+)"', (dist/'index.html').read_text()).group(1)
+    embedded='data-document-program' in (dist/'index.html').read_text()
+    entry=re.search(r'<script type="module"[^>]*(?:src|data-entry)="([^"]+)"', (dist/'index.html').read_text()).group(1)
     async def assets(route):
         if failures['mode']:
             if urlparse(route.request.url).path==entry and failures['mode'] in ('once','always'):
@@ -70,6 +71,16 @@ async def check(browser, dist, label, output):
             assert len(report['settings_request_ms'])==1,report
             assert report['settings_request_ms'][0]<1500,report
             assert not errors,report
+            if embedded:
+                assert ready_ms<4500,report
+                failures.update(mode='always',count=0)
+                await page.goto(f'http://127.0.0.1:{server.server_port}/settings?probe=keep#section',wait_until='domcontentloaded')
+                await page.locator('select[aria-label="Summary provider"]').wait_for(timeout=5000)
+                assert failures['count']==0,failures
+                assert 'probe=keep' in page.url and page.url.endswith('#section'),page.url
+                report['entry_request_not_required']=True
+                print(json.dumps(report),flush=True)
+                return report
             failures.update(mode='once',count=0)
             origin=f'http://127.0.0.1:{server.server_port}'
             await page.goto(origin+'/settings?probe=keep#section',wait_until='commit')

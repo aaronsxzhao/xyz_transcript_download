@@ -8,8 +8,28 @@
   document.querySelectorAll('[data-startup-nav]').forEach(link => {
     if (link.pathname === path || (link.pathname !== '/' && path.startsWith(link.pathname + '/'))) link.setAttribute('aria-current', 'page');
   });
-  document.getElementById('startup-retry')?.addEventListener('click', () => location.reload());
+  let startupReported = false;
+  let scriptErrors = 0;
+  window.addEventListener('error', () => { if (document.getElementById('startup-shell')) scriptErrors++; }, true);
+  const reportStartup = outcome => {
+    if (startupReported || !document.getElementById('startup-shell')) return;
+    try {
+      const token = localStorage.getItem('xyz_access_token') || sessionStorage.getItem('xyz_access_token');
+      if (!token) return;
+      const page = path.startsWith('/podcasts/') ? 'episodes' : path.startsWith('/viewer/') ? 'viewer' : path.startsWith('/videos/') ? 'video_note' : path === '/videos' && new URLSearchParams(location.search).has('channel') ? 'channel' : ({'/':'dashboard','/library':'library','/podcasts':'podcasts','/videos':'videos','/settings':'settings'})[path];
+      if (!page) return;
+      startupReported = true;
+      const bound = number => Math.max(0,Math.min(300000,Math.round(number || 0)));
+      const modules = performance.getEntriesByType('resource').filter(entry => { const url = new URL(entry.name);return url.origin === location.origin && url.pathname.startsWith('/assets/') && url.pathname.endsWith('.js'); });
+      // Numbers/fixed labels only. Never send URLs, source text or error text.
+      void fetch('/api/performance',{method:'POST',keepalive:true,headers:{'Content-Type':'application/json',Authorization:`Bearer ${token}`},body:JSON.stringify({page,stage:'bootstrap',outcome,elapsed_ms:bound(performance.now()),first_paint_ms:bound(performance.getEntriesByName('first-contentful-paint')[0]?.startTime),document_ms:bound(performance.getEntriesByType('navigation')[0]?.responseEnd),api_ms:0,cached:!!navigator.serviceWorker?.controller,program_embedded:!!document.querySelector('[data-document-program]'),module_requests:modules.length,module_failures:modules.filter(entry=>entry.responseStatus >= 400).length,script_errors:Math.min(1000,scriptErrors)})}).catch(()=>{});
+    } catch { /* Diagnostics never block startup, including restricted storage. */ }
+  };
+  document.getElementById('startup-retry')?.addEventListener('click', () => {
+    const fresh = new URL(location.href);fresh.searchParams.set('__xyz_boot',String(Date.now()));location.replace(fresh.href);
+  });
   const recoverEntry = () => {
+    reportStartup('error');
     try {
       const previous = Number(sessionStorage.getItem('xyz:entry-recovery') || 0);
       if (Date.now() - previous > 60000) {
@@ -25,6 +45,7 @@
   window.addEventListener('xyz:entry-error', recoverEntry);
   if (window.__xyzEntryFailed) recoverEntry();
   setTimeout(() => {
+    reportStartup('slow');
     const message = document.getElementById('startup-status');
     if (message) message.textContent = 'The connection is taking longer than expected. You can retry loading.';
     const retry = document.getElementById('startup-retry');

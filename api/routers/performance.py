@@ -11,6 +11,11 @@ _samples = OrderedDict()
 
 class PageTiming(BaseModel):
     page: Literal["library", "dashboard", "podcasts", "videos", "channel", "episodes", "viewer", "video_note", "settings"]
+    stage: Literal['application', 'bootstrap'] = 'application'
+    program_embedded: bool = False
+    module_requests: int = Field(default=0, ge=0, le=1000)
+    module_failures: int = Field(default=0, ge=0, le=1000)
+    script_errors: int = Field(default=0, ge=0, le=1000)
     elapsed_ms: int = Field(ge=0, le=300000)
     first_paint_ms: int = Field(default=0, ge=0, le=300000)
     document_ms: int = Field(ge=0, le=300000)

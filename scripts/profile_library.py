@@ -63,9 +63,10 @@ def profile_public_routes(owner: str, routes: list[tuple[str, str]], local_video
             safe = {"library_profile": "browser_" + label}
             for source, target in {"elapsed_ms": "milliseconds", "first_paint_ms": "first_paint_ms", "document_ms": "document_ms",
                                    "api_ms": "api_ms", "server_ms": "server_ms", "samples": "samples", "cached": "cached",
-                                   "worst_ms": "worst_ms", "error_count": "error_count", "slow_count": "slow_count"}.items():
+                                   "worst_ms": "worst_ms", "error_count": "error_count", "slow_count": "slow_count", "program_embedded": "program_embedded", "module_requests": "module_requests", "module_failures": "module_failures", "script_errors": "script_errors"}.items():
                 if isinstance(row.get(source), int) and 0 <= row[source] <= 300000:
                     safe[target] = int(row[source])
+            safe["bootstrap"] = int(row.get("stage") == "bootstrap")
             reports.append(safe)
     if os.environ.get('XYZ_PROFILE_BROWSER') == '1':
         from scripts.profile_live_browser import profile_browser

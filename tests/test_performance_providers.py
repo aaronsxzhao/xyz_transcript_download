@@ -145,7 +145,7 @@ async def test_assets_cache_immutably_but_html_revalidates(client):
     assert "set-cookie" not in html.headers
     unchanged = await client.get("/", headers={"If-None-Match": html.headers["etag"]})
     assert unchanged.status_code == 304 and not unchanged.content
-    path = re.search(r'src="(/assets/[^"<>]+\.js)"', html.text).group(1)
+    path = re.search(r'(?:src|data-entry)="(/assets/[^"<>]+\.js)"', html.text).group(1)
     asset = await client.get(path)
     assert asset.status_code == 200
     assert "immutable" in asset.headers["cache-control"]
