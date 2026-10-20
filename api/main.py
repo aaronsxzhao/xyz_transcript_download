@@ -334,11 +334,11 @@ _data_dir.mkdir(parents=True, exist_ok=True)
 @app.get("/data/{folder}/{filename}")
 async def generated_media(folder: str, filename: str, expires: int = Query(0), signature: str = Query("")):
     from config import USE_SUPABASE
-    from api.media import media_file, verify_media_signature
+    from api.media import media_file, verify_media_signature, load_cloud_media
     path = media_file(folder, filename)
     if USE_SUPABASE and not verify_media_signature(f"/data/{folder}/{filename}", expires, signature):
         raise HTTPException(status_code=403, detail="Media link is invalid or expired")
-    headers = {"Cache-Control": "private, max-age=3600", "X-Content-Type-Options": "nosniff"}
+    headers = {"Cache-Control": "private, max-age=86400", "X-Content-Type-Options": "nosniff"}
     if path.is_file():
         return FileResponse(path, headers=headers)
     if USE_SUPABASE:
@@ -346,7 +346,7 @@ async def generated_media(folder: str, filename: str, expires: int = Query(0), s
         client = get_supabase_admin_client()
         if client:
             try:
-                content = await asyncio.to_thread(client.storage.from_(folder).download, filename)
+                content = await load_cloud_media(folder, filename, client.storage.from_(folder).download)
                 media_type = "image/jpeg" if path.suffix in {".jpg", ".jpeg"} else f"image/{path.suffix[1:]}"
                 return Response(content, media_type=media_type, headers=headers)
             except Exception:

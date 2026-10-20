@@ -1,4 +1,8 @@
 """Serve only generated images; cloud image URLs grant access to one file."""
+import asyncio
+import tempfile
+from typing import Callable
+
 import hashlib
 import hmac
 import os
@@ -75,7 +79,77 @@ def sign_media_urls(value, task_id: str = ""):
             return match.group(0)
         path = f"/data/{folder}/{filename}"
         # Matches generated media's existing retention window, including exports.
-        expires = int(time.time()) + max(GENERATED_MEDIA_RETENTION_DAYS, 1) * 86400
+        expires = int(time.time() // 86400) * 86400 + max(GENERATED_MEDIA_RETENTION_DAYS, 2) * 86400
         return path + "?" + urlencode({"expires": expires, "signature": _signature(path, expires)})
 
     return _MEDIA_URL.sub(replace, value)
+
+
+# Private bounded read-through cache. Files remain behind signature validation;
+# this directory is never mounted as public static storage.
+_MEDIA_CACHE_BYTES = 256 * 1024 * 1024
+_MEDIA_CACHE_TTL = 86400
+_downloads: dict[tuple[str, str], asyncio.Task] = {}
+
+
+def _read_or_download(folder: str, filename: str, download: Callable[[str], bytes]) -> bytes:
+    media_file(folder, filename)  # Validate even when called outside the HTTP route.
+    directory = DATA_DIR / ".media-cache" / folder
+    cached = directory / filename
+    try:
+        if time.time() - cached.stat().st_mtime < _MEDIA_CACHE_TTL:
+            return cached.read_bytes()
+    except OSError:
+        pass
+    content = download(filename)
+    if not content:
+        raise ValueError("Empty generated image")
+    if len(content) > 16 * 1024 * 1024:
+        return content
+    temporary = None
+    try:
+        directory.mkdir(parents=True, mode=0o700, exist_ok=True)
+        with tempfile.NamedTemporaryFile(dir=directory, delete=False) as stream:
+            temporary = Path(stream.name)
+            stream.write(content)
+        temporary.replace(cached)
+        files = []
+        for entry in (DATA_DIR / ".media-cache").glob("*/*"):
+            try:
+                stat = entry.stat()
+                files.append((stat.st_mtime, stat.st_size, entry))
+            except OSError:
+                pass
+        total = sum(size for _, size, _ in files)
+        for modified, size, entry in sorted(files):
+            if total <= _MEDIA_CACHE_BYTES and time.time() - modified < _MEDIA_CACHE_TTL:
+                break
+            try:
+                entry.unlink(); total -= size
+            except OSError:
+                pass
+    except OSError:
+        # A full/unwritable disk must not prevent a successfully fetched image.
+        pass
+    finally:
+        if temporary:
+            try:
+                temporary.unlink(missing_ok=True)
+            except OSError:
+                pass
+    return content
+
+
+async def load_cloud_media(folder: str, filename: str, download: Callable[[str], bytes]) -> bytes:
+    key = (folder, filename)
+    task = _downloads.get(key)
+    if task is None:
+        task = asyncio.create_task(asyncio.to_thread(_read_or_download, folder, filename, download))
+        _downloads[key] = task
+        def completed(done):
+            if _downloads.get(key) is done:
+                _downloads.pop(key, None)
+            if not done.cancelled():
+                done.exception()  # Retrieve errors even when every HTTP waiter disconnected.
+        task.add_done_callback(completed)
+    return await asyncio.shield(task)

@@ -207,10 +207,10 @@ def profile_library(settings: dict) -> None:
                              "podcast_detail", "episodes", "summary", "transcript", "channel_videos", "reported_episodes", "reported_summary", "reported_video_note", "video_detail", "video_note", "empty", "failed",
                              "live_auth", "live_podcasts", "live_channels", "live_episodes", "live_summary", "live_transcript", "live_settings", "live_channel_videos", "live_reported_episodes", "live_reported_summary", "live_reported_video_note", "live_unavailable",
                              "browser_dashboard", "browser_podcasts", "browser_videos", "browser_channel", "browser_episodes", "browser_viewer", "browser_video_note", "browser_settings",
-                             "check_episodes", "check_channel", "check_summary", "check_video_note", "check_settings"}:
+                             "check_episodes", "check_channel", "check_summary", "check_video_note", "check_settings", "check_library"}:
                 continue
             safe = {"library_profile": label}
-            safe.update({key: report[key] for key in ("milliseconds", "first_byte_ms", "wire_bytes", "document_ms", "api_ms", "server_ms", "samples", "cached", "worst_ms", "error_count", "slow_count", "js_errors", "failed_requests", "loaded_images", "missing_images", "database_requests", "response_bytes", "gzip_bytes", "status")
+            safe.update({key: report[key] for key in ("milliseconds", "first_byte_ms", "wire_bytes", "document_ms", "api_ms", "server_ms", "samples", "cached", "worst_ms", "error_count", "slow_count", "js_errors", "failed_requests", "loaded_images", "missing_images", "note_ready_ms", "mindmap_ms", "return_to_note_ms", "database_requests", "response_bytes", "gzip_bytes", "status")
                          if isinstance(report.get(key), int) and 0 <= report[key] <= 10**9})
             print(json.dumps(safe))
             valid = True
