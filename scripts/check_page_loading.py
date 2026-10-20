@@ -72,7 +72,7 @@ async def check_release_navigation(context, origin, api, asset, state, asset_fai
 
 
 async def measure(browser, origin, verify, recovery_only=False):
-    context = await browser.new_context(viewport={"width": 390, "height": 844})
+    context = await browser.new_context(viewport={"width": 390, "height": 844}, service_workers='block')
     fresh_token = token(int(time.time()) + 3600)
     await context.add_init_script("""
         localStorage.setItem('xyz_remember_me','true');
@@ -181,6 +181,7 @@ async def measure(browser, origin, verify, recovery_only=False):
         assert max(warm.values()) < 2000, warm
         state['delay'] = .2
         await page.evaluate("localStorage.removeItem('xyz_cache_bench:summary_bench');history.pushState({},'','/podcasts/bench/episodes');dispatchEvent(new PopStateEvent('popstate'))")
+        await page.get_by_role('link', name='View', exact=True).focus()
         await page.wait_for_function("localStorage.getItem('xyz_cache_bench:summary_bench') !== null")
         state['delay'] = 8
         prefetch_started = time.perf_counter()

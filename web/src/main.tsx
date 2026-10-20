@@ -6,6 +6,7 @@ import { ToastProvider } from './components/Toast'
 import PageErrorBoundary from './components/PageErrorBoundary'
 import { recoverPageImport } from './lib/chunkRecovery'
 import './index.css'
+import { registerPublicCache } from './lib/publicCache'
 
 if (new URLSearchParams(window.location.hash.slice(1)).get('type') === 'recovery') {
   window.history.replaceState(null, '', '/reset-password' + window.location.hash)
@@ -37,7 +38,7 @@ const styles = Array.from(document.querySelectorAll<HTMLLinkElement>('link[data-
 void Promise.all(styles.map(link => link.dataset.ready === 'true' || link.media === 'all' ? Promise.resolve() : new Promise<void>((resolve, reject) => {
   link.addEventListener('load', () => { link.media = 'all'; resolve() }, {once:true})
   link.addEventListener('error', () => reject(new Error('Stylesheet unavailable')), {once:true})
-}))).then(mount).catch(() => {
+}))).then(() => { mount(); registerPublicCache() }).catch(() => {
   const message = document.getElementById('startup-status')
   if (message) message.textContent = 'The page styles could not load. Please retry loading.'
   const retry = document.getElementById('startup-retry')

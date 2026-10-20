@@ -51,7 +51,7 @@ def fixtures():
 
 async def measure(browser, origin, check_processing=False):
     task, summary = fixtures()
-    context = await browser.new_context(viewport={"width": 390, "height": 844})
+    context = await browser.new_context(viewport={"width": 390, "height": 844}, service_workers='block')
     page = await context.new_page()
     session = await context.new_cdp_session(page)
     await session.send("Emulation.setCPUThrottlingRate", {"rate": 4})

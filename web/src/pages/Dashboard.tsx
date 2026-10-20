@@ -31,7 +31,6 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true)
   usePageTiming('dashboard', !loading, CacheKeys.STATS)
   const [error, setError] = useState('')
-  useEffect(() => { recentVideos.slice(0, 2).forEach(task => prefetchVideoNote(task.id)) }, [recentVideos])
   const [episodeUrl, setEpisodeUrl] = useState('')
   const [processing, setProcessing] = useState(false)
   const [newEpisodes, setNewEpisodes] = useState<NewEpisode[]>([])

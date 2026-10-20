@@ -16,13 +16,17 @@ export default defineConfig({
     rollupOptions: {
       output: {
         manualChunks(id) {
+          // A route should not need a new chain of tiny shared files on a
+          // high-latency connection. Keep the ordinary workspace in one file;
+          // readers and their formatters remain deferred.
+          if (id.includes('/src/') && !/\/(pages\/(Viewer|VideoViewer|Settings)|components\/(DataRecovery|SummaryText|TranscriptSegments)|components\/video\/(MarkdownPreview|MindMapView|HighlightedCode|TranscriptPanel))\./.test(id)) return 'workspace'
           // Keep icon helpers with the icons: dozens of tiny shared icon chunks
           // add request waterfalls on high-latency routes to the server.
-          if (id.includes('/node_modules/lucide-react/')) return 'icons'
+          if (id.includes('/node_modules/lucide-react/')) return 'workspace'
           // CommonJS/JSX helpers belong to the app runtime, otherwise Rollup
           // pulls the entire viewer dependency chunk into the initial page.
           if (id.includes('commonjsHelpers') || /\/node_modules\/(react|react-dom|react-router|react-router-dom|scheduler)\//.test(id)) {
-            return 'react-vendor'
+            return 'workspace'
           }
         },
       },

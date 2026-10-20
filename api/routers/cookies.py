@@ -131,7 +131,7 @@ async def bilibili_qr_poll(
             cookie_str = _cookies_to_netscape(all_cookies)
             from cookie_manager import get_cookie_manager
             mgr = get_cookie_manager(user.id if user else None)
-            mgr.set_cookie("bilibili", cookie_str)
+            await asyncio.to_thread(mgr.set_cookie, "bilibili", cookie_str)
             logger.info(f"BiliBili QR login success, saved {len(all_cookies)} cookies: "
                          f"{list(all_cookies.keys())}")
         else:
@@ -190,7 +190,7 @@ async def bilibili_validate_cookie(user: Optional[User] = Depends(get_current_us
     """Check if saved BiliBili cookies are still valid by calling a lightweight API."""
     from cookie_manager import get_cookie_manager
     mgr = get_cookie_manager(user.id if user else None)
-    cookie_str = mgr.get_cookie("bilibili")
+    cookie_str = await asyncio.to_thread(mgr.get_cookie, "bilibili")
     if not cookie_str:
         return {"valid": False, "reason": "no_cookie", "message": "Not logged in"}
 
@@ -495,7 +495,7 @@ async def douyin_qr_poll(
         if all_cookies:
             cookie_str = _cookies_dict_to_netscape(all_cookies, ".douyin.com")
             from cookie_manager import get_cookie_manager
-            get_cookie_manager(user.id if user else None).set_cookie("douyin", cookie_str)
+            await asyncio.to_thread(get_cookie_manager(user.id if user else None).set_cookie, "douyin", cookie_str)
             logger.info(f"Douyin QR login success, saved {len(all_cookies)} cookies")
 
         _douyin_sessions.pop(token, None)
@@ -752,7 +752,7 @@ async def upload_cookie_file(
     netscape = "\n".join(filtered_lines) + "\n"
     from cookie_manager import get_cookie_manager
     try:
-        get_cookie_manager(user.id if user else None).set_cookie(platform, netscape)
+        await asyncio.to_thread(get_cookie_manager(user.id if user else None).set_cookie, platform, netscape)
     except Exception as e:
         logger.error(f"Failed to save cookies for {platform}: {e}")
         raise HTTPException(

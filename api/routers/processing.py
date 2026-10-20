@@ -1483,7 +1483,7 @@ async def websocket_progress(websocket: WebSocket, token: Optional[str] = None):
             from video_task_db import get_video_task_db
             video_db = get_video_task_db()
             from api.media import sign_media_urls
-            video_tasks = sign_media_urls(await asyncio.to_thread(video_db.list_tasks, user_id))
+            video_tasks = sign_media_urls(await asyncio.to_thread(video_db.list_progress_tasks, user_id))
             video_tasks = [
                 task for task in video_tasks
                 if task.get("status") not in ("success", "failed", "cancelled", "discovered")

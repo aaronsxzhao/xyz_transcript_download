@@ -1097,6 +1097,14 @@ def generate_note_json(
     return {"task_id": task_id, "message": "Processing started"}
 
 
+@router.get('/progress')
+def video_progress(known: str = Query('', max_length=5000), user: Optional[User] = Depends(get_current_user)):
+    from video_task_db import get_video_task_db
+    import re
+    ids = [value for value in known.split(',') if re.fullmatch(r'[A-Za-z0-9_-]{1,64}', value)][:100]
+    return {'tasks': sign_media_urls(get_video_task_db().list_progress_tasks(user.id if user else None, ids))}
+
+
 @router.get("/tasks")
 def list_tasks(user: Optional[User] = Depends(get_current_user)):
     """List all video note tasks (cached for 5s to avoid excessive Supabase calls)."""
@@ -1274,7 +1282,7 @@ async def retry_task(
     from video_task_db import get_video_task_db
     db = get_video_task_db()
     user_id = user.id if user else None
-    task = db.get_task(task_id, user_id)
+    task = await asyncio.to_thread(db.get_task, task_id, user_id)
     if not task:
         raise HTTPException(status_code=404, detail="Task not found")
     retryable = ("failed", "cancelled", "success", "downloading", "parsing", "transcribing", "summarizing", "saving", "pending", "discovered")
@@ -1303,7 +1311,7 @@ async def retry_task(
     if not formats:
         formats = overrides.get("formats", ["toc", "summary", "screenshot"])
 
-    db.update_task(task_id, {
+    await asyncio.to_thread(db.update_task, task_id, {
         "status": "pending", "progress": 0,
         "message": "Starting..." if task["status"] == "discovered" else "Retrying...",
         "error": "",
@@ -1660,7 +1668,7 @@ async def check_channels_for_updates(
         except Exception:
             pass
 
-    all_channels = db.get_distinct_channels(user_id)
+    all_channels = await asyncio.to_thread(db.get_distinct_channels, user_id)
 
     if channel:
         all_channels = [c for c in all_channels if c.get("channel") == channel]
@@ -1687,18 +1695,18 @@ async def check_channels_for_updates(
             if not videos:
                 continue
             urls = [v["url"] for v in videos]
-            existing_urls = db.get_existing_urls(urls, user_id)
+            existing_urls = await asyncio.to_thread(db.get_existing_urls, urls, user_id)
             # Backfill published_at on existing tasks that are missing it
             for v in videos:
                 if v["url"] in existing_urls and v.get("published_at"):
-                    existing = db.get_task_by_url(v["url"], user_id)
+                    existing = await asyncio.to_thread(db.get_task_by_url, v["url"], user_id)
                     if existing and not existing.get("published_at"):
-                        db.update_task(existing["id"], {"published_at": v["published_at"]})
+                        await asyncio.to_thread(db.update_task, existing["id"], {"published_at": v["published_at"]})
             for v in videos:
                 if v["url"] in existing_urls:
                     continue
                 try:
-                    db.create_task({
+                    await asyncio.to_thread(db.create_task, {
                         "url": v["url"],
                         "platform": ch_platform,
                         "title": v.get("title", ""),

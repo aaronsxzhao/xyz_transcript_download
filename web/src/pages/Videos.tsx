@@ -39,7 +39,7 @@ function isActiveVideoStatus(status: string) {
 }
 
 export default function Videos() {
-  const { videoTasks, mergeVideoTasks, removeVideoTask, wsConnected } = useStore()
+  const { videoTasks, mergeVideoTasks, removeVideoTask } = useStore()
   const [formOpen, setFormOpen] = useState(false)
   const [search, setSearch] = useState('')
   const [error, setError] = useState('')
@@ -54,9 +54,6 @@ export default function Videos() {
   // Per-channel video state (loaded on demand when drilling into a channel)
   const [channelTasks, setChannelTasks] = useState<VideoTask[]>([])
   const [channelTasksLoading, setChannelTasksLoading] = useState(false)
-  useEffect(() => {
-    channelTasks.slice(0, 4).filter(task => task.status === 'success').slice(0, 2).forEach(task => prefetchVideoNote(task.id))
-  }, [channelTasks])
   // Track which channel is currently loaded
   const loadedChannelRef = useRef<string>('')
 
@@ -150,23 +147,14 @@ export default function Videos() {
     }
   }, [view, loadChannelTasks])
 
-  // Poll active tasks from store (for in-progress processing)
-  const hasActiveTasks = videoTasks.some(t => isActiveVideoStatus(t.status))
-  useEffect(() => {
-    if (!hasActiveTasks || wsConnected) return
-    // When there are active tasks in a channel view, re-fetch that channel periodically
-    if (view.type !== 'videos') return
-    const interval = setInterval(() => {
-      if (document.visibilityState !== 'hidden') void loadChannelTasks(view.platform, view.channel, { preserveExisting: true })
-    }, 5000)
-    return () => clearInterval(interval)
-  }, [hasActiveTasks, wsConnected, view, loadChannelTasks])
+  // Global progress reconciliation supplies active tasks even without a socket.
 
   // Periodically refresh channel stats
   useEffect(() => {
-    const interval = setInterval(() => { if (document.visibilityState !== 'hidden') void loadChannels() }, hasActiveTasks ? 10000 : 60000)
+    if (view.type === 'videos') return
+    const interval = setInterval(() => { if (document.visibilityState !== 'hidden') void loadChannels() }, 60000)
     return () => clearInterval(interval)
-  }, [loadChannels, hasActiveTasks])
+  }, [loadChannels, view.type])
 
   const currentViewStoreTasks = useMemo(() => {
     if (view.type !== 'videos') return [] as VideoTask[]

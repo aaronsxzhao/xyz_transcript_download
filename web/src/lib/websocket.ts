@@ -1,6 +1,6 @@
 /** Account-bound real-time updates with polling when the socket is unavailable. */
 import { useStore } from './store'
-import { authFetch } from './api'
+import { authFetch, fetchProgress } from './api'
 import { getAccessToken, refreshToken } from './auth'
 
 let running = false
@@ -22,15 +22,14 @@ async function pollJobs(owner: number) {
     const healthySocket = ws?.readyState === WebSocket.OPEN && Date.now() - lastUpdate < 45000
     // Reconcile quiet active jobs occasionally in case a progress event was lost.
     if (document.visibilityState !== 'hidden' && (!healthySocket || (busy && Date.now() - lastProgress > 15000))) {
-      const [jobsResponse, tasksResponse] = await Promise.all([
-        authFetch('/api/jobs'), authFetch('/api/video-notes/tasks'),
+      const [jobsResponse, tasks] = await Promise.all([
+        authFetch('/api/jobs', {signal:AbortSignal.timeout(10000)}), fetchProgress(state.videoTasks.filter(task => active(task.status)).map(task => task.id)),
       ])
       const jobs = jobsResponse.ok ? (await jobsResponse.json()).jobs : null
-      const tasks = tasksResponse.ok ? (await tasksResponse.json()).tasks : null
       if (!running || owner !== epoch) return
       lastProgress = Date.now()
       if (jobs) useStore.getState().mergeJobs(jobs)
-      if (tasks) useStore.getState().mergeVideoTasks(tasks)
+      useStore.getState().mergeVideoTasks(tasks.tasks)
     }
   } catch (error) {
     if (running && owner === epoch) console.debug('Progress poll failed:', error)
