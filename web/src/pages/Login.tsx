@@ -5,7 +5,7 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Loader2, Radio, Mail, Lock, AlertCircle } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
-import { setRememberMe, getRememberMe } from '../lib/auth'
+import { setRememberMe, getRememberMe, requestAuth } from '../lib/auth'
 
 type AuthMode = 'signin' | 'signup' | 'recovery'
 
@@ -49,9 +49,7 @@ export default function Login() {
       setRememberMe(rememberMe)
       
       if (mode === 'recovery') {
-        const response = await fetch('/api/auth/password-reset', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email})})
-        const result = await response.json()
-        if (!response.ok) throw new Error(result.detail || 'Cannot request password recovery')
+        const result = await requestAuth<{message:string}>('password-reset', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email})})
         setMessage(result.message)
       } else if (mode === 'signin') {
         await signIn(email, password)

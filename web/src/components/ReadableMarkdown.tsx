@@ -1,17 +1,10 @@
 import { createElement, useMemo, type ReactNode } from 'react'
 import { Lexer, type Token, type Tokens } from 'marked'
 import ReaderScreenshot from './ReaderScreenshot'
-import { noteHeadingSlug, prepareNoteMarkdown, inlineNoteText } from '../lib/noteMarkdown'
+import { noteHeadingSlug, prepareNoteMarkdown, inlineNoteText, decodeNoteText as text } from '../lib/noteMarkdown'
 
 const safeLink=(url:string)=>/^(https?:\/\/|mailto:|tel:|#|\/(?![\/\\]))/i.test(url)
 const safeImage=(url:string)=>/^https?:\/\//i.test(url)||/^\/data\/(screenshots|thumbnails)\//.test(url)
-const text=(value:string)=>value.replace(/&(?:amp|lt|gt|quot|apos|nbsp|#\d+|#x[0-9a-f]+);/gi,entity=>{
-  const named:Record<string,string>={'&amp;':'&','&lt;':'<','&gt;':'>','&quot;':'"','&apos;':"'",'&nbsp;':'\u00a0'}
-  if(named[entity.toLowerCase()])return named[entity.toLowerCase()]
-  const hex=entity.toLowerCase().startsWith('&#x');const value=parseInt(entity.slice(hex?3:2,-1),hex?16:10)
-  return value>0&&value<=0x10ffff?String.fromCodePoint(value):entity
-})
-
 /** Semantic Markdown is part of startup. No raw HTML or executable URLs. */
 export default function ReadableMarkdown({markdown,imagesReady=true,omitToc=false}:{markdown:string;imagesReady?:boolean;omitToc?:boolean}) {
   const tokens=useMemo(()=>Lexer.lex(omitToc?prepareNoteMarkdown(markdown):markdown,{gfm:true}),[markdown,omitToc])
@@ -27,7 +20,7 @@ export default function ReadableMarkdown({markdown,imagesReady=true,omitToc=fals
       case 'strong':return <strong key={key}>{render((token as Tokens.Strong).tokens)}</strong>
       case 'em':return <em key={key}>{render((token as Tokens.Em).tokens)}</em>
       case 'del':return <del key={key}>{render((token as Tokens.Del).tokens)}</del>
-      case 'codespan':return <code key={key}>{text((token as Tokens.Codespan).text)}</code>
+      case 'codespan':return <code key={key}>{(token as Tokens.Codespan).text}</code>
       case 'code':return <pre key={key}><code>{(token as Tokens.Code).text}</code></pre>
       case 'br':return <br key={key}/>
       case 'hr':return <hr key={key}/>

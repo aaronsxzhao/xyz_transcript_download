@@ -6,6 +6,51 @@ and routing graph, every page's fetch/cache/polling lifecycle, rendering and
 reader dependencies, FastAPI route scheduling, database access, progress jobs,
 private media delivery, and deployment/rollback.
 
+## Workflow reliability audit — current iteration
+
+Inspected application routing, authentication, cross-tab state, public cache and
+updates, Library filtering, upload chunking/finalization, reader rendering,
+background polling, settings persistence, API ownership checks, database list
+queries and deployment rollback. This is a code and synthetic-flow review, not
+proof that every external provider or the user's network is healthy.
+
+Fixed in this iteration:
+- Update availability appears in the header. Reload fetches a fresh document,
+  retains route/query/fragment and removes the temporary recovery parameter.
+  Updates do not discard an unsaved form automatically.
+- Sign-in, sign-up and password recovery have connection/body deadlines; late
+  login responses cannot undo logout. Cross-tab account changes invalidate
+  requests and clear the previous account's UI/cache. Responses finishing body
+  parsing after a session change are rejected, including stale cache fallback.
+- Video upload polling stops after success or failure and cannot delay a
+  successful finalization. Chunk progress counts completed bytes; failed workers
+  stop scheduling further chunks. Upload response bodies have deadlines too.
+- Tablet navigation includes sign-out. Library remembers grid/list preference
+  and provides clear filters; failed video delete/cancel actions show errors.
+- Summary polling cannot overlap or replace a newly navigated summary. Markdown
+  TOC cleanup preserves ordinary prose/separators, and Unicode/entity heading
+  links agree with rendered headings. Single-column topics and bounded images
+  remain in place.
+
+Remaining work and evidence limits:
+- Library still loads relatively large source lists and does not implement
+  server cursor pagination. PostgREST's row cap can truncate very large podcast
+  collections; API pagination/search should precede further visual polish.
+- Missing historical local-upload screenshots are absent from storage. CSS and
+  cache changes cannot restore those files; original source or backup recovery
+  is required. Existing notes/media are not rewritten by this release.
+- Paid summarization and platform downloads are not re-run against users' media
+  as a test. Their external availability is not established by mocked tests.
+- China/company-Wi-Fi response time remains unverified. Local/CI timings are
+  synthetic, and a healthy deployment does not establish that network's speed.
+- Some non-upload mutation requests still lack a uniform deadline. Settings
+  remains a large component; these deserve a separate, focused iteration.
+
+Validation covers authentication races, stalled upload status/finalization,
+Markdown preservation, Library preferences/filters, tablet navigation, update
+and rollback behavior, reader dimensions, and the existing backend regression
+suite. Release CI records the complete browser matrix and test outcomes.
+
 ## Follow-up: startup still stalled in the user's browser
 
 ### Reader layout follow-up

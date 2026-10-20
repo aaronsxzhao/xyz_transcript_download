@@ -98,6 +98,14 @@ async def check(browser, dist, label, rollback_dist=None):
             await page.wait_for_function("(async()=>await workerVersion()==='integration-next')()",timeout=15000)
             await page.get_by_role('button',name='Reload',exact=True).wait_for(timeout=15000)
             report['update_available_without_forced_reload']=True
+            banner=page.locator('header [role=status]')
+            assert await banner.is_visible()
+            assert (await banner.bounding_box())['y']<100
+            await page.get_by_role('button',name='Reload',exact=True).click()
+            await page.locator('select[aria-label="Summary provider"]').wait_for(timeout=15000)
+            await page.wait_for_function("!location.search.includes('__xyz_boot')")
+            assert page.url.endswith('/settings?probe=preserved#section'),page.url
+            report['prominent_update_reload_preserves_route']=True
             state['release']=False
             await page.evaluate('(async()=>{const registration=await navigator.serviceWorker.getRegistration();await registration.update()})()')
             await page.wait_for_function("(async expected=>await workerVersion()===expected)", arg=original_version, timeout=15000)

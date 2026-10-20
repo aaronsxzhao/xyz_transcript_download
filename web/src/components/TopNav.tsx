@@ -11,6 +11,7 @@ import {
 } from 'lucide-react'
 import { useState, useEffect } from 'react'
 import { useAuth } from '../contexts/AuthContext'
+import WebsiteUpdate from './WebsiteUpdate'
 import { preloadPage } from '../lib/pages'
 
 const navItems = [
@@ -73,8 +74,8 @@ export default function TopNav() {
         {/* Right side: user + mobile toggle */}
         <div className="flex items-center gap-2">
           {authEnabled && user && (
-            <div className="hidden xl:flex items-center gap-2">
-              <div className="flex items-center gap-1.5 text-xs text-gray-400">
+            <div className="hidden md:flex items-center gap-2">
+              <div className="hidden xl:flex items-center gap-1.5 text-xs text-gray-400">
                 <User size={14} />
                 <span className="max-w-[120px] truncate">{user.email}</span>
               </div>
@@ -99,6 +100,8 @@ export default function TopNav() {
           </button>
         </div>
       </div>
+
+      <WebsiteUpdate />
 
       {/* Mobile dropdown */}
       {mobileOpen && (

@@ -68,6 +68,15 @@ async def check(browser, origin, width, output, label):
     result['first_note_before_video_response']=not await page.get_by_role('heading',name='Synthetic video',exact=True).count()
     await page.get_by_role('heading',name='Synthetic video',exact=True).wait_for()
     await page.screenshot(path=str(output/f'{label}-{width}-library.png'))
+    await page.get_by_role('button',name='list layout',exact=True).click()
+    await page.reload()
+    assert await page.get_by_role('button',name='list layout',exact=True).get_attribute('aria-pressed')=='true'
+    await page.get_by_label('Search saved notes').fill('missing synthetic title')
+    await page.get_by_role('button',name='Clear filters',exact=True).click()
+    await page.wait_for_function("document.querySelector('[aria-label=\"Search saved notes\"]').value === ''")
+    if width>=768:
+        assert await page.get_by_title('Sign Out',exact=True).is_visible()
+    result['library_preferences_and_filters']=True
     start=time.monotonic()
     await page.goto(origin+'/videos/bench')
     await page.get_by_role('heading',name='Trading review / 交易复盘',exact=True).wait_for()

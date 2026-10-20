@@ -38,6 +38,26 @@ function sessionChanged(): void {
   window.dispatchEvent(new Event('xyz:session-changed'))
 }
 
+/** Reconcile remembered sessions changed in another tab. Tokens stay private. */
+export function watchStoredSession(): () => void {
+  let owner = getStoredUser()?.id || null
+  const changed = (event: StorageEvent) => {
+    if (event.storageArea !== localStorage || (event.key !== null && event.key !== USER_KEY)) return
+    const next = getStoredUser()?.id || null
+    if (owner === next) return
+    owner = next
+    refreshInFlight = null
+    sessionChanged()
+  }
+  const track = () => { owner = getStoredUser()?.id || null }
+  window.addEventListener('storage', changed)
+  window.addEventListener('xyz:session-changed', track)
+  return () => {
+    window.removeEventListener('storage', changed)
+    window.removeEventListener('xyz:session-changed', track)
+  }
+}
+
 /**
  * Get the appropriate storage based on "Remember Me" setting
  */
@@ -76,6 +96,16 @@ function startupAuthFetch(url: string, options: RequestInit = {}): Promise<Respo
   return Promise.race([request, timeout]).finally(() => clearTimeout(timer))
 }
 
+/** Bound both connection and body download; never show proxy HTML as an error. */
+export async function requestAuth<T>(path: string, options: RequestInit): Promise<T> {
+  const response = await startupAuthFetch(`${API_BASE}/${path}`, options)
+  let body
+  try { body = await response.json() }
+  catch { throw new Error('The sign-in service is temporarily unavailable. Please retry.') }
+  if (!response.ok) throw new Error(typeof body?.detail === 'string' ? body.detail : 'Account request failed. Please retry.')
+  return body as T
+}
+
 /**
  * Get the authentication configuration from the server
  */
@@ -111,19 +141,13 @@ export function accessTokenNeedsRefresh(token = getAccessToken()): boolean {
  * Sign up a new user
  */
 export async function signUp(email: string, password: string): Promise<AuthTokens> {
-  const res = await fetch(`${API_BASE}/signup`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+  const startedGeneration = generation
+  const tokens = await requestAuth<AuthTokens>('signup', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ email, password }),
   })
-  
-  if (!res.ok) {
-    const error = await res.json()
-    throw new Error(error.detail || 'Failed to sign up')
-  }
-  
-  const tokens = await res.json()
-  
+  if (startedGeneration !== generation) throw new DOMException('Session changed', 'AbortError')
+
   // Store tokens
   if (tokens.access_token) {
     saveTokens(tokens)
@@ -136,19 +160,13 @@ export async function signUp(email: string, password: string): Promise<AuthToken
  * Sign in an existing user
  */
 export async function signIn(email: string, password: string): Promise<AuthTokens> {
-  const res = await fetch(`${API_BASE}/signin`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+  const startedGeneration = generation
+  const tokens = await requestAuth<AuthTokens>('signin', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ email, password }),
   })
-  
-  if (!res.ok) {
-    const error = await res.json()
-    throw new Error(error.detail || 'Invalid email or password')
-  }
-  
-  const tokens = await res.json()
-  
+  if (startedGeneration !== generation) throw new DOMException('Session changed', 'AbortError')
+
   // Store tokens
   saveTokens(tokens)
   
@@ -163,7 +181,7 @@ export async function signOut(): Promise<void> {
   clearTokens()
   
   try {
-    await fetch(`${API_BASE}/signout`, {
+    await startupAuthFetch(`${API_BASE}/signout`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${token}`,
