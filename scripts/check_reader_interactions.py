@@ -175,7 +175,8 @@ async def main():
         if report['label']=='after':
             assert not report['errors'],report
             assert not report['layout']['overflow'],report
-            assert report['layout']['article']>report['layout']['content']*.85,report
+            assert report['layout']['article'] <= 1121,report
+            assert report['layout']['article'] >= min(1120, report['layout']['content']-48)*.95,report
             assert report['zoom_changes_transform'] and report.get('copy_works'),report
             assert report['reading_position_retained'],report
             assert report['first_note_before_video_response'],report

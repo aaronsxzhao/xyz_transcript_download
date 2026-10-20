@@ -374,6 +374,10 @@ export default function Viewer() {
     return acc
   }, {} as Record<string, KeyPoint[]>) || {}
   
+  const topicEntries = Object.entries(keyPointsByTopic) as [string, KeyPoint[]][]
+  const topicMiddle = Math.ceil(topicEntries.length / 2)
+  const topicColumns = [topicEntries.slice(0, topicMiddle), topicEntries.slice(topicMiddle)].filter(topics => topics.length > 0)
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -383,7 +387,7 @@ export default function Viewer() {
   }
   
   return (
-    <div className="reader-body space-y-4 md:space-y-6">
+    <div className="reader-body podcast-reader space-y-4 md:space-y-6">
       <ReaderControls />
       {error && <LoadError message={error} onRetry={() => {
         setError('')
@@ -570,15 +574,17 @@ export default function Viewer() {
           </div>
           
           {/* Topics/Key Points */}
-          <div className="grid xl:grid-cols-2 items-start gap-4">
-            <h2 id="summary-key-points" className="xl:col-span-2 text-lg font-semibold text-white flex items-center gap-2">
+          <section className="space-y-4">
+            <h2 id="summary-key-points" className="text-lg font-semibold text-white flex items-center gap-2">
               <MessageSquare className="text-purple-500" size={20} />
               Key Points by Topic
             </h2>
             
-            {(Object.entries(keyPointsByTopic) as [string, KeyPoint[]][]).map(([topic, points]) => (
+            <div className="grid xl:grid-cols-2 items-start gap-4">
+            {topicColumns.map((topics,column)=><div key={column} className="space-y-3" data-topic-column>
+            {topics.map(([topic, points]) => (
               <div
-                key={topic}
+                key={topic} data-topic-card
                 className="bg-dark-surface border border-dark-border rounded-xl overflow-hidden"
               >
                 <button
@@ -619,7 +625,9 @@ export default function Viewer() {
                 )}
               </div>
             ))}
-          </div>
+            </div>)}
+            </div>
+          </section>
           
           {/* Takeaways */}
           {summary.takeaways.length > 0 && (

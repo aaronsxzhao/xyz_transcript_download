@@ -7,6 +7,28 @@ import PlainNote from '../src/components/PlainNote'
 let cleanup: (() => void) | undefined
 afterEach(() => { cleanup?.(); cleanup=undefined; vi.useRealTimers() })
 
+it('renders semantic Markdown and matching duplicate anchors without optional formatting', () => {
+  const node=document.createElement('div');const root=createRoot(node)
+  cleanup=()=>act(()=>root.unmount())
+  act(()=>root.render(<PlainNote markdown={'# 交易 **复盘**\n\n## 目录\n- [趋势](#趋势)\n\n---\n\n## 趋势\n\n**确认**后操作。\n\n- 观察\n  - 管理风险\n\n| 信号 | 行动 |\n| --- | --- |\n| 突破 | 等待 |\n\n## 趋势'}/>))
+  expect(node.querySelector('h1')?.textContent).toBe('交易 复盘')
+  expect(Array.from(node.querySelectorAll('h2'),h=>h.id)).toEqual(['趋势','趋势-1'])
+  expect(node.querySelector('p strong')?.textContent).toBe('确认')
+  expect(node.querySelector('li li')?.textContent).toContain('管理风险')
+  expect(node.querySelector('table tbody td')?.textContent).toBe('突破')
+  expect(node.textContent).not.toContain('目录')
+})
+
+it('keeps dangerous links and HTML inert while preserving readable labels', () => {
+  const node=document.createElement('div');const root=createRoot(node)
+  cleanup=()=>act(()=>root.unmount())
+  act(()=>root.render(<PlainNote markdown={'[unsafe](javascript:alert) [safe](https://example.com)\n\n<iframe src="https://example.com"></iframe>'}/>))
+  expect(node.querySelectorAll('a')).toHaveLength(1)
+  expect(node.querySelector('a')?.href).toBe('https://example.com/')
+  expect(node.querySelector('iframe')).toBeNull()
+  expect(node.textContent).toContain('unsafe')
+})
+
 it('keeps saved text readable and escapes HTML when formatting is unavailable', () => {
   const node=document.createElement('div');const root=createRoot(node)
   cleanup=()=>act(()=>root.unmount())

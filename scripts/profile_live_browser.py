@@ -37,7 +37,7 @@ async def profile_browser(owner: str, token: str, local_video: str | None = None
         routes = [
             ('episodes', '/podcasts/62382c1103bea1ebfffa1c00/episodes', '/api/podcasts/62382c1103bea1ebfffa1c00/episodes'),
             ('channel', '/videos?platform=youtube&channel=Brooks+Trading+Course', '/api/video-notes/tasks/by-channel'),
-            ('summary', '/viewer/694b7d6d0b60b7bf752e007b', '/api/summaries/694b7d6d0b60b7bf752e007b'),
+            ('summary', '/viewer/69b1512984bce022f9ea354c', '/api/summaries/69b1512984bce022f9ea354c'),
             ('video_note', '/videos/bc2c988b-2b4', '/api/video-notes/tasks/bc2c988b-2b4'),
             ('library', '/library', '/api/summaries'),
             ('settings', '/settings', '/api/settings'),
@@ -63,6 +63,7 @@ async def profile_browser(owner: str, token: str, local_video: str | None = None
                     raise RuntimeError('Page API check failed')
                 if label in {'summary', 'latest_summary'}:
                     await page.get_by_role('heading', name='Overview', exact=True).wait_for(timeout=10000)
+                    report['topic_columns'] = await page.locator('[data-topic-column]').count()
                 elif label in {'episodes', 'channel'}:
                     rows = data if isinstance(data, list) else data['tasks']
                     if rows:
@@ -88,6 +89,11 @@ async def profile_browser(owner: str, token: str, local_video: str | None = None
                             pass
                     expected = len(set(re.findall(r'/data/screenshots/[A-Za-z0-9_.-]+', data.get('markdown', ''))))
                     report.update(loaded_images=loaded, missing_images=max(expected, len(images)) - loaded)
+                    bounds = await page.locator('article img').evaluate_all('(nodes)=>nodes.map(n=>{const r=n.getBoundingClientRect();return [r.width,r.height]})')
+                    report['largest_preview_width'] = round(max((r[0] for r in bounds), default=0))
+                    report['largest_preview_height'] = round(max((r[1] for r in bounds), default=0))
+                    if report['largest_preview_width'] > 761 or report['largest_preview_height'] > 421:
+                        raise RuntimeError('Screenshot preview exceeds reader bounds')
                     mark_started = time.perf_counter()
                     await page.get_by_role('button', name='Mind Map', exact=True).click()
                     await page.locator('svg.markmap foreignObject').first.wait_for(timeout=15000)

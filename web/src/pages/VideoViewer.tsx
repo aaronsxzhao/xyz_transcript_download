@@ -1,4 +1,5 @@
 import { printHtml } from '../lib/print'
+import { extractNoteToc } from '../lib/noteMarkdown'
 import { NoteRecovery } from '../components/DataRecovery'
 import ReaderControls from '../components/ReaderControls'
 import { useReadingPosition, useDialog } from '../lib/reading'
@@ -23,31 +24,6 @@ const TranscriptPanel = deferView(()=>import('../components/video/TranscriptPane
 import MindMapView, { preloadMindMap } from '../components/video/MindMapView'
 
 type ViewMode = 'markdown' | 'mindmap' | 'transcript'
-
-interface TocItem {
-  level: number
-  text: string
-  slug: string
-}
-
-function extractToc(markdown: string): TocItem[] {
-  const items: TocItem[] = []
-  const slugCounts: Record<string, number> = {}
-  for (const match of markdown.matchAll(/^(#{1,3})\s+(.+)$/gm)) {
-    const level = match[1].length
-    const text = match[2].trim()
-    let slug = text.toLowerCase()
-      .replace(/[^\w\u4e00-\u9fff\s-]/g, '')
-      .trim().replace(/\s+/g, '-')
-      .replace(/-+/g, '-')
-    const base = slug
-    const n = slugCounts[base] || 0
-    if (n > 0) slug = `${base}-${n}`
-    slugCounts[base] = n + 1
-    items.push({ level, text, slug })
-  }
-  return items
-}
 
 function buildNotionExportMarkdown(task: VideoTask, content: string): string {
   const lines: string[] = []
@@ -320,7 +296,7 @@ export default function VideoViewer() {
 
   const content = getCurrentContent()
   useReadingPosition(`video:${taskId}`, 'video-content-scroll', !loading && !!task && !!content)
-  const toc = useMemo(() => extractToc(content), [content])
+  const toc = useMemo(() => extractNoteToc(content), [content])
 
   const scrollToHeading = (slug: string) => {
     const el = document.getElementById(slug)
@@ -417,7 +393,7 @@ export default function VideoViewer() {
   const versions = task.versions || []
 
   return (
-    <div className="reader-workspace flex flex-col gap-2">
+    <div className="reader-workspace video-reader flex flex-col gap-2">
       {/* Fixed header bar */}
       {error && <div role="alert" className="text-sm text-red-300 mb-3">{error} <button className="underline" onClick={() => setLoadAttempt(value => value + 1)}>Retry</button></div>}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 pb-3 flex-shrink-0">

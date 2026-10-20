@@ -3,57 +3,47 @@
     "file": "assets/dist-9mZ0N9zs.js",
     "name": "dist"
   },
-  "_lib-DrojRuqa.js": {
-    "file": "assets/lib-DrojRuqa.js",
+  "_lib-u2C--ZyL.js": {
+    "file": "assets/lib-u2C--ZyL.js",
     "name": "lib",
     "imports": [
-      "_rolldown-runtime-XKyaHtl9.js",
-      "_workspace-CLfs1_fg.js"
-    ]
-  },
-  "_lib-fgcctFLW.js": {
-    "file": "assets/lib-fgcctFLW.js",
-    "name": "lib",
-    "imports": [
-      "_lib-DrojRuqa.js"
+      "src/components/video/MarkdownPreview.tsx"
     ]
   },
   "_rolldown-runtime-XKyaHtl9.js": {
     "file": "assets/rolldown-runtime-XKyaHtl9.js",
     "name": "rolldown-runtime"
   },
-  "_workspace-CLfs1_fg.js": {
-    "file": "assets/workspace-CLfs1_fg.js",
+  "_workspace-BuLJ9WXd.css": {
+    "file": "assets/workspace-BuLJ9WXd.css",
+    "src": "_workspace-BuLJ9WXd.css"
+  },
+  "_workspace-Ce3uKzNm.js": {
+    "file": "assets/workspace-Ce3uKzNm.js",
     "name": "workspace",
     "imports": [
       "_rolldown-runtime-XKyaHtl9.js"
     ],
     "dynamicImports": [
-      "_workspace-CLfs1_fg.js",
+      "_workspace-Ce3uKzNm.js",
       "node_modules/dompurify/dist/purify.es.mjs",
-      "node_modules/marked/lib/marked.esm.js",
       "node_modules/markmap-lib/dist/index.no-plugins.mjs",
       "node_modules/markmap-view/dist/index.js",
       "src/components/video/MarkdownPreview.tsx",
       "src/components/video/TranscriptPanel.tsx",
-      "src/components/FormattedSummary.tsx",
       "src/components/TranscriptSegments.tsx"
     ],
     "css": [
-      "assets/workspace-xP7uqhEq.css"
+      "assets/workspace-BuLJ9WXd.css"
     ]
   },
-  "_workspace-xP7uqhEq.css": {
-    "file": "assets/workspace-xP7uqhEq.css",
-    "src": "_workspace-xP7uqhEq.css"
-  },
   "index.html": {
-    "file": "assets/index-CHbFFJrc.js",
+    "file": "assets/index-DZc6ji86.js",
     "name": "index",
     "src": "index.html",
     "isEntry": true,
     "imports": [
-      "_workspace-CLfs1_fg.js"
+      "_workspace-Ce3uKzNm.js"
     ]
   },
   "node_modules/dompurify/dist/purify.es.mjs": {
@@ -302,12 +292,6 @@
     "file": "assets/katex-Ngnvt50Q.css",
     "src": "node_modules/katex/dist/katex.min.css"
   },
-  "node_modules/marked/lib/marked.esm.js": {
-    "file": "assets/marked.esm-AL3rySYw.js",
-    "name": "marked.esm",
-    "src": "node_modules/marked/lib/marked.esm.js",
-    "isDynamicEntry": true
-  },
   "node_modules/markmap-lib/dist/index.no-plugins.mjs": {
     "file": "assets/index.no-plugins-B3YVWIM-.js",
     "name": "index.no-plugins",
@@ -319,90 +303,79 @@
     ]
   },
   "node_modules/markmap-view/dist/index.js": {
-    "file": "assets/dist-BXIZLMv1.js",
+    "file": "assets/dist-BafXF2bn.js",
     "name": "dist",
     "src": "node_modules/markmap-view/dist/index.js",
     "isDynamicEntry": true,
     "imports": [
-      "_workspace-CLfs1_fg.js",
+      "_workspace-Ce3uKzNm.js",
       "_dist-9mZ0N9zs.js"
     ]
   },
   "node_modules/rehype-katex/index.js": {
-    "file": "assets/rehype-katex-BDl6WIFX.js",
+    "file": "assets/rehype-katex-B5XqGDT_.js",
     "name": "rehype-katex",
     "src": "node_modules/rehype-katex/index.js",
     "isDynamicEntry": true,
     "imports": [
-      "_lib-DrojRuqa.js",
-      "_lib-fgcctFLW.js"
+      "_lib-u2C--ZyL.js",
+      "src/components/video/MarkdownPreview.tsx"
     ]
   },
   "node_modules/remark-math/index.js": {
-    "file": "assets/remark-math-DcZaoVbh.js",
+    "file": "assets/remark-math-BWIMrkDu.js",
     "name": "remark-math",
     "src": "node_modules/remark-math/index.js",
     "isDynamicEntry": true,
     "imports": [
-      "_lib-DrojRuqa.js"
-    ]
-  },
-  "src/components/FormattedSummary.tsx": {
-    "file": "assets/FormattedSummary-CVEfjgnA.js",
-    "name": "FormattedSummary",
-    "src": "src/components/FormattedSummary.tsx",
-    "isDynamicEntry": true,
-    "imports": [
-      "_workspace-CLfs1_fg.js",
-      "_lib-DrojRuqa.js"
+      "src/components/video/MarkdownPreview.tsx"
     ]
   },
   "src/components/TranscriptSegments.tsx": {
-    "file": "assets/TranscriptSegments-DDzuNAxv.js",
+    "file": "assets/TranscriptSegments-CZcR0YaD.js",
     "name": "TranscriptSegments",
     "src": "src/components/TranscriptSegments.tsx",
     "isDynamicEntry": true,
     "imports": [
       "_rolldown-runtime-XKyaHtl9.js",
-      "_workspace-CLfs1_fg.js"
+      "_workspace-Ce3uKzNm.js"
     ]
   },
   "src/components/video/HighlightedCode.tsx": {
-    "file": "assets/HighlightedCode-CE-x3lYm.js",
+    "file": "assets/HighlightedCode-DJVIIGoO.js",
     "name": "HighlightedCode",
     "src": "src/components/video/HighlightedCode.tsx",
     "isDynamicEntry": true,
     "imports": [
       "_rolldown-runtime-XKyaHtl9.js",
-      "_workspace-CLfs1_fg.js",
-      "_lib-DrojRuqa.js",
-      "_lib-fgcctFLW.js"
+      "_workspace-Ce3uKzNm.js",
+      "_lib-u2C--ZyL.js",
+      "src/components/video/MarkdownPreview.tsx"
     ]
   },
   "src/components/video/MarkdownPreview.tsx": {
-    "file": "assets/MarkdownPreview-JtAup2cl.js",
+    "file": "assets/MarkdownPreview-DQ2ODB9y.js",
     "name": "MarkdownPreview",
     "src": "src/components/video/MarkdownPreview.tsx",
     "isDynamicEntry": true,
     "imports": [
       "_rolldown-runtime-XKyaHtl9.js",
-      "_workspace-CLfs1_fg.js",
-      "_lib-DrojRuqa.js"
+      "_workspace-Ce3uKzNm.js"
     ],
     "dynamicImports": [
       "src/components/video/HighlightedCode.tsx",
-      "_workspace-CLfs1_fg.js",
+      "_workspace-Ce3uKzNm.js",
       "node_modules/remark-math/index.js",
       "node_modules/rehype-katex/index.js"
     ]
   },
   "src/components/video/TranscriptPanel.tsx": {
-    "file": "assets/TranscriptPanel-Pkbny7Yc.js",
+    "file": "assets/TranscriptPanel-P6PRF81t.js",
     "name": "TranscriptPanel",
     "src": "src/components/video/TranscriptPanel.tsx",
     "isDynamicEntry": true,
     "imports": [
-      "_workspace-CLfs1_fg.js",
+      "_workspace-Ce3uKzNm.js",
       "src/components/TranscriptSegments.tsx"
     ]
   }

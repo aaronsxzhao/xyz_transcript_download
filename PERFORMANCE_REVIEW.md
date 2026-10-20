@@ -8,8 +8,36 @@ private media delivery, and deployment/rollback.
 
 ## Follow-up: startup still stalled in the user's browser
 
-A new real-user Podcasts record is 120,574ms with only 14ms spent on the cached
-document. The supplied screenshot is the pre-framework public shell, so the
+### Reader layout follow-up
+
+The optional formatting fallback exposed Markdown source, wide image previews
+expanded with the viewport, and row-aligned topic cards reserved blank space
+under shorter neighbours. Basic semantic Markdown now ships with startup;
+syntax highlighting and math enhancements remain deferred. The complete initial
+compressed document is 185.1 KiB (previously 171.5 KiB), with an explicit 190 KiB
+budget and no external core JS/CSS requests. This small increase makes readable
+headings, lists, links and tables independent of optional network downloads.
+
+Both renderers share heading anchors and omit the generated duplicate TOC.
+Screenshot previews fit within 760 × 420 CSS pixels, preserve aspect ratio and
+native small-image size, and open full-size only on request. Readers stop
+stretching at 1600px; article text is capped at 1120px. Topic cards use independent
+column stacks, with original reading order retained on mobile.
+
+Synthetic Chromium checks cover 390, 1440, 2560 and 5120px, rich and blocked-module
+rendering, late landscape/portrait/small images, zoom/close, duplicate Chinese
+heading navigation, expanded topic spacing and overflow. Mobile and desktop
+screenshots were visually reviewed. Existing copy/export/mind-map/scroll-position
+checks pass, as do 34 frontend and 249 backend tests. CI additionally exercises
+WebKit. The deployment read probe now checks the reported summary and numeric
+image bounds. This does not establish the user's China-network loading time.
+
+Rollback: `safety/pre-reader-layout-20261020` / image
+`1275fbc876542df16266ea212084b4db9d8a56f0`. Saved notes and media are unchanged.
+
+A new real-user Podcasts record is 120,574ms with only 14ms spent on the
+document. The telemetry's cache flag describes data, not document caching.
+The supplied screenshot is the pre-framework public shell, so the
 previous route-boundary checks covered the wrong failure boundary. US-runner
 success does not establish the user's actual startup performance.
 

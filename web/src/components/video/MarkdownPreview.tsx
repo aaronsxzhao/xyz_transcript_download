@@ -1,9 +1,9 @@
 import { lazy, memo, Suspense, useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useDialog } from '../../lib/reading'
+import { prepareNoteMarkdown, rehypeNoteHeadings } from '../../lib/noteMarkdown'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
-import rehypeSlug from 'rehype-slug'
 import type { PluggableList } from 'unified'
 import {
   AlertCircle, Loader2, RotateCcw, Square,
@@ -22,8 +22,8 @@ function NoteImage({ src, alt, onImage, priority = false }: { src?: string; alt?
     <ImageIcon size={16} />{alt || 'Image'} — unavailable
     <button className="underline" onClick={() => { setReady(false); setFailed(false) }}>Retry image</button>
   </span>
-  return <button type="button" className="relative inline-block w-full max-w-full aspect-video rounded-lg bg-dark-bg/40 overflow-hidden" aria-label={`Enlarge ${alt || 'screenshot'}`} onClick={() => src && onImage(src)}>{!ready && <span className="absolute inset-0 flex items-center justify-center gap-2 text-sm text-gray-400" role="status"><Loader2 size={18} className="animate-spin" />Loading screenshot…</span>}<img loading={priority ? 'eager' : 'lazy'} fetchPriority={priority ? 'high' : 'auto'} decoding="async" src={src} alt={alt || ''}
-    className="w-full max-w-full h-full object-contain rounded-lg border border-dark-border cursor-pointer hover:opacity-90 transition-opacity"
+  return <button type="button" className="reader-screenshot relative rounded-lg bg-dark-bg/40 overflow-hidden" aria-label={`Enlarge ${alt || 'screenshot'}`} onClick={() => src && onImage(src)}>{!ready && <span className="absolute inset-0 flex items-center justify-center gap-2 text-sm text-gray-400" role="status"><Loader2 size={18} className="animate-spin" />Loading screenshot…</span>}<img loading={priority ? 'eager' : 'lazy'} fetchPriority={priority ? 'high' : 'auto'} decoding="async" src={src} alt={alt || ''}
+    className="rounded-lg border border-dark-border cursor-pointer hover:opacity-90 transition-opacity"
     referrerPolicy="no-referrer" onLoad={() => setReady(true)} onError={() => setFailed(true)} /></button>
 }
 
@@ -271,7 +271,7 @@ const NoteMarkdown = memo(function NoteMarkdown({ markdown, onImage }: { markdow
     return () => { active = false }
   }, [hasMath, math])
   const priorityImages = Array.from(markdown.matchAll(/!\[[^\]]*\]\(([^\s)]+)/g)).slice(0, 2).map(match => match[1])
-  const rehypePlugins: PluggableList = [rehypeSlug]
+  const rehypePlugins: PluggableList = [rehypeNoteHeadings]
   if (math) rehypePlugins.push([math.rehype, { throwOnError: false, errorColor: '#94a3b8' }])
   return (
             <ReactMarkdown
@@ -377,10 +377,7 @@ const NoteMarkdown = memo(function NoteMarkdown({ markdown, onImage }: { markdow
                 },
               }}
             >
-              {markdown
-                .replace(/^##\s*(?:目录|Table of Contents)\s*\n(?:[\s\S]*?)(?=\n---\n|\n## )/m, '')
-                .replace(/^\n---\n/m, '\n')
-              }
+              {prepareNoteMarkdown(markdown)}
             </ReactMarkdown>
   )
 })

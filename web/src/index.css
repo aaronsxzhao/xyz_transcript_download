@@ -20,7 +20,7 @@ body {
 }
 :where(button,a,select) { touch-action: manipulation; }
 .reader-body, .reader-body p, .reader-body li { font-size: var(--reader-font-size, 16px); line-height: 1.8; }
-.reader-body article { max-width: none; width: 100%; margin-inline: 0; overflow-wrap: anywhere; }
+.reader-body article { max-width: 1120px; width: 100%; margin-inline: auto; overflow-wrap: anywhere; }
 .note-prose { --tw-prose-body: #d1d5db; }
 .note-prose > :first-child { margin-top: 0; }
 .note-prose h2 { scroll-margin-top: 1rem; border-bottom: 1px solid #334155; padding-bottom: .5rem; }
@@ -101,3 +101,18 @@ body {
 .animate-pulse-slow {
   animation: pulse-slow 2s ease-in-out infinite;
 }
+
+/* Reader measure and image previews stay usable on very wide displays. */
+.podcast-reader, .video-reader { width: 100%; max-width: 1600px; margin-inline: auto; }
+.reader-screenshot { position: relative; display: flex; align-items: center; justify-content: center; width: 100%; max-width: 760px; aspect-ratio: 16 / 9; max-height: 420px; margin: 1.25rem 0; overflow: hidden; border: 1px solid #334155; border-radius: .75rem; background: #0f172a; cursor: zoom-in; }
+/* Absolute positioning gives WebKit a definite containing height for portrait
+   images; max-height:100% in normal flex flow can resolve as unbounded there. */
+.note-prose .reader-screenshot img { position: absolute; inset: 0; display: block; width: auto; height: auto; max-width: 100%; max-height: 100%; margin: auto; object-fit: contain; }
+.markdown-table { width: 100%; overflow-x: auto; }
+.note-prose h1 { font-size: 1.65em; line-height: 1.35; margin: 0 0 1.25rem; }
+.note-prose h2 { font-size: 1.3em; margin-top: 1.8rem; margin-bottom: .8rem; color: #b7c1ff; }
+.note-prose h3 { font-size: 1.12em; margin-top: 1.4rem; margin-bottom: .6rem; }
+.note-prose p { margin-block: .75em; }
+.note-prose li > span > p { margin-block: .3em; }
+.note-prose th, .note-prose td { border: 1px solid #334155; padding: .5rem .75rem; }
+.note-prose th { background: #334155; }

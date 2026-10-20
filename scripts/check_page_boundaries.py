@@ -85,7 +85,7 @@ async def check(browser,dist,label):
                 mode['block']=False
                 await page.get_by_role('button',name='Reload formatting',exact=True).click()
                 try:
-                    await page.get_by_role('heading',name='Readable completed note',exact=True).wait_for(timeout=6000)
+                    await page.locator('article[data-rendering="formatted"]').wait_for(timeout=6000)
                 except BrowserTimeout:
                     print(json.dumps({'label':label,'recovery_failure':{'path':urlparse(page.url).path,'boot_parameter':'__xyz_boot' in page.url,'fallback':await page.locator('article[data-rendering="plain"]').count(),'reload_button':await page.get_by_role('button',name='Reload formatting',exact=True).count(),'startup':await page.locator('#startup-shell').count(),'errors':browser_errors[-8:]}}),flush=True)
                     raise
