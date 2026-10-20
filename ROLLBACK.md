@@ -32,3 +32,10 @@ The version immediately before this repair is preserved at
 application, run **Roll back website** with revision
 `aca4f9bb29b90cb08b1fef6a97ab4f8efdd3d7e9`. The original October 19 checkpoint
 above remains available. This repair changes no saved notes or database schema.
+
+## Startup loading repair checkpoint (20 October 2026)
+
+Before the startup changes, source and image `d3fe060e8e7046a3a359b7f57765f8a38f92a49d`
+are preserved at `safety/pre-startup-repair-20261020`. Use that revision in
+**Roll back website** to restore the previous reader and Library release.
+Earlier checkpoints remain available. These startup changes do not alter notes or schema.

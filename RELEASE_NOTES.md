@@ -1,3 +1,14 @@
+# First paint and startup repair — 20 October 2026
+
+- Public navigation and a page frame are included in HTML and styled inline, so slow framework/style downloads do not leave an empty screen. Authentication waits also retain navigation; private content still requires server authorization.
+- Valid-session page reads start while the framework downloads and are consumed once by the matching session. Expired sessions use the normal refresh flow; config/session/refresh requests now have bounded body-read deadlines.
+- Public JavaScript and CSS are precompressed as Brotli and gzip. Variant ETags, cache headers and Range handling remain separate from private API responses.
+- A missing entry script triggers one bounded fresh-document retry, preserving the URL query and fragment. Persistent failures leave navigation and a manual retry, rather than a reload loop.
+
+Checkpoint: `safety/pre-startup-repair-20261020`, image `d3fe060e8e7046a3a359b7f57765f8a38f92a49d`. No saved notes or schema changed.
+
+---
+
 # Reader and Library repair — 20 October 2026
 
 - Library fills the available width with responsive cards or a list, shows the first returning source immediately, and keeps readable notes when another source fails. Large results load 60 at a time.

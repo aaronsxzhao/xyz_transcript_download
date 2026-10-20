@@ -4,16 +4,86 @@
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <style>html,body{color:#e2e8f0;background:#0f172a;margin:0;font-family:-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif}#startup-shell header{background:#1e293b;border-bottom:1px solid #334155;align-items:center;gap:24px;height:48px;padding:0 20px;display:flex}#startup-shell a{color:#d1d5db;white-space:nowrap;border-radius:6px;padding:8px;font-size:14px;text-decoration:none}#startup-shell a[aria-current=page]{color:#fff;background:#4f46e5}#startup-shell nav{gap:8px;display:flex;overflow:auto}#startup-shell strong{white-space:nowrap;font-size:14px}#startup-shell main{padding:24px}#startup-shell h1{margin:8px 0 16px;font-size:28px}#startup-shell p{color:#cbd5e1;font-size:14px}#startup-shell .placeholders{grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px;margin-top:24px;display:grid}#startup-shell .placeholder{background:#1e293b;border:1px solid #334155;border-radius:12px;height:160px}#startup-shell button{color:#fff;cursor:pointer;background:#4f46e5;border:0;border-radius:8px;padding:10px 16px}#startup-shell a:focus-visible,#startup-shell button:focus-visible{outline-offset:2px;outline:2px solid #c7d2fe}@media (width<=700px){#startup-shell header{gap:8px;padding:0 8px}#startup-shell strong{display:none}#startup-shell main{padding:16px}#startup-shell nav{gap:0}}</style>
     <title>Podcast Transcript Tool</title>
-    <script type="module" crossorigin src="/assets/index-NLm5I3Rg.js"></script>
+    <script type="module" crossorigin src="/assets/index-CypK7NOz.js" onerror="window.__xyzEntryFailed=true;window.dispatchEvent(new Event('xyz:entry-error'))"></script>
     <link rel="modulepreload" crossorigin href="/assets/rolldown-runtime-XKyaHtl9.js">
     <link rel="modulepreload" crossorigin href="/assets/icons-DKTI79S0.js">
     <link rel="modulepreload" crossorigin href="/assets/react-vendor-BRfIt2qi.js">
-    <link rel="modulepreload" crossorigin href="/assets/auth-mGFHawhu.js">
-    <link rel="modulepreload" crossorigin href="/assets/api-CJNaZRSe.js">
-    <link rel="stylesheet" crossorigin href="/assets/index-fzy6Ck3_.css">
+    <link rel="modulepreload" crossorigin href="/assets/auth-DotuYAIi.js">
+    <link rel="modulepreload" crossorigin href="/assets/api-CQkXNngT.js">
+    <link rel="preload" as="style" href="/assets/index-fzy6Ck3_.css" crossorigin><link rel="stylesheet" crossorigin href="/assets/index-fzy6Ck3_.css" media="print" data-app-style onload="this.media='all';this.dataset.ready='true'">
   </head>
   <body class="bg-dark-bg text-gray-100">
-    <div id="root"></div>
+    <div id="root"><div id="startup-shell" aria-busy="true">
+      <header><strong>Podcast &amp; Video Tool</strong><nav aria-label="Main navigation">
+        <a data-startup-nav href="/">Dashboard</a><a data-startup-nav href="/library">Library</a><a data-startup-nav href="/podcasts">Podcasts</a><a data-startup-nav href="/videos">Videos</a><a data-startup-nav href="/settings">Settings</a>
+      </nav></header>
+      <main><h1 id="startup-title">Your workspace</h1><p id="startup-status" role="status">Loading your page…</p><button id="startup-retry" hidden>Retry loading</button><div class="placeholders" aria-hidden="true"><div class="placeholder"></div><div class="placeholder"></div><div class="placeholder"></div></div></main>
+    </div></div>
+    <script>/* Runs before framework downloads. Public shell only; APIs still verify tokens. */
+(() => {
+  const titles = { '/': 'Dashboard', '/library': 'Library', '/podcasts': 'Podcasts', '/videos': 'Videos', '/settings': 'Settings', '/login': 'Sign in', '/reset-password': 'Reset password' };
+  const path = location.pathname;
+  const title = titles[path] || (path.startsWith('/podcasts/') ? 'Episodes' : path.startsWith('/viewer/') ? 'Summary' : 'Video note');
+  const heading = document.getElementById('startup-title');
+  if (heading) heading.textContent = title;
+  document.querySelectorAll('[data-startup-nav]').forEach(link => {
+    if (link.pathname === path || (link.pathname !== '/' && path.startsWith(link.pathname + '/'))) link.setAttribute('aria-current', 'page');
+  });
+  document.getElementById('startup-retry')?.addEventListener('click', () => location.reload());
+  const recoverEntry = () => {
+    try {
+      const previous = Number(sessionStorage.getItem('xyz:entry-recovery') || 0);
+      if (Date.now() - previous > 60000) {
+        sessionStorage.setItem('xyz:entry-recovery', String(Date.now()));
+        const fresh = new URL(location.href); fresh.searchParams.set('__xyz_boot', String(Date.now()));
+        location.replace(fresh.href); return;
+      }
+    } catch { /* Without storage, leave a manual retry instead of risking a reload loop. */ }
+    const message = document.getElementById('startup-status');
+    if (message) message.textContent = 'Some page files could not load. Please retry loading.';
+    const retry = document.getElementById('startup-retry'); if (retry) retry.hidden = false;
+  };
+  window.addEventListener('xyz:entry-error', recoverEntry);
+  if (window.__xyzEntryFailed) recoverEntry();
+  setTimeout(() => {
+    const message = document.getElementById('startup-status');
+    if (message) message.textContent = 'The connection is taking longer than expected. You can retry loading.';
+    const retry = document.getElementById('startup-retry');
+    if (retry) retry.hidden = false;
+  }, 12000);
+  try {
+    const token = localStorage.getItem('xyz_access_token') || sessionStorage.getItem('xyz_access_token');
+    if (!token) return;
+    const payload = JSON.parse(atob(token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')));
+    if (!payload.exp || payload.exp <= Date.now() / 1000 + 30) return;
+    const parts = path.split('/').filter(Boolean);
+    const id = parts[1] && encodeURIComponent(decodeURIComponent(parts[1]));
+    let urls = [];
+    if (path === '/settings') urls = ['/api/settings'];
+    else if (path === '/podcasts') urls = ['/api/podcasts'];
+    else if (path === '/library') urls = ['/api/summaries', '/api/video-notes/tasks'];
+    else if (parts[0] === 'podcasts' && parts[2] === 'episodes') urls = [`/api/podcasts/${id}`, `/api/podcasts/${id}/episodes?offset=0&limit=50`];
+    else if (parts[0] === 'viewer' && id) urls = [`/api/summaries/${id}`];
+    else if (parts[0] === 'videos' && id) urls = [`/api/video-notes/tasks/${id}?view=note`];
+    else if (path === '/videos') {
+      const params = new URLSearchParams(location.search);
+      urls = [params.has('channel') ? '/api/video-notes/tasks/by-channel?' + new URLSearchParams({platform:params.get('platform') || 'youtube',channel:params.get('channel') || ''}) : '/api/video-notes/channels'];
+    } else if (path === '/') urls = ['/api/summaries/recent?limit=6', '/api/video-notes/recent?limit=6'];
+    const reads = new Map();
+    window.__xyzStartupReads = reads;
+    for (const url of urls) {
+      const key = new URL(url, location.origin); key.searchParams.sort();
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 10000);
+      const response = fetch(url, { headers:{Authorization:`Bearer ${token}`}, signal:controller.signal })
+        .then(async result => ({body:await result.text(),status:result.status,headers:result.headers}))
+        .catch(() => null).finally(() => clearTimeout(timeout));
+      reads.set(key.pathname + key.search, {token,response});
+    }
+  } catch { /* Blocked storage or an expired session uses normal sign-in handling. */ }
+})();
+</script>
   </body>
 </html>

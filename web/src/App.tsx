@@ -2,6 +2,7 @@ import { lazy, Suspense } from 'react'
 import { Routes, Route, Navigate, Outlet, Link, useLocation } from 'react-router-dom'
 import { AuthProvider, useAuth } from './contexts/AuthContext'
 import Layout from './components/Layout'
+import TopNav from './components/TopNav'
 import { Loader2 } from 'lucide-react'
 import pages, { preloadPage } from './lib/pages'
 import { getAuthConfig } from './lib/auth'
@@ -22,15 +23,15 @@ const VideoViewer = lazy(pages.videoViewer)
 const Settings = lazy(pages.settings)
 const Login = lazy(pages.login)
 
+function LoadingFrame() {
+  return <div className="min-h-screen bg-dark-bg text-gray-100"><TopNav /><main className="p-4 md:p-6"><div role="status" className="flex items-center gap-3 py-8"><Loader2 className="animate-spin text-indigo-400" size={22} />Connecting to your workspace…</div></main></div>
+}
+
 function ProtectedRoute() {
   const { user, loading, authEnabled } = useAuth()
 
   if (loading) {
-    return (
-      <div className="min-h-screen bg-dark-bg flex items-center justify-center">
-        <Loader2 className="w-8 h-8 animate-spin text-indigo-500" />
-      </div>
-    )
+    return <LoadingFrame />
   }
 
   if (!authEnabled) {
@@ -56,11 +57,7 @@ function AppRoutes() {
   markPageNavigation(location.pathname + location.search)
 
   if (loading) {
-    return (
-      <div className="min-h-screen bg-dark-bg flex items-center justify-center">
-        <Loader2 className="w-8 h-8 animate-spin text-indigo-500" />
-      </div>
-    )
+    return <LoadingFrame />
   }
 
   return (
