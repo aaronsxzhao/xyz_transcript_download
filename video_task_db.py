@@ -765,6 +765,20 @@ class VideoTaskDB:
     def list_tasks(self, user_id: str = None, limit: int = 2000) -> List[dict]:
         return self._backend.list_tasks(user_id, limit)
 
+    def list_progress_tasks(self, user_id: str = None, known_ids: list[str] = ()) -> List[dict]:
+        if isinstance(self._backend, _SupabaseVideoTaskDB):
+            if not user_id:
+                return []
+            rows = self._backend._sb.list_video_progress(user_id, known_ids)
+            # Pending local writes must remain visible while cloud persistence catches up.
+            return self._backend._merge_cached_task_list(rows, user_id=user_id, limit=310,
+                predicate=lambda task: task.get('status') not in {'success', 'failed', 'cancelled', 'discovered'} or task.get('id') in known_ids or task.get('id') in self._backend._dirty)
+        tasks = self._backend.list_tasks(user_id, limit=10000)
+        terminal = {'success', 'failed', 'cancelled', 'discovered'}
+        active = [task for task in tasks if task.get('status') not in terminal or task['id'] in known_ids]
+        recent = sorted((task for task in tasks if task.get('status') in terminal - {'discovered'}), key=lambda task: task.get('updated_at') or '', reverse=True)[:10]
+        return list({task['id']: task for task in [*recent, *active]}.values())
+
     def list_recent_success_tasks(self, user_id: str = None, limit: int = 6) -> List[dict]:
         if hasattr(self._backend, "list_recent_success_tasks"):
             return self._backend.list_recent_success_tasks(user_id, limit)

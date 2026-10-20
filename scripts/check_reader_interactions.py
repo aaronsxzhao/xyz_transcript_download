@@ -21,7 +21,7 @@ async def check(browser, origin, width, output, label):
     task, summary = fixtures()
     task['markdown'] = '# Trading review / 交易复盘\n\nA practical summary with screenshots, a table, and key decisions.\n\n' + '\n\n'.join(
         f'## {i+1}. Review the trend / 趋势分析\n\n- Identify the context before entering.\n- Wait for confirmation and manage risk.\n\n![Chart at {i}:00](/data/screenshots/bench_{i}.jpg)\n\n| Signal | Action |\n| --- | --- |\n| Breakout | Review the follow-through |\n\n' for i in range(8))
-    context = await browser.new_context(viewport={'width':width,'height':960}, permissions=['clipboard-read','clipboard-write'])
+    context = await browser.new_context(viewport={'width':width,'height':960}, permissions=['clipboard-read','clipboard-write'], service_workers='block')
     await context.add_init_script('''
         if (location.protocol === 'http:' || location.protocol === 'https:') {
         localStorage.setItem('xyz_remember_me','true');

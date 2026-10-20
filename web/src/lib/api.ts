@@ -234,9 +234,11 @@ export async function fetchJob(jobId: string): Promise<ProcessingJob> {
 
 // API functions
 export async function fetchStats(): Promise<Stats> {
-  const res = await authFetch(`${API_BASE}/stats`)
-  if (!res.ok) throw new Error('Failed to fetch stats')
-  return res.json()
+  return readJson(`${API_BASE}/stats`, 'Cannot load statistics')
+}
+
+export function fetchProgress(known: string[]): Promise<{tasks: VideoTask[]}> {
+  return readJson(`${API_BASE}/video-notes/progress?${new URLSearchParams({known:known.slice(0,100).join(',')})}`, 'Cannot refresh progress')
 }
 
 export async function fetchPodcasts(): Promise<Podcast[]> {

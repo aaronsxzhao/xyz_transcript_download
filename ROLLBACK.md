@@ -1,5 +1,18 @@
 # Restore the previous website
 
+## Network repair checkpoint (20 October 2026)
+
+The version immediately before the public-file cache and navigation repair is
+`safety/pre-network-repair-20261020`, image
+`c460b553cca557aa4c56beba986cd7aaad79f506`. Use that revision in **Roll back
+website**. Deployment health failures restore it automatically.
+
+The public-file worker also revalidates its HTML in the background and prepares
+the entry files before offering **Website update ready → Reload**. This handles
+the preceding image, which predates the worker. Browser checks exercise an
+upgrade followed by a rollback. API responses and private images are never put
+in the public-file cache; account data and database schema are unchanged.
+
 The pre-improvement source is retained as the Git tag
 `safety/pre-improvements-20261019` (commit `45e995b`). The corresponding live
 application image is `440009e42e7574a45fddca717e5451dd98d2cb15`.

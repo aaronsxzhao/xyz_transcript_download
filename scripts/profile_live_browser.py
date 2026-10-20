@@ -13,7 +13,7 @@ async def profile_browser(owner: str, token: str) -> list[dict]:
     reports = []
     async with async_playwright() as playwright:
         browser = await playwright.chromium.launch()
-        context = await browser.new_context(viewport={'width': 390, 'height': 844})
+        context = await browser.new_context(viewport={'width': 390, 'height': 844}, service_workers='block')
         # This five-minute diagnostic token exists only in the disposable browser
         # context. Do not save its storage state, screenshots, traces, or HARs.
         await context.add_init_script('''
@@ -106,5 +106,28 @@ async def profile_browser(owner: str, token: str) -> list[dict]:
             reports.append(report)
             await page.close()
         await context.close()
+        # Check the actual deployed worker separately from the cold measurements.
+        warm = await browser.new_context(viewport={'width':390,'height':844}, service_workers='allow')
+        await warm.add_init_script('''localStorage.setItem('xyz_remember_me','true');
+          localStorage.setItem('xyz_access_token',TOKEN);
+          localStorage.setItem('xyz_user',JSON.stringify({id:OWNER,email:'',authenticated:true}));'''.replace('TOKEN',json.dumps(token)).replace('OWNER',json.dumps(owner)))
+        await warm.route('**/*',read_only)
+        page = await warm.new_page()
+        report = {'library_profile':'check_cached_settings','status':500}
+        try:
+            await page.goto(ORIGIN+'/settings',wait_until='domcontentloaded',timeout=25000)
+            await page.wait_for_function('!!navigator.serviceWorker.controller',timeout=30000)
+            started = time.perf_counter()
+            await page.reload(wait_until='domcontentloaded',timeout=5000)
+            await page.locator('select[aria-label="Summary provider"]').wait_for(timeout=10000)
+            await page.wait_for_function("!document.querySelector('select[aria-label=\"Summary provider\"]').disabled")
+            report['milliseconds'] = round((time.perf_counter()-started)*1000)
+            counts = await page.evaluate("(async()=>{let good=0,bad=0;for(const name of await caches.keys())if(name.startsWith('xyz-public-'))for(const request of await(await caches.open(name)).keys()){const path=new URL(request.url).pathname;if(path==='/__xyz_public_shell__'||path.startsWith('/assets/'))good++;else bad++}return [good,bad]})()")
+            report['public_cache_files'], report['private_cache_files'] = counts
+            if counts[0]>0 and counts[1]==0: report['status']=200
+        except Exception:
+            pass
+        reports.append(report)
+        await warm.close()
         await browser.close()
     return reports

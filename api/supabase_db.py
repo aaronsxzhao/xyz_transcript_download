@@ -1067,6 +1067,22 @@ class SupabaseDatabase:
         )
         return [self._video_task_to_dict(r) for r in result.data]
 
+    def list_video_progress(self, user_id: str, known_ids: list[str] = ()) -> List[dict]:
+        """Small progress snapshot, independent of the saved video library."""
+        if not self.client or not user_id:
+            return []
+        columns = 'id,url,platform,title,thumbnail,status,progress,message,error,channel,channel_url,channel_avatar,duration,created_at,updated_at'
+        terminal = ['success', 'failed', 'cancelled', 'discovered']
+        def query():
+            return self.client.table('video_tasks').select(columns).eq('user_id', user_id)
+        active = query().not_.in_('status', terminal).order('updated_at', desc=True).limit(200).execute().data or []
+        recent = query().in_('status', terminal[:3]).order('updated_at', desc=True).limit(10).execute().data or []
+        rows = {row['id']: row for row in [*recent, *active]}
+        missing = [task_id for task_id in known_ids[:100] if task_id not in rows]
+        if missing:
+            rows.update({row['id']: row for row in (query().in_('id', missing).execute().data or [])})
+        return [dict(row) for row in rows.values()]
+
     def list_recent_success_video_tasks(self, user_id: str, limit: int = 6) -> List[dict]:
         """List recent successful video tasks for dashboard cards."""
         if not self.client:

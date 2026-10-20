@@ -1,3 +1,20 @@
+# Network and request responsiveness repair — 20 October 2026
+
+- Real browser records included a 12.7s document load, a 77.6s Videos visit and a
+  49.5s channel visit, while most server queries took tens to hundreds of ms.
+- Consolidate common workspace code so ordinary list navigation needs no new
+  program files. Keep large reader/formatter dependencies deferred.
+- Cache only public program files and the generic public shell for repeat hard
+  visits; retain background revalidation, update notification and rollback.
+- Replace background whole-library reads with bounded, account-scoped progress
+  snapshots, including known jobs that completed between polls.
+- Remove automatic reader downloads on list arrival and redundant channel polls.
+- Move remaining blocking database work in retry, channel scan, cookie validation
+  and Notion export off the event loop. Bound dashboard statistics reads.
+- Add slow-network, offline public-cache, update and rollback browser checks.
+
+---
+
 # First paint and startup repair — 20 October 2026
 
 - Public navigation and a page frame are included in HTML and styled inline, so slow framework/style downloads do not leave an empty screen. Authentication waits also retain navigation; private content still requires server authorization.

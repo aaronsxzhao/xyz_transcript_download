@@ -41,9 +41,6 @@ export default function Episodes() {
   const currentPid = useRef(pid)
   currentPid.current = pid
 
-  useEffect(() => {
-    episodes.slice(0, 4).filter(episode => episode.has_summary).slice(0, 2).forEach(episode => prefetchSummary(episode.eid))
-  }, [episodes])
   
   // Helper to find active job for an episode
   function getActiveJob(eid: string) {

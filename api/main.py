@@ -371,7 +371,7 @@ async def health_check(response: Response):
 
 
 @app.get("/api/debug/screenshots")
-async def debug_screenshots(_: None = Depends(require_debug_access)):
+def debug_screenshots(_: None = Depends(require_debug_access)):
     """Debug: list screenshot directory contents and config."""
     import os
     screenshots_dir = _data_dir / "screenshots"
@@ -395,7 +395,7 @@ async def debug_screenshots(_: None = Depends(require_debug_access)):
 
 
 @app.get("/api/debug/youtube-test")
-async def debug_youtube_test(_: None = Depends(require_debug_access)):
+def debug_youtube_test(_: None = Depends(require_debug_access)):
     """Debug: test YouTube download capability (JS challenge solver + node)."""
     import shutil
     import subprocess
@@ -456,7 +456,7 @@ async def debug_youtube_test(_: None = Depends(require_debug_access)):
 
 
 @app.get("/api/debug/logs")
-async def debug_logs(
+def debug_logs(
     _: None = Depends(require_debug_access),
     lines: int = 200,
     level: str = "",
@@ -685,7 +685,7 @@ def serve_frontend(path: str, request: Request):
     if not file_path.is_relative_to(frontend_dist):
         raise HTTPException(status_code=404, detail="Not found")
     if path != "index.html" and file_path.exists() and file_path.is_file():
-        cache_control = "public, max-age=31536000, immutable" if path.startswith("assets/") else "no-cache"
+        cache_control = "public, max-age=31536000, immutable" if path.startswith("assets/") else "no-store" if path == 'sw.js' else "no-cache"
         return FileResponse(file_path, headers={"Cache-Control": cache_control})
     
     # Otherwise serve index.html for client-side routing

@@ -21,7 +21,7 @@ from playwright.async_api import async_playwright
 async def check(browser, dist, label, output):
     server=ThreadingHTTPServer(('127.0.0.1',0),functools.partial(Preview,directory=str(dist),bootstrap=True))
     threading.Thread(target=server.serve_forever,daemon=True).start()
-    context=await browser.new_context(viewport={'width':390,'height':844})
+    context=await browser.new_context(viewport={'width':390,'height':844}, service_workers='block')
     await context.add_init_script('''if(location.protocol==='http:'){
       localStorage.setItem('xyz_remember_me','true');
       localStorage.setItem('xyz_access_token',TOKEN);

@@ -29,7 +29,7 @@ def profile_public_routes(owner: str, routes: list[tuple[str, str]]) -> list[dic
     token = jwt.encode({"sub": owner, "aud": "authenticated", "role": "authenticated",
                         "iat": now, "exp": now + 300}, secret, algorithm="HS256")
     selected = [("auth", "/api/auth/me"), *[(label, path) for label, path in routes
-                if label in {"podcasts", "channels", "episodes", "summary", "transcript", "settings", "channel_videos", "reported_episodes", "reported_summary", "reported_video_note"}]]
+                if label in {"progress", "podcasts", "channels", "episodes", "summary", "transcript", "settings", "channel_videos", "reported_episodes", "reported_summary", "reported_video_note"}]]
     reports = []
     for label, path in selected:
         result = subprocess.run([
@@ -61,7 +61,7 @@ def profile_public_routes(owner: str, routes: list[tuple[str, str]]) -> list[dic
         for label in {"dashboard", "podcasts", "videos", "channel", "episodes", "viewer", "video_note", "settings"} & pages.keys():
             row = pages[label]
             safe = {"library_profile": "browser_" + label}
-            for source, target in {"elapsed_ms": "milliseconds", "document_ms": "document_ms",
+            for source, target in {"elapsed_ms": "milliseconds", "first_paint_ms": "first_paint_ms", "document_ms": "document_ms",
                                    "api_ms": "api_ms", "server_ms": "server_ms", "samples": "samples", "cached": "cached",
                                    "worst_ms": "worst_ms", "error_count": "error_count", "slow_count": "slow_count"}.items():
                 if isinstance(row.get(source), int) and 0 <= row[source] <= 300000:
@@ -90,7 +90,7 @@ async def profile() -> list[dict]:
     summaries = database.table("summaries").select("episode_id").eq("user_id", owner).limit(1).execute().data or []
     routes = [("stats", "/api/stats"), ("podcasts", "/api/podcasts"),
               ("recent_summaries", "/api/summaries/recent"), ("channels", "/api/video-notes/channels"),
-              ("queue", "/api/video-notes/tasks"), ("settings", "/api/settings")]
+              ("queue", "/api/video-notes/tasks"), ("progress", "/api/video-notes/progress"), ("settings", "/api/settings")]
     if podcasts:
         pid = podcasts[0]["pid"]
         routes.extend([("podcast_detail", f"/api/podcasts/{pid}"), ("episodes", f"/api/podcasts/{pid}/episodes")])
