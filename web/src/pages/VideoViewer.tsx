@@ -1,3 +1,4 @@
+import { printHtml } from '../lib/print'
 import { NoteRecovery } from '../components/DataRecovery'
 import ReaderControls from '../components/ReaderControls'
 import { useReadingPosition, useDialog } from '../lib/reading'
@@ -276,27 +277,9 @@ export default function VideoViewer() {
   }
 </style>
 </head><body>${body}</body></html>`
-      const blob = new Blob([html], { type: 'text/html' })
-      const url = URL.createObjectURL(blob)
-      const iframe = document.createElement('iframe')
-      iframe.style.position = 'fixed'
-      iframe.style.right = '0'
-      iframe.style.bottom = '0'
-      iframe.style.width = '0'
-      iframe.style.height = '0'
-      iframe.style.border = 'none'
-      iframe.setAttribute('sandbox', 'allow-same-origin allow-modals')
-      iframe.src = url
-      iframe.onload = () => {
-        setTimeout(() => {
-          iframe.contentWindow?.focus()
-          iframe.contentWindow?.print()
-          setTimeout(() => { document.body.removeChild(iframe); URL.revokeObjectURL(url) }, 1000)
-        }, 500)
-      }
-      document.body.appendChild(iframe)
+      await printHtml(html)
     } catch (e) {
-      console.error('PDF generation failed:', e)
+      setError(e instanceof Error ? e.message : 'Could not prepare the PDF. Please retry or download Markdown.')
     } finally {
       setPdfLoading(false)
     }
@@ -550,6 +533,8 @@ export default function VideoViewer() {
                   <button
                     onClick={handleDownloadPdf}
                     disabled={pdfLoading}
+                    aria-busy={pdfLoading}
+                    aria-label={pdfLoading ? 'Preparing PDF' : 'Download PDF'}
                     className="inline-flex items-center gap-1.5 px-2.5 py-2 text-xs rounded-lg hover:bg-dark-hover text-gray-400 disabled:opacity-50"
                     title="Download PDF"
                   >
@@ -754,7 +739,7 @@ export default function VideoViewer() {
                 Send to Notion
               </h2>
               <button
-                onClick={() => setNotionOpen(false)}
+                aria-label="Close Notion export" onClick={() => setNotionOpen(false)}
                 className="p-1 text-gray-400 hover:text-white transition-colors"
               >
                 <X size={16} />
@@ -851,7 +836,7 @@ export default function VideoViewer() {
             {/* Footer */}
             <div className="flex items-center justify-end gap-2 p-4 border-t border-dark-border">
               <button
-                onClick={() => setNotionOpen(false)}
+                aria-label="Close Notion export" onClick={() => setNotionOpen(false)}
                 className="px-4 py-2 text-sm text-gray-400 hover:text-white transition-colors"
               >
                 {notionResult?.ok ? 'Done' : hasNotionKey ? 'Cancel' : 'Close'}

@@ -23,10 +23,12 @@ async def check(browser, origin, width, output, label):
         f'## {i+1}. Review the trend / 趋势分析\n\n- Identify the context before entering.\n- Wait for confirmation and manage risk.\n\n![Chart at {i}:00](/data/screenshots/bench_{i}.jpg)\n\n| Signal | Action |\n| --- | --- |\n| Breakout | Review the follow-through |\n\n' for i in range(8))
     context = await browser.new_context(viewport={'width':width,'height':960}, permissions=['clipboard-read','clipboard-write'])
     await context.add_init_script('''
+        if (location.protocol === 'http:' || location.protocol === 'https:') {
         localStorage.setItem('xyz_remember_me','true');
         localStorage.setItem('xyz_access_token',TOKEN);
         localStorage.setItem('xyz_user',JSON.stringify({id:'bench',email:'bench@example.com',authenticated:true}));
         window.WebSocket=class {static OPEN=1;readyState=1;constructor(){setTimeout(()=>this.onopen?.(),10)}send(v){if(JSON.parse(v).type==='auth')setTimeout(()=>this.onmessage?.({data:JSON.stringify({type:'init',jobs:[],video_tasks:[]})}),5)}close(){this.readyState=3}};
+        }
     '''.replace('TOKEN',json.dumps(token(int(time.time())+3600))))
     page = await context.new_page()
     session = await context.new_cdp_session(page)
@@ -34,6 +36,7 @@ async def check(browser, origin, width, output, label):
     errors=[]; images=[]; requests=[]
     page.on('pageerror',lambda e: errors.append(str(e)))
     fail_videos = False
+    empty_podcasts = False
     async def api(route):
         path=urlparse(route.request.url).path
         requests.append(path)
@@ -44,7 +47,9 @@ async def check(browser, origin, width, output, label):
         elif path.endswith('/transcript'):body={'transcript':task['transcript']};delay=.6
         elif '/versions/' in path:body=task['versions'][0];delay=.6
         elif path=='/api/video-notes/tasks':body={'tasks':[{**task,'markdown':'','transcript':None}]};delay=2.5
-        elif path=='/api/summaries':body=[{**summary,'podcast_title':'Learning lab','created_at':'2026-10-20','episode_id':f'episode-{i}','title':f'Podcast lesson {i}'} for i in range(30)]
+        elif path=='/api/summaries/bench':body=summary
+        elif path=='/api/notion/pages':body={'pages':[]};delay=.6
+        elif path=='/api/summaries':body=[] if empty_podcasts else [{**summary,'podcast_title':'Learning lab','created_at':'2026-10-20','episode_id':f'episode-{i}','title':f'Podcast lesson {i}'} for i in range(30)]
         await asyncio.sleep(delay)
         if fail_videos and path == '/api/video-notes/tasks':
             await route.fulfill(status=503,body=json.dumps({'detail':'Synthetic video service unavailable'}),content_type='application/json');return
@@ -52,7 +57,7 @@ async def check(browser, origin, width, output, label):
     await page.route('**/api/**',api)
     async def image(route):
         images.append(urlparse(route.request.url).path)
-        await asyncio.sleep(.4)
+        await asyncio.sleep(1.2 if route.request.frame.parent_frame else .4)
         await route.fulfill(content_type='image/svg+xml',body='<svg xmlns="http://www.w3.org/2000/svg" width="960" height="540"><rect width="960" height="540" fill="#0f172a"/><path d="M0 450 L130 320 L230 380 L420 160 L530 220 L700 80 L960 30" fill="none" stroke="#34d399" stroke-width="6"/><text x="40" y="70" fill="#e2e8f0" font-size="28">Synthetic screenshot — trend review</text></svg>')
     await page.route('**/data/screenshots/**',image)
     result={'label':label,'width':width}
@@ -102,18 +107,56 @@ async def check(browser, origin, width, output, label):
         await page.get_by_role('button',name='Copied',exact=True).wait_for(timeout=10000)
         result['copy_works']=bool(await page.evaluate('navigator.clipboard.readText()'))
     if label == 'after' and width == 1440:
+        async def print_spy():
+            await page.evaluate("""() => {
+              window.__printed = false;
+              new MutationObserver(records => records.forEach(r => r.addedNodes.forEach(f => {
+                if (f.tagName === 'IFRAME') f.addEventListener('load', () => {
+                  f.contentWindow.print = () => { window.__printed = true; f.contentWindow.dispatchEvent(new Event('afterprint')); };
+                });
+              }))).observe(document.body, {childList:true});
+            }""")
+        await print_spy()
+        await page.get_by_title('Download PDF',exact=True).click()
+        await page.wait_for_timeout(250)
+        result['pdf_pending_until_images_load']=await page.get_by_title('Download PDF',exact=True).is_disabled()
+        assert result['pdf_pending_until_images_load']
+        await page.wait_for_function('window.__printed === true',timeout=15000)
+        assert not await page.get_by_title('Download PDF',exact=True).is_disabled()
+        async with page.expect_download() as pending_download:
+            await page.get_by_title('Download .md',exact=True).click()
+        result['markdown_download_works']=(await pending_download.value).suggested_filename.endswith('.md')
+        await page.get_by_title('Send to Notion',exact=True).click()
+        await page.get_by_role('dialog',name='Export to Notion').wait_for()
+        await page.get_by_role('button',name='Close Notion export',exact=True).first.click()
+        result['notion_dialog_works']=not await page.get_by_role('dialog').count()
+        assert result['notion_dialog_works'] and result['markdown_download_works']
+        await page.goto(origin+'/viewer/bench')
+        await page.get_by_role('heading',name='Overview',exact=True).wait_for()
+        await print_spy()
+        await page.get_by_title('Download PDF',exact=True).click()
+        await page.wait_for_function('window.__printed === true',timeout=15000)
+        result['podcast_pdf_works']=True
         fail_videos=True
         await page.goto(origin+'/library')
         await page.get_by_text('Could not refresh videos.',exact=False).wait_for(timeout=10000)
         result['partial_failure_keeps_notes']=await page.get_by_role('heading',name='Podcast lesson 0',exact=True).is_visible()
         assert result['partial_failure_keeps_notes']
+        fail_videos=False;empty_podcasts=True
+        await page.evaluate("Object.keys(localStorage).filter(k=>k.startsWith('xyz_cache_')).forEach(k=>localStorage.removeItem(k))")
+        async with page.expect_response(lambda response: urlparse(response.url).path=='/api/summaries'):
+            await page.goto(origin+'/library')
+        await page.wait_for_timeout(250)
+        result['empty_first_source_waits_for_video']=not await page.get_by_text('No matching notes',exact=True).count()
+        assert result['empty_first_source_waits_for_video']
+        await page.get_by_role('heading',name='Synthetic video',exact=True).wait_for()
     result['errors']=errors
     await context.close()
     return result
 
 
 async def main():
-    parser=argparse.ArgumentParser();parser.add_argument('--browser-path');parser.add_argument('--browser-args',type=Path);parser.add_argument('--baseline-dist',type=Path);parser.add_argument('--output',type=Path,default=Path('/tmp/xyz-reader-check'));args=parser.parse_args()
+    parser=argparse.ArgumentParser();parser.add_argument('--widths',type=int,nargs='+',default=[390,768,1440,1920]);parser.add_argument('--browser-path');parser.add_argument('--browser-args',type=Path);parser.add_argument('--baseline-dist',type=Path);parser.add_argument('--output',type=Path,default=Path('/tmp/xyz-reader-check'));args=parser.parse_args()
     args.output.mkdir(parents=True,exist_ok=True)
     reports=[]
     async with async_playwright() as p:
@@ -121,7 +164,7 @@ async def main():
             if not dist: continue
             server=serve(dist)
             try:
-                for width in [390,768,1440,1920]:
+                for width in args.widths:
                     browser=await p.chromium.launch(executable_path=args.browser_path,headless=True,args=json.loads(args.browser_args.read_text()) if args.browser_args else ['--no-sandbox'])
                     report=await check(browser,f'http://127.0.0.1:{server.server_port}',width,args.output,label)
                     reports.append(report);print(json.dumps(report),flush=True)

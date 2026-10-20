@@ -4,6 +4,7 @@
 - The video reader uses the available content width, shows labeled export buttons, reserves screenshot space, and preserves notes and their scroll position across view changes. Podcast summary fields render Markdown and topic cards fill two columns on wide screens.
 - Mind Map uses a smaller local-only transformer, a defined canvas height, proper zoom APIs, loading/retry states, resize handling and instance cleanup. Screenshots are excluded from the map to avoid duplicate image downloads; they remain in the note.
 - Generated image links stay stable within a day. A private 256 MiB, 24-hour read-through cache shares concurrent downloads; valid file signatures remain required even for cache hits. The first two note screenshots load eagerly.
+- PDF preparation stays pending until the print document and its images load; preparation failures are visible and temporary documents are cleaned up. Empty Library results wait for both sources before showing an empty state.
 - Copy displays progress and supports Safari's clipboard activation rules. Backup and repair actions are grouped under a disclosure.
 
 Rollback: `safety/pre-reader-repair-20261020`; deployed image `aca4f9bb29b90cb08b1fef6a97ab4f8efdd3d7e9`. No saved note bodies or database schema are changed. Earlier rollback checkpoints remain available. See [ROLLBACK.md](ROLLBACK.md).
