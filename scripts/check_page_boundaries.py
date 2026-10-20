@@ -62,7 +62,10 @@ async def check(browser,dist,label):
            ('video','/videos/bc2c988b-2b4','article'),('local','/videos/local-completed','article')]
     try:
         for name,path,selector in cases:
-            page=await context.new_page();mode.update(block=False,css=False)
+            page=await context.new_page();browser_errors=[]
+            page.on('pageerror',lambda error:browser_errors.append(str(error)[:400]))
+            page.on('console',lambda message:browser_errors.append(message.text[:400]) if message.type=='error' else None)
+            mode.update(block=False,css=False)
             await page.goto(origin+'/podcasts',wait_until='domcontentloaded')
             await page.wait_for_function("!document.querySelector('#startup-shell') && !!document.querySelector('main h1')")
             mode['block']=True;start=time.monotonic()
@@ -81,7 +84,11 @@ async def check(browser,dist,label):
                 await page.get_by_role('button',name='Reload formatting',exact=True).wait_for(timeout=3000)
                 mode['block']=False
                 await page.get_by_role('button',name='Reload formatting',exact=True).click()
-                await page.get_by_role('heading',name='Readable completed note',exact=True).wait_for(timeout=6000)
+                try:
+                    await page.get_by_role('heading',name='Readable completed note',exact=True).wait_for(timeout=6000)
+                except BrowserTimeout:
+                    print(json.dumps({'label':label,'recovery_failure':{'path':urlparse(page.url).path,'boot_parameter':'__xyz_boot' in page.url,'fallback':await page.locator('article[data-rendering="plain"]').count(),'reload_button':await page.get_by_role('button',name='Reload formatting',exact=True).count(),'startup':await page.locator('#startup-shell').count(),'errors':browser_errors[-8:]}}),flush=True)
+                    raise
                 assert '__xyz_boot' not in page.url
                 results['formatting_recovers']=True
             await page.close()
