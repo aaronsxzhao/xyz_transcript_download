@@ -1,6 +1,7 @@
 import { Link, useLocation } from 'react-router-dom'
 import {
   LayoutDashboard,
+  FileText,
   Radio,
   Video,
   Settings,
@@ -18,7 +19,7 @@ const descriptions: Record<string,string> = {'/':'Continue reading and processin
 
 const navItems = [
   { path: '/', icon: LayoutDashboard, label: 'Dashboard' },
-  { path: '/library', icon: Radio, label: 'Library' },
+  { path: '/library', icon: FileText, label: 'Library' },
   { path: '/podcasts', icon: Radio, label: 'Podcasts' },
   { path: '/videos', icon: Video, label: 'Videos' },
   { path: '/settings', icon: Settings, label: 'Settings' },
@@ -37,7 +38,7 @@ export default function TopNav() {
 
   return (
     <header className="sticky top-0 z-40 bg-dark-surface border-b border-dark-border">
-      <div className="flex items-center justify-between h-12 px-4">
+      <div className="flex items-center justify-between h-14 px-4 md:px-6">
         {/* Logo */}
         <Link to="/" aria-label="Podcast and Video Tool home" className="flex items-center gap-2 flex-shrink-0">
           <Radio className="w-5 h-5 text-indigo-500" />
@@ -84,6 +85,7 @@ export default function TopNav() {
               </div>
               <button
                 onClick={handleSignOut}
+                aria-label="Sign out"
                 className="p-1.5 text-gray-400 hover:text-white hover:bg-dark-hover rounded-lg transition-colors"
                 title="Sign Out"
               >

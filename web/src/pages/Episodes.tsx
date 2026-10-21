@@ -280,7 +280,7 @@ export default function Episodes() {
           <ArrowLeft size={20} />
         </button>
         <div className="min-w-0">
-          <h1 className="text-lg md:text-2xl font-bold text-white line-clamp-1">{podcast?.title || 'Episodes'}</h1>
+          <h1 className="page-title text-lg md:text-2xl font-bold text-white line-clamp-1">{podcast?.title || 'Episodes'}</h1>
           <p className="text-sm md:text-base text-gray-400">{episodes.length}{hasMore ? ` of ${podcast?.episode_count}` : ''} episodes</p>
         </div>
       </div>

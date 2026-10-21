@@ -22,7 +22,7 @@ export default function ResetPassword() {
     finally { setBusy(false) }
   }
   return <main className="min-h-screen grid place-items-center p-4"><div className="w-full max-w-md bg-dark-surface rounded-xl border border-dark-border p-6 space-y-4">
-    <h1 className="text-2xl font-bold">Reset password</h1>
+    <h1 className="page-title text-2xl font-bold">Reset password</h1>
     {done ? <p role="status">Your password is updated. <a className="underline" href="/login">Sign in</a></p>
       : !token ? <p>This recovery link is missing or expired. <Link className="underline" to="/login">Request a new recovery link</Link></p>
       : <form onSubmit={submit} className="space-y-4">

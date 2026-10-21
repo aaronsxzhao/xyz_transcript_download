@@ -1,10 +1,18 @@
 # Restore the previous website
 
+## Unified visual language checkpoint (21 October 2026)
+
+Use `safety/pre-visual-language-20261021`, image
+`af4de4b581d1bc682877f0cf49c4a68f1625dfc6`, to restore the design before this release.
+This is the current automatic health-check fallback. No database migration is
+needed, and notes, original media and account settings remain intact. Reading
+preferences retain the same keys and work in both versions.
+
 ## Pagination and reader checkpoint (21 October 2026)
 
 Use `safety/pre-product-iteration-20261021`, image
 `8db4bcd17f03dff9ee0ff40a08389b1636ad0365`, to restore the preceding website.
-This is the current automatic deployment fallback. The added `library_items`
+This was the automatic deployment fallback for that release. The added `library_items`
 view and bounded `page_performance` table/function can remain during rollback;
 the preceding application does not depend on them. No notes, source images,
 transcripts or credentials are modified. Preview files are derived disposable
@@ -15,7 +23,7 @@ files in the existing private cache. Do not restore an older database snapshot.
 
 Use `safety/pre-workflow-review-20261020`, image
 `b6dfe4a7345a5b392c0c5f95ca985be2cb10500a`, to undo this workflow review.
-This is the current automatic deployment fallback. Database records, notes and
+This was the automatic deployment fallback for that release. Database records, notes and
 media are unchanged; this checkpoint retains the single-column reader.
 
 ## Single-column summary checkpoint (20 October 2026)

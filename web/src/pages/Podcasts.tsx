@@ -263,7 +263,7 @@ export default function Podcasts() {
   if (error && !podcasts.length) return <LoadError message={error} onRetry={() => { void loadPodcasts() }} />
 
   return (
-    <div className="space-y-6">
+    <div className="workspace-page space-y-6">
       {error && <LoadError message={error} onRetry={() => { void loadPodcasts() }} />}
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -278,7 +278,7 @@ export default function Podcasts() {
             </button>
           )}
           <div>
-            <h1 className="text-xl md:text-2xl font-bold text-white mb-1 md:mb-2">
+            <h1 className="page-title text-xl md:text-2xl font-bold text-white mb-1 md:mb-2">
               {view.type === 'podcasts'
                 ? PLATFORM_LABELS[view.platform] || view.platform
                 : 'Podcasts'}
@@ -465,7 +465,7 @@ export default function Podcasts() {
               </p>
             </div>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="collection-grid">
               {PODCAST_PLATFORMS.map(plat => {
                 const count = platformCounts[plat.id] || 0
                 if (count === 0) return null
