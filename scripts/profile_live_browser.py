@@ -47,7 +47,9 @@ async def profile_browser(owner: str, token: str, local_video: str | None = None
             routes.append(('local_video_note', '/videos/' + local_video, '/api/video-notes/tasks/' + local_video))
         for label, path, critical in routes:
             page = await context.new_page()
-            errors, failed = [], []
+            errors, failed, image_server_errors = [], [], []
+            page.on('response', lambda response: image_server_errors.append(1)
+                    if response.status >= 500 and urlparse(response.url).path.startswith('/data/') else None)
             page.on('pageerror', lambda error: errors.append(1))
             page.on('requestfailed', lambda request: failed.append(1)
                     if request.url.startswith(ORIGIN + '/assets/') else None)
@@ -115,8 +117,8 @@ async def profile_browser(owner: str, token: str, local_video: str | None = None
                 report['milliseconds'] = round((time.perf_counter() - started) * 1000)
             except Exception:
                 report['status'] = 500
-            report.update(js_errors=len(errors), failed_requests=len(failed))
-            if errors or failed:
+            report.update(js_errors=len(errors), failed_requests=len(failed), image_server_errors=len(image_server_errors))
+            if errors or failed or image_server_errors:
                 report['status'] = 500
             reports.append(report)
             await page.close()
