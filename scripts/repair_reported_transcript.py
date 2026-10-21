@@ -11,10 +11,32 @@ import subprocess
 import sys
 import tempfile
 import time
-import urllib.request
 
 sys.path.insert(0,str(Path(__file__).resolve().parent.parent))
 EPISODE_ID = '6ad08b370e4e410a05bd4fd0'
+
+
+class RepairRequestError(RuntimeError):
+    def __init__(self,status):
+        self.http_status=status
+        super().__init__('Repair API request failed')
+
+
+def request_json(path, token, data=None):
+    # Match the normal deployed diagnostics client. The site's edge rejects
+    # Python's default urllib client (1010). Keep credentials on stdin only.
+    command=['curl','--silent','--show-error','--compressed','--max-time','30',
+             '--header','@-','--write-out','\n%{http_code}']
+    headers='Authorization: Bearer '+token+'\n'
+    if data is not None:
+        command+=['--data-binary',json.dumps(data)]
+        headers+='Content-Type: application/json\n'
+    command+=['https://aipodcastsummary.online'+path]
+    result=subprocess.run(command,input=headers,capture_output=True,text=True,timeout=35)
+    body,_,status=result.stdout.rpartition('\n')
+    if result.returncode or status!='200':
+        raise RepairRequestError(int(status) if status.isdigit() else 0)
+    return json.loads(body)
 
 
 def repair(settings):
@@ -38,10 +60,7 @@ def repair(settings):
     now=int(time.time())
     token=jwt.encode({'sub':owner,'aud':'authenticated','role':'authenticated','iat':now,'exp':now+1200},settings['SUPABASE_JWT_SECRET'],algorithm='HS256')
     def request(path,data=None):
-        headers={'Authorization':'Bearer '+token}
-        if data is not None: headers['Content-Type']='application/json'
-        req=urllib.request.Request('https://aipodcastsummary.online'+path,data=json.dumps(data).encode() if data is not None else None,headers=headers)
-        with urllib.request.urlopen(req,timeout=30) as response: return json.load(response)
+        return request_json(path,token,data)
     expected=os.environ.get('EXPECTED_REVISION')
     if expected and request('/api/health').get('revision')!=expected: raise RuntimeError('Expected release is not live')
     # Same supported regeneration action as the reader. The new pipeline detects
@@ -84,5 +103,7 @@ if __name__=='__main__':
     try:
         print(json.dumps(main()))
     except Exception as exc:
-        print(json.dumps({'repair':'reported_transcript','status':'failed','error_type':type(exc).__name__}))
+        report={'repair':'reported_transcript','status':'failed','error_type':type(exc).__name__}
+        if isinstance(exc,RepairRequestError): report['http_status']=exc.http_status
+        print(json.dumps(report))
         sys.exit(1)

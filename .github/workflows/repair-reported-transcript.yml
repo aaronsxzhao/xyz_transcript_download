@@ -1,6 +1,11 @@
 name: Repair reported podcast transcript
 
 on:
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/repair_reported_transcript.py'
+      - '.github/workflows/repair-reported-transcript.yml'
   workflow_dispatch:
   workflow_run:
     workflows: ['Deploy to Oracle Cloud']
@@ -36,5 +41,6 @@ jobs:
             "$OCI_CLI_USER" "$OCI_CLI_FINGERPRINT" "$OCI_CLI_TENANCY" > ~/.oci/config
       - name: Reprocess the reported incomplete transcript and verify coverage
         env:
-          EXPECTED_REVISION: ${{ github.event.workflow_run.head_sha || github.sha }}
+          # Script-only recovery must use the release containing the duration fix.
+          EXPECTED_REVISION: ${{ github.event.workflow_run.head_sha || '18fea38ac052997eed082032de0aff78fa59f595' }}
         run: python scripts/repair_reported_transcript.py
