@@ -254,3 +254,8 @@ html[data-reader-width="comfortable"] .podcast-reader { max-width: 880px; }
   .library-card[data-layout="list"] .library-media-badge, .library-card[data-layout="list"] .library-duration { display: none; }
   .library-card[data-layout="list"] .library-card-body { padding: 12px; }
 }
+
+.cached-image { position: relative; overflow: hidden; }
+.cached-image > img { position: absolute; inset: 0; width: 100%; height: 100%; }
+.cached-image-fallback { display: flex; width: 100%; height: 100%; min-height: inherit; align-items: center; justify-content: center; color: #a5b4fc; background: #29384e; }
+.library-cover-image { width: 100%; height: 100%; }

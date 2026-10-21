@@ -1,3 +1,4 @@
+import CachedImage from '../components/CachedImage'
 import LoadError from '../components/LoadError'
 import { getAccountId } from '../lib/preferences'
 import { useState, useEffect, useMemo, useRef } from 'react'
@@ -375,13 +376,7 @@ export default function Dashboard() {
                   className="flex gap-4 p-4 min-h-[104px] bg-dark-surface border border-dark-border rounded-xl hover:border-indigo-500/50 transition-colors"
                 >
                   {task.thumbnail ? (
-                    <img loading="lazy" decoding="async"
-                      src={task.thumbnail}
-                      alt=""
-                      className="w-20 h-14 rounded object-cover flex-shrink-0 bg-dark-hover my-auto"
-                      onError={e => { (e.target as HTMLImageElement).style.display = 'none' }}
-                      referrerPolicy="no-referrer"
-                    />
+                    <CachedImage src={task.thumbnail} alt="" className="w-20 h-14 rounded object-cover flex-shrink-0 bg-dark-hover my-auto" />
                   ) : (
                     <div className="w-20 h-14 rounded bg-dark-hover flex items-center justify-center flex-shrink-0 my-auto">
                       <Video size={16} className="text-gray-600" />
@@ -403,7 +398,7 @@ export default function Dashboard() {
                       {task.channel && (
                         <span className="flex items-center gap-1.5 truncate">
                           {task.channel_avatar ? (
-                            <img loading="lazy" decoding="async" src={task.channel_avatar} alt="" className="w-4 h-4 rounded-full flex-shrink-0 bg-dark-hover" referrerPolicy="no-referrer" onError={e => { (e.target as HTMLImageElement).style.display = 'none' }} />
+                            <CachedImage src={task.channel_avatar} alt="" className="w-4 h-4 rounded-full flex-shrink-0 bg-dark-hover" />
                           ) : (
                             <Video size={14} className="text-cyan-400 flex-shrink-0" />
                           )}

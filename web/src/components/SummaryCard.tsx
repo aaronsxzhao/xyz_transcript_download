@@ -1,3 +1,4 @@
+import CachedImage from './CachedImage'
 import { Link } from 'react-router-dom'
 import { Tag, MessageSquare, Radio } from 'lucide-react'
 import type { SummaryListItem } from '../lib/api'
@@ -26,13 +27,7 @@ export default function SummaryCard({ summary }: SummaryCardProps) {
         {summary.podcast_title && (
           <span className="flex items-center gap-1.5 truncate">
             {summary.podcast_cover ? (
-              <img loading="lazy" decoding="async"
-                src={summary.podcast_cover}
-                alt=""
-                className="w-4 h-4 rounded-full flex-shrink-0 bg-dark-hover"
-                onError={e => { (e.target as HTMLImageElement).style.display = 'none' }}
-                referrerPolicy="no-referrer"
-              />
+              <CachedImage src={summary.podcast_cover} alt="" className="w-4 h-4 rounded-full flex-shrink-0 bg-dark-hover" />
             ) : (
               <Radio size={14} className="text-indigo-400 flex-shrink-0" />
             )}

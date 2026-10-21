@@ -248,6 +248,8 @@ async def startup_event():
     _generated_media_cleanup_task = asyncio.create_task(cleanup_generated_media_loop())
     from api.media import backfill_previews
     app.state.preview_task = asyncio.create_task(backfill_previews())
+    from api.covers import backfill_covers
+    app.state.cover_task = asyncio.create_task(backfill_covers())
     
     # Send Discord notification on startup
     from logger import notify_discord
@@ -294,6 +296,12 @@ async def shutdown_event():
             await preview_task
         except asyncio.CancelledError:
             pass
+
+    cover_task = getattr(app.state, 'cover_task', None)
+    if cover_task:
+        cover_task.cancel()
+        try: await cover_task
+        except asyncio.CancelledError: pass
 
     # Shutdown the processing thread pool executors
     processing.PROCESSING_EXECUTOR.shutdown(wait=False, cancel_futures=True)
@@ -552,53 +560,21 @@ async def trigger_podcast_check(user: Optional[User] = Depends(get_current_user)
 
 
 @app.get("/api/image-proxy")
-async def image_proxy(url: str):
-    """Proxy images to avoid CORS issues."""
-    import httpx
+async def image_proxy(request: Request, url: str):
+    """Serve a persistent WebP cover, with a browser cache validator."""
+    from api.covers import load_cover
     from fastapi.responses import Response
-    
-    # Validate URL is an image from known domains
-    allowed_domains = [
-        "image.xyzcdn.net",
-        "i.ytimg.com",
-        "i0.hdslb.com",
-        "i1.hdslb.com",
-        "i2.hdslb.com",
-        "jike.ruguoapp.com",
-        "piccdn.igetget.com",
-        "mzstatic.com",
-        "is1-ssl.mzstatic.com",
-        "is2-ssl.mzstatic.com",
-        "is3-ssl.mzstatic.com",
-        "is4-ssl.mzstatic.com",
-        "is5-ssl.mzstatic.com",
-    ]
-
-    from urllib.parse import urlparse
-    parsed = urlparse(url)
-
-    hostname = parsed.hostname or ""
-    if parsed.scheme not in {"http", "https"} or parsed.username or parsed.password or not any(
-        hostname == domain or hostname.endswith("." + domain) for domain in allowed_domains
-    ):
-        return Response(status_code=403, content="Domain not allowed")
-
+    import hashlib
     try:
-        headers = {"User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36"}
-        async with httpx.AsyncClient(timeout=10.0) as client:
-            resp = await client.get(url, headers=headers)
-            if resp.status_code == 200:
-                content_type = resp.headers.get("content-type", "image/jpeg")
-                if content_type.split(";", 1)[0] not in {"image/jpeg", "image/png", "image/gif", "image/webp", "image/avif"}:
-                    return Response(status_code=415)
-                return Response(
-                    content=resp.content,
-                    media_type=content_type,
-                    headers={"Cache-Control": "public, max-age=86400"}  # Cache for 1 day
-                )
-            return Response(status_code=resp.status_code)
-    except Exception:
-        return Response(status_code=502)
+        content, source = await load_cover(url)
+    except HTTPException as error:
+        return Response(status_code=error.status_code, headers={'Cache-Control':'no-store', 'Retry-After':'3', **(error.headers or {})})
+    etag = '"' + hashlib.sha256(content).hexdigest()[:24] + '"'
+    headers = {'Cache-Control':'public, max-age=604800, stale-while-revalidate=2592000',
+               'ETag':etag, 'X-Artwork-Cache':source, 'X-Content-Type-Options':'nosniff'}
+    if request.headers.get('if-none-match') == etag:
+        return Response(status_code=304, headers=headers)
+    return Response(content=content, media_type='image/webp', headers=headers)
 
 
 @app.get("/api/stats")
