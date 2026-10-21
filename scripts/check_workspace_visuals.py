@@ -23,13 +23,17 @@ async def main():
                 if not browser.is_connected(): browser=await p.chromium.launch(**launch)
                 context=await browser.new_context(viewport={'width':width,'height':960},service_workers='block')
                 await context.add_init_script('''if(location.protocol==='http:'){localStorage.setItem('xyz_remember_me','true');localStorage.setItem('xyz_access_token',TOKEN);localStorage.setItem('xyz_user',JSON.stringify({id:'bench',email:'',authenticated:true}));window.WebSocket=class{static OPEN=1;readyState=1;send(){}close(){}};}'''.replace('TOKEN',json.dumps(token(int(time.time())+3600))))
-                page=await context.new_page(); errors=[]; summary_reads=0
+                page=await context.new_page(); errors=[]; summary_reads=0; episode_reads=0
                 page.on('pageerror',lambda e:errors.append(str(e)))
                 async def api(route):
-                    nonlocal summary_reads
+                    nonlocal summary_reads,episode_reads
                     path=urlparse(route.request.url).path;body={}
                     if path=='/api/auth/config':body={'supabase_enabled':True}
                     elif path=='/api/auth/me':body={'id':'bench','email':'','authenticated':True}
+                    elif path=='/api/podcasts':body=[{'pid':f'channel-{i}','title':f'Channel {i}','author':'Author','description':'','cover_url':'','episode_count':35,'summarized_count':0,'platform':'xiaoyuzhou','feed_url':'','episode_preview':[{'eid':f'ep-{i}-{j}','pid':f'channel-{i}','title':f'Channel {i} episode {j}','description':'','duration':60,'pub_date':'2026-10-21','created_at':'','status':'pending','has_summary':False,'has_transcript':False} for j in range(12)]} for i in range(13)]
+                    elif path.endswith('/episodes') or path=='/api/podcasts/content':
+                        episode_reads+=1
+                        return await route.abort('failed')
                     elif path=='/api/library':body={'items':[{'id':str(i),'title':f'Saved lesson {i}','kind':'podcast' if i%2 else 'video','status':'completed','date':'2026-10-21','source':'Learning studio','thumbnail':'https://image.xyzcdn.net/fixture.jpg','topics_count':8,'duration':1200} for i in range(8)]+[{'id':'failed','title':'Failed task should be hidden','kind':'video','status':'failed'}],'next_cursor':None}
                     elif path=='/api/image-proxy':
                         return await route.fulfill(content_type='image/svg+xml',body='<svg xmlns="http://www.w3.org/2000/svg" width="640" height="360"><rect width="640" height="360" fill="#224c65"/><circle cx="320" cy="150" r="65" fill="#66c2c2"/><text x="220" y="285" fill="white" font-size="30">Learning studio</text></svg>')
@@ -45,6 +49,17 @@ async def main():
                     elif path=='/api/video-notes/tasks':body={'tasks':[]}
                     await route.fulfill(content_type='application/json',body=json.dumps(body))
                 await page.route('**/api/**',api)
+                await page.goto(origin+'/podcasts?platform=xiaoyuzhou',wait_until='domcontentloaded')
+                navigation_ms=[]
+                for i in range(13):
+                    await page.get_by_role('link',name=f'Open episodes: Channel {i}',exact=True).wait_for()
+                    started=time.perf_counter()
+                    await page.get_by_role('link',name=f'Open episodes: Channel {i}',exact=True).click()
+                    await page.get_by_role('heading',name=f'Channel {i} episode 0',exact=True).wait_for(timeout=1500)
+                    navigation_ms.append(round((time.perf_counter()-started)*1000))
+                    await page.go_back(wait_until='domcontentloaded')
+                assert episode_reads==0,episode_reads
+                print(json.dumps({'viewport':width,'channels_opened_with_episode_api_blocked':13,'worst_click_ms':max(navigation_ms)}),flush=True)
                 await page.goto(origin+'/library',wait_until='domcontentloaded');await page.get_by_role('heading',name='Saved lesson 0',exact=True).wait_for()
                 assert not await page.get_by_text('Failed task should be hidden',exact=True).count()
                 await page.wait_for_function("document.querySelector('.library-artwork img')?.naturalWidth>0")
@@ -55,6 +70,8 @@ async def main():
                 await page.goto(origin+'/',wait_until='domcontentloaded');await page.locator('.dashboard-stats svg').first.wait_for()
                 colors=await page.locator('.dashboard-stats svg').evaluate_all('(nodes)=>nodes.map(n=>getComputedStyle(n).color)')
                 assert len(set(colors))>=5,colors
+                positions=await page.evaluate('''()=>[document.querySelector('.dashboard-stats'),document.querySelector('#dashboard-add-content'),Array.from(document.querySelectorAll('h2')).find(n=>n.textContent==='Continue reading · Podcasts')].map(n=>n.getBoundingClientRect().top)''')
+                assert positions[0]<positions[1]<positions[2],positions
                 await page.goto(origin+'/viewer/bench',wait_until='domcontentloaded');await page.get_by_role('heading',name='Overview',exact=True).wait_for()
                 assert summary_reads==2,summary_reads
                 assert not errors,errors

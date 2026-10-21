@@ -172,14 +172,44 @@ def _ensure_local_podcast(db):
     return podcast
 
 
-@router.get("", response_model=List[PodcastResponse])
-async def list_podcasts(user: Optional[User] = Depends(get_current_user)):
+def _podcast_content(db, owner, preview_limit=12, only_pid=None, offset=0):
+    if db.use_supabase:
+        return db.db.client.rpc('podcast_content_index', {
+            'owner_id': owner, 'preview_limit': preview_limit,
+            'only_pid': only_pid, 'page_offset': offset,
+        }).execute().data
+    records = db.get_all_podcasts() if only_pid is None else [db.get_podcast(only_pid)]
+    records = [p for p in records if p]
+    counts = db.get_episode_counts_by_podcast()
+    summarized = db.get_summarized_counts_by_podcast()
+    previews = {}
+    for podcast in records[:24]:
+        episodes = db.get_episodes_by_podcast(podcast.pid, offset, preview_limit)
+        annotations = db.get_episode_annotations([ep.eid for ep in episodes])
+        previews[podcast.pid] = [EpisodeResponse(
+            eid=ep.eid, pid=ep.pid, title=ep.title, description=(ep.description or '')[:280],
+            duration=ep.duration, pub_date=ep.pub_date, status=ep.status, created_at=ep.created_at,
+            **annotations.get(ep.eid, {'has_transcript':False,'has_summary':False}),
+        ).model_dump() for ep in episodes]
+    return {'podcasts':[PodcastResponse(
+        pid=p.pid,title=p.title,author=p.author,description=p.description,cover_url=p.cover_url,
+        episode_count=counts.get(p.pid,0),summarized_count=summarized.get(p.pid,0),
+        platform=getattr(p,'platform','xiaoyuzhou') or 'xiaoyuzhou',feed_url=getattr(p,'feed_url','') or '',
+    ).model_dump(exclude_none=True) for p in records], 'previews':previews}
+
+
+@router.get("", response_model=List[PodcastResponse], response_model_exclude_none=True)
+async def list_podcasts(include_content: int = Query(0, ge=0, le=12), user: Optional[User] = Depends(get_current_user)):
     """List all subscribed podcasts."""
     if USE_SUPABASE and not user:
         return []
     
     db = get_db(user.id if user else None)
     
+    if include_content:
+        content = await run_sync(_podcast_content, db, user.id if user else None, include_content)
+        return [PodcastResponse(**p, episode_preview=content['previews'].get(p['pid'])) for p in content['podcasts']]
+
     podcasts, episode_counts, summarized_counts = await asyncio.gather(
         run_sync(db.get_all_podcasts),
         run_sync(db.get_episode_counts_by_podcast),
@@ -592,6 +622,17 @@ async def _add_xyz_podcast(url: str, db) -> PodcastResponse:
     )
 
 
+@router.get("/content", response_model=List[EpisodeResponse])
+async def podcast_content_page(pid: str = Query(..., min_length=1, max_length=128),
+                               offset: int = Query(0,ge=0), limit: int = Query(50,ge=1,le=50),
+                               user: Optional[User] = Depends(get_current_user)):
+    db = get_db(user.id if user else None)
+    content = await run_sync(_podcast_content,db,user.id if user else None,limit,pid,offset)
+    if not content['podcasts']:
+        raise HTTPException(status_code=404,detail="Podcast not found")
+    return [EpisodeResponse(**row) for row in content['previews'].get(pid,[])]
+
+
 @router.get("/{pid}", response_model=PodcastResponse)
 async def get_podcast(pid: str, user: Optional[User] = Depends(get_current_user)):
     """Get podcast details by ID."""
@@ -644,10 +685,16 @@ async def remove_podcast(pid: str, user: Optional[User] = Depends(get_current_us
 
 
 @router.get("/{pid}/episodes", response_model=List[EpisodeResponse])
-async def list_podcast_episodes(pid: str, limit: int = Query(50, ge=1, le=200), offset: int = Query(0, ge=0), user: Optional[User] = Depends(get_current_user)):
+async def list_podcast_episodes(pid: str, limit: int = Query(50, ge=1, le=200), offset: int = Query(0, ge=0), compact: bool = Query(False), user: Optional[User] = Depends(get_current_user)):
     """List episodes for a podcast."""
     db = get_db(user.id if user else None)
     
+    if compact:
+        content = await run_sync(_podcast_content, db, user.id if user else None, min(limit,50), pid, offset)
+        if not content['podcasts']:
+            raise HTTPException(status_code=404, detail="Podcast not found")
+        return [EpisodeResponse(**row) for row in content['previews'].get(pid, [])]
+
     podcast, episodes = await asyncio.gather(
         run_sync(db.get_podcast, pid),
         run_sync(db.get_episodes_by_podcast, pid, offset, limit),

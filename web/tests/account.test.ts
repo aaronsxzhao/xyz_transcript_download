@@ -93,7 +93,7 @@ it('shares an overlapping library read and invalidates cached data after a succe
   seed('owner-a')
   setCache('summary_one', 'old note')
   setCache('settings', {theme:'dark'})
-  const fetch = vi.fn(async (url: string) => Response.json(url === '/api/podcasts' ? [{ pid: 'one' }] : { ok: true }))
+  const fetch = vi.fn(async (url: string) => Response.json(url === '/api/podcasts?include_content=12' ? [{ pid: 'one' }] : { ok: true }))
   vi.stubGlobal('fetch', fetch)
   const [a, b] = await Promise.all([fetchPodcasts(), fetchPodcasts()])
   expect(a).toEqual(b)

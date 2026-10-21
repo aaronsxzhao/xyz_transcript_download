@@ -129,7 +129,7 @@ async def measure(browser, origin, verify, recovery_only=False):
             body = {"id": "bench", "email": "bench@example.com", "authenticated": True}
         elif path == '/api/podcasts': body = [podcast]
         elif path == '/api/podcasts/bench': body = podcast
-        elif path == '/api/podcasts/bench/episodes': body = [{**episode,'eid':'prefetch' if state.get('prefetch_probe') else 'bench'}]
+        elif path in {'/api/podcasts/content','/api/podcasts/bench/episodes'}: body = [{**episode,'eid':'prefetch' if state.get('prefetch_probe') else 'bench'}]
         elif path == '/api/video-notes/channels':
             body = {"channels": [{"channel": "Synthetic channel", "platform": "youtube", "channel_url": "", "channel_avatar": "", "thumbnail": "", "total": 1, "done": 1, "last_updated": ""}]}
         elif path.startswith('/api/summaries/'):

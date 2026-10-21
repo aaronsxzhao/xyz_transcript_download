@@ -21,6 +21,7 @@ class PodcastResponse(PodcastBase):
     summarized_count: int = 0
     platform: str = "xiaoyuzhou"
     feed_url: str = ""
+    episode_preview: Optional[List["EpisodeResponse"]] = None
     
     class Config:
         from_attributes = True
@@ -48,6 +49,9 @@ class EpisodeResponse(EpisodeBase):
     
     class Config:
         from_attributes = True
+
+
+PodcastResponse.model_rebuild()
 
 
 class LocalAudioUploadResponse(BaseModel):
