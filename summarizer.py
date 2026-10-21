@@ -71,6 +71,7 @@ def extract_json_from_response(content: str) -> dict:
     raise json.JSONDecodeError("No valid JSON found in response", content, 0)
 
 from openai import OpenAI
+from summary_errors import SummaryOutputError
 from tenacity import (
     retry,
     stop_after_attempt,
@@ -339,7 +340,7 @@ class Summarizer:
             data = extract_json_from_response(content)
 
             if len(transcript_text) >= 1000 and not data.get('key_points'):
-                raise ValueError('Summary contains no key points for a substantial transcript. Please retry.')
+                raise SummaryOutputError('invalid')
 
             key_points = [
                 KeyPoint(
@@ -363,7 +364,7 @@ class Summarizer:
 
         except json.JSONDecodeError as e:
             logger.error(f"Failed to parse LLM response as JSON: {e}")
-            return None
+            raise SummaryOutputError('invalid') from None
         except Exception as e:
             logger.error(f"Summarization failed: {e}")
             if self._groq and "cancel" not in type(e).__name__.lower():
@@ -389,7 +390,10 @@ class Summarizer:
             "temperature": 0.3,
         }
         
+        if self._groq:
+            common_params.update(max_completion_tokens=32768, reasoning_effort='low')
         if progress_callback:
+            # Usage-only SSE events may have no choices.
             # Use streaming for progress updates
             stream = self.client.chat.completions.create(
                 **common_params,
@@ -400,6 +404,8 @@ class Summarizer:
             char_count = 0
             finish_reason = None
             for chunk in stream:
+                if not chunk.choices:
+                    continue
                 choice = chunk.choices[0]
                 if choice.delta.content:
                     content = choice.delta.content
@@ -411,7 +417,9 @@ class Summarizer:
             
             final_content = "".join(collected_content)
             if finish_reason and finish_reason != "stop":
-                raise ValueError(f"Summary response was incomplete ({finish_reason}). Please retry.")
+                raise SummaryOutputError(finish_reason)
+            if not final_content.strip():
+                raise SummaryOutputError('empty')
             logger.info(f"LLM response: {len(final_content):,} chars generated")
 
             class StreamedResponse:
@@ -421,9 +429,11 @@ class Summarizer:
             return StreamedResponse(final_content)
         else:
             response = self.client.chat.completions.create(**common_params)
+            if not response.choices or not (response.choices[0].message.content or '').strip():
+                raise SummaryOutputError('empty')
             finish_reason = response.choices[0].finish_reason
             if finish_reason and finish_reason != "stop":
-                raise ValueError(f"Summary response was incomplete ({finish_reason}). Please retry.")
+                raise SummaryOutputError(finish_reason)
             if response.choices[0].message.content:
                 logger.info(f"LLM response: {len(response.choices[0].message.content):,} chars generated")
             return response

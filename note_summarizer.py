@@ -9,6 +9,7 @@ import re
 from typing import List, Optional
 
 from openai import OpenAI
+from summary_errors import SummaryOutputError
 from tenacity import retry, stop_after_attempt, wait_exponential
 
 from config import (
@@ -519,12 +520,16 @@ class NoteSummarizer:
             "temperature": 0.4,
         }
 
+        if self._groq:
+            params.update(max_completion_tokens=32768, reasoning_effort='low')
         if progress_callback:
             stream = self.client.chat.completions.create(**params, stream=True)
             collected = []
             char_count = 0
             finish_reason = None
             for chunk in stream:
+                if not chunk.choices:
+                    continue
                 choice = chunk.choices[0]
                 if choice.delta.content:
                     collected.append(choice.delta.content)
@@ -535,13 +540,15 @@ class NoteSummarizer:
                     finish_reason = choice.finish_reason
             result = "".join(collected)
             if finish_reason and finish_reason != "stop":
-                logger.warning(f"LLM stream ended with finish_reason={finish_reason} ({len(result)} chars)")
+                raise SummaryOutputError(finish_reason)
         else:
             response = self.client.chat.completions.create(**params)
+            if not response.choices:
+                raise SummaryOutputError('empty')
             result = response.choices[0].message.content or ""
             finish_reason = response.choices[0].finish_reason
             if finish_reason and finish_reason != "stop":
-                logger.warning(f"LLM response finish_reason={finish_reason} ({len(result)} chars)")
+                raise SummaryOutputError(finish_reason)
             if hasattr(response, "usage") and response.usage:
                 logger.info(
                     f"Token usage: prompt={response.usage.prompt_tokens}, "
@@ -550,6 +557,8 @@ class NoteSummarizer:
                 )
 
         result = self._clean_markdown(result)
+        if not result.strip():
+            raise SummaryOutputError('empty')
         logger.info(f"Note generated: {len(result)} chars")
         return result
 
