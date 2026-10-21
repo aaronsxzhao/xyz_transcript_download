@@ -293,6 +293,7 @@ class XyzClient:
                 pid = ""
                 duration = 0
                 pub_date = ""
+                audio_url = audio_tag['content']
                 
                 scripts = soup.find_all('script', type='application/json')
                 for script in scripts:
@@ -335,7 +336,7 @@ class XyzClient:
                     description=description_tag['content'] if description_tag else "",
                     duration=duration,
                     pub_date=pub_date,
-                    audio_url=audio_tag['content'],
+                    audio_url=audio_url,
                     cover_url=image_tag['content'] if image_tag else "",
                     shownotes="",
                 )

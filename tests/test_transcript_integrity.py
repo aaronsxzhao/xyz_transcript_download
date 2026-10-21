@@ -64,3 +64,32 @@ def test_incomplete_result_does_not_replace_saved_transcript_or_summary(db_inter
         assert db_interface.get_summary('test-episode-456').overview==sample_summary_data['overview']
         summarizer.assert_not_called()
     finally: processing.jobs.pop(job,None)
+
+
+def test_share_page_missing_duration_keeps_known_episode_duration(db_interface,create_test_podcast,create_test_episode):
+    from api.routers import processing
+    from api.schemas import ProcessingStatus
+    from transcriber import Transcript
+    create_test_podcast();create_test_episode()
+    scraped=SimpleNamespace(eid='test-episode-456',pid='test-podcast-123',title='Test',duration=0,audio_url='https://example.com/audio',description='',pub_date='')
+    job='missing-duration'
+    processing.jobs[job]=ProcessingStatus(job_id=job,user_id='local',status='pending')
+    engine=Mock();engine.transcribe.return_value=Transcript('test-episode-456','zh',10,'Subscribe to the show',[])
+    try:
+        with patch.object(processing,'get_db',return_value=db_interface), \
+             patch('api.user_settings.get_user_settings',return_value={}), \
+             patch('xyz_client.get_client') as xyz, \
+             patch('downloader.get_downloader') as downloader, \
+             patch('downloader.compress_audio',return_value=Path('/tmp/audio')), \
+             patch('transcriber.get_transcriber',return_value=engine), \
+             patch('summarizer.get_summarizer') as summarizer, \
+             patch.object(processing,'notify_discord'):
+            xyz.return_value.get_episode_by_share_url.return_value=scraped
+            downloader.return_value.download.return_value=Path('/tmp/audio')
+            processing.process_episode_sync(job,'https://www.xiaoyuzhoufm.com/episode/test-episode-456',user_id='local')
+        assert scraped.duration==3600
+        assert processing.jobs[job].status=='failed'
+        assert 'incomplete' in processing.jobs[job].message
+        assert db_interface.get_transcript('test-episode-456') is None
+        summarizer.assert_not_called()
+    finally: processing.jobs.pop(job,None)
