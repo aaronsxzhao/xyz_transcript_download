@@ -10,8 +10,8 @@ import {
 import { getAccountId, setPreference } from "./preferences";
 import { useStore } from "./store";
 type Kind = "podcast" | "video";
-import {dismissedTasks} from "./taskPreferences";
-export {dismissedTasks} from "./taskPreferences";
+import { dismissedTasks } from "./taskPreferences";
+export { dismissedTasks } from "./taskPreferences";
 export async function dismissTask(
   job: ProcessingJob,
   kind: Kind,
@@ -38,25 +38,29 @@ export async function cancelTask(job: ProcessingJob, kind: Kind) {
       .getState()
       .videoTasks.find((t) => t.id === job.job_id);
     if (task)
-      useStore
-        .getState()
-        .updateVideoTask({
-          ...task,
-          status: result.status || "cancelling",
-          message:
-            result.status === "cancelled" ? "Cancelled" : "Stopping safely…",
-        });
+      useStore.getState().updateVideoTask({
+        ...task,
+        status: result.status || "cancelling",
+        message:
+          result.status === "cancelled"
+            ? "Cancelled"
+            : ["success", "completed"].includes(result.status || "")
+              ? "Completed"
+              : "Stopping safely…",
+      });
   } else {
     const result = await cancelJob(job.job_id);
     if (owner !== getAccountId()) return;
-    useStore
-      .getState()
-      .updateJob({
-        ...job,
-        status: result.status || "cancelling",
-        message:
-          result.status === "cancelled" ? "Cancelled" : "Stopping safely…",
-      });
+    useStore.getState().updateJob({
+      ...job,
+      status: result.status || "cancelling",
+      message:
+        result.status === "cancelled"
+          ? "Cancelled"
+          : ["success", "completed"].includes(result.status || "")
+            ? "Completed"
+            : "Stopping safely…",
+    });
   }
 }
 export async function retryTask(job: ProcessingJob, kind: Kind) {
@@ -68,27 +72,23 @@ export async function retryTask(job: ProcessingJob, kind: Kind) {
       .getState()
       .videoTasks.find((t) => t.id === job.job_id);
     if (task)
-      useStore
-        .getState()
-        .updateVideoTask({
-          ...task,
-          status: "pending",
-          progress: 0,
-          error: "",
-          message: "Waiting for a processing slot.",
-        });
+      useStore.getState().updateVideoTask({
+        ...task,
+        status: "pending",
+        progress: 0,
+        error: "",
+        message: "Waiting for a processing slot.",
+      });
   } else {
     const result = await retryJob(job.job_id);
     if (owner !== getAccountId()) return;
-    useStore
-      .getState()
-      .updateJob({
-        ...job,
-        job_id: result.new_job_id,
-        status: "pending",
-        progress: 0,
-        message: "Waiting for a processing slot.",
-      });
+    useStore.getState().updateJob({
+      ...job,
+      job_id: result.new_job_id,
+      status: "pending",
+      progress: 0,
+      message: "Waiting for a processing slot.",
+    });
     await dismissTask(job, kind, false);
     void fetchJob(result.new_job_id)
       .then((current) => {

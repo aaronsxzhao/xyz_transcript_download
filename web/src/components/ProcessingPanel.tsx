@@ -73,6 +73,9 @@ export default function ProcessingPanel() {
     rows.filter((r) => r.status === "failed").length +
     uploads.filter((s) => s.phase === "failed").length;
   const count = `${running} processing · ${queued} queued${failures ? ` · ${failures} need attention` : ""}`;
+  useEffect(() => {
+    if (open && !rows.length && !uploads.length) setOpen(false);
+  }, [open, rows.length, uploads.length]);
   if (!rows.length && !uploads.length) return null;
   return (
     <>

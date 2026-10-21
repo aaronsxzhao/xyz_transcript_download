@@ -38,3 +38,17 @@ it('does not call an estimated progress value a measured percentage or show fake
  await act(async()=>root.render(<TaskProgress status="saving" progress={98}/>));expect(node.textContent).toContain('Saving and verifying');expect(node.textContent).toContain('~98%');expect(node.querySelector('[role="progressbar"]')?.getAttribute('aria-valuenow')).toBe('98')
  await act(async()=>root.render(<TaskProgress status="pending" progress={0}/>));expect(node.textContent).not.toContain('%');expect(node.querySelector('[role="progressbar"]')).toBeNull()
 })
+it('closing the last failed video does not reopen the drawer for the next queued task',async()=>{
+ useStore.getState().setVideoTasks([{id:'video',title:'Failed video',status:'failed',progress:20,message:'Timeout',platform:'youtube'} as any]);await render();await open()
+ await act(async()=>Array.from(document.querySelectorAll('button')).find(b=>b.textContent==='Dismiss')!.click())
+ expect(document.querySelector('[role="dialog"]')).toBeNull()
+ await act(async()=>useStore.getState().setJobs([job('new','pending')]))
+ expect(node.querySelector('[aria-label="Open processing tasks"]')).not.toBeNull()
+ expect(document.querySelector('[role="dialog"]')).toBeNull()
+})
+it('a late cancel acknowledgement preserves an already completed task',async()=>{
+ useStore.getState().setVideoTasks([{id:'video',title:'Video',status:'downloading',progress:22,message:'Downloading',platform:'youtube'} as any]);api.cancelVideoTask.mockResolvedValue({status:'success'})
+ await render();await open();await act(async()=>Array.from(document.querySelectorAll('button')).find(b=>b.textContent==='Cancel')!.click())
+ expect(useStore.getState().videoTasks[0].status).toBe('success')
+ expect(useStore.getState().videoTasks[0].message).toBe('Completed')
+})
