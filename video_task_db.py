@@ -103,6 +103,8 @@ class _SQLiteVideoTaskDB:
             conn.execute("""
                 CREATE INDEX IF NOT EXISTS idx_vversions_task ON video_task_versions(task_id)
             """)
+            from api.content_updates import install_sqlite_updates
+            install_sqlite_updates(conn)
             conn.commit()
 
     def create_task(self, task_data: dict) -> str:

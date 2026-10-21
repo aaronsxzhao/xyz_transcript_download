@@ -49,7 +49,7 @@ def test_reusing_a_transcript_needs_no_audio_and_preserves_failures(outcome, db_
     from summarizer import Summary, KeyPoint
     create_test_podcast()
     create_test_episode()
-    transcript = TranscriptData(**sample_transcript_data)
+    transcript = TranscriptData(**{**sample_transcript_data,"text":sample_transcript_data["text"] * 10})
     previous = SummaryData(**sample_summary_data)
     db_interface.save_transcript(transcript)
     db_interface.save_summary(previous)

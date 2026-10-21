@@ -45,6 +45,7 @@ async def main():
                         if summary_reads==1:return await route.abort('failed')
                         body=summary
                     elif path=='/api/new-episodes':body={'episodes':[]}
+                    elif path=='/api/content-updates':body={'items':[]}
                     elif path=='/api/jobs':body={'jobs':[]}
                     elif path=='/api/video-notes/tasks':body={'tasks':[]}
                     await route.fulfill(content_type='application/json',body=json.dumps(body))

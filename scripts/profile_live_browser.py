@@ -91,6 +91,9 @@ async def profile_browser(owner: str, token: str, local_video: str | None = None
                     colors = await page.locator('.dashboard-stats svg').evaluate_all('(nodes)=>nodes.map(n=>getComputedStyle(n).color)')
                     report['stat_colors'] = len(set(colors))
                     positions=await page.evaluate("()=>[document.querySelector('.dashboard-stats'),document.querySelector('#dashboard-add-content'),Array.from(document.querySelectorAll('h2')).find(n=>n.textContent==='Continue reading · Podcasts')].map(n=>n.getBoundingClientRect().top)")
+                    updates=await page.evaluate('''async()=>{const r=await fetch('/api/content-updates',{headers:{Authorization:'Bearer '+localStorage.getItem('xyz_access_token')}});if(!r.ok)throw Error('Updates unavailable');return (await r.json()).items.length}''')
+                    report['new_content_items']=updates
+                    if updates: await page.locator('[aria-label="New content"]').wait_for(timeout=10000)
                     report['dashboard_order']=int(positions[0]<positions[1]<positions[2])
                     if not report['dashboard_order']:raise RuntimeError('Dashboard section order incorrect')
                     if report['stat_colors'] < 5: raise RuntimeError('Dashboard icon colors missing')

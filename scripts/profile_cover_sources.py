@@ -8,6 +8,8 @@ from api.supabase_client import get_supabase_admin_client
 
 def profile_covers(owner):
     client=get_supabase_admin_client()
+    if client is None:
+        return []
     rows=client.table('library_items').select('thumbnail').eq('user_id',owner).eq('status','completed').limit(200).execute().data or []
     rows+=client.table('podcasts').select('cover_url').eq('user_id',owner).limit(100).execute().data or []
     urls=set()
