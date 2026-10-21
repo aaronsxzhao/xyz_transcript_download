@@ -51,7 +51,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setAuthError('')
     }
     window.addEventListener('xyz:session-changed', changed)
-    const stop = watchStoredSession()
+    const stop = watchStoredSession(restored?.id || null)
     return () => { stop(); window.removeEventListener('xyz:session-changed', changed) }
   }, [])
 

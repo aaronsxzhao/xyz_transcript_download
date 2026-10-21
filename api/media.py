@@ -153,3 +153,31 @@ async def load_cloud_media(folder: str, filename: str, download: Callable[[str],
                 done.exception()  # Retrieve errors even when every HTTP waiter disconnected.
         task.add_done_callback(completed)
     return await asyncio.shield(task)
+
+
+def image_preview(content: bytes) -> bytes:
+    """Readable preview bytes, never modifying the source image."""
+    directory = DATA_DIR / '.media-cache' / 'previews'
+    key = hashlib.sha256(content).hexdigest() + '.webp'
+    cached = directory / key
+    try:
+        if cached.is_file(): return cached.read_bytes()
+    except OSError: pass
+    from io import BytesIO
+    from PIL import Image, ImageOps
+    with Image.open(BytesIO(content)) as original:
+        image = ImageOps.exif_transpose(original)
+        image.thumbnail((1000, 1000), Image.Resampling.LANCZOS)
+        output = BytesIO()
+        image.convert('RGB').save(output, format='WEBP', quality=85, method=4)
+        result = output.getvalue()
+    try:
+        directory.mkdir(parents=True, exist_ok=True)
+        with tempfile.NamedTemporaryFile(dir=directory, delete=False) as stream:
+            stream.write(result)
+            temporary = Path(stream.name)
+        temporary.replace(cached)
+        entries = sorted(directory.glob('*.webp'), key=lambda p: p.stat().st_mtime)
+        for old in entries[:-128]: old.unlink(missing_ok=True)
+    except OSError: pass
+    return result

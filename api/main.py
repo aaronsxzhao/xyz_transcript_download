@@ -20,7 +20,7 @@ from api.request_timing import RequestTimingMiddleware
 
 from api.routers import podcasts, episodes, transcripts, summaries, processing
 from api.routers import auth_router, video_notes, cookies, notion
-from api.routers import performance, maintenance
+from api.routers import performance, maintenance, library
 from api.auth import get_current_user, require_debug_access, User
 from logger import get_logger
 
@@ -320,6 +320,7 @@ app.include_router(processing.router, prefix="/api", tags=["Processing"])
 app.include_router(video_notes.router, prefix="/api/video-notes", tags=["Video Notes"])
 app.include_router(cookies.router, prefix="/api/cookies", tags=["Cookies"])
 app.include_router(notion.router, prefix="/api/notion", tags=["Notion"])
+app.include_router(library.router, prefix="/api/library", tags=["Library"])
 app.include_router(performance.router, prefix="/api/performance", tags=["Performance"])
 app.include_router(maintenance.router, prefix="/api/maintenance", tags=["Data recovery"])
 
@@ -332,14 +333,17 @@ _data_dir.mkdir(parents=True, exist_ok=True)
 
 
 @app.get("/data/{folder}/{filename}")
-async def generated_media(folder: str, filename: str, expires: int = Query(0), signature: str = Query("")):
+async def generated_media(folder: str, filename: str, expires: int = Query(0), signature: str = Query(""), preview: bool = Query(False)):
     from config import USE_SUPABASE
-    from api.media import media_file, verify_media_signature, load_cloud_media
+    from api.media import media_file, verify_media_signature, load_cloud_media, image_preview
     path = media_file(folder, filename)
     if USE_SUPABASE and not verify_media_signature(f"/data/{folder}/{filename}", expires, signature):
         raise HTTPException(status_code=403, detail="Media link is invalid or expired")
     headers = {"Cache-Control": "private, max-age=86400", "X-Content-Type-Options": "nosniff"}
     if path.is_file():
+        if preview:
+            content = await asyncio.to_thread(path.read_bytes)
+            return Response(await asyncio.to_thread(image_preview, content), media_type='image/webp', headers=headers)
         return FileResponse(path, headers=headers)
     if USE_SUPABASE:
         from api.supabase_client import get_supabase_admin_client
@@ -347,10 +351,16 @@ async def generated_media(folder: str, filename: str, expires: int = Query(0), s
         if client:
             try:
                 content = await load_cloud_media(folder, filename, client.storage.from_(folder).download)
+                if preview:
+                    return Response(await asyncio.to_thread(image_preview, content), media_type='image/webp', headers=headers)
                 media_type = "image/jpeg" if path.suffix in {".jpg", ".jpeg"} else f"image/{path.suffix[1:]}"
                 return Response(content, media_type=media_type, headers=headers)
-            except Exception:
-                pass
+            except Exception as error:
+                missing = str(getattr(error, 'status', '')) == '404' or getattr(error, 'code', '') in {'NoSuchKey', 'NotFound', 'not_found'}
+                if not missing:
+                    raise HTTPException(status_code=503, detail="Image storage temporarily unavailable", headers={"Cache-Control":"private, no-store"})
+        else:
+            raise HTTPException(status_code=503, detail="Image storage temporarily unavailable", headers={"Cache-Control":"private, no-store"})
     raise HTTPException(status_code=404, detail="File not found", headers={"Cache-Control": "private, no-store"})
 
 # Check for pre-built frontend

@@ -91,14 +91,16 @@ describe('session refresh', () => {
 
 it('shares an overlapping library read and invalidates cached data after a successful mutation', async () => {
   seed('owner-a')
-  setCache('previous-summary', 'old note')
+  setCache('summary_one', 'old note')
+  setCache('settings', {theme:'dark'})
   const fetch = vi.fn(async (url: string) => Response.json(url === '/api/podcasts' ? [{ pid: 'one' }] : { ok: true }))
   vi.stubGlobal('fetch', fetch)
   const [a, b] = await Promise.all([fetchPodcasts(), fetchPodcasts()])
   expect(a).toEqual(b)
   expect(fetch).toHaveBeenCalledOnce()
   await authFetch('/api/episodes/one', { method: 'DELETE' })
-  expect(getCache('previous-summary')).toBeNull()
+  expect(getCache('summary_one')).toBeNull()
+  expect(getCache('settings')).toEqual({theme:'dark'})
 })
 
 it('uses only public bootstrap config from HTML without another network round trip', async () => {

@@ -9,7 +9,7 @@ import re
 import sys
 import time
 from pathlib import Path
-from urllib.parse import urlparse
+from urllib.parse import urlparse, parse_qs
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from scripts.check_library_browser import fixtures, serve
@@ -43,13 +43,22 @@ async def check(browser, origin, width, output, label):
         requests.append(path)
         body={}; delay=.15
         if path=='/api/auth/config': body={'supabase_enabled':True}
-        elif path=='/api/auth/me':body={'id':'bench','email':'bench@example.com','authenticated':True}
+        elif path=='/api/auth/me':body={'id':'second' if account_changed else 'bench','email':'bench@example.com','authenticated':True}
         elif path=='/api/video-notes/tasks/bench':body={**task,'transcript':None,'versions':[{k:v for k,v in row.items() if k!='content'} for row in task['versions']]}
         elif path.endswith('/transcript'):body={'transcript':task['transcript']};delay=.6
         elif '/versions/' in path:body=task['versions'][0];delay=.6
         elif path=='/api/video-notes/tasks':body={'tasks':[{**task,'markdown':'','transcript':None}]};delay=2.5
         elif path=='/api/summaries/bench':body=summary
         elif path=='/api/notion/pages':body={'pages':[]};delay=.6
+        elif path=='/api/library':
+            rows=[{'id':f'episode-{i}','kind':'podcast','title':f'{"New account" if account_changed else "Podcast lesson"} {i}','source':'Learning lab','date':'2026-10-20','status':'completed'} for i in range(85)]
+            rows.insert(0,{'id':'bench','kind':'video','title':'Synthetic video','source':'Synthetic channel','date':'2026-10-20','status':'completed'})
+            params=parse_qs(urlparse(route.request.url).query)
+            q=params.get('q',[''])[0].lower()
+            rows=[r for r in rows if q in (r['title']+' '+r['source']).lower()]
+            offset=int(params.get('cursor',['0'])[0]); body={'items':rows[offset:offset+40],'next_cursor':str(offset+40) if len(rows)>offset+40 else None}
+            if fail_videos:
+                await route.fulfill(status=503,body=json.dumps({'detail':'Synthetic library unavailable'}),content_type='application/json');return
         elif path=='/api/summaries':body=[] if empty_podcasts else [{**summary,'podcast_title':'Learning lab','created_at':'2026-10-20','episode_id':f'episode-{i}','title':f'{"New account" if account_changed else "Podcast lesson"} {i}'} for i in range(30)]
         await asyncio.sleep(delay)
         if fail_videos and path == '/api/video-notes/tasks':
@@ -66,8 +75,12 @@ async def check(browser, origin, width, output, label):
     await page.goto(origin+'/library')
     await page.get_by_role('heading',name='Podcast lesson 0',exact=True).wait_for()
     result['library_first_note_ms']=round((time.monotonic()-start)*1000)
-    result['first_note_before_video_response']=not await page.get_by_role('heading',name='Synthetic video',exact=True).count()
+    assert not await page.get_by_role('heading',name='Podcast lesson 80',exact=True).count()
+    await page.get_by_role('button',name='Show more notes',exact=True).click()
+    await page.get_by_role('heading',name='Podcast lesson 70',exact=True).wait_for()
+    result['server_pagination']=True
     await page.get_by_role('heading',name='Synthetic video',exact=True).wait_for()
+    await page.locator('main').evaluate('(el)=>el.scrollTop=0')
     await page.screenshot(path=str(output/f'{label}-{width}-library.png'))
     await page.get_by_role('button',name='list layout',exact=True).click()
     await page.reload()
@@ -86,6 +99,19 @@ async def check(browser, origin, width, output, label):
     result['note_and_first_image_ms']=round((time.monotonic()-start)*1000)
     result['layout']=await page.evaluate('''()=>{const a=document.querySelector('article').getBoundingClientRect(),c=document.querySelector('#video-content-scroll').getBoundingClientRect();return {article:a.width,content:c.width,viewport:innerWidth,overflow:document.documentElement.scrollWidth>innerWidth}}''')
     await page.screenshot(path=str(output/f'{label}-{width}-note.png'))
+    await page.get_by_label('Reading width',exact=True).select_option('comfortable')
+    await page.wait_for_function("document.documentElement.dataset.readerWidth==='comfortable'")
+    assert (await page.locator('article').bounding_box())['width']<=821
+    await page.get_by_label('Reading width',exact=True).select_option('wide')
+    await page.get_by_role('button',name='Hide contents',exact=True).click()
+    assert not await page.locator('aside[data-reader-contents]').is_visible()
+    await page.get_by_role('button',name='Show contents',exact=True).click()
+    assert 'preview=true' in await page.locator('article img').first.get_attribute('src')
+    await page.locator('article .reader-screenshot').first.click()
+    assert 'preview=true' not in await page.get_by_role('dialog',name='Enlarged screenshot').locator('img').get_attribute('src')
+    await page.get_by_role('button',name='Close enlarged screenshot').click()
+    result['reading_preferences_and_original_on_demand']=True
+
     image_count=len(images)
     loaded_paths=set(images)
     start=time.monotonic()
@@ -149,26 +175,21 @@ async def check(browser, origin, width, output, label):
         result['podcast_pdf_works']=True
         fail_videos=True
         await page.goto(origin+'/library')
-        await page.get_by_text('Could not refresh videos.',exact=False).wait_for(timeout=10000)
+        await page.get_by_role('button',name='Refresh library',exact=True).click()
+        await page.get_by_text('Synthetic library unavailable',exact=False).wait_for(timeout=10000)
         result['partial_failure_keeps_notes']=await page.get_by_role('heading',name='Podcast lesson 0',exact=True).is_visible()
         assert result['partial_failure_keeps_notes']
-        fail_videos=False;empty_podcasts=True
-        await page.evaluate("Object.keys(localStorage).filter(k=>k.startsWith('xyz_cache_')).forEach(k=>localStorage.removeItem(k))")
-        async with page.expect_response(lambda response: urlparse(response.url).path=='/api/summaries'):
-            await page.goto(origin+'/library')
-        await page.wait_for_timeout(250)
-        result['empty_first_source_waits_for_video']=not await page.get_by_text('No matching notes',exact=True).count()
-        assert result['empty_first_source_waits_for_video']
-        await page.get_by_role('heading',name='Synthetic video',exact=True).wait_for()
+        fail_videos=False
     if width==1440:
         empty_podcasts=False
         await page.goto(origin+'/library')
         await page.get_by_role('heading',name='Podcast lesson 0',exact=True).wait_for()
         account_changed=True
         await page.evaluate("""()=>{
+          localStorage.setItem('xyz_access_token',NEW_TOKEN);
           localStorage.setItem('xyz_user',JSON.stringify({id:'second',email:'second@example.com',authenticated:true}));
           window.dispatchEvent(new StorageEvent('storage',{key:'xyz_user',storageArea:localStorage}));
-        }""")
+        }""".replace('NEW_TOKEN',json.dumps(token(int(time.time())+7200))))
         await page.get_by_role('heading',name='New account 0',exact=True).wait_for()
         assert await page.get_by_role('heading',name='Podcast lesson 0',exact=True).count()==0
         assert await page.get_by_role('button',name='grid layout',exact=True).get_attribute('aria-pressed')=='true'
@@ -202,7 +223,7 @@ async def main():
             assert report['layout']['article'] >= min(1120, report['layout']['content']-48)*.95,report
             assert report['zoom_changes_transform'] and report.get('copy_works'),report
             assert report['reading_position_retained'],report
-            assert report['first_note_before_video_response'],report
+            assert report['server_pagination'],report
             assert report['duplicate_image_requests_after_tab']==0,report
 
 if __name__=='__main__':asyncio.run(main())

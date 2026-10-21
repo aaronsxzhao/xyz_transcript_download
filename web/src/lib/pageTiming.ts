@@ -13,7 +13,7 @@ export function markPageNavigation(path: string) {
 type Page = 'library' | 'dashboard' | 'podcasts' | 'videos' | 'channel' | 'episodes' | 'viewer' | 'video_note' | 'settings'
 
 function isPageRead(page: Page, path: string) {
-  if (page === 'library') return path === '/api/summaries' || path === '/api/video-notes/tasks'
+  if (page === 'library') return path === '/api/library'
   if (page === 'settings') return path === '/api/settings'
   if (page === 'viewer') return /^\/api\/(summaries|transcripts)\//.test(path)
   if (page === 'video_note') return /^\/api\/video-notes\/tasks\/[^/]+$/.test(path)
@@ -44,7 +44,7 @@ export function usePageTiming(page: Page, ready: boolean, cacheKey: string, fail
       // Fixed labels and durations only; no private URLs or page contents.
       void fetch('/api/performance', { method: 'POST', keepalive: true,
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ page, outcome, program_embedded: !!document.querySelector('[data-document-program]'), elapsed_ms: bounded(performance.now() - started),
+        body: JSON.stringify({ page, outcome, stage: outcome === 'ready' && ['viewer','video_note'].includes(page) ? 'content' : 'application', program_embedded: !!document.querySelector('[data-document-program]'), elapsed_ms: bounded(performance.now() - started),
           first_paint_ms: bounded(started === 0 ? performance.getEntriesByName('first-contentful-paint')[0]?.startTime || 0 : 0),
           document_ms: bounded(started === 0 ? navigation?.responseEnd || 0 : 0),
           api_ms: bounded(longest?.duration || 0),
@@ -60,4 +60,14 @@ export function usePageTiming(page: Page, ready: boolean, cacheKey: string, fail
       return () => window.clearTimeout(timeout)
     }
   }, [route, page, ready, failed])
+}
+
+const imageReports = new Set<string>()
+export function recordReaderImage(milliseconds: number) {
+  const key = location.pathname
+  const token = getAccessToken()
+  if (!token || imageReports.has(key)) return
+  imageReports.add(key)
+  if (imageReports.size > 100) imageReports.delete(imageReports.values().next().value!)
+  void fetch('/api/performance', {method:'POST',keepalive:true,headers:{'Content-Type':'application/json',Authorization:`Bearer ${token}`},body:JSON.stringify({page:'video_note',stage:'image',elapsed_ms:Math.max(0,Math.min(300000,Math.round(milliseconds))),document_ms:0,api_ms:0,cached:false})}).catch(()=>{})
 }

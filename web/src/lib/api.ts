@@ -4,7 +4,7 @@
 
 import { getAccessToken, getAuthGeneration, getRefreshToken, accessTokenNeedsRefresh, refreshToken } from './auth'
 import { getPreference } from './preferences'
-import { clearCache } from './cache'
+import { invalidateForMutation } from './cache'
 
 import { takeStartupRead } from './startupReads'
 
@@ -18,14 +18,18 @@ export class ApiError extends Error {
   constructor(message: string, public readonly status: number) { super(message) }
 }
 
-function readJson<T>(url: string, operation: string): Promise<T> {
+function readJson<T>(url: string, operation: string, signal?: AbortSignal): Promise<T> {
   const generation = getAuthGeneration()
   const key = `${generation}:${url}`
   const existing = pendingReads.get(key)
-  if (existing) return existing as Promise<T>
+  if (existing && !signal) return existing as Promise<T>
   const controller = new AbortController()
   let timer: ReturnType<typeof setTimeout>
+  let cancel = () => {}
   const deadline = new Promise<never>((_, reject) => {
+    cancel = () => { controller.abort(); reject(new DOMException('Navigation cancelled','AbortError')) }
+    signal?.addEventListener('abort', cancel, {once:true})
+    if (signal?.aborted) cancel()
     timer = setTimeout(() => {
       controller.abort()
       reject(new Error('Loading timed out. Please retry.'))
@@ -39,9 +43,10 @@ function readJson<T>(url: string, operation: string): Promise<T> {
     deadline,
   ]).finally(() => {
     clearTimeout(timer)
+    signal?.removeEventListener('abort', cancel)
     if (pendingReads.get(key) === request) pendingReads.delete(key)
   })
-  pendingReads.set(key, request)
+  if (!signal) pendingReads.set(key, request)
   return request
 }
 
@@ -102,7 +107,29 @@ async function parseApiResponseAsJson<T>(res: Response, operation: string): Prom
 /**
  * Authenticated fetch wrapper with automatic token refresh on 401.
  */
+/** Shared deadline covers authentication, headers and body; mutations are never auto-retried on timeout. */
 export async function authFetch(url: string, options: RequestInit = {}): Promise<Response> {
+  if (options.signal) return performAuthFetch(url, options)
+  const controller = new AbortController()
+  const mutation = !['GET', 'HEAD'].includes((options.method || 'GET').toUpperCase())
+  let timer: ReturnType<typeof setTimeout>
+  const deadline = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => {
+      controller.abort()
+      reject(new Error(mutation ? 'No confirmation received. The operation may still be running. Check its status before submitting again.' : 'Loading timed out. Please retry.'))
+    }, mutation ? 60000 : 15000)
+  })
+  const generation = getAuthGeneration()
+  const request = performAuthFetch(url, {...options, signal:controller.signal}).then(async response => {
+    const body = [204,205,304].includes(response.status) ? null : await response.text()
+    if (generation !== getAuthGeneration()) throw new DOMException('Account changed', 'AbortError')
+    return new Response(body, {status:response.status,headers:response.headers})
+  })
+  try { return await Promise.race([request, deadline]) }
+  finally { clearTimeout(timer!) }
+}
+
+async function performAuthFetch(url: string, options: RequestInit = {}): Promise<Response> {
   const ownerGeneration = getAuthGeneration()
   const headers = new Headers(options.headers)
   let token = getAccessToken()
@@ -119,7 +146,7 @@ export async function authFetch(url: string, options: RequestInit = {}): Promise
   if (ownerGeneration !== getAuthGeneration()) throw new DOMException('Account changed', 'AbortError')
   const res = early || await fetch(url, { ...options, headers })
   if (ownerGeneration !== getAuthGeneration()) throw new DOMException('Account changed', 'AbortError')
-  if (mutating && res.ok) clearCache()
+  if (mutating && res.ok) invalidateForMutation(url)
 
   if (res.status === 401) {
     const tokens = await refreshToken()
@@ -128,7 +155,7 @@ export async function authFetch(url: string, options: RequestInit = {}): Promise
       headers.set('Authorization', `Bearer ${tokens.access_token}`)
       const retry = await fetch(url, { ...options, headers })
       if (ownerGeneration !== getAuthGeneration()) throw new DOMException('Account changed', 'AbortError')
-      if (mutating && retry.ok) clearCache()
+      if (mutating && retry.ok) invalidateForMutation(url)
       return retry
     }
   }
@@ -739,12 +766,12 @@ export async function fetchVideoTask(taskId: string): Promise<VideoTask> {
   return readJson(`${API_BASE}/video-notes/tasks/${encodeURIComponent(taskId)}?view=note`, 'Cannot load video notes. Please retry.')
 }
 
-export async function fetchVideoTranscript(taskId: string): Promise<{ transcript: VideoTask['transcript'] }> {
-  return parseApiResponseAsJson(await authFetch(`${API_BASE}/video-notes/tasks/${encodeURIComponent(taskId)}/transcript`), 'Cannot load video transcript')
+export async function fetchVideoTranscript(taskId: string, signal?: AbortSignal): Promise<{ transcript: VideoTask['transcript'] }> {
+  return readJson(`${API_BASE}/video-notes/tasks/${encodeURIComponent(taskId)}/transcript`, 'Cannot load video transcript', signal)
 }
 
-export async function fetchVideoVersion(taskId: string, versionId: string): Promise<VideoTaskVersion> {
-  return parseApiResponseAsJson(await authFetch(`${API_BASE}/video-notes/tasks/${encodeURIComponent(taskId)}/versions/${encodeURIComponent(versionId)}`), 'Cannot load saved version')
+export async function fetchVideoVersion(taskId: string, versionId: string, signal?: AbortSignal): Promise<VideoTaskVersion> {
+  return readJson(`${API_BASE}/video-notes/tasks/${encodeURIComponent(taskId)}/versions/${encodeURIComponent(versionId)}`, 'Cannot load saved version', signal)
 }
 
 export async function deleteVideoTask(taskId: string): Promise<{ message: string }> {
@@ -1429,4 +1456,12 @@ export async function exportMarkdownToNotion(markdown: string, title: string, pa
     throw new Error(err.detail || 'Export to Notion failed')
   }
   return res.json()
+}
+
+export interface LibraryItem { id:string; kind:'podcast'|'video'; title:string; source:string; date:string; status:string }
+export interface LibraryPage { items:LibraryItem[]; next_cursor:string|null }
+export function fetchLibrary(filters: string, cursor = '', signal?: AbortSignal): Promise<LibraryPage> {
+  const params = new URLSearchParams(filters)
+  if (cursor) params.set('cursor', cursor)
+  return readJson(`${API_BASE}/library?${params}`, 'Cannot load library', signal)
 }

@@ -1,5 +1,16 @@
 # Restore the previous website
 
+## Pagination and reader checkpoint (21 October 2026)
+
+Use `safety/pre-product-iteration-20261021`, image
+`8db4bcd17f03dff9ee0ff40a08389b1636ad0365`, to restore the preceding website.
+This is the current automatic deployment fallback. The added `library_items`
+view and bounded `page_performance` table/function can remain during rollback;
+the preceding application does not depend on them. No notes, source images,
+transcripts or credentials are modified. Preview files are derived disposable
+files in the existing private cache. Do not restore an older database snapshot.
+
+
 ## Workflow reliability checkpoint (20 October 2026)
 
 Use `safety/pre-workflow-review-20261020`, image

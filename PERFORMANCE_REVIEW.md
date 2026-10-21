@@ -6,6 +6,49 @@ and routing graph, every page's fetch/cache/polling lifecycle, rendering and
 reader dependencies, FastAPI route scheduling, database access, progress jobs,
 private media delivery, and deployment/rollback.
 
+## Pagination and reader iteration — 21 October 2026
+
+Implemented the review's next priorities:
+- `/api/library` returns 40 lightweight rows with an opaque ordering cursor.
+  Cloud filtering, source search, ordering and pagination run in Postgres through
+  a service-only security-invoker view. Frontend searches debounce and cancel
+  superseded reads; the startup prefetch also uses the bounded endpoint. No full
+  note bodies/transcripts are included. Local JSON summaries are filtered on the
+  server; they do not have the cloud database's indexed query path.
+- Successful writes invalidate related account cache families instead of all
+  pages. Hover prefetch waits 200ms and can be cancelled before a request starts.
+- Both Markdown renderers share private WebP previews (maximum 1000px dimension,
+  quality 85); original images load on enlargement and remain unchanged. Missing,
+  expired and network-failed images have distinct recovery actions. Preview bytes
+  are cached privately and the preview-file count is bounded.
+- Shared API deadlines include response bodies. An unconfirmed write explicitly
+  warns it may still be running and is never automatically resubmitted on timeout.
+  Video action buttons prevent duplicate clicks; processing-panel failures are
+  visible and failed dismiss/retry actions retain their task.
+- Readers share text size, comfortable/wide width, and contents visibility.
+  Library includes server sorting, source filtering, dates and layout memory.
+  Settings has a sticky save/status bar and guards unsaved navigation/closing.
+  Navigation descriptions distinguish saved notes from sources and tasks.
+- Account-scoped timing samples persist across cloud deployment (128 per account)
+  with P50/P95 by rendering stage, including first preview completion. Settings →
+  Tools & Data exposes recent account timings on demand. Local mode
+  uses SQLite. Raw page URLs, content and credentials are rejected. Aggregate
+  metrics are diagnostics, not promises about the user's network.
+
+The additive migration was applied and verified: the view contained 128 distinct
+account/kind/id rows at review time, unauthorized database roles cannot select the
+view/table or call the append function, and a rolled-back 130-append test verified
+128-sample retention. RLS is enabled on the service-only table; its no-client-policy
+advisor information is intentional. Existing leaked-password-protection warning
+is unrelated to this change; see https://supabase.com/docs/guides/auth/password-security#password-strength-and-leaked-password-protection.
+
+Validation covers 2,105 tied-date notes across cursor pages, filtering and owner
+isolation, preview byte reduction, persistent account metrics, mutation timeouts,
+request cancellation, and browser reading/settings/update/rollback interactions.
+  A watcher reconciles account changes between initial render and effect setup.
+CI adds Safari/WebKit and startup with optional program downloads blocked.
+Historical missing source images still require source video or backup recovery.
+
 ## Workflow reliability audit — current iteration
 
 Inspected application routing, authentication, cross-tab state, public cache and

@@ -105,3 +105,39 @@ it('does not return the old account cache when an in-flight refresh fails', asyn
   fail(new Error('Network failure'))
   await expect(request).rejects.toMatchObject({name:'AbortError'})
 })
+
+it('settings mutations preserve unrelated saved notes', async () => {
+  const { authFetch } = await import('../src/lib/api')
+  const { getCache } = await import('../src/lib/cache')
+  setCache('settings', {model:'old'}); setCache('library_page:q=', {items:['note']})
+  vi.stubGlobal('fetch',vi.fn().mockResolvedValue(Response.json({ok:true})))
+  await authFetch('/api/settings', {method:'PUT',body:'{}'})
+  expect(getCache('settings')).toBeNull()
+  expect(getCache('library_page:q=')).toEqual({items:['note']})
+})
+
+it('reports ambiguous mutation timeout without automatically submitting again', async () => {
+  vi.useFakeTimers()
+  const { authFetch } = await import('../src/lib/api')
+  const fetch=vi.fn().mockImplementation(()=>new Promise(()=>{})); vi.stubGlobal('fetch',fetch)
+  const result=expect(authFetch('/api/process',{method:'POST'})).rejects.toThrow('may still be running')
+  await vi.advanceTimersByTimeAsync(60000); await result
+  expect(fetch).toHaveBeenCalledTimes(1)
+})
+
+it('cancels an obsolete library search without waiting for its deadline', async () => {
+  const { fetchLibrary } = await import('../src/lib/api')
+  const controller=new AbortController()
+  vi.stubGlobal('fetch',vi.fn().mockImplementation(()=>new Promise(()=>{})))
+  const request=fetchLibrary('q=obsolete','',controller.signal)
+  controller.abort()
+  await expect(request).rejects.toMatchObject({name:'AbortError'})
+})
+
+it('reconciles a cross-tab account change that happened before the watcher mounted', () => {
+  localStorage.setItem('xyz_user',JSON.stringify({id:'new-account'}))
+  const generation=getAuthGeneration()
+  const stop=watchStoredSession('old-account')
+  expect(getAuthGeneration()).toBe(generation+1)
+  stop()
+})

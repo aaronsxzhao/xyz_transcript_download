@@ -137,3 +137,16 @@ export async function fetchWithCache<T>(
     throw error
   }
 }
+
+/** Invalidate only related account data; keep unrelated pages warm. */
+export function invalidateForMutation(url: string): void {
+  const path = new URL(url, location.origin).pathname.replace(/^\/api\//, '')
+  let prefixes: string[]
+  if (/^settings/.test(path)) prefixes = ['settings']
+  else if (/^(cookies|notion)/.test(path)) prefixes = []
+  else if (/^video-notes/.test(path)) prefixes = ['video_', 'channel_', 'recent_videos', 'library_page:', 'stats']
+  else if (/^(podcasts|episodes|summaries|process|jobs|check-podcasts|truncated)/.test(path)) prefixes = ['podcast', 'episodes_', 'summary_', 'summaries', 'recent_summaries', 'transcript_', 'library_page:', 'stats']
+  else prefixes = []
+  const accountPrefix = `${CACHE_PREFIX}${getAccountId()}:`
+  for (const key of Object.keys(localStorage)) if (key.startsWith(accountPrefix) && prefixes.some(prefix => key.slice(accountPrefix.length).startsWith(prefix))) localStorage.removeItem(key)
+}

@@ -158,26 +158,28 @@ export default function VideoViewer() {
     // the current task status before caching its separately loaded transcript.
     if (!taskVerified || !taskId || viewMode !== 'transcript' || transcript !== undefined) return
     let active = true
+    const controller = new AbortController()
     setTranscriptLoading(true)
-    fetchVideoTranscript(taskId).then(data => {
+    fetchVideoTranscript(taskId, controller.signal).then(data => {
       if (active) setTranscript(data.transcript)
     }).catch(error => {
       if (active) setError(error instanceof Error ? error.message : 'Cannot load transcript')
     }).finally(() => { if (active) setTranscriptLoading(false) })
-    return () => { active = false }
+    return () => { active = false; controller.abort() }
   }, [taskId, task?.id, task?.status, taskVerified, viewMode, transcript, loadAttempt])
 
   useEffect(() => {
     setVersionLoading(false)
     if (!taskId || !selectedVersion || selectedVersion in versionContents) return
     let active = true
+    const controller = new AbortController()
     setVersionLoading(true)
-    fetchVideoVersion(taskId, selectedVersion).then(version => {
+    fetchVideoVersion(taskId, selectedVersion, controller.signal).then(version => {
       if (active) setVersionContents(cache => ({ ...cache, [version.id]: version.content }))
     }).catch(error => {
       if (active) setError(error instanceof Error ? error.message : 'Cannot load version')
     }).finally(() => { if (active) setVersionLoading(false) })
-    return () => { active = false }
+    return () => { active = false; controller.abort() }
   }, [taskId, selectedVersion, versionContents, loadAttempt])
 
   const handleCopy = async () => {
@@ -394,6 +396,7 @@ export default function VideoViewer() {
 
   return (
     <div className="reader-workspace video-reader flex flex-col gap-2">
+      <ReaderControls />
       {/* Fixed header bar */}
       {error && <div role="alert" className="text-sm text-red-300 mb-3">{error} <button className="underline" onClick={() => setLoadAttempt(value => value + 1)}>Retry</button></div>}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 pb-3 flex-shrink-0">
@@ -590,10 +593,10 @@ export default function VideoViewer() {
       )}
 
       {/* Two-column layout: both columns scroll independently within viewport */}
-<div className="flex flex-wrap justify-between items-center gap-2"><ReaderControls /><select aria-label="Jump to note section" className="lg:hidden min-w-0 max-w-full p-2 rounded bg-dark-surface" defaultValue="" onChange={e => scrollToHeading(e.target.value)}><option value="" disabled>Contents</option>{toc.map(t => <option key={t.slug} value={t.slug}>{t.text}</option>)}</select></div>
+<div className="flex flex-wrap justify-between items-center gap-2"><select aria-label="Jump to note section" className="reader-contents min-w-0 max-w-full p-2 rounded bg-dark-surface" defaultValue="" onChange={e => scrollToHeading(e.target.value)}><option value="" disabled>Contents</option>{toc.map(t => <option key={t.slug} value={t.slug}>{t.text}</option>)}</select></div>
       <div className="flex-1 flex gap-4 min-h-0">
         {/* Left sidebar: scrolls independently */}
-        <aside className={`${viewMode === 'mindmap' ? '!hidden' : ''} w-52 xl:w-56 flex-shrink-0 hidden lg:flex flex-col gap-3 overflow-y-auto custom-scrollbar`}>
+        <aside data-reader-contents className={`${viewMode === 'mindmap' ? '!hidden' : ''} w-52 xl:w-56 flex-shrink-0 hidden lg:flex flex-col gap-3 overflow-y-auto custom-scrollbar`}>
           {/* Metadata card */}
           <div className="bg-dark-surface rounded-xl border border-dark-border p-3 flex-shrink-0">
             <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Info</h3>

@@ -246,7 +246,7 @@ export default function Dashboard() {
       <div className="flex items-start justify-between">
         <div>
           <h1 className="text-2xl font-bold text-white mb-2">Dashboard</h1>
-          <p className="text-gray-400">Manage your podcasts and video notes</p>
+          <p className="text-gray-400">Continue reading and follow your processing tasks</p>
         </div>
         <button
           onClick={handleCheckUpdates}

@@ -27,7 +27,7 @@ class NetworkPreview(Preview):
             time.sleep(.15)
             data = {'/api/auth/me':{'id':'bench','email':'bench@example.com','authenticated':True},
                     '/api/settings':{'whisper_mode':'api','whisper_model':'whisper-large-v3','llm_provider':'groq','llm_model':'openai/gpt-oss-120b','check_interval':3600},
-                    '/api/podcasts':[], '/api/summaries':[], '/api/video-notes/tasks':{'tasks':[]},
+                    '/api/library':{'items':[],'next_cursor':None}, '/api/performance':{'pages':{'library':{'samples':12,'p50_ms':450,'p95_ms':1200,'slow_count':0,'error_count':0}}}, '/api/podcasts':[], '/api/summaries':[], '/api/video-notes/tasks':{'tasks':[]},
                     '/api/video-notes/progress':{'tasks':[]}, '/api/jobs':{'jobs':[]},
                     '/api/video-notes/channels':{'channels':[]}, '/api/cookies':{'cookies':[]}}
             payload = json.dumps(data.get(path, {})).encode()
@@ -67,6 +67,24 @@ async def check(browser, dist, label, rollback_dist=None):
         await page.locator('select[aria-label="Summary provider"]').wait_for(timeout=20000)
         await page.wait_for_function("!document.querySelector('select[aria-label=\"Summary provider\"]').disabled")
         report={'label':label,'settings_usable_ms':round((time.monotonic()-start)*1000),'initial_program_requests':len([path for path in state['reads'] if path.startswith('/assets/')])}
+        if label=='after':
+            async def settings_write(route):
+                if route.request.method == 'POST': await route.fulfill(status=200,content_type='application/json',body='{}')
+                else: await route.continue_()
+            await page.route('**/api/settings',settings_write)
+            await page.get_by_label('Summary provider',exact=True).select_option('server')
+            await page.get_by_text('Unsaved changes',exact=True).wait_for()
+            page.once('dialog',lambda dialog: asyncio.create_task(dialog.dismiss()))
+            await page.get_by_role('link',name='Library',exact=True).click()
+            assert '/settings' in page.url
+            await page.get_by_role('button',name='Save Settings',exact=True).click()
+            await page.get_by_text('All changes saved',exact=True).wait_for()
+            await page.screenshot(path='/tmp/xyz-settings-review.png')
+            report['settings_unsaved_guard_and_save']=True
+            await page.get_by_role('button',name='Tools & Data',exact=True).click()
+            await page.get_by_role('button',name='Show recent timings',exact=True).click()
+            await page.get_by_role('cell',name='1.20s',exact=True).wait_for()
+            report['account_performance_panel']=True
         reads=len(state['reads']);start=time.monotonic()
         await page.get_by_role('link',name='Library',exact=True).click()
         await page.locator('input[aria-label="Search saved notes"]').wait_for(timeout=15000)

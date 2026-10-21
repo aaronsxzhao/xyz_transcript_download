@@ -2,6 +2,7 @@
  * Unified processing panel showing active podcast AND video jobs with progress.
  * Completed jobs are auto-dismissed once the user has seen them.
  */
+import { useToast } from './Toast'
 import { useState, useEffect, useRef } from 'react'
 import { ChevronUp, ChevronDown, Activity, X, Trash2, RotateCcw, Radio, Video, Upload } from 'lucide-react'
 import { useStore, type VideoUploadSession } from '../lib/store'
@@ -24,6 +25,7 @@ function formatBytes(bytes: number): string {
 }
 
 export default function ProcessingPanel() {
+  const { addToast } = useToast()
   const { jobs, videoTasks, uploadSessions, wsConnected, removeJob, removeUploadSession } = useStore()
   const [expanded, setExpanded] = useState(() =>
     typeof window !== 'undefined' ? window.innerWidth >= MOBILE_BREAKPOINT : true
@@ -92,14 +94,12 @@ export default function ProcessingPanel() {
   }, [totalActive])
 
   const handleDismiss = async (jobId: string) => {
-    try { await deleteJob(jobId) } catch { /* ignore */ }
-    removeJob(jobId)
+    try { await deleteJob(jobId); removeJob(jobId) } catch (e) { addToast({type:'error',title:'Could not dismiss task',message:e instanceof Error ? e.message : 'Please retry'}) }
   }
 
   const handleClearCompleted = async () => {
     for (const job of completedJobs) {
-      try { await deleteJob(job.job_id) } catch { /* ignore */ }
-      removeJob(job.job_id)
+      await handleDismiss(job.job_id)
     }
   }
 
@@ -229,6 +229,7 @@ function UploadSessionItem({ session, onDismiss }: { session: VideoUploadSession
 }
 
 function VideoJobItem({ task }: { task: { id: string; title: string; status: string; progress: number; message: string; platform: string } }) {
+  const { addToast } = useToast()
   const [cancelling, setCancelling] = useState(false)
   const { setVideoTasks, videoTasks } = useStore()
 
@@ -237,7 +238,7 @@ function VideoJobItem({ task }: { task: { id: string; title: string; status: str
     try {
       await cancelVideoTask(task.id)
       setVideoTasks(videoTasks.filter(t => t.id !== task.id))
-    } catch (err) { console.error('Cancel failed:', err) }
+    } catch (err) { addToast({type:'error',title:'Cancel failed',message:err instanceof Error ? err.message : 'Please retry'}) }
     finally { setCancelling(false) }
   }
 
@@ -285,19 +286,19 @@ function VideoJobItem({ task }: { task: { id: string; title: string; status: str
 }
 
 function PodcastJobItem({ job, showCancel = false, onDismiss }: { job: ProcessingJob; showCancel?: boolean; onDismiss?: () => void }) {
+  const { addToast } = useToast()
   const [cancelling, setCancelling] = useState(false)
   const [retrying, setRetrying] = useState(false)
-  const { removeJob } = useStore()
 
   const handleCancel = async () => {
     setCancelling(true)
-    try { await cancelJob(job.job_id) } catch (err) { console.error('Cancel failed:', err) }
+    try { await cancelJob(job.job_id) } catch (err) { addToast({type:'error',title:'Cancel failed',message:err instanceof Error ? err.message : 'Please retry'}) }
     finally { setCancelling(false) }
   }
 
   const handleRetry = async () => {
     setRetrying(true)
-    try { await retryJob(job.job_id) } catch (err) { console.error('Retry failed:', err); removeJob(job.job_id) }
+    try { await retryJob(job.job_id) } catch (err) { addToast({type:'error',title:'Retry failed',message:err instanceof Error ? err.message : 'Please retry'}) }
     finally { setRetrying(false) }
   }
 

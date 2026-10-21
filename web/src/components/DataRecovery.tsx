@@ -45,7 +45,7 @@ export function NoteRecovery({ id, version = '', warning = '', failed = false, l
   }
   return <section aria-label="Note recovery and backup" className="mb-3 text-sm space-y-2">
     {warning && <p role="status" className="text-amber-300">The summary is saved. {warning}</p>}
-    <details open={failed || !!warning || undefined}><summary className="cursor-pointer text-gray-400 py-1">Downloads & screenshot recovery</summary><div className="flex flex-wrap gap-2 pt-2">
+    <details data-screenshot-recovery open={failed || !!warning || undefined}><summary className="cursor-pointer text-gray-400 py-1">Downloads & screenshot recovery</summary><div className="flex flex-wrap gap-2 pt-2">
       <button className={button} disabled={busy} onClick={() => void run(async () => setMessage(await downloadArchive(base + '/bundle' + (version ? `?version=${encodeURIComponent(version)}` : ''), 'note-with-images.zip')))}>Download with images</button>
       <button className={button} disabled={busy || repair?.status === 'running'} onClick={() => void run(() => startRepair())}>{repair?.status === 'running' ? 'Restoring screenshots…' : 'Repair screenshots'}</button>
       {failed && <button className={button} disabled={busy} onClick={() => void run(async () => {
