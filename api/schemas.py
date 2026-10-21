@@ -1,6 +1,6 @@
 """Pydantic schemas for API requests and responses."""
 from typing import List, Optional
-from pydantic import BaseModel
+from pydantic import model_validator, BaseModel
 
 
 # Podcast schemas
@@ -37,6 +37,14 @@ class EpisodeBase(BaseModel):
 
 
 class EpisodeResponse(EpisodeBase):
+    source_status: str = "unknown"
+    source_message: str = ""
+
+    @model_validator(mode="after")
+    def describe_source(self):
+        from source_access import source_message
+        self.source_message = source_message(self.source_status)
+        return self
     eid: str
     pid: str
     audio_url: str = ""
@@ -83,6 +91,9 @@ class KeyPoint(BaseModel):
 
 
 class SummaryResponse(BaseModel):
+    quality_warning: str = ""
+    source_status: str = "unknown"
+    source_message: str = ""
     episode_id: str
     title: str
     overview: str

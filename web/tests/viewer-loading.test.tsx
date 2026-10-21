@@ -33,3 +33,11 @@ it('does not confuse a network failure with a missing summary',async()=>{
   vi.mocked(fetchSummary).mockRejectedValueOnce(new ApiError('Missing',404));vi.mocked(fetchTranscript).mockResolvedValueOnce({episode_id:'test',language:'en',duration:0,text:'Transcript',segments:[]})
   await mount();expect(fetchSummary).toHaveBeenCalledOnce();expect(fetchTranscript).toHaveBeenCalledOnce()
 })
+it('explains restricted incomplete content instead of rendering an ordinary summary',async()=>{
+ vi.mocked(fetchSummary).mockResolvedValueOnce({...summary,key_points:[],topics:[],source_status:'purchase_required',source_message:'Purchase required on Xiaoyuzhou.',quality_warning:'This summary is based on an incomplete transcript.'})
+ const node=await mount()
+ expect(node.querySelector('[role="alert"]')?.textContent).toContain('Purchase required')
+ expect(node.textContent).toContain('Previous incomplete result')
+ expect(node.textContent).not.toContain('Key Points by Topic')
+ expect(node.querySelector('[aria-label="Copy note"]')).toBeNull()
+})

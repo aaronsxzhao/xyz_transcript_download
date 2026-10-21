@@ -144,6 +144,7 @@ def _episode_response_from_record(db, episode) -> EpisodeResponse:
         cover_url="",
         audio_url=episode.audio_url,
         status=episode.status,
+        source_status=episode.source_status,
         has_transcript=db.has_transcript(episode.eid),
         has_summary=db.has_summary(episode.eid),
         topics_count=0,
@@ -188,7 +189,7 @@ def _podcast_content(db, owner, preview_limit=12, only_pid=None, offset=0):
         annotations = db.get_episode_annotations([ep.eid for ep in episodes])
         previews[podcast.pid] = [EpisodeResponse(
             eid=ep.eid, pid=ep.pid, title=ep.title, description=(ep.description or '')[:280],
-            duration=ep.duration, pub_date=ep.pub_date, status=ep.status, created_at=ep.created_at,
+            duration=ep.duration, pub_date=ep.pub_date, status=ep.status, created_at=ep.created_at, source_status=ep.source_status,
             **annotations.get(ep.eid, {'has_transcript':False,'has_summary':False}),
         ).model_dump() for ep in episodes]
     return {'podcasts':[PodcastResponse(
@@ -717,6 +718,7 @@ async def list_podcast_episodes(pid: str, limit: int = Query(50, ge=1, le=200), 
             cover_url="",
             audio_url=ep.audio_url,
             status=ep.status,
+            source_status=ep.source_status,
             **annotations.get(ep.eid, {"has_transcript": False, "has_summary": False}),
             created_at=ep.created_at,
         )

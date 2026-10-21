@@ -177,6 +177,8 @@ export interface Podcast {
 }
 
 export interface Episode {
+  source_status?: string
+  source_message?: string
   eid: string
   pid: string
   title: string
@@ -201,6 +203,9 @@ export interface LocalAudioUploadResult {
 const CHUNKED_AUDIO_UPLOAD_THRESHOLD = 8 * 1024 * 1024
 
 export interface Summary {
+  quality_warning?: string
+  source_status?: string
+  source_message?: string
   episode_id: string
   title: string
   overview: string

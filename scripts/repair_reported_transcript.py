@@ -98,6 +98,9 @@ def repair(settings):
     def valid(report):
         return report['transcript_seconds']>=report['expected_seconds']*.85 and report['transcript_chars']>=100 and report['topics']>0
     before=health()
+    access=client.table('episode_source_access').select('status').eq('user_id',owner).eq('eid',EPISODE_ID).execute().data
+    if access and access[0]['status'] in {'purchase_required','login_required','restricted','unavailable'}:
+        return {'repair':'reported_transcript','status':'source_access_required',**before}
     if valid(before): return {'repair':'reported_transcript','status':'already_healthy',**before}
     diagnose_source(episode)
     diagnose_download_logs()

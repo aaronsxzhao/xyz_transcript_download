@@ -66,7 +66,28 @@ async def get_summary(eid: str, user: Optional[User] = Depends(get_current_user)
     if not summary:
         raise HTTPException(status_code=404, detail="Summary not found")
     
+    warning = ''
+    access_status = 'unknown'
+    access_message = ''
+    # Normal summaries keep the existing fast path. Empty results need an
+    # integrity check so historic recognition failures aren't shown as valid.
+    if not summary.key_points and not summary.topics:
+        episode, transcript = await asyncio.gather(run_sync(db.get_episode,eid),run_sync(db.get_transcript,eid))
+        if episode:
+            from source_access import source_message
+            access_status = episode.source_status
+            access_message = source_message(access_status)
+        if transcript:
+            from transcript_quality import validate_transcript, IncompleteTranscriptError
+            try:
+                validate_transcript(transcript, episode.duration if episode else 0)
+            except IncompleteTranscriptError:
+                warning = 'This summary is based on an incomplete transcript and does not represent the full episode. Restore access to the full audio before regenerating.'
+        elif episode:
+            warning = 'The original transcript is missing. This empty summary cannot be verified.'
+
     return SummaryResponse(
+        quality_warning=warning, source_status=access_status, source_message=access_message,
         episode_id=summary.episode_id,
         title=summary.title,
         overview=summary.overview,
@@ -91,6 +112,10 @@ async def get_summary_html(
     if not summary_data:
         raise HTTPException(status_code=404, detail="Summary not found")
     
+    if not summary_data.key_points and not summary_data.topics:
+        checked = await get_summary(eid,user)
+        if checked.quality_warning:
+            raise HTTPException(status_code=409,detail=(checked.source_message+' '+checked.quality_warning).strip())
     # Convert database format to viewer format
     key_points = [
         KeyPoint(

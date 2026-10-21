@@ -1,3 +1,4 @@
+import SourceAccessNotice,{sourceBlocked} from '../components/SourceAccessNotice'
 import { useState, useEffect, useRef } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import { ArrowLeft, Play, FileText, MessageSquare, Loader2, CheckCircle, Trash2, RefreshCw, Tag, Sparkles, Upload } from 'lucide-react'
@@ -414,6 +415,7 @@ export default function Episodes() {
                     </span>
                   )}
                 </div>
+                <SourceAccessNotice compact status={episode.source_status} message={episode.source_message} episodeId={episode.eid}/>
               </div>
               
               <div className="flex items-center gap-2 justify-end sm:justify-start" onClick={e => e.stopPropagation()}>
@@ -425,9 +427,9 @@ export default function Episodes() {
                       <>
                         <button
                           onClick={() => handleRegenerate(episode)}
-                          disabled={regeneratingEid === episode.eid || !!activeJob}
+                          disabled={regeneratingEid === episode.eid || !!activeJob || sourceBlocked(episode.source_status) && episode.key_points_count===0}
                           className="flex items-center gap-2 px-3 py-2 bg-dark-hover hover:bg-dark-border text-gray-300 rounded-lg transition-colors disabled:opacity-50"
-                          title="Re-process episode"
+                          title={sourceBlocked(episode.source_status) && episode.key_points_count===0 ? episode.source_message : "Re-process episode"}
                         >
                           {regeneratingEid === episode.eid ? (
                             <Loader2 size={16} className="animate-spin" />
@@ -471,7 +473,7 @@ export default function Episodes() {
                   return (
                     <button
                       onClick={() => handleProcess(episode)}
-                      disabled={processingEid === episode.eid}
+                      disabled={processingEid === episode.eid || sourceBlocked(episode.source_status) && !episode.has_transcript}
                       className="flex items-center gap-2 px-4 py-2 bg-dark-hover hover:bg-dark-border text-white rounded-lg transition-colors disabled:opacity-50"
                     >
                       {processingEid === episode.eid ? (
@@ -479,7 +481,7 @@ export default function Episodes() {
                       ) : (
                         <Play size={16} />
                       )}
-                      Process
+                      {sourceBlocked(episode.source_status) && !episode.has_transcript ? 'Source access required' : 'Process'}
                     </button>
                   )
                 })()}

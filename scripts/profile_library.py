@@ -29,7 +29,7 @@ def profile_public_routes(owner: str, routes: list[tuple[str, str]], local_video
     token = jwt.encode({"sub": owner, "aud": "authenticated", "role": "authenticated",
                         "iat": now, "exp": now + 300}, secret, algorithm="HS256")
     selected = [("auth", "/api/auth/me"), *[(label, path) for label, path in routes
-                if label in {"content_updates", "progress", "podcasts", "channels", "episodes", "summary", "transcript", "settings", "channel_videos", "podcast_index", "reported_episodes", "reported_episode_failure", "reported_summary", "reported_video_note", "reported_latest_summary", "completed_local_video"}]]
+                if label in {"restricted_summary", "content_updates", "progress", "podcasts", "channels", "episodes", "summary", "transcript", "settings", "channel_videos", "podcast_index", "reported_episodes", "reported_episode_failure", "reported_summary", "reported_video_note", "reported_latest_summary", "completed_local_video"}]]
     reports = []
     for label, path in selected:
         result = subprocess.run([
@@ -72,7 +72,8 @@ def profile_public_routes(owner: str, routes: list[tuple[str, str]], local_video
     reports.extend(profile_covers(owner))
     if os.environ.get('XYZ_PROFILE_BROWSER') == '1':
         from scripts.profile_live_browser import profile_browser
-        reports.extend(asyncio.run(profile_browser(owner, token, local_video)))
+        restricted=next((path.rsplit('/',1)[-1] for label,path in routes if label=='restricted_summary'),None)
+        reports.extend(asyncio.run(profile_browser(owner, token, local_video, restricted)))
     return reports
 
 
@@ -96,6 +97,8 @@ async def profile() -> list[dict]:
     routes = [("stats", "/api/stats"), ("podcasts", "/api/podcasts"),
               ("podcast_index", "/api/podcasts?include_content=12"), ("content_updates", "/api/content-updates"), ("recent_summaries", "/api/summaries/recent"), ("channels", "/api/video-notes/channels"),
               ("queue", "/api/video-notes/tasks"), ("progress", "/api/video-notes/progress"), ("settings", "/api/settings")]
+    restricted=database.table('episodes').select('eid').eq('user_id',owner).eq('eid','6ad08b370e4e410a05bd4fd0').limit(1).execute().data or []
+    if restricted: routes.append(('restricted_summary','/api/summaries/'+restricted[0]['eid']))
     if podcasts:
         pid = podcasts[0]["pid"]
         routes.extend([("podcast_detail", f"/api/podcasts/{pid}"), ("episodes", f"/api/podcasts/{pid}/episodes")])

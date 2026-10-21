@@ -666,13 +666,18 @@ def process_episode_sync(job_id: str, episode_url: str, transcribe_only: bool = 
         use_fast_track = False
         audio_path = None
         if not transcript_is_valid:
+            from source_access import source_status, source_message
+            access = source_status(episode.audio_url,stored_episode.source_status if stored_episode and stored_episode.audio_url==episode.audio_url else 'unknown')
+            if source_message(access):
+                update_job_status(job_id,'failed',0,source_message(access))
+                return
             downloader = get_downloader()
             # ===== PHASE 2: Download audio (10-25%) =====
             update_job_status(job_id, "downloading", 15, "Downloading audio...")
             audio_path = downloader.download(episode, force=force)
 
             if not audio_path:
-                update_job_status(job_id, "failed", 0, "Download failed")
+                update_job_status(job_id, "failed", 0, getattr(downloader,"last_error","") or "Audio download failed. The source may be temporarily unavailable. Please retry.")
                 return
 
             update_job_status(job_id, "downloading", 25, "Download complete")
@@ -834,6 +839,7 @@ def process_episode_sync(job_id: str, episode_url: str, transcribe_only: bool = 
         
         from transcript_quality import validate_transcript
         validate_transcript(transcript, episode.duration)
+        db_interface.set_episode_source_status(episode.eid,'available')
         update_job_status(job_id, "transcribing", 70, "Transcription complete")
         
         # Save transcript immediately after transcription (before summarization)
