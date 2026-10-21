@@ -312,6 +312,11 @@ class XyzClient:
                             if episode_data and isinstance(episode_data, dict):
                                 if not pid:
                                     pid = episode_data.get('pid') or episode_data.get('podcastId') or ""
+                                # Prefer the complete media source over an OG preview.
+                                media = episode_data.get('media') or {}
+                                source = media.get('source') or {}
+                                enclosure = episode_data.get('enclosure') or {}
+                                audio_url = source.get('url') or enclosure.get('url') or audio_url
                                 duration = episode_data.get('duration') or 0
                                 pub_date = episode_data.get('pubDate') or episode_data.get('publishTime') or ""
                             
