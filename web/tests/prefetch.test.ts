@@ -71,7 +71,7 @@ it('prefetches only the first episode page and shares it with navigation', async
   await new Promise(resolve=>setTimeout(resolve,220))
   const opened=fetchEpisodes('channel')
   expect(fetch).toHaveBeenCalledOnce()
-  expect(fetch.mock.calls[0][0]).toBe('/api/podcasts/channel/episodes?offset=0&limit=50')
+  expect(fetch.mock.calls[0][0]).toBe('/api/podcasts/content?pid=channel&offset=0&limit=50')
   finish(Response.json([{eid:'first',pid:'channel'}]))
   await opened
   await vi.waitFor(()=>expect(getCache(CacheKeys.EPISODES('channel'))).toEqual([{eid:'first',pid:'channel'}]))

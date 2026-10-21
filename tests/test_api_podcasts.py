@@ -243,3 +243,28 @@ class TestRefreshPodcast:
         """Test refreshing a non-existent podcast."""
         response = await client.post("/api/podcasts/nonexistent/refresh")
         assert response.status_code == 404
+
+class TestPodcastContentIndex:
+    async def test_list_includes_bounded_content_for_each_podcast(self, client, create_test_podcast, create_test_episode):
+        for pid in ('first', 'second'):
+            create_test_podcast({'pid':pid,'title':pid})
+            for index in range(15):
+                create_test_episode(override={'eid':f'{pid}-{index:02}','pid':pid,'pub_date':f'2026-10-{index+1:02}', 'description':'Long description ' * 100})
+        response=await client.get('/api/podcasts?include_content=12')
+        assert response.status_code==200
+        for podcast in response.json():
+            assert podcast['episode_count']==15
+            assert len(podcast['episode_preview'])==12
+            assert all(ep['pid']==podcast['pid'] and len(ep['description'])<=280 and not ep['audio_url'] for ep in podcast['episode_preview'])
+        assert (await client.get('/api/podcasts?include_content=13')).status_code==422
+        page=await client.get('/api/podcasts/content?pid=first&offset=12&limit=3')
+        assert page.status_code==200 and len(page.json())==3
+        assert not ({ep['eid'] for ep in page.json()} & {ep['eid'] for ep in response.json()[0]['episode_preview'] if ep['pid']=='first'})
+
+    async def test_cloud_content_uses_one_owner_scoped_rpc(self):
+        from api.routers.podcasts import _podcast_content
+        from types import SimpleNamespace
+        provider=MagicMock();provider.rpc.return_value.execute.return_value.data={'podcasts':[],'previews':{}}
+        result=_podcast_content(SimpleNamespace(use_supabase=True,db=SimpleNamespace(client=provider)), 'authenticated-owner', 12)
+        assert result=={'podcasts':[],'previews':{}}
+        provider.rpc.assert_called_once_with('podcast_content_index',{'owner_id':'authenticated-owner','preview_limit':12,'only_pid':None,'page_offset':0})

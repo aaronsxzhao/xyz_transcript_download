@@ -1,14 +1,14 @@
 import { useState, useEffect, useRef } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import { ArrowLeft, Play, FileText, MessageSquare, Loader2, CheckCircle, Trash2, RefreshCw, Tag, Sparkles, Upload } from 'lucide-react'
-import { ApiError, fetchPodcast, fetchEpisodes, processEpisode, deleteEpisode, resummarizeEpisode, uploadLocalPodcastAudio, type Podcast, type Episode } from '../lib/api'
+import { ApiError, fetchPodcasts, fetchEpisodes, processEpisode, deleteEpisode, resummarizeEpisode, uploadLocalPodcastAudio, type Podcast, type Episode } from '../lib/api'
 import { useToast } from '../components/Toast'
 import { useStore } from '../lib/store'
 import { getStatusColor } from '../lib/statusUtils'
 import { markSeen, isNewItem } from '../lib/seen'
 import { fetchEpisode } from '../lib/api'
 import LoadError from '../components/LoadError'
-import { useWarmCache, getCache, setCache, CacheKeys } from '../lib/cache'
+import { useWarmCache, getCache, getCacheAge, setCache, CacheKeys } from '../lib/cache'
 import { getAccountId } from '../lib/preferences'
 import { prefetchSummary } from '../lib/summaryPrefetch'
 import { usePageTiming } from '../lib/pageTiming'
@@ -20,9 +20,10 @@ export default function Episodes() {
   const [podcast, setPodcast] = useState<Podcast | null>(cachedPodcast)
   const [episodes, setEpisodes] = useState<Episode[]>(() => getCache(CacheKeys.EPISODES(pid!)) || [])
   const [loading, setLoading] = useState(() => !getCache(CacheKeys.EPISODES(pid!)))
-  useWarmCache<Episode[]>(CacheKeys.EPISODES(pid!),value=>{setEpisodes(value);setLoading(false);const cached=cachedPodcast();if(cached){setPodcast(cached);setHasMore(value.length<cached.episode_count)}})
+  useWarmCache<Episode[]>(CacheKeys.EPISODES(pid!),value=>{setEpisodes(value);setLoading(false);setError('');const cached=cachedPodcast();if(cached){setPodcast(cached);setHasMore(value.length<cached.episode_count)}})
   const [error, setError] = useState('')
   const [retrying, setRetrying] = useState(false)
+  const [refreshWarning,setRefreshWarning] = useState('')
   const [errorSource, setErrorSource] = useState<'initial' | 'more'>('initial')
   usePageTiming('episodes', !loading && !error && (episodes[0]?.pid === pid || podcast?.pid === pid), CacheKeys.EPISODES(pid!), !!error)
   const [loadingMore, setLoadingMore] = useState(false)
@@ -95,17 +96,28 @@ export default function Episodes() {
     setError('')
     setErrorSource('initial')
     setRetrying(false)
-    setLoading(!getCache(CacheKeys.EPISODES(pid)))
-    // Metadata is independent: never hold the episode result/error behind it.
-    if (!cachedPodcast()) void fetchPodcast(pid).then(data => {
-      if (current()) { setPodcast(data); setCache(CacheKeys.PODCAST(pid), data, owner) }
-    }).catch(() => {})
+    setRefreshWarning('')
+    const key=CacheKeys.EPISODES(pid), cached=getCache<Episode[]>(key)
+    setLoading(!cached)
+    if(!cached || !cachedPodcast()) void fetchPodcasts().catch(()=>{})
+    if(cached && (getCacheAge(key) ?? Infinity)<60000) {
+      setEpisodes(cached)
+      const count=cachedPodcast()?.episode_count
+      setHasMore(count===undefined?cached.length>=12:cached.length<count)
+      return
+    }
     try {
       let data: Episode[]
       try { data = await fetchEpisodes(pid) }
       catch (err) {
         // One fresh connection for transient read failures; never retry auth,
         // missing records, cancellation, or any mutation automatically.
+        const available=getCache<Episode[]>(CacheKeys.EPISODES(pid))
+        if(current() && available) {
+          setEpisodes(available)
+          setRefreshWarning('Showing saved episodes. Live refresh is unavailable.')
+          return
+        }
         if (!current() || !(err instanceof TypeError ||
           err instanceof Error && err.message.includes('timed out') ||
           err instanceof ApiError && [502, 503, 504].includes(err.status))) throw err
@@ -118,7 +130,11 @@ export default function Episodes() {
       // A full page may have a successor even if metadata is unavailable/stale.
       setHasMore(data.length === 50)
     } catch (err) {
-      if (current()) setError(episodeError(err))
+      if (current()) {
+        const available=getCache<Episode[]>(CacheKeys.EPISODES(pid))
+        if(available){setEpisodes(available);setRefreshWarning('Showing saved episodes. Live refresh is unavailable.')}
+        else setError(episodeError(err))
+      }
     } finally {
       if (current()) { setLoading(false); setRetrying(false) }
     }
@@ -136,7 +152,12 @@ export default function Episodes() {
     try {
       const next = await fetchEpisodes(pid, episodes.length)
       if (!current()) return
-      setEpisodes(previous => [...previous, ...next])
+      setEpisodes(previous => {
+        const ids=new Set(previous.map(row=>row.eid))
+        const rows=[...previous,...next.filter(row=>!ids.has(row.eid))]
+        setCache(CacheKeys.EPISODES(pid),rows,owner)
+        return rows
+      })
       setHasMore(next.length === 50)
     } catch (err) { if (current()) setError(episodeError(err)) }
     finally { if (current()) setLoadingMore(false) }
@@ -342,6 +363,7 @@ export default function Episodes() {
         </div>
       )}
       
+      {refreshWarning && <p role="status" className="text-sm text-gray-400">{refreshWarning}</p>}
       {loading && <div role="status" className="flex items-center gap-2 p-4 text-sm text-gray-400">
         <Loader2 size={18} className="animate-spin text-indigo-400" />
         {retrying ? 'Connection interrupted. Retrying once…' : 'Loading episodes…'}

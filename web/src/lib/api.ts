@@ -3,8 +3,8 @@
  */
 
 import { getAccessToken, getAuthGeneration, getRefreshToken, accessTokenNeedsRefresh, refreshToken } from './auth'
-import { getPreference } from './preferences'
-import { invalidateForMutation } from './cache'
+import { getAccountId, getPreference } from './preferences'
+import { CacheKeys, getCache, setCache, invalidateForMutation } from './cache'
 
 import { takeStartupRead } from './startupReads'
 
@@ -173,6 +173,7 @@ export interface Podcast {
   summarized_count: number
   platform: string
   feed_url: string
+  episode_preview?: Episode[]
 }
 
 export interface Episode {
@@ -273,7 +274,18 @@ export function fetchProgress(known: string[]): Promise<{tasks: VideoTask[]}> {
 }
 
 export async function fetchPodcasts(): Promise<Podcast[]> {
-  return readJson(`${API_BASE}/podcasts`, 'Failed to fetch podcasts')
+  const owner=getAccountId(), revision=getReadRevision()
+  const rows=await readJson<Podcast[]>(`${API_BASE}/podcasts?include_content=12`, 'Failed to fetch podcasts')
+  const podcasts=rows.map(({episode_preview,...podcast})=>{
+    if(episode_preview && owner===getAccountId() && revision===getReadRevision()) {
+      const key=CacheKeys.EPISODES(podcast.pid),existing=getCache<Episode[]>(key)
+      const aligned=existing && episode_preview.every((ep,i)=>existing[i]?.eid===ep.eid)
+      setCache(key,aligned?[...episode_preview,...existing.slice(episode_preview.length)]:episode_preview,owner)
+    }
+    return podcast
+  })
+  if(owner===getAccountId() && revision===getReadRevision())setCache(CacheKeys.PODCASTS,podcasts,owner)
+  return podcasts
 }
 
 export async function addPodcast(url: string): Promise<Podcast> {
@@ -430,7 +442,7 @@ export async function fetchPodcast(pid: string): Promise<Podcast> {
 }
 
 export async function fetchEpisodes(pid: string, offset = 0, limit = 50): Promise<Episode[]> {
-  return readJson(`${API_BASE}/podcasts/${pid}/episodes?offset=${offset}&limit=${limit}`, 'Failed to fetch episodes')
+  return readJson(`${API_BASE}/podcasts/content?pid=${encodeURIComponent(pid)}&offset=${offset}&limit=${limit}`, 'Failed to fetch episodes')
 }
 
 export async function fetchEpisode(eid: string): Promise<Episode> {

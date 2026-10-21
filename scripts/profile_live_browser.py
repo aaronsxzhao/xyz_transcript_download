@@ -36,8 +36,8 @@ async def profile_browser(owner: str, token: str, local_video: str | None = None
         await context.route('**/*', read_only)
         routes = [
             ('dashboard', '/', '/api/stats'),
-            ('episode_navigation', '/podcasts?platform=xiaoyuzhou', '/api/podcasts/6540c81e9cb67569a2f99856/episodes'),
-            ('episodes', '/podcasts/62382c1103bea1ebfffa1c00/episodes', '/api/podcasts/62382c1103bea1ebfffa1c00/episodes'),
+            ('podcast_index', '/podcasts?platform=xiaoyuzhou', '/api/podcasts'),
+            ('episodes', '/podcasts/62382c1103bea1ebfffa1c00/episodes', '/api/podcasts/content'),
             ('channel', '/videos?platform=youtube&channel=Brooks+Trading+Course', '/api/video-notes/tasks/by-channel'),
             ('summary', '/viewer/69b1512984bce022f9ea354c', '/api/summaries/69b1512984bce022f9ea354c'),
             ('video_note', '/videos/bc2c988b-2b4', '/api/video-notes/tasks/bc2c988b-2b4'),
@@ -60,8 +60,6 @@ async def profile_browser(owner: str, token: str, local_video: str | None = None
             try:
                 async with page.expect_response(lambda response: urlparse(response.url).path == critical, timeout=25000) as pending:
                     await page.goto(ORIGIN + path, wait_until='domcontentloaded', timeout=25000)
-                    if label == 'episode_navigation':
-                        await page.locator('a[href="/podcasts/6540c81e9cb67569a2f99856/episodes"]').click(timeout=15000)
                 response = await pending.value
                 report['status'] = response.status
                 data = await response.json()
@@ -74,10 +72,27 @@ async def profile_browser(owner: str, token: str, local_video: str | None = None
                     rows = data if isinstance(data, list) else data['tasks']
                     if rows:
                         await page.get_by_text(rows[0]['title'], exact=True).first.wait_for(timeout=10000)
+                elif label == 'podcast_index':
+                    times=[]
+                    for podcast in data:
+                        if podcast.get('platform')!='xiaoyuzhou' or not podcast.get('episode_preview'):continue
+                        target=page.locator(f'a[href="/podcasts/{podcast["pid"]}/episodes"]')
+                        await target.wait_for(timeout=10000)
+                        opened=time.perf_counter()
+                        await target.click()
+                        await page.get_by_text(podcast['episode_preview'][0]['title'],exact=True).first.wait_for(timeout=10000)
+                        times.append(round((time.perf_counter()-opened)*1000))
+                        await page.go_back(wait_until='domcontentloaded')
+                    report['channels_opened']=len(times)
+                    report['max_navigation_ms']=max(times,default=0)
+                    if not times:raise RuntimeError('Podcast content previews missing')
                 elif label == 'dashboard':
                     await page.locator('.dashboard-stats svg').first.wait_for(timeout=10000)
                     colors = await page.locator('.dashboard-stats svg').evaluate_all('(nodes)=>nodes.map(n=>getComputedStyle(n).color)')
                     report['stat_colors'] = len(set(colors))
+                    positions=await page.evaluate("()=>[document.querySelector('.dashboard-stats'),document.querySelector('#dashboard-add-content'),Array.from(document.querySelectorAll('h2')).find(n=>n.textContent==='Continue reading · Podcasts')].map(n=>n.getBoundingClientRect().top)")
+                    report['dashboard_order']=int(positions[0]<positions[1]<positions[2])
+                    if not report['dashboard_order']:raise RuntimeError('Dashboard section order incorrect')
                     if report['stat_colors'] < 5: raise RuntimeError('Dashboard icon colors missing')
                 elif label == 'library':
                     if any(row['status'] != 'completed' for row in data['items']): raise RuntimeError('Library includes unfinished tasks')

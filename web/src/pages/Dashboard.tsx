@@ -263,63 +263,40 @@ export default function Dashboard() {
         </button>
       </div>
 
-      {/* New episodes notification */}
-      {showNewEpisodes && newEpisodes.length > 0 && (
-        <div className="p-4 bg-indigo-900/30 border border-indigo-500/30 rounded-xl">
-          <div className="flex items-start justify-between gap-4">
-            <div className="flex items-start gap-3">
-              <Bell className="w-5 h-5 text-indigo-400 mt-0.5 flex-shrink-0" />
-              <div>
-                <h3 className="font-medium text-white mb-2">
-                  {newEpisodes.length} New Episode{newEpisodes.length > 1 ? 's' : ''} Available
-                </h3>
-                <div className="space-y-1">
-                  {newEpisodes.slice(0, 5).map((ep) => (
-                    <Link
-                      key={ep.eid}
-                      to={`/podcasts/${ep.podcast_pid}/episodes`}
-                      className="block text-sm text-gray-300 hover:text-indigo-300 transition-colors"
-                    >
-                      <span className="text-indigo-400">{ep.podcast_title}:</span> {ep.title}
-                    </Link>
-                  ))}
-                  {newEpisodes.length > 5 && (
-                    <p className="text-sm text-gray-500">+{newEpisodes.length - 5} more</p>
-                  )}
-                </div>
-              </div>
-            </div>
-            <button onClick={() => setShowNewEpisodes(false)} className="p-1 text-gray-400 hover:text-white transition-colors">
-              <X size={16} />
-            </button>
-          </div>
+      {/* Stats — podcast + video combined */}
+      {stats && (
+        <div className="dashboard-stats grid grid-cols-2 md:grid-cols-3 lg:grid-cols-7 gap-3">
+          <StatCard icon={Radio} label="Podcasts" value={stats.total_podcasts} color="text-indigo-500" />
+          <StatCard icon={FileText} label="Episodes" value={stats.total_episodes} color="text-blue-500" />
+          <StatCard icon={FileText} label="Transcripts" value={stats.total_transcripts} color="text-green-500" />
+          <StatCard icon={MessageSquare} label="Summaries" value={stats.total_summaries} color="text-purple-500" />
+          <StatCard icon={Users} label="Channels" value={stats.total_video_channels} color="text-orange-500" />
+          <StatCard icon={Video} label="Videos" value={stats.total_videos} color="text-cyan-500" />
+          <StatCard icon={CheckCircle} label="Completed" value={stats.completed_videos} color="text-emerald-500" />
         </div>
       )}
 
-      {/* Processing jobs — podcast + video combined */}
-      {allQueueItems.length > 0 && (
-        <div>
-          <h2 className="text-lg font-semibold text-white mb-4">Processing Queue</h2>
-          <div className="space-y-3">
-            {allQueueItems.map((item) => {
-              const isVideo = item._kind === 'video'
-              const isDone = item.status === 'completed' || item.status === 'success'
-              const link = isDone
-                ? isVideo ? `/videos/${item.job_id}` : item.episode_id ? `/viewer/${item.episode_id}` : undefined
-                : undefined
-              return (
-                <ProcessingProgress
-                  key={`${item._kind}-${item.job_id}`}
-                  job={item}
-                  link={link}
-                  kind={item._kind}
-                  onCancel={(id) => handleCancelQueueItem(id, item._kind)}
-                />
-              )
-            })}
-          </div>
-        </div>
-      )}
+      {/* Quick process form */}
+      <div id="dashboard-add-content" className="p-4 md:p-6 bg-dark-surface border border-dark-border rounded-xl">
+        <h2 className="text-lg font-semibold text-white mb-4">Add content</h2>
+        <form onSubmit={handleProcess} className="flex flex-col sm:flex-row gap-3 sm:gap-4">
+          <input
+            type="text"
+            value={episodeUrl}
+            onChange={(e) => setEpisodeUrl(e.target.value)}
+            aria-label="Podcast episode or video URL" placeholder="Paste podcast episode or video URL..."
+            className="flex-1 px-4 py-3 bg-dark-hover border border-dark-border rounded-lg text-white placeholder:text-gray-500 focus:outline-none focus:border-indigo-500 text-base"
+          />
+          <button
+            type="submit"
+            disabled={processing || !episodeUrl.trim()}
+            className="flex items-center justify-center gap-2 px-6 py-3 bg-indigo-600 hover:bg-indigo-700 disabled:bg-gray-700 disabled:cursor-not-allowed text-white font-medium rounded-lg transition-colors"
+          >
+            {processing ? <Loader2 className="w-5 h-5 animate-spin" /> : <Plus className="w-5 h-5" />}
+            Process
+          </button>
+        </form>
+      </div>
 
       {/* Two-column: Recent summaries + Recent video notes */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -414,40 +391,66 @@ export default function Dashboard() {
           )}
         </div>
       </div>
-      {/* Quick process form */}
-      <div id="dashboard-add-content" className="p-4 md:p-6 bg-dark-surface border border-dark-border rounded-xl">
-        <h2 className="text-lg font-semibold text-white mb-4">Add content</h2>
-        <form onSubmit={handleProcess} className="flex flex-col sm:flex-row gap-3 sm:gap-4">
-          <input
-            type="text"
-            value={episodeUrl}
-            onChange={(e) => setEpisodeUrl(e.target.value)}
-            aria-label="Podcast episode or video URL" placeholder="Paste podcast episode or video URL..."
-            className="flex-1 px-4 py-3 bg-dark-hover border border-dark-border rounded-lg text-white placeholder:text-gray-500 focus:outline-none focus:border-indigo-500 text-base"
-          />
-          <button
-            type="submit"
-            disabled={processing || !episodeUrl.trim()}
-            className="flex items-center justify-center gap-2 px-6 py-3 bg-indigo-600 hover:bg-indigo-700 disabled:bg-gray-700 disabled:cursor-not-allowed text-white font-medium rounded-lg transition-colors"
-          >
-            {processing ? <Loader2 className="w-5 h-5 animate-spin" /> : <Plus className="w-5 h-5" />}
-            Process
-          </button>
-        </form>
-      </div>
 
-      {/* Stats — podcast + video combined */}
-      {stats && (
-        <div className="dashboard-stats grid grid-cols-2 md:grid-cols-3 lg:grid-cols-7 gap-3">
-          <StatCard icon={Radio} label="Podcasts" value={stats.total_podcasts} color="text-indigo-500" />
-          <StatCard icon={FileText} label="Episodes" value={stats.total_episodes} color="text-blue-500" />
-          <StatCard icon={FileText} label="Transcripts" value={stats.total_transcripts} color="text-green-500" />
-          <StatCard icon={MessageSquare} label="Summaries" value={stats.total_summaries} color="text-purple-500" />
-          <StatCard icon={Users} label="Channels" value={stats.total_video_channels} color="text-orange-500" />
-          <StatCard icon={Video} label="Videos" value={stats.total_videos} color="text-cyan-500" />
-          <StatCard icon={CheckCircle} label="Completed" value={stats.completed_videos} color="text-emerald-500" />
+      {/* New episodes notification */}
+      {showNewEpisodes && newEpisodes.length > 0 && (
+        <div className="p-4 bg-indigo-900/30 border border-indigo-500/30 rounded-xl">
+          <div className="flex items-start justify-between gap-4">
+            <div className="flex items-start gap-3">
+              <Bell className="w-5 h-5 text-indigo-400 mt-0.5 flex-shrink-0" />
+              <div>
+                <h3 className="font-medium text-white mb-2">
+                  {newEpisodes.length} New Episode{newEpisodes.length > 1 ? 's' : ''} Available
+                </h3>
+                <div className="space-y-1">
+                  {newEpisodes.slice(0, 5).map((ep) => (
+                    <Link
+                      key={ep.eid}
+                      to={`/podcasts/${ep.podcast_pid}/episodes`}
+                      className="block text-sm text-gray-300 hover:text-indigo-300 transition-colors"
+                    >
+                      <span className="text-indigo-400">{ep.podcast_title}:</span> {ep.title}
+                    </Link>
+                  ))}
+                  {newEpisodes.length > 5 && (
+                    <p className="text-sm text-gray-500">+{newEpisodes.length - 5} more</p>
+                  )}
+                </div>
+              </div>
+            </div>
+            <button onClick={() => setShowNewEpisodes(false)} className="p-1 text-gray-400 hover:text-white transition-colors">
+              <X size={16} />
+            </button>
+          </div>
         </div>
       )}
+
+      {/* Processing jobs — podcast + video combined */}
+      {allQueueItems.length > 0 && (
+        <div>
+          <h2 className="text-lg font-semibold text-white mb-4">Processing Queue</h2>
+          <div className="space-y-3">
+            {allQueueItems.map((item) => {
+              const isVideo = item._kind === 'video'
+              const isDone = item.status === 'completed' || item.status === 'success'
+              const link = isDone
+                ? isVideo ? `/videos/${item.job_id}` : item.episode_id ? `/viewer/${item.episode_id}` : undefined
+                : undefined
+              return (
+                <ProcessingProgress
+                  key={`${item._kind}-${item.job_id}`}
+                  job={item}
+                  link={link}
+                  kind={item._kind}
+                  onCancel={(id) => handleCancelQueueItem(id, item._kind)}
+                />
+              )
+            })}
+          </div>
+        </div>
+      )}
+
+
 
 
     </div>

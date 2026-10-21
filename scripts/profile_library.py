@@ -29,7 +29,7 @@ def profile_public_routes(owner: str, routes: list[tuple[str, str]], local_video
     token = jwt.encode({"sub": owner, "aud": "authenticated", "role": "authenticated",
                         "iat": now, "exp": now + 300}, secret, algorithm="HS256")
     selected = [("auth", "/api/auth/me"), *[(label, path) for label, path in routes
-                if label in {"progress", "podcasts", "channels", "episodes", "summary", "transcript", "settings", "channel_videos", "reported_episodes", "reported_episode_failure", "reported_summary", "reported_video_note", "reported_latest_summary", "completed_local_video"}]]
+                if label in {"progress", "podcasts", "channels", "episodes", "summary", "transcript", "settings", "channel_videos", "podcast_index", "reported_episodes", "reported_episode_failure", "reported_summary", "reported_video_note", "reported_latest_summary", "completed_local_video"}]]
     reports = []
     for label, path in selected:
         result = subprocess.run([
@@ -94,7 +94,7 @@ async def profile() -> list[dict]:
     podcasts = database.table("podcasts").select("pid").eq("user_id", owner).limit(1).execute().data or []
     summaries = database.table("summaries").select("episode_id").eq("user_id", owner).limit(1).execute().data or []
     routes = [("stats", "/api/stats"), ("podcasts", "/api/podcasts"),
-              ("recent_summaries", "/api/summaries/recent"), ("channels", "/api/video-notes/channels"),
+              ("podcast_index", "/api/podcasts?include_content=12"), ("recent_summaries", "/api/summaries/recent"), ("channels", "/api/video-notes/channels"),
               ("queue", "/api/video-notes/tasks"), ("progress", "/api/video-notes/progress"), ("settings", "/api/settings")]
     if podcasts:
         pid = podcasts[0]["pid"]
@@ -129,7 +129,8 @@ async def profile() -> list[dict]:
     calls = []
     original = httpx.Client.send
     def read_only(client, request, *args, **kwargs):
-        if request.method not in {"GET", "HEAD"}:
+        readonly_rpc = request.method == 'POST' and request.url.path == '/rest/v1/rpc/podcast_content_index'
+        if request.method not in {"GET", "HEAD"} and not readonly_rpc:
             raise RuntimeError("Profiling permits only database reads")
         started = time.perf_counter()
         response = original(client, request, *args, **kwargs)

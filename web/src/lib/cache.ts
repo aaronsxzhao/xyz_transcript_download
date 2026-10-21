@@ -7,6 +7,7 @@ const MAX_BYTES = 16 * 1024 * 1024
 const MAX_ENTRIES = 80
 interface Entry {key:string;data:unknown;timestamp:number;accessed:number;bytes:number}
 const memory = new Map<string,Entry>()
+const listeners = new Map<string,Set<()=>void>>()
 let revision=0
 let database:Promise<IDBDatabase|null>|undefined
 let queue=Promise.resolve()
@@ -56,7 +57,13 @@ export async function hydrateCache() {
   return hydrating
 }
 export function useWarmCache<T>(key:string, apply:(value:T)=>void) {
-  useEffect(()=>{let active=true;const owner=getAccountId();void hydrateCache().then(()=>{if(active&&owner===getAccountId()){const value=getCache<T>(key);if(value!==null)apply(value)}});return()=>{active=false}},[key])
+  useEffect(()=>{
+    let active=true;const owner=getAccountId(),name=scoped(key)
+    const update=()=>{if(active&&owner===getAccountId()){const value=getCache<T>(key);if(value!==null)apply(value)}}
+    const subscribers=listeners.get(name)||new Set<()=>void>();subscribers.add(update);listeners.set(name,subscribers)
+    void hydrateCache().then(update)
+    return()=>{active=false;subscribers.delete(update);if(!subscribers.size)listeners.delete(name)}
+  },[key])
 }
 export function getCache<T>(key:string):T|null {
   const name=scoped(key),entry=memory.get(name)
@@ -65,12 +72,14 @@ export function getCache<T>(key:string):T|null {
   if(small(key))try {const data=JSON.parse(localStorage.getItem(name)||'null');if(data&&Date.now()-data.timestamp<CACHE_TTL_MS)return data.data as T}catch{}
   return null
 }
+export function getCacheAge(key:string):number|null {const entry=memory.get(scoped(key));return entry?Date.now()-entry.timestamp:null}
 export function setCache<T>(key:string,data:T,owner=getAccountId()) {
   if(owner!==getAccountId())return
   const name=scoped(key), bytes=size(data)
   if(bytes>2*1024*1024)return
   const entry:Entry={key:name,data,timestamp:Date.now(),accessed:Date.now(),bytes}
   memory.set(name,entry);trim()
+  queueMicrotask(()=>{if(owner===getAccountId()&&memory.get(name)===entry)listeners.get(name)?.forEach(update=>update())})
   if(small(key)&&bytes<32768)try{localStorage.setItem(name,JSON.stringify(entry))}catch{}
   const epoch=revision
   enqueue(db=>{if(epoch===revision&&owner===getAccountId()&&memory.has(name)){const tx=db.transaction('entries','readwrite');tx.objectStore('entries').put(entry)}})
