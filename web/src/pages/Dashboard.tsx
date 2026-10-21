@@ -4,7 +4,7 @@ import { getAccountId } from '../lib/preferences'
 import { useState, useEffect, useMemo, useRef } from 'react'
 import { Link } from 'react-router-dom'
 import { Radio, FileText, MessageSquare, Loader2, Plus, ArrowRight, Bell, RefreshCw, X, Video, CheckCircle, Users } from 'lucide-react'
-import { fetchStats, fetchRecentSummaries, processEpisode, fetchNewEpisodes, checkPodcastsForUpdates, checkVideoChannelsForUpdates, fetchRecentVideoTasks, cancelJob, cancelVideoTask, generateVideoNote, getVideoProcessingDefaults, getUserModelSettings, type Stats, type SummaryListItem, type ProcessingJob, type NewEpisode, type VideoTask } from '../lib/api'
+import { fetchStats, fetchRecentSummaries, processEpisode, fetchContentUpdates, dismissContentUpdates, type ContentUpdate, checkPodcastsForUpdates, checkVideoChannelsForUpdates, fetchRecentVideoTasks, cancelJob, cancelVideoTask, generateVideoNote, getVideoProcessingDefaults, getUserModelSettings, type Stats, type SummaryListItem, type ProcessingJob, type VideoTask } from '../lib/api'
 import { useStore } from '../lib/store'
 import { useWarmCache, getCache, setCache, CacheKeys } from '../lib/cache'
 import { useToast } from '../components/Toast'
@@ -37,9 +37,12 @@ export default function Dashboard() {
   const [error, setError] = useState('')
   const [episodeUrl, setEpisodeUrl] = useState('')
   const [processing, setProcessing] = useState(false)
-  const [newEpisodes, setNewEpisodes] = useState<NewEpisode[]>([])
+  const [contentUpdates, setContentUpdates] = useState<ContentUpdate[]>(() => getCache('content-updates') || [])
+  useWarmCache<ContentUpdate[]>('content-updates',setContentUpdates)
+  const [updatesError,setUpdatesError] = useState('')
+  const [dismissingUpdates,setDismissingUpdates] = useState(false)
+  const updatesReadVersion = useRef(0)
   const [checkingUpdates, setCheckingUpdates] = useState(false)
-  const [showNewEpisodes, setShowNewEpisodes] = useState(true)
 
   const { jobs, updateJob, removeJob, videoTasks, setVideoTasks } = useStore()
   const { addToast } = useToast()
@@ -112,7 +115,11 @@ export default function Dashboard() {
 
   useEffect(() => {
     loadData()
-    loadNewEpisodes()
+    void loadContentUpdates()
+    const refresh = () => { if (!document.hidden) void loadContentUpdates() }
+    const timer = window.setInterval(refresh,30000)
+    window.addEventListener('focus',refresh)
+    return () => { window.clearInterval(timer);window.removeEventListener('focus',refresh) }
   }, [])
 
   async function loadData() {
@@ -141,55 +148,53 @@ export default function Dashboard() {
     }
   }
 
-  async function loadNewEpisodes() {
+  async function loadContentUpdates() {
+    const version = ++updatesReadVersion.current
+    const owner = getAccountId()
     try {
-      const data = await fetchNewEpisodes()
-      setNewEpisodes(data.episodes || [])
-    } catch (err) {
-      console.error('Failed to load new episodes:', err)
+      const data = await fetchContentUpdates()
+      if(owner !== getAccountId() || version !== updatesReadVersion.current) return
+      setContentUpdates(data.items)
+      setCache('content-updates',data.items,owner)
+      setUpdatesError('')
+    } catch {
+      if(owner === getAccountId() && version === updatesReadVersion.current) setUpdatesError('Cannot refresh new content. Saved updates are shown.')
     }
+  }
+
+  async function dismissUpdates() {
+    const keys = contentUpdates.map(item=>item.item_key)
+    const owner = getAccountId()
+    setDismissingUpdates(true)
+    try {
+      await dismissContentUpdates(keys)
+      if(owner !== getAccountId()) return
+      updatesReadVersion.current += 1
+      // Keep discoveries arriving while the dismissal request was in flight.
+      setContentUpdates(items=>{
+        const next=items.filter(item=>!keys.includes(item.item_key))
+        setCache('content-updates',next,owner)
+        return next
+      })
+      void loadContentUpdates()
+    } catch { addToast({type:'error',title:'Could not dismiss updates',message:'Please retry.'}) }
+    finally { setDismissingUpdates(false) }
   }
 
   async function handleCheckUpdates() {
     setCheckingUpdates(true)
     try {
-      const [podcastResult, videoResult] = await Promise.all([
-        checkPodcastsForUpdates().catch(e => {
-          console.error('Podcast check failed:', e)
-          throw e
-        }),
-        checkVideoChannelsForUpdates().catch(e => {
-          console.error('Video channel check failed:', e)
-          throw e
-        }),
-      ])
-
-      const hasNewPodcasts = podcastResult.new_episodes > 0
-      const hasNewVideos = videoResult.new_videos > 0
-
-      if (hasNewPodcasts) {
-        setNewEpisodes(podcastResult.episodes)
-        setShowNewEpisodes(true)
-      }
-
-      if (hasNewPodcasts && hasNewVideos) {
-        addToast({ type: 'success', title: 'New content found', message: `${podcastResult.new_episodes} episode(s) + ${videoResult.new_videos} video(s)` })
-        loadData()
-      } else if (hasNewPodcasts) {
-        addToast({ type: 'success', title: 'New episodes found', message: `Found ${podcastResult.new_episodes} new episode(s)` })
-        loadData()
-      } else if (hasNewVideos) {
-        addToast({ type: 'success', title: 'New videos found', message: `Found ${videoResult.new_videos} new video(s) from ${videoResult.channels_checked} channel(s)` })
-        loadData()
-      } else {
-        addToast({ type: 'info', title: 'All caught up', message: 'No new episodes or videos found' })
-      }
-    } catch (err) {
-      console.error('Failed to check for updates:', err)
-      addToast({ type: 'error', title: 'Failed to check updates', message: err instanceof Error ? err.message : 'Unknown error' })
-    } finally {
-      setCheckingUpdates(false)
-    }
+      const results = await Promise.allSettled([checkPodcastsForUpdates(),checkVideoChannelsForUpdates()])
+      const episodes = results[0].status==='fulfilled' ? results[0].value.new_episodes : 0
+      const videos = results[1].status==='fulfilled' ? results[1].value.new_videos : 0
+      const failed=results.filter(result=>result.status==='rejected').length
+      await loadContentUpdates()
+      if(episodes || videos) {
+        addToast({type:'success',title:'New content found',message:`${episodes} episode(s) + ${videos} video(s)`})
+        void loadData()
+      } else if(!failed) addToast({type:'info',title:'All caught up',message:'No new episodes or videos found'})
+      if(failed) addToast({type:'error',title:'Some sources could not be checked',message:'Successful discoveries have been kept. Please retry the unavailable sources.'})
+    } finally { setCheckingUpdates(false) }
   }
 
   async function handleProcess(e: React.FormEvent) {
@@ -252,6 +257,8 @@ export default function Dashboard() {
           <h1 className="page-title text-2xl font-bold text-white mb-2">Dashboard</h1>
           <p className="text-gray-400">Continue reading and follow your processing tasks</p>
         </div>
+        <div className="flex flex-wrap items-center justify-end gap-2">
+        {contentUpdates.length>0 && <a href="#dashboard-new-content" className="flex items-center gap-1.5 rounded-lg bg-indigo-600/20 px-3 py-2 text-sm text-indigo-300"><Bell size={16}/><span>{contentUpdates.length}{contentUpdates.length===100?'+':''} new</span></a>}
         <button
           onClick={handleCheckUpdates}
           disabled={checkingUpdates}
@@ -261,6 +268,7 @@ export default function Dashboard() {
           <RefreshCw size={16} className={checkingUpdates ? 'animate-spin' : ''} />
           <span className="hidden sm:inline">{checkingUpdates ? 'Checking...' : 'Check Updates'}</span>
         </button>
+        </div>
       </div>
 
       {/* Stats — podcast + video combined */}
@@ -392,37 +400,29 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* New episodes notification */}
-      {showNewEpisodes && newEpisodes.length > 0 && (
-        <div className="p-4 bg-indigo-900/30 border border-indigo-500/30 rounded-xl">
+      {/* Persistent source discoveries; dismissal only affects the displayed items. */}
+      {updatesError && <div role="status" className="text-sm text-amber-300">{updatesError} <button className="underline" onClick={()=>void loadContentUpdates()}>Retry</button></div>}
+      {contentUpdates.length > 0 && (
+        <section id="dashboard-new-content" aria-label="New content" className="p-4 bg-indigo-900/30 border border-indigo-500/30 rounded-xl">
           <div className="flex items-start justify-between gap-4">
-            <div className="flex items-start gap-3">
+            <div className="flex items-start gap-3 min-w-0">
               <Bell className="w-5 h-5 text-indigo-400 mt-0.5 flex-shrink-0" />
-              <div>
-                <h3 className="font-medium text-white mb-2">
-                  {newEpisodes.length} New Episode{newEpisodes.length > 1 ? 's' : ''} Available
-                </h3>
-                <div className="space-y-1">
-                  {newEpisodes.slice(0, 5).map((ep) => (
-                    <Link
-                      key={ep.eid}
-                      to={`/podcasts/${ep.podcast_pid}/episodes`}
-                      className="block text-sm text-gray-300 hover:text-indigo-300 transition-colors"
-                    >
-                      <span className="text-indigo-400">{ep.podcast_title}:</span> {ep.title}
-                    </Link>
+              <div className="min-w-0">
+                <h3 className="font-medium text-white mb-2">New content · {contentUpdates.filter(item=>item.kind==='podcast').length} episodes · {contentUpdates.filter(item=>item.kind==='video').length} videos</h3>
+                <ul className="space-y-2">
+                  {contentUpdates.slice(0,5).map(item=>(
+                    <li key={item.item_key}><Link className="flex items-center gap-2 text-sm text-gray-300 hover:text-indigo-300" to={item.kind==='podcast' ? `/podcasts/${encodeURIComponent(item.source_id)}/episodes` : '/videos'}>
+                      {item.kind==='podcast' ? <Radio size={15} className="shrink-0 text-indigo-400"/> : <Video size={15} className="shrink-0 text-violet-400"/>}
+                      <span className="truncate">{item.source_title && <span className="text-indigo-300">{item.source_title}: </span>}{item.title || 'New video'}</span>
+                    </Link></li>
                   ))}
-                  {newEpisodes.length > 5 && (
-                    <p className="text-sm text-gray-500">+{newEpisodes.length - 5} more</p>
-                  )}
-                </div>
+                </ul>
+                {contentUpdates.length>5 && <details className="mt-2 text-sm text-gray-400"><summary className="cursor-pointer">Show {contentUpdates.length-5} more</summary><ul className="mt-2 space-y-2">{contentUpdates.slice(5).map(item=><li key={item.item_key}><Link className="hover:text-indigo-300" to={item.kind==='podcast' ? `/podcasts/${encodeURIComponent(item.source_id)}/episodes` : '/videos'}>{item.source_title}: {item.title || 'New video'}</Link></li>)}</ul></details>}
               </div>
             </div>
-            <button onClick={() => setShowNewEpisodes(false)} className="p-1 text-gray-400 hover:text-white transition-colors">
-              <X size={16} />
-            </button>
+            <button aria-label="Dismiss these updates" disabled={dismissingUpdates} onClick={()=>void dismissUpdates()} className="p-2 text-gray-400 hover:text-white disabled:opacity-50"><X size={16}/></button>
           </div>
-        </div>
+        </section>
       )}
 
       {/* Processing jobs — podcast + video combined */}

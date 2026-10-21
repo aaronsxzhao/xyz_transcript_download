@@ -384,6 +384,9 @@ class AudioDownloader:
                     session, episode.audio_url, audio_path, total_size, progress_callback
                 )
                 if result:
+                    if not self.is_downloaded(episode):
+                        audio_path.unlink(missing_ok=True)
+                        raise ValueError('Downloaded audio is shorter than the episode. Please retry downloading.')
                     return audio_path
                     
             except Exception as e:
@@ -433,6 +436,13 @@ class AudioDownloader:
             timeout=(30, 60),  # (connect timeout, read timeout)
         )
         response.raise_for_status()
+        # Some CDNs ignore Range. Appending their full 200 response corrupts audio.
+        if existing_size and response.status_code == 200:
+            existing_size, mode = 0, 'wb'
+        elif existing_size and response.status_code == 206:
+            content_range = response.headers.get('Content-Range', '')
+            if not content_range.startswith(f'bytes {existing_size}-'):
+                raise ValueError('Audio server returned an invalid resume range')
 
         # Get total size from response if not known
         if total_size == 0:

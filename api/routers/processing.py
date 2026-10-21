@@ -353,6 +353,8 @@ def _background_refinement(audio_path, episode, fast_summary, db_interface, tran
             return None  # Keep fast version
         
         # Generate accurate summary
+        from transcript_quality import validate_transcript
+        validate_transcript(accurate_transcript,episode.duration)
         accurate_summary = summarizer.summarize(accurate_transcript, episode_title=episode.title)
         if not accurate_summary:
             return None  # Keep fast version
@@ -601,6 +603,14 @@ def process_episode_sync(job_id: str, episode_url: str, transcribe_only: bool = 
                 logger.info(f"Using shared transcript for {episode.eid} ({shared_transcript.duration/60:.1f} min)")
                 update_job_status(job_id, "fetching", 12, "Found shared transcript, reusing...")
         
+        if existing_transcript:
+            from transcript_quality import validate_transcript, IncompleteTranscriptError
+            try:
+                validate_transcript(existing_transcript, episode.duration)
+            except IncompleteTranscriptError:
+                logger.warning('Stored transcript failed completeness checks; transcribing again')
+                existing_transcript = None
+
         # Quick check: if both exist and transcript is not truncated, skip processing
         if existing_transcript and existing_summary and not force and not resummarize:
             transcript_duration = existing_transcript.duration or 0
@@ -650,7 +660,7 @@ def process_episode_sync(job_id: str, episode_url: str, transcribe_only: bool = 
             downloader = get_downloader()
             # ===== PHASE 2: Download audio (10-25%) =====
             update_job_status(job_id, "downloading", 15, "Downloading audio...")
-            audio_path = downloader.download(episode)
+            audio_path = downloader.download(episode, force=force)
 
             if not audio_path:
                 update_job_status(job_id, "failed", 0, "Download failed")
@@ -813,6 +823,8 @@ def process_episode_sync(job_id: str, episode_url: str, transcribe_only: bool = 
             update_job_status(job_id, "failed", 0, transcribe_error)
             return
         
+        from transcript_quality import validate_transcript
+        validate_transcript(transcript, episode.duration)
         update_job_status(job_id, "transcribing", 70, "Transcription complete")
         
         # Save transcript immediately after transcription (before summarization)

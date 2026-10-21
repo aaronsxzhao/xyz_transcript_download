@@ -135,6 +135,8 @@ class Database:
                     CREATE INDEX IF NOT EXISTS idx_episodes_status ON episodes(status)
                 """)
 
+                from api.content_updates import install_sqlite_updates
+                install_sqlite_updates(conn)
                 conn.commit()
                 logger.debug("Database initialized successfully")
                 

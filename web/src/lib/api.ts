@@ -1478,3 +1478,25 @@ export function fetchLibrary(filters: string, cursor = '', signal?: AbortSignal)
   if (cursor) params.set('cursor', cursor)
   return readJson(`${API_BASE}/library?${params}`, 'Cannot load library', signal)
 }
+
+export interface ContentUpdate {
+  item_key: string
+  kind: 'podcast' | 'video'
+  title: string
+  source_title: string
+  source_id: string
+  created_at: string
+}
+export async function fetchContentUpdates(): Promise<{items: ContentUpdate[]}> {
+  const res = await authFetch(`${API_BASE}/content-updates`)
+  if (!res.ok) throw new Error('Cannot load new content updates')
+  const data = await res.json()
+  if (!Array.isArray(data.items)) throw new Error('Invalid content updates response')
+  return data
+}
+export async function dismissContentUpdates(keys: string[]): Promise<void> {
+  const res = await authFetch(`${API_BASE}/content-updates/dismiss`, {
+    method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({keys}),
+  })
+  if (!res.ok) throw new Error('Cannot dismiss new content updates')
+}

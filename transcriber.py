@@ -4,6 +4,7 @@ Optimized for speed with batched inference and int8/fp16 support.
 """
 
 import json
+import math
 import os
 import subprocess
 from dataclasses import dataclass, asdict
@@ -571,7 +572,10 @@ class APITranscriber:
 
         file_size = audio_path.stat().st_size
 
-        if file_size <= self.max_size:
+        duration = self._get_audio_duration(audio_path)
+        # Split by time as well as bytes: low-bitrate podcasts can fit the upload
+        # limit while exceeding reliable long-form recognition windows.
+        if file_size <= self.max_size and duration <= 600:
             return self._transcribe_file(audio_path, episode_id, language, progress_callback)
 
         return self._transcribe_large_file(audio_path, episode_id, language, progress_callback)
@@ -706,6 +710,15 @@ class APITranscriber:
                             text=getattr(seg, 'text', "").strip(),
                         ))
 
+            from transcript_quality import validate_transcript
+            candidate = Transcript(
+                episode_id=episode_id,
+                language=getattr(response, 'language', language),
+                duration=getattr(response, 'duration', 0) or 0,
+                text=response.text, segments=segments,
+            )
+            validate_transcript(candidate, self._get_audio_duration(audio_path))
+
             # Done
             if progress_callback:
                 progress_callback(1.0)
@@ -740,13 +753,13 @@ class APITranscriber:
         import tempfile
 
         file_size = audio_path.stat().st_size
-        num_chunks = (file_size // self.max_size) + 1
 
         duration = self._get_audio_duration(audio_path)
         if duration == 0:
             logger.error("Could not determine audio duration")
             return None
 
+        num_chunks = max(1, math.ceil(file_size / self.max_size), math.ceil(duration / 600))
         chunk_duration = duration / num_chunks
         
         logger.info(f"Large file ({file_size / 1024 / 1024:.1f} MB) - splitting into {num_chunks} chunks")
@@ -815,6 +828,11 @@ class APITranscriber:
                     if mp3_path.exists():
                         actual_chunk_path = mp3_path
 
+                extracted_duration = self._get_audio_duration(actual_chunk_path)
+                if extracted_duration < chunk_duration * .85:
+                    self.last_error = 'Audio chunk extraction was incomplete. Please retry transcription.'
+                    return None
+
                 # Create a sub-callback for this chunk's transcription
                 def chunk_progress(p: float, chunk_idx=i):
                     if progress_callback:
@@ -830,6 +848,7 @@ class APITranscriber:
                 )
 
                 if not chunk_transcript:
+                    # Preserve the actionable error from the individual request.
                     logger.error(f"Failed to transcribe chunk {i+1}/{num_chunks} - aborting transcription")
                     return None  # Fail the whole transcription instead of skipping chunks
 

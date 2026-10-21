@@ -3,8 +3,8 @@
     "file": "assets/dist-9mZ0N9zs.js",
     "name": "dist"
   },
-  "_lib-DHBYPLRz.js": {
-    "file": "assets/lib-DHBYPLRz.js",
+  "_lib-VOXfv4CP.js": {
+    "file": "assets/lib-VOXfv4CP.js",
     "name": "lib",
     "imports": [
       "src/components/video/MarkdownPreview.tsx"
@@ -14,14 +14,18 @@
     "file": "assets/rolldown-runtime-XKyaHtl9.js",
     "name": "rolldown-runtime"
   },
-  "_workspace-CQnpfc0e.js": {
-    "file": "assets/workspace-CQnpfc0e.js",
+  "_workspace-COF5N0PK.css": {
+    "file": "assets/workspace-COF5N0PK.css",
+    "src": "_workspace-COF5N0PK.css"
+  },
+  "_workspace-lWTEZHUP.js": {
+    "file": "assets/workspace-lWTEZHUP.js",
     "name": "workspace",
     "imports": [
       "_rolldown-runtime-XKyaHtl9.js"
     ],
     "dynamicImports": [
-      "_workspace-CQnpfc0e.js",
+      "_workspace-lWTEZHUP.js",
       "src/components/PerformancePanel.tsx",
       "src/components/DataRecovery.tsx",
       "node_modules/qrcode.react/lib/esm/index.js",
@@ -33,20 +37,16 @@
       "src/components/TranscriptSegments.tsx"
     ],
     "css": [
-      "assets/workspace-DzeCEIBt.css"
+      "assets/workspace-COF5N0PK.css"
     ]
   },
-  "_workspace-DzeCEIBt.css": {
-    "file": "assets/workspace-DzeCEIBt.css",
-    "src": "_workspace-DzeCEIBt.css"
-  },
   "index.html": {
-    "file": "assets/index-C8b2yTpi.js",
+    "file": "assets/index-DTJdu5zT.js",
     "name": "index",
     "src": "index.html",
     "isEntry": true,
     "imports": [
-      "_workspace-CQnpfc0e.js"
+      "_workspace-lWTEZHUP.js"
     ]
   },
   "node_modules/dompurify/dist/purify.es.mjs": {
@@ -306,37 +306,37 @@
     ]
   },
   "node_modules/markmap-view/dist/index.js": {
-    "file": "assets/dist-HuvdJQER.js",
+    "file": "assets/dist-_sG1QbjI.js",
     "name": "dist",
     "src": "node_modules/markmap-view/dist/index.js",
     "isDynamicEntry": true,
     "imports": [
-      "_workspace-CQnpfc0e.js",
+      "_workspace-lWTEZHUP.js",
       "_dist-9mZ0N9zs.js"
     ]
   },
   "node_modules/qrcode.react/lib/esm/index.js": {
-    "file": "assets/esm-CQruTXQh.js",
+    "file": "assets/esm-BXahSOkS.js",
     "name": "esm",
     "src": "node_modules/qrcode.react/lib/esm/index.js",
     "isDynamicEntry": true,
     "imports": [
       "_rolldown-runtime-XKyaHtl9.js",
-      "_workspace-CQnpfc0e.js"
+      "_workspace-lWTEZHUP.js"
     ]
   },
   "node_modules/rehype-katex/index.js": {
-    "file": "assets/rehype-katex-Ce2CeDgt.js",
+    "file": "assets/rehype-katex-BbHD5V7U.js",
     "name": "rehype-katex",
     "src": "node_modules/rehype-katex/index.js",
     "isDynamicEntry": true,
     "imports": [
-      "_lib-DHBYPLRz.js",
+      "_lib-VOXfv4CP.js",
       "src/components/video/MarkdownPreview.tsx"
     ]
   },
   "node_modules/remark-math/index.js": {
-    "file": "assets/remark-math-DeknNC0g.js",
+    "file": "assets/remark-math-B93X3Kk1.js",
     "name": "remark-math",
     "src": "node_modules/remark-math/index.js",
     "isDynamicEntry": true,
@@ -345,70 +345,70 @@
     ]
   },
   "src/components/DataRecovery.tsx": {
-    "file": "assets/DataRecovery-pCMu71sC.js",
+    "file": "assets/DataRecovery-Lcc2Vbzz.js",
     "name": "DataRecovery",
     "src": "src/components/DataRecovery.tsx",
     "isDynamicEntry": true,
     "imports": [
       "_rolldown-runtime-XKyaHtl9.js",
-      "_workspace-CQnpfc0e.js"
+      "_workspace-lWTEZHUP.js"
     ]
   },
   "src/components/PerformancePanel.tsx": {
-    "file": "assets/PerformancePanel-B9wrg3lM.js",
+    "file": "assets/PerformancePanel-B2SC4Gdo.js",
     "name": "PerformancePanel",
     "src": "src/components/PerformancePanel.tsx",
     "isDynamicEntry": true,
     "imports": [
       "_rolldown-runtime-XKyaHtl9.js",
-      "_workspace-CQnpfc0e.js"
+      "_workspace-lWTEZHUP.js"
     ]
   },
   "src/components/TranscriptSegments.tsx": {
-    "file": "assets/TranscriptSegments-BYxOwSDU.js",
+    "file": "assets/TranscriptSegments-DlI1A37B.js",
     "name": "TranscriptSegments",
     "src": "src/components/TranscriptSegments.tsx",
     "isDynamicEntry": true,
     "imports": [
       "_rolldown-runtime-XKyaHtl9.js",
-      "_workspace-CQnpfc0e.js"
+      "_workspace-lWTEZHUP.js"
     ]
   },
   "src/components/video/HighlightedCode.tsx": {
-    "file": "assets/HighlightedCode-Bx5hQeXR.js",
+    "file": "assets/HighlightedCode-BOWbf3xU.js",
     "name": "HighlightedCode",
     "src": "src/components/video/HighlightedCode.tsx",
     "isDynamicEntry": true,
     "imports": [
       "_rolldown-runtime-XKyaHtl9.js",
-      "_workspace-CQnpfc0e.js",
-      "_lib-DHBYPLRz.js",
+      "_workspace-lWTEZHUP.js",
+      "_lib-VOXfv4CP.js",
       "src/components/video/MarkdownPreview.tsx"
     ]
   },
   "src/components/video/MarkdownPreview.tsx": {
-    "file": "assets/MarkdownPreview-BdonjVle.js",
+    "file": "assets/MarkdownPreview-ClDhA0_s.js",
     "name": "MarkdownPreview",
     "src": "src/components/video/MarkdownPreview.tsx",
     "isDynamicEntry": true,
     "imports": [
       "_rolldown-runtime-XKyaHtl9.js",
-      "_workspace-CQnpfc0e.js"
+      "_workspace-lWTEZHUP.js"
     ],
     "dynamicImports": [
       "src/components/video/HighlightedCode.tsx",
-      "_workspace-CQnpfc0e.js",
+      "_workspace-lWTEZHUP.js",
       "node_modules/remark-math/index.js",
       "node_modules/rehype-katex/index.js"
     ]
   },
   "src/components/video/TranscriptPanel.tsx": {
-    "file": "assets/TranscriptPanel-DrVmapq2.js",
+    "file": "assets/TranscriptPanel-gT2ecmKd.js",
     "name": "TranscriptPanel",
     "src": "src/components/video/TranscriptPanel.tsx",
     "isDynamicEntry": true,
     "imports": [
-      "_workspace-CQnpfc0e.js",
+      "_workspace-lWTEZHUP.js",
       "src/components/TranscriptSegments.tsx"
     ]
   }

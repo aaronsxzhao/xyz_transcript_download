@@ -329,6 +329,8 @@ async def upstream_connection_error(request, error):
                         headers={"Retry-After": "1"})
 
 # Include routers
+from api.content_updates import router as content_updates_router
+app.include_router(content_updates_router, prefix="/api/content-updates", tags=["Content updates"])
 app.include_router(auth_router.router, prefix="/api/auth", tags=["Authentication"])
 app.include_router(podcasts.router, prefix="/api/podcasts", tags=["Podcasts"])
 app.include_router(episodes.router, prefix="/api/episodes", tags=["Episodes"])

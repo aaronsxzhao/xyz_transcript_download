@@ -286,6 +286,8 @@ class Summarizer:
         Returns:
             Summary object or None on failure
         """
+        from transcript_quality import validate_transcript
+        validate_transcript(transcript)
         # Prepare the transcript text
         transcript_text = transcript.text
         duration = transcript.duration or 0
@@ -335,6 +337,9 @@ class Summarizer:
 
             content = response.choices[0].message.content
             data = extract_json_from_response(content)
+
+            if len(transcript_text) >= 1000 and not data.get('key_points'):
+                raise ValueError('Summary contains no key points for a substantial transcript. Please retry.')
 
             key_points = [
                 KeyPoint(
@@ -406,7 +411,7 @@ class Summarizer:
             
             final_content = "".join(collected_content)
             if finish_reason and finish_reason != "stop":
-                logger.warning(f"LLM stream ended with finish_reason={finish_reason} ({len(final_content):,} chars)")
+                raise ValueError(f"Summary response was incomplete ({finish_reason}). Please retry.")
             logger.info(f"LLM response: {len(final_content):,} chars generated")
 
             class StreamedResponse:
@@ -418,7 +423,7 @@ class Summarizer:
             response = self.client.chat.completions.create(**common_params)
             finish_reason = response.choices[0].finish_reason
             if finish_reason and finish_reason != "stop":
-                logger.warning(f"LLM response finish_reason={finish_reason} ({len(response.choices[0].message.content or ''):,} chars)")
+                raise ValueError(f"Summary response was incomplete ({finish_reason}). Please retry.")
             if response.choices[0].message.content:
                 logger.info(f"LLM response: {len(response.choices[0].message.content):,} chars generated")
             return response
