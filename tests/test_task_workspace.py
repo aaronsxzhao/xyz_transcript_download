@@ -55,9 +55,9 @@ def backup_client(corrupt=False):
 def test_private_backup_is_streamed_read_back_and_checked_before_manifest_publish():
     from scripts import backup_application as backup
     client,objects,queries=backup_client()
-    with patch('api.supabase_client.get_supabase_admin_client',return_value=client),patch('screenshot_extractor._iter_bucket_objects',return_value=[{'name':'frame.jpg'}]):
+    with patch('api.supabase_client.get_supabase_admin_client',return_value=client),patch('screenshot_extractor._iter_bucket_objects',return_value=[{'name':'frame.jpg','id':'object'},{'name':'previews','id':None,'metadata':None}]):
         report=backup.backup()
-    assert report['verified']==1 and report['tables']==12 and report['records']==12
+    assert report['verified']==1 and report['tables']==12 and report['records']==12 and report['media']==2
     manifest=json.loads(next(value for key,value in objects.items() if key.endswith('.manifest.json')))
     content=b''.join(objects[name] for name in manifest['parts'])
     with zipfile.ZipFile(io.BytesIO(content)) as archive:

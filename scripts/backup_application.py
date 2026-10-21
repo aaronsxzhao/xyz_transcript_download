@@ -65,7 +65,7 @@ def backup():
             for source_bucket in ('screenshots', 'thumbnails'):
                 for item in _iter_bucket_objects(client, source_bucket):
                     name = item.get('name', '')
-                    if not name or '/' in name: continue
+                    if not name or '/' in name or ('id' in item and item['id'] is None): continue
                     archive.writestr(f'media/{source_bucket}/{name}', client.storage.from_(source_bucket).download(name))
                     media += 1
             archive.writestr('manifest.json',json.dumps({'format':2,'tables':counts,'media':media,
