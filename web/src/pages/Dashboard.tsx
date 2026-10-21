@@ -16,7 +16,10 @@ import { usePageTiming } from '../lib/pageTiming'
 const UPDATES_CACHE='content-updates:v2'
 const DISMISSED_BEFORE='content_updates_dismissed_before'
 // Keep database microseconds when filtering a response racing with dismissal.
-const updateTime=(value:string)=>Date.parse(value)*1000+Number((value.match(/\.(\d+)/)?.[1]||'').padEnd(6,'0').slice(3,6))
+const updateTime=(value:string)=>{
+  const fraction=(value.match(/\.(\d+)/)?.[1]||'').padEnd(6,'0')
+  return Date.parse(value.replace(/\.\d+/,'.'+fraction.slice(0,3)))*1000+Number(fraction.slice(3,6))
+}
 function unreadSnapshot(snapshot:ContentUpdates):ContentUpdates {
   const before=updateTime(getPreference(DISMISSED_BEFORE)||'')
   return Number.isFinite(before)?{...snapshot,items:snapshot.items.filter(item=>updateTime(item.created_at)>before)}:snapshot

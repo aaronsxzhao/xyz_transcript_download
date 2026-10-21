@@ -16,7 +16,7 @@ const updates=[{item_key:'podcast:one',kind:'podcast',title:'New episode',source
  {item_key:'video:two',kind:'video',title:'New video',source_title:'My channel',source_id:'video',created_at:before}]
 let root:ReturnType<typeof createRoot>,node:HTMLDivElement
 beforeEach(()=>{vi.clearAllMocks();clearCache();localStorage.clear();localStorage.setItem('xyz_user',JSON.stringify({id:'owner',authenticated:true}));api.fetchContentUpdates.mockResolvedValue({items:updates,dismiss_before:before});api.dismissContentUpdates.mockResolvedValue(undefined);node=document.createElement('div');document.body.append(node);root=createRoot(node)})
-afterEach(()=>{act(()=>root.unmount());node.remove();clearCache()})
+afterEach(()=>{vi.restoreAllMocks();act(()=>root.unmount());node.remove();clearCache()})
 async function render(){await act(async()=>root.render(<MemoryRouter><Dashboard/></MemoryRouter>))}
 it('puts discoveries above stats and dismisses the unread snapshot',async()=>{
  await render()
@@ -77,4 +77,14 @@ it('keeps updates and offers retry feedback if saving dismissal fails',async()=>
  expect(node.textContent).toContain('New episode')
  expect(localStorage.getItem('xyz_pref:owner:content_updates_dismissed_before')).toBeNull()
  expect(toast).toHaveBeenCalledWith(expect.objectContaining({title:'Could not dismiss updates'}))
+})
+
+it('dismisses microsecond timestamps with browsers that only parse millisecond ISO dates',async()=>{
+ const parse=Date.parse
+ vi.spyOn(Date,'parse').mockImplementation(value=>/\.\d{4,}/.test(value)?NaN:parse(value))
+ await render()
+ await act(async()=>{(node.querySelector('[aria-label="Dismiss these updates"]') as HTMLButtonElement).click()})
+ expect(node.querySelector('[aria-label="New content"]')).toBeNull()
+ await act(async()=>window.dispatchEvent(new Event('focus')))
+ expect(node.querySelector('[aria-label="New content"]')).toBeNull()
 })
