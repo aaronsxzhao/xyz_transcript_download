@@ -64,3 +64,46 @@ def test_incomplete_result_does_not_replace_saved_transcript_or_summary(db_inter
         assert db_interface.get_summary('test-episode-456').overview==sample_summary_data['overview']
         summarizer.assert_not_called()
     finally: processing.jobs.pop(job,None)
+
+
+def test_share_page_missing_duration_keeps_known_episode_duration(db_interface,create_test_podcast,create_test_episode):
+    from api.routers import processing
+    from api.schemas import ProcessingStatus
+    from transcriber import Transcript
+    create_test_podcast();create_test_episode()
+    scraped=SimpleNamespace(eid='test-episode-456',pid='test-podcast-123',title='Test',duration=0,audio_url='https://example.com/audio',description='',pub_date='')
+    job='missing-duration'
+    processing.jobs[job]=ProcessingStatus(job_id=job,user_id='local',status='pending')
+    engine=Mock();engine.transcribe.return_value=Transcript('test-episode-456','zh',10,'Subscribe to the show',[])
+    try:
+        with patch.object(processing,'get_db',return_value=db_interface), \
+             patch('api.user_settings.get_user_settings',return_value={}), \
+             patch('xyz_client.get_client') as xyz, \
+             patch('downloader.get_downloader') as downloader, \
+             patch('downloader.compress_audio',return_value=Path('/tmp/audio')), \
+             patch('transcriber.get_transcriber',return_value=engine), \
+             patch('summarizer.get_summarizer') as summarizer, \
+             patch.object(processing,'notify_discord'):
+            xyz.return_value.get_episode_by_share_url.return_value=scraped
+            downloader.return_value.download.return_value=Path('/tmp/audio')
+            processing.process_episode_sync(job,'https://www.xiaoyuzhoufm.com/episode/test-episode-456',user_id='local')
+        assert scraped.duration==3600
+        assert processing.jobs[job].status=='failed'
+        assert 'incomplete' in processing.jobs[job].message
+        assert db_interface.get_transcript('test-episode-456') is None
+        summarizer.assert_not_called()
+    finally: processing.jobs.pop(job,None)
+
+
+@pytest.mark.parametrize('media,expected', [({'source':{'url':'https://example.com/full.mp3'}},'https://example.com/full.mp3'),(None,'https://example.com/preview.mp3')])
+def test_share_page_prefers_full_recording_but_tolerates_missing_structured_media(media,expected):
+    import json
+    from xyz_client import XyzClient
+    client=XyzClient.__new__(XyzClient)
+    response=Mock()
+    data={'props':{'pageProps':{'episode':{'pid':'show','duration':5026,'media':media}}}}
+    response.content=('<meta property="og:audio" content="https://example.com/preview.mp3"><script type="application/json">'+json.dumps(data)+'</script>').encode()
+    client.session=Mock();client.session.get.return_value=response
+    episode=client.get_episode_by_share_url('https://www.xiaoyuzhoufm.com/episode/example')
+    assert episode.audio_url==expected
+    assert episode.duration==5026

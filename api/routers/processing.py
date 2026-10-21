@@ -524,6 +524,15 @@ def process_episode_sync(job_id: str, episode_url: str, transcribe_only: bool = 
                 update_job_status(job_id, "failed", 0, "Could not fetch episode")
                 return
         
+        # Public share-page metadata may omit duration even when our subscribed
+        # episode record has it. Keep that reference for all completeness checks;
+        # otherwise a short preview can be accepted as the whole recording.
+        stored_episode = db_interface.get_episode(episode.eid)
+        if stored_episode:
+            episode.duration = max(episode.duration or 0, stored_episode.duration or 0)
+            if not episode.pid:
+                episode.pid = stored_episode.pid
+
         update_job_status(job_id, "fetching", 10, f"Found: {episode.title}", 
                          episode.eid, episode.title)
         
