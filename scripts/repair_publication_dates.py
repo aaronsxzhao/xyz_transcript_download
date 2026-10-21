@@ -29,6 +29,11 @@ def source_date(task):
         return ''
     cookies = get_cookie_manager(task['user_id']).get_cookie(platform)
     downloader = get_downloader(platform, cookies)
+    opts = {**downloader._get_base_opts(), 'skip_download': True, 'extract_flat': False,
+            'socket_timeout': 10, 'retries': 0, 'extractor_retries': 0,
+            'quiet': True, 'no_warnings': True}
+    # Apply the same bounds to Bilibili's yt-dlp fallback too.
+    downloader._get_base_opts = lambda: dict(opts)
     if platform == 'bilibili':
         # Native metadata also handles older Bilibili content without yt-dlp.
         result = downloader.get_metadata(task['url'])
@@ -47,9 +52,6 @@ def source_date(task):
             return stamp
     except Exception:
         pass
-    opts = {**downloader._get_base_opts(), 'skip_download': True, 'extract_flat': False,
-            'socket_timeout': 10, 'retries': 0, 'extractor_retries': 0,
-            'quiet': True, 'no_warnings': True}
     with yt_dlp.YoutubeDL(opts) as extractor:
         return publication_date(extractor.extract_info(task['url'], download=False) or {})
 
