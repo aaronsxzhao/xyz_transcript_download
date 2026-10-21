@@ -5,6 +5,7 @@ Healthy content is never regenerated on subsequent deployment checks.
 """
 import json
 import logging
+import re
 import os
 from pathlib import Path
 import subprocess
@@ -39,11 +40,52 @@ def request_json(path, token, data=None):
     return json.loads(body)
 
 
+def diagnose_source(episode):
+    from xyz_client import get_client
+    urls={'stored':episode.get('audio_url','')}
+    fresh=get_client().get_episode_by_share_url('https://www.xiaoyuzhoufm.com/episode/'+EPISODE_ID)
+    if fresh:
+        urls['fresh']=fresh.audio_url
+        print(json.dumps({'repair':'audio_source','page_duration':fresh.duration,
+                          'source_changed':int(fresh.audio_url!=urls['stored'])}),flush=True)
+    for label,url in urls.items():
+        if not url.startswith('https://'): continue
+        with tempfile.TemporaryDirectory() as directory:
+            path=Path(directory)/'headers'
+            result=subprocess.run(['curl','--silent','--show-error','--location','--head',
+                '--max-time','25','--dump-header',str(path),'--output',os.devnull,
+                '--write-out','%{http_code}','--config','-'],
+                input='url = '+json.dumps(url)+'\n',capture_output=True,text=True,timeout=30)
+            headers=path.read_text(errors='replace') if path.exists() else ''
+            lengths=re.findall(r'(?im)^content-length:\s*(\d+)',headers)
+            print(json.dumps({'repair':'audio_source','source':label,
+                'http_status':int(result.stdout) if result.stdout.isdigit() else 0,
+                'content_bytes':int(lengths[-1]) if lengths else 0,
+                'audio_type':int(bool(re.search(r'(?im)^content-type:\s*(?:audio/|application/octet-stream)',headers)))}),flush=True)
+
+
+def diagnose_download_logs():
+    from scripts.diagnose_deployment import oci_json
+    containers=oci_json(['container-instances','container-instance','get','--container-instance-id',os.environ['CONTAINER_INSTANCE_ID']], 'data.containers[*]."container-id"')
+    for container_id in containers or []:
+        with tempfile.TemporaryDirectory() as directory:
+            path=Path(directory)/'runtime.log'
+            result=subprocess.run(['oci','container-instances','container','retrieve-logs',
+                '--container-id',container_id,'--file',str(path)],capture_output=True,timeout=60)
+            if result.returncode or not path.exists(): continue
+            text=path.read_text(errors='replace')
+            codes=re.findall(r'([45]\d{2}) (?:Client|Server) Error',text)
+            coverage=re.findall(r'Audio file is truncated \(([0-9.]+)%',text)
+            print(json.dumps({'repair':'audio_download_logs','http_errors':{code:codes.count(code) for code in sorted(set(codes))},
+                'short_audio_percent':[float(value) for value in coverage[-10:]],
+                'probe_missing':int('No such file or directory: \'ffprobe\'' in text)}),flush=True)
+
+
 def repair(settings):
     from api.supabase_client import get_supabase_admin_client
     from jose import jwt
     client=get_supabase_admin_client()
-    rows=client.table('episodes').select('eid,user_id,duration').eq('eid',EPISODE_ID).limit(2).execute().data
+    rows=client.table('episodes').select('eid,user_id,duration,audio_url').eq('eid',EPISODE_ID).limit(2).execute().data
     if len(rows)!=1: raise RuntimeError('Ambiguous or missing reported episode')
     episode=rows[0]
     owner=episode['user_id']
@@ -57,6 +99,8 @@ def repair(settings):
         return report['transcript_seconds']>=report['expected_seconds']*.85 and report['transcript_chars']>=100 and report['topics']>0
     before=health()
     if valid(before): return {'repair':'reported_transcript','status':'already_healthy',**before}
+    diagnose_source(episode)
+    diagnose_download_logs()
     now=int(time.time())
     token=jwt.encode({'sub':owner,'aud':'authenticated','role':'authenticated','iat':now,'exp':now+1200},settings['SUPABASE_JWT_SECRET'],algorithm='HS256')
     def request(path,data=None):
