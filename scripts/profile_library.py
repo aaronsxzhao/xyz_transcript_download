@@ -29,7 +29,7 @@ def profile_public_routes(owner: str, routes: list[tuple[str, str]], local_video
     token = jwt.encode({"sub": owner, "aud": "authenticated", "role": "authenticated",
                         "iat": now, "exp": now + 300}, secret, algorithm="HS256")
     selected = [("auth", "/api/auth/me"), *[(label, path) for label, path in routes
-                if label in {"progress", "podcasts", "channels", "episodes", "summary", "transcript", "settings", "channel_videos", "reported_episodes", "reported_summary", "reported_video_note", "reported_latest_summary", "completed_local_video"}]]
+                if label in {"progress", "podcasts", "channels", "episodes", "summary", "transcript", "settings", "channel_videos", "reported_episodes", "reported_episode_failure", "reported_summary", "reported_video_note", "reported_latest_summary", "completed_local_video"}]]
     reports = []
     for label, path in selected:
         result = subprocess.run([
@@ -107,6 +107,7 @@ async def profile() -> list[dict]:
                 ("channel_videos", "/api/video-notes/tasks/by-channel?platform=youtube&channel=Brooks+Trading+Course"),
                 ("reported_video_note", "/api/video-notes/tasks/bc2c988b-2b4?view=note"),
             ])
+    routes.append(("reported_episode_failure", "/api/podcasts/6540c81e9cb67569a2f99856/episodes?offset=0&limit=50"))
     if summaries:
         eid = summaries[0]["episode_id"]
         routes.extend([("summary", f"/api/summaries/{eid}"), ("transcript", f"/api/transcripts/{eid}")])

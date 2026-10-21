@@ -35,6 +35,7 @@ async def profile_browser(owner: str, token: str, local_video: str | None = None
 
         await context.route('**/*', read_only)
         routes = [
+            ('episode_navigation', '/podcasts?platform=xiaoyuzhou', '/api/podcasts/6540c81e9cb67569a2f99856/episodes'),
             ('episodes', '/podcasts/62382c1103bea1ebfffa1c00/episodes', '/api/podcasts/62382c1103bea1ebfffa1c00/episodes'),
             ('channel', '/videos?platform=youtube&channel=Brooks+Trading+Course', '/api/video-notes/tasks/by-channel'),
             ('summary', '/viewer/69b1512984bce022f9ea354c', '/api/summaries/69b1512984bce022f9ea354c'),
@@ -58,6 +59,8 @@ async def profile_browser(owner: str, token: str, local_video: str | None = None
             try:
                 async with page.expect_response(lambda response: urlparse(response.url).path == critical, timeout=25000) as pending:
                     await page.goto(ORIGIN + path, wait_until='domcontentloaded', timeout=25000)
+                    if label == 'episode_navigation':
+                        await page.locator('a[href="/podcasts/6540c81e9cb67569a2f99856/episodes"]').click(timeout=15000)
                 response = await pending.value
                 report['status'] = response.status
                 data = await response.json()
@@ -66,7 +69,7 @@ async def profile_browser(owner: str, token: str, local_video: str | None = None
                 if label in {'summary', 'latest_summary'}:
                     await page.get_by_role('heading', name='Overview', exact=True).wait_for(timeout=10000)
                     report['topic_columns'] = await page.locator('[data-topic-column]').count()
-                elif label in {'episodes', 'channel'}:
+                elif label in {'episodes', 'episode_navigation', 'channel'}:
                     rows = data if isinstance(data, list) else data['tasks']
                     if rows:
                         await page.get_by_text(rows[0]['title'], exact=True).first.wait_for(timeout=10000)
