@@ -560,6 +560,10 @@ async def image_proxy(url: str):
     # Validate URL is an image from known domains
     allowed_domains = [
         "image.xyzcdn.net",
+        "i.ytimg.com",
+        "i0.hdslb.com",
+        "i1.hdslb.com",
+        "i2.hdslb.com",
         "jike.ruguoapp.com",
         "piccdn.igetget.com",
         "mzstatic.com",

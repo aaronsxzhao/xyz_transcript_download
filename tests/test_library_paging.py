@@ -24,7 +24,9 @@ class Query:
 
 @pytest.mark.asyncio
 async def test_cursor_traverses_large_library_with_tied_dates_and_account_isolation(monkeypatch):
-    rows = [dict(user_id='a', id=str(i), kind='podcast' if i%2 else 'video', title=f'Lesson {i}', source='Source', date='2026-01-01', status='completed', search_text=f'Lesson {i} Source', sort_key=f'20260101:{i:05}', markdown='Private full body') for i in range(2105)]
+    rows = [dict(user_id='a', id=str(i), kind='podcast' if i%2 else 'video', title=f'Lesson {i}', source='Source', date='2026-01-01', status='completed', search_text=f'Lesson {i} Source', sort_key=f'20260101:{i:05}', thumbnail='https://image.xyzcdn.net/fixture.jpg', platform='xiaoyuzhou', duration=600, topics_count=4, markdown='Private full body') for i in range(2105)]
+    rows.append({**rows[0], 'status':'failed', 'id':'failed-note', 'sort_key':'99999998'})
+    rows.append({**rows[0], 'status':'pending', 'id':'pending-note', 'sort_key':'99999997'})
     rows.append({**rows[0], 'user_id':'b', 'id':'private-other', 'sort_key':'99999999'})
     client = SimpleNamespace(table=lambda _: Query(rows))
     monkeypatch.setattr(library, 'get_db', lambda _: SimpleNamespace(use_supabase=True,db=SimpleNamespace(client=client)))
@@ -42,6 +44,8 @@ async def test_cursor_traverses_large_library_with_tied_dates_and_account_isolat
             cursor=page['next_cursor']
             if not cursor: break
         assert len(ids)==len(set(ids))==2105
+        assert (await http.get('/library',params={'status':'failed'})).json()=={'items':[],'next_cursor':None}
+        assert page['items'][0]['thumbnail'].startswith('https://')
         assert ids==[str(i) for i in reversed(range(2105))]
         oldest=(await http.get('/library',params={'sort':'oldest','kind':'podcast','q':'Lesson 1','source':'Source'})).json()['items']
         assert oldest[0]['id']=='1'

@@ -106,6 +106,7 @@ export default function Viewer() {
   const navigate = useNavigate()
   const currentEid = useRef(eid)
   currentEid.current = eid
+  const loadVersion = useRef(0)
   const [activeTab, setActiveTab] = useState<Tab>('summary')
   const [summary, setSummary] = useState<Summary | null>(() => getCache(CacheKeys.SUMMARY(eid!)))
   const [transcript, setTranscript] = useState<Transcript | null>(null)
@@ -114,6 +115,7 @@ export default function Viewer() {
   const [transcriptLoading, setTranscriptLoading] = useState(false)
   const [resummarizing, setResummarizing] = useState(false)
   const [error, setError] = useState('')
+  const [retrying, setRetrying] = useState(false)
   usePageTiming('viewer', !loading && (summary?.episode_id === eid || transcript?.episode_id === eid), CacheKeys.SUMMARY(eid!), !!error && !loading)
   const [expandedTopics, setExpandedTopics] = useState<Set<string>>(() => new Set(getCache<Summary>(CacheKeys.SUMMARY(eid!))?.topics.slice(0, 1)))
   const [copied, setCopied] = useState(false)
@@ -155,6 +157,7 @@ export default function Viewer() {
     setActiveTab('summary')
     setResummarizing(false)
     void loadData()
+    return () => { loadVersion.current += 1 }
   }, [eid])
 
   useEffect(() => {
@@ -167,14 +170,23 @@ export default function Viewer() {
     setError('')
     const requestedEid = eid
     const owner = getAccountId()
+    const version = ++loadVersion.current
+    const current = () => version === loadVersion.current && requestedEid === currentEid.current && owner === getAccountId()
+    setRetrying(false)
     try {
-      const data = await fetchSummary(eid!)
-      if (requestedEid !== currentEid.current || owner !== getAccountId()) return
+      let data: Summary
+      try { data = await fetchSummary(eid!) }
+      catch (err) {
+        if (!current() || !(err instanceof TypeError || err instanceof Error && err.message.includes('timed out') || err instanceof ApiError && [502,503,504].includes(err.status))) throw err
+        setRetrying(true)
+        data = await fetchSummary(eid!)
+      }
+      if (!current()) return
       setSummary(data)
       setCache(CacheKeys.SUMMARY(eid!), data, owner)
       setExpandedTopics(new Set(data.topics.slice(0, 1)))
     } catch (err) {
-      if (requestedEid !== currentEid.current || owner !== getAccountId()) return
+      if (!current()) return
       if (cached) setError('Cannot refresh this summary. Please retry.')
       else if (err instanceof ApiError && err.status === 404) {
         // Episodes with a transcript but no summary still open normally.
@@ -182,12 +194,21 @@ export default function Viewer() {
         if (requestedEid !== currentEid.current) return
         if (fallback) setActiveTab('transcript')
         else setError('Cannot load this episode. Please retry.')
-      } else setError(err instanceof Error ? err.message : 'Cannot load this summary. Please retry.')
+      } else if (err instanceof TypeError) setError('The summary connection was interrupted. Check your connection and retry. Your saved summary has not been deleted.')
+      else if (err instanceof ApiError && err.status === 401) setError('Your session has expired. Please sign in again.')
+      else setError(err instanceof Error ? err.message : 'Cannot load this summary. Please retry.')
     } finally {
-      if (requestedEid === currentEid.current) setLoading(false)
+      if (current()) { setLoading(false); setRetrying(false) }
     }
   }
   
+  useEffect(() => {
+    if (!error || activeTab !== 'summary') return
+    const reconnect = () => { void loadData() }
+    window.addEventListener('online', reconnect)
+    return () => window.removeEventListener('online', reconnect)
+  }, [error, activeTab, eid])
+
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const { updateJob } = useStore()
 
@@ -394,14 +415,6 @@ export default function Viewer() {
     return () => observer.disconnect()
   }, [summary, loading, activeTab])
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <Loader2 className="w-8 h-8 animate-spin text-indigo-500" />
-      </div>
-    )
-  }
-  
   return (
     <div className="reader-body podcast-reader space-y-4 md:space-y-6">
       {error && <LoadError message={error} onRetry={() => {
@@ -410,6 +423,7 @@ export default function Viewer() {
         else void loadData()
       }} />}
 
+      {loading && <div role="status" className="flex items-center gap-2 text-sm text-gray-400"><Loader2 size={18} className="animate-spin text-indigo-400" />{retrying ? 'Connection interrupted. Retrying once…' : 'Loading summary…'}</div>}
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-start gap-3 md:gap-4">
         <div className="flex items-start gap-3">
