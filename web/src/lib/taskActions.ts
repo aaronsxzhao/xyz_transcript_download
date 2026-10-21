@@ -31,37 +31,15 @@ export async function dismissTask(
 }
 export async function cancelTask(job: ProcessingJob, kind: Kind) {
   const owner = getAccountId();
+  const result = await (kind === "video" ? cancelVideoTask(job.job_id) : cancelJob(job.job_id));
+  if (owner !== getAccountId()) return;
+  const state = useStore.getState();
+  const status = result.status || "cancelling";
+  const message = status === "cancelled" ? "Cancelled" : ["success", "completed"].includes(status) ? "Completed" : "Stopping safely…";
   if (kind === "video") {
-    const result = await cancelVideoTask(job.job_id);
-    if (owner !== getAccountId()) return;
-    const task = useStore
-      .getState()
-      .videoTasks.find((t) => t.id === job.job_id);
-    if (task)
-      useStore.getState().updateVideoTask({
-        ...task,
-        status: result.status || "cancelling",
-        message:
-          result.status === "cancelled"
-            ? "Cancelled"
-            : ["success", "completed"].includes(result.status || "")
-              ? "Completed"
-              : "Stopping safely…",
-      });
-  } else {
-    const result = await cancelJob(job.job_id);
-    if (owner !== getAccountId()) return;
-    useStore.getState().updateJob({
-      ...job,
-      status: result.status || "cancelling",
-      message:
-        result.status === "cancelled"
-          ? "Cancelled"
-          : ["success", "completed"].includes(result.status || "")
-            ? "Completed"
-            : "Stopping safely…",
-    });
-  }
+    const task = state.videoTasks.find(t => t.id === job.job_id);
+    if (task) state.updateVideoTask({...task, status, message});
+  } else state.updateJob({...job, status, message});
 }
 export async function retryTask(job: ProcessingJob, kind: Kind) {
   const owner = getAccountId();

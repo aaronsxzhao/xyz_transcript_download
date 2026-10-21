@@ -89,6 +89,8 @@ async def measure(browser, origin, check_processing=False):
         elif path == "/api/summaries/bench": body = summary
         elif path == "/api/transcripts/bench": body = {**task["transcript"], "episode_id": "bench", "language": "en"}
         elif path == "/api/jobs": body = {"jobs": []}
+        elif path == "/api/video-notes/progress":
+            body = {"tasks": [{key: value for key,value in task.items() if key not in {'markdown','transcript','versions'}}]}
         elif path == "/api/video-notes/tasks": body = {"tasks": []}
         data = json.dumps(body, ensure_ascii=False).encode()
         if path == "/api/video-notes/tasks/bench" and body.get("status") == "transcribing":

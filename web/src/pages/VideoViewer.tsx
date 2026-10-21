@@ -113,7 +113,8 @@ export default function VideoViewer() {
   const completedRead=useRef('')
   useEffect(()=>{
     const live=storeTaskSlice
-    if(!live||live.id!==taskId||!['success','failed','cancelled'].includes(live.status))return
+    if(!live||live.id!==taskId)return
+    if(!['success','failed','cancelled'].includes(live.status)){completedRead.current='';return}
     const key=live.id+':'+live.status+':'+(live.updated_at||'')
     if(completedRead.current===key||taskRef.current?.status===live.status)return
     completedRead.current=key
@@ -244,6 +245,7 @@ export default function VideoViewer() {
     setError('')
     try {
       await retryVideoTask(task.id)
+      completedRead.current=''
       const pending = { ...task, status: 'pending', progress: 0, message: 'Queued for processing...', error: '' }
       taskRef.current = pending
       setTask(pending)

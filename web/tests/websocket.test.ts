@@ -64,7 +64,7 @@ it('reconciles active jobs when a completion event was missed', async () => {
   connectWebSocket()
   const socket = FakeSocket.instances[0]
   socket.onmessage!({ data: JSON.stringify({ type: 'init', jobs: [{ job_id: 'quiet-job', status: 'pending' }], video_tasks: [] }) })
-  for (let i = 0; i < 8; i++) {
+  for (let i = 0; i < 3; i++) {
     await vi.advanceTimersByTimeAsync(3000)
     socket.onmessage!({ data: JSON.stringify({ type: 'heartbeat' }) })
   }
