@@ -36,6 +36,15 @@ def _render(directory: str, index_stamp: int, manifest_stamp: int, page: str,
             manifest = json.loads((root / "manifest.json").read_text(encoding="utf-8"))
         except (ValueError, OSError):
             manifest = {}
+        embedded=set()
+        def collect_static(key):
+            entry=manifest.get(key,{})
+            file=entry.get('file','')
+            if not file or file in embedded:return
+            embedded.add(file)
+            embedded.update(entry.get('css',[]))
+            for dependency in entry.get('imports',[]):collect_static(dependency)
+        collect_static('index.html')
         visited = set()
         def preload(key):
             if key in visited:
@@ -43,11 +52,18 @@ def _render(directory: str, index_stamp: int, manifest_stamp: int, page: str,
             visited.add(key)
             entry = manifest.get(key, {})
             for asset in [entry.get("file", ""), *entry.get("css", [])]:
-                if not re.fullmatch(r"assets/[A-Za-z0-9_.-]+\.(js|css)", asset) or f'"/{asset}"' in html:
+                if not re.fullmatch(r"assets/[A-Za-z0-9_.-]+\.(js|css)", asset) or asset in embedded or re.search(r'(?:src|href)="/'+re.escape(asset)+r'"',html):
                     continue
-                rel = "stylesheet" if asset.endswith(".css") else "modulepreload"
-                additions.append(f'<link rel="{rel}" href="/{asset}" crossorigin>')
+                # Fetch route bytes early without resolving its imports before
+                # the document installs the shared-runtime import map.
+                rel = 'rel="stylesheet"' if asset.endswith('.css') else 'rel="preload" as="script"'
+                additions.append(f'<link {rel} href="/{asset}" crossorigin>')
             for dependency in entry.get("imports", []):
                 preload(dependency)
-        preload(f"src/pages/{page}.tsx")
+        key=f"src/pages/{page}.tsx"
+        # Explicit Vite chunk groups use generated manifest keys instead of the
+        # source path. Preload the selected route in parallel with the document.
+        if key not in manifest:
+            key=next((key for key,entry in manifest.items() if entry.get('name')==page and entry.get('file','').endswith('.js')),key)
+        preload(key)
     return html.replace("</head>", "\n".join(additions) + "\n</head>")

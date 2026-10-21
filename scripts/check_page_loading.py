@@ -55,7 +55,15 @@ async def check_release_navigation(context, origin, api, asset, state, asset_fai
     await page.goto(origin + '/podcasts', wait_until='domcontentloaded')
     await page.get_by_text('小宇宙', exact=True).first.wait_for()
     manifest = await (await context.request.get(origin+'/manifest.json')).json()
-    if not manifest.get('src/pages/Settings.tsx', {}).get('isDynamicEntry'):
+    settings = manifest.get('src/pages/Settings.tsx') or next((entry for entry in manifest.values() if entry.get('name')=='Settings'),None)
+    static=set()
+    def visit(key):
+        if key in static:return
+        static.add(key)
+        for child in manifest.get(key,{}).get('imports',[]):visit(child)
+    visit('index.html')
+    embedded=any(manifest.get(key,{}).get('file')==settings.get('file') for key in static) if settings else True
+    if embedded:
         # With all page controllers bundled, denied route chunks must not be
         # needed for Settings at all. Entry replacement is checked separately.
         asset_failures['mode'] = 'always'
@@ -175,6 +183,12 @@ async def measure(browser, origin, verify, recovery_only=False):
         await page.get_by_text(text, exact=True).first.wait_for(timeout=25000)
         label = 'episodes' if path.endswith('/episodes') else path.split('/')[1]
         cold[label] = round((time.perf_counter() - started) * 1000)
+    settings_started=time.perf_counter()
+    await page.goto(origin+'/settings',wait_until='domcontentloaded')
+    await page.locator('select[aria-label="Summary provider"]:not(:disabled)').wait_for(timeout=25000)
+    cold['settings']=round((time.perf_counter()-settings_started)*1000)
+    await page.goto(origin+'/viewer/bench',wait_until='domcontentloaded')
+    await page.get_by_text('Readable saved overview.',exact=True).first.wait_for()
     transcript_reads = sum(path.startswith('/api/transcripts/') for path, _ in requests)
     if verify:
         assert transcript_reads == 0, 'Summary opening downloaded an unrequested transcript'
@@ -212,14 +226,15 @@ async def measure(browser, origin, verify, recovery_only=False):
         await page.get_by_text('Readable saved overview.', exact=True).wait_for(timeout=1500)
         prefetched_summary_ms = round((time.perf_counter() - prefetch_started) * 1000)
         assert prefetched_summary_ms < 1500
-        await page.evaluate("history.pushState({},'','/settings');dispatchEvent(new PopStateEvent('popstate'))")
-        await page.get_by_role('heading', name='Settings', exact=True).wait_for(timeout=2000)
-        await page.get_by_role('button', name='Platform Accounts', exact=True).click()
-        assert await page.get_by_role('button', name='General', exact=True).is_enabled()
-        await page.get_by_role('button', name='General', exact=True).click()
-        # Finish this deliberately slow request before testing a separate failed
-        # refresh; overlapping reads correctly share the pending request.
-        await page.wait_for_function("!document.querySelector('select[aria-label=\"Summary provider\"]')?.disabled")
+        async with page.expect_response(lambda response: urlparse(response.url).path=='/api/settings') as settings_read:
+            await page.evaluate("history.pushState({},'','/settings');dispatchEvent(new PopStateEvent('popstate'))")
+            await page.get_by_role('heading', name='Settings', exact=True).wait_for(timeout=2000)
+            await page.get_by_role('button', name='Platform Accounts', exact=True).click()
+            assert await page.get_by_role('button', name='General', exact=True).is_enabled()
+            await page.get_by_role('button', name='General', exact=True).click()
+            await page.wait_for_function("!document.querySelector('select[aria-label=\"Summary provider\"]')?.disabled")
+        await (await settings_read.value).finished()
+        await page.wait_for_timeout(50)
         state['delay'] = .2
         state['summary_unavailable'] = True
         await page.evaluate("history.pushState({},'','/viewer/unavailable');dispatchEvent(new PopStateEvent('popstate'))")
@@ -266,7 +281,7 @@ async def main(args):
         async with async_playwright() as playwright:
             for label, directory in [('before', args.baseline_dist), ('after', args.current_dist)]:
                 if args.recovery_only and label == 'before': continue
-                server = ThreadingHTTPServer(('127.0.0.1', 0), functools.partial(Preview, directory=str(Path(directory).resolve()), bootstrap=label == 'after'))
+                server = ThreadingHTTPServer(('127.0.0.1', 0), functools.partial(Preview, directory=str(Path(directory).resolve()), bootstrap=True))
                 threading.Thread(target=server.serve_forever, daemon=True).start()
                 servers.append(server)
                 options = {"headless": True}

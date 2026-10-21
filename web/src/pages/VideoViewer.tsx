@@ -4,6 +4,7 @@ import { printHtml } from '../lib/print'
 import { extractNoteToc } from '../lib/noteMarkdown'
 const NoteRecovery = lazy(() => import('../components/DataRecovery').then(module=>({default:module.NoteRecovery})))
 import ReaderControls from '../components/ReaderControls'
+import {useRecordReading} from '../lib/readingHistory'
 import { useReadingPosition, useDialog } from '../lib/reading'
 import { escapeHtml, markdownToSafeHtml } from '../lib/safeHtml'
 import { getPreference } from '../lib/preferences'
@@ -301,6 +302,7 @@ export default function VideoViewer() {
 
   const content = getCurrentContent()
   useReadingPosition(`video:${taskId}`, 'video-content-scroll', !loading && !!task && !!content)
+  useRecordReading({id:taskId!,kind:'video',title:task?.title||'',source:task?.channel,thumbnail:task?.thumbnail},!loading&&taskVerified&&task?.status==='success'&&!!content,'video-content-scroll')
   const toc = useMemo(() => extractNoteToc(content), [content])
 
   const scrollToHeading = (slug: string) => {

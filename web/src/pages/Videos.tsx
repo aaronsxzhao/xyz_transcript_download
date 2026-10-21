@@ -12,7 +12,9 @@ import {
   Plus, ChevronUp, ChevronDown, Video, Search, Trash2, RefreshCw, RotateCcw, Square,
   CheckCircle, XCircle, Clock, Loader2, ArrowLeft, ExternalLink, Play, Sparkles,
 } from 'lucide-react'
-import VideoNoteForm from '../components/video/VideoNoteForm'
+import {lazy} from 'react'
+import {OptionalTool} from '../components/DeferredView'
+const VideoNoteForm=lazy(()=>import('../components/video/VideoNoteForm'))
 import PlatformIcon, { PLATFORM_COLORS } from '../components/PlatformIcon'
 import { useStore, mergeVideoTaskPair } from '../lib/store'
 import { useToast } from '../components/Toast'
@@ -427,7 +429,7 @@ export default function Videos() {
             <RefreshCw size={16} className={checking ? 'animate-spin' : ''} />
             <span className="hidden sm:inline">{checking ? 'Checking...' : 'Check Updates'}</span>
           </button>
-          <button onClick={() => setFormOpen(!formOpen)}
+          <button onPointerEnter={()=>void import('../components/video/VideoNoteForm').catch(()=>{})} onFocus={()=>void import('../components/video/VideoNoteForm').catch(()=>{})} onClick={() => setFormOpen(!formOpen)}
             className="flex items-center gap-2 px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-medium rounded-lg transition-colors">
             <Plus size={16} /> New Video Note
           </button>
@@ -449,7 +451,7 @@ export default function Videos() {
             </button>
           </div>
           <div className="px-4 pb-4 pt-2 ">
-            <VideoNoteForm onTaskCreated={handleTaskCreated} hideTitle />
+            <OptionalTool fallback={<p role="status">Loading video tools…</p>}><VideoNoteForm onTaskCreated={handleTaskCreated} hideTitle /></OptionalTool>
           </div>
         </div>
       )}
@@ -584,7 +586,7 @@ function ChannelList({ channels, onSelectChannel, onDeleteChannel, onCheckUpdate
 
   return (
     <div className="space-y-4">
-      {channels.map(ch => {
+      {channels.map((ch,index) => {
         const imgSrc = ch.channel_avatar || ch.thumbnail
         return (
           <div
@@ -594,7 +596,7 @@ function ChannelList({ channels, onSelectChannel, onDeleteChannel, onCheckUpdate
             <div className="flex flex-col sm:flex-row sm:items-start gap-4">
               <div className="flex items-start gap-3 sm:gap-4 flex-1 min-w-0 cursor-pointer" onClick={() => onSelectChannel(ch.channel)}>
                 {imgSrc ? (
-                  <CachedImage src={imgSrc} alt="" className={`w-14 h-14 md:w-20 md:h-20 flex-shrink-0 bg-dark-hover object-cover ${ch.channel_avatar ? 'rounded-full' : 'rounded-lg'}`} />
+                  <CachedImage priority={index<3} src={imgSrc} alt="" className={`w-14 h-14 md:w-20 md:h-20 flex-shrink-0 bg-dark-hover object-cover ${ch.channel_avatar ? 'rounded-full' : 'rounded-lg'}`} />
                 ) : (
                   <div className="w-14 h-14 md:w-20 md:h-20 rounded-full bg-dark-hover flex items-center justify-center flex-shrink-0">
                     <Video className="w-6 h-6 md:w-8 md:h-8 text-gray-600" />
@@ -785,7 +787,7 @@ function VideoList({ videos, onDelete, onRetry, onCancel }: {
 
   return (
     <div className="space-y-3">
-      {videos.map(task => {
+      {videos.map((task,index) => {
         const isFailed = task.status === 'failed'
         const errorMsg = task.error || task.message || ''
         const hint = isFailed ? getErrorHint(task) : null
@@ -804,7 +806,7 @@ function VideoList({ videos, onDelete, onRetry, onCancel }: {
         >
           <div className="flex flex-col sm:flex-row sm:items-start gap-3 md:gap-4">
             {task.thumbnail ? (
-              <CachedImage src={task.thumbnail} alt="" className="w-full sm:w-40 md:w-48 h-24 sm:h-24 md:h-28 rounded-lg object-cover flex-shrink-0 bg-dark-hover" />
+              <CachedImage priority={index<3} src={task.thumbnail} alt="" className="w-full sm:w-40 md:w-48 h-24 sm:h-24 md:h-28 rounded-lg object-cover flex-shrink-0 bg-dark-hover" />
             ) : (
               <div className={`hidden sm:flex w-40 md:w-48 h-24 md:h-28 rounded-lg items-center justify-center flex-shrink-0 ${
                 isFailed ? 'bg-red-500/10' : 'bg-dark-hover'

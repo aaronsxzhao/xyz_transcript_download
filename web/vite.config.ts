@@ -15,18 +15,18 @@ export default defineConfig({
     emptyOutDir: true,
     rollupOptions: {
       output: {
-        manualChunks(id) {
-          // All page controllers are available together. Only optional rich
-          // formatting and transcript virtualization need additional files.
-          if (id.includes('/src/') && !/\/components\/(FormattedSummary|TranscriptSegments|ScreenshotGallery|PerformancePanel|DataRecovery)\.|\/components\/video\/(MarkdownPreview|HighlightedCode|TranscriptPanel)\./.test(id)) return 'workspace'
-          // Keep icon helpers with the icons: dozens of tiny shared icon chunks
-          // add request waterfalls on high-latency routes to the server.
-          if (id.includes('/node_modules/lucide-react/')) return 'workspace'
-          // CommonJS/JSX helpers belong to the app runtime, otherwise Rollup
-          // pulls the entire viewer dependency chunk into the initial page.
-          if (id.includes('commonjsHelpers') || /\/node_modules\/(react|react-dom|react-router|react-router-dom|scheduler)\//.test(id)) {
-            return 'workspace'
-          }
+        strictExecutionOrder: true,
+        codeSplitting: {
+          // Keep every page controller (including Settings) in the document.
+          // Only explicit tools may require another request.
+          includeDependenciesRecursively: false,
+          groups: [
+            {name:'VideoCreation',priority:20,test:/\/src\/components\/video\/(VideoNoteForm|YouTubeCookieGuide)\./},
+            {name:'workspace',priority:10,test:(id) => {
+              if(id.includes('/src/') && !/\/components\/(FormattedSummary|TranscriptSegments|ScreenshotGallery|PerformancePanel|DataRecovery)\.|\/components\/video\/(MarkdownPreview|HighlightedCode|TranscriptPanel|VideoNoteForm|YouTubeCookieGuide)\./.test(id)) return true
+              return id.includes('/node_modules/lucide-react/') || id.includes('commonjsHelpers') || /\/node_modules\/(react|react-dom|react-router|react-router-dom|scheduler)\//.test(id)
+            }},
+          ],
         },
       },
     },

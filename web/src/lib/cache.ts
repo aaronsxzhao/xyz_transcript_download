@@ -11,9 +11,10 @@ const listeners = new Map<string,Set<()=>void>>()
 let revision=0
 let database:Promise<IDBDatabase|null>|undefined
 let queue=Promise.resolve()
-let hydratedOwner=''
-let hydrating:Promise<void>|undefined
+const hydration = new Map<string,Promise<void>>()
+let maintenanceScheduled = false
 const scoped=(key:string)=>`${CACHE_PREFIX}${getAccountId()}:${key}`
+const ttl=(key:string)=>key.endsWith(':reading_history') ? 90*CACHE_TTL_MS : CACHE_TTL_MS
 const small=(key:string)=>key==='settings'||key==='stats'
 function size(value:unknown):number { if(typeof value==='string')return value.length*2;if(Array.isArray(value))return value.reduce((n,v)=>n+size(v),0);if(value&&typeof value==='object')return Object.entries(value).reduce((n,[k,v])=>n+k.length*2+size(v),0);return 8 }
 function openDB() {
@@ -30,44 +31,85 @@ function trim() {
   let bytes=Array.from(memory.values()).reduce((n,e)=>n+e.bytes,0)
   for(const entry of [...memory.values()].sort((a,b)=>a.accessed-b.accessed)) {
     if(memory.size<=MAX_ENTRIES&&bytes<=MAX_BYTES)break
+    if(entry.key.endsWith(':reading_history'))continue
     memory.delete(entry.key);bytes-=entry.bytes
     enqueue(db=>db.transaction('entries','readwrite').objectStore('entries').delete(entry.key))
   }
 }
-export async function hydrateCache() {
-  const owner=getAccountId()
-  if(hydratedOwner===owner)return hydrating
-  hydratedOwner=owner
-  const epoch=revision
-  hydrating=(async()=>{
-    // Discard legacy bulky localStorage entries without parsing large JSON on startup.
-    for(const key of Object.keys(localStorage)) if(key.startsWith(CACHE_PREFIX)&&!key.endsWith(':settings')&&!key.endsWith(':stats'))localStorage.removeItem(key)
-    const db=await openDB();if(!db)return
-    await new Promise<void>(resolve=>{
-      const tx=db.transaction('entries','readwrite'), request=tx.objectStore('entries').openCursor()
-      request.onsuccess=()=>{const row=request.result;if(!row)return;const entry=row.value as Entry
-        if(epoch!==revision||owner!==getAccountId()){row.continue();return}
-        if(Date.now()-entry.timestamp>CACHE_TTL_MS || !entry.key.startsWith(`${CACHE_PREFIX}${owner}:`))row.delete()
-        else if(epoch===revision&&owner===getAccountId()&&!memory.has(entry.key))memory.set(entry.key,entry)
-        row.continue()
+// Read only the requested record on the critical path. Whole-cache maintenance
+// runs when the browser is idle and never hydrates unrelated note bodies.
+function scheduleMaintenance() {
+  if (maintenanceScheduled) return
+  maintenanceScheduled = true
+  const run = () => {
+    maintenanceScheduled = false
+    const epoch = revision
+    enqueue(db => {
+      if (epoch !== revision) return
+      const tx = db.transaction('entries', 'readwrite'), store = tx.objectStore('entries')
+      const entries: Omit<Entry,'data'>[] = []
+      const cursor = store.openCursor()
+      cursor.onsuccess = () => {
+        const row = cursor.result
+        if (epoch !== revision) { tx.abort(); return }
+        if (row) {
+          const {key,timestamp,accessed,bytes} = row.value as Entry
+          if (Date.now()-timestamp >= ttl(key)) row.delete()
+          else entries.push({key,timestamp,accessed,bytes})
+          row.continue()
+        } else {
+          let bytes = entries.reduce((n,e)=>n+e.bytes,0), count=entries.length
+          for (const entry of entries.sort((a,b)=>a.accessed-b.accessed)) {
+            if(count<=MAX_ENTRIES && bytes<=MAX_BYTES) break
+            if(entry.key.endsWith(':reading_history'))continue
+            store.delete(entry.key); count--; bytes-=entry.bytes
+          }
+        }
       }
-      tx.oncomplete=()=>{trim();resolve()};tx.onerror=()=>resolve();tx.onabort=()=>resolve()
+    })
+    for(const key of Object.keys(localStorage)) if(key.startsWith(CACHE_PREFIX)&&!key.endsWith(':settings')&&!key.endsWith(':stats')) localStorage.removeItem(key)
+  }
+  setTimeout(()=>{
+    if ('requestIdleCallback' in window) window.requestIdleCallback(run, {timeout: 10000})
+    else setTimeout(run, 1000)
+  }, 10000)
+}
+export async function hydrateCache(key?: string): Promise<void> {
+  scheduleMaintenance()
+  if (!key) return
+  const name=scoped(key), owner=getAccountId(), epoch=revision
+  if(memory.has(name)) return
+  const existing=hydration.get(name)
+  if(existing) return existing
+  const pending=(async()=>{
+    const db=await openDB(); if(!db) return
+    await new Promise<void>(resolve=>{
+      const request=db.transaction('entries','readonly').objectStore('entries').get(name)
+      request.onsuccess=()=>{
+        const entry=request.result as Entry|undefined
+        if(entry && Date.now()-entry.timestamp<ttl(entry.key) && epoch===revision && owner===getAccountId() && !memory.has(name)) {
+          memory.set(name,entry); trim()
+        }
+        resolve()
+      }
+      request.onerror=()=>resolve()
     })
   })().catch(()=>{})
-  return hydrating
+  hydration.set(name,pending)
+  try { await pending } finally { if(hydration.get(name)===pending) hydration.delete(name) }
 }
 export function useWarmCache<T>(key:string, apply:(value:T)=>void) {
   useEffect(()=>{
     let active=true;const owner=getAccountId(),name=scoped(key)
     const update=()=>{if(active&&owner===getAccountId()){const value=getCache<T>(key);if(value!==null)apply(value)}}
     const subscribers=listeners.get(name)||new Set<()=>void>();subscribers.add(update);listeners.set(name,subscribers)
-    void hydrateCache().then(update)
+    void hydrateCache(key).then(update)
     return()=>{active=false;subscribers.delete(update);if(!subscribers.size)listeners.delete(name)}
   },[key])
 }
 export function getCache<T>(key:string):T|null {
   const name=scoped(key),entry=memory.get(name)
-  if(entry&&Date.now()-entry.timestamp<CACHE_TTL_MS){const touch=Date.now()-entry.accessed>30000;entry.accessed=Date.now();if(touch){const epoch=revision;enqueue(db=>{if(epoch===revision&&memory.get(name)===entry)db.transaction('entries','readwrite').objectStore('entries').put(entry)})}return entry.data as T}
+  if(entry&&Date.now()-entry.timestamp<ttl(entry.key)){const touch=Date.now()-entry.accessed>30000;entry.accessed=Date.now();if(touch){const epoch=revision;enqueue(db=>{if(epoch===revision&&memory.get(name)===entry)db.transaction('entries','readwrite').objectStore('entries').put(entry)})}return entry.data as T}
   if(entry)removeCache(key)
   if(small(key))try {const data=JSON.parse(localStorage.getItem(name)||'null');if(data&&Date.now()-data.timestamp<CACHE_TTL_MS)return data.data as T}catch{}
   return null
@@ -78,14 +120,14 @@ export function setCache<T>(key:string,data:T,owner=getAccountId()) {
   const name=scoped(key), bytes=size(data)
   if(bytes>2*1024*1024)return
   const entry:Entry={key:name,data,timestamp:Date.now(),accessed:Date.now(),bytes}
-  memory.set(name,entry);trim()
+  memory.set(name,entry);trim();scheduleMaintenance()
   queueMicrotask(()=>{if(owner===getAccountId()&&memory.get(name)===entry)listeners.get(name)?.forEach(update=>update())})
   if(small(key)&&bytes<32768)try{localStorage.setItem(name,JSON.stringify(entry))}catch{}
   const epoch=revision
   enqueue(db=>{if(epoch===revision&&owner===getAccountId()&&memory.has(name)){const tx=db.transaction('entries','readwrite');tx.objectStore('entries').put(entry)}})
 }
 export function removeCache(key:string) {revision++;const name=scoped(key);memory.delete(name);try{localStorage.removeItem(name)}catch{};enqueue(db=>db.transaction('entries','readwrite').objectStore('entries').delete(name))}
-export function clearCache() {revision++;memory.clear();hydratedOwner='';for(const key of Object.keys(localStorage))if(key.startsWith(CACHE_PREFIX))localStorage.removeItem(key);enqueue(db=>db.transaction('entries','readwrite').objectStore('entries').clear())}
+export function clearCache() {revision++;memory.clear();hydration.clear();for(const key of Object.keys(localStorage))if(key.startsWith(CACHE_PREFIX))localStorage.removeItem(key);enqueue(db=>db.transaction('entries','readwrite').objectStore('entries').clear())}
 
 /**
  * Cache keys for different data types
@@ -96,7 +138,7 @@ export const CacheKeys = {
   PODCASTS: 'podcasts',
   PODCAST: (pid: string) => `podcast_${pid}`,
   SUMMARIES: 'summaries',
-  RECENT_SUMMARIES: 'recent_summaries',
+  RECENT_SUMMARIES: 'recent_summaries:v2',
   RECENT_VIDEOS: 'recent_videos',
   VIDEO_CHANNELS: 'video_channels',
   CHANNEL_VIDEOS: (platform: string, channel: string) => `channel_videos_${JSON.stringify([platform, channel])}`,
@@ -122,7 +164,7 @@ export async function fetchWithCache<T>(
   // Begin networking immediately; disk hydration must not add a waterfall.
   const pending = fetchFn()
   void pending.catch(() => {})
-  await hydrateCache()
+  await hydrateCache(key)
   if (owner !== getAccountId()) throw new DOMException('Account changed', 'AbortError')
   const cached = getCache<T>(key)
   if (cached && options.onCached) {

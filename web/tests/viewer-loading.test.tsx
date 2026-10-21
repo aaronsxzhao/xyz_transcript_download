@@ -8,6 +8,7 @@ import { ApiError, fetchSummary, fetchTranscript } from '../src/lib/api'
 vi.mock('../src/lib/api', async original => ({...await original<typeof import('../src/lib/api')>(),fetchSummary:vi.fn(),fetchTranscript:vi.fn()}))
 vi.mock('../src/lib/cache',()=>({getCache:()=>null,setCache:vi.fn(),useWarmCache:()=>{},CacheKeys:{SUMMARY:(id:string)=>id}}))
 vi.mock('../src/lib/pageTiming',()=>({usePageTiming:vi.fn()}))
+vi.mock('../src/lib/readingHistory',()=>({useRecordReading:()=>{}}))
 vi.mock('../src/lib/reading',()=>({useReadingPosition:()=>{},useDialog:()=>{}}))
 vi.mock('../src/components/ReaderControls',()=>({default:()=>null}))
 vi.mock('../src/components/SummaryText',()=>({default:({children}:any)=><>{children}</>}))
@@ -40,4 +41,11 @@ it('explains restricted incomplete content instead of rendering an ordinary summ
  expect(node.textContent).toContain('Previous incomplete result')
  expect(node.textContent).not.toContain('Key Points by Topic')
  expect(node.querySelector('[aria-label="Copy note"]')).toBeNull()
+})
+
+it('allows regeneration before the transcript tab has been loaded',async()=>{
+ vi.mocked(fetchSummary).mockResolvedValueOnce(summary)
+ const node=await mount()
+ expect((node.querySelector('.reader-regenerate') as HTMLButtonElement).disabled).toBe(false)
+ expect(fetchTranscript).not.toHaveBeenCalled()
 })

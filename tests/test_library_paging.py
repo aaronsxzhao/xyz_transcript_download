@@ -10,6 +10,7 @@ class Query:
     def __init__(self, rows): self.rows = list(rows)
     def select(self, fields): self.fields = fields.split(','); return self
     def eq(self, key, value): self.rows = [r for r in self.rows if r[key] == value]; return self
+    def in_(self,key,values): self.rows=[r for r in self.rows if r[key] in values]; return self
     def ilike(self, key, value):
         text = value.strip('%').casefold()
         self.rows = [r for r in self.rows if text in r[key].casefold()]; return self
@@ -43,6 +44,10 @@ async def test_cursor_traverses_large_library_with_tied_dates_and_account_isolat
             ids += [r['id'] for r in page['items']]
             cursor=page['next_cursor']
             if not cursor: break
+        references=(await http.get('/library',params={'ids':'podcast:1,video:2,podcast:failed-note,podcast:private-other'})).json()['items']
+        assert {r['id'] for r in references}=={'1','2'}
+        assert (await http.get('/library',params={'ids':'video:1'})).json()['items']==[]
+        assert (await http.get('/library',params={'ids':','.join('podcast:'+str(i) for i in range(31))})).status_code==422
         assert len(ids)==len(set(ids))==2105
         assert (await http.get('/library',params={'status':'failed'})).json()=={'items':[],'next_cursor':None}
         assert page['items'][0]['thumbnail'].startswith('https://')

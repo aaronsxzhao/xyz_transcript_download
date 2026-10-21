@@ -89,3 +89,16 @@ Local checks: 233 backend tests, 25 frontend tests, production build and depende
 The recovery workflow restored 238 additional historical frames, with zero note-content changes. Some original sources remain unavailable or require the original local video. Tools & Data reports remaining missing frames instead of silently claiming complete recovery. Private backup restoration was verified by downloading/reconstructing the ZIP and checking every entry. Deployment verifies that the preserved rollback image exists and restores it automatically if release health verification fails.
 
 Job restart reconciliation currently assumes the deployed single application process. Additional replicas require job leases before scaling.
+
+---
+
+# Workspace, reading and image controls — 21 October 2026
+
+- Dashboard keeps statistics → Add content → Continue reading. Continue reading now uses actual account-scoped visits and scroll progress, with server checks for readable, owned notes. Recent additions have a separate compact section; active processing stays visible and completed queues collapse.
+- Library unifies title/source search, media filters, cover presentation, stable card typography and reading progress. First visible covers receive priority; hovering over a card no longer fetches its full note automatically.
+- Podcast regeneration works before opening Transcript. Long empty summaries are marked for review consistently in episode responses, readers and recommendations; source-page history remains intact. Direct exports reject unverified empty results.
+- Cache startup reads only the requested IndexedDB records. Idle maintenance bounds cached entries/bytes; reading history is a small bounded record, separate from synchronous localStorage configuration.
+- Readers keep single-column topics, add a lightweight desktop topic outline and compact mobile reading options. Screenshot controls share the app's sizing/focus language, have at least 44px mobile targets, support pinch/pan and keyboard browsing, and prefetch neighboring originals only after the current one loads.
+- Core page controllers, including Settings, remain in the document after testing the additional-request tradeoff. Video creation and enlarged-image tools load separately, with visible loading/failure states; previews and saved text remain usable if optional tools fail.
+
+Rollback: `safety/pre-workspace-iteration-20261021`, image `3a2a4fe27aad16d2ff936d787db33042deda5971`. The additive view migration preserves saved content and can remain on rollback. See [ROLLBACK.md](ROLLBACK.md).
