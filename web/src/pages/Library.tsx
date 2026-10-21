@@ -1,3 +1,4 @@
+import CachedImage from '../components/CachedImage'
 import { useWarmCache } from '../lib/cache'
 import { useEffect, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
@@ -16,7 +17,7 @@ export default function Library() {
   const [params, setParams] = useSearchParams()
   const query = params.get('q') || ''; const kind = params.get('kind') || ''; const status = 'completed'; const source = params.get('source') || ''; const sort = params.get('sort') || 'newest'
   const filterKey = new URLSearchParams({q:query,kind,status,source,sort}).toString()
-  const cacheKey = 'library_page:v2:' + filterKey
+  const cacheKey = 'library_page:v3:' + filterKey
   const [loadedFilter, setLoadedFilter] = useState(filterKey)
   const [items, setItems] = useState<Item[]>(() => getCache<LibraryPage>(cacheKey)?.items || [])
   const [cursor, setCursor] = useState<string | null>(() => getCache<LibraryPage>(cacheKey)?.next_cursor || null)
@@ -90,16 +91,10 @@ export default function Library() {
 }
 
 function LibraryArtwork({item}: {item: Item}) {
-  const [failed, setFailed] = useState(false)
   const Icon = item.kind === 'podcast' ? Headphones : Video
-  const raw = item.thumbnail || ''
-  // Never send arbitrary URLs/schemes to image tags or the same-origin proxy.
-  const safe = /^https?:\/\//i.test(raw)
-  const src = safe ? `/api/image-proxy?url=${encodeURIComponent(raw)}` : ''
   const minutes = Math.floor((item.duration || 0) / 60)
   return <div className="library-artwork" aria-hidden="true">
-    {src && !failed ? <img src={src} alt="" width="480" height="270" loading="lazy" decoding="async" onError={() => setFailed(true)} />
-      : <div className="library-artwork-fallback"><Icon size={36} strokeWidth={1.5}/><span>{item.source.slice(0, 24)}</span></div>}
+    <CachedImage src={item.thumbnail || ''} alt="" className="library-cover-image" fit={item.kind === 'podcast' ? 'contain' : 'cover'} fallback={<div className="library-artwork-fallback"><Icon size={36} strokeWidth={1.5}/><span>{item.source.slice(0, 24)}</span></div>} />
     <span className="library-media-badge"><Icon size={13}/>{item.kind === 'podcast' ? 'Audio' : 'Video'}</span>
     {minutes > 0 && <span className="library-duration">{minutes} min</span>}
   </div>

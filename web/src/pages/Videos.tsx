@@ -1,3 +1,4 @@
+import CachedImage from '../components/CachedImage'
 import { useWarmCache } from '../lib/cache'
 import { useReadingPosition } from '../lib/reading'
 import LoadError from '../components/LoadError'
@@ -593,13 +594,7 @@ function ChannelList({ channels, onSelectChannel, onDeleteChannel, onCheckUpdate
             <div className="flex flex-col sm:flex-row sm:items-start gap-4">
               <div className="flex items-start gap-3 sm:gap-4 flex-1 min-w-0 cursor-pointer" onClick={() => onSelectChannel(ch.channel)}>
                 {imgSrc ? (
-                  <img loading="lazy" decoding="async"
-                    src={imgSrc}
-                    alt=""
-                    className={`w-14 h-14 md:w-20 md:h-20 flex-shrink-0 bg-dark-hover object-cover ${ch.channel_avatar ? 'rounded-full' : 'rounded-lg'}`}
-                    onError={e => { (e.target as HTMLImageElement).style.display = 'none' }}
-                    referrerPolicy="no-referrer"
-                  />
+                  <CachedImage src={imgSrc} alt="" className={`w-14 h-14 md:w-20 md:h-20 flex-shrink-0 bg-dark-hover object-cover ${ch.channel_avatar ? 'rounded-full' : 'rounded-lg'}`} />
                 ) : (
                   <div className="w-14 h-14 md:w-20 md:h-20 rounded-full bg-dark-hover flex items-center justify-center flex-shrink-0">
                     <Video className="w-6 h-6 md:w-8 md:h-8 text-gray-600" />
@@ -809,13 +804,7 @@ function VideoList({ videos, onDelete, onRetry, onCancel }: {
         >
           <div className="flex flex-col sm:flex-row sm:items-start gap-3 md:gap-4">
             {task.thumbnail ? (
-              <img loading="lazy" decoding="async"
-                src={task.thumbnail}
-                alt=""
-                className="w-full sm:w-40 md:w-48 h-24 sm:h-24 md:h-28 rounded-lg object-cover flex-shrink-0 bg-dark-hover"
-                onError={e => { (e.target as HTMLImageElement).style.display = 'none' }}
-                referrerPolicy="no-referrer"
-              />
+              <CachedImage src={task.thumbnail} alt="" className="w-full sm:w-40 md:w-48 h-24 sm:h-24 md:h-28 rounded-lg object-cover flex-shrink-0 bg-dark-hover" />
             ) : (
               <div className={`hidden sm:flex w-40 md:w-48 h-24 md:h-28 rounded-lg items-center justify-center flex-shrink-0 ${
                 isFailed ? 'bg-red-500/10' : 'bg-dark-hover'

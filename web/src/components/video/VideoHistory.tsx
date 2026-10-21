@@ -1,3 +1,4 @@
+import CachedImage from '../CachedImage'
 import { useEffect, useState, useCallback } from 'react'
 import { Trash2, RefreshCw, Search, CheckCircle, XCircle, Loader2, Clock, RotateCcw, Square } from 'lucide-react'
 import { fetchVideoTasks, deleteVideoTask, retryVideoTask, cancelVideoTask, type VideoTask } from '../../lib/api'
@@ -152,14 +153,7 @@ export default function VideoHistory({ onSelect }: Props) {
               <div className="flex items-start gap-2">
                 <span className="text-lg mt-0.5 flex-shrink-0">
                   {task.thumbnail ? (
-                    <img
-                      src={task.thumbnail}
-                      alt=""
-                      className="w-10 h-7 rounded object-cover"
-                      onError={e => {
-                        (e.target as HTMLImageElement).style.display = 'none'
-                      }}
-                    />
+                    <CachedImage src={task.thumbnail} alt="" className="w-10 h-7 rounded object-cover" />
                   ) : (
                     getPlatformIcon(task.platform)
                   )}

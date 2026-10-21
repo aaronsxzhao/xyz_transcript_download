@@ -1,3 +1,4 @@
+import CachedImage from '../components/CachedImage'
 import LoadError from '../components/LoadError'
 import { useState, useEffect, useMemo, useCallback } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
@@ -603,24 +604,5 @@ export default function Podcasts() {
 }
 
 function PodcastImage({ url, alt }: { url?: string; alt: string }) {
-  const [error, setError] = useState(false)
-
-  if (!url || error) {
-    return (
-      <div className="w-14 h-14 md:w-20 md:h-20 rounded-lg bg-dark-hover flex items-center justify-center flex-shrink-0">
-        <Radio className="w-6 h-6 md:w-8 md:h-8 text-gray-600" />
-      </div>
-    )
-  }
-
-  const proxyUrl = `/api/image-proxy?url=${encodeURIComponent(url)}`
-
-  return (
-    <img loading="lazy" decoding="async"
-      src={proxyUrl}
-      alt={alt}
-      className="w-14 h-14 md:w-20 md:h-20 rounded-lg object-cover bg-dark-hover flex-shrink-0"
-      onError={() => setError(true)}
-    />
-  )
+  return <CachedImage src={url || ''} alt={alt} className="w-14 h-14 md:w-20 md:h-20 rounded-lg bg-dark-hover flex-shrink-0" fallback={<div className="cached-image-fallback"><Radio className="w-6 h-6 md:w-8 md:h-8 text-indigo-300" /></div>} />
 }

@@ -10,7 +10,8 @@ router = APIRouter()
 def page_rows(rows, limit):
     more = len(rows) > limit
     items = rows[:limit]
-    return {'items': [{k: v for k, v in row.items() if k not in ('user_id', 'search_text', 'sort_key')} for row in items],
+    from api.media import sign_media_urls
+    return {'items': [sign_media_urls({k: v for k, v in row.items() if k not in ('user_id', 'search_text', 'sort_key')}) for row in items],
             'next_cursor': items[-1]['sort_key'] if more else None}
 
 

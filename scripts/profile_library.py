@@ -68,6 +68,8 @@ def profile_public_routes(owner: str, routes: list[tuple[str, str]], local_video
                     safe[target] = int(row[source])
             safe["bootstrap"] = int(row.get("stage") == "bootstrap")
             reports.append(safe)
+    from scripts.profile_cover_sources import profile_covers
+    reports.extend(profile_covers(owner))
     if os.environ.get('XYZ_PROFILE_BROWSER') == '1':
         from scripts.profile_live_browser import profile_browser
         reports.extend(asyncio.run(profile_browser(owner, token, local_video)))

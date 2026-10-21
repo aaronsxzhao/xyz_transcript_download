@@ -253,6 +253,8 @@ def cleanup_expired_assets(retention_days: int, now: Optional[datetime] = None) 
             try:
                 to_delete: List[str] = []
                 for item in _iter_bucket_objects(client, bucket):
+                    if item.get('name') == 'covers-v1':
+                        continue  # Public artwork has its own persistent cache lifecycle.
                     if belongs_to_saved_task(item.get('name', '')):
                         continue
                     created_at = _object_created_at(item)
