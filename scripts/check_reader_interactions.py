@@ -85,7 +85,10 @@ async def check(browser, origin, width, output, label):
     await page.get_by_role('button',name='list layout',exact=True).click()
     await page.reload()
     assert await page.get_by_role('button',name='list layout',exact=True).get_attribute('aria-pressed')=='true'
+    await page.get_by_role('heading',name='Podcast lesson 0',exact=True).wait_for()
     await page.get_by_label('Search saved notes').fill('missing synthetic title')
+    assert await page.get_by_role('heading',name='Podcast lesson 0',exact=True).count()==1
+    assert not await page.locator('.animate-pulse').count()
     await page.get_by_role('button',name='Clear filters',exact=True).click()
     await page.wait_for_function("document.querySelector('[aria-label=\"Search saved notes\"]').value === ''")
     if width>=768:
@@ -125,6 +128,12 @@ async def check(browser, origin, width, output, label):
     assert 'preview=true' in await page.locator('article img').first.get_attribute('src')
     await page.locator('article .reader-screenshot').first.click()
     assert 'preview=true' not in await page.get_by_role('dialog',name='Enlarged screenshot').locator('img').get_attribute('src')
+    await page.get_by_role('button',name='Next',exact=True).click()
+    await page.wait_for_function("document.querySelector('[role=dialog] img')?.src.includes('bench_1.jpg')")
+    await page.keyboard.press('ArrowLeft')
+    await page.wait_for_function("document.querySelector('[role=dialog] img')?.src.includes('bench_0.jpg')")
+    await page.get_by_role('button',name='Zoom in',exact=True).click()
+    assert await page.get_by_role('button',name='Fit · 150%',exact=True).count()==1
     await page.get_by_role('button',name='Close enlarged screenshot').click()
     result['reading_preferences_and_original_on_demand']=True
 
@@ -190,10 +199,15 @@ async def check(browser, origin, width, output, label):
         assert result['notion_dialog_works'] and result['markdown_download_works']
         await page.goto(origin+'/viewer/bench')
         await page.get_by_role('heading',name='Overview',exact=True).wait_for()
+        await page.get_by_role('button',name='Expand all',exact=True).click()
+        assert await page.locator('[data-topic-card] button[aria-expanded=false]').count()==0
+        await page.get_by_role('button',name='Collapse all',exact=True).click()
+        await page.get_by_label('Summary contents',exact=True).select_option('summary-topic-0')
+        assert await page.locator('#summary-topic-0 button').get_attribute('aria-expanded')=='true'
         await print_spy()
         await page.locator('.reader-export > summary').click()
         await page.get_by_title('Download PDF',exact=True).click()
-        await page.wait_for_function('window.__printed === true',timeout=15000)
+        await page.wait_for_function('window.__printed === true' ,timeout=15000)
         result['podcast_pdf_works']=True
         fail_videos=True
         await page.goto(origin+'/library')

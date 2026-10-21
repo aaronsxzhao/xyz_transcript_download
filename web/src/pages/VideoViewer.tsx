@@ -1,6 +1,8 @@
+import { OptionalTool } from '../components/DeferredView'
+import { useWarmCache } from '../lib/cache'
 import { printHtml } from '../lib/print'
 import { extractNoteToc } from '../lib/noteMarkdown'
-import { NoteRecovery } from '../components/DataRecovery'
+const NoteRecovery = lazy(() => import('../components/DataRecovery').then(module=>({default:module.NoteRecovery})))
 import ReaderControls from '../components/ReaderControls'
 import { useReadingPosition, useDialog } from '../lib/reading'
 import { escapeHtml, markdownToSafeHtml } from '../lib/safeHtml'
@@ -8,7 +10,7 @@ import { getPreference } from '../lib/preferences'
 import { getAccountId } from '../lib/preferences'
 import { CacheKeys, getCache, setCache, removeCache } from '../lib/cache'
 import { usePageTiming } from '../lib/pageTiming'
-import { useEffect, useState, useMemo, useCallback, useRef } from 'react'
+import { lazy, useEffect, useState, useMemo, useCallback, useRef } from 'react'
 import { useParams, Link, useNavigate } from 'react-router-dom'
 import {
   ArrowLeft, Copy, Download, Check, FileText, Map, Clock, Loader2,
@@ -77,6 +79,7 @@ export default function VideoViewer() {
   const [viewMode, setViewMode] = useState<ViewMode>('markdown')
   const [mapVisited, setMapVisited] = useState(false)
   const [selectedVersion, setSelectedVersion] = useState<string>('')
+  useWarmCache<VideoTask>(CacheKeys.VIDEO_NOTE(taskId!), value => {setTask(value);setLoading(false)})
   const [versionContents, setVersionContents] = useState<Record<string, string>>({})
   const [versionLoading, setVersionLoading] = useState(false)
   const [transcript, setTranscript] = useState<VideoTask['transcript'] | undefined>()
@@ -550,7 +553,7 @@ export default function VideoViewer() {
         </div>
       </div>
 
-      {(['success', 'failed', 'cancelled'].includes(uiTask.status)) && <NoteRecovery onRestored={() => setLoadAttempt(value => value + 1)} id={taskId!} version={selectedVersion || ''} warning={uiTask.status === 'success' ? task.error : ''} failed={uiTask.status === 'failed'} local={task.platform === 'local'} />}
+      {(['success', 'failed', 'cancelled'].includes(uiTask.status)) && <OptionalTool fallback={<p>Loading recovery tools…</p>}><NoteRecovery onRestored={() => setLoadAttempt(value => value + 1)} id={taskId!} version={selectedVersion || ''} warning={uiTask.status === 'success' ? task.error : ''} failed={uiTask.status === 'failed'} local={task.platform === 'local'} /></OptionalTool>}
 
       <ReaderControls><div className="reader-jump"><select aria-label="Jump to note section" className="reader-contents min-w-0 max-w-full p-2 rounded bg-dark-surface" defaultValue="" onChange={e => scrollToHeading(e.target.value)}><option value="" disabled>Contents</option>{toc.map(t => <option key={t.slug} value={t.slug}>{t.text}</option>)}</select></div></ReaderControls>
       {/* Failed state banner */}

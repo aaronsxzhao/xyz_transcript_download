@@ -1,6 +1,7 @@
 """Tests for screenshot storage helpers."""
 
 from datetime import datetime, timedelta, timezone
+from unittest.mock import call
 
 from screenshot_extractor import delete_task_assets
 from screenshot_extractor import cleanup_expired_assets
@@ -116,7 +117,7 @@ def test_cleanup_preserves_old_saved_note_images_and_removes_orphans(tmp_path, m
     assert (screenshots / 'saved_task_00-21.jpg').exists()
     assert (thumbnails / 'saved_task.jpg').exists()
     assert (thumbnails / 'saved_task_cover.jpg').exists()
-    bucket.remove.assert_called_once_with(['orphan_00-21.jpg'])
+    assert bucket.remove.call_args_list == [call(['orphan_00-21.jpg']), call(['previews/orphan_00-21.jpg.webp'])]
 
 
 def test_cleanup_deletes_nothing_if_saved_notes_cannot_be_checked(tmp_path, monkeypatch):

@@ -57,7 +57,7 @@ async def test_slow_and_failed_settings_visits_are_not_hidden_by_cached_revisit(
         for elapsed, outcome in [(10000, 'slow'), (10001, 'error'), (3, 'ready')]:
             assert (await client.post('/timings', json={**base, 'elapsed_ms': elapsed, 'outcome': outcome})).status_code == 204
         result = (await client.get('/timings')).json()['pages']['settings']
-        assert result['worst_ms'] == 10001
+        assert result['worst_ms'] == result['p95_ms'] == 3  # Successful duration only
         assert result['error_count'] == result['slow_count'] == 1
         assert result['samples'] == 3 and result['elapsed_ms'] == 3
     _samples.clear()
@@ -80,3 +80,19 @@ async def test_pre_framework_failures_remain_visible_without_recording_request_u
         assert (await client.post('/timings', json={**record, 'module_url': 'private-path'})).status_code == 422
         assert (await client.post('/timings', json={**record, 'script_errors': 1001})).status_code == 422
     _samples.clear()
+
+
+def test_visit_correlation_separates_cache_navigation_content_and_images():
+    from api.routers.performance import aggregate
+    base = dict(page='video_note', visit_id='one', navigation='document', cached=False, stage='application')
+    rows = [{**base, 'outcome':'slow', 'elapsed_ms':10000},
+            {**base, 'outcome':'ready', 'stage':'content', 'elapsed_ms':12000},
+            {**base, 'outcome':'ready', 'stage':'image', 'elapsed_ms':14000},
+            {**base, 'visit_id':'two', 'navigation':'navigation', 'cached':True, 'outcome':'ready', 'elapsed_ms':20},
+            {**base, 'visit_id':'three', 'outcome':'error', 'elapsed_ms':300000}]
+    result = aggregate(rows)['video_note']
+    assert result['samples'] == 3
+    assert result['slow_count'] == 0 and result['error_count'] == 1
+    assert result['p95_ms'] == 12000
+    assert result['groups']['navigation:cache']['p50_ms'] == 20
+    assert result['stages']['image']['p50_ms'] == 14000

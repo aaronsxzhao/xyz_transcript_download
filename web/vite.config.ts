@@ -18,7 +18,7 @@ export default defineConfig({
         manualChunks(id) {
           // All page controllers are available together. Only optional rich
           // formatting and transcript virtualization need additional files.
-          if (id.includes('/src/') && !/\/components\/(FormattedSummary|TranscriptSegments)\.|\/components\/video\/(MarkdownPreview|HighlightedCode|TranscriptPanel)\./.test(id)) return 'workspace'
+          if (id.includes('/src/') && !/\/components\/(FormattedSummary|TranscriptSegments|ScreenshotGallery|PerformancePanel|DataRecovery)\.|\/components\/video\/(MarkdownPreview|HighlightedCode|TranscriptPanel)\./.test(id)) return 'workspace'
           // Keep icon helpers with the icons: dozens of tiny shared icon chunks
           // add request waterfalls on high-latency routes to the server.
           if (id.includes('/node_modules/lucide-react/')) return 'workspace'

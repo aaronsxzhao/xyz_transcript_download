@@ -4,10 +4,11 @@ import { accessTokenNeedsRefresh, getAccessToken } from './auth'
 import { getCache } from './cache'
 
 let currentPath = window.location.pathname + window.location.search
+let visitId = (window as Window & {__xyzVisit?:string}).__xyzVisit || crypto.randomUUID()
 let started = 0 // Include document/network startup on a hard navigation.
 
 export function markPageNavigation(path: string) {
-  if (path !== currentPath) { currentPath = path; started = performance.now() }
+  if (path !== currentPath) { currentPath = path; started = performance.now(); visitId = crypto.randomUUID() }
 }
 
 type Page = 'library' | 'dashboard' | 'podcasts' | 'videos' | 'channel' | 'episodes' | 'viewer' | 'video_note' | 'settings'
@@ -31,7 +32,7 @@ export function usePageTiming(page: Page, ready: boolean, cacheKey: string, fail
   const usedCache = useMemo(() => getCache(cacheKey) !== null, [route, cacheKey])
   useEffect(() => {
     const report = (outcome: 'ready' | 'slow' | 'error') => {
-      const key = route + ':' + outcome
+      const key = visitId + ':' + outcome
       if (reported.current === key) return
       const token = getAccessToken()
       if (!token || accessTokenNeedsRefresh(token)) return
@@ -44,12 +45,12 @@ export function usePageTiming(page: Page, ready: boolean, cacheKey: string, fail
       // Fixed labels and durations only; no private URLs or page contents.
       void fetch('/api/performance', { method: 'POST', keepalive: true,
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ page, outcome, stage: outcome === 'ready' && ['viewer','video_note'].includes(page) ? 'content' : 'application', program_embedded: !!document.querySelector('[data-document-program]'), elapsed_ms: bounded(performance.now() - started),
+        body: JSON.stringify({ page, outcome, visit_id:visitId, navigation:started===0?'document':'navigation', stage: outcome === 'ready' && ['viewer','video_note'].includes(page) ? 'content' : 'application', program_embedded: !!document.querySelector('[data-document-program]'), elapsed_ms: bounded(performance.now() - started),
           first_paint_ms: bounded(started === 0 ? performance.getEntriesByName('first-contentful-paint')[0]?.startTime || 0 : 0),
           document_ms: bounded(started === 0 ? navigation?.responseEnd || 0 : 0),
           api_ms: bounded(longest?.duration || 0),
           server_ms: bounded(longest?.serverTiming?.find(timing => timing.name === 'app')?.duration || 0),
-          cached: usedCache }),
+          cached: usedCache || getCache(cacheKey) !== null && requests.length === 0 }),
       }).catch(() => {})
     }
     if (failed) report('error')
@@ -63,11 +64,14 @@ export function usePageTiming(page: Page, ready: boolean, cacheKey: string, fail
 }
 
 const imageReports = new Set<string>()
-export function recordReaderImage(milliseconds: number) {
-  const key = location.pathname
+export function recordReaderImage(_milliseconds: number, src: string) {
+  const key = visitId
   const token = getAccessToken()
   if (!token || imageReports.has(key)) return
+  const entries = performance.getEntriesByName(new URL(src,location.origin).href)
+  const resource = entries[entries.length-1] as PerformanceResourceTiming|undefined
+  const cached = !!resource && resource.transferSize===0 && resource.decodedBodySize>0
   imageReports.add(key)
   if (imageReports.size > 100) imageReports.delete(imageReports.values().next().value!)
-  void fetch('/api/performance', {method:'POST',keepalive:true,headers:{'Content-Type':'application/json',Authorization:`Bearer ${token}`},body:JSON.stringify({page:'video_note',stage:'image',elapsed_ms:Math.max(0,Math.min(300000,Math.round(milliseconds))),document_ms:0,api_ms:0,cached:false})}).catch(()=>{})
+  void fetch('/api/performance', {method:'POST',keepalive:true,headers:{'Content-Type':'application/json',Authorization:`Bearer ${token}`},body:JSON.stringify({page:location.pathname.startsWith('/viewer/')?'viewer':'video_note',stage:'image',visit_id:visitId,navigation:started===0?'document':'navigation',elapsed_ms:Math.max(0,Math.min(300000,Math.round(performance.now()-started))),document_ms:0,api_ms:0,cached})}).catch(()=>{})
 }

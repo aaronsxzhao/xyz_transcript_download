@@ -5,7 +5,7 @@ import { Link } from 'react-router-dom'
 import { Radio, FileText, MessageSquare, Loader2, Plus, ArrowRight, Bell, RefreshCw, X, Video, CheckCircle, Users } from 'lucide-react'
 import { fetchStats, fetchRecentSummaries, processEpisode, fetchNewEpisodes, checkPodcastsForUpdates, checkVideoChannelsForUpdates, fetchRecentVideoTasks, cancelJob, cancelVideoTask, generateVideoNote, getVideoProcessingDefaults, getUserModelSettings, type Stats, type SummaryListItem, type ProcessingJob, type NewEpisode, type VideoTask } from '../lib/api'
 import { useStore } from '../lib/store'
-import { getCache, setCache, CacheKeys } from '../lib/cache'
+import { useWarmCache, getCache, setCache, CacheKeys } from '../lib/cache'
 import { useToast } from '../components/Toast'
 import { markSeen, shouldDismissCompleted } from '../lib/seen'
 import SummaryCard from '../components/SummaryCard'
@@ -28,6 +28,9 @@ export default function Dashboard() {
   const [stats, setStats] = useState<Stats | null>(null)
   const [summaries, setSummaries] = useState<SummaryListItem[]>([])
   const [recentVideos, setRecentVideos] = useState<VideoTask[]>([])
+  useWarmCache<Stats>(CacheKeys.STATS,value=>{setStats(value);setLoading(false)})
+  useWarmCache<SummaryListItem[]>(CacheKeys.RECENT_SUMMARIES,value=>{setSummaries(value);setLoading(false)})
+  useWarmCache<VideoTask[]>(CacheKeys.RECENT_VIDEOS,value=>{setRecentVideos(value);setLoading(false)})
   const [loading, setLoading] = useState(true)
   usePageTiming('dashboard', !loading, CacheKeys.STATS)
   const [error, setError] = useState('')

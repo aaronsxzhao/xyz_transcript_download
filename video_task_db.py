@@ -98,7 +98,7 @@ class _SQLiteVideoTaskDB:
                 except sqlite3.OperationalError:
                     pass
             conn.execute("""
-                CREATE INDEX IF NOT EXISTS idx_vtasks_user ON video_tasks(user_id)
+                CREATE INDEX IF NOT EXISTS idx_vtasks_channel_page ON video_tasks(user_id, platform, channel, created_at DESC, id DESC)
             """)
             conn.execute("""
                 CREATE INDEX IF NOT EXISTS idx_vversions_task ON video_task_versions(task_id)

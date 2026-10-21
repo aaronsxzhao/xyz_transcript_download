@@ -5,7 +5,7 @@ import { Radio, Plus, Trash2, RefreshCw, Loader2, ExternalLink, ArrowLeft, Chevr
 import { fetchPodcasts, addPodcast, removePodcast, refreshPodcast, uploadLocalPodcastAudio, type Podcast } from '../lib/api'
 import { useToast } from '../components/Toast'
 import PlatformIcon, { PLATFORM_COLORS } from '../components/PlatformIcon'
-import { getCache, setCache, CacheKeys } from '../lib/cache'
+import { useWarmCache, getCache, setCache, CacheKeys } from '../lib/cache'
 import { getAccountId } from '../lib/preferences'
 import { preloadPage } from '../lib/pages'
 import { usePageTiming } from '../lib/pageTiming'
@@ -37,6 +37,7 @@ export default function Podcasts() {
   const [podcasts, setPodcasts] = useState<Podcast[]>(() => getCache(CacheKeys.PODCASTS) || [])
   const [loading, setLoading] = useState(() => !getCache(CacheKeys.PODCASTS))
   usePageTiming('podcasts', !loading, CacheKeys.PODCASTS)
+  useWarmCache<Podcast[]>(CacheKeys.PODCASTS,value=>{setPodcasts(value);setLoading(false)})
   const [error, setError] = useState('')
   const [adding, setAdding] = useState(false)
   const [uploading, setUploading] = useState(false)

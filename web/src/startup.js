@@ -1,3 +1,4 @@
+window.__xyzVisit = crypto.randomUUID();
 /* Runs before framework downloads. Public shell only; APIs still verify tokens. */
 (() => {
   const titles = { '/': 'Dashboard', '/library': 'Library', '/podcasts': 'Podcasts', '/videos': 'Videos', '/settings': 'Settings', '/login': 'Sign in', '/reset-password': 'Reset password' };
@@ -22,7 +23,7 @@
       const bound = number => Math.max(0,Math.min(300000,Math.round(number || 0)));
       const modules = performance.getEntriesByType('resource').filter(entry => { const url = new URL(entry.name);return url.origin === location.origin && url.pathname.startsWith('/assets/') && url.pathname.endsWith('.js'); });
       // Numbers/fixed labels only. Never send URLs, source text or error text.
-      void fetch('/api/performance',{method:'POST',keepalive:true,headers:{'Content-Type':'application/json',Authorization:`Bearer ${token}`},body:JSON.stringify({page,stage:'bootstrap',outcome,elapsed_ms:bound(performance.now()),first_paint_ms:bound(performance.getEntriesByName('first-contentful-paint')[0]?.startTime),document_ms:bound(performance.getEntriesByType('navigation')[0]?.responseEnd),api_ms:0,cached:!!navigator.serviceWorker?.controller,program_embedded:!!document.querySelector('[data-document-program]'),module_requests:modules.length,module_failures:modules.filter(entry=>entry.responseStatus >= 400).length,script_errors:Math.min(1000,scriptErrors)})}).catch(()=>{});
+      void fetch('/api/performance',{method:'POST',keepalive:true,headers:{'Content-Type':'application/json',Authorization:`Bearer ${token}`},body:JSON.stringify({page,stage:'bootstrap',outcome,visit_id:window.__xyzVisit,navigation:'document',elapsed_ms:bound(performance.now()),first_paint_ms:bound(performance.getEntriesByName('first-contentful-paint')[0]?.startTime),document_ms:bound(performance.getEntriesByType('navigation')[0]?.responseEnd),api_ms:0,cached:false,program_embedded:!!document.querySelector('[data-document-program]'),module_requests:modules.length,module_failures:modules.filter(entry=>entry.responseStatus >= 400).length,script_errors:Math.min(1000,scriptErrors)})}).catch(()=>{});
     } catch { /* Diagnostics never block startup, including restricted storage. */ }
   };
   document.getElementById('startup-retry')?.addEventListener('click', () => {

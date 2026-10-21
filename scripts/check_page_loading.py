@@ -129,11 +129,11 @@ async def measure(browser, origin, verify, recovery_only=False):
             body = {"id": "bench", "email": "bench@example.com", "authenticated": True}
         elif path == '/api/podcasts': body = [podcast]
         elif path == '/api/podcasts/bench': body = podcast
-        elif path == '/api/podcasts/bench/episodes': body = [episode]
+        elif path == '/api/podcasts/bench/episodes': body = [{**episode,'eid':'prefetch' if state.get('prefetch_probe') else 'bench'}]
         elif path == '/api/video-notes/channels':
             body = {"channels": [{"channel": "Synthetic channel", "platform": "youtube", "channel_url": "", "channel_avatar": "", "thumbnail": "", "total": 1, "done": 1, "last_updated": ""}]}
         elif path.startswith('/api/summaries/'):
-            body = summary
+            body = {**summary, 'episode_id':path.rsplit('/',1)[-1]}
             if state['summary_missing']: status = 404
             if state['summary_unavailable']:
                 status, body = 503, {'detail': 'Temporary summary connection failure'}
@@ -190,9 +190,22 @@ async def measure(browser, origin, verify, recovery_only=False):
     if verify:
         assert max(warm.values()) < 2000, warm
         state['delay'] = .2
-        await page.evaluate("localStorage.removeItem('xyz_cache_bench:summary_bench');history.pushState({},'','/podcasts/bench/episodes');dispatchEvent(new PopStateEvent('popstate'))")
+        # A new episode key prevents an older in-flight cache write from
+        # masquerading as a completed focus prefetch.
+        state['prefetch_probe'] = True
+        await page.goto(origin + '/podcasts/bench/episodes')
+        await page.locator('a[href="/viewer/prefetch"]').wait_for()
         await page.get_by_role('link', name='View', exact=True).focus()
-        await page.wait_for_function("localStorage.getItem('xyz_cache_bench:summary_bench') !== null")
+        cached = False
+        deadline = time.monotonic() + 5
+        while time.monotonic() < deadline:
+            cached = await page.evaluate("""() => new Promise(resolve => {
+              const open=indexedDB.open('xyz-private-cache');open.onsuccess=()=>{const db=open.result,read=db.transaction('entries').objectStore('entries').get('xyz_cache_bench:summary_prefetch');read.onsuccess=()=>{db.close();resolve(!!read.result)}};
+            })""")
+            if cached: break
+            await page.wait_for_timeout(50)
+        assert cached, 'Focus prefetch must persist the new summary before navigation'
+        assert await page.evaluate("localStorage.getItem('xyz_cache_bench:summary_prefetch') === null")
         state['delay'] = 8
         prefetch_started = time.perf_counter()
         await page.get_by_role('link', name='View', exact=True).click()

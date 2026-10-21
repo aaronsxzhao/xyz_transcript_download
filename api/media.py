@@ -181,3 +181,105 @@ def image_preview(content: bytes) -> bytes:
         for old in entries[:-128]: old.unlink(missing_ok=True)
     except OSError: pass
     return result
+
+
+def preview_name(filename: str) -> str:
+    return f'previews/{filename}.webp'
+
+
+def store_preview(folder: str, filename: str, content: bytes, storage=None) -> bytes:
+    """Persist a derived image without changing the original or its access policy."""
+    source = media_file(folder, filename)
+    result = image_preview(content)
+    if source.is_file():
+        directory = source.parent / '.previews'
+        directory.mkdir(parents=True, exist_ok=True)
+        target = directory / (filename + '.webp')
+        with tempfile.NamedTemporaryFile(dir=directory, delete=False) as stream:
+            stream.write(result)
+            temporary = Path(stream.name)
+        temporary.replace(target)
+    # Regeneration must invalidate cached derivatives and cached originals.
+    for name in (filename, filename + '.preview.webp'):
+        (DATA_DIR / '.media-cache' / folder / name).unlink(missing_ok=True)
+    if storage is not None:
+        storage.upload(preview_name(filename), result, file_options={'content-type': 'image/webp', 'upsert': 'true'})
+    return result
+
+
+def _missing_object(error: Exception) -> bool:
+    return str(getattr(error, 'status', '')) == '404' or getattr(error, 'code', '') in {'NoSuchKey', 'NotFound', 'not_found'}
+
+
+async def load_preview(folder: str, filename: str, storage=None) -> bytes:
+    source = media_file(folder, filename)
+    target = source.parent / '.previews' / (filename + '.webp')
+    if target.is_file() and (not source.is_file() or target.stat().st_mtime >= source.stat().st_mtime):
+        return await asyncio.to_thread(target.read_bytes)
+    if storage is not None:
+        try:
+            # Cache the derived object directly: a hit never reads the original.
+            return await load_cloud_media(folder, filename + '.preview.webp', lambda _: storage.download(preview_name(filename)))
+        except Exception as error:
+            if not _missing_object(error):
+                raise
+    content = await asyncio.to_thread(source.read_bytes) if source.is_file() else await load_cloud_media(folder, filename, storage.download)
+    result = await asyncio.to_thread(store_preview, folder, filename, content)
+    if storage is not None:
+        try:
+            await asyncio.to_thread(storage.upload, preview_name(filename), result, file_options={'content-type': 'image/webp', 'upsert': 'true'})
+        except Exception:
+            pass  # Reading remains available; the background worker retries persistence.
+    await load_cloud_media(folder, filename + '.preview.webp', lambda _: result)
+    return result
+
+
+async def backfill_previews():
+    """Low-concurrency, restart-safe migration of existing private media."""
+    from api.supabase_client import get_supabase_admin_client
+    while True:
+        try:
+            client = get_supabase_admin_client() if USE_SUPABASE else None
+            for folder in ('screenshots', 'thumbnails'):
+                if client:
+                    storage = client.storage.from_(folder)
+                    offset = 0
+                    while True:
+                        objects = await asyncio.to_thread(storage.list, '', {'limit': 100, 'offset': offset, 'sortBy': {'column': 'name', 'order': 'asc'}})
+                        if not objects:
+                            break
+                        for item in objects:
+                            filename = item.get('name', '')
+                            if not re.fullmatch(r'[a-zA-Z0-9_.-]+\.(jpg|jpeg|png|webp)', filename):
+                                continue
+                            try:
+                                # info avoids transferring existing preview bytes on every sweep.
+                                await asyncio.to_thread(storage.info, preview_name(filename))
+                            except Exception as error:
+                                if not _missing_object(error):
+                                    raise
+                                content = await asyncio.to_thread(storage.download, filename)
+                                try:
+                                    await asyncio.to_thread(store_preview, folder, filename, content, storage)
+                                except OSError:
+                                    # A corrupt original must not block every later note.
+                                    import logging
+                                    logging.getLogger(__name__).warning('Skipping unreadable original during preview backfill')
+                            await asyncio.sleep(.15)
+                        if len(objects) < 100:
+                            break
+                        offset += len(objects)
+                else:
+                    for source in (DATA_DIR / folder).glob('*'):
+                        if source.is_file() and source.suffix.lower() in {'.jpg', '.jpeg', '.png', '.webp'}:
+                            try:
+                                await load_preview(folder, source.name)
+                            except OSError:
+                                continue
+                            await asyncio.sleep(.15)
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            import logging
+            logging.getLogger(__name__).warning('Preview backfill paused; retrying in the next sweep')
+        await asyncio.sleep(3600)

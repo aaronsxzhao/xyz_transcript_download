@@ -16,3 +16,8 @@ export function deferView<P extends object>(load:()=>Promise<{default:ComponentT
     </OptionalBoundary>
   }
 }
+
+/** Failure of a secondary tool must not replace the reading page. */
+export function OptionalTool({children,fallback}:{children:ReactNode;fallback:ReactNode}) {
+  return <OptionalBoundary fallback={<p role="status">This tool could not load. <button className="underline" onClick={reloadFreshPage}>Reload tools</button></p>}><Suspense fallback={fallback}>{children}</Suspense></OptionalBoundary>
+}

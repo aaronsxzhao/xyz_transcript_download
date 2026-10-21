@@ -751,9 +751,10 @@ export async function fetchVideoChannels(): Promise<{ channels: VideoChannelStat
   return readJson(`${API_BASE}/video-notes/channels`, 'Cannot load video channels. Please retry.')
 }
 
-export async function fetchVideoTasksByChannel(platform: string, channel: string): Promise<{ tasks: VideoTask[] }> {
+export async function fetchVideoTasksByChannel(platform: string, channel: string, options: {cursor?:string;q?:string;status?:string;sort?:string;signal?:AbortSignal} = {}): Promise<{ tasks: VideoTask[]; next_cursor: string | null }> {
   const params = new URLSearchParams({ platform, channel })
-  return readJson(`${API_BASE}/video-notes/tasks/by-channel?${params}`, 'Cannot load channel videos. Please retry.')
+  for (const key of ['cursor','q','status','sort'] as const) if (options[key] && !(key === 'sort' && options[key] === 'newest')) params.set(key, options[key]!)
+  return readJson(`${API_BASE}/video-notes/tasks/by-channel?${params}`, 'Cannot load channel videos. Please retry.', options.signal)
 }
 
 export async function fetchRecentVideoTasks(limit: number = 6): Promise<{ tasks: VideoTask[] }> {
