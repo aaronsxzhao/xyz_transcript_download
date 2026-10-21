@@ -21,8 +21,8 @@ async def main():
         try:
             for width in (390,1440):
                 if not browser.is_connected(): browser=await p.chromium.launch(**launch)
-                context=await browser.new_context(viewport={'width':width,'height':960},service_workers='block')
-                await context.add_init_script('''if(location.protocol==='http:'){localStorage.setItem('xyz_remember_me','true');localStorage.setItem('xyz_access_token',TOKEN);localStorage.setItem('xyz_user',JSON.stringify({id:'bench',email:'',authenticated:true}));window.WebSocket=class{static OPEN=1;readyState=1;send(){}close(){}};}'''.replace('TOKEN',json.dumps(token(int(time.time())+3600))))
+                context=await browser.new_context(viewport={'width':width,'height':844},service_workers='block')
+                await context.add_init_script('''if(location.protocol==='http:'){localStorage.setItem('xyz_remember_me','true');localStorage.setItem('xyz_access_token',TOKEN);localStorage.setItem('xyz_user',JSON.stringify({id:'bench',email:'',authenticated:true}));window.WebSocket=class{static OPEN=1;readyState=1;constructor(){setTimeout(()=>this.onopen?.(),10)}send(){setTimeout(()=>this.onmessage?.({data:JSON.stringify({type:'init',jobs:[{job_id:'attention',episode_title:'Retained failure',status:'failed',progress:0,message:'Needs attention'}],video_tasks:[]})}),10)}close(){}};}'''.replace('TOKEN',json.dumps(token(int(time.time())+3600))))
                 page=await context.new_page(); errors=[]; summary_reads=0; episode_reads=0
                 page.on('pageerror',lambda e:errors.append(str(e)))
                 async def api(route):
@@ -46,16 +46,17 @@ async def main():
                         body=summary
                     elif path=='/api/new-episodes':body={'episodes':[]}
                     elif path=='/api/content-updates':body={'items':[{'item_key':'podcast:new','kind':'podcast','title':'A newly discovered episode','source_title':'Channel','source_id':'channel-0','created_at':'2026-10-21T00:00:00Z'}],'dismiss_before':'2026-10-21T00:00:00Z'}
-                    elif path=='/api/jobs':body={'jobs':[]}
+                    elif path=='/api/jobs':body={'jobs':[{'job_id':'attention','episode_title':'Retained failure','status':'failed','progress':0,'message':'Needs attention'}]}
                     elif path=='/api/video-notes/tasks':body={'tasks':[]}
                     await route.fulfill(content_type='application/json',body=json.dumps(body))
                 await page.route('**/api/**',api)
                 await page.goto(origin+'/podcasts?platform=xiaoyuzhou',wait_until='domcontentloaded')
+                await page.get_by_role('button',name='Open processing tasks',exact=True).wait_for()
                 navigation_ms=[]
                 for i in range(13):
                     await page.get_by_role('link',name=f'Open episodes: Channel {i}',exact=True).wait_for()
                     started=time.perf_counter()
-                    await page.get_by_role('link',name=f'Open episodes: Channel {i}',exact=True).click()
+                    await page.get_by_role('link',name=f'Open episodes: Channel {i}',exact=True).click(timeout=5000)
                     await page.get_by_role('heading',name=f'Channel {i} episode 0',exact=True).wait_for(timeout=1500)
                     navigation_ms.append(round((time.perf_counter()-started)*1000))
                     await page.go_back(wait_until='domcontentloaded')

@@ -310,6 +310,7 @@ html[data-reader-width="comfortable"] .podcast-reader { max-width: 880px; }
 .task-indeterminate { width:30%; background:#818cf8; animation:task-travel 1.6s ease-in-out infinite alternate; }
 @keyframes task-travel { to { transform:translateX(230%); } }
 .task-launcher { position:fixed; right:24px; bottom:20px; z-index:35; display:flex; align-items:center; gap:8px; padding:10px 16px; max-width:calc(100vw - 32px); border:1px solid #536587; border-radius:24px!important; background:#1e293b; box-shadow:0 4px 20px #0004; font-size:13px; }
+.app-shell:has(.task-launcher) .page-frame { padding-bottom:calc(100px + env(safe-area-inset-bottom)); }
 .task-drawer-backdrop { position:fixed; inset:0; z-index:70; background:#0007; }
 .task-drawer { position:absolute; inset:0 0 0 auto; width:min(480px,100%); background:#0f172a; display:flex; flex-direction:column; border-left:1px solid var(--ui-border); }
 .task-drawer-header { display:flex; align-items:center; justify-content:space-between; gap:16px; padding:20px 16px; border-bottom:1px solid var(--ui-border); }
