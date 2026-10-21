@@ -93,3 +93,17 @@ def test_share_page_missing_duration_keeps_known_episode_duration(db_interface,c
         assert db_interface.get_transcript('test-episode-456') is None
         summarizer.assert_not_called()
     finally: processing.jobs.pop(job,None)
+
+
+@pytest.mark.parametrize('media,expected', [({'source':{'url':'https://example.com/full.mp3'}},'https://example.com/full.mp3'),(None,'https://example.com/preview.mp3')])
+def test_share_page_prefers_full_recording_but_tolerates_missing_structured_media(media,expected):
+    import json
+    from xyz_client import XyzClient
+    client=XyzClient.__new__(XyzClient)
+    response=Mock()
+    data={'props':{'pageProps':{'episode':{'pid':'show','duration':5026,'media':media}}}}
+    response.content=('<meta property="og:audio" content="https://example.com/preview.mp3"><script type="application/json">'+json.dumps(data)+'</script>').encode()
+    client.session=Mock();client.session.get.return_value=response
+    episode=client.get_episode_by_share_url('https://www.xiaoyuzhoufm.com/episode/example')
+    assert episode.audio_url==expected
+    assert episode.duration==5026
