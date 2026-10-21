@@ -338,6 +338,8 @@ class Summarizer:
 
             content = response.choices[0].message.content
             data = extract_json_from_response(content)
+            if not isinstance(data, dict) or not isinstance(data.get('key_points', []), list) or any(not isinstance(point, dict) for point in data.get('key_points', [])):
+                raise SummaryOutputError('invalid')
 
             if len(transcript_text) >= 1000 and not data.get('key_points'):
                 raise SummaryOutputError('invalid')

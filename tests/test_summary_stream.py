@@ -46,3 +46,13 @@ def test_output_error_is_actionable_and_provider_bodies_stay_private():
     assert 'private provider text' not in safe_provider_error(ValueError('private provider text'))
     error=RuntimeError('private provider body');error.status_code=503
     assert 'temporarily unavailable' in safe_provider_error(error)
+
+
+@pytest.mark.parametrize('content',['[]','{"key_points":{"topic":"wrong container"}}'])
+def test_invalid_summary_structure_is_reported_without_configuration_blame(content):
+    from summarizer import Summarizer
+    subject=Summarizer(api_key='fixture',base_url='https://api.groq.com/openai/v1')
+    response=NS(choices=[NS(message=NS(content=content))])
+    with patch.object(subject,'_call_llm_with_retry',return_value=response):
+        with pytest.raises(RuntimeError,match='invalid summary format'):
+            subject._summarize_single('episode','source '*500,'podcast','episode')
