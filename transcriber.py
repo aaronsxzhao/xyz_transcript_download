@@ -7,6 +7,7 @@ import json
 import math
 import os
 import subprocess
+from resource_scheduler import run_media_process
 from dataclasses import dataclass, asdict
 from pathlib import Path
 from typing import List, Optional, Callable
@@ -494,7 +495,7 @@ class MLXTranscriber:
     def _get_audio_duration(self, audio_path: Path) -> float:
         """Get audio duration using ffprobe."""
         try:
-            result = subprocess.run(
+            result = run_media_process(
                 [
                     "ffprobe", "-v", "quiet",
                     "-show_entries", "format=duration",
@@ -885,7 +886,7 @@ class APITranscriber:
     def _get_audio_duration(self, audio_path: Path) -> float:
         """Get audio duration using ffprobe."""
         try:
-            result = subprocess.run(
+            result = run_media_process(
                 [
                     "ffprobe", "-v", "quiet",
                     "-show_entries", "format=duration",

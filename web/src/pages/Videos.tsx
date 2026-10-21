@@ -1,3 +1,4 @@
+import {sourceAction,TaskProgress} from '../components/TaskStatus'
 import ContentDates from '../components/ContentDates'
 import CachedImage from '../components/CachedImage'
 import { useWarmCache } from '../lib/cache'
@@ -11,7 +12,7 @@ import { useCallback, useEffect, useState, useMemo, useRef } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import {
   Plus, ChevronUp, ChevronDown, Video, Search, Trash2, RefreshCw, RotateCcw, Square,
-  CheckCircle, XCircle, Clock, Loader2, ArrowLeft, ExternalLink, Play, Sparkles,
+  CheckCircle, XCircle, Loader2, ArrowLeft, ExternalLink, Play, Sparkles,
 } from 'lucide-react'
 import {lazy} from 'react'
 import {OptionalTool} from '../components/DeferredView'
@@ -286,10 +287,10 @@ export default function Videos() {
       type: 'success',
       title: 'Video queued',
       message: task.title
-        ? `${task.title} is now processing`
+        ? `${task.title} is queued for processing`
         : isLocalTask
-          ? 'Your local video is now processing'
-          : 'Your video is now processing',
+          ? 'Your local video is queued for processing'
+          : 'Your video is queued for processing',
     })
     setFormOpen(false)
     // Refresh channel list so new channel/count appears
@@ -308,7 +309,7 @@ export default function Videos() {
     try {
       await retryVideoTask(taskId)
       const task = channelTasks.find(t => t.id === taskId)
-      addToast({ type: 'success', title: 'Processing started', message: task?.title || 'Video processing started' })
+      addToast({ type: 'success', title: 'Queued for processing', message: task?.title || 'Waiting for an available processing slot.' })
       if (view.type === 'videos') loadChannelTasks(view.platform, view.channel, { preserveExisting: true })
     } catch (e) {
       console.error('Retry failed:', e)
@@ -754,16 +755,6 @@ function VideoList({ videos, onDelete, onRetry, onCancel }: {
     return `${m} min`
   }
 
-  const getStatusLabel = (status: string) => {
-    const labels: Record<string, string> = {
-      pending: 'Pending', parsing: 'Parsing', downloading: 'Downloading',
-      transcribing: 'Transcribing', summarizing: 'Summarizing', saving: 'Saving',
-      success: 'Done', failed: 'Failed', cancelled: 'Cancelled',
-      discovered: 'Discovered',
-    }
-    return labels[status] || status
-  }
-
   const isProcessing = (status: string) =>
     !['success', 'failed', 'cancelled', 'discovered'].includes(status)
 
@@ -787,7 +778,7 @@ function VideoList({ videos, onDelete, onRetry, onCancel }: {
   }
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-3 video-task-list">
       {videos.map((task,index) => {
         const isFailed = task.status === 'failed'
         const errorMsg = task.error || task.message || ''
@@ -807,9 +798,9 @@ function VideoList({ videos, onDelete, onRetry, onCancel }: {
         >
           <div className="flex flex-col sm:flex-row sm:items-start gap-3 md:gap-4">
             {task.thumbnail ? (
-              <CachedImage priority={index<3} src={task.thumbnail} alt="" className="w-full sm:w-40 md:w-48 h-24 sm:h-24 md:h-28 rounded-lg object-cover flex-shrink-0 bg-dark-hover" />
+              <CachedImage priority={index<3} src={task.thumbnail} alt="" className="video-thumbnail w-full sm:w-40 md:w-48 h-24 sm:h-24 md:h-28 rounded-lg object-cover flex-shrink-0 bg-dark-hover" />
             ) : (
-              <div className={`hidden sm:flex w-40 md:w-48 h-24 md:h-28 rounded-lg items-center justify-center flex-shrink-0 ${
+              <div className={`video-thumbnail hidden sm:flex w-40 md:w-48 h-24 md:h-28 rounded-lg items-center justify-center flex-shrink-0 ${
                 isFailed ? 'bg-red-500/10' : 'bg-dark-hover'
               }`}>
                 {isFailed ? (
@@ -863,12 +854,6 @@ function VideoList({ videos, onDelete, onRetry, onCancel }: {
                   <span className="flex items-center gap-1 text-orange-400">
                     <Square size={12} className="md:w-3.5 md:h-3.5" />
                     <span className="hidden sm:inline">Cancelled</span>
-                  </span>
-                )}
-                {task.status === 'pending' && (
-                  <span className="flex items-center gap-1 text-gray-500">
-                    <Clock size={12} className="md:w-3.5 md:h-3.5" />
-                    <span className="hidden sm:inline">Pending</span>
                   </span>
                 )}
                 {['discovered', 'pending'].includes(task.status) && isNewItem(task.id) && (
@@ -934,31 +919,10 @@ function VideoList({ videos, onDelete, onRetry, onCancel }: {
                 }
 
                 if (isProcessing(task.status)) {
-                  const pct = Math.min(Math.max(task.progress ?? 0, 0), 100)
-                  const indeterminate = task.status === 'pending' || pct <= 0
-                  return (
-                    <div className="flex items-center gap-3 px-4 py-2 bg-dark-hover rounded-lg min-w-[160px] min-h-[52px]">
-                      <Loader2 size={16} className="animate-spin text-indigo-400 flex-shrink-0" />
-                      <div className="flex-1 min-w-0 flex flex-col justify-center gap-1.5">
-                        <div className="text-xs text-gray-400 leading-tight tabular-nums">
-                          {getStatusLabel(task.status)} · {Math.round(pct)}%
-                        </div>
-                        <div className="relative h-1.5 bg-dark-border rounded-full overflow-hidden">
-                          <div
-                            className="h-full bg-indigo-500 transition-[width] duration-500 ease-out"
-                            style={{ width: `${pct}%` }}
-                          />
-                          {indeterminate && (
-                            <div className="absolute inset-0 pointer-events-none overflow-hidden rounded-full">
-                              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent animate-shimmer" />
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  )
+                  return <div className="collection-task"><TaskProgress status={task.status} progress={task.progress} startedAt={task.started_at} compact/></div>
                 }
 
+                if(sourceAction(errorMsg))return <Link className="ui-button" to="/settings">Check source access</Link>
                 return (
                   <button
                     disabled={pending.has(task.id)} aria-busy={pending.has(task.id)} onClick={() => void runAction(task.id, onRetry)}
@@ -970,7 +934,7 @@ function VideoList({ videos, onDelete, onRetry, onCancel }: {
                 )
               })()}
 
-              {task.url && !isProcessing(task.status) && (
+              {task.url && task.platform !== 'local' && !isProcessing(task.status) && (
                 <a
                   href={task.url}
                   target="_blank"
@@ -983,16 +947,16 @@ function VideoList({ videos, onDelete, onRetry, onCancel }: {
               )}
 
               {!isProcessing(task.status) && (
-                <button
+                <details className="task-more"><summary aria-label={`More actions for ${displayTitle}`}>More</summary><div><button
                   disabled={pending.has(task.id)} aria-busy={pending.has(task.id)} onClick={() => void runAction(task.id, onDelete)}
                   className="p-2 bg-dark-hover hover:bg-red-600/20 text-red-400 rounded-lg transition-colors"
                   title="Delete video"
                 >
-                  <Trash2 size={16} />
-                </button>
+                  <Trash2 size={16} /><span>Delete video</span>
+                </button></div></details>
               )}
 
-              {isProcessing(task.status) && (
+              {isProcessing(task.status) && task.status !== 'cancelling' && (
                 <button
                   disabled={pending.has(task.id)} aria-busy={pending.has(task.id)} onClick={() => void runAction(task.id, onCancel)}
                   className="p-2 bg-dark-hover hover:bg-orange-600/20 text-orange-400 rounded-lg transition-colors"

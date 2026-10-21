@@ -21,7 +21,7 @@ async function pollJobs(owner: number) {
     const busy = state.jobs.some(job => active(job.status)) || state.videoTasks.some(task => active(task.status))
     const healthySocket = ws?.readyState === WebSocket.OPEN && Date.now() - lastUpdate < 45000
     // Reconcile quiet active jobs occasionally in case a progress event was lost.
-    if (document.visibilityState !== 'hidden' && (!healthySocket || (busy && Date.now() - lastProgress > 15000))) {
+    if (document.visibilityState !== 'hidden' && (!healthySocket || (busy && Date.now() - lastProgress > 5000))) {
       const [jobsResponse, tasks] = await Promise.all([
         authFetch('/api/jobs', {signal:AbortSignal.timeout(10000)}), fetchProgress(state.videoTasks.filter(task => active(task.status)).map(task => task.id)),
       ])

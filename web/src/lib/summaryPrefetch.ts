@@ -27,8 +27,10 @@ function runPrefetch(kind: 'podcast' | 'video' | 'episodes', id: string) {
 
 let timer: ReturnType<typeof setTimeout> | undefined
 export function cancelPrefetch() { clearTimeout(timer) }
+function slowConnection(){const connection=(navigator as Navigator & {connection?:{saveData?:boolean;effectiveType?:string}}).connection;return connection?.saveData||['slow-2g','2g','3g'].includes(connection?.effectiveType||'')}
 function schedule(kind: 'podcast'|'video'|'episodes', id:string) {
   cancelPrefetch()
+  if(slowConnection())return
   timer = setTimeout(() => { if (document.visibilityState !== 'hidden') runPrefetch(kind, id) }, 200)
 }
 export function prefetchSummary(id: string) { schedule('podcast', id) }

@@ -1,3 +1,20 @@
+## Unified processing workspace — 21 October 2026
+
+- A collapsed task entry opens a grouped, keyboard-accessible side/bottom drawer.
+  Queueing, processing, saving, cancellation and source restrictions have shared
+  labels and progress semantics; estimated percentages are marked explicitly.
+- Failed tasks no longer become acknowledged merely by rendering a page. Task
+  actions retain feedback, prevent duplicate submissions and preserve source access actions.
+- Podcast and video work share two processing slots; FFmpeg commands are serialized
+  independently. Cancellation waits for worker confirmation, including safe retry supersession.
+- Processing readers use shared progress updates, with a final note fetch on completion.
+  Slow connections skip speculative note prefetch; screenshot controls load on demand.
+- Library dates arrive in one owner-filtered view read, with explicit saved/publication sorting.
+- Shared controls, compact source rows and quieter destructive menus preserve the single-column reader.
+- Private backups stream to disk, use 8 MiB parts and verify checksums, archive integrity
+  and restored record counts before publishing the manifest. Errors expose only numeric diagnostics.
+  Image recovery is explicitly requested rather than triggered by every backup change.
+
 ## Source publication dates — 21 October 2026
 
 - Distinguish Published, Imported and local Uploaded dates in source lists.

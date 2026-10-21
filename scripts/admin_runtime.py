@@ -12,8 +12,15 @@ def run_private_child(script, timeout=1800):
                            os.environ['CONTAINER_INSTANCE_ID']], 'data.containers[*]."container-id"')
     if not containers:
         raise RuntimeError('Deployment unavailable')
-    bindings = oci_json(['container-instances', 'container', 'get', '--container-id', containers[0]],
-                        'data."environment-variables"')
+    bindings = None
+    for container_id in containers:
+        candidate = oci_json(['container-instances', 'container', 'get', '--container-id', container_id],
+                             'data."environment-variables"') or {}
+        if candidate.get('SUPABASE_URL') and candidate.get('SUPABASE_SERVICE_KEY'):
+            bindings = candidate
+            break
+    if not bindings:
+        raise RuntimeError('Application database bindings unavailable')
     environment = {**os.environ, **{k: v for k, v in bindings.items() if k.startswith('SUPABASE_')},
                    'WHISPER_MODE': 'api', 'SUPABASE_STORAGE_ENABLED': 'true'}
     with tempfile.TemporaryDirectory() as directory:

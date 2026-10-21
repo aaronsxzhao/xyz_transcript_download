@@ -70,7 +70,7 @@ export function useToast() {
 
 function ToastContainer({ toasts, removeToast }: { toasts: Toast[]; removeToast: (id: string) => void }) {
   return (
-    <div className="fixed bottom-4 right-4 z-50 flex flex-col gap-2 max-w-sm">
+    <div className="toast-stack fixed top-20 right-4 z-[90] flex flex-col gap-2 max-w-sm">
       {toasts.map((toast) => (
         <ToastItem key={toast.id} toast={toast} onClose={() => removeToast(toast.id)} />
       ))}
@@ -95,6 +95,7 @@ function ToastItem({ toast, onClose }: { toast: Toast; onClose: () => void }) {
 
   return (
     <div
+      role={toast.type === 'error' ? 'alert' : 'status'}
       className={`flex items-start gap-3 p-4 rounded-lg border ${bgColors[toast.type]} backdrop-blur-sm shadow-lg animate-slide-in`}
     >
       {icons[toast.type]}
@@ -107,6 +108,7 @@ function ToastItem({ toast, onClose }: { toast: Toast; onClose: () => void }) {
       {toast.type !== 'loading' && (
         <button
           onClick={onClose}
+          aria-label={`Dismiss notification: ${toast.title}`}
           className="text-gray-500 hover:text-white transition-colors"
         >
           <X className="w-4 h-4" />

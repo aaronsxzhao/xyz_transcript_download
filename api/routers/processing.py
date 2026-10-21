@@ -128,7 +128,8 @@ _load_jobs_from_file()
 # Limit concurrent episode processing to prevent resource exhaustion
 # When limit reached, jobs queue automatically and wait for a slot
 # Reduced from 3 to 2 to prevent ffmpeg resource contention during concurrent processing
-PROCESSING_EXECUTOR = ThreadPoolExecutor(max_workers=2, thread_name_prefix="episode_processor")
+from resource_scheduler import TASK_EXECUTOR
+PROCESSING_EXECUTOR = TASK_EXECUTOR
 
 # Store reference to the main event loop for thread-safe broadcasting
 _main_loop: Optional[asyncio.AbstractEventLoop] = None
@@ -246,6 +247,8 @@ def update_job_status(job_id: str, status: str, progress: float = 0, message: st
     checkpoint = None
     with _jobs_lock:
         if job_id in jobs:
+            if not jobs[job_id].started_at and status not in ("pending","cancelling","completed","failed","cancelled"):
+                jobs[job_id].started_at = time.time()
             jobs[job_id].status = status
             jobs[job_id].progress = progress
             jobs[job_id].message = message
@@ -1190,15 +1193,17 @@ async def cancel_job(job_id: str, user: Optional[User] = Depends(get_current_use
         elif job.status == "downloading":
             cancel_msg = "Will cancel after download completes..."
         
+        next_status = "cancelled" if job.status == "pending" else "cancelling"
+        if next_status == "cancelled": cancel_msg = "Cancelled while queued"
         job_progress = job.progress
     
     # Update status (outside lock since it acquires its own lock)
-    await asyncio.to_thread(update_job_status, job_id, "cancelling", job_progress, cancel_msg)
+    await asyncio.to_thread(update_job_status, job_id, next_status, job_progress, cancel_msg)
     
     # Broadcast update
     await broadcast_status(job_id)
     
-    return {"message": "Cancellation requested", "job_id": job_id}
+    return {"message": "Cancellation requested", "job_id": job_id, "status": next_status}
 
 
 @router.post("/jobs/{job_id}/retry")

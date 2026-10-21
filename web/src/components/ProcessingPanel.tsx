@@ -1,188 +1,195 @@
-/**
- * Unified processing panel showing active podcast AND video jobs with progress.
- * Completed jobs are auto-dismissed once the user has seen them.
- */
-import { useToast } from './Toast'
-import { useState, useEffect, useRef } from 'react'
-import { ChevronUp, ChevronDown, Activity, X, Trash2, RotateCcw, Radio, Video, Upload } from 'lucide-react'
-import { useStore, type VideoUploadSession } from '../lib/store'
-import { cancelJob, deleteJob, retryJob, cancelVideoTask, type ProcessingJob } from '../lib/api'
-import { getStatusColor, getStatusText, isActiveStatus } from '../lib/statusUtils'
-import { markSeen, shouldDismissCompleted } from '../lib/seen'
+import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
+import { useLocation } from "react-router-dom";
+import { Activity, X, Upload } from "lucide-react";
+import { useStore, type VideoUploadSession } from "../lib/store";
 
-const MOBILE_BREAKPOINT = 640
-
-function formatBytes(bytes: number): string {
-  if (!Number.isFinite(bytes) || bytes <= 0) return '0 MB'
-  const units = ['B', 'KB', 'MB', 'GB', 'TB']
-  let value = bytes
-  let unitIndex = 0
-  while (value >= 1024 && unitIndex < units.length - 1) {
-    value /= 1024
-    unitIndex += 1
-  }
-  return `${value >= 100 ? value.toFixed(0) : value.toFixed(1)} ${units[unitIndex]}`
-}
-
+import {
+  cancelTask,
+  retryTask,
+  dismissTask,
+  dismissedTasks,
+} from "../lib/taskActions";
+import { useDialog } from "../lib/reading";
+import ProcessingProgress from "./ProcessingProgress";
+import { taskGroup } from "./TaskStatus";
+const formatBytes = (n: number) =>
+  `${(Math.max(0, n) / 1048576).toFixed(1)} MB`;
 export default function ProcessingPanel() {
-  const { addToast } = useToast()
-  const { jobs, videoTasks, uploadSessions, wsConnected, removeJob, removeUploadSession } = useStore()
-  const [expanded, setExpanded] = useState(() =>
-    typeof window !== 'undefined' ? window.innerWidth >= MOBILE_BREAKPOINT : true
-  )
-  const prevActiveCountRef = useRef(0)
-
-  // Podcast jobs — filter out completed jobs that user already saw
-  const activeJobs = jobs.filter(job =>
-    job.status !== 'completed' && job.status !== 'failed' && job.status !== 'cancelled'
-  )
-  const completedJobs = jobs.filter(job =>
-    (job.status === 'completed' || job.status === 'failed' || job.status === 'cancelled') &&
-    !shouldDismissCompleted(job.job_id)
-  )
-
-  // Mark completed jobs as seen so they auto-dismiss on next render/load
-  const completedSeenRef = useRef(false)
+  const state = useStore();
+  const { pathname } = useLocation();
+  const [open, setOpen] = useState(false);
+  const [dismissed, setDismissed] = useState<string[]>(dismissedTasks);
   useEffect(() => {
-    const doneIds = jobs
-      .filter(j => j.status === 'completed' || j.status === 'failed' || j.status === 'cancelled')
-      .map(j => j.job_id)
-    if (doneIds.length > 0 && !completedSeenRef.current) {
-      completedSeenRef.current = true
-      markSeen(doneIds)
-    }
-  }, [jobs])
-
-  // Active video tasks (exclude discovered — those are just queued for user to pick)
-  const activeVideoTasks = videoTasks.filter(t =>
-    !['success', 'failed', 'cancelled', 'discovered'].includes(t.status)
-  )
-
-  const visibleUploadSessions = uploadSessions.filter(session =>
-    session.phase !== 'queued' &&
-    !(session.taskId && videoTasks.some(task => task.id === session.taskId))
-  )
-  const activeUploadSessions = visibleUploadSessions.filter(session =>
-    !['failed', 'success', 'cancelled'].includes(session.phase)
-  )
-
-  const totalActive = activeJobs.length + activeVideoTasks.length + activeUploadSessions.length
-  const totalItems = activeJobs.length + completedJobs.length + activeVideoTasks.length + visibleUploadSessions.length
-
+    const sync = () => setDismissed(dismissedTasks());
+    window.addEventListener("xyz:tasks-dismissed", sync);
+    window.addEventListener("storage", sync);
+    return () => {
+      window.removeEventListener("xyz:tasks-dismissed", sync);
+      window.removeEventListener("storage", sync);
+    };
+  }, []);
+  useDialog(open, () => setOpen(false));
+  const rows = [
+    ...state.jobs.map((job) => ({ ...job, kind: "podcast" as const })),
+    ...state.videoTasks
+      .filter((t) => t.status !== "discovered")
+      .map((t) => ({
+        job_id: t.id,
+        episode_title: t.title,
+        episode_id: "",
+        status: t.status,
+        progress: t.progress,
+        started_at: t.started_at,
+        message: t.error || t.message,
+        kind: "video" as const,
+      })),
+  ].filter(
+    (row) =>
+      !dismissed.includes(row.kind + ":" + row.job_id) ||
+      [
+        "pending",
+        "parsing",
+        "fetching",
+        "downloading",
+        "transcribing",
+        "summarizing",
+        "saving",
+        "cancelling",
+      ].includes(row.status),
+  );
+  const uploads = state.uploadSessions.filter(
+    (s) => !s.taskId || !state.videoTasks.some((t) => t.id === s.taskId),
+  );
+  const running =
+    rows.filter((r) => taskGroup(r.status) === "Processing").length +
+    uploads.filter(
+      (s) => !["queued", "failed", "success", "cancelled"].includes(s.phase),
+    ).length;
+  const queued =
+    rows.filter((r) => r.status === "pending").length +
+    uploads.filter((s) => s.phase === "queued").length;
+  const failures =
+    rows.filter((r) => r.status === "failed").length +
+    uploads.filter((s) => s.phase === "failed").length;
+  const count = `${running} processing · ${queued} queued${failures ? ` · ${failures} need attention` : ""}`;
   useEffect(() => {
-    if (totalActive > prevActiveCountRef.current && window.innerWidth < MOBILE_BREAKPOINT) {
-      setExpanded(true)
-    }
-    prevActiveCountRef.current = totalActive
-  }, [totalActive])
-
-  useEffect(() => {
-    if (totalActive === 0 && window.innerWidth < MOBILE_BREAKPOINT) {
-      const timer = setTimeout(() => setExpanded(false), 2000)
-      return () => clearTimeout(timer)
-    }
-  }, [totalActive])
-
-  useEffect(() => {
-    const handleResize = () => {
-      if (window.innerWidth < MOBILE_BREAKPOINT && totalActive === 0) {
-        setExpanded(false)
-      }
-    }
-    window.addEventListener('resize', handleResize)
-    return () => window.removeEventListener('resize', handleResize)
-  }, [totalActive])
-
-  const handleDismiss = async (jobId: string) => {
-    try { await deleteJob(jobId); removeJob(jobId) } catch (e) { addToast({type:'error',title:'Could not dismiss task',message:e instanceof Error ? e.message : 'Please retry'}) }
-  }
-
-  const handleClearCompleted = async () => {
-    for (const job of completedJobs) {
-      await handleDismiss(job.job_id)
-    }
-  }
-
-  if (totalItems === 0) return null
-
+    if (open && !rows.length && !uploads.length) setOpen(false);
+  }, [open, rows.length, uploads.length]);
+  if (!rows.length && !uploads.length) return null;
   return (
-    <div className="fixed bottom-4 left-4 right-4 sm:right-auto z-40 sm:w-96 bg-dark-surface border border-dark-border rounded-xl shadow-xl overflow-hidden">
-      {/* Header */}
-      <div className="flex items-center justify-between p-2 sm:p-3 bg-dark-hover">
-        <button
-          onClick={() => setExpanded(!expanded)}
-          className="flex items-center gap-2 flex-1 min-h-[44px] sm:min-h-0"
-        >
-          <Activity className="w-5 h-5 sm:w-4 sm:h-4 text-indigo-400" />
-          <span className="font-medium text-sm">
-            Processing
-            {totalActive > 0 ? ` (${totalActive} active)` : ''}
-          </span>
-        </button>
-        <div className="flex items-center gap-1 sm:gap-2">
-          {!wsConnected && (
-            <span className="text-xs text-yellow-500">Offline</span>
-          )}
-          {completedJobs.length > 0 && (
-            <button
-              onClick={handleClearCompleted}
-              className="p-2 sm:p-1 min-w-[44px] min-h-[44px] sm:min-w-0 sm:min-h-0 flex items-center justify-center text-gray-500 hover:text-white hover:bg-dark-border rounded transition-colors"
-              title="Clear completed"
-            >
-              <Trash2 size={16} className="sm:w-3.5 sm:h-3.5" />
-            </button>
-          )}
-          <button
-            onClick={() => setExpanded(!expanded)}
-            className="p-2 sm:p-1 min-w-[44px] min-h-[44px] sm:min-w-0 sm:min-h-0 flex items-center justify-center"
+    <>
+      <button
+        className="task-launcher"
+        aria-label="Open processing tasks"
+        aria-haspopup="dialog"
+        onClick={() => setOpen(true)}
+      >
+        <Activity size={16} />
+        <span>{count}</span>
+      </button>
+      {open &&
+        createPortal(
+          <div
+            className="task-drawer-backdrop ui-scope"
+            onClick={() => setOpen(false)}
           >
-            {expanded ? <ChevronDown size={20} className="sm:w-4 sm:h-4" /> : <ChevronUp size={20} className="sm:w-4 sm:h-4" />}
-          </button>
-        </div>
-      </div>
-
-      {/* Jobs list */}
-      {expanded && (
-        <div className="max-h-48 sm:max-h-72 overflow-y-auto divide-y divide-dark-border">
-          {/* Upload sessions */}
-          {visibleUploadSessions.map(session => (
-            <UploadSessionItem
-              key={`u-${session.id}`}
-              session={session}
-              onDismiss={() => removeUploadSession(session.id)}
-            />
-          ))}
-          {/* Active video tasks */}
-          {activeVideoTasks.map(task => (
-            <VideoJobItem key={`v-${task.id}`} task={task} />
-          ))}
-          {/* Active podcast jobs */}
-          {activeJobs.map(job => (
-            <PodcastJobItem key={job.job_id} job={job} showCancel />
-          ))}
-          {/* Completed podcast jobs */}
-          {completedJobs.slice(0, 3).map(job => (
-            <PodcastJobItem key={job.job_id} job={job} onDismiss={() => handleDismiss(job.job_id)} />
-          ))}
-        </div>
-      )}
-    </div>
-  )
+            <section
+              className="task-drawer"
+              role="dialog"
+              aria-modal="true"
+              aria-label="Processing tasks"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <header className="task-drawer-header">
+                <div>
+                  <h2>Processing tasks</h2>
+                  <p className="text-sm text-gray-400">{count}</p>
+                </div>
+                <button
+                  aria-label="Close processing tasks"
+                  onClick={() => setOpen(false)}
+                >
+                  <X size={18} />
+                </button>
+              </header>
+              {!state.wsConnected && (
+                <p role="status" className="px-4 py-2 text-sm text-amber-200">
+                  Live updates reconnecting. Checking progress automatically.
+                </p>
+              )}
+              <div className="task-drawer-content">
+                {uploads.map((session) => (
+                  <UploadSessionItem
+                    key={session.id}
+                    session={session}
+                    onDismiss={() => state.removeUploadSession(session.id)}
+                  />
+                ))}
+                {["Processing", "Queued", "Needs attention", "Finished"].map(
+                  (group) => {
+                    const items = rows.filter(
+                      (r) => taskGroup(r.status) === group,
+                    );
+                    return items.length ? (
+                      <section key={group}>
+                        <h3 className="task-group-title">
+                          {group} · {items.length}
+                        </h3>
+                        {items.map((job) => (
+                          <ProcessingProgress
+                            key={job.kind + job.job_id}
+                            job={job}
+                            kind={job.kind}
+                            link={
+                              job.kind === "video"
+                                ? `/videos/${job.job_id}`
+                                : job.episode_id
+                                  ? `/viewer/${job.episode_id}`
+                                  : undefined
+                            }
+                            onCancel={() => cancelTask(job, job.kind)}
+                            onRetry={() => retryTask(job, job.kind)}
+                            onDismiss={() => dismissTask(job, job.kind)}
+                          />
+                        ))}
+                      </section>
+                    ) : null;
+                  },
+                )}
+              </div>
+              {pathname === "/" && (
+                <p className="px-4 py-2 text-xs text-gray-400">
+                  Task details are also available in the dashboard queue.
+                </p>
+              )}
+            </section>
+          </div>,
+          document.body,
+        )}
+    </>
+  );
 }
-
-function UploadSessionItem({ session, onDismiss }: { session: VideoUploadSession; onDismiss: () => void }) {
-  const isActive = !['failed', 'success', 'cancelled'].includes(session.phase)
-  const statusColor = session.phase === 'failed'
-    ? 'bg-red-500'
-    : session.phase === 'success'
-      ? 'bg-emerald-500'
-      : session.phase === 'cancelled'
-        ? 'bg-orange-400'
-    : session.phase === 'assembling'
-      ? 'bg-amber-500'
-      : session.phase === 'uploaded'
-        ? 'bg-emerald-500'
-        : 'bg-sky-500'
+function UploadSessionItem({
+  session,
+  onDismiss,
+}: {
+  session: VideoUploadSession;
+  onDismiss: () => void;
+}) {
+  const isActive = !["failed", "success", "cancelled"].includes(session.phase);
+  const statusColor =
+    session.phase === "failed"
+      ? "bg-red-500"
+      : session.phase === "success"
+        ? "bg-emerald-500"
+        : session.phase === "cancelled"
+          ? "bg-orange-400"
+          : session.phase === "assembling"
+            ? "bg-amber-500"
+            : session.phase === "uploaded"
+              ? "bg-emerald-500"
+              : "bg-sky-500";
 
   return (
     <div className="p-3 space-y-2">
@@ -190,7 +197,7 @@ function UploadSessionItem({ session, onDismiss }: { session: VideoUploadSession
         <Upload size={16} className="text-sky-400 mt-0.5 flex-shrink-0" />
         <div className="flex-1 min-w-0">
           <p className="text-sm font-medium text-white truncate">
-            {session.filename || 'Uploading local video...'}
+            {session.filename || "Uploading local video..."}
           </p>
           <p className="text-xs text-gray-500">
             {session.statusText || session.phase}
@@ -220,152 +227,13 @@ function UploadSessionItem({ session, onDismiss }: { session: VideoUploadSession
       </div>
       <div className="flex justify-between items-center">
         <p className="text-xs text-sky-400">
-          {formatBytes(session.uploadedBytes)} / {formatBytes(session.totalBytes)}
+          {formatBytes(session.uploadedBytes)} /{" "}
+          {formatBytes(session.totalBytes)}
         </p>
-        <p className="text-xs font-medium text-white">{Math.round(session.percent)}%</p>
+        <p className="text-xs font-medium text-white">
+          {Math.round(session.percent)}%
+        </p>
       </div>
     </div>
-  )
-}
-
-function VideoJobItem({ task }: { task: { id: string; title: string; status: string; progress: number; message: string; platform: string } }) {
-  const { addToast } = useToast()
-  const [cancelling, setCancelling] = useState(false)
-  const { setVideoTasks, videoTasks } = useStore()
-
-  const handleCancel = async () => {
-    setCancelling(true)
-    try {
-      await cancelVideoTask(task.id)
-      setVideoTasks(videoTasks.filter(t => t.id !== task.id))
-    } catch (err) { addToast({type:'error',title:'Cancel failed',message:err instanceof Error ? err.message : 'Please retry'}) }
-    finally { setCancelling(false) }
-  }
-
-  const statusColor = task.status === 'downloading' ? 'bg-blue-500'
-    : task.status === 'transcribing' ? 'bg-purple-500'
-    : task.status === 'summarizing' ? 'bg-indigo-500'
-    : 'bg-gray-500'
-
-  return (
-    <div className="p-3 space-y-2">
-      <div className="flex items-start gap-2">
-        <Video size={16} className="text-cyan-400 mt-0.5 flex-shrink-0" />
-        <div className="flex-1 min-w-0">
-          <p className="text-sm font-medium text-white truncate">
-            {task.title || 'Processing video...'}
-          </p>
-          <p className="text-xs text-gray-500">
-            {task.message || task.status}
-          </p>
-        </div>
-        <button
-          onClick={handleCancel}
-          disabled={cancelling}
-          className="p-2 sm:p-1 min-w-[40px] min-h-[40px] sm:min-w-0 sm:min-h-0 flex items-center justify-center text-gray-500 hover:text-red-400 hover:bg-red-400/10 rounded transition-colors -mr-1"
-          title="Cancel"
-        >
-          <X className={`w-5 h-5 sm:w-4 sm:h-4 ${cancelling ? 'animate-spin' : ''}`} />
-        </button>
-      </div>
-      <div className="relative h-1.5 bg-dark-border rounded-full overflow-hidden">
-        <div
-          className={`absolute left-0 top-0 h-full ${statusColor} transition-all duration-300`}
-          style={{ width: `${Math.min(task.progress, 100)}%` }}
-        />
-        {task.progress === 0 && (
-          <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent animate-shimmer" />
-        )}
-      </div>
-      <div className="flex justify-between items-center">
-        <p className="text-xs text-cyan-400">{task.message || 'Processing...'}</p>
-        <p className="text-xs font-medium text-white">{Math.round(task.progress)}%</p>
-      </div>
-    </div>
-  )
-}
-
-function PodcastJobItem({ job, showCancel = false, onDismiss }: { job: ProcessingJob; showCancel?: boolean; onDismiss?: () => void }) {
-  const { addToast } = useToast()
-  const [cancelling, setCancelling] = useState(false)
-  const [retrying, setRetrying] = useState(false)
-
-  const handleCancel = async () => {
-    setCancelling(true)
-    try { await cancelJob(job.job_id) } catch (err) { addToast({type:'error',title:'Cancel failed',message:err instanceof Error ? err.message : 'Please retry'}) }
-    finally { setCancelling(false) }
-  }
-
-  const handleRetry = async () => {
-    setRetrying(true)
-    try { await retryJob(job.job_id) } catch (err) { addToast({type:'error',title:'Retry failed',message:err instanceof Error ? err.message : 'Please retry'}) }
-    finally { setRetrying(false) }
-  }
-
-  const isActive = isActiveStatus(job.status)
-  const canRetry = job.status === 'failed' || job.status === 'cancelled'
-
-  return (
-    <div className="p-3 space-y-2">
-      <div className="flex items-start gap-2">
-        <Radio size={16} className="text-indigo-400 mt-0.5 flex-shrink-0" />
-        <div className="flex-1 min-w-0">
-          <p className="text-sm font-medium text-white truncate">
-            {job.episode_title || 'Processing episode...'}
-          </p>
-          <p className="text-xs text-gray-500">
-            {job.message || getStatusText(job.status)}
-          </p>
-        </div>
-        {showCancel && isActive && job.status !== 'cancelling' && (
-          <button
-            onClick={handleCancel}
-            disabled={cancelling}
-            className="p-2 sm:p-1 min-w-[40px] min-h-[40px] sm:min-w-0 sm:min-h-0 flex items-center justify-center text-gray-500 hover:text-red-400 hover:bg-red-400/10 rounded transition-colors -mr-1"
-            title="Cancel"
-          >
-            <X className="w-5 h-5 sm:w-4 sm:h-4" />
-          </button>
-        )}
-        {canRetry && job.episode_id && (
-          <button
-            onClick={handleRetry}
-            disabled={retrying}
-            className="p-2 sm:p-1 min-w-[40px] min-h-[40px] sm:min-w-0 sm:min-h-0 flex items-center justify-center text-gray-500 hover:text-green-400 hover:bg-green-400/10 rounded transition-colors"
-            title="Retry"
-          >
-            <RotateCcw className={`w-5 h-5 sm:w-4 sm:h-4 ${retrying ? 'animate-spin' : ''}`} />
-          </button>
-        )}
-        {onDismiss && !isActive && (
-          <button
-            onClick={onDismiss}
-            className="p-2 sm:p-1 min-w-[40px] min-h-[40px] sm:min-w-0 sm:min-h-0 flex items-center justify-center text-gray-500 hover:text-white hover:bg-dark-border rounded transition-colors -mr-1"
-            title="Dismiss"
-          >
-            <X className="w-5 h-5 sm:w-4 sm:h-4" />
-          </button>
-        )}
-      </div>
-
-      {isActive && (
-        <div className="relative h-1.5 bg-dark-border rounded-full overflow-hidden">
-          <div
-            className={`absolute left-0 top-0 h-full ${getStatusColor(job.status)} transition-all duration-300`}
-            style={{ width: `${Math.min(job.progress, 100)}%` }}
-          />
-          {job.progress === 0 && (
-            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent animate-shimmer" />
-          )}
-        </div>
-      )}
-
-      {isActive && (
-        <div className="flex justify-between items-center">
-          <p className="text-xs text-indigo-400">{job.message || 'Processing...'}</p>
-          <p className="text-xs font-medium text-white">{Math.round(job.progress)}%</p>
-        </div>
-      )}
-    </div>
-  )
+  );
 }

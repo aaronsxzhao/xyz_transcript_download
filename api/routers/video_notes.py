@@ -32,7 +32,8 @@ logger = get_logger("video_notes")
 
 router = APIRouter()
 
-VIDEO_EXECUTOR = ThreadPoolExecutor(max_workers=2, thread_name_prefix="video_processor")
+from resource_scheduler import TASK_EXECUTOR, start_task, task_started_at
+VIDEO_EXECUTOR = TASK_EXECUTOR
 
 _list_cache: dict = {}
 _LIST_TTL = 5.0
@@ -248,7 +249,7 @@ async def broadcast_video_job(task_id: str, task_data: dict, user_id: Optional[s
     from api.media import sign_media_urls
     await manager.broadcast_to_user({
         "type": "video_job_update",
-        "task": sign_media_urls(task_data, task_id),
+        "task": sign_media_urls({**task_data,"started_at":task_started_at("video",task_id)}, task_id),
     }, user_id)
 
 
@@ -389,6 +390,7 @@ def process_video_note_sync(
     attempt_id: Optional[int] = None,
 ):
     """Synchronous video note processing pipeline."""
+    start_task("video", task_id)
     _video_worker.task_id = task_id
     _video_worker.attempt_id = attempt_id
     from video_task_db import get_video_task_db
@@ -1106,7 +1108,8 @@ def video_progress(known: str = Query('', max_length=5000), user: Optional[User]
     from video_task_db import get_video_task_db
     import re
     ids = [value for value in known.split(',') if re.fullmatch(r'[A-Za-z0-9_-]{1,64}', value)][:100]
-    return {'tasks': sign_media_urls(get_video_task_db().list_progress_tasks(user.id if user else None, ids))}
+    tasks = get_video_task_db().list_progress_tasks(user.id if user else None, ids)
+    return {'tasks': sign_media_urls([{**task,'started_at':task_started_at('video',task['id'])} for task in tasks])}
 
 
 @router.get("/tasks")
@@ -1283,7 +1286,7 @@ async def retry_task(
     task = await asyncio.to_thread(db.get_task, task_id, user_id)
     if not task:
         raise HTTPException(status_code=404, detail="Task not found")
-    retryable = ("failed", "cancelled", "success", "downloading", "parsing", "transcribing", "summarizing", "saving", "pending", "discovered")
+    retryable = ("failed", "cancelled", "cancelling", "success", "downloading", "parsing", "transcribing", "summarizing", "saving", "pending", "discovered")
     if task["status"] not in retryable:
         raise HTTPException(status_code=400, detail=f"Cannot retry task in '{task['status']}' status")
 
@@ -1363,10 +1366,11 @@ def cancel_task(
     with _cancel_lock:
         _cancelled_tasks.add(task_id)
 
-    db.update_task(task_id, {"status": "cancelled", "message": "Cancelling..."})
+    next_status = "cancelled" if task["status"] == "pending" else "cancelling"
+    db.update_task(task_id, {"status": next_status, "message": "Cancelled" if next_status == "cancelled" else "Stopping safely…"})
     _invalidate_list_cache(user_id)
     logger.info(f"Cancel requested for video task: {task_id}")
-    return {"message": "Cancel requested", "task_id": task_id}
+    return {"message": "Cancel requested", "task_id": task_id, "status": next_status}
 
 
 @router.post("/upload")

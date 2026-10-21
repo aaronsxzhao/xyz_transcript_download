@@ -9,6 +9,7 @@ processed the video.
 import re
 import json
 import subprocess
+from resource_scheduler import run_media_process
 import uuid
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -348,7 +349,7 @@ def extract_screenshot(
                 "-y",
                 str(output_path),
             ]
-            result = subprocess.run(cmd, capture_output=True, timeout=30)
+            result = run_media_process(cmd, capture_output=True, timeout=30)
             if result.returncode == 0 and output_path.exists() and output_path.stat().st_size > 0:
                 if USE_SUPABASE_STORAGE:
                     if not _upload_to_supabase(output_path, _SUPABASE_BUCKET, filename):
@@ -490,7 +491,7 @@ def get_video_duration(video_path: str) -> float:
         cmd = [
             FFMPEG_PATH, "-i", str(video_path),
         ]
-        result = subprocess.run(cmd, capture_output=True, text=True, timeout=15)
+        result = run_media_process(cmd, capture_output=True, text=True, timeout=15)
         match = re.search(r"Duration: (\d+):(\d+):(\d+)\.(\d+)", result.stderr)
         if match:
             h, m, s, cs = match.groups()
@@ -538,7 +539,7 @@ def extract_first_frame_thumbnail(video_path: str, task_id: str) -> Optional[str
                 "-y",
                 str(output_path),
             ]
-            result = subprocess.run(cmd, capture_output=True, timeout=30)
+            result = run_media_process(cmd, capture_output=True, timeout=30)
             if result.returncode == 0 and output_path.exists() and output_path.stat().st_size > 0:
                 logger.info(f"Extracted thumbnail for {task_id} at seek={seek}")
                 if USE_SUPABASE_STORAGE:
@@ -577,7 +578,7 @@ def extract_embedded_thumbnail(video_path: str, task_id: str) -> Optional[str]:
         return f"/data/thumbnails/{filename}"
 
     try:
-        probe = subprocess.run(
+        probe = run_media_process(
             [
                 "ffprobe",
                 "-v",
@@ -622,7 +623,7 @@ def extract_embedded_thumbnail(video_path: str, task_id: str) -> Optional[str]:
             "-y",
             str(output_path),
         ]
-        result = subprocess.run(cmd, capture_output=True, timeout=30)
+        result = run_media_process(cmd, capture_output=True, timeout=30)
         if result.returncode == 0 and output_path.exists() and output_path.stat().st_size > 0:
             if USE_SUPABASE_STORAGE:
                 _upload_to_supabase(output_path, _SUPABASE_THUMB_BUCKET, filename)

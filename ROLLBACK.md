@@ -1,5 +1,14 @@
 # Restore the previous website
 
+## Unified tasks and workspace (21 October 2026)
+
+Use `safety/pre-task-workspace-20261021`, image
+`74c5138d751abb1cf61f186bdd3593223486c365`, in **Roll back website**.
+This is the current automatic deployment fallback. The additive library view
+columns work with the preceding application and can remain after rollback.
+Task dismissal preferences are account-scoped and do not delete source notes.
+Backup verification writes only new private archives; existing backups remain.
+
 ## Source publication dates (21 October 2026)
 
 Use `safety/pre-publication-dates-20261021`, image

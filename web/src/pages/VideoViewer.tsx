@@ -1,3 +1,4 @@
+import {TaskProgress} from '../components/TaskStatus'
 import { OptionalTool } from '../components/DeferredView'
 import { useWarmCache } from '../lib/cache'
 import { printHtml } from '../lib/print'
@@ -27,39 +28,6 @@ const TranscriptPanel = deferView(()=>import('../components/video/TranscriptPane
 import MindMapView, { preloadMindMap } from '../components/video/MindMapView'
 
 type ViewMode = 'markdown' | 'mindmap' | 'transcript'
-
-function buildNotionExportMarkdown(task: VideoTask, content: string): string {
-  const lines: string[] = []
-  const title = task.title?.trim() || 'Untitled Video Note'
-
-  lines.push(`# ${title}`)
-  lines.push('')
-
-  const metadata: string[] = []
-  if (task.platform) metadata.push(`- Platform: ${task.platform}`)
-  if (task.channel) metadata.push(`- Channel: ${task.channel}`)
-  if (task.style) metadata.push(`- Style: ${task.style}`)
-  if (task.duration > 0) {
-    const m = Math.floor(task.duration / 60)
-    const s = Math.floor(task.duration % 60)
-    metadata.push(`- Duration: ${m}:${s.toString().padStart(2, '0')}`)
-  }
-  if (task.url) metadata.push(`- Source: ${task.url}`)
-
-  if (metadata.length > 0) {
-    lines.push('## Details')
-    lines.push('')
-    lines.push(...metadata)
-    lines.push('')
-  }
-
-  if (content.trim()) {
-    lines.push(content.trim())
-    lines.push('')
-  }
-
-  return lines.join('\n')
-}
 
 export default function VideoViewer() {
   const { taskId } = useParams<{ taskId: string }>()
@@ -123,6 +91,7 @@ export default function VideoViewer() {
         const data = await fetchVideoTask(taskId)
         if (!cancelled && owner === getAccountId()) {
           setTask(data)
+          if(!['success','failed','cancelled'].includes(data.status))useStore.getState().updateVideoTask(data)
           setTaskVerified(true)
           if (data.status === 'success') setCache(CacheKeys.VIDEO_NOTE(taskId), data, owner)
           else removeCache(CacheKeys.VIDEO_NOTE(taskId))
@@ -138,18 +107,19 @@ export default function VideoViewer() {
     }
 
     load()
-    const interval = setInterval(() => {
-      const t = taskRef.current
-      if (document.visibilityState !== 'hidden' && t && !['success', 'failed', 'cancelled'].includes(t.status)) {
-        load()
-      }
-    }, 3000)
-
-    return () => {
-      cancelled = true
-      clearInterval(interval)
-    }
+    return () => { cancelled = true }
   }, [taskId, loadAttempt])
+
+  const completedRead=useRef('')
+  useEffect(()=>{
+    const live=storeTaskSlice
+    if(!live||live.id!==taskId)return
+    if(!['success','failed','cancelled'].includes(live.status)){completedRead.current='';return}
+    const key=live.id+':'+live.status+':'+(live.updated_at||'')
+    if(completedRead.current===key||taskRef.current?.status===live.status)return
+    completedRead.current=key
+    setLoadAttempt(n=>n+1)
+  },[taskId,storeTaskSlice?.status,storeTaskSlice?.updated_at])
 
   useEffect(() => {
     // An empty transcript during processing must not become the cached final
@@ -275,6 +245,7 @@ export default function VideoViewer() {
     setError('')
     try {
       await retryVideoTask(task.id)
+      completedRead.current=''
       const pending = { ...task, status: 'pending', progress: 0, message: 'Queued for processing...', error: '' }
       taskRef.current = pending
       setTask(pending)
@@ -361,6 +332,7 @@ export default function VideoViewer() {
     setNotionExporting(true)
     setNotionResult(null)
     try {
+      const {buildNotionExportMarkdown}=await import('../lib/notionExport')
       const markdown = buildNotionExportMarkdown(task, content)
       const result = await exportMarkdownToNotion(markdown, task.title || 'Untitled Video Note', notionSelectedId)
       setNotionResult({
@@ -668,29 +640,7 @@ export default function VideoViewer() {
         <div className="reader-paper flex-1 min-w-0 overflow-hidden">
           {!['success', 'failed', 'cancelled'].includes(uiTask.status) && !content ? (
             <div className="h-full overflow-y-auto flex flex-col items-center py-8 text-center space-y-4 w-full max-w-md mx-auto">
-              <Loader2 className="w-10 h-10 animate-spin text-indigo-500 flex-shrink-0" />
-              <p className="text-lg text-white font-medium min-h-[1.75rem]">
-                {uiTask.status === 'pending' ? 'Queued for processing...' :
-                 uiTask.status === 'downloading' ? 'Downloading video...' :
-                 uiTask.status === 'transcribing' ? 'Transcribing audio...' :
-                 uiTask.status === 'summarizing' ? 'Generating notes...' :
-                 uiTask.status === 'saving' ? 'Saving results...' :
-                 'Processing...'}
-              </p>
-              <div className="w-full min-h-[2.25rem] flex flex-col gap-1">
-                <div className="relative h-2 bg-dark-border rounded-full overflow-hidden">
-                  <div
-                    className="h-full bg-indigo-500 transition-[width] duration-500 ease-out"
-                    style={{ width: `${Math.min(Math.max(uiTask.progress ?? 0, 0), 100)}%` }}
-                  />
-                  {(uiTask.status === 'pending' || (uiTask.progress ?? 0) <= 0) && (
-                    <div className="absolute inset-0 pointer-events-none overflow-hidden rounded-full">
-                      <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent animate-shimmer" />
-                    </div>
-                  )}
-                </div>
-                <p className="text-xs text-gray-500 tabular-nums">{Math.round(Math.min(Math.max(uiTask.progress ?? 0, 0), 100))}%</p>
-              </div>
+              <TaskProgress status={uiTask.status} progress={uiTask.progress} startedAt={uiTask.started_at}/>
               <p className="text-sm text-gray-400 max-w-md min-h-[1.25rem]">
                 {uiTask.message || '\u00a0'}
               </p>

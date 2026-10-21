@@ -1,3 +1,4 @@
+import {TaskProgress} from '../components/TaskStatus'
 import ContentDates from '../components/ContentDates'
 import SourceAccessNotice,{sourceBlocked} from '../components/SourceAccessNotice'
 import { useState, useEffect, useRef } from 'react'
@@ -6,7 +7,6 @@ import { ArrowLeft, Play, FileText, MessageSquare, Loader2, CheckCircle, Trash2,
 import { ApiError, fetchPodcasts, fetchEpisodes, processEpisode, deleteEpisode, resummarizeEpisode, uploadLocalPodcastAudio, type Podcast, type Episode } from '../lib/api'
 import { useToast } from '../components/Toast'
 import { useStore } from '../lib/store'
-import { getStatusColor } from '../lib/statusUtils'
 import { markSeen, isNewItem } from '../lib/seen'
 import { fetchEpisode } from '../lib/api'
 import LoadError from '../components/LoadError'
@@ -451,20 +451,7 @@ export default function Episodes() {
                   if (activeJob) {
                     // Show processing progress
                     return (
-                      <div className="flex items-center gap-3 px-4 py-2 bg-dark-hover rounded-lg min-w-[140px]">
-                        <Loader2 size={16} className="animate-spin text-indigo-400" />
-                        <div className="flex-1">
-                          <div className="text-xs text-gray-400 mb-1">
-                            {activeJob.message || activeJob.status}
-                          </div>
-                          <div className="h-1.5 bg-dark-border rounded-full overflow-hidden">
-                            <div 
-                              className={`h-full ${getStatusColor(activeJob.status)} transition-all duration-300`}
-                              style={{ width: `${Math.min(activeJob.progress, 100)}%` }}
-                            />
-                          </div>
-                        </div>
-                      </div>
+                      <div className="collection-task"><TaskProgress status={activeJob.status} progress={activeJob.progress} startedAt={activeJob.started_at} compact/></div>
                     )
                   }
                   

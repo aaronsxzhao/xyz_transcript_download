@@ -3,7 +3,7 @@
  */
 
 import { getAccessToken, getAuthGeneration, getRefreshToken, accessTokenNeedsRefresh, refreshToken } from './auth'
-import { getAccountId, getPreference } from './preferences'
+import { getAccountId, getPreference, setPreference } from './preferences'
 import { CacheKeys, getCache, setCache, invalidateForMutation } from './cache'
 
 import { takeStartupRead } from './startupReads'
@@ -258,6 +258,7 @@ export interface SummaryListItem {
 }
 
 export interface ProcessingJob {
+  started_at?: number
   job_id: string
   status: string
   progress: number
@@ -552,7 +553,7 @@ export function getUserModelSettings(): {
   }
 }
 
-export async function cancelJob(jobId: string): Promise<{ message: string }> {
+export async function cancelJob(jobId: string): Promise<{ message: string; status?: string }> {
   const res = await authFetch(`${API_BASE}/jobs/${jobId}/cancel`, {
     method: 'POST',
   })
@@ -675,6 +676,7 @@ export async function importUserSubscriptions(username: string): Promise<ImportS
 // ===== Video Notes API =====
 
 export interface VideoTask {
+  started_at?: number
   id: string
   url: string
   platform: string
@@ -833,10 +835,11 @@ export async function retryVideoTask(taskId: string): Promise<{ task_id: string 
     body: hasBody ? JSON.stringify(defaults) : undefined,
   })
   if (!res.ok) throw new Error('Failed to retry video task')
+  try{const dismissed:string[]=JSON.parse(getPreference('dismissed_tasks')||'[]');setPreference('dismissed_tasks',JSON.stringify(dismissed.filter(key=>key!=='video:'+taskId)));window.dispatchEvent(new Event('xyz:tasks-dismissed'))}catch{}
   return res.json()
 }
 
-export async function cancelVideoTask(taskId: string): Promise<{ message: string }> {
+export async function cancelVideoTask(taskId: string): Promise<{ message: string; status?: string }> {
   const res = await authFetch(`${API_BASE}/video-notes/tasks/${taskId}/cancel`, {
     method: 'POST',
   })

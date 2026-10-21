@@ -154,6 +154,7 @@ class ProcessingStatus(BaseModel):
     # - cancelled: User cancelled
     # - cancelling: Cancellation in progress
     status: str
+    started_at: float = 0
     progress: float = 0
     message: str = ""
     episode_id: Optional[str] = None
