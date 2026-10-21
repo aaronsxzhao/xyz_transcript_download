@@ -1,3 +1,4 @@
+// Shared processing semantics: queued tasks have no estimated percentage.
 import { useState, useEffect } from "react";
 import {
   getStatusColor,

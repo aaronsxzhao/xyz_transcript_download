@@ -1,6 +1,7 @@
 """Private, verified application-data and generated-media backups.
 
-Excludes credentials and auth sessions. Never uploads private data as CI artifacts.
+Never uploads private data as CI artifacts. The isolated child emits numeric
+verification diagnostics only; archive data stays in the private storage bucket.
 """
 import contextlib
 import io
