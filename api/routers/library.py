@@ -3,13 +3,37 @@ from typing import Literal
 from fastapi import APIRouter, Depends, Query, HTTPException
 from api.auth import User, get_current_user
 from api.db import get_db
+from concurrent.futures import ThreadPoolExecutor
+
+_DATE_READS = ThreadPoolExecutor(max_workers=4, thread_name_prefix='library-dates')
 
 router = APIRouter()
 
 
-def page_rows(rows, limit):
+def page_rows(rows, limit, db=None, owner=None):
     more = len(rows) > limit
     items = rows[:limit]
+    if db is not None and items:
+        # At most two small, parallel, owner-scoped DB reads for this page.
+        # Never fetch source sites or full notes to display dates.
+        def dates(kind):
+            ids = [r['id'] for r in items if r['kind'] == kind]
+            if not ids:
+                return {}
+            table, ident, stamp = ('episodes', 'eid', 'pub_date') if kind == 'podcast' else ('video_tasks', 'id', 'published_at')
+            records = (db.db.client.table(table).select(f'{ident},{stamp}' + (',pid' if kind == 'podcast' else ''))
+                       .eq('user_id', owner).in_(ident, ids).limit(limit).execute().data or [])
+            return {r[ident]: '' if r.get('pid') == 'local_uploads' else r.get(stamp) or '' for r in records}
+        pending = {kind: _DATE_READS.submit(dates, kind) for kind in ('podcast', 'video')}
+        for kind, future in pending.items():
+            # Metadata failure must not hide readable summaries.
+            try:
+                stamps = future.result()
+            except Exception:
+                continue
+            for row in items:
+                if row['kind'] == kind:
+                    row['published_at'] = stamps.get(row['id'], '')
     from api.media import sign_media_urls
     return {'items': [sign_media_urls({k: v for k, v in row.items() if k not in ('user_id', 'search_text', 'sort_key')}) for row in items],
             'next_cursor': items[-1]['sort_key'] if more else None}
@@ -36,7 +60,7 @@ def library(q: str = Query('', max_length=200), kind: Literal['', 'podcast', 'vi
         if cursor: query = query.lt('sort_key', cursor) if sort == 'newest' else query.gt('sort_key', cursor)
         rows = query.order('sort_key', desc=sort == 'newest').limit(61 if requested else limit + 1).execute().data or []
         if requested: rows=[r for r in rows if r['kind']+':'+r['id'] in requested]
-        return page_rows(rows, limit)
+        return page_rows(rows, limit, db, user.id)
     # Local summaries live as JSON files; cloud queries never take this path.
     summaries = db.get_all_summaries()
     metadata = db.get_summary_podcast_metadata([s.episode_id for s in summaries])
@@ -44,12 +68,15 @@ def library(q: str = Query('', max_length=200), kind: Literal['', 'podcast', 'vi
     from api.summary_quality import needs_review
     for row,s in zip(rows,summaries):
         episode=db.get_episode(s.episode_id)
+        row['published_at']=episode.pub_date if episode else ''
+        if episode and episode.pid == 'local_uploads':
+            row['published_at']=''
         row['duration']=episode.duration if episode else 0
         if needs_review(row['duration'],s.topics,s.key_points): row['status']='needs_review'
     rows=[row for row in rows if row['status']=='completed']
     from video_task_db import get_video_task_db
     videos = get_video_task_db().list_tasks(user.id, limit=1000000)
-    rows += [dict(id=t['id'], kind='video', title=t.get('title') or 'Untitled video', source=t.get('channel') or t.get('platform') or 'Video', date=t.get('updated_at') or t.get('created_at') or '', status='completed', thumbnail=t.get('thumbnail') or '', platform=t.get('platform') or '', duration=t.get('duration') or 0, topics_count=0) for t in videos if t['status'] == 'success']
+    rows += [dict(id=t['id'], kind='video', title=t.get('title') or 'Untitled video', source=t.get('channel') or t.get('platform') or 'Video', date=t.get('updated_at') or t.get('created_at') or '', published_at=t.get('published_at') or '', status='completed', thumbnail=t.get('thumbnail') or '', platform=t.get('platform') or '', duration=t.get('duration') or 0, topics_count=0) for t in videos if t['status'] == 'success']
     from datetime import datetime, timezone
     for row in rows:
         try: date = datetime.fromisoformat(row['date'].replace('Z', '+00:00')).replace(tzinfo=timezone.utc).strftime('%Y%m%d%H%M%S%f')

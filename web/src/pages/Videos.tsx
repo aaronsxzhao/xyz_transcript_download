@@ -1,3 +1,4 @@
+import ContentDates from '../components/ContentDates'
 import CachedImage from '../components/CachedImage'
 import { useWarmCache } from '../lib/cache'
 import { useReadingPosition } from '../lib/reading'
@@ -837,12 +838,7 @@ function VideoList({ videos, onDelete, onRetry, onCancel }: {
               )}
 
               <div className="flex flex-wrap items-center gap-2 md:gap-4 text-xs md:text-sm text-gray-400">
-                {task.published_at && (
-                  <span>{task.published_at.slice(0, 10)}</span>
-                )}
-                {task.created_at && task.created_at.slice(0, 10) !== (task.published_at || '').slice(0, 10) && (
-                  <span className="text-gray-500">imported {task.created_at.slice(0, 10)}</span>
-                )}
+                <ContentDates published={task.published_at} imported={task.created_at} local={task.platform === "local"} />
                 {task.duration > 0 && (
                   <span>{formatDuration(task.duration)}</span>
                 )}

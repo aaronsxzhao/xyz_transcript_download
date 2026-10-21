@@ -1,3 +1,4 @@
+import ContentDates from '../components/ContentDates'
 import SourceAccessNotice,{sourceBlocked} from '../components/SourceAccessNotice'
 import { useState, useEffect, useRef } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
@@ -386,10 +387,7 @@ export default function Episodes() {
                   {episode.title}
                 </h3>
                 <div className="flex flex-wrap items-center gap-2 md:gap-4 text-xs md:text-sm text-gray-400">
-                  {episode.pub_date && <span>{episode.pub_date.slice(0, 10)}</span>}
-                  {episode.created_at && episode.created_at.slice(0, 10) !== (episode.pub_date || '').slice(0, 10) && (
-                    <span className="text-gray-500">imported {episode.created_at.slice(0, 10)}</span>
-                  )}
+                  <ContentDates published={episode.pub_date} imported={episode.created_at} local={podcast?.platform === "local"} />
                   <span>{formatDuration(episode.duration)}</span>
                   
                   {/* Status indicators */}

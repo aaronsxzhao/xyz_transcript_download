@@ -1,5 +1,13 @@
 # Restore the previous website
 
+## Source publication dates (21 October 2026)
+
+Use `safety/pre-publication-dates-20261021`, image
+`addf73895fc3579cb06f7a15d87683e0a140dfa5`, in **Roll back website**.
+This is the current deployment fallback. No schema migration is required.
+The background repair fills only previously missing source dates; recovered
+dates can stay after code rollback. Import timestamps and notes are untouched.
+
 ## New-content dismissal repair (21 October 2026)
 
 Use `safety/pre-notification-dismiss-20261021`, image

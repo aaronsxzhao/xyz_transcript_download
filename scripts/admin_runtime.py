@@ -27,7 +27,7 @@ def run_private_child(script, timeout=1800):
             row = json.loads(line)
         except ValueError:
             continue
-        if isinstance(row, dict) and row.get('operation') in {'backup', 'media_recovery'}:
+        if isinstance(row, dict) and row.get('operation') in {'backup', 'media_recovery', 'publication_dates'}:
             reports.append({k: v for k, v in row.items() if k == 'operation' or type(v) is int})
     for row in reports:
         print(json.dumps(row), flush=True)

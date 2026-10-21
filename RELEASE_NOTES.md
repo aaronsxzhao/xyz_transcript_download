@@ -1,3 +1,15 @@
+## Source publication dates — 21 October 2026
+
+- Distinguish Published, Imported and local Uploaded dates in source lists.
+- Show original source dates in Library when present; otherwise label the saved date.
+- Preserve publication dates recovered after a metadata fetch fails, and use source
+  release timestamps without substituting yt-dlp extraction time.
+- Continue reading episode JSON after a separate podcast metadata script, so
+  duration and publication date are not skipped.
+- Repair missing historical YouTube/Bilibili dates in a background workflow with
+  owner filters, compare-and-set updates and read-back verification. No LLM calls,
+  media downloads, schema changes or source lookups on the page loading path.
+
 # Document-contained startup — 20 October 2026
 
 - The user's browser recorded a Podcasts visit of 120,574ms despite a 14ms cached document. Successful US-runner visits had hidden this startup failure.

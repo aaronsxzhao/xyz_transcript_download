@@ -329,7 +329,7 @@ class XyzClient:
                                     if 'pid' in value and not pid:
                                         pid = value['pid']
                             
-                            if pid:
+                            if pid and pub_date and duration:
                                 break
                     except (json.JSONDecodeError, TypeError, KeyError):
                         continue
@@ -416,7 +416,7 @@ class XyzClient:
             title=data.get("title", ""),
             description=data.get("description", ""),
             duration=data.get("duration", 0),
-            pub_date=data.get("pubDate", ""),
+            pub_date=data.get("pubDate") or data.get("publishTime") or "",
             audio_url=audio_url,
             cover_url=data.get("image", {}).get("picUrl", ""),
             shownotes=data.get("shownotes", ""),

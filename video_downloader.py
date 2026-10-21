@@ -18,6 +18,7 @@ from typing import Callable, List, Optional
 import yt_dlp
 
 from config import DATA_DIR
+from publication_dates import publication_date
 from logger import get_logger
 
 logger = get_logger("video_downloader")
@@ -472,16 +473,7 @@ def list_channel_videos(
             if platform == "bilibili" and "/video/" not in vid_url:
                 continue
             thumb = entry.get("thumbnail") or entry.get("thumbnails", [{}])[0].get("url", "") if entry.get("thumbnails") else entry.get("thumbnail", "")
-            ud = entry.get("upload_date") or entry.get("release_date") or ""
-            pub = f"{ud[:4]}-{ud[4:6]}-{ud[6:8]}" if len(ud) >= 8 else ""
-            if not pub:
-                ts = entry.get("timestamp") or entry.get("release_timestamp") or entry.get("epoch")
-                if ts:
-                    from datetime import datetime as _dt, timezone as _tz
-                    try:
-                        pub = _dt.fromtimestamp(int(ts), tz=_tz.utc).strftime("%Y-%m-%d")
-                    except (ValueError, OSError):
-                        pass
+            pub = publication_date(entry)
             videos.append({
                 "url": vid_url,
                 "title": entry.get("title") or "",
@@ -753,8 +745,7 @@ class YtdlpDownloader(BaseDownloader):
             if self.platform == "youtube" and ch_url:
                 ch_avatar = _fetch_youtube_channel_avatar(ch_url)
 
-            ud = info.get("upload_date") or ""
-            pub = f"{ud[:4]}-{ud[4:6]}-{ud[6:8]}" if len(ud) >= 8 else ""
+            pub = publication_date(info)
 
             return VideoMetadata(
                 title=info.get("title", ""),
@@ -853,8 +844,7 @@ class YtdlpDownloader(BaseDownloader):
         ch_avatar = ""
         if self.platform == "youtube" and ch_url:
             ch_avatar = _fetch_youtube_channel_avatar(ch_url)
-        ud = info.get("upload_date") or ""
-        pub = f"{ud[:4]}-{ud[4:6]}-{ud[6:8]}" if len(ud) >= 8 else ""
+        pub = publication_date(info)
         return VideoMetadata(
             title=info.get("title", ""),
             description=info.get("description", ""),

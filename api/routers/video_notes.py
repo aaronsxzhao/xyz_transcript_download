@@ -575,14 +575,18 @@ def process_video_note_sync(
                         channel_url = dl_info.channel_url
                     if not channel_avatar and dl_info.channel_avatar:
                         channel_avatar = dl_info.channel_avatar
-                    db.update_task(task_id, {
+                    downloaded_updates = {
                         "title": title,
                         "thumbnail": thumbnail,
                         "duration": duration,
                         "channel": channel,
                         "channel_url": channel_url,
                         "channel_avatar": channel_avatar,
-                    })
+                    }
+                    if dl_info.published_at and not published_at:
+                        published_at = dl_info.published_at
+                        downloaded_updates["published_at"] = published_at
+                    db.update_task(task_id, downloaded_updates)
 
             if not subtitles:
                 _update_task_status(db, task_id, "downloading", 24, "Audio download complete", user_id)

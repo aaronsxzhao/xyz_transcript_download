@@ -1477,7 +1477,7 @@ export async function exportMarkdownToNotion(markdown: string, title: string, pa
   return res.json()
 }
 
-export interface LibraryItem { id:string; kind:'podcast'|'video'; title:string; source:string; date:string; status:string; thumbnail?:string; platform?:string; duration?:number; topics_count?:number }
+export interface LibraryItem { id:string; kind:'podcast'|'video'; title:string; source:string; date:string; published_at?:string; status:string; thumbnail?:string; platform?:string; duration?:number; topics_count?:number }
 export interface LibraryPage { items:LibraryItem[]; next_cursor:string|null }
 export function fetchLibrary(filters: string, cursor = '', signal?: AbortSignal): Promise<LibraryPage> {
   const params = new URLSearchParams(filters)
