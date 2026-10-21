@@ -50,16 +50,16 @@ def safe_provider_error(error: Exception) -> str:
     if isinstance(error, SummaryOutputError):
         return str(error)
     if type(error).__name__ in {'APITimeoutError','ReadTimeout','ConnectTimeout'}:
-        return "The summary provider timed out. Your transcript is saved; retry summary generation."
+        return "The summary provider timed out. Please retry summary generation."
     if type(error).__name__ in {'APIConnectionError','ConnectError','RemoteProtocolError'}:
-        return "The connection to the summary provider was interrupted. Your transcript is saved; retry summary generation."
+        return "The connection to the summary provider was interrupted. Please retry summary generation."
     status = getattr(error, "status_code", None)
     if isinstance(status, int) and status >= 500:
-        return "The summary provider is temporarily unavailable. Your transcript is saved; retry later."
+        return "The summary provider is temporarily unavailable. Please retry later."
     if status in (401, 403):
         return "The summary provider rejected the API key or model access. Check provider permissions."
     if status == 429:
         return "The summary provider's rate limit or quota was reached. Wait and retry, or check your Groq limits."
     if status in (400, 404):
         return "The summary model or API endpoint is unavailable. Choose a supported model in Settings."
-    return "The summary request failed. Your transcript is saved; retry or test the provider connection in Settings."
+    return "The summary request failed. Please retry or test the provider connection in Settings."
