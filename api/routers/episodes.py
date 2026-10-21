@@ -45,6 +45,7 @@ async def get_episode(eid: str, user: Optional[User] = Depends(get_current_user)
         cover_url="",
         audio_url=episode.audio_url,
         status=episode.status,
+        source_status=episode.source_status,
         has_transcript=has_transcript,
         has_summary=has_summary,
         created_at=episode.created_at,

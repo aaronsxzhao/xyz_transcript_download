@@ -44,6 +44,7 @@ class EpisodeRecord:
     error_message: str = ""
     created_at: Optional[str] = None
     updated_at: Optional[str] = None
+    source_status: str = "unknown"
 
 
 @dataclass

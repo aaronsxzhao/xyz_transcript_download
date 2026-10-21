@@ -37,6 +37,7 @@ from config import USE_SUPABASE, DATA_DIR
 from datetime import datetime, timezone
 import json
 import os
+from source_access import source_status as classify_source_status
 
 
 @dataclass
@@ -68,6 +69,7 @@ class EpisodeData:
     status: str = "pending"
     user_id: Optional[str] = None
     created_at: str = ""
+    source_status: str = "unknown"
 
 
 @dataclass
@@ -252,6 +254,7 @@ class DatabaseInterface:
         else:
             records = self.db.get_episodes_by_podcast(pid, offset=offset, limit=limit)
         
+        access = self._episode_source_statuses([r.eid for r in records])
         return [
             EpisodeData(
                 id=r.id,
@@ -265,6 +268,7 @@ class DatabaseInterface:
                 audio_url=getattr(r, 'audio_url', ''),
                 status=getattr(r.status, 'value', r.status),
                 user_id=self.user_id,
+                source_status=classify_source_status(getattr(r,"audio_url",""),access.get(r.eid,getattr(r,"source_status","unknown"))),
                 created_at=getattr(r, 'created_at', '') or '',
             )
             for r in records
@@ -282,6 +286,7 @@ class DatabaseInterface:
         if not r:
             return None
         
+        access = self._episode_source_statuses([r.eid])
         return EpisodeData(
             id=r.id,
             eid=r.eid,
@@ -294,6 +299,7 @@ class DatabaseInterface:
             audio_url=getattr(r, 'audio_url', ''),
             status=getattr(r.status, 'value', r.status),
             user_id=self.user_id,
+            source_status=classify_source_status(getattr(r,"audio_url",""),access.get(r.eid,getattr(r,"source_status","unknown"))),
             created_at=getattr(r, 'created_at', '') or '',
         )
     
@@ -319,6 +325,30 @@ class DatabaseInterface:
                 description, duration, pub_date, audio_url
             )
     
+    def _episode_source_statuses(self, eids: List[str]) -> dict:
+        if not self.use_supabase or not self.user_id or not eids:
+            return {}
+        try:
+            rows = self.db.client.table('episode_source_access').select('eid,status').eq('user_id',self.user_id).in_('eid',eids).execute().data or []
+            return {row['eid']:row['status'] for row in rows}
+        except Exception as exc:
+            # Rolling release: the additive migration is applied after the
+            # compatible application is live. Never mask real service failures.
+            if getattr(exc,'code',None) in {'PGRST205','42P01'}:
+                return {}
+            raise
+
+    def set_episode_source_status(self, eid: str, status: str) -> None:
+        from source_access import MESSAGES
+        if status not in {*MESSAGES,'available','unknown'}:
+            raise ValueError('Invalid source status')
+        if self.use_supabase:
+            self.db.client.table('episode_source_access').upsert({'user_id':self.user_id,'eid':eid,'status':status},on_conflict='user_id,eid').execute()
+        else:
+            with self.db._get_connection() as conn:
+                conn.execute('UPDATE episodes SET source_status=? WHERE eid=?',(status,eid))
+                conn.commit()
+
     def delete_episode(self, eid: str) -> bool:
         """Delete an episode."""
         if self.use_supabase:

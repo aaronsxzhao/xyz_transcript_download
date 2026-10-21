@@ -230,6 +230,7 @@ class AudioDownloader:
 
     def __init__(self, base_dir: Optional[Path] = None, max_retries: int = 5):
         self.base_dir = base_dir or AUDIO_DIR
+        self.last_error = ""
         self.max_retries = max_retries
         self.chunk_size = 1024 * 1024  # 1MB chunks for better reliability
 
@@ -316,7 +317,9 @@ class AudioDownloader:
         Returns:
             Path to downloaded file, or None on failure
         """
+        self.last_error = ""
         if not episode.audio_url:
+            self.last_error = "No playable audio was provided by the source. Open the original episode to check availability."
             logger.error(f"No audio URL for episode: {episode.title}")
             return None
 
@@ -385,11 +388,22 @@ class AudioDownloader:
                 )
                 if result:
                     if not self.is_downloaded(episode):
+                        actual_duration = _get_audio_duration_ffprobe(audio_path)
+                        self.last_error = (f'The source returned only {actual_duration:.0f}s of audio for a {episode.duration:.0f}s episode. '
+                                           'It may be a restricted preview. Check purchase/sign-in access on the original platform or upload the complete audio.')
                         audio_path.unlink(missing_ok=True)
-                        raise ValueError('Downloaded audio is shorter than the episode. Please retry downloading.')
+                        return None
                     return audio_path
                     
             except Exception as e:
+                status = getattr(getattr(e,'response',None),'status_code',None)
+                if status in {401,403}:
+                    self.last_error = f'Audio source access denied (HTTP {status}). Check source sign-in or purchase access.'
+                    return None
+                if status == 404:
+                    self.last_error = 'The original audio was not found (HTTP 404). Refresh the source or use a full audio file.'
+                    return None
+                self.last_error = 'Audio download was interrupted. The source may be temporarily unavailable. Please retry.'
                 wait_time = (attempt + 1) * 2  # Exponential backoff
                 if attempt < self.max_retries - 1:
                     logger.warning(f"Download interrupted, retrying in {wait_time}s... (attempt {attempt + 2}/{self.max_retries})")

@@ -61,6 +61,8 @@ class EpisodeRecord:
     created_at: str
     updated_at: str
 
+    source_status: str = "unknown"
+
 
 class Database:
     """SQLite database for podcast data management with WAL mode."""
@@ -127,6 +129,9 @@ class Database:
                 if "feed_url" not in cols:
                     cursor.execute("ALTER TABLE podcasts ADD COLUMN feed_url TEXT DEFAULT ''")
 
+                episode_cols = {row[1] for row in cursor.execute('PRAGMA table_info(episodes)').fetchall()}
+                if 'source_status' not in episode_cols:
+                    cursor.execute("ALTER TABLE episodes ADD COLUMN source_status TEXT NOT NULL DEFAULT 'unknown'")
                 # Create indexes
                 cursor.execute("""
                     CREATE INDEX IF NOT EXISTS idx_episodes_pid ON episodes(pid)
@@ -443,6 +448,7 @@ class Database:
             duration=row["duration"],
             pub_date=row["pub_date"] or "",
             audio_url=row["audio_url"] or "",
+            source_status=row["source_status"],
             status=ProcessingStatus(row["status"]),
             error_message=row["error_message"] or "",
             created_at=row["created_at"],

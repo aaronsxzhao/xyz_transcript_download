@@ -8,7 +8,7 @@ from urllib.parse import urlparse
 ORIGIN = 'https://aipodcastsummary.online'
 
 
-async def profile_browser(owner: str, token: str, local_video: str | None = None) -> list[dict]:
+async def profile_browser(owner: str, token: str, local_video: str | None = None, restricted_episode: str | None = None) -> list[dict]:
     from playwright.async_api import async_playwright
     reports = []
     async with async_playwright() as playwright:
@@ -45,6 +45,8 @@ async def profile_browser(owner: str, token: str, local_video: str | None = None
             ('settings', '/settings', '/api/settings'),
         ]
         routes.append(('latest_summary', '/viewer/699acfb5de29766da924dee1', '/api/summaries/699acfb5de29766da924dee1'))
+        if restricted_episode:
+            routes.append(('restricted_summary','/viewer/'+restricted_episode,'/api/summaries/'+restricted_episode))
         if local_video:
             routes.append(('local_video_note', '/videos/' + local_video, '/api/video-notes/tasks/' + local_video))
         for label, path, critical in routes:
@@ -86,6 +88,14 @@ async def profile_browser(owner: str, token: str, local_video: str | None = None
                     report['channels_opened']=len(times)
                     report['max_navigation_ms']=max(times,default=0)
                     if not times:raise RuntimeError('Podcast content previews missing')
+                elif label == 'restricted_summary':
+                    if not data.get('quality_warning') or data.get('source_status')!='purchase_required':
+                        raise RuntimeError('Reported source restriction is missing')
+                    await page.get_by_role('heading',name='Purchase required',exact=True).wait_for(timeout=10000)
+                    report['source_access_visible']=1
+                    previous=page.locator('details').filter(has=page.locator('summary',has_text='Previous incomplete result'))
+                    if await previous.get_attribute('open') is not None: raise RuntimeError('Invalid summary presented as normal content')
+                    report['invalid_summary_collapsed']=1
                 elif label == 'dashboard':
                     await page.locator('.dashboard-stats svg').first.wait_for(timeout=10000)
                     colors = await page.locator('.dashboard-stats svg').evaluate_all('(nodes)=>nodes.map(n=>getComputedStyle(n).color)')

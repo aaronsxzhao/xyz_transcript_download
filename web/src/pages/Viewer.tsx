@@ -1,3 +1,4 @@
+import SourceAccessNotice,{sourceBlocked} from '../components/SourceAccessNotice'
 import { useWarmCache } from '../lib/cache'
 import { printHtml } from '../lib/print'
 import SummaryText from '../components/SummaryText'
@@ -469,7 +470,7 @@ export default function Viewer() {
         
         {/* Action buttons */}
         <div className="reader-actions" role="group" aria-label="Note actions">
-          {summary && (
+          {summary && !summary.quality_warning && (
             <>
               <button
                 onClick={handleCopy}
@@ -513,9 +514,9 @@ export default function Viewer() {
           )}
           <button
             onClick={handleResummarize}
-            disabled={resummarizing || !transcript}
+            disabled={resummarizing || !transcript || !!summary?.quality_warning && sourceBlocked(summary.source_status)}
             className="flex items-center gap-2 px-3 py-2 reader-regenerate bg-dark-surface border border-dark-border hover:bg-dark-hover disabled:bg-gray-600 disabled:cursor-not-allowed rounded-lg text-sm transition-colors text-white"
-            title="Regenerate summary using existing transcript"
+            title={summary?.quality_warning && sourceBlocked(summary.source_status) ? "Restore full source access before regenerating" : "Regenerate summary using existing transcript"}
           >
             <RefreshCw size={16} className={resummarizing ? 'animate-spin' : ''} />
             <span className="hidden sm:inline">{resummarizing ? 'Regenerating…' : 'Regenerate'}</span>
@@ -555,7 +556,7 @@ export default function Viewer() {
         )}
       </div>
       
-      <ReaderControls>{activeTab === 'summary' && summary && <label className="reader-contents block text-sm">Contents<select aria-label="Summary contents" className="ml-2 max-w-full bg-dark-surface border border-dark-border rounded-lg p-2" value={activeSection} onChange={e => { const id=e.target.value;const index=Number(id.replace('summary-topic-',''));if(id.startsWith('summary-topic-')&&topicEntries[index])setExpandedTopics(previous=>new Set([...previous,topicEntries[index][0]]));setActiveSection(id);requestAnimationFrame(()=>document.getElementById(id)?.scrollIntoView({block:'start'})) }}><option value="">Jump to section…</option><option value="summary-overview">Overview</option><option value="summary-key-points">Key points</option>{topicEntries.map(([topic],index)=><option key={topic} value={`summary-topic-${index}`}>{topic}</option>)}<option value="summary-takeaways">Takeaways</option></select></label>}</ReaderControls>
+      <ReaderControls>{activeTab === 'summary' && summary && !summary.quality_warning && <label className="reader-contents block text-sm">Contents<select aria-label="Summary contents" className="ml-2 max-w-full bg-dark-surface border border-dark-border rounded-lg p-2" value={activeSection} onChange={e => { const id=e.target.value;const index=Number(id.replace('summary-topic-',''));if(id.startsWith('summary-topic-')&&topicEntries[index])setExpandedTopics(previous=>new Set([...previous,topicEntries[index][0]]));setActiveSection(id);requestAnimationFrame(()=>document.getElementById(id)?.scrollIntoView({block:'start'})) }}><option value="">Jump to section…</option><option value="summary-overview">Overview</option><option value="summary-key-points">Key points</option>{topicEntries.map(([topic],index)=><option key={topic} value={`summary-topic-${index}`}>{topic}</option>)}<option value="summary-takeaways">Takeaways</option></select></label>}</ReaderControls>
       {/* Tabs */}
       <div className="flex gap-1 md:gap-2 border-b border-dark-border">
         <button
@@ -595,7 +596,9 @@ export default function Viewer() {
       )}
 
 
-      {activeTab === 'summary' && summary && (
+      {summary?.quality_warning && <SourceAccessNotice status={summary.source_status} message={summary.source_message} episodeId={eid} warning={summary.quality_warning}/>}
+      {activeTab === 'summary' && summary?.quality_warning && <details className="text-sm text-gray-400"><summary className="cursor-pointer">Previous incomplete result</summary><p className="mt-3">{summary.overview}</p></details>}
+      {activeTab === 'summary' && summary && !summary.quality_warning && (
         <div className="space-y-6">
           {/* Overview */}
           <div className="reader-section">
