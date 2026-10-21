@@ -37,6 +37,9 @@ RUN --mount=type=cache,target=/root/.cache/pip \
 # Copy application code (changes frequently, so last)
 COPY . .
 
+# Verify the deployed dependency set can encode reader previews.
+RUN python -c "from io import BytesIO; from PIL import Image; from api.media import image_preview; source = BytesIO(); Image.new('RGB', (1200, 800)).save(source, 'PNG'); preview = Image.open(BytesIO(image_preview(source.getvalue()))); assert preview.format == 'WEBP' and max(preview.size) <= 1000"
+
 # Overwrite web/dist with freshly built frontend
 COPY --from=frontend-build /web/dist /app/web/dist
 

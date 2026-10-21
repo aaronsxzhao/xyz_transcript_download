@@ -39,6 +39,9 @@ email-validator>=2.0.0
 # Audio processing (still needed for duration detection)
 pydub>=0.25.1
 
+# Reader screenshot previews
+Pillow>=10.0.0
+
 # Video/audio downloading
 yt-dlp>=2026.3.3
 yt-dlp-ejs>=0.3.0
