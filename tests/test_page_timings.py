@@ -6,6 +6,12 @@ from api.auth import User, get_current_user
 from api.routers.performance import router, _samples
 
 
+@pytest.fixture(autouse=True)
+def isolated_metrics(tmp_path, monkeypatch):
+    monkeypatch.setattr('api.performance_store.DATA_DIR', tmp_path)
+    monkeypatch.setattr('api.performance_store.USE_SUPABASE', False)
+
+
 @pytest.mark.asyncio
 async def test_browser_timings_reject_content_and_separate_accounts():
     app = FastAPI()
@@ -15,10 +21,12 @@ async def test_browser_timings_reject_content_and_separate_accounts():
     _samples.clear()
     record = {"page": "episodes", "elapsed_ms": 9000, "first_paint_ms": 700, "document_ms": 1000, "api_ms": 4000, "cached": False}
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
-        for _ in range(65):
+        for _ in range(130):
             assert (await client.post('/timings', json=record)).status_code == 204
         data = (await client.get('/timings')).json()
-        assert data["pages"]["episodes"]["samples"] == 64
+        assert data["pages"]["episodes"]["samples"] == 128
+        _samples.clear()
+        assert (await client.get('/timings')).json()['pages']['episodes']['p95_ms'] == 9000
         assert data["pages"]["episodes"]["first_paint_ms"] == 700
         assert owner[0] not in str(data) and "unused@localhost" not in str(data)
         assert (await client.post('/timings', json={**record, "url": "private-url"})).status_code == 422

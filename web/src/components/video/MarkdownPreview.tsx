@@ -1,3 +1,4 @@
+import ReaderScreenshot from '../ReaderScreenshot'
 import { lazy, memo, Suspense, useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useDialog } from '../../lib/reading'
@@ -15,16 +16,8 @@ import type { VideoTask } from '../../lib/api'
 
 const HighlightedCode = lazy(() => import('./HighlightedCode'))
 
-function NoteImage({ src, alt, onImage, priority = false }: { src?: string; alt?: string; onImage: (src: string) => void; priority?: boolean }) {
-  const [failed, setFailed] = useState(false)
-  const [ready, setReady] = useState(false)
-  if (failed) return <span className="inline-flex items-center gap-2 rounded-lg border border-dark-border p-3 text-sm text-gray-400">
-    <ImageIcon size={16} />{alt || 'Image'} — unavailable
-    <button className="underline" onClick={() => { setReady(false); setFailed(false) }}>Retry image</button>
-  </span>
-  return <button type="button" className="reader-screenshot relative rounded-lg bg-dark-bg/40 overflow-hidden" aria-label={`Enlarge ${alt || 'screenshot'}`} onClick={() => src && onImage(src)}>{!ready && <span className="absolute inset-0 flex items-center justify-center gap-2 text-sm text-gray-400" role="status"><Loader2 size={18} className="animate-spin" />Loading screenshot…</span>}<img loading={priority ? 'eager' : 'lazy'} fetchPriority={priority ? 'high' : 'auto'} decoding="async" src={src} alt={alt || ''}
-    className="rounded-lg border border-dark-border cursor-pointer hover:opacity-90 transition-opacity"
-    referrerPolicy="no-referrer" onLoad={() => setReady(true)} onError={() => setFailed(true)} /></button>
+function NoteImage({ src, alt, priority = false }: { src?: string; alt?: string; onImage: (src: string) => void; priority?: boolean }) {
+  return src ? <ReaderScreenshot src={src} alt={alt} priority={priority} /> : null
 }
 
 interface Props {

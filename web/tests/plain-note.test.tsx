@@ -2,6 +2,7 @@
 import React, { act } from 'react'
 import { createRoot } from 'react-dom/client'
 import { afterEach, expect, it, vi } from 'vitest'
+import ReaderScreenshot from '../src/components/ReaderScreenshot'
 import PlainNote from '../src/components/PlainNote'
 
 let cleanup: (() => void) | undefined
@@ -45,6 +46,18 @@ it('loads private and HTTPS screenshots in fallback without allowing executable 
   act(()=>root.render(<PlainNote markdown={'![private](/data/screenshots/a.png?signature=test)\n![remote](https://example.com/a.png)\n![unsafe](javascript:alert)\n![embedded](data:image/svg+xml,unsafe)'}/>))
   expect(node.querySelectorAll('img')).toHaveLength(0)
   act(()=>vi.advanceTimersByTime(250))
-  expect(Array.from(node.querySelectorAll('img'), image=>image.getAttribute('src'))).toEqual(['/data/screenshots/a.png?signature=test','https://example.com/a.png'])
+  expect(Array.from(node.querySelectorAll('img'), image=>image.getAttribute('src'))).toEqual(['/data/screenshots/a.png?signature=test&preview=true','https://example.com/a.png'])
   expect(node.textContent).toContain('unsafe')
+})
+
+it.each([403,404])('explains image HTTP %s instead of offering endless retries', async status => {
+  const node=document.createElement('div');const root=createRoot(node)
+  cleanup=()=>act(()=>root.unmount())
+  vi.stubGlobal('fetch',vi.fn().mockResolvedValue(new Response('',{status})))
+  try {
+    act(()=>root.render(<ReaderScreenshot src="/data/screenshots/private.png?signature=test" alt="chart"/>))
+    await act(async()=>{node.querySelector('img')!.dispatchEvent(new Event('error')); await Promise.resolve()})
+    await vi.waitFor(()=>expect(node.textContent).toContain(status===403?'Image link expired':'Source image is missing'))
+    expect(node.textContent).not.toContain('Retry image')
+  } finally { vi.unstubAllGlobals() }
 })

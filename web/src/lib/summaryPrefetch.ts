@@ -6,7 +6,7 @@ import { getAccountId } from './preferences'
 
 const pending = new Set<string>()
 
-function prefetch(kind: 'podcast' | 'video', id: string) {
+function runPrefetch(kind: 'podcast' | 'video', id: string) {
   const connection = (navigator as Navigator & { connection?: { saveData?: boolean; effectiveType?: string } }).connection
   if (connection?.saveData || /(^|-)2g$/.test(connection?.effectiveType || '')) return
   const key = kind === 'podcast' ? CacheKeys.SUMMARY(id) : CacheKeys.VIDEO_NOTE(id)
@@ -25,5 +25,11 @@ function prefetch(kind: 'podcast' | 'video', id: string) {
   }).catch(() => {}).finally(() => pending.delete(requestKey))
 }
 
-export function prefetchSummary(id: string) { prefetch('podcast', id) }
-export function prefetchVideoNote(id: string) { prefetch('video', id) }
+let timer: ReturnType<typeof setTimeout> | undefined
+export function cancelPrefetch() { clearTimeout(timer) }
+function schedule(kind: 'podcast'|'video', id:string) {
+  cancelPrefetch()
+  timer = setTimeout(() => { if (document.visibilityState !== 'hidden') runPrefetch(kind, id) }, 200)
+}
+export function prefetchSummary(id: string) { schedule('podcast', id) }
+export function prefetchVideoNote(id: string) { schedule('video', id) }

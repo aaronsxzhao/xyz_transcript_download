@@ -85,3 +85,40 @@ def test_cache_is_bounded_and_disk_errors_do_not_hide_images(tmp_path, monkeypat
     assert sum(p.stat().st_size for p in (tmp_path / '.media-cache').glob('*/*')) <= 8
     with patch.object(media.tempfile, 'NamedTemporaryFile', side_effect=OSError('disk full')):
         assert media._read_or_download('screenshots', 'new_frame.jpg', lambda _: b'image') == b'image'
+
+
+def test_preview_is_smaller_preserves_source_and_bounds_pixels(tmp_path, monkeypatch):
+    from io import BytesIO
+    from PIL import Image
+    from api import media
+    monkeypatch.setattr(media, 'DATA_DIR', tmp_path)
+    image=Image.effect_noise((2400,1600),64).convert('RGB')
+    source=BytesIO(); image.save(source,format='PNG')
+    original=source.getvalue()
+    preview=media.image_preview(original)
+    assert source.getvalue()==original
+    assert len(preview)<len(original)*0.5
+    with Image.open(BytesIO(preview)) as result:
+        assert result.format=='WEBP'
+        assert result.width<=1000 and result.height<=1000
+    assert media.image_preview(original)==preview
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize('missing,expected', [(False,503),(True,404)])
+async def test_preview_separates_storage_outage_from_missing_file(client,tmp_path,monkeypatch,missing,expected):
+    import api.media as media
+    from storage3.exceptions import StorageApiError
+    monkeypatch.setattr(media,'DATA_DIR',tmp_path)
+    monkeypatch.setattr(media,'USE_SUPABASE',True)
+    monkeypatch.setenv('MEDIA_SIGNING_KEY','preview-test-key'); media._signing_key.cache_clear()
+    signed=media.sign_media_urls('/data/screenshots/owned_frame.jpg','owned')+'&preview=true'
+    provider=Mock()
+    provider.storage.from_.return_value.download.side_effect=StorageApiError('Not found','NoSuchKey',404) if missing else TimeoutError('Storage unavailable')
+    with patch('config.USE_SUPABASE',True), patch('api.supabase_client.get_supabase_admin_client',return_value=provider):
+        assert (await client.get('/data/screenshots/owned_frame.jpg?preview=true')).status_code==403
+        provider.storage.from_.return_value.download.assert_not_called()
+        response=await client.get(signed)
+    assert response.status_code==expected
+    assert 'no-store' in response.headers['cache-control']
+    media._signing_key.cache_clear()

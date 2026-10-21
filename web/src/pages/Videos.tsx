@@ -749,11 +749,18 @@ function getErrorHint(task: VideoTask): string | null {
 
 function VideoList({ videos, onDelete, onRetry, onCancel }: {
   videos: VideoTask[]
-  onDelete: (id: string) => void
-  onRetry: (id: string) => void
-  onCancel: (id: string) => void
+  onDelete: (id: string) => Promise<void>
+  onRetry: (id: string) => Promise<void>
+  onCancel: (id: string) => Promise<void>
 }) {
   const navigate = useNavigate()
+  const activeActions = useRef(new Set<string>())
+  const [pending, setPending] = useState(new Set<string>())
+  const runAction = async (id:string, action:(id:string)=>Promise<void>) => {
+    if (activeActions.current.has(id)) return
+    activeActions.current.add(id); setPending(new Set(activeActions.current))
+    try { await action(id) } finally { activeActions.current.delete(id); setPending(new Set(activeActions.current)) }
+  }
   const formatDuration = (sec: number) => {
     const m = Math.floor(sec / 60)
     return `${m} min`
@@ -911,12 +918,13 @@ function VideoList({ videos, onDelete, onRetry, onCancel }: {
             </div>
 
             <div className="flex items-center gap-2 justify-end sm:justify-start" onClick={e => e.stopPropagation()}>
+              {pending.has(task.id) && <span role="status" className="text-xs text-indigo-300">Submitting…</span>}
               {(() => {
                 if (task.status === 'success') {
                   return (
                     <>
                       <button
-                        onClick={() => onRetry(task.id)}
+                        disabled={pending.has(task.id)} aria-busy={pending.has(task.id)} onClick={() => void runAction(task.id, onRetry)}
                         className="flex items-center gap-2 px-3 py-2 bg-dark-hover hover:bg-dark-border text-gray-300 rounded-lg transition-colors"
                         title="Re-process video"
                       >
@@ -938,7 +946,7 @@ function VideoList({ videos, onDelete, onRetry, onCancel }: {
                 if (task.status === 'discovered') {
                   return (
                     <button
-                      onClick={() => onRetry(task.id)}
+                      disabled={pending.has(task.id)} aria-busy={pending.has(task.id)} onClick={() => void runAction(task.id, onRetry)}
                       className="flex items-center gap-2 px-4 py-2 bg-dark-hover hover:bg-dark-border text-white rounded-lg transition-colors"
                       title="Start processing this video"
                     >
@@ -976,7 +984,7 @@ function VideoList({ videos, onDelete, onRetry, onCancel }: {
 
                 return (
                   <button
-                    onClick={() => onRetry(task.id)}
+                    disabled={pending.has(task.id)} aria-busy={pending.has(task.id)} onClick={() => void runAction(task.id, onRetry)}
                     className="flex items-center gap-2 px-4 py-2 bg-dark-hover hover:bg-dark-border text-white rounded-lg transition-colors"
                   >
                     <RotateCcw size={16} />
@@ -999,7 +1007,7 @@ function VideoList({ videos, onDelete, onRetry, onCancel }: {
 
               {!isProcessing(task.status) && (
                 <button
-                  onClick={() => onDelete(task.id)}
+                  disabled={pending.has(task.id)} aria-busy={pending.has(task.id)} onClick={() => void runAction(task.id, onDelete)}
                   className="p-2 bg-dark-hover hover:bg-red-600/20 text-red-400 rounded-lg transition-colors"
                   title="Delete video"
                 >
@@ -1009,7 +1017,7 @@ function VideoList({ videos, onDelete, onRetry, onCancel }: {
 
               {isProcessing(task.status) && (
                 <button
-                  onClick={() => onCancel(task.id)}
+                  disabled={pending.has(task.id)} aria-busy={pending.has(task.id)} onClick={() => void runAction(task.id, onCancel)}
                   className="p-2 bg-dark-hover hover:bg-orange-600/20 text-orange-400 rounded-lg transition-colors"
                   title="Cancel processing"
                 >

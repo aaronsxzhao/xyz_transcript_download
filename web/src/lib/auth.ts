@@ -39,8 +39,8 @@ function sessionChanged(): void {
 }
 
 /** Reconcile remembered sessions changed in another tab. Tokens stay private. */
-export function watchStoredSession(): () => void {
-  let owner = getStoredUser()?.id || null
+export function watchStoredSession(expectedOwner: string | null = getStoredUser()?.id || null): () => void {
+  let owner = expectedOwner
   const changed = (event: StorageEvent) => {
     if (event.storageArea !== localStorage || (event.key !== null && event.key !== USER_KEY)) return
     const next = getStoredUser()?.id || null
@@ -52,6 +52,8 @@ export function watchStoredSession(): () => void {
   const track = () => { owner = getStoredUser()?.id || null }
   window.addEventListener('storage', changed)
   window.addEventListener('xyz:session-changed', track)
+  // A different tab may have changed storage between render and effect setup.
+  changed(new StorageEvent('storage', {key:USER_KEY,storageArea:localStorage}))
   return () => {
     window.removeEventListener('storage', changed)
     window.removeEventListener('xyz:session-changed', track)

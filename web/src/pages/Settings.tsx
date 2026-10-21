@@ -1,3 +1,5 @@
+import PerformancePanel from '../components/PerformancePanel'
+import { useUnsavedChanges } from '../lib/unsavedChanges'
 import DataRecovery from '../components/DataRecovery'
 import { useAuth } from '../contexts/AuthContext'
 import { getAccountId, getPreference, setPreference } from '../lib/preferences'
@@ -248,6 +250,11 @@ export default function Settings() {
   })
   const [vdQuality, setVdQuality] = useState(() => getPreference('vd_quality') || 'medium')
   const [vdVideoQuality, setVdVideoQuality] = useState(() => getPreference('vd_video_quality') || '720')
+  const [savedDraft, setSavedDraft] = useState('')
+  const draft = JSON.stringify([whisperModel, llmModel, llmProvider, vdStyle, vdFormats, vdQuality, vdVideoQuality])
+  const dirty = !!savedDraft && draft !== savedDraft
+  useUnsavedChanges(dirty)
+
 
   const toggleVdFormat = (id: string) => {
     setVdFormats(prev => prev.includes(id) ? prev.filter(f => f !== id) : [...prev, id])
@@ -344,8 +351,10 @@ export default function Settings() {
         setQrCountdown(prev => prev <= 1 ? 0 : prev - 1)
       }, 1000)
 
+      let pollInFlight = false
       qrPollRef.current = setInterval(async () => {
-        if (qrAutoRef.current !== autoId) return
+        if (qrAutoRef.current !== autoId || pollInFlight) return
+        pollInFlight = true
         try {
           const poll = await pollFn(key)
           if (qrAutoRef.current !== autoId) return
@@ -394,7 +403,8 @@ export default function Settings() {
           }
         } catch (err) {
           console.warn('QR poll error:', err)
-        }
+          setQrMessage('Connection interrupted. Checking again…')
+        } finally { pollInFlight = false }
       }, 2000)
     } catch (err) {
       if (qrAutoRef.current === autoId) {
@@ -449,6 +459,7 @@ export default function Settings() {
       setWhisperModel(whisperModels.some(model => model.value === savedWhisperModel) ? savedWhisperModel : settings.whisper_model)
       setLlmModel(savedLlmModel)
       setLlmProvider(settings.llm_provider)
+      setSavedDraft(JSON.stringify([whisperModels.some(model => model.value === savedWhisperModel) ? savedWhisperModel : settings.whisper_model, savedLlmModel, settings.llm_provider, vdStyle, vdFormats, vdQuality, vdVideoQuality]))
     }
   }, [settings])
 
@@ -483,11 +494,12 @@ export default function Settings() {
       setPreference('vd_formats', JSON.stringify(vdFormats))
       setPreference('vd_quality', vdQuality)
       setPreference('vd_video_quality', vdVideoQuality)
+      setSavedDraft(draft)
       setSaveResult('Settings saved successfully!')
       setTimeout(() => setSaveResult(null), 3000)
     } catch (err) {
       console.error('Failed to save settings:', err)
-      setSaveResult('Failed to save settings')
+      setSaveResult('Failed to save settings: ' + (err instanceof Error ? err.message : 'Please retry'))
     } finally {
       setSaving(false)
     }
@@ -500,6 +512,7 @@ export default function Settings() {
       const result = await testLlmConnection({ llm_provider: llmProvider, llm_model: llmModel })
       await updateSettings({ llm_provider: llmProvider, llm_model: result.model })
       setLlmModel(result.model)
+      setSavedDraft(previous => { if (!previous) return previous; const values = JSON.parse(previous); values[1] = result.model; values[2] = llmProvider; return JSON.stringify(values) })
       setPreference('llm_model', result.model)
       setLlmTestResult('Connected and saved. Podcast and video summaries are ready.')
     } catch (error) {
@@ -581,6 +594,24 @@ export default function Settings() {
       {loading && <p role="status" className="text-sm text-gray-400 mb-4 flex items-center gap-2"><Loader2 className="w-4 h-4 animate-spin" />{settings ? 'Refreshing settings…' : 'Loading account settings…'}</p>}
       {loadError && <LoadError message={loadError} onRetry={() => void loadSettings()} />}
 
+          {/* Save */}
+          <div className="sticky top-0 z-20 flex flex-wrap items-center gap-3 p-3 bg-dark-bg border border-dark-border rounded-xl shadow-lg mb-4">
+            <span role="status" className="text-sm text-gray-400">{!settings ? 'Settings not loaded' : dirty ? 'Unsaved changes' : 'All changes saved'}</span>
+            <button
+              onClick={saveSettings}
+              disabled={!settings || saving || !dirty}
+              className="inline-flex items-center gap-2 px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium rounded-lg transition-colors disabled:opacity-50"
+            >
+              {saving ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
+              {saving ? 'Saving…' : 'Save Settings'}
+            </button>
+            {saveResult && (
+              <span className={`text-sm ${saveResult.includes('Failed') ? 'text-red-400' : 'text-green-400'}`}>
+                {saveResult}
+              </span>
+            )}
+          </div>
+
       {/* Top-level tab bar */}
       <div className="grid grid-cols-3 gap-1 p-1 bg-dark-surface border border-dark-border rounded-xl mb-5">
         {TOP_TABS.map(tab => (
@@ -609,7 +640,7 @@ export default function Settings() {
               Transcription (Whisper)
             </h2>
             <div className="space-y-3">
-              <SettingRow label="Provider" value={!settings ? 'Loading…' : settings.whisper_mode === 'api' ? `${settings.whisper_provider} API` : 'Local model'} />
+              <SettingRow label="Provider" value={!settings ? 'Loading…' : settings.whisper_mode === 'api' ? `${settings.whisper_provider || 'Configured'} API` : 'Local model'} />
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 py-2 border-b border-dark-border">
                 <span className="text-gray-400 text-sm">Model</span>
                 <select
@@ -861,22 +892,7 @@ export default function Settings() {
             </div>
           </section>
 
-          {/* Save */}
-          <div className="flex flex-wrap items-center gap-3">
-            <button
-              onClick={saveSettings}
-              disabled={!settings || saving}
-              className="inline-flex items-center gap-2 px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium rounded-lg transition-colors disabled:opacity-50"
-            >
-              {saving ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
-              Save Settings
-            </button>
-            {saveResult && (
-              <span className={`text-sm ${saveResult.includes('Failed') ? 'text-red-400' : 'text-green-400'}`}>
-                {saveResult}
-              </span>
-            )}
-          </div>
+
         </div>
       )}
 
@@ -1195,6 +1211,7 @@ export default function Settings() {
       {/* ═══════════════ TOOLS & DATA TAB ═══════════════ */}
       {activeTab === 'tools' && (
         <div className="space-y-5">
+          <PerformancePanel />
           <DataRecovery />
           {/* Video Tools Health */}
           <section className="p-5 bg-dark-surface border border-dark-border rounded-xl">

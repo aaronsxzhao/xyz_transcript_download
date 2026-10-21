@@ -564,7 +564,7 @@ export default function Viewer() {
         </div>
       )}
 
-      {activeTab === 'summary' && summary && <label className="block sm:hidden text-sm">Contents<select aria-label="Summary contents" className="ml-2 max-w-full bg-dark-surface border border-dark-border rounded-lg p-2" defaultValue="" onChange={e => { if (e.target.value) document.getElementById(e.target.value)?.scrollIntoView({block:'start'}); e.target.value='' }}><option value="">Jump to section…</option><option value="summary-overview">Overview</option><option value="summary-key-points">Key points</option><option value="summary-takeaways">Takeaways</option></select></label>}
+      {activeTab === 'summary' && summary && <label className="reader-contents block text-sm">Contents<select aria-label="Summary contents" className="ml-2 max-w-full bg-dark-surface border border-dark-border rounded-lg p-2" defaultValue="" onChange={e => { if (e.target.value) document.getElementById(e.target.value)?.scrollIntoView({block:'start'}); e.target.value='' }}><option value="">Jump to section…</option><option value="summary-overview">Overview</option><option value="summary-key-points">Key points</option><option value="summary-takeaways">Takeaways</option></select></label>}
       {activeTab === 'summary' && summary && (
         <div className="space-y-6">
           {/* Overview */}

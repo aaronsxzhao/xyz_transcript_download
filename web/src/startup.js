@@ -61,7 +61,7 @@
     let urls = [];
     if (path === '/settings') urls = ['/api/settings'];
     else if (path === '/podcasts') urls = ['/api/podcasts'];
-    else if (path === '/library') urls = ['/api/summaries', '/api/video-notes/tasks'];
+    else if (path === '/library') { const p = new URLSearchParams(location.search); urls = ['/api/library?' + new URLSearchParams({q:p.get('q')||'',kind:p.get('kind')||'',status:p.get('status')||'',source:p.get('source')||'',sort:p.get('sort')||'newest'})]; }
     else if (parts[0] === 'podcasts' && parts[2] === 'episodes') urls = [`/api/podcasts/${id}`, `/api/podcasts/${id}/episodes?offset=0&limit=50`];
     else if (parts[0] === 'viewer' && id) urls = [`/api/summaries/${id}`];
     else if (parts[0] === 'videos' && id) urls = [`/api/video-notes/tasks/${id}?view=note`];

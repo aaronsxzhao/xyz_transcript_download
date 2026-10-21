@@ -116,3 +116,9 @@ body {
 .note-prose li > span > p { margin-block: .3em; }
 .note-prose th, .note-prose td { border: 1px solid #334155; padding: .5rem .75rem; }
 .note-prose th { background: #334155; }
+
+/* Shared reader preferences; leave screenshot bounds independent of text width. */
+html[data-reader-width="comfortable"] .podcast-reader { max-width: 1000px; }
+html[data-reader-width="comfortable"] .reader-body article { max-width: 820px; }
+html[data-reader-contents="hidden"] [data-reader-contents], html[data-reader-contents="hidden"] .reader-contents { display: none; }
+.reader-body [id] { scroll-margin-top: 1rem; }

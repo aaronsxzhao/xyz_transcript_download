@@ -39,7 +39,7 @@ async def profile_browser(owner: str, token: str, local_video: str | None = None
             ('channel', '/videos?platform=youtube&channel=Brooks+Trading+Course', '/api/video-notes/tasks/by-channel'),
             ('summary', '/viewer/69b1512984bce022f9ea354c', '/api/summaries/69b1512984bce022f9ea354c'),
             ('video_note', '/videos/bc2c988b-2b4', '/api/video-notes/tasks/bc2c988b-2b4'),
-            ('library', '/library', '/api/summaries'),
+            ('library', '/library', '/api/library'),
             ('settings', '/settings', '/api/settings'),
         ]
         routes.append(('latest_summary', '/viewer/699acfb5de29766da924dee1', '/api/summaries/699acfb5de29766da924dee1'))

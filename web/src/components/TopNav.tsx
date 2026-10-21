@@ -14,6 +14,8 @@ import { useAuth } from '../contexts/AuthContext'
 import WebsiteUpdate from './WebsiteUpdate'
 import { preloadPage } from '../lib/pages'
 
+const descriptions: Record<string,string> = {'/':'Continue reading and processing tasks','/library':'Search your saved notes','/podcasts':'Discover podcasts and manage subscriptions','/videos':'Discover channels and upload videos','/settings':'Models, accounts and preferences'}
+
 const navItems = [
   { path: '/', icon: LayoutDashboard, label: 'Dashboard' },
   { path: '/library', icon: Radio, label: 'Library' },
@@ -53,6 +55,7 @@ export default function TopNav() {
             return (
               <Link
                 key={item.path}
+                title={descriptions[item.path]}
                 aria-current={isActive ? 'page' : undefined}
                 to={item.path}
                 onPointerEnter={() => preloadPage(item.path)}
@@ -115,6 +118,7 @@ export default function TopNav() {
             return (
               <Link
                 key={item.path}
+                title={descriptions[item.path]}
                 aria-current={isActive ? 'page' : undefined}
                 to={item.path}
                 onPointerEnter={() => preloadPage(item.path)}
