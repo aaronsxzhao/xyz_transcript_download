@@ -7,7 +7,7 @@ import { useToast } from '../components/Toast'
 import PlatformIcon, { PLATFORM_COLORS } from '../components/PlatformIcon'
 import { useWarmCache, getCache, setCache, CacheKeys } from '../lib/cache'
 import { getAccountId } from '../lib/preferences'
-import { preloadPage } from '../lib/pages'
+import { prefetchEpisodes, cancelPrefetch } from '../lib/summaryPrefetch'
 import { usePageTiming } from '../lib/pageTiming'
 
 const PODCAST_PLATFORMS: { id: string; label: string }[] = [
@@ -529,8 +529,9 @@ export default function Podcasts() {
                 <div
                   key={podcast.pid}
                   onClick={() => navigate(`/podcasts/${podcast.pid}/episodes`)}
-                  onPointerEnter={() => preloadPage('/podcasts/podcast/episodes')}
-                  onTouchStart={() => preloadPage('/podcasts/podcast/episodes')}
+                  onPointerEnter={() => prefetchEpisodes(podcast.pid)}
+                  onPointerLeave={cancelPrefetch}
+                  onTouchStart={() => prefetchEpisodes(podcast.pid)}
                   className="p-4 md:p-6 bg-dark-surface border border-dark-border rounded-xl hover:border-dark-hover transition-colors cursor-pointer"
                 >
                   <div className="flex flex-col sm:flex-row sm:items-start gap-4">
@@ -560,7 +561,8 @@ export default function Podcasts() {
                       <Link
                         to={`/podcasts/${podcast.pid}/episodes`}
                         aria-label={`Open episodes: ${podcast.title}`}
-                        onFocus={() => preloadPage('/podcasts/podcast/episodes')}
+                        onFocus={() => prefetchEpisodes(podcast.pid)}
+                        onBlur={cancelPrefetch}
                         className="flex items-center gap-1 px-3 py-2 bg-dark-hover hover:bg-dark-border text-white rounded-lg transition-colors text-sm"
                       >
                         <ExternalLink size={16} />
