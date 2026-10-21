@@ -2,7 +2,7 @@
 from datetime import datetime, timezone
 import sqlite3
 from fastapi import APIRouter, Depends
-from pydantic import BaseModel, Field
+from pydantic import AwareDatetime, BaseModel, Field
 from api.auth import get_current_user, User
 from typing import Optional
 from starlette.concurrency import run_in_threadpool
@@ -67,32 +67,46 @@ def list_updates(user_id: Optional[str], db_path=None):
     return rows
 
 
-def dismiss_updates(user_id: Optional[str], keys: list[str], db_path=None):
+def dismiss_updates(user_id: Optional[str], keys: list[str], db_path=None, before: Optional[datetime] = None):
     from config import USE_SUPABASE, DATABASE_PATH
-    if not keys: return
+    if not keys and before is None: return
     stamp = datetime.now(timezone.utc).isoformat()
     if USE_SUPABASE:
         if not user_id: return
         from api.supabase_client import get_supabase_admin_client
-        get_supabase_admin_client().table('content_updates').update({'dismissed_at':stamp}).eq(
-            'user_id',user_id).in_('item_key',keys).execute()
+        query = get_supabase_admin_client().table('content_updates').update({'dismissed_at':stamp},returning='minimal').eq(
+            'user_id',user_id).is_('dismissed_at','null')
+        # Closing the banner acknowledges the complete unread snapshot, not just
+        # its bounded first page. Notifications created later remain unread.
+        query = query.lte('created_at',before.isoformat()) if before is not None else query.in_('item_key',keys)
+        query.execute()
     else:
         with sqlite3.connect(str(db_path or DATABASE_PATH)) as conn:
             install_sqlite_updates(conn)
-            conn.executemany('UPDATE content_updates SET dismissed_at=? WHERE user_id=? AND item_key=?',
-                [(stamp,user_id or 'local',key) for key in keys])
+            if before is not None:
+                conn.execute('UPDATE content_updates SET dismissed_at=? WHERE user_id=? AND dismissed_at IS NULL AND julianday(created_at)<=julianday(?)',
+                             (stamp,user_id or 'local',before.isoformat()))
+            else:
+                conn.executemany('UPDATE content_updates SET dismissed_at=? WHERE user_id=? AND item_key=?',
+                    [(stamp,user_id or 'local',key) for key in keys])
 
 
 class DismissRequest(BaseModel):
-    keys: list[str] = Field(max_length=100)
+    keys: list[str] = Field(default_factory=list,max_length=100)
+    before: Optional[AwareDatetime] = None
 
 
 @router.get('')
 async def updates(user: Optional[User] = Depends(get_current_user)):
-    return {'items': await run_in_threadpool(list_updates,user.id if user else None)}
+    rows=await run_in_threadpool(list_updates,user.id if user else None)
+    if not rows: return {'items':[]}
+    def created(row):
+        value=datetime.fromisoformat(row['created_at'].replace('Z','+00:00'))
+        return value.replace(tzinfo=value.tzinfo or timezone.utc).astimezone(timezone.utc)
+    return {'items':rows,'dismiss_before':max(map(created,rows)).isoformat()}
 
 
 @router.post('/dismiss')
 async def dismiss(data: DismissRequest, user: Optional[User] = Depends(get_current_user)):
-    await run_in_threadpool(dismiss_updates,user.id if user else None,data.keys)
+    await run_in_threadpool(dismiss_updates,user.id if user else None,data.keys,before=data.before)
     return {'ok': True}

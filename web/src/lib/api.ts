@@ -1493,16 +1493,17 @@ export interface ContentUpdate {
   source_id: string
   created_at: string
 }
-export async function fetchContentUpdates(): Promise<{items: ContentUpdate[]}> {
+export interface ContentUpdates {items:ContentUpdate[];dismiss_before?:string}
+export async function fetchContentUpdates(): Promise<ContentUpdates> {
   const res = await authFetch(`${API_BASE}/content-updates`)
   if (!res.ok) throw new Error('Cannot load new content updates')
   const data = await res.json()
   if (!Array.isArray(data.items)) throw new Error('Invalid content updates response')
   return data
 }
-export async function dismissContentUpdates(keys: string[]): Promise<void> {
+export async function dismissContentUpdates(keys: string[], before?:string): Promise<void> {
   const res = await authFetch(`${API_BASE}/content-updates/dismiss`, {
-    method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({keys}),
+    method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({keys,before}),
   })
   if (!res.ok) throw new Error('Cannot dismiss new content updates')
 }

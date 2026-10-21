@@ -102,3 +102,15 @@ Job restart reconciliation currently assumes the deployed single application pro
 - Core page controllers, including Settings, remain in the document after testing the additional-request tradeoff. Video creation and enlarged-image tools load separately, with visible loading/failure states; previews and saved text remain usable if optional tools fail.
 
 Rollback: `safety/pre-workspace-iteration-20261021`, image `3a2a4fe27aad16d2ff936d787db33042deda5971`. The additive view migration preserves saved content and can remain on rollback. See [ROLLBACK.md](ROLLBACK.md).
+
+
+---
+
+# New-content notification repair — 21 October 2026
+
+- Place New content above statistics, followed by Add content and Continue reading.
+- Closing the banner acknowledges all unread notifications up to its server-supplied snapshot timestamp, including older records beyond the 100-item display limit. Later discoveries remain unread. Legacy selected-key dismissals remain supported.
+- Ignore stale in-flight reads and retain an account-scoped dismissal watermark so cached/polled responses cannot recreate a closed banner. Failed writes keep the notification visible and show retry feedback.
+- Verified with a 250-item backlog, new arrivals, owner isolation, exact database microseconds, stale polls, remounts, duplicate clicks and failed saves; 297 backend and 79 frontend tests pass.
+
+Rollback: `safety/pre-notification-dismiss-20261021`, image `cfb6fae7b560b6d6fcac41d25690d0ae9c87ed6f`. No schema migration or content deletion.

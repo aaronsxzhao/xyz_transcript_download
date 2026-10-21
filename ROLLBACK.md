@@ -1,5 +1,13 @@
 # Restore the previous website
 
+## New-content dismissal repair (21 October 2026)
+
+Use `safety/pre-notification-dismiss-20261021`, image
+`cfb6fae7b560b6d6fcac41d25690d0ae9c87ed6f`, in **Roll back website**.
+This restores the preceding workspace release and is the default fallback for
+this notification repair. No database migration is required. Notification
+acknowledgements remain saved after rollback; source content is unaffected.
+
 ## Workspace and reader iteration (21 October 2026)
 
 Use `safety/pre-workspace-iteration-20261021`, image
