@@ -45,7 +45,7 @@ async def main():
                         if summary_reads==1:return await route.abort('failed')
                         body=summary
                     elif path=='/api/new-episodes':body={'episodes':[]}
-                    elif path=='/api/content-updates':body={'items':[]}
+                    elif path=='/api/content-updates':body={'items':[{'item_key':'podcast:new','kind':'podcast','title':'A newly discovered episode','source_title':'Channel','source_id':'channel-0','created_at':'2026-10-21T00:00:00Z'}],'dismiss_before':'2026-10-21T00:00:00Z'}
                     elif path=='/api/jobs':body={'jobs':[]}
                     elif path=='/api/video-notes/tasks':body={'tasks':[]}
                     await route.fulfill(content_type='application/json',body=json.dumps(body))
@@ -71,8 +71,17 @@ async def main():
                 await page.goto(origin+'/',wait_until='domcontentloaded');await page.locator('.dashboard-stats svg').first.wait_for()
                 colors=await page.locator('.dashboard-stats svg').evaluate_all('(nodes)=>nodes.map(n=>getComputedStyle(n).color)')
                 assert len(set(colors))>=5,colors
+                await page.locator('#dashboard-new-content').wait_for()
                 positions=await page.evaluate('''()=>[document.querySelector('.dashboard-stats'),document.querySelector('#dashboard-add-content'),Array.from(document.querySelectorAll('h2')).find(n=>n.textContent==='Continue reading')].map(n=>n.getBoundingClientRect().top)''')
                 assert positions[0]<positions[1]<positions[2],positions
+                await page.locator('#dashboard-new-content').wait_for()
+                assert (await page.locator('#dashboard-new-content').bounding_box())['y']<positions[0]
+                await page.get_by_role('button',name='Dismiss these updates',exact=True).click()
+                await page.locator('#dashboard-new-content').wait_for(state='detached')
+                async with page.expect_response(lambda response:urlparse(response.url).path=='/api/content-updates'):
+                    await page.reload(wait_until='domcontentloaded')
+                await page.wait_for_timeout(100)
+                assert not await page.locator('#dashboard-new-content').count(), 'Dismissed snapshot returned after reload'
                 await page.goto(origin+'/viewer/bench',wait_until='domcontentloaded');await page.get_by_role('heading',name='Overview',exact=True).wait_for()
                 assert summary_reads==2,summary_reads
                 assert not errors,errors

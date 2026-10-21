@@ -1,9 +1,9 @@
 import LoadError from '../components/LoadError'
-import { getAccountId } from '../lib/preferences'
+import { getAccountId,getPreference,setPreference } from '../lib/preferences'
 import { useState, useEffect, useMemo, useRef } from 'react'
 import { Link } from 'react-router-dom'
 import { Radio, FileText, MessageSquare, Loader2, Plus, Bell, RefreshCw, X, Video, CheckCircle, Users } from 'lucide-react'
-import { fetchStats, fetchRecentSummaries, processEpisode, fetchContentUpdates, dismissContentUpdates, type ContentUpdate, checkPodcastsForUpdates, checkVideoChannelsForUpdates, fetchRecentVideoTasks, cancelJob, cancelVideoTask, generateVideoNote, getVideoProcessingDefaults, getUserModelSettings, type Stats, type SummaryListItem, type ProcessingJob, type VideoTask } from '../lib/api'
+import { fetchStats, fetchRecentSummaries, processEpisode, fetchContentUpdates, dismissContentUpdates, type ContentUpdates, checkPodcastsForUpdates, checkVideoChannelsForUpdates, fetchRecentVideoTasks, cancelJob, cancelVideoTask, generateVideoNote, getVideoProcessingDefaults, getUserModelSettings, type Stats, type SummaryListItem, type ProcessingJob, type VideoTask } from '../lib/api'
 import { useStore } from '../lib/store'
 import { useWarmCache, getCache, setCache, CacheKeys } from '../lib/cache'
 import { useToast } from '../components/Toast'
@@ -12,6 +12,15 @@ import NoteCard from '../components/NoteCard'
 import {useVerifiedReading} from '../lib/readingHistory'
 import ProcessingProgress from '../components/ProcessingProgress'
 import { usePageTiming } from '../lib/pageTiming'
+
+const UPDATES_CACHE='content-updates:v2'
+const DISMISSED_BEFORE='content_updates_dismissed_before'
+// Keep database microseconds when filtering a response racing with dismissal.
+const updateTime=(value:string)=>Date.parse(value)*1000+Number((value.match(/\.(\d+)/)?.[1]||'').padEnd(6,'0').slice(3,6))
+function unreadSnapshot(snapshot:ContentUpdates):ContentUpdates {
+  const before=updateTime(getPreference(DISMISSED_BEFORE)||'')
+  return Number.isFinite(before)?{...snapshot,items:snapshot.items.filter(item=>updateTime(item.created_at)>before)}:snapshot
+}
 
 const VIDEO_QUEUE_STATUSES = new Set(['pending', 'parsing', 'downloading', 'transcribing', 'summarizing', 'saving', 'success', 'failed'])
 
@@ -38,11 +47,13 @@ export default function Dashboard() {
   const [error, setError] = useState('')
   const [episodeUrl, setEpisodeUrl] = useState('')
   const [processing, setProcessing] = useState(false)
-  const [contentUpdates, setContentUpdates] = useState<ContentUpdate[]>(() => getCache('content-updates') || [])
-  useWarmCache<ContentUpdate[]>('content-updates',setContentUpdates)
+  const [updatesSnapshot,setUpdatesSnapshot]=useState<ContentUpdates>(()=>unreadSnapshot(getCache<ContentUpdates>(UPDATES_CACHE)||{items:[]}))
+  const contentUpdates=updatesSnapshot.items
+  useWarmCache<ContentUpdates>(UPDATES_CACHE,value=>setUpdatesSnapshot(unreadSnapshot(value)))
   const [updatesError,setUpdatesError] = useState('')
   const [dismissingUpdates,setDismissingUpdates] = useState(false)
   const updatesReadVersion = useRef(0)
+  const dismissingRef=useRef(false)
   const [checkingUpdates, setCheckingUpdates] = useState(false)
 
   const { jobs, updateJob, removeJob, videoTasks, setVideoTasks } = useStore()
@@ -152,13 +163,15 @@ export default function Dashboard() {
   }
 
   async function loadContentUpdates() {
+    if(dismissingRef.current) return
     const version = ++updatesReadVersion.current
     const owner = getAccountId()
     try {
       const data = await fetchContentUpdates()
       if(owner !== getAccountId() || version !== updatesReadVersion.current) return
-      setContentUpdates(data.items)
-      setCache('content-updates',data.items,owner)
+      const next=unreadSnapshot(data)
+      setUpdatesSnapshot(next)
+      setCache(UPDATES_CACHE,next,owner)
       setUpdatesError('')
     } catch {
       if(owner === getAccountId() && version === updatesReadVersion.current) setUpdatesError('Cannot refresh new content. Saved updates are shown.')
@@ -166,22 +179,25 @@ export default function Dashboard() {
   }
 
   async function dismissUpdates() {
-    const keys = contentUpdates.map(item=>item.item_key)
-    const owner = getAccountId()
+    if(dismissingRef.current) return
+    const keys=contentUpdates.map(item=>item.item_key)
+    const before=updatesSnapshot.dismiss_before
+    const owner=getAccountId()
+    dismissingRef.current=true
+    updatesReadVersion.current++
     setDismissingUpdates(true)
     try {
-      await dismissContentUpdates(keys)
-      if(owner !== getAccountId()) return
-      updatesReadVersion.current += 1
-      // Keep discoveries arriving while the dismissal request was in flight.
-      setContentUpdates(items=>{
-        const next=items.filter(item=>!keys.includes(item.item_key))
-        setCache('content-updates',next,owner)
+      await dismissContentUpdates(keys,before)
+      if(owner!==getAccountId()) return
+      updatesReadVersion.current++
+      if(before && updateTime(before)>updateTime(getPreference(DISMISSED_BEFORE)||'1970-01-01')) setPreference(DISMISSED_BEFORE,before)
+      setUpdatesSnapshot(previous=>{
+        const next=before?unreadSnapshot(previous):{...previous,items:previous.items.filter(item=>!keys.includes(item.item_key))}
+        setCache(UPDATES_CACHE,next,owner)
         return next
       })
-      void loadContentUpdates()
     } catch { addToast({type:'error',title:'Could not dismiss updates',message:'Please retry.'}) }
-    finally { setDismissingUpdates(false) }
+    finally { dismissingRef.current=false;setDismissingUpdates(false) }
   }
 
   async function handleCheckUpdates() {
@@ -274,6 +290,32 @@ export default function Dashboard() {
         </div>
       </div>
 
+      {/* Persistent source discoveries; closing acknowledges the unread snapshot. */}
+      {updatesError && <div role="status" className="text-sm text-amber-300">{updatesError} <button className="underline" onClick={()=>void loadContentUpdates()}>Retry</button></div>}
+      {contentUpdates.length > 0 && (
+        <section id="dashboard-new-content" aria-label="New content" className="p-4 bg-indigo-900/30 border border-indigo-500/30 rounded-xl">
+          <div className="flex items-start justify-between gap-4">
+            <div className="flex items-start gap-3 min-w-0">
+              <Bell className="w-5 h-5 text-indigo-400 mt-0.5 flex-shrink-0" />
+              <div className="min-w-0">
+                <h3 className="font-medium text-white mb-2">New content · {contentUpdates.filter(item=>item.kind==='podcast').length} episodes · {contentUpdates.filter(item=>item.kind==='video').length} videos</h3>
+                <ul className="space-y-2">
+                  {contentUpdates.slice(0,5).map(item=>(
+                    <li key={item.item_key}><Link className="flex items-center gap-2 text-sm text-gray-300 hover:text-indigo-300" to={item.kind==='podcast' ? `/podcasts/${encodeURIComponent(item.source_id)}/episodes` : '/videos'}>
+                      {item.kind==='podcast' ? <Radio size={15} className="shrink-0 text-indigo-400"/> : <Video size={15} className="shrink-0 text-violet-400"/>}
+                      <span className="truncate">{item.source_title && <span className="text-indigo-300">{item.source_title}: </span>}{item.title || 'New video'}</span>
+                    </Link></li>
+                  ))}
+                </ul>
+                {contentUpdates.length>5 && <details className="mt-2 text-sm text-gray-400"><summary className="cursor-pointer">Show {contentUpdates.length-5} more</summary><ul className="mt-2 space-y-2">{contentUpdates.slice(5).map(item=><li key={item.item_key}><Link className="hover:text-indigo-300" to={item.kind==='podcast' ? `/podcasts/${encodeURIComponent(item.source_id)}/episodes` : '/videos'}>{item.source_title}: {item.title || 'New video'}</Link></li>)}</ul></details>}
+              </div>
+            </div>
+            <button aria-label="Dismiss these updates" title="Dismiss all updates available at this refresh" aria-busy={dismissingUpdates} disabled={dismissingUpdates} onClick={()=>void dismissUpdates()} className="p-2 text-gray-400 hover:text-white disabled:opacity-50">{dismissingUpdates?<Loader2 size={16} className="animate-spin"/>:<X size={16}/>}</button>
+          </div>
+        </section>
+      )}
+
+
       {/* Stats — podcast + video combined */}
       {stats && (
         <div className="dashboard-stats grid grid-cols-2 md:grid-cols-3 lg:grid-cols-7 gap-3">
@@ -326,31 +368,6 @@ export default function Dashboard() {
           </section>
         </div>
       </details>
-
-      {/* Persistent source discoveries; dismissal only affects the displayed items. */}
-      {updatesError && <div role="status" className="text-sm text-amber-300">{updatesError} <button className="underline" onClick={()=>void loadContentUpdates()}>Retry</button></div>}
-      {contentUpdates.length > 0 && (
-        <section id="dashboard-new-content" aria-label="New content" className="p-4 bg-indigo-900/30 border border-indigo-500/30 rounded-xl">
-          <div className="flex items-start justify-between gap-4">
-            <div className="flex items-start gap-3 min-w-0">
-              <Bell className="w-5 h-5 text-indigo-400 mt-0.5 flex-shrink-0" />
-              <div className="min-w-0">
-                <h3 className="font-medium text-white mb-2">New content · {contentUpdates.filter(item=>item.kind==='podcast').length} episodes · {contentUpdates.filter(item=>item.kind==='video').length} videos</h3>
-                <ul className="space-y-2">
-                  {contentUpdates.slice(0,5).map(item=>(
-                    <li key={item.item_key}><Link className="flex items-center gap-2 text-sm text-gray-300 hover:text-indigo-300" to={item.kind==='podcast' ? `/podcasts/${encodeURIComponent(item.source_id)}/episodes` : '/videos'}>
-                      {item.kind==='podcast' ? <Radio size={15} className="shrink-0 text-indigo-400"/> : <Video size={15} className="shrink-0 text-violet-400"/>}
-                      <span className="truncate">{item.source_title && <span className="text-indigo-300">{item.source_title}: </span>}{item.title || 'New video'}</span>
-                    </Link></li>
-                  ))}
-                </ul>
-                {contentUpdates.length>5 && <details className="mt-2 text-sm text-gray-400"><summary className="cursor-pointer">Show {contentUpdates.length-5} more</summary><ul className="mt-2 space-y-2">{contentUpdates.slice(5).map(item=><li key={item.item_key}><Link className="hover:text-indigo-300" to={item.kind==='podcast' ? `/podcasts/${encodeURIComponent(item.source_id)}/episodes` : '/videos'}>{item.source_title}: {item.title || 'New video'}</Link></li>)}</ul></details>}
-              </div>
-            </div>
-            <button aria-label="Dismiss these updates" disabled={dismissingUpdates} onClick={()=>void dismissUpdates()} className="p-2 text-gray-400 hover:text-white disabled:opacity-50"><X size={16}/></button>
-          </div>
-        </section>
-      )}
 
       {/* Processing jobs — podcast + video combined */}
       {allQueueItems.length > 0 && (

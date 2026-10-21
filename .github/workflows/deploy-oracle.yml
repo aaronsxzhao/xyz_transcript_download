@@ -55,6 +55,7 @@ jobs:
 
       - name: Verify preserved rollback image exists
         run: |
+          docker buildx imagetools inspect "$OCIR_REGISTRY/$OCIR_NAMESPACE/$OCIR_REPO:cfb6fae7b560b6d6fcac41d25690d0ae9c87ed6f" > /dev/null
           docker buildx imagetools inspect "$OCIR_REGISTRY/$OCIR_NAMESPACE/$OCIR_REPO:3a2a4fe27aad16d2ff936d787db33042deda5971" > /dev/null
           docker buildx imagetools inspect "$OCIR_REGISTRY/$OCIR_NAMESPACE/$OCIR_REPO:440009e42e7574a45fddca717e5451dd98d2cb15" > /dev/null
           docker buildx imagetools inspect "$OCIR_REGISTRY/$OCIR_NAMESPACE/$OCIR_REPO:aca4f9bb29b90cb08b1fef6a97ab4f8efdd3d7e9" > /dev/null
@@ -128,7 +129,7 @@ jobs:
       - name: Restore preserved image if release verification fails
         if: failure() && steps.verify.outcome == 'failure'
         env:
-          EXPECTED_REVISION: 3a2a4fe27aad16d2ff936d787db33042deda5971
+          EXPECTED_REVISION: cfb6fae7b560b6d6fcac41d25690d0ae9c87ed6f
         run: |
           docker buildx imagetools create --tag "$OCIR_REGISTRY/$OCIR_NAMESPACE/$OCIR_REPO:latest" "$OCIR_REGISTRY/$OCIR_NAMESPACE/$OCIR_REPO:$EXPECTED_REVISION"
           oci container-instances container-instance restart --container-instance-id "$CONTAINER_INSTANCE_ID"
