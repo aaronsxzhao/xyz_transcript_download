@@ -76,7 +76,6 @@ jobs:
           build-args: |
             APP_REVISION=${{ github.sha }}
           tags: |
-            ${{ env.OCIR_REGISTRY }}/${{ env.OCIR_NAMESPACE }}/${{ env.OCIR_REPO }}:latest
             ${{ env.OCIR_REGISTRY }}/${{ env.OCIR_NAMESPACE }}/${{ env.OCIR_REPO }}:${{ github.sha }}
           cache-from: |
             type=registry,ref=${{ env.OCIR_REGISTRY }}/${{ env.OCIR_NAMESPACE }}/${{ env.OCIR_REPO }}:buildcache
@@ -102,6 +101,12 @@ jobs:
 
       - name: Restart Container Instance
         run: |
+          CURRENT_MAIN=$(git ls-remote origin refs/heads/main | cut -f1)
+          if [ "$CURRENT_MAIN" != "${{ github.sha }}" ]; then
+            echo "Skipping obsolete release: main advanced during the build."
+            exit 1
+          fi
+          docker buildx imagetools create --tag "$OCIR_REGISTRY/$OCIR_NAMESPACE/$OCIR_REPO:latest" "$OCIR_REGISTRY/$OCIR_NAMESPACE/$OCIR_REPO:${{ github.sha }}"
           echo "Restarting container instance..."
           oci container-instances container-instance restart \
             --container-instance-id ${{ env.CONTAINER_INSTANCE_ID }}
