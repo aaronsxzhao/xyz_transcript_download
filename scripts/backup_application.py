@@ -15,7 +15,8 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 TABLES = ('podcasts', 'episodes', 'transcripts', 'summaries', 'summary_key_points',
-          'transcript_segments', 'video_tasks', 'video_task_versions', 'user_settings', 'processing_jobs')
+          'transcript_segments', 'video_tasks', 'video_task_versions', 'user_settings', 'processing_jobs',
+          'content_updates', 'episode_source_access')
 BUCKET = 'application-backups'
 _PHASE = 0
 
@@ -23,7 +24,10 @@ _PHASE = 0
 def rows(client, table):
     offset = 0
     while True:
-        page = client.table(table).select('*').order('user_id' if table == 'user_settings' else 'id').range(offset, offset + 99).execute().data
+        query = client.table(table).select('*')
+        keys = {'user_settings':('user_id',),'content_updates':('user_id','item_key'),'episode_source_access':('user_id','eid')}.get(table,('id',))
+        for key in keys: query = query.order(key)
+        page = query.range(offset, offset + 99).execute().data
         if not isinstance(page, list):
             raise RuntimeError('Incomplete database snapshot')
         yield from page

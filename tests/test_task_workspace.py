@@ -57,7 +57,7 @@ def test_private_backup_is_streamed_read_back_and_checked_before_manifest_publis
     client,objects,queries=backup_client()
     with patch('api.supabase_client.get_supabase_admin_client',return_value=client),patch('screenshot_extractor._iter_bucket_objects',return_value=[{'name':'frame.jpg'}]):
         report=backup.backup()
-    assert report['verified']==1 and report['tables']==10 and report['records']==10
+    assert report['verified']==1 and report['tables']==12 and report['records']==12
     manifest=json.loads(next(value for key,value in objects.items() if key.endswith('.manifest.json')))
     content=b''.join(objects[name] for name in manifest['parts'])
     with zipfile.ZipFile(io.BytesIO(content)) as archive:
@@ -65,6 +65,8 @@ def test_private_backup_is_streamed_read_back_and_checked_before_manifest_publis
         assert len(json.loads(archive.read('database/episodes.json')))==1
         assert archive.read('media/screenshots/frame.jpg')==b'private image bytes'
     assert ('user_settings','user_id') in queries
+    assert ('content_updates','item_key') in queries
+    assert ('episode_source_access','eid') in queries
 
 
 def test_corrupted_backup_never_publishes_a_verified_manifest():

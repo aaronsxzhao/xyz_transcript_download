@@ -29,39 +29,6 @@ import MindMapView, { preloadMindMap } from '../components/video/MindMapView'
 
 type ViewMode = 'markdown' | 'mindmap' | 'transcript'
 
-function buildNotionExportMarkdown(task: VideoTask, content: string): string {
-  const lines: string[] = []
-  const title = task.title?.trim() || 'Untitled Video Note'
-
-  lines.push(`# ${title}`)
-  lines.push('')
-
-  const metadata: string[] = []
-  if (task.platform) metadata.push(`- Platform: ${task.platform}`)
-  if (task.channel) metadata.push(`- Channel: ${task.channel}`)
-  if (task.style) metadata.push(`- Style: ${task.style}`)
-  if (task.duration > 0) {
-    const m = Math.floor(task.duration / 60)
-    const s = Math.floor(task.duration % 60)
-    metadata.push(`- Duration: ${m}:${s.toString().padStart(2, '0')}`)
-  }
-  if (task.url) metadata.push(`- Source: ${task.url}`)
-
-  if (metadata.length > 0) {
-    lines.push('## Details')
-    lines.push('')
-    lines.push(...metadata)
-    lines.push('')
-  }
-
-  if (content.trim()) {
-    lines.push(content.trim())
-    lines.push('')
-  }
-
-  return lines.join('\n')
-}
-
 export default function VideoViewer() {
   const { taskId } = useParams<{ taskId: string }>()
   const navigate = useNavigate()
@@ -124,7 +91,7 @@ export default function VideoViewer() {
         const data = await fetchVideoTask(taskId)
         if (!cancelled && owner === getAccountId()) {
           setTask(data)
-          useStore.getState().updateVideoTask(data)
+          if(!['success','failed','cancelled'].includes(data.status))useStore.getState().updateVideoTask(data)
           setTaskVerified(true)
           if (data.status === 'success') setCache(CacheKeys.VIDEO_NOTE(taskId), data, owner)
           else removeCache(CacheKeys.VIDEO_NOTE(taskId))
@@ -363,6 +330,7 @@ export default function VideoViewer() {
     setNotionExporting(true)
     setNotionResult(null)
     try {
+      const {buildNotionExportMarkdown}=await import('../lib/notionExport')
       const markdown = buildNotionExportMarkdown(task, content)
       const result = await exportMarkdownToNotion(markdown, task.title || 'Untitled Video Note', notionSelectedId)
       setNotionResult({

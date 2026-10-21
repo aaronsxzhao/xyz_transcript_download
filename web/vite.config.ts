@@ -23,7 +23,7 @@ export default defineConfig({
           groups: [
             {name:'VideoCreation',priority:20,test:/\/src\/components\/video\/(VideoNoteForm|YouTubeCookieGuide)\./},
             {name:'workspace',priority:10,test:(id) => {
-              if(id.includes('/src/') && !/\/lib\/taskActions\./.test(id) && !/\/components\/(ProcessingPanel|FormattedSummary|TranscriptSegments|ScreenshotGallery|PerformancePanel|DataRecovery)\.|\/components\/video\/(MarkdownPreview|HighlightedCode|TranscriptPanel|VideoNoteForm|YouTubeCookieGuide)\./.test(id)) return true
+              if(id.includes('/src/') && !/\/lib\/(taskActions|notionExport)\./.test(id) && !/\/components\/(ProcessingPanel|FormattedSummary|TranscriptSegments|ScreenshotGallery|PerformancePanel|DataRecovery)\.|\/components\/video\/(MarkdownPreview|HighlightedCode|TranscriptPanel|VideoNoteForm|YouTubeCookieGuide)\./.test(id)) return true
               return id.includes('/node_modules/lucide-react/') || id.includes('commonjsHelpers') || /\/node_modules\/(react|react-dom|react-router|react-router-dom|scheduler)\//.test(id)
             }},
           ],
