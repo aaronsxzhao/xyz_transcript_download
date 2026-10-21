@@ -3,6 +3,7 @@
 Excludes credentials and auth sessions. Never uploads private data as CI artifacts.
 """
 import contextlib
+import io
 import json
 import logging
 import os

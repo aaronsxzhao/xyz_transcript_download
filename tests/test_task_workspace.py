@@ -100,3 +100,11 @@ def test_backup_refuses_a_public_destination_without_uploading_data():
     with patch('api.supabase_client.get_supabase_admin_client',return_value=client):
         with pytest.raises(RuntimeError,match='private'):backup.backup()
     assert objects=={}
+
+
+def test_backup_child_runs_verification_and_emits_only_numeric_report(capsys):
+    from scripts import backup_application as backup
+    with patch.object(backup, 'backup', return_value={'operation':'backup','verified':1,'tables':12}) as run:
+        assert backup.child() == 0
+    run.assert_called_once()
+    assert json.loads(capsys.readouterr().out) == {'operation':'backup','verified':1,'tables':12}
