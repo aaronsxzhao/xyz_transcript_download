@@ -4,7 +4,7 @@ on:
     inputs:
       revision:
         description: Previously deployed commit (default is the saved pre-improvement version)
-        default: '74c5138d751abb1cf61f186bdd3593223486c365'
+        default: '938a586685c3871c72255802463d7064d0672205'
         required: true
 env:
   CONTAINER_INSTANCE_ID: ocid1.computecontainerinstance.oc1.iad.anuwcljrram2hqqaueqbs2y4opn3tm2jfpmx4a7gdsscygwyjgnac5vrqgta
