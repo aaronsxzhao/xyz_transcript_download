@@ -1,3 +1,4 @@
+import { useWarmCache } from '../lib/cache'
 import { printHtml } from '../lib/print'
 import SummaryText from '../components/SummaryText'
 import ReaderControls from '../components/ReaderControls'
@@ -109,6 +110,7 @@ export default function Viewer() {
   const [summary, setSummary] = useState<Summary | null>(() => getCache(CacheKeys.SUMMARY(eid!)))
   const [transcript, setTranscript] = useState<Transcript | null>(null)
   const [loading, setLoading] = useState(() => !getCache(CacheKeys.SUMMARY(eid!)))
+  useWarmCache<Summary>(CacheKeys.SUMMARY(eid!), value => {setSummary(value);setLoading(false)})
   const [transcriptLoading, setTranscriptLoading] = useState(false)
   const [resummarizing, setResummarizing] = useState(false)
   const [error, setError] = useState('')
@@ -381,6 +383,17 @@ export default function Viewer() {
   
   const topicEntries = Object.entries(keyPointsByTopic) as [string, KeyPoint[]][]
 
+  const [activeSection,setActiveSection] = useState('summary-overview')
+  useEffect(() => {
+    if (loading || activeTab !== 'summary') return
+    const observer = new IntersectionObserver(entries => {
+      const visible = entries.filter(entry => entry.isIntersecting).sort((a,b) => a.boundingClientRect.top-b.boundingClientRect.top)
+      if (visible[0]) setActiveSection(visible[0].target.id)
+    }, {rootMargin:'-80px 0px -60% 0px'})
+    document.querySelectorAll('[id^="summary-topic-"], #summary-overview, #summary-key-points, #summary-takeaways').forEach(element => observer.observe(element))
+    return () => observer.disconnect()
+  }, [summary, loading, activeTab])
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -528,7 +541,7 @@ export default function Viewer() {
         )}
       </div>
       
-      <ReaderControls>{activeTab === 'summary' && summary && <label className="reader-contents block text-sm">Contents<select aria-label="Summary contents" className="ml-2 max-w-full bg-dark-surface border border-dark-border rounded-lg p-2" defaultValue="" onChange={e => { if (e.target.value) document.getElementById(e.target.value)?.scrollIntoView({block:'start'}); e.target.value='' }}><option value="">Jump to section…</option><option value="summary-overview">Overview</option><option value="summary-key-points">Key points</option><option value="summary-takeaways">Takeaways</option></select></label>}</ReaderControls>
+      <ReaderControls>{activeTab === 'summary' && summary && <label className="reader-contents block text-sm">Contents<select aria-label="Summary contents" className="ml-2 max-w-full bg-dark-surface border border-dark-border rounded-lg p-2" value={activeSection} onChange={e => { const id=e.target.value;const index=Number(id.replace('summary-topic-',''));if(id.startsWith('summary-topic-')&&topicEntries[index])setExpandedTopics(previous=>new Set([...previous,topicEntries[index][0]]));setActiveSection(id);requestAnimationFrame(()=>document.getElementById(id)?.scrollIntoView({block:'start'})) }}><option value="">Jump to section…</option><option value="summary-overview">Overview</option><option value="summary-key-points">Key points</option>{topicEntries.map(([topic],index)=><option key={topic} value={`summary-topic-${index}`}>{topic}</option>)}<option value="summary-takeaways">Takeaways</option></select></label>}</ReaderControls>
       {/* Tabs */}
       <div className="flex gap-1 md:gap-2 border-b border-dark-border">
         <button
@@ -586,10 +599,11 @@ export default function Viewer() {
               Key Points by Topic
             </h2>
             
+            <div className="flex gap-3 text-sm"><button onClick={()=>setExpandedTopics(new Set(topicEntries.map(([topic])=>topic)))}>Expand all</button><button onClick={()=>setExpandedTopics(new Set())}>Collapse all</button></div>
             <div className="space-y-3" data-topic-column>
-            {topicEntries.map(([topic, points]) => (
+            {topicEntries.map(([topic, points], index) => (
               <div
-                key={topic} data-topic-card
+                key={topic} data-topic-card id={`summary-topic-${index}`} aria-current={activeSection === `summary-topic-${index}` ? 'location' : undefined}
                 className="topic-section"
               >
                 <button

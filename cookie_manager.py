@@ -162,8 +162,8 @@ class _SupabaseCookieManager:
                 for r in (result.data or [])
             ]
         except Exception as e:
-            logger.error(f"Supabase list_cookies failed: {e}")
-            return []
+            logger.error("Supabase account listing failed")
+            raise RuntimeError("Platform account storage unavailable") from e
 
 
 class CookieManager:

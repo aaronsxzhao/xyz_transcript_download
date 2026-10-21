@@ -1144,25 +1144,19 @@ def list_channels(user: Optional[User] = Depends(get_current_user)):
 
 @router.get("/tasks/by-channel")
 def list_tasks_by_channel(
-    channel: str = Query(...),
-    platform: str = Query(...),
+    channel: str = Query(..., max_length=300), platform: str = Query(..., max_length=32),
+    limit: int = Query(40, ge=1, le=60), cursor: str = Query('', max_length=512),
+    q: str = Query('', max_length=200), status: str = Query('', max_length=32),
+    sort: str = Query('newest', pattern='^(newest|oldest)$'),
     user: Optional[User] = Depends(get_current_user),
 ):
-    """List all tasks for a specific channel+platform. No cap — fetches all rows."""
     from video_task_db import get_video_task_db
-    user_id = user.id if user else None
-    cache_key = f"{user_id or '__local__'}:ch:{platform}:{channel}"
-    now = time.monotonic()
-    entry = _list_cache.get(cache_key)
-    if entry and now - entry["t"] < _LIST_TTL and not _has_active_video_tasks(entry["data"].get("tasks", [])):
-        return entry["data"]
-    db = get_video_task_db()
-    tasks = db.list_tasks_by_channel(channel, platform, user_id)
-    result = {"tasks": sign_media_urls(tasks)}
-    if not _has_active_video_tasks(tasks):
-        _list_cache[cache_key] = {"t": now, "data": result}
-    else:
-        _list_cache.pop(cache_key, None)
+    from api.channel_paging import page
+    try:
+        result = page(get_video_task_db()._backend, channel, platform, user.id if user else None, limit, cursor, q, status, sort)
+    except ValueError as error:
+        raise HTTPException(status_code=400, detail=str(error))
+    result['tasks'] = sign_media_urls(result['tasks'])
     return result
 
 

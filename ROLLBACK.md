@@ -1,5 +1,17 @@
 # Restore the previous website
 
+## Performance backlog checkpoint (21 October 2026)
+
+Use `safety/pre-performance-backlog-20261021`, image
+`c5ead130ad344c7b698170e6ce68e6919899b5c3`, in **Roll back website**.
+The deployment workflow verifies this image exists before shipping and uses it
+as the automatic fallback. This restores the previous visual-language release.
+
+This release adds only a database index and derived private WebP objects.
+Original notes, transcripts and images are unchanged. The additive index and
+`previews/` objects can safely remain after rollback. The old client rebuilds its
+localStorage cache; the new IndexedDB cache is disposable, not a data migration.
+
 ## Unified visual language checkpoint (21 October 2026)
 
 Use `safety/pre-visual-language-20261021`, image

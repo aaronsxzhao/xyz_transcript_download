@@ -246,6 +246,8 @@ async def startup_event():
     # Start background podcast checker
     _podcast_check_task = asyncio.create_task(check_podcasts_for_updates())
     _generated_media_cleanup_task = asyncio.create_task(cleanup_generated_media_loop())
+    from api.media import backfill_previews
+    app.state.preview_task = asyncio.create_task(backfill_previews())
     
     # Send Discord notification on startup
     from logger import notify_discord
@@ -285,6 +287,14 @@ async def shutdown_event():
         except asyncio.CancelledError:
             pass
     
+    preview_task = getattr(app.state, 'preview_task', None)
+    if preview_task:
+        preview_task.cancel()
+        try:
+            await preview_task
+        except asyncio.CancelledError:
+            pass
+
     # Shutdown the processing thread pool executors
     processing.PROCESSING_EXECUTOR.shutdown(wait=False, cancel_futures=True)
     video_notes.VIDEO_EXECUTOR.shutdown(wait=False, cancel_futures=True)
@@ -335,24 +345,23 @@ _data_dir.mkdir(parents=True, exist_ok=True)
 @app.get("/data/{folder}/{filename}")
 async def generated_media(folder: str, filename: str, expires: int = Query(0), signature: str = Query(""), preview: bool = Query(False)):
     from config import USE_SUPABASE
-    from api.media import media_file, verify_media_signature, load_cloud_media, image_preview
+    from api.media import media_file, verify_media_signature, load_cloud_media, load_preview
     path = media_file(folder, filename)
     if USE_SUPABASE and not verify_media_signature(f"/data/{folder}/{filename}", expires, signature):
         raise HTTPException(status_code=403, detail="Media link is invalid or expired")
     headers = {"Cache-Control": "private, max-age=86400", "X-Content-Type-Options": "nosniff"}
     if path.is_file():
         if preview:
-            content = await asyncio.to_thread(path.read_bytes)
-            return Response(await asyncio.to_thread(image_preview, content), media_type='image/webp', headers=headers)
+            return Response(await load_preview(folder, filename), media_type='image/webp', headers=headers)
         return FileResponse(path, headers=headers)
     if USE_SUPABASE:
         from api.supabase_client import get_supabase_admin_client
         client = get_supabase_admin_client()
         if client:
             try:
-                content = await load_cloud_media(folder, filename, client.storage.from_(folder).download)
                 if preview:
-                    return Response(await asyncio.to_thread(image_preview, content), media_type='image/webp', headers=headers)
+                    return Response(await load_preview(folder, filename, client.storage.from_(folder)), media_type='image/webp', headers=headers)
+                content = await load_cloud_media(folder, filename, client.storage.from_(folder).download)
                 media_type = "image/jpeg" if path.suffix in {".jpg", ".jpeg"} else f"image/{path.suffix[1:]}"
                 return Response(content, media_type=media_type, headers=headers)
             except Exception as error:

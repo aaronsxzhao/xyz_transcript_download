@@ -1,3 +1,5 @@
+import { useWarmCache } from '../lib/cache'
+import { useReadingPosition } from '../lib/reading'
 import LoadError from '../components/LoadError'
 import { getCache, setCache, CacheKeys } from '../lib/cache'
 import { getAccountId } from '../lib/preferences'
@@ -42,6 +44,14 @@ export default function Videos() {
   const { videoTasks, mergeVideoTasks, removeVideoTask } = useStore()
   const [formOpen, setFormOpen] = useState(false)
   const [search, setSearch] = useState('')
+  const [channelQuery, setChannelQuery] = useState('')
+  const [channelStatus, setChannelStatus] = useState('')
+  const [channelSort, setChannelSort] = useState('newest')
+  const [channelCursor, setChannelCursor] = useState<string | null>(null)
+  const [channelRefreshing, setChannelRefreshing] = useState(false)
+  const channelRequest = useRef(0)
+  const channelAbort = useRef<AbortController | null>(null)
+  useEffect(() => { const t = setTimeout(() => setChannelQuery(search), 250); return () => clearTimeout(t) }, [search])
   const [error, setError] = useState('')
   const [checking, setChecking] = useState(false)
   const [searchParams, setSearchParams] = useSearchParams()
@@ -65,10 +75,7 @@ export default function Videos() {
     return { type: 'platforms' }
   }, [searchParams])
 
-  usePageTiming(view.type === 'videos' ? 'channel' : 'videos',
-    view.type === 'videos' ? loadedChannelRef.current === `${view.platform}::${view.channel}` && !channelTasksLoading : !channelsLoading,
-    view.type === 'videos' ? CacheKeys.CHANNEL_VIDEOS(view.platform, view.channel) : CacheKeys.VIDEO_CHANNELS,
-    !!error)
+
 
   const setView = useCallback((v: View) => {
     const params: Record<string, string> = {}
@@ -93,58 +100,53 @@ export default function Videos() {
     }
   }, [])
 
-  // Load tasks for the currently viewed channel
-  const loadChannelTasks = useCallback(async (
-    platform: string,
-    channel: string,
-    options: { preserveExisting?: boolean } = {},
-  ) => {
+  const [loadedChannelFilter,setLoadedChannelFilter] = useState('')
+  const channelFilter = `${channelQuery}:${channelStatus}:${channelSort}`
+  const channelCacheKey = (platform:string, channel:string) => CacheKeys.CHANNEL_VIDEOS(platform, channel) + ':' + channelFilter
+  usePageTiming(view.type === 'videos' ? 'channel' : 'videos',
+    view.type === 'videos' ? loadedChannelRef.current === `${view.platform}::${view.channel}` && !channelTasksLoading && loadedChannelFilter === channelFilter : !channelsLoading,
+    view.type === 'videos' ? channelCacheKey(view.platform, view.channel) : CacheKeys.VIDEO_CHANNELS,
+    !!error)
+  useReadingPosition(view.type === 'videos' ? `channel:${view.platform}:${view.channel}:${channelFilter}` : 'video-channels', undefined, !channelTasksLoading && (view.type!=='videos'||loadedChannelFilter===channelFilter))
+  useWarmCache<{tasks:VideoTask[];next_cursor:string|null}>(view.type==='videos'?channelCacheKey(view.platform,view.channel):CacheKeys.VIDEO_CHANNELS, value=>{if(view.type==='videos'&&value.tasks){setChannelTasks(value.tasks);setChannelCursor(value.next_cursor);setLoadedChannelFilter(channelFilter);setChannelTasksLoading(false)}else if(view.type!=='videos'&&Array.isArray(value)){setChannels(value);setChannelsLoading(false)}})
+  const loadChannelTasks = useCallback(async (platform: string, channel: string, options: { preserveExisting?: boolean; cursor?:string } = {}) => {
+    const owner = getAccountId(), attempt = ++channelRequest.current
+    channelAbort.current?.abort(); channelAbort.current = new AbortController()
     const key = `${platform}::${channel}`
-    const owner = getAccountId()
-    const preserveExisting = options.preserveExisting === true
-    if (!preserveExisting) {
-      if (loadedChannelRef.current !== key) {
-        const cached = getCache<VideoTask[]>(CacheKeys.CHANNEL_VIDEOS(platform, channel))
-        setChannelTasks(cached || [])
-        setChannelTasksLoading(!cached)
-      } else {
-        setChannelTasksLoading(false)
-      }
-    }
+    const cacheKey = channelCacheKey(platform, channel)
     loadedChannelRef.current = key
+    setChannelRefreshing(true); setError('')
     try {
-      const data = await fetchVideoTasksByChannel(platform, channel)
-      // Only apply if still viewing the same channel
-      if (loadedChannelRef.current === key) {
-        setChannelTasks(data.tasks)
-        setCache(CacheKeys.CHANNEL_VIDEOS(platform, channel), data.tasks, owner)
-        // Also push into store so active-task polling stays in sync
-        mergeVideoTasks(data.tasks)
-      }
+      const data = await fetchVideoTasksByChannel(platform, channel, {q:channelQuery,status:channelStatus,sort:channelSort,cursor:options.cursor,signal:channelAbort.current.signal})
+      if (attempt !== channelRequest.current || owner !== getAccountId()) return
+      setChannelTasks(previous => {
+        const tasks = options.cursor ? [...previous, ...data.tasks.filter(row => !previous.some(old => old.id === row.id))] : data.tasks
+        setCache(cacheKey, {tasks,next_cursor:data.next_cursor,at:Date.now()}, owner)
+        return tasks
+      })
+      setChannelCursor(data.next_cursor);setLoadedChannelFilter(channelFilter); mergeVideoTasks(data.tasks)
     } catch (e) {
-      console.error('Failed to load channel tasks:', e)
-      setError('Cannot load videos in this channel. Please retry.')
+      if (attempt === channelRequest.current && owner === getAccountId()) setError(e instanceof Error ? e.message : 'Cannot load videos. Please retry.')
     } finally {
-      if (!preserveExisting && loadedChannelRef.current === key) {
-        setChannelTasksLoading(false)
-      }
+      if (attempt === channelRequest.current) {setChannelTasksLoading(false);setChannelRefreshing(false)}
     }
-  }, [mergeVideoTasks])
+  }, [channelQuery,channelStatus,channelSort,mergeVideoTasks])
 
   // Initial load
   useEffect(() => {
     loadChannels()
   }, [loadChannels])
 
-  // When view changes to a specific channel, fetch its tasks
   useEffect(() => {
     if (view.type === 'videos') {
-      loadChannelTasks(view.platform, view.channel)
-    } else {
-      // Clear channel tasks when navigating away
-      setChannelTasks([])
-      loadedChannelRef.current = ''
-    }
+      const cached = getCache<{tasks:VideoTask[];next_cursor:string|null;at:number}>(channelCacheKey(view.platform,view.channel))
+      const sameChannel = loadedChannelRef.current === `${view.platform}::${view.channel}`
+      if (cached) {setChannelTasks(cached.tasks);setChannelCursor(cached.next_cursor);setLoadedChannelFilter(channelFilter);setChannelTasksLoading(false)}
+      else if (!sameChannel) {setChannelTasks([]);setChannelTasksLoading(true);setChannelCursor(null)}
+      if (!cached || Date.now()-cached.at>60000) void loadChannelTasks(view.platform,view.channel)
+      else {loadedChannelRef.current=`${view.platform}::${view.channel}`;setChannelRefreshing(false)}
+    } else {setChannelTasks([]);loadedChannelRef.current=''}
+    return () => {channelRequest.current++;channelAbort.current?.abort()}
   }, [view, loadChannelTasks])
 
   // Global progress reconciliation supplies active tasks even without a socket.
@@ -336,27 +338,10 @@ export default function Videos() {
     })
   }, [channelTasks, currentViewStoreTasks, view, videoTasks])
 
-  // Filtered tasks for the channel view
-  const filteredChannelTasks = useMemo(() => {
-    if (!search) return mergedChannelTasks
-    const q = search.toLowerCase()
-    return mergedChannelTasks.filter(t =>
-      t.title.toLowerCase().includes(q) ||
-      t.url.toLowerCase().includes(q)
-    )
-  }, [mergedChannelTasks, search])
-
-  // Sorted channel tasks newest first
-  const sortedChannelTasks = useMemo(() => {
-    return [...filteredChannelTasks].sort((a, b) => {
-      const pa = a.published_at || ''
-      const pb = b.published_at || ''
-      if (pa && pb) return pb.localeCompare(pa)
-      if (pa && !pb) return -1
-      if (!pa && pb) return 1
-      return (b.created_at || '').localeCompare(a.created_at || '')
-    })
-  }, [filteredChannelTasks])
+  // Server controls filtering/order across the whole channel, not only loaded rows.
+  const sortedChannelTasks = useMemo(() => channelRefreshing || loadedChannelFilter !== channelFilter ? channelTasks : mergedChannelTasks.filter(t =>
+    (!channelStatus || t.status === channelStatus) && (!channelQuery || t.title.toLowerCase().includes(channelQuery.toLowerCase()))
+  ).sort((a,b) => (channelSort === 'oldest' ? 1 : -1) * ((a.created_at || '').localeCompare(b.created_at || '') || a.id.localeCompare(b.id))), [mergedChannelTasks,channelTasks,channelRefreshing,channelStatus,channelQuery,channelSort,loadedChannelFilter,channelFilter])
 
   // Channels filtered by search (for channel/platform views)
   const filteredChannels = useMemo(() => {
@@ -448,6 +433,11 @@ export default function Videos() {
         </div>
       </div>
 
+      {view.type === 'videos' && <div className="flex flex-wrap items-center gap-3">
+        <select aria-label="Channel video status" value={channelStatus} onChange={e=>setChannelStatus(e.target.value)} className="bg-dark-surface p-2 rounded"><option value="">All statuses</option><option value="success">Ready to read</option><option value="discovered">Not processed</option><option value="failed">Needs attention</option><option value="pending">Queued</option></select>
+        <select aria-label="Channel video order" value={channelSort} onChange={e=>setChannelSort(e.target.value)} className="bg-dark-surface p-2 rounded"><option value="newest">Newest added</option><option value="oldest">Oldest added</option></select>
+        <span role="status" className="text-sm text-gray-400">{channelRefreshing || search !== channelQuery ? 'Updating results…' : `${sortedChannelTasks.length} videos loaded`}</span>
+      </div>}
       {/* New note form */}
       {formOpen && (
         <div className="bg-dark-surface rounded-xl border border-dark-border overflow-hidden">
@@ -558,12 +548,12 @@ export default function Videos() {
             <Loader2 className="w-8 h-8 animate-spin text-indigo-500" />
           </div>
         ) : (
-          <VideoList
+          <><VideoList
             videos={sortedChannelTasks}
             onDelete={handleDelete}
             onRetry={handleRetry}
             onCancel={handleCancel}
-          />
+          />{channelCursor && <button disabled={channelRefreshing || search !== channelQuery || loadedChannelFilter !== channelFilter} className="block mx-auto mt-4 px-4 py-2 bg-dark-surface rounded" onClick={()=>void loadChannelTasks(view.platform,view.channel,{cursor:channelCursor})}>{channelRefreshing ? 'Loading videos…' : 'Show more videos'}</button>}</>
         )
       )}
     </div>

@@ -225,3 +225,31 @@ Retained technical backlog from the preceding review (outside this visual releas
 - Topic-level podcast navigation and continuous image browsing/zoom.
 
 Rollback: safety/pre-visual-language-20261021 (af4de4b).
+
+
+## Completed backlog — 21 October 2026
+
+Reviewed against main `c5ead13`. The visual language and single-column reader
+were already implemented; this release preserves them. Remaining changes:
+
+| Area | Implementation / validation |
+| --- | --- |
+| Large channels | Owner-scoped keyset pages (40 default, 60 maximum), server search/status/order, lightweight fields; next-page cursor and scroll restoration. Real database EXPLAIN uses the new composite index (41 rows, 0.85ms execution; not end-to-end latency). |
+| Screenshot previews | New uploads persist private WebP derivatives. Restart-safe sequential background backfill handles existing media. Preview hits bypass originals; source files remain intact. Missing originals remain a recovery issue, not a preview problem. |
+| Search | Existing Library/channel results remain during debounced cancellable search; stale responses cannot overwrite the active filter. Failures retain results and show retry. |
+| Cache | Large bodies/lists use asynchronous IndexedDB plus bounded memory: 80 entries, estimated 16MiB, 2MiB per entry, 24-hour TTL, LRU. Small settings/stats alone remain in localStorage. Account guards, selective invalidation and nonblocking hydration cover all primary pages. |
+| Podcast reading | Single-column topic cards, topic-level contents, current-section selection, expand/collapse all. |
+| Screenshot gallery | Original-image loading/error/retry; previous/next, arrow keys, Escape, fit/zoom. Original downloads remain on demand. |
+| Accounts | Loading, unavailable/retry, saved-unverified and disconnected are distinct. Bilibili verification exposes valid/expired/error states; saved cookies alone do not prove a live session. Backend failures no longer masquerade as empty account lists. |
+| Metrics | Per-visit correlation merges slow warning + later success. Success-only P50/P95, error rate, unresolved slow count, navigation/cache cohorts, content/image timing. Legacy samples are labeled unknown rather than inferred. |
+
+Validation includes synthetic 2,000-row channel paging, retained search results,
+IndexedDB persistence, account-read failure/retry/expiry, image navigation/zoom,
+reader layouts from 390 to 5120px, optional-script failure, saved-position return,
+exports, and service-worker update/rollback. Initial compressed assets: ~184KiB,
+below the existing 190KiB ceiling. Synthetic and US-runner timings do not prove
+performance on the user's company Wi-Fi in China.
+
+Supabase security advisor: service-only/RLS-deny tables remain intentional.
+The pre-existing [leaked-password protection warning](https://supabase.com/docs/guides/auth/password-security#password-strength-and-leaked-password-protection)
+is unrelated to these performance changes; no Auth policy was weakened.

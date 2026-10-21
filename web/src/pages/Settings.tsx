@@ -1,21 +1,22 @@
-import PerformancePanel from '../components/PerformancePanel'
+import { OptionalTool } from '../components/DeferredView'
+const PerformancePanel = lazy(() => import('../components/PerformancePanel'))
 import { useUnsavedChanges } from '../lib/unsavedChanges'
-import DataRecovery from '../components/DataRecovery'
+const DataRecovery = lazy(() => import('../components/DataRecovery'))
 import { useAuth } from '../contexts/AuthContext'
 import { getAccountId, getPreference, setPreference } from '../lib/preferences'
 import { CacheKeys, getCache, setCache } from '../lib/cache'
 import { usePageTiming } from '../lib/pageTiming'
 import LoadError from '../components/LoadError'
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { lazy, useState, useEffect, useRef, useCallback } from 'react'
 import {
   Cpu, MessageSquare, Clock, Loader2, CheckCircle, Trash2, AlertTriangle,
   Search, Save, Download, X, Activity, Smartphone, Chrome,
   ExternalLink, Settings2, UserCircle, Wrench, Upload, FileText, Link, Video,
 } from 'lucide-react'
-import { QRCodeSVG } from 'qrcode.react'
+const QRCodeSVG = lazy(() => import('qrcode.react').then(module=>({default:module.QRCodeSVG})))
 import {
   fetchSettings, updateSettings, testLlmConnection, authFetch, importUserSubscriptions,
-  ImportSubscriptionsResult, fetchSysHealth, fetchAllCookies,
+  ImportSubscriptionsResult, fetchSysHealth, fetchAllCookies, validateBilibiliCookie,
   bilibiliQrGenerate, bilibiliQrPoll, douyinQrGenerate, douyinQrPoll,
   uploadCookieFile, importBrowserCookies, saveSimpleCookie,
   fetchNotionPages, fetchDouyinCookieDiagnosis, DouyinCookieDiagnosis,
@@ -438,12 +439,24 @@ export default function Settings() {
 
   useEffect(() => { loadSettings() }, [])
 
+  const [accountValidation,setAccountValidation] = useState<{valid:boolean;reason:string;message:string}|null>(null)
+  const [validatingAccount,setValidatingAccount] = useState(false)
+  const [accountsLoading,setAccountsLoading] = useState(true)
+  const [accountsError,setAccountsError] = useState('')
+  const accountsRequest = useRef(0)
+  useEffect(()=>setAccountValidation(null),[cookies,activePlatform])
+  const loadAccounts = useCallback(async () => {
+    const request=++accountsRequest.current, owner=getAccountId()
+    setAccountsLoading(true);setAccountsError('')
+    try {const data=await fetchAllCookies();if(request===accountsRequest.current&&owner===getAccountId())setCookies(data.cookies)}
+    catch {if(request===accountsRequest.current&&owner===getAccountId())setAccountsError('Could not read platform accounts. Connection status is unknown. Retry to check your saved accounts.')}
+    finally {if(request===accountsRequest.current&&owner===getAccountId())setAccountsLoading(false)}
+  }, [])
   useEffect(() => {
     if (activeTab !== 'accounts') return
-    fetchAllCookies()
-      .then(data => setCookies(data.cookies))
-      .catch(() => {})
-  }, [activeTab])
+    void loadAccounts()
+    return()=>{accountsRequest.current++}
+  }, [activeTab,loadAccounts])
 
   useEffect(() => {
     if (activeTab !== 'accounts' || activePlatform !== 'douyin') return
@@ -921,8 +934,12 @@ export default function Settings() {
             })}
           </div>
 
+          {accountsLoading && <p role="status">Loading platform accounts…</p>}
+          {accountsError && <div role="alert"><p>{accountsError}</p><button onClick={()=>void loadAccounts()}>Retry accounts</button></div>}
+          {!accountsLoading && !accountsError && activePlatform==='bilibili' && cookies.some(c=>c.platform==='bilibili'&&c.has_cookie) && <div className="space-y-2 text-sm"><button disabled={validatingAccount} onClick={async()=>{const owner=getAccountId();setValidatingAccount(true);try{const result=await validateBilibiliCookie();if(owner===getAccountId())setAccountValidation(result)}catch{setAccountValidation({valid:false,reason:'error',message:'Could not verify connection. Retry.'})}finally{setValidatingAccount(false)}}}>{validatingAccount?'Checking connection…':'Check connection'}</button>{accountValidation&&<p role="status">{accountValidation.valid?'Connection verified.':accountValidation.reason==='expired'?'Connection expired. Sign in again below.':accountValidation.message}</p>}</div>}
           {/* ── Platform login sections ── */}
           {(() => {
+            if(accountsLoading || accountsError) return null
             const name = platformLabel(activePlatform)
             const hasQr = activePlatform === 'bilibili' || activePlatform === 'douyin'
             const isYT = activePlatform === 'youtube'
@@ -1094,7 +1111,7 @@ export default function Settings() {
                     ) : (
                       <div className="space-y-3">
                         <div className="flex flex-col items-center gap-3 p-4 bg-white rounded-xl w-fit mx-auto">
-                          <QRCodeSVG value={qrUrl} size={180} level="M" />
+                          <OptionalTool fallback={<p>Loading QR code…</p>}><QRCodeSVG value={qrUrl} size={180} level="M" /></OptionalTool>
                         </div>
                         <div className="text-center space-y-1">
                           <p className={`text-sm ${qrStatus === 'scanned' ? 'text-cyan-400' : 'text-gray-400'}`}>
@@ -1198,7 +1215,7 @@ export default function Settings() {
                       {platformLabel(p)}
                     </span>
                     <span className={`text-xs ${info?.has_cookie ? 'text-green-400' : 'text-gray-500'}`}>
-                      {info?.has_cookie ? 'Saved' : 'Not set'}
+                      {accountsLoading?'Loading…':accountsError?'Unknown':info?.has_cookie ? 'Saved · not verified' : 'Not connected'}
                     </span>
                   </div>
                 )
@@ -1211,8 +1228,8 @@ export default function Settings() {
       {/* ═══════════════ TOOLS & DATA TAB ═══════════════ */}
       {activeTab === 'tools' && (
         <div className="space-y-5">
-          <PerformancePanel />
-          <DataRecovery />
+          <OptionalTool fallback={<p role="status">Loading performance tools…</p>}><PerformancePanel /></OptionalTool>
+          <OptionalTool fallback={<p>Loading recovery tools…</p>}><DataRecovery /></OptionalTool>
           {/* Video Tools Health */}
           <section className="p-5 bg-dark-surface border border-dark-border rounded-xl">
             <h2 className="text-base font-semibold text-white mb-3 flex items-center gap-2">

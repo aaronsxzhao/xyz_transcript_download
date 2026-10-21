@@ -8,7 +8,7 @@ import { getStatusColor } from '../lib/statusUtils'
 import { markSeen, isNewItem } from '../lib/seen'
 import { fetchEpisode } from '../lib/api'
 import LoadError from '../components/LoadError'
-import { getCache, setCache, CacheKeys } from '../lib/cache'
+import { useWarmCache, getCache, setCache, CacheKeys } from '../lib/cache'
 import { getAccountId } from '../lib/preferences'
 import { prefetchSummary } from '../lib/summaryPrefetch'
 import { usePageTiming } from '../lib/pageTiming'
@@ -21,6 +21,7 @@ export default function Episodes() {
   const [episodes, setEpisodes] = useState<Episode[]>(() => getCache(CacheKeys.EPISODES(pid!)) || [])
   const [loading, setLoading] = useState(() => !getCache(CacheKeys.EPISODES(pid!)))
   usePageTiming('episodes', !loading && (episodes[0]?.pid === pid || podcast?.pid === pid), CacheKeys.EPISODES(pid!))
+  useWarmCache<Episode[]>(CacheKeys.EPISODES(pid!),value=>{setEpisodes(value);setLoading(false);const cached=cachedPodcast();if(cached){setPodcast(cached);setHasMore(value.length<cached.episode_count)}})
   const [error, setError] = useState('')
   const [loadingMore, setLoadingMore] = useState(false)
   const [hasMore, setHasMore] = useState(() => {

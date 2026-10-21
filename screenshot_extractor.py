@@ -69,6 +69,11 @@ def _upload_to_supabase(local_path: Path, bucket: str, remote_name: str) -> Opti
             remote_name, data,
             file_options={"content-type": "image/jpeg", "upsert": "true"},
         )
+        try:
+            from api.media import store_preview
+            store_preview(bucket, remote_name, data, client.storage.from_(bucket))
+        except Exception:
+            logger.warning("Preview persistence deferred to background backfill")
         return f"/data/{bucket}/{remote_name}"
     except Exception as e:
         logger.warning(f"Supabase upload failed for {remote_name}: {e}")
@@ -105,6 +110,10 @@ def _delete_supabase_objects(client, bucket: str, object_names: List[str]) -> in
             continue
         try:
             client.storage.from_(bucket).remove(chunk)
+            try:
+                client.storage.from_(bucket).remove([f'previews/{name}.webp' for name in chunk])
+            except Exception:
+                logger.warning('Derived preview cleanup will need a retry')
             deleted += len(chunk)
         except Exception as e:
             logger.warning(f"Failed to delete {len(chunk)} object(s) from bucket '{bucket}': {e}")
@@ -126,6 +135,7 @@ def delete_task_assets(task_id: str) -> dict:
     for path in [*screenshot_files, *thumbnail_files]:
         try:
             path.unlink(missing_ok=True)
+            (path.parent / '.previews' / (path.name + '.webp')).unlink(missing_ok=True)
             local_deleted += 1
         except Exception as e:
             logger.warning(f"Failed to delete local asset {path.name}: {e}")
@@ -230,6 +240,7 @@ def cleanup_expired_assets(retention_days: int, now: Optional[datetime] = None) 
                 modified_at = datetime.fromtimestamp(path.stat().st_mtime, tz=timezone.utc)
                 if modified_at < cutoff:
                     path.unlink(missing_ok=True)
+                    (path.parent / '.previews' / (path.name + '.webp')).unlink(missing_ok=True)
                     local_deleted += 1
             except Exception as e:
                 logger.warning(f"Failed to inspect/delete expired local asset {path.name}: {e}")

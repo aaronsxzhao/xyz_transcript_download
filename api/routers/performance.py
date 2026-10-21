@@ -16,6 +16,8 @@ _samples = OrderedDict()
 class PageTiming(BaseModel):
     page: Literal["library", "dashboard", "podcasts", "videos", "channel", "episodes", "viewer", "video_note", "settings"]
     stage: Literal['application', 'bootstrap', 'content', 'image'] = 'application'
+    visit_id: str = Field(default='', max_length=64, pattern=r'^[a-zA-Z0-9_-]*$')
+    navigation: Literal['document', 'navigation', 'unknown'] = 'unknown'
     program_embedded: bool = False
     module_requests: int = Field(default=0, ge=0, le=1000)
     module_failures: int = Field(default=0, ge=0, le=1000)
@@ -58,13 +60,38 @@ def get_timings(user: User = Depends(get_current_user)):
     # Return only this account's latest measurements, aggregated by fixed page.
     try: records = performance_store.read(user.id)
     except Exception: records = list(_samples.get(user.id, []))
+    return {'pages': aggregate(records)}
+
+
+def aggregate(records):
+    # A timeout warning and later success describe one visit, not two samples.
+    visits = {}
+    for index, row in enumerate(records):
+        key = (row['page'], row.get('visit_id') or f'legacy-{index}', 'image' if row.get('stage') == 'image' else 'page')
+        previous = visits.get(key)
+        rank = lambda value: (value.get('outcome') == 'ready', value.get('stage') == 'content', value.get('outcome') == 'error')
+        if previous is None or rank(row) >= rank(previous):
+            visits[key] = row
     pages = {}
     for page in {r['page'] for r in records}:
-        all_rows = [r for r in records if r['page'] == page]
-        rows = [r for r in all_rows if r.get('stage') != 'image'] or all_rows
-        elapsed = sorted(r['elapsed_ms'] for r in rows)
-        pages[page] = {**rows[-1], 'samples': len(rows), 'worst_ms': elapsed[-1],
-                       'error_count': sum(r['outcome'] == 'error' for r in rows),
-                       'slow_count': sum(r['outcome'] == 'slow' for r in rows), **percentiles(rows),
-                       'stages': {stage: percentiles([r for r in all_rows if r.get('stage','application') == stage]) for stage in {r.get('stage','application') for r in all_rows}}}
-    return {'pages': pages}
+        all_rows = [r for (name, _, _), r in visits.items() if name == page]
+        rows = [r for r in all_rows if r.get('stage') != 'image']
+        if not rows:
+            continue
+        success = [r for r in rows if r.get('outcome', 'ready') == 'ready']
+        errors = sum(r.get('outcome') == 'error' for r in rows)
+        groups = {}
+        for navigation in ('document', 'navigation', 'unknown'):
+            for cached in (True, False):
+                group = [r for r in rows if r.get('navigation', 'unknown') == navigation and r.get('cached', False) == cached]
+                if group:
+                    groups[f'{navigation}:{"cache" if cached else "network"}'] = {'samples': len(group), 'errors': sum(r.get('outcome') == 'error' for r in group), **percentiles([r for r in group if r.get('outcome', 'ready') == 'ready'])}
+        pages[page] = {**rows[-1], 'samples': len(rows), 'worst_ms': max((r['elapsed_ms'] for r in success), default=0),
+                       'error_count': errors, 'failure_rate': errors / len(rows),
+                       'slow_count': sum(r.get('outcome') == 'slow' for r in rows), **percentiles(success),
+                       'groups': groups,
+                       'stages': {stage: percentiles([r for r in all_rows if r.get('stage','application') == stage and r.get('outcome','ready') == 'ready']) for stage in {r.get('stage','application') for r in all_rows}}}
+        if not success:
+            pages[page].pop('p50_ms', None)
+            pages[page].pop('p95_ms', None)
+    return pages

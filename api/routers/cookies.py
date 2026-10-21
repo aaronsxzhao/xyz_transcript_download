@@ -804,4 +804,7 @@ def list_cookies(user: Optional[User] = Depends(get_current_user)):
     """List all stored platform cookies."""
     from cookie_manager import get_cookie_manager
     mgr = get_cookie_manager(user.id if user else None)
-    return {"cookies": mgr.list_cookies()}
+    try:
+        return {"cookies": mgr.list_cookies()}
+    except Exception:
+        raise HTTPException(status_code=503, detail="Cannot read saved platform accounts. Please retry.")
