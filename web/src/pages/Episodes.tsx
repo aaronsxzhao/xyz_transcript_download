@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import { ArrowLeft, Play, FileText, MessageSquare, Loader2, CheckCircle, Trash2, RefreshCw, Tag, Sparkles, Upload } from 'lucide-react'
-import { fetchPodcast, fetchEpisodes, processEpisode, deleteEpisode, resummarizeEpisode, uploadLocalPodcastAudio, type Podcast, type Episode } from '../lib/api'
+import { ApiError, fetchPodcast, fetchEpisodes, processEpisode, deleteEpisode, resummarizeEpisode, uploadLocalPodcastAudio, type Podcast, type Episode } from '../lib/api'
 import { useToast } from '../components/Toast'
 import { useStore } from '../lib/store'
 import { getStatusColor } from '../lib/statusUtils'
@@ -20,9 +20,11 @@ export default function Episodes() {
   const [podcast, setPodcast] = useState<Podcast | null>(cachedPodcast)
   const [episodes, setEpisodes] = useState<Episode[]>(() => getCache(CacheKeys.EPISODES(pid!)) || [])
   const [loading, setLoading] = useState(() => !getCache(CacheKeys.EPISODES(pid!)))
-  usePageTiming('episodes', !loading && (episodes[0]?.pid === pid || podcast?.pid === pid), CacheKeys.EPISODES(pid!))
   useWarmCache<Episode[]>(CacheKeys.EPISODES(pid!),value=>{setEpisodes(value);setLoading(false);const cached=cachedPodcast();if(cached){setPodcast(cached);setHasMore(value.length<cached.episode_count)}})
   const [error, setError] = useState('')
+  const [retrying, setRetrying] = useState(false)
+  const [errorSource, setErrorSource] = useState<'initial' | 'more'>('initial')
+  usePageTiming('episodes', !loading && !error && (episodes[0]?.pid === pid || podcast?.pid === pid), CacheKeys.EPISODES(pid!), !!error)
   const [loadingMore, setLoadingMore] = useState(false)
   const [hasMore, setHasMore] = useState(() => {
     const cached = getCache<Episode[]>(CacheKeys.EPISODES(pid!))
@@ -41,6 +43,7 @@ export default function Episodes() {
   const fileInputRef = useRef<HTMLInputElement>(null)
   const currentPid = useRef(pid)
   currentPid.current = pid
+  const loadVersion = useRef(0)
 
   
   // Helper to find active job for an episode
@@ -63,6 +66,7 @@ export default function Episodes() {
     completedJobsRef.current.clear()
     seenMarkedRef.current = false
     void loadData()
+    return () => { loadVersion.current += 1 }
   }, [pid])
 
   const seenMarkedRef = useRef(false)
@@ -73,53 +77,68 @@ export default function Episodes() {
     }
   }, [episodes])
   
+  function episodeError(err: unknown): string {
+    if (err instanceof ApiError) {
+      if (err.status === 401) return 'Your session has expired. Please sign in again.'
+      if (err.status === 404) return 'This podcast is no longer available in your account.'
+      return `The episode service is unavailable (HTTP ${err.status}). Please retry.`
+    }
+    return 'The episode connection was interrupted or timed out. Please retry.'
+  }
+
   async function loadData() {
     if (!pid) return
     const requestedPid = pid
     const owner = getAccountId()
-    const current = () => currentPid.current === requestedPid && owner === getAccountId()
+    const version = ++loadVersion.current
+    const current = () => version === loadVersion.current && currentPid.current === requestedPid && owner === getAccountId()
     setError('')
+    setErrorSource('initial')
+    setRetrying(false)
+    setLoading(!getCache(CacheKeys.EPISODES(pid)))
+    // Metadata is independent: never hold the episode result/error behind it.
+    if (!cachedPodcast()) void fetchPodcast(pid).then(data => {
+      if (current()) { setPodcast(data); setCache(CacheKeys.PODCAST(pid), data, owner) }
+    }).catch(() => {})
     try {
-      const [podcastData, episodesData] = await Promise.allSettled([
-        fetchPodcast(pid).then(data => {
-          if (current()) { setPodcast(data); setCache(CacheKeys.PODCAST(pid), data, owner) }
-          return data
-        }),
-        fetchEpisodes(pid).then(data => {
-          if (current()) {
-            setEpisodes(data)
-            setCache(CacheKeys.EPISODES(pid), data, owner)
-            setLoading(false)
-          }
-          return data
-        }),
-      ])
+      let data: Episode[]
+      try { data = await fetchEpisodes(pid) }
+      catch (err) {
+        // One fresh connection for transient read failures; never retry auth,
+        // missing records, cancellation, or any mutation automatically.
+        if (!current() || !(err instanceof TypeError ||
+          err instanceof Error && err.message.includes('timed out') ||
+          err instanceof ApiError && [502, 503, 504].includes(err.status))) throw err
+        setRetrying(true)
+        data = await fetchEpisodes(pid)
+      }
       if (!current()) return
-      if (episodesData.status === 'fulfilled') {
-        const count = podcastData.status === 'fulfilled' ? podcastData.value.episode_count : cachedPodcast()?.episode_count
-        setHasMore(count === undefined ? episodesData.value.length === 50 : episodesData.value.length < count)
-      } else setError('Cannot load episodes. Please retry.')
+      setEpisodes(data)
+      setCache(CacheKeys.EPISODES(pid), data, owner)
+      // A full page may have a successor even if metadata is unavailable/stale.
+      setHasMore(data.length === 50)
     } catch (err) {
-      console.error('Failed to load data:', err)
-      if (current()) setError('Cannot load episodes. Please retry.')
+      if (current()) setError(episodeError(err))
     } finally {
-      if (current()) setLoading(false)
+      if (current()) { setLoading(false); setRetrying(false) }
     }
   }
 
   async function loadMore() {
-    if (!pid || loadingMore) return
+    if (!pid || loadingMore || loading) return
     const requestedPid = pid
     const owner = getAccountId()
-    const current = () => requestedPid === currentPid.current && owner === getAccountId()
+    const version = loadVersion.current
+    const current = () => version === loadVersion.current && requestedPid === currentPid.current && owner === getAccountId()
     setLoadingMore(true)
+    setErrorSource('more')
     setError('')
     try {
       const next = await fetchEpisodes(pid, episodes.length)
       if (!current()) return
       setEpisodes(previous => [...previous, ...next])
-      setHasMore(next.length === 50 && episodes.length + next.length < (podcast?.episode_count || 0))
-    } catch { if (current()) setError('Cannot load more episodes. Please retry.') }
+      setHasMore(next.length === 50)
+    } catch (err) { if (current()) setError(episodeError(err)) }
     finally { if (current()) setLoadingMore(false) }
   }
 
@@ -261,17 +280,9 @@ export default function Episodes() {
     return `${mins} min`
   }
   
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <Loader2 className="w-8 h-8 animate-spin text-indigo-500" />
-      </div>
-    )
-  }
-  
   return (
     <div className="space-y-4 md:space-y-6">
-      {error && <LoadError message={error} onRetry={() => { void (episodes.length ? loadMore() : loadData()) }} />}
+      {error && <LoadError message={error} onRetry={() => { void (errorSource === 'more' ? loadMore() : loadData()) }} />}
       <div className="flex items-center gap-3 md:gap-4">
         <button
           aria-label="Go back"
@@ -282,7 +293,7 @@ export default function Episodes() {
         </button>
         <div className="min-w-0">
           <h1 className="page-title text-lg md:text-2xl font-bold text-white line-clamp-1">{podcast?.title || 'Episodes'}</h1>
-          <p className="text-sm md:text-base text-gray-400">{episodes.length}{hasMore ? ` of ${podcast?.episode_count}` : ''} episodes</p>
+          <p className="text-sm md:text-base text-gray-400">{loading ? 'Loading episodes…' : `${episodes.length}${hasMore && podcast?.episode_count ? ` of ${Math.max(podcast.episode_count, episodes.length)}` : ''} episodes`}</p>
         </div>
       </div>
 
@@ -331,6 +342,11 @@ export default function Episodes() {
         </div>
       )}
       
+      {loading && <div role="status" className="flex items-center gap-2 p-4 text-sm text-gray-400">
+        <Loader2 size={18} className="animate-spin text-indigo-400" />
+        {retrying ? 'Connection interrupted. Retrying once…' : 'Loading episodes…'}
+      </div>}
+      {!loading && !error && episodes.length === 0 && <p className="text-gray-400">No episodes saved yet.</p>}
       {/* Episodes list */}
       <div className="space-y-3">
         {episodes.map((episode) => (

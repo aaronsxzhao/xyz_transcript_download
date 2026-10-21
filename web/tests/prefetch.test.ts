@@ -60,3 +60,19 @@ it('does not request notes when a pointer only passes over a card', async () => 
   await new Promise(resolve=>setTimeout(resolve,220))
   expect(fetch).not.toHaveBeenCalled()
 })
+
+it('prefetches only the first episode page and shares it with navigation', async () => {
+  const { prefetchEpisodes } = await import('../src/lib/summaryPrefetch')
+  const { fetchEpisodes } = await import('../src/lib/api')
+  let finish!:(response:Response)=>void
+  const fetch=vi.fn(()=>new Promise<Response>(resolve=>{finish=resolve}))
+  vi.stubGlobal('fetch',fetch)
+  prefetchEpisodes('channel')
+  await new Promise(resolve=>setTimeout(resolve,220))
+  const opened=fetchEpisodes('channel')
+  expect(fetch).toHaveBeenCalledOnce()
+  expect(fetch.mock.calls[0][0]).toBe('/api/podcasts/channel/episodes?offset=0&limit=50')
+  finish(Response.json([{eid:'first',pid:'channel'}]))
+  await opened
+  await vi.waitFor(()=>expect(getCache(CacheKeys.EPISODES('channel'))).toEqual([{eid:'first',pid:'channel'}]))
+})
