@@ -1,5 +1,11 @@
 # Restore the previous website
 
+## Groq summary stream recovery (21 October 2026)
+
+Use `safety/pre-groq-stream-fix-20261021`, image
+`938a586685c3871c72255802463d7064d0672205`, in **Roll back website**. No schema changes are required.
+Saved transcripts and existing summaries remain intact.
+
 ## Unified tasks and workspace (21 October 2026)
 
 Use `safety/pre-task-workspace-20261021`, image

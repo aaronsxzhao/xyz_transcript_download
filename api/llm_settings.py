@@ -46,11 +46,20 @@ def test_summary_connection(preferences: dict) -> dict:
 
 def safe_provider_error(error: Exception) -> str:
     """Do not return provider response bodies, URLs, or headers containing credentials."""
+    from summary_errors import SummaryOutputError
+    if isinstance(error, SummaryOutputError):
+        return str(error)
+    if type(error).__name__ in {'APITimeoutError','ReadTimeout','ConnectTimeout'}:
+        return "The summary provider timed out. Please retry summary generation."
+    if type(error).__name__ in {'APIConnectionError','ConnectError','RemoteProtocolError'}:
+        return "The connection to the summary provider was interrupted. Please retry summary generation."
     status = getattr(error, "status_code", None)
+    if isinstance(status, int) and status >= 500:
+        return "The summary provider is temporarily unavailable. Please retry later."
     if status in (401, 403):
         return "The summary provider rejected the API key or model access. Check provider permissions."
     if status == 429:
         return "The summary provider's rate limit or quota was reached. Wait and retry, or check your Groq limits."
     if status in (400, 404):
         return "The summary model or API endpoint is unavailable. Choose a supported model in Settings."
-    return "Could not verify summaries. Check the provider configuration and try again."
+    return "The summary request failed. Please retry or test the provider connection in Settings."
