@@ -50,9 +50,8 @@ jobs:
     env:
       REPAIR_SHARD: ${{ matrix.shard }}
       REPAIR_SHARDS: '8'
-      # Maintenance-code pushes finish accessible YouTube history; manual runs
-      # can also attempt Bilibili after the account connection is refreshed.
-      REPAIR_PLATFORMS: ${{ github.event_name == 'push' && 'youtube' || 'youtube,bilibili' }}
+      # Frame recovery runs only when explicitly requested.
+      REPAIR_PLATFORMS: youtube,bilibili
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
