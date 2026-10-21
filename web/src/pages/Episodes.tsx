@@ -400,9 +400,9 @@ export default function Episodes() {
                     </span>
                   )}
                   {episode.has_summary && (
-                    <span className="flex items-center gap-1 text-purple-500">
+                    <span className={`flex items-center gap-1 ${episode.quality_status === "needs_review" ? "text-amber-300" : "text-purple-500"}`}>
                       <MessageSquare size={12} className="md:w-3.5 md:h-3.5" />
-                      <span className="hidden sm:inline">Summary</span>
+                      <span>{episode.quality_status === "needs_review" ? "Summary needs review" : "Summary"}</span>
                       <span className="text-gray-400 ml-1">
                         ({episode.topics_count} <Tag size={10} className="inline" />, {episode.key_points_count} pts)
                       </span>

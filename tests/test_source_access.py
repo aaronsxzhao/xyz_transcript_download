@@ -53,3 +53,23 @@ def test_incomplete_download_reports_source_problem_without_retrying_same_placeh
     assert 'only 10s' in engine.last_error
     assert 'purchase/sign-in' in engine.last_error
     engine._download_with_resume.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_empty_long_summary_has_consistent_quality_and_is_not_recommended(client,db_interface,create_test_podcast,create_test_episode,sample_transcript_data,sample_summary_data):
+    create_test_podcast();create_test_episode()
+    db_interface.save_transcript(TranscriptData(**{**sample_transcript_data,'text':'Full substantive transcript. '*100}))
+    db_interface.save_summary(SummaryData(**{**sample_summary_data,'key_points':[],'topics':[]}))
+    summary=(await client.get('/api/summaries/test-episode-456')).json()
+    assert 'no topics or key points' in summary['quality_warning']
+    for path in ['/api/episodes/test-episode-456','/api/podcasts/content?pid=test-podcast-123']:
+        row=(await client.get(path)).json()
+        if isinstance(row,list): row=row[0]
+        assert row['has_summary'] is True
+        assert row['quality_status']=='needs_review'
+    assert (await client.get('/api/library')).json()['items']==[]
+    assert (await client.get('/api/summaries/recent')).json()==[]
+    for format in ['html','markdown']:
+        assert (await client.get('/api/summaries/test-episode-456/'+format)).status_code==409
+    # Historic data remains available for inspection/recovery.
+    assert db_interface.get_summary('test-episode-456') is not None

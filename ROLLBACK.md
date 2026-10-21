@@ -1,5 +1,17 @@
 # Restore the previous website
 
+## Workspace and reader iteration (21 October 2026)
+
+Use `safety/pre-workspace-iteration-20261021`, image
+`3a2a4fe27aad16d2ff936d787db33042deda5971`, in **Roll back website**.
+This restores the release immediately before the workspace/reader changes.
+The additive `readable_library` migration only changes a derived view and adds
+a count column; it can remain with the previous application. It marks one
+empty long-episode summary as needing review instead of advertising it as ready.
+No saved summaries, transcripts, media or account settings are deleted.
+Browser reading history is optional account-scoped cache and can safely remain.
+
+
 ## Performance backlog checkpoint (21 October 2026)
 
 Use `safety/pre-performance-backlog-20261021`, image

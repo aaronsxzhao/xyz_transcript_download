@@ -253,3 +253,45 @@ performance on the user's company Wi-Fi in China.
 Supabase security advisor: service-only/RLS-deny tables remain intentional.
 The pre-existing [leaked-password protection warning](https://supabase.com/docs/guides/auth/password-security#password-strength-and-leaked-password-protection)
 is unrelated to these performance changes; no Auth policy was weakened.
+
+## Workspace and reading follow-through — 21 October 2026
+
+The `readable_library` migration (`20261021111818`) is applied. It adds a
+lightweight key-point count and classifies long empty podcast summaries as
+`needs_review`. Verification found 47 readable podcast summaries, one retained
+summary needing review, and 69 completed video notes; failed/cancelled tasks stay
+out of Library. The view remains service-only, with explicit API owner filters.
+A six-row recent-summary query reads metadata/counts rather than full summaries;
+its inspected plan used the episode and key-point indexes (about 58ms in that
+sample, not an end-to-end network measurement). Security-advisor findings are
+unchanged from the preceding review.
+
+Continue reading uses up to 30 actual visits on this browser, with scroll position
+and percentage. A bounded owned-library lookup validates references before
+advertising them as readable. Failed verification has an explicit retry, and
+recent additions are not presented as reading history. Reading history can persist
+for 90 days unless the user signs out or clears browser data; it is not cross-device
+sync. Invalid summaries and original media/transcripts are never deleted.
+
+IndexedDB startup now issues `get(currentKey)` rather than cursor-reading every
+saved body. Cleanup is delayed off startup and runs during idle time, with the
+existing 80-entry/16MiB bounds. Responses remain scoped to the active account,
+and late account responses cannot populate a different account's cache. Large
+bodies are never synchronously serialized to localStorage.
+
+A Settings-controller split was evaluated and rejected: its extra file request
+would weaken the prior guarantee that Settings opens even when external scripts
+are blocked. Every page controller remains in the document. Only video-creation
+and enlargement controls are deferred; enlargement controls warm after a preview
+loads. Route fallback errors preserve application navigation, and optional tools
+have their own visible failure boundary. The complete initial compressed document
+and referenced assets remain under the existing 190KiB budget (approximately
+189.5KiB). This iteration adds features; it does not claim a smaller initial payload
+than the preceding 187.2KiB release.
+
+Validation includes 294 backend tests, 75 frontend tests, current-key hydration
+and account-change races, quality/ownership checks, mobile 44px screenshot targets,
+real browser two-finger zoom, neighboring-original prefetch, and first visits with
+all external JS/CSS blocked. Streamed-document checks still show navigation and
+start Settings reads before the embedded program arrives. Browser fixtures are
+synthetic and do not establish performance on the user's China company network.

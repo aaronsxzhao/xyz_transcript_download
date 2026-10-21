@@ -1,6 +1,6 @@
 """Bounded saved-note discovery. No full note/transcript payloads."""
 from typing import Literal
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, HTTPException
 from api.auth import User, get_current_user
 from api.db import get_db
 
@@ -19,23 +19,34 @@ def page_rows(rows, limit):
 def library(q: str = Query('', max_length=200), kind: Literal['', 'podcast', 'video'] = '',
             status: str = Query('', max_length=32), source: str = Query('', max_length=200),
             sort: Literal['newest', 'oldest'] = 'newest', cursor: str = Query('', max_length=400),
-            limit: int = Query(40, ge=1, le=60), user: User = Depends(get_current_user)):
+            limit: int = Query(40, ge=1, le=60), ids: str = Query('',max_length=4000), user: User = Depends(get_current_user)):
     if status and status != 'completed':
         return {'items': [], 'next_cursor': None}
+    requested = set(ids.split(',')) if ids else set()
+    if len(requested)>30 or any(not row.startswith(('podcast:','video:')) or not row.partition(':')[2] for row in requested):
+        raise HTTPException(422,'At most 30 valid reading references are allowed')
     db = get_db(user.id)
     if db.use_supabase:
         query = db.db.client.table('library_items').select('id,kind,title,source,date,status,sort_key,thumbnail,platform,duration,topics_count').eq('user_id', user.id).eq('status', 'completed')
+        if requested: query = query.in_('id',[row.partition(':')[2] for row in requested])
         if kind: query = query.eq('kind', kind)
         if status: query = query.eq('status', status)
         if source: query = query.ilike('source', '%' + source.replace('\\', '\\\\').replace('%', '\\%').replace('_', '\\_') + '%')
         if q: query = query.ilike('search_text', '%' + q.replace('\\', '\\\\').replace('%', '\\%').replace('_', '\\_') + '%')
         if cursor: query = query.lt('sort_key', cursor) if sort == 'newest' else query.gt('sort_key', cursor)
-        rows = query.order('sort_key', desc=sort == 'newest').limit(limit + 1).execute().data or []
+        rows = query.order('sort_key', desc=sort == 'newest').limit(61 if requested else limit + 1).execute().data or []
+        if requested: rows=[r for r in rows if r['kind']+':'+r['id'] in requested]
         return page_rows(rows, limit)
     # Local summaries live as JSON files; cloud queries never take this path.
     summaries = db.get_all_summaries()
     metadata = db.get_summary_podcast_metadata([s.episode_id for s in summaries])
     rows = [dict(id=s.episode_id, kind='podcast', title=s.title, source=metadata.get(s.episode_id, ('Podcast', ''))[0] or 'Podcast', date=s.created_at, status='completed', thumbnail=metadata.get(s.episode_id, ('', ''))[1] or '', platform='', duration=0, topics_count=len(s.topics or [])) for s in summaries]
+    from api.summary_quality import needs_review
+    for row,s in zip(rows,summaries):
+        episode=db.get_episode(s.episode_id)
+        row['duration']=episode.duration if episode else 0
+        if needs_review(row['duration'],s.topics,s.key_points): row['status']='needs_review'
+    rows=[row for row in rows if row['status']=='completed']
     from video_task_db import get_video_task_db
     videos = get_video_task_db().list_tasks(user.id, limit=1000000)
     rows += [dict(id=t['id'], kind='video', title=t.get('title') or 'Untitled video', source=t.get('channel') or t.get('platform') or 'Video', date=t.get('updated_at') or t.get('created_at') or '', status='completed', thumbnail=t.get('thumbnail') or '', platform=t.get('platform') or '', duration=t.get('duration') or 0, topics_count=0) for t in videos if t['status'] == 'success']
@@ -45,5 +56,6 @@ def library(q: str = Query('', max_length=200), kind: Literal['', 'podcast', 'vi
         except (ValueError, TypeError): date = '00000000000000000000'
         row['sort_key'] = date + ':' + row['kind'] + ':' + row['id']
     rows = [r for r in rows if (not kind or r['kind'] == kind) and (not status or r['status'] == status) and source.casefold() in r['source'].casefold() and q.casefold() in (r['title'] + ' ' + r['source']).casefold() and (not cursor or (r['sort_key'] < cursor if sort == 'newest' else r['sort_key'] > cursor))]
+    if requested: rows=[r for r in rows if r['kind']+':'+r['id'] in requested]
     rows.sort(key=lambda r: r['sort_key'], reverse=sort == 'newest')
     return page_rows(rows, limit)

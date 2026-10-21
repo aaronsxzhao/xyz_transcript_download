@@ -33,7 +33,7 @@ async def check(browser, origin, width, output, label):
     page = await context.new_page()
     session = await context.new_cdp_session(page)
     await session.send('Emulation.setCPUThrottlingRate', {'rate':4})
-    errors=[]; images=[]; requests=[]
+    errors=[]; images=[]; requests=[]; original_requests=[]
     page.on('pageerror',lambda e: errors.append(str(e)))
     fail_videos = False
     empty_podcasts = False
@@ -67,6 +67,7 @@ async def check(browser, origin, width, output, label):
     await page.route('**/api/**',api)
     async def image(route):
         images.append(urlparse(route.request.url).path)
+        if 'preview=true' not in route.request.url: original_requests.append(urlparse(route.request.url).path)
         await asyncio.sleep(1.2 if route.request.frame.parent_frame else .4)
         await route.fulfill(content_type='image/svg+xml',body='<svg xmlns="http://www.w3.org/2000/svg" width="960" height="540"><rect width="960" height="540" fill="#0f172a"/><path d="M0 450 L130 320 L230 380 L420 160 L530 220 L700 80 L960 30" fill="none" stroke="#34d399" stroke-width="6"/><text x="40" y="70" fill="#e2e8f0" font-size="28">Synthetic screenshot — trend review</text></svg>')
     await page.route('**/data/screenshots/**',image)
@@ -108,6 +109,7 @@ async def check(browser, origin, width, output, label):
     result['layout']=await page.evaluate('''()=>{const a=document.querySelector('article').getBoundingClientRect(),c=document.querySelector('#video-content-scroll').getBoundingClientRect();return {article:a.width,content:c.width,viewport:innerWidth,overflow:document.documentElement.scrollWidth>innerWidth}}''')
     await page.screenshot(path=str(output/f'{label}-{width}-note.png'))
     if label == 'after':
+        if width<768: await page.get_by_role('button',name='Reading options',exact=True).click()
         await page.locator('.reader-export > summary').click()
         bounds = await page.locator('.reader-export-panel').bounding_box()
         assert bounds['x'] >= 0 and bounds['x'] + bounds['width'] <= width
@@ -128,12 +130,30 @@ async def check(browser, origin, width, output, label):
     assert 'preview=true' in await page.locator('article img').first.get_attribute('src')
     await page.locator('article .reader-screenshot').first.click()
     assert 'preview=true' not in await page.get_by_role('dialog',name='Enlarged screenshot').locator('img').get_attribute('src')
+    await page.get_by_role('dialog').locator('img').wait_for(state='visible')
+    deadline=time.monotonic()+5
+    while '/data/screenshots/bench_1.jpg' not in original_requests and time.monotonic()<deadline: await page.wait_for_timeout(50)
+    assert '/data/screenshots/bench_1.jpg' in original_requests, 'Adjacent original should prefetch after the current image loads'
+    if width<768:
+        sizes=await page.get_by_role('dialog').locator('button').evaluate_all('(nodes)=>nodes.map(n=>[n.getBoundingClientRect().width,n.getBoundingClientRect().height])')
+        assert all(w>=44 and h>=44 for w,h in sizes),sizes
     await page.get_by_role('button',name='Next',exact=True).click()
     await page.wait_for_function("document.querySelector('[role=dialog] img')?.src.includes('bench_1.jpg')")
     await page.keyboard.press('ArrowLeft')
     await page.wait_for_function("document.querySelector('[role=dialog] img')?.src.includes('bench_0.jpg')")
     await page.get_by_role('button',name='Zoom in',exact=True).click()
     assert await page.get_by_role('button',name='Fit · 150%',exact=True).count()==1
+    if width<768:
+        await page.get_by_role('button',name='Fit · 150%',exact=True).click()
+        bounds=await page.locator('.gallery-viewport').bounding_box()
+        x=bounds['x']+bounds['width']/2;y=bounds['y']+min(120,bounds['height']/2)
+        def points(distance): return [{'x':x-distance,'y':y,'id':1},{'x':x+distance,'y':y,'id':2}]
+        await session.send('Input.dispatchTouchEvent',{'type':'touchStart','touchPoints':points(30)})
+        await session.send('Input.dispatchTouchEvent',{'type':'touchMove','touchPoints':points(60)})
+        await session.send('Input.dispatchTouchEvent',{'type':'touchEnd','touchPoints':[]})
+        await page.wait_for_timeout(100)
+        assert not await page.get_by_role('button',name='Fit · 100%',exact=True).count(),'Two-finger pinch should zoom the original'
+        result['gallery_touch_zoom_and_adjacent_prefetch']=True
     await page.get_by_role('button',name='Close enlarged screenshot').click()
     result['reading_preferences_and_original_on_demand']=True
 

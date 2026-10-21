@@ -3,6 +3,7 @@ import { useWarmCache } from '../lib/cache'
 import { printHtml } from '../lib/print'
 import SummaryText from '../components/SummaryText'
 import ReaderControls from '../components/ReaderControls'
+import {useRecordReading} from '../lib/readingHistory'
 import { useReadingPosition, useDialog } from '../lib/reading'
 import LoadError from '../components/LoadError'
 import { deferView } from '../components/DeferredView'
@@ -124,6 +125,7 @@ export default function Viewer() {
   const [pdfLoading, setPdfLoading] = useState(false)
 
   useReadingPosition(`podcast:${eid}`, undefined, !loading)
+  useRecordReading({id:eid!,kind:'podcast',title:summary?.title||''},!loading&&!!summary&&summary.episode_id===eid&&!summary.quality_warning)
   const [notionOpen, setNotionOpen] = useState(false)
   useDialog(notionOpen, () => setNotionOpen(false))
   const [notionPages, setNotionPages] = useState<NotionPage[]>([])
@@ -425,6 +427,10 @@ export default function Viewer() {
       }} />}
 
       {loading && <div role="status" className="flex items-center gap-2 text-sm text-gray-400"><Loader2 size={18} className="animate-spin text-indigo-400" />{retrying ? 'Connection interrupted. Retrying once…' : 'Loading summary…'}</div>}
+      {activeTab==='summary' && summary && !summary.quality_warning && <nav aria-label="Reading outline" className="reader-outline" data-reader-contents>
+        <p className="text-sm font-semibold mb-3">Contents</p>
+        {[['summary-overview','Overview'],['summary-key-points','Key points'],...topicEntries.map(([topic],index)=>[`summary-topic-${index}`,topic]),['summary-takeaways','Takeaways']].map(([id,title])=><button key={id} aria-current={activeSection===id?'location':undefined} onClick={()=>{if(id.startsWith('summary-topic-')){const topic=topicEntries[Number(id.replace('summary-topic-',''))]?.[0];if(topic)setExpandedTopics(previous=>new Set([...previous,topic]))}setActiveSection(id);requestAnimationFrame(()=>document.getElementById(id)?.scrollIntoView({block:'start'}))}}>{title}</button>)}
+      </nav>}
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-start gap-3 md:gap-4">
         <div className="flex items-start gap-3">
@@ -508,19 +514,6 @@ export default function Viewer() {
               >
                 <ExternalLink size={16} /> Notion
               </button>
-                </div>
-              </details>
-            </>
-          )}
-          <button
-            onClick={handleResummarize}
-            disabled={resummarizing || !transcript || !!summary?.quality_warning && sourceBlocked(summary.source_status)}
-            className="flex items-center gap-2 px-3 py-2 reader-regenerate bg-dark-surface border border-dark-border hover:bg-dark-hover disabled:bg-gray-600 disabled:cursor-not-allowed rounded-lg text-sm transition-colors text-white"
-            title={summary?.quality_warning && sourceBlocked(summary.source_status) ? "Restore full source access before regenerating" : "Regenerate summary using existing transcript"}
-          >
-            <RefreshCw size={16} className={resummarizing ? 'animate-spin' : ''} />
-            <span className="hidden sm:inline">{resummarizing ? 'Regenerating…' : 'Regenerate'}</span>
-          </button>
           <a
             aria-label="Open summary as HTML"
             href={`/api/summaries/${eid}/html${getAccessToken() ? `?token=${getAccessToken()}` : ''}`}
@@ -531,6 +524,21 @@ export default function Viewer() {
             <ExternalLink size={16} />
             <span className="hidden sm:inline">HTML</span>
           </a>
+                </div>
+              </details>
+            </>
+          )}
+          <button
+            aria-label={resummarizing ? "Regenerating summary" : "Regenerate summary"}
+            onClick={handleResummarize}
+            disabled={resummarizing || !!summary?.quality_warning && sourceBlocked(summary.source_status)}
+            className="flex items-center gap-2 px-3 py-2 reader-regenerate bg-dark-surface border border-dark-border hover:bg-dark-hover disabled:bg-gray-600 disabled:cursor-not-allowed rounded-lg text-sm transition-colors text-white"
+            title={summary?.quality_warning && sourceBlocked(summary.source_status) ? "Restore full source access before regenerating" : "Regenerate summary using existing transcript"}
+          >
+            <RefreshCw size={16} className={resummarizing ? 'animate-spin' : ''} />
+            <span className="hidden sm:inline">{resummarizing ? 'Regenerating…' : 'Regenerate'}</span>
+          </button>
+
         </div>
       </div>
       

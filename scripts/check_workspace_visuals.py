@@ -71,7 +71,7 @@ async def main():
                 await page.goto(origin+'/',wait_until='domcontentloaded');await page.locator('.dashboard-stats svg').first.wait_for()
                 colors=await page.locator('.dashboard-stats svg').evaluate_all('(nodes)=>nodes.map(n=>getComputedStyle(n).color)')
                 assert len(set(colors))>=5,colors
-                positions=await page.evaluate('''()=>[document.querySelector('.dashboard-stats'),document.querySelector('#dashboard-add-content'),Array.from(document.querySelectorAll('h2')).find(n=>n.textContent==='Continue reading · Podcasts')].map(n=>n.getBoundingClientRect().top)''')
+                positions=await page.evaluate('''()=>[document.querySelector('.dashboard-stats'),document.querySelector('#dashboard-add-content'),Array.from(document.querySelectorAll('h2')).find(n=>n.textContent==='Continue reading')].map(n=>n.getBoundingClientRect().top)''')
                 assert positions[0]<positions[1]<positions[2],positions
                 await page.goto(origin+'/viewer/bench',wait_until='domcontentloaded');await page.get_by_role('heading',name='Overview',exact=True).wait_for()
                 assert summary_reads==2,summary_reads

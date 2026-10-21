@@ -526,7 +526,7 @@ export default function Podcasts() {
             </div>
           ) : (
             <div className="space-y-4">
-              {filteredPodcasts.map((podcast) => (
+              {filteredPodcasts.map((podcast,index) => (
                 <div
                   key={podcast.pid}
                   onClick={() => navigate(`/podcasts/${podcast.pid}/episodes`)}
@@ -537,7 +537,7 @@ export default function Podcasts() {
                 >
                   <div className="flex flex-col sm:flex-row sm:items-start gap-4">
                     <div className="flex items-start gap-3 sm:gap-4 flex-1 min-w-0">
-                      <PodcastImage url={podcast.cover_url} alt={podcast.title} />
+                      <PodcastImage priority={index<3} url={podcast.cover_url} alt={podcast.title} />
 
                       <div className="flex-1 min-w-0">
                         <h3 className="text-base md:text-lg font-semibold text-white mb-1 line-clamp-2">
@@ -603,6 +603,6 @@ export default function Podcasts() {
   )
 }
 
-function PodcastImage({ url, alt }: { url?: string; alt: string }) {
-  return <CachedImage src={url || ''} alt={alt} className="w-14 h-14 md:w-20 md:h-20 rounded-lg bg-dark-hover flex-shrink-0" fallback={<div className="cached-image-fallback"><Radio className="w-6 h-6 md:w-8 md:h-8 text-indigo-300" /></div>} />
+function PodcastImage({ url, alt, priority=false }: { url?: string; alt: string; priority?:boolean }) {
+  return <CachedImage priority={priority} src={url || ''} alt={alt} className="w-14 h-14 md:w-20 md:h-20 rounded-lg bg-dark-hover flex-shrink-0" fallback={<div className="cached-image-fallback"><Radio className="w-6 h-6 md:w-8 md:h-8 text-indigo-300" /></div>} />
 }

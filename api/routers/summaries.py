@@ -32,6 +32,11 @@ def _build_summary_list_items(db, summaries) -> List[SummaryListItem]:
 
     results = []
     for s in summaries:
+        from api.summary_quality import needs_review
+        if not s.topics and not s.key_points:
+            episode = db.get_episode(s.episode_id)
+            if episode and needs_review(episode.duration,s.topics,s.key_points):
+                continue
         pt, pc = metadata.get(s.episode_id, ("", ""))
         results.append(SummaryListItem(
             episode_id=s.episode_id,
@@ -52,6 +57,11 @@ async def list_recent_summaries(
 ):
     """List recent summaries for the dashboard."""
     db = get_db(user.id if user else None)
+    if db.use_supabase:
+        def recent():
+            rows = db.db.client.table('library_items').select('id,title,topics_count,key_points_count,source,thumbnail,date').eq('user_id',user.id).eq('kind','podcast').eq('status','completed').order('sort_key',desc=True).limit(limit).execute().data or []
+            return [SummaryListItem(episode_id=r['id'],title=r['title'],topics_count=r['topics_count'],key_points_count=r['key_points_count'],podcast_title=r['source'],podcast_cover=r['thumbnail'],created_at=r['date']) for r in rows]
+        return await run_sync(recent)
     summaries = await run_sync(db.get_recent_summaries, limit)
     return await run_sync(_build_summary_list_items, db, summaries)
 
@@ -85,6 +95,9 @@ async def get_summary(eid: str, user: Optional[User] = Depends(get_current_user)
                 warning = 'This summary is based on an incomplete transcript and does not represent the full episode. Restore access to the full audio before regenerating.'
         elif episode:
             warning = 'The original transcript is missing. This empty summary cannot be verified.'
+        from api.summary_quality import needs_review, EMPTY_LONG_MESSAGE
+        if not warning and episode and needs_review(episode.duration,summary.topics,summary.key_points):
+            warning = EMPTY_LONG_MESSAGE
 
     return SummaryResponse(
         quality_warning=warning, source_status=access_status, source_message=access_message,
@@ -159,6 +172,10 @@ async def get_summary_markdown(
     if not summary_data:
         raise HTTPException(status_code=404, detail="Summary not found")
     
+    if not summary_data.key_points and not summary_data.topics:
+        checked = await get_summary(eid,user)
+        if checked.quality_warning:
+            raise HTTPException(status_code=409,detail=(checked.source_message+' '+checked.quality_warning).strip())
     # Convert database format to viewer format
     key_points = [
         KeyPoint(

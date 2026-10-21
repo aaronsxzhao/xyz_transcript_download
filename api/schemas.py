@@ -37,6 +37,7 @@ class EpisodeBase(BaseModel):
 
 
 class EpisodeResponse(EpisodeBase):
+    quality_status: str = "not_processed"
     source_status: str = "unknown"
     source_message: str = ""
 
@@ -44,6 +45,8 @@ class EpisodeResponse(EpisodeBase):
     def describe_source(self):
         from source_access import source_message
         self.source_message = source_message(self.source_status)
+        from api.summary_quality import needs_review
+        self.quality_status = "needs_review" if self.has_summary and needs_review(self.duration,self.topics_count,self.key_points_count) else "ready" if self.has_summary else "not_processed"
         return self
     eid: str
     pid: str

@@ -189,6 +189,7 @@ export interface Episode {
   audio_url: string
   status: string
   has_transcript: boolean
+  quality_status?: "ready" | "needs_review" | "not_processed"
   has_summary: boolean
   topics_count: number
   key_points_count: number

@@ -1,5 +1,6 @@
 import { useEffect } from 'react'
 import { getAccountId } from './preferences'
+import {getCache,hydrateCache} from './cache'
 
 export function useReadingPosition(key: string, elementId?: string, ready = true) {
   useEffect(() => {
@@ -7,19 +8,27 @@ export function useReadingPosition(key: string, elementId?: string, ready = true
     const el = elementId ? document.getElementById(elementId) : document.querySelector('main')
     if (!el) return
     const storageKey = `xyz_reading:${getAccountId()}:${key}`
-    const target = Number(sessionStorage.getItem(storageKey) || 0)
+    const owner=getAccountId(), saved=sessionStorage.getItem(storageKey)
+    let target = Number(saved || 0)
+    let active=true,interacted=false
     let restoring = target > 0
     const restore = () => { if (restoring) { el.scrollTop = target; if (el.scrollTop >= target - 1) restoring = false } }
     restore()
+    if(saved===null && /^(podcast|video):/.test(key)) void hydrateCache('reading_history').then(()=>{
+      if(!active||interacted||owner!==getAccountId()) return
+      const [kind,...parts]=key.split(':')
+      target=getCache<{id:string;kind:string;position?:number}[]>('reading_history')?.find(row=>row.kind===kind&&row.id===parts.join(':'))?.position||0
+      restoring=target>0;restore()
+    })
     const observer = new ResizeObserver(restore)
     if (el.firstElementChild) observer.observe(el.firstElementChild)
-    const stop = () => { restoring = false }
+    const stop = () => { restoring = false;interacted=true }
     const timeout = setTimeout(stop, 5000)
     const save = () => { if (!restoring) sessionStorage.setItem(storageKey, String(el.scrollTop)) }
     el.addEventListener('scroll', save, { passive: true })
     el.addEventListener('wheel', stop, { passive: true })
     el.addEventListener('touchstart', stop, { passive: true })
-    return () => { clearTimeout(timeout); save(); observer.disconnect(); el.removeEventListener('scroll', save); el.removeEventListener('wheel', stop); el.removeEventListener('touchstart', stop) }
+    return () => { active=false; clearTimeout(timeout); save(); observer.disconnect(); el.removeEventListener('scroll', save); el.removeEventListener('wheel', stop); el.removeEventListener('touchstart', stop) }
   }, [key, elementId, ready])
 }
 

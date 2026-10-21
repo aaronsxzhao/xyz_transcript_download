@@ -1,18 +1,17 @@
-import CachedImage from '../components/CachedImage'
 import LoadError from '../components/LoadError'
 import { getAccountId } from '../lib/preferences'
 import { useState, useEffect, useMemo, useRef } from 'react'
 import { Link } from 'react-router-dom'
-import { Radio, FileText, MessageSquare, Loader2, Plus, ArrowRight, Bell, RefreshCw, X, Video, CheckCircle, Users } from 'lucide-react'
+import { Radio, FileText, MessageSquare, Loader2, Plus, Bell, RefreshCw, X, Video, CheckCircle, Users } from 'lucide-react'
 import { fetchStats, fetchRecentSummaries, processEpisode, fetchContentUpdates, dismissContentUpdates, type ContentUpdate, checkPodcastsForUpdates, checkVideoChannelsForUpdates, fetchRecentVideoTasks, cancelJob, cancelVideoTask, generateVideoNote, getVideoProcessingDefaults, getUserModelSettings, type Stats, type SummaryListItem, type ProcessingJob, type VideoTask } from '../lib/api'
 import { useStore } from '../lib/store'
 import { useWarmCache, getCache, setCache, CacheKeys } from '../lib/cache'
 import { useToast } from '../components/Toast'
 import { markSeen, shouldDismissCompleted } from '../lib/seen'
-import SummaryCard from '../components/SummaryCard'
+import NoteCard from '../components/NoteCard'
+import {useVerifiedReading} from '../lib/readingHistory'
 import ProcessingProgress from '../components/ProcessingProgress'
 import { usePageTiming } from '../lib/pageTiming'
-import { prefetchVideoNote } from '../lib/summaryPrefetch'
 
 const VIDEO_QUEUE_STATUSES = new Set(['pending', 'parsing', 'downloading', 'transcribing', 'summarizing', 'saving', 'success', 'failed'])
 
@@ -26,12 +25,14 @@ function detectVideoPlatform(url: string): string {
 }
 
 export default function Dashboard() {
+  const {items:reading,status:readingStatus,retry:retryReading} = useVerifiedReading()
+  const [recentReady,setRecentReady]=useState({podcasts:!!getCache(CacheKeys.RECENT_SUMMARIES),videos:!!getCache(CacheKeys.RECENT_VIDEOS)})
   const [stats, setStats] = useState<Stats | null>(null)
   const [summaries, setSummaries] = useState<SummaryListItem[]>([])
   const [recentVideos, setRecentVideos] = useState<VideoTask[]>([])
   useWarmCache<Stats>(CacheKeys.STATS,value=>{setStats(value);setLoading(false)})
-  useWarmCache<SummaryListItem[]>(CacheKeys.RECENT_SUMMARIES,value=>{setSummaries(value);setLoading(false)})
-  useWarmCache<VideoTask[]>(CacheKeys.RECENT_VIDEOS,value=>{setRecentVideos(value);setLoading(false)})
+  useWarmCache<SummaryListItem[]>(CacheKeys.RECENT_SUMMARIES,value=>{setSummaries(value);setRecentReady(previous=>({...previous,podcasts:true}));setLoading(false)})
+  useWarmCache<VideoTask[]>(CacheKeys.RECENT_VIDEOS,value=>{setRecentVideos(value);setRecentReady(previous=>({...previous,videos:true}));setLoading(false)})
   const [loading, setLoading] = useState(true)
   usePageTiming('dashboard', !loading, CacheKeys.STATS)
   const [error, setError] = useState('')
@@ -135,16 +136,18 @@ export default function Dashboard() {
     if (cachedStats || cachedSummaries || cachedRecentVideos) setLoading(false)
 
     try {
-      await Promise.all([
+      const results=await Promise.allSettled([
         fetchStats().then(data => { setStats(data); setCache(CacheKeys.STATS, data, owner); setLoading(false) }),
-        fetchRecentSummaries().then(data => { setSummaries(data); setCache(CacheKeys.RECENT_SUMMARIES, data, owner); setLoading(false) }),
-        fetchRecentVideoTasks().then(data => { setRecentVideos(data.tasks); setCache(CacheKeys.RECENT_VIDEOS, data.tasks, owner); setLoading(false) }),
+        fetchRecentSummaries().then(data => { setSummaries(data);setRecentReady(previous=>({...previous,podcasts:true})); setCache(CacheKeys.RECENT_SUMMARIES, data, owner); setLoading(false) }),
+        fetchRecentVideoTasks().then(data => { setRecentVideos(data.tasks);setRecentReady(previous=>({...previous,videos:true})); setCache(CacheKeys.RECENT_VIDEOS, data.tasks, owner); setLoading(false) }),
       ])
+      if(results.some(result=>result.status==='rejected')) setError('Cannot refresh the dashboard. Any saved content may be out of date.')
     } catch (err) {
       console.error('Failed to load data:', err)
       setError('Cannot refresh the dashboard. Any saved content may be out of date.')
     } finally {
       setLoading(false)
+      setRecentReady({podcasts:true,videos:true})
     }
   }
 
@@ -306,99 +309,23 @@ export default function Dashboard() {
         </form>
       </div>
 
-      {/* Two-column: Recent summaries + Recent video notes */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Recent podcast summaries */}
-        <div>
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-semibold text-white">Continue reading · Podcasts</h2>
-            <Link
-              to="/library?kind=podcast"
-              className="flex items-center gap-1 text-sm text-indigo-400 hover:text-indigo-300"
-            >
-              View all <ArrowRight size={16} />
-            </Link>
-          </div>
-          {summaries.length === 0 ? (
-            <div className="p-8 bg-dark-surface border border-dark-border rounded-xl text-center">
-              <FileText className="w-10 h-10 text-gray-600 mx-auto mb-3" />
-              <p className="text-gray-400 text-sm">No summaries yet</p>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 gap-3">
-              {summaries.slice(0, 4).map((summary) => (
-                <SummaryCard key={summary.episode_id} summary={summary} />
-              ))}
-            </div>
-          )}
+      <section aria-label="Continue reading" className="space-y-3">
+        <div className="flex items-center justify-between"><h2 className="text-lg font-semibold">Continue reading</h2><Link className="text-sm text-indigo-300" to="/library">Open Library →</Link></div>
+        {reading.length ? <div className="collection-grid">{reading.slice(0,4).map((item,index)=><NoteCard key={`${item.kind}:${item.id}`} item={item} reading priority={index<2}/>)}</div>:readingStatus==='error'?<LoadError message="Reading history could not be verified. Your saved notes are still in Library." onRetry={retryReading}/>:<p className="text-sm text-gray-400" role="status">{readingStatus==='loading'?'Restoring reading history…':'Open a summary to start your reading history on this device.'}</p>}
+      </section>
+      {/* Recent additions are separate from actual reading history. */}
+      <details className="dashboard-recent" open={reading.length===0}><summary className="text-sm text-gray-400 cursor-pointer">Recently added</summary>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-4">
+          <section><div className="flex justify-between items-center mb-4"><h2 className="text-lg font-semibold">Recently added · Podcasts</h2><Link to="/library?kind=podcast" className="text-sm text-indigo-300">View all →</Link></div>
+            <div className="grid gap-3">{summaries.slice(0,2).map((summary,index)=><NoteCard key={summary.episode_id} priority={index===0} item={{id:summary.episode_id,kind:'podcast',title:summary.title,source:summary.podcast_title,thumbnail:summary.podcast_cover,topics_count:summary.topics_count}}/>)}</div>
+            {!summaries.length&&<p role="status" className="text-sm text-gray-400">{recentReady.podcasts?'No summaries yet':'Loading saved summaries…'}</p>}
+          </section>
+          <section><div className="flex justify-between items-center mb-4"><h2 className="text-lg font-semibold">Recently added · Videos</h2><Link to="/library?kind=video" className="text-sm text-indigo-300">View all →</Link></div>
+            <div className="grid gap-3">{recentVideos.slice(0,2).map((task,index)=><NoteCard key={task.id} priority={index===0} item={{id:task.id,kind:'video',title:task.title||'Untitled video',source:task.channel||task.platform,thumbnail:task.thumbnail}}/>)}</div>
+            {!recentVideos.length&&<p role="status" className="text-sm text-gray-400">{recentReady.videos?'No video notes yet':'Loading saved video notes…'}</p>}
+          </section>
         </div>
-
-        {/* Recent video notes */}
-        <div>
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-semibold text-white">Continue reading · Videos</h2>
-            <Link
-              to="/library?kind=video"
-              className="flex items-center gap-1 text-sm text-indigo-400 hover:text-indigo-300"
-            >
-              View all <ArrowRight size={16} />
-            </Link>
-          </div>
-          {recentVideos.length === 0 ? (
-            <div className="p-8 bg-dark-surface border border-dark-border rounded-xl text-center">
-              <Video className="w-10 h-10 text-gray-600 mx-auto mb-3" />
-              <p className="text-gray-400 text-sm">No video notes yet</p>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 gap-3">
-              {recentVideos.slice(0, 4).map((task) => (
-                <Link
-                  key={task.id}
-                  to={`/videos/${task.id}`}
-                  onPointerEnter={() => prefetchVideoNote(task.id)}
-                  onFocus={() => prefetchVideoNote(task.id)}
-                  onTouchStart={() => prefetchVideoNote(task.id)}
-                  className="flex gap-4 p-4 min-h-[104px] bg-dark-surface border border-dark-border rounded-xl hover:border-indigo-500/50 transition-colors"
-                >
-                  {task.thumbnail ? (
-                    <CachedImage src={task.thumbnail} alt="" className="w-20 h-14 rounded object-cover flex-shrink-0 bg-dark-hover my-auto" />
-                  ) : (
-                    <div className="w-20 h-14 rounded bg-dark-hover flex items-center justify-center flex-shrink-0 my-auto">
-                      <Video size={16} className="text-gray-600" />
-                    </div>
-                  )}
-                  <div className="flex-1 min-w-0 flex flex-col justify-between">
-                    <h3 className="font-medium text-white line-clamp-2">
-                      {task.title || (task.url ? (() => {
-                        if (task.platform === 'local') {
-                          const parts = task.url.split(/[\\/]/)
-                          const filename = parts[parts.length - 1] || task.url
-                          return filename.replace(/\.[^.]+$/, '')
-                        }
-                        try { return new URL(task.url).hostname.replace('www.', '') + new URL(task.url).pathname.replace(/\/$/, '').slice(0, 30) }
-                        catch { return 'Untitled' }
-                      })() : 'Untitled')}
-                    </h3>
-                    <div className="flex items-center gap-4 text-sm text-gray-400 mt-auto">
-                      {task.channel && (
-                        <span className="flex items-center gap-1.5 truncate">
-                          {task.channel_avatar ? (
-                            <CachedImage src={task.channel_avatar} alt="" className="w-4 h-4 rounded-full flex-shrink-0 bg-dark-hover" />
-                          ) : (
-                            <Video size={14} className="text-cyan-400 flex-shrink-0" />
-                          )}
-                          <span className="truncate">{task.channel}</span>
-                        </span>
-                      )}
-                      {task.style && <span className="px-1.5 py-0.5 bg-purple-600/20 text-purple-400 rounded-full text-xs">{task.style}</span>}
-                    </div>
-                  </div>
-                </Link>
-              ))}
-            </div>
-          )}
-        </div>
-      </div>
+      </details>
 
       {/* Persistent source discoveries; dismissal only affects the displayed items. */}
       {updatesError && <div role="status" className="text-sm text-amber-300">{updatesError} <button className="underline" onClick={()=>void loadContentUpdates()}>Retry</button></div>}
@@ -427,8 +354,8 @@ export default function Dashboard() {
 
       {/* Processing jobs — podcast + video combined */}
       {allQueueItems.length > 0 && (
-        <div>
-          <h2 className="text-lg font-semibold text-white mb-4">Processing Queue</h2>
+        <details open={allQueueItems.some(item=>!['completed','success','failed','cancelled'].includes(item.status))} className="dashboard-queue">
+          <summary className="text-lg font-semibold text-white cursor-pointer">Processing Queue · {allQueueItems.length}</summary>
           <div className="space-y-3">
             {allQueueItems.map((item) => {
               const isVideo = item._kind === 'video'
@@ -447,7 +374,7 @@ export default function Dashboard() {
               )
             })}
           </div>
-        </div>
+        </details>
       )}
 
 

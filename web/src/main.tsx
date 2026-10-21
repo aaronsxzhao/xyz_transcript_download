@@ -6,6 +6,14 @@ import { ToastProvider } from './components/Toast'
 import PageErrorBoundary from './components/PageErrorBoundary'
 import './index.css'
 import { registerPublicCache } from './lib/publicCache'
+import {recoverPageImport} from './lib/chunkRecovery'
+
+// Optional tools have their own inline boundaries. Only a replaced route
+// controller should refresh the document automatically.
+window.addEventListener('vite:preloadError',event=>{
+  const message=String((event as Event & {payload?:unknown}).payload||'')
+  if(/\/(?:Settings|Dashboard|Podcasts|Episodes|Viewer|Videos|VideoViewer)-[^/]+\.js/.test(message)) recoverPageImport(event)
+})
 
 if (new URLSearchParams(window.location.hash.slice(1)).get('type') === 'recovery') {
   window.history.replaceState(null, '', '/reset-password' + window.location.hash)

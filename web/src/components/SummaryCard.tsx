@@ -2,19 +2,19 @@ import CachedImage from './CachedImage'
 import { Link } from 'react-router-dom'
 import { Tag, MessageSquare, Radio } from 'lucide-react'
 import type { SummaryListItem } from '../lib/api'
-import { useEffect } from 'react'
-import { prefetchSummary } from '../lib/summaryPrefetch'
+import { prefetchSummary,cancelPrefetch } from '../lib/summaryPrefetch'
 
 interface SummaryCardProps {
   summary: SummaryListItem
 }
 
 export default function SummaryCard({ summary }: SummaryCardProps) {
-  useEffect(() => { prefetchSummary(summary.episode_id) }, [summary.episode_id])
   return (
     <Link
       to={`/viewer/${summary.episode_id}`}
       onPointerEnter={() => prefetchSummary(summary.episode_id)}
+      onPointerLeave={cancelPrefetch}
+      onBlur={cancelPrefetch}
       onFocus={() => prefetchSummary(summary.episode_id)}
       onTouchStart={() => prefetchSummary(summary.episode_id)}
       className="flex flex-col justify-between p-4 min-h-[104px] bg-dark-surface border border-dark-border rounded-xl hover:border-indigo-500/50 transition-colors"
