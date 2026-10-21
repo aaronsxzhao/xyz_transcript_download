@@ -56,3 +56,10 @@ def test_public_probes_only_get_and_keep_credentials_out_of_arguments(monkeypatc
         assert "Bearer" not in str(command) and "private-signing-secret" not in str(command)
         assert kwargs["input"].startswith("Authorization: Bearer ")
     assert "private-owner" not in str(reports) and "Bearer" not in str(reports)
+
+
+def test_summary_failure_diagnostics_emit_only_counts():
+    report = safe_log_summary('Summary response was incomplete (length). secret-key private content\nIndexError: list index out of range')
+    assert report['summary_failures']['output_limit'] == 1
+    assert report['summary_failures']['empty_choices'] == 1
+    assert 'secret-key' not in str(report)

@@ -37,6 +37,13 @@ def safe_log_summary(text: str) -> dict:
         "http2_terminated": text.count("ConnectionTerminated"),
         "http2_stream_reset": text.count("StreamReset"),
         "episode_http_statuses": {status:len(re.findall(r'"GET /api/podcasts/[^/\s]+/episodes[^"\n]* HTTP/[^"\n]+" '+status+r'\b',text)) for status in ('200','401','403','404','500','502','503','504')},
+        "summary_failures": {
+            "output_limit": text.count("Summary response was incomplete (length)"),
+            "empty_key_points": text.count("Summary contains no key points"),
+            "json_parse": text.count("Failed to parse LLM response as JSON"),
+            "empty_choices": text.count("IndexError: list index out of range"),
+            "connection": len(re.findall(r"APIConnectionError|APITimeoutError", text)),
+        },
         "timeout_mentions": len(re.findall(r"ReadTimeout|ConnectTimeout|PoolTimeout|timed out", text)),
     }
 
