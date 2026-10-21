@@ -199,3 +199,29 @@ delivery/hosting route. No database migration, note rewrite, provider change or
 media deletion is part of this repair. The preceding source and deployment image
 are retained; see ROLLBACK.md. Production verification records actual cold page
 checks and a separate public-cache reload check.
+
+
+## Visual language iteration — 21 October 2026
+
+Shared tokens now define text hierarchy, control sizes and surface spacing.
+Desktop controls use a 36px minimum, form inputs 40px, and mobile targets 44px.
+Page titles use 28/24px; reading text remains adjustable independently. Readers
+keep a single content column, a comfortable default, bounded centered previews,
+plain Chinese quotations and grouped exports. Existing explicit width preferences
+are preserved. Settings expands to 960px; collections use responsive card grids;
+mobile Library filters collapse behind a labeled control. Dashboard prioritizes
+active work and recent reading before adding content and statistics.
+
+UI labels remain consistently English; note content is never translated or edited.
+No fonts, animation libraries or new runtime dependencies were added.
+
+Retained technical backlog from the preceding review (outside this visual release):
+- Server pagination for video channels, not only Library.
+- Persist pre-generated image previews instead of converting on the first read.
+- Preserve Library results while a new search is pending.
+- Bounded asynchronous caching for large notes and filter combinations.
+- Visit-correlated timing samples split by cold/warm and ready/error outcomes.
+- Explicit platform-account fetch failure states.
+- Topic-level podcast navigation and continuous image browsing/zoom.
+
+Rollback: safety/pre-visual-language-20261021 (af4de4b).

@@ -391,7 +391,6 @@ export default function Viewer() {
   
   return (
     <div className="reader-body podcast-reader space-y-4 md:space-y-6">
-      <ReaderControls />
       {error && <LoadError message={error} onRetry={() => {
         setError('')
         if (activeTab === 'transcript') void loadTranscript()
@@ -409,14 +408,14 @@ export default function Viewer() {
             <ArrowLeft size={20} />
           </button>
           <div className="flex-1 min-w-0 sm:hidden">
-            <h1 className="text-lg font-bold text-white line-clamp-2">
+            <h1 className="page-title text-lg font-bold text-white line-clamp-2">
               {summary?.title || 'Episode Viewer'}
             </h1>
           </div>
         </div>
         
         <div className="flex-1 min-w-0 hidden sm:block">
-          <h1 className="text-xl md:text-2xl font-bold text-white mb-2 line-clamp-2">
+          <h1 className="page-title text-xl md:text-2xl font-bold text-white mb-2 line-clamp-2">
             {summary?.title || 'Episode Viewer'}
           </h1>
           <div className="flex flex-wrap items-center gap-2 md:gap-4">
@@ -442,7 +441,7 @@ export default function Viewer() {
         </div>
         
         {/* Action buttons */}
-        <div className="flex items-center gap-1.5 sm:flex-shrink-0">
+        <div className="reader-actions" role="group" aria-label="Note actions">
           {summary && (
             <>
               <button
@@ -454,12 +453,15 @@ export default function Viewer() {
               >
                 {copying ? <Loader2 size={14} className="animate-spin" /> : copied ? <Check size={16} className="text-green-400" /> : <Copy size={16} />}
               </button>
+              <details className="reader-export" onKeyDown={e => { if (e.key === 'Escape') { e.currentTarget.open = false; e.currentTarget.querySelector('summary')?.focus() } }} onBlur={e => { if (!e.currentTarget.contains(e.relatedTarget as Node)) e.currentTarget.open = false }}>
+                <summary>Export</summary>
+                <div className="reader-export-panel">
               <button
                 onClick={handleDownloadMd}
                 className="p-2 text-gray-400 hover:text-white transition-colors"
                 title="Download .md"
               >
-                <Download size={16} />
+                <Download size={16} /> Markdown
               </button>
               <button
                 onClick={handleDownloadPdf}
@@ -469,27 +471,27 @@ export default function Viewer() {
                 className="p-2 text-gray-400 hover:text-white transition-colors disabled:opacity-50"
                 title="Download PDF"
               >
-                {pdfLoading ? <Loader2 size={16} className="animate-spin" /> : <FileDown size={16} />}
+                {pdfLoading ? <Loader2 size={16} className="animate-spin" /> : <FileDown size={16} />} PDF
               </button>
               <button
                 onClick={openNotionModal}
-                className="p-2 text-gray-400 hover:text-orange-400 transition-colors"
+                className="p-2 text-gray-400 hover:text-indigo-300 transition-colors"
                 title="Send to Notion"
               >
-                <svg width="16" height="16" viewBox="0 0 100 100" fill="currentColor">
-                  <path d="M6.6 12.3c4.2 3.1 5.8 2.9 13.7 2.1l49.5-3.7c1.6 0 .3-1.6-.3-1.8l-8.2-6c-2.4-1.8-5.5-3.9-11.5-3.4L2.7 3.1C-.5 3.4-1.3 5.1.8 6.8zm4.5 14.7v52c0 2.8 1.4 3.8 4.5 3.6l54.4-3.2c3.2-.2 3.5-2.1 3.5-4.3V23.4c0-2.2-.9-3.4-2.8-3.2L15.8 23.3c-2.1.2-2.8 1.2-2.8 3.2v.5zM64 27c.3 1.4 0 2.8-1.4 3l-2.6.5v38.4c-2.3 1.2-4.4 1.9-6.2 1.9-2.8 0-3.5-.9-5.6-3.5L31.6 40.3v24.4l5.4 1.2s0 2.8-3.9 2.8l-10.8.6c-.3-.6 0-2.2 1.1-2.4l2.8-.8V33.7l-3.9-.3c-.3-1.4.5-3.5 2.8-3.7l11.6-.7 17.2 26.3V33l-4.5-.5c-.3-1.6 1-2.8 2.6-2.9l11.1-.6zM2.2 1.7l50.3-3.8c6.2-.5 7.8-.2 11.6 2.8l16 11.2c2.6 1.9 3.5 2.4 3.5 4.5V78c0 4.3-1.6 6.8-7.1 7.2L18.5 88.6c-4.1.2-6.1-.4-8.2-3.1L1.6 74.3C-.3 71.6-1 69.7-1 67.2v-60c0-3.4 1.6-6.2 5.1-5.5z" transform="translate(10 5) scale(0.9)"/>
-                </svg>
+                <ExternalLink size={16} /> Notion
               </button>
+                </div>
+              </details>
             </>
           )}
           <button
             onClick={handleResummarize}
             disabled={resummarizing || !transcript}
-            className="flex items-center gap-2 px-3 py-2 bg-indigo-600 hover:bg-indigo-700 disabled:bg-gray-600 disabled:cursor-not-allowed rounded-lg text-sm transition-colors text-white"
+            className="flex items-center gap-2 px-3 py-2 reader-regenerate bg-dark-surface border border-dark-border hover:bg-dark-hover disabled:bg-gray-600 disabled:cursor-not-allowed rounded-lg text-sm transition-colors text-white"
             title="Regenerate summary using existing transcript"
           >
             <RefreshCw size={16} className={resummarizing ? 'animate-spin' : ''} />
-            <span className="hidden sm:inline">{resummarizing ? 'Processing...' : 'Re-summarize'}</span>
+            <span className="hidden sm:inline">{resummarizing ? 'Regenerating…' : 'Regenerate'}</span>
           </button>
           <a
             aria-label="Open summary as HTML"
@@ -526,6 +528,7 @@ export default function Viewer() {
         )}
       </div>
       
+      <ReaderControls>{activeTab === 'summary' && summary && <label className="reader-contents block text-sm">Contents<select aria-label="Summary contents" className="ml-2 max-w-full bg-dark-surface border border-dark-border rounded-lg p-2" defaultValue="" onChange={e => { if (e.target.value) document.getElementById(e.target.value)?.scrollIntoView({block:'start'}); e.target.value='' }}><option value="">Jump to section…</option><option value="summary-overview">Overview</option><option value="summary-key-points">Key points</option><option value="summary-takeaways">Takeaways</option></select></label>}</ReaderControls>
       {/* Tabs */}
       <div className="flex gap-1 md:gap-2 border-b border-dark-border">
         <button
@@ -564,11 +567,11 @@ export default function Viewer() {
         </div>
       )}
 
-      {activeTab === 'summary' && summary && <label className="reader-contents block text-sm">Contents<select aria-label="Summary contents" className="ml-2 max-w-full bg-dark-surface border border-dark-border rounded-lg p-2" defaultValue="" onChange={e => { if (e.target.value) document.getElementById(e.target.value)?.scrollIntoView({block:'start'}); e.target.value='' }}><option value="">Jump to section…</option><option value="summary-overview">Overview</option><option value="summary-key-points">Key points</option><option value="summary-takeaways">Takeaways</option></select></label>}
+
       {activeTab === 'summary' && summary && (
         <div className="space-y-6">
           {/* Overview */}
-          <div className="p-6 bg-dark-surface border border-dark-border rounded-xl">
+          <div className="reader-section">
             <h2 id="summary-overview" className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
               <FileText className="text-indigo-500" size={20} />
               Overview
@@ -579,7 +582,7 @@ export default function Viewer() {
           {/* Topics/Key Points */}
           <section className="space-y-4">
             <h2 id="summary-key-points" className="text-lg font-semibold text-white flex items-center gap-2">
-              <MessageSquare className="text-purple-500" size={20} />
+              <MessageSquare className="text-indigo-400" size={20} />
               Key Points by Topic
             </h2>
             
@@ -587,14 +590,14 @@ export default function Viewer() {
             {topicEntries.map(([topic, points]) => (
               <div
                 key={topic} data-topic-card
-                className="bg-dark-surface border border-dark-border rounded-xl overflow-hidden"
+                className="topic-section"
               >
                 <button
                   onClick={() => toggleTopic(topic)}
                   aria-expanded={expandedTopics.has(topic)}
-                  className="w-full flex items-center justify-between p-4 hover:bg-dark-hover transition-colors"
+                  className="topic-toggle w-full flex items-center justify-between gap-3"
                 >
-                  <div className="flex items-center gap-3">
+                  <div className="flex flex-wrap items-center gap-x-2 gap-y-1 min-w-0 text-left">
                     <Tag className="text-indigo-400" size={18} />
                     <span className="font-medium text-white">{topic}</span>
                     <span className="text-sm text-gray-500">
@@ -609,14 +612,14 @@ export default function Viewer() {
                 </button>
                 
                 {expandedTopics.has(topic) && (
-                  <div className="border-t border-dark-border p-4 space-y-4">
+                  <div className="topic-content space-y-4">
                     {points.map((kp, idx) => (
-                      <div key={idx} className="pl-4 border-l-2 border-indigo-500/50">
+                      <div key={idx} className="space-y-3">
                         <SummaryText>{kp.summary}</SummaryText>
                         {kp.original_quote && (
-                          <div className="flex items-start gap-2 p-3 bg-dark-hover rounded-lg">
+                          <div className="reader-quote flex items-start gap-2">
                             <Quote className="text-gray-500 flex-shrink-0 mt-0.5" size={16} />
-                            <p className="text-sm text-gray-400 italic">
+                            <p className="text-sm text-gray-400">
                               {kp.original_quote}
                             </p>
                           </div>
@@ -632,7 +635,7 @@ export default function Viewer() {
           
           {/* Takeaways */}
           {summary.takeaways.length > 0 && (
-            <div className="p-6 bg-dark-surface border border-dark-border rounded-xl">
+            <div className="reader-section">
               <h2 id="summary-takeaways" className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
                 <CheckCircle className="text-green-500" size={20} />
                 Takeaways
@@ -651,7 +654,7 @@ export default function Viewer() {
       )}
       
       {activeTab === 'transcript' && transcript && (
-        <div className="p-6 bg-dark-surface border border-dark-border rounded-xl">
+        <div className="reader-section">
           <h2 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
             <FileText className="text-blue-500" size={20} />
             Full Transcript
@@ -684,9 +687,7 @@ export default function Viewer() {
           <div className="bg-dark-surface border border-dark-border rounded-2xl w-full max-w-md mx-4 shadow-2xl">
             <div className="flex items-center justify-between p-4 border-b border-dark-border">
               <h2 className="text-sm font-semibold text-white flex items-center gap-2">
-                <svg width="16" height="16" viewBox="0 0 100 100" fill="currentColor" className="text-orange-400">
-                  <path d="M6.6 12.3c4.2 3.1 5.8 2.9 13.7 2.1l49.5-3.7c1.6 0 .3-1.6-.3-1.8l-8.2-6c-2.4-1.8-5.5-3.9-11.5-3.4L2.7 3.1C-.5 3.4-1.3 5.1.8 6.8zm4.5 14.7v52c0 2.8 1.4 3.8 4.5 3.6l54.4-3.2c3.2-.2 3.5-2.1 3.5-4.3V23.4c0-2.2-.9-3.4-2.8-3.2L15.8 23.3c-2.1.2-2.8 1.2-2.8 3.2v.5zM64 27c.3 1.4 0 2.8-1.4 3l-2.6.5v38.4c-2.3 1.2-4.4 1.9-6.2 1.9-2.8 0-3.5-.9-5.6-3.5L31.6 40.3v24.4l5.4 1.2s0 2.8-3.9 2.8l-10.8.6c-.3-.6 0-2.2 1.1-2.4l2.8-.8V33.7l-3.9-.3c-.3-1.4.5-3.5 2.8-3.7l11.6-.7 17.2 26.3V33l-4.5-.5c-.3-1.6 1-2.8 2.6-2.9l11.1-.6zM2.2 1.7l50.3-3.8c6.2-.5 7.8-.2 11.6 2.8l16 11.2c2.6 1.9 3.5 2.4 3.5 4.5V78c0 4.3-1.6 6.8-7.1 7.2L18.5 88.6c-4.1.2-6.1-.4-8.2-3.1L1.6 74.3C-.3 71.6-1 69.7-1 67.2v-60c0-3.4 1.6-6.2 5.1-5.5z" transform="translate(10 5) scale(0.9)"/>
-                </svg>
+                <ExternalLink size={16} />
                 Send to Notion
               </h2>
               <button aria-label="Close Notion export" onClick={() => setNotionOpen(false)} className="p-1 text-gray-400 hover:text-white transition-colors">
@@ -778,7 +779,7 @@ export default function Viewer() {
                 <button
                   onClick={handleNotionExport}
                   disabled={!notionSelectedId || notionExporting}
-                  className="inline-flex items-center gap-2 px-4 py-2 bg-orange-600 hover:bg-orange-700 disabled:opacity-40 disabled:cursor-not-allowed text-white text-sm font-medium rounded-lg transition-colors"
+                  className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-40 disabled:cursor-not-allowed text-white text-sm font-medium rounded-lg transition-colors"
                 >
                   {notionExporting ? <Loader2 size={14} className="animate-spin" /> : <ExternalLink size={14} />}
                   Export

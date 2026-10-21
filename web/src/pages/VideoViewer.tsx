@@ -396,10 +396,9 @@ export default function VideoViewer() {
 
   return (
     <div className="reader-workspace video-reader flex flex-col gap-2">
-      <ReaderControls />
       {/* Fixed header bar */}
       {error && <div role="alert" className="text-sm text-red-300 mb-3">{error} <button className="underline" onClick={() => setLoadAttempt(value => value + 1)}>Retry</button></div>}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 pb-3 flex-shrink-0">
+      <div className="flex flex-col gap-3 pb-3 flex-shrink-0">
         <div className="flex items-center gap-2 min-w-0">
           <button
             onClick={() => navigate(-1)}
@@ -409,7 +408,7 @@ export default function VideoViewer() {
             <ArrowLeft size={18} />
           </button>
           <div className="min-w-0">
-            <h1 className="text-base font-semibold text-white truncate">
+            <h1 className="page-title text-base font-semibold text-white line-clamp-2">
               {task.title || (task.url ? (() => {
                 if (task.platform === 'local') {
                   const parts = task.url.split(/[\\/]/)
@@ -424,12 +423,12 @@ export default function VideoViewer() {
             </h1>
             <div className="flex items-center gap-2 text-xs text-gray-500 mt-0.5">
               {uiTask.status === 'failed' && (
-                <span className="px-1.5 py-0.5 bg-red-600/20 text-red-400 rounded-full text-[10px]">
+                <span className="px-1.5 py-0.5 bg-red-600/20 text-red-400 rounded-full text-xs">
                   Failed
                 </span>
               )}
               {task.style && (
-                <span className="px-1.5 py-0.5 bg-purple-600/20 text-purple-400 rounded-full text-[10px]">
+                <span className="px-1.5 py-0.5 bg-purple-600/20 text-purple-400 rounded-full text-xs">
                   {task.style}
                 </span>
               )}
@@ -443,7 +442,7 @@ export default function VideoViewer() {
           </div>
         </div>
 
-        <div className="flex flex-wrap items-center gap-1.5 min-w-0">
+        <div className="reader-actions" role="group" aria-label="Note actions">
           {versions.length > 0 && (
             <select
               aria-label="Note version"
@@ -502,6 +501,9 @@ export default function VideoViewer() {
               >
                 {copying ? <Loader2 size={14} className="animate-spin" /> : copied ? <Check size={14} className="text-green-400" /> : <Copy size={14} />}{copying ? 'Copying…' : copied ? 'Copied' : 'Copy'}
               </button>
+              <details className="reader-export" onKeyDown={e => { if (e.key === 'Escape') { e.currentTarget.open = false; e.currentTarget.querySelector('summary')?.focus() } }} onBlur={e => { if (!e.currentTarget.contains(e.relatedTarget as Node)) e.currentTarget.open = false }}>
+                <summary>Export</summary>
+                <div className="reader-export-panel">
               <button
                 onClick={handleDownload}
                 className="inline-flex items-center gap-1.5 px-2.5 py-2 text-xs rounded-lg hover:bg-dark-hover text-gray-400"
@@ -523,22 +525,22 @@ export default function VideoViewer() {
                   </button>
                   <button
                     onClick={openNotionModal}
-                    className="inline-flex items-center gap-1.5 px-2.5 py-2 text-xs rounded-lg hover:bg-dark-hover text-gray-400 hover:text-orange-400"
+                    className="inline-flex items-center gap-1.5 px-2.5 py-2 text-xs rounded-lg hover:bg-dark-hover text-gray-400 hover:text-indigo-300"
                     title="Send to Notion"
                   >
-                    <svg width="14" height="14" viewBox="0 0 100 100" fill="currentColor">
-                      <path d="M6.6 12.3c4.2 3.1 5.8 2.9 13.7 2.1l49.5-3.7c1.6 0 .3-1.6-.3-1.8l-8.2-6c-2.4-1.8-5.5-3.9-11.5-3.4L2.7 3.1C-.5 3.4-1.3 5.1.8 6.8zm4.5 14.7v52c0 2.8 1.4 3.8 4.5 3.6l54.4-3.2c3.2-.2 3.5-2.1 3.5-4.3V23.4c0-2.2-.9-3.4-2.8-3.2L15.8 23.3c-2.1.2-2.8 1.2-2.8 3.2v.5zM64 27c.3 1.4 0 2.8-1.4 3l-2.6.5v38.4c-2.3 1.2-4.4 1.9-6.2 1.9-2.8 0-3.5-.9-5.6-3.5L31.6 40.3v24.4l5.4 1.2s0 2.8-3.9 2.8l-10.8.6c-.3-.6 0-2.2 1.1-2.4l2.8-.8V33.7l-3.9-.3c-.3-1.4.5-3.5 2.8-3.7l11.6-.7 17.2 26.3V33l-4.5-.5c-.3-1.6 1-2.8 2.6-2.9l11.1-.6zM2.2 1.7l50.3-3.8c6.2-.5 7.8-.2 11.6 2.8l16 11.2c2.6 1.9 3.5 2.4 3.5 4.5V78c0 4.3-1.6 6.8-7.1 7.2L18.5 88.6c-4.1.2-6.1-.4-8.2-3.1L1.6 74.3C-.3 71.6-1 69.7-1 67.2v-60c0-3.4 1.6-6.2 5.1-5.5z" transform="translate(10 5) scale(0.9)"/>
-                    </svg>Notion
+                    <ExternalLink size={16} />Notion
                   </button>
                 </>
               )}
+                </div>
+              </details>
             </>
           )}
           {(['success', 'failed', 'cancelled'].includes(uiTask.status)) && (
             <button
               onClick={handleRegenerate}
               disabled={regenerating}
-              className="flex items-center gap-1 ml-1 px-3 py-2 text-xs text-indigo-400 hover:text-indigo-300 border border-indigo-500/30 hover:border-indigo-400/50 rounded-lg transition-colors disabled:opacity-50"
+              className="reader-regenerate flex items-center gap-1 ml-1 px-3 py-2 text-xs text-indigo-400 hover:text-indigo-300 border border-indigo-500/30 hover:border-indigo-400/50 rounded-lg transition-colors disabled:opacity-50"
               title="Regenerate notes"
             >
               <RefreshCw size={13} className={regenerating ? 'animate-spin' : ''} />
@@ -550,6 +552,7 @@ export default function VideoViewer() {
 
       {(['success', 'failed', 'cancelled'].includes(uiTask.status)) && <NoteRecovery onRestored={() => setLoadAttempt(value => value + 1)} id={taskId!} version={selectedVersion || ''} warning={uiTask.status === 'success' ? task.error : ''} failed={uiTask.status === 'failed'} local={task.platform === 'local'} />}
 
+      <ReaderControls><div className="reader-jump"><select aria-label="Jump to note section" className="reader-contents min-w-0 max-w-full p-2 rounded bg-dark-surface" defaultValue="" onChange={e => scrollToHeading(e.target.value)}><option value="" disabled>Contents</option>{toc.map(t => <option key={t.slug} value={t.slug}>{t.text}</option>)}</select></div></ReaderControls>
       {/* Failed state banner */}
       {uiTask.status === 'failed' && (
         <div className="flex-shrink-0 mb-3 p-4 bg-red-500/10 border border-red-500/30 rounded-xl">
@@ -593,12 +596,12 @@ export default function VideoViewer() {
       )}
 
       {/* Two-column layout: both columns scroll independently within viewport */}
-<div className="flex flex-wrap justify-between items-center gap-2"><select aria-label="Jump to note section" className="reader-contents min-w-0 max-w-full p-2 rounded bg-dark-surface" defaultValue="" onChange={e => scrollToHeading(e.target.value)}><option value="" disabled>Contents</option>{toc.map(t => <option key={t.slug} value={t.slug}>{t.text}</option>)}</select></div>
+
       <div className="flex-1 flex gap-4 min-h-0">
         {/* Left sidebar: scrolls independently */}
-        <aside data-reader-contents className={`${viewMode === 'mindmap' ? '!hidden' : ''} w-52 xl:w-56 flex-shrink-0 hidden lg:flex flex-col gap-3 overflow-y-auto custom-scrollbar`}>
+        <aside data-reader-contents className={`${viewMode === 'mindmap' ? '!hidden' : ''} w-56 xl:w-60 flex-shrink-0 hidden lg:flex flex-col gap-3 overflow-y-auto custom-scrollbar`}>
           {/* Metadata card */}
-          <div className="bg-dark-surface rounded-xl border border-dark-border p-3 flex-shrink-0">
+          <div className="reader-sidebar-section p-3 flex-shrink-0">
             <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Info</h3>
             <div className="space-y-1.5 text-xs text-gray-400">
               {task.platform && (
@@ -636,7 +639,7 @@ export default function VideoViewer() {
 
           {/* TOC */}
           {toc.length > 0 && viewMode === 'markdown' && (
-            <div className="bg-dark-surface rounded-xl border border-dark-border p-3 flex-shrink-0">
+            <div className="reader-sidebar-section p-3 flex-shrink-0">
               <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Contents</h3>
               <nav className="space-y-0.5">
                 {toc.map((item, i) => (
@@ -657,7 +660,7 @@ export default function VideoViewer() {
         </aside>
 
         {/* Right: main content — scrolls independently */}
-        <div className="flex-1 min-w-0 overflow-hidden bg-dark-surface rounded-xl border border-dark-border">
+        <div className="reader-paper flex-1 min-w-0 overflow-hidden">
           {!['success', 'failed', 'cancelled'].includes(uiTask.status) && !content ? (
             <div className="h-full overflow-y-auto flex flex-col items-center py-8 text-center space-y-4 w-full max-w-md mx-auto">
               <Loader2 className="w-10 h-10 animate-spin text-indigo-500 flex-shrink-0" />
@@ -714,9 +717,7 @@ export default function VideoViewer() {
           >
             <div className="flex items-center justify-between p-4 border-b border-dark-border">
               <h2 className="text-sm font-semibold text-white flex items-center gap-2">
-                <svg width="16" height="16" viewBox="0 0 100 100" fill="currentColor" className="text-orange-400">
-                  <path d="M6.6 12.3c4.2 3.1 5.8 2.9 13.7 2.1l49.5-3.7c1.6 0 .3-1.6-.3-1.8l-8.2-6c-2.4-1.8-5.5-3.9-11.5-3.4L2.7 3.1C-.5 3.4-1.3 5.1.8 6.8zm4.5 14.7v52c0 2.8 1.4 3.8 4.5 3.6l54.4-3.2c3.2-.2 3.5-2.1 3.5-4.3V23.4c0-2.2-.9-3.4-2.8-3.2L15.8 23.3c-2.1.2-2.8 1.2-2.8 3.2v.5zM64 27c.3 1.4 0 2.8-1.4 3l-2.6.5v38.4c-2.3 1.2-4.4 1.9-6.2 1.9-2.8 0-3.5-.9-5.6-3.5L31.6 40.3v24.4l5.4 1.2s0 2.8-3.9 2.8l-10.8.6c-.3-.6 0-2.2 1.1-2.4l2.8-.8V33.7l-3.9-.3c-.3-1.4.5-3.5 2.8-3.7l11.6-.7 17.2 26.3V33l-4.5-.5c-.3-1.6 1-2.8 2.6-2.9l11.1-.6zM2.2 1.7l50.3-3.8c6.2-.5 7.8-.2 11.6 2.8l16 11.2c2.6 1.9 3.5 2.4 3.5 4.5V78c0 4.3-1.6 6.8-7.1 7.2L18.5 88.6c-4.1.2-6.1-.4-8.2-3.1L1.6 74.3C-.3 71.6-1 69.7-1 67.2v-60c0-3.4 1.6-6.2 5.1-5.5z" transform="translate(10 5) scale(0.9)"/>
-                </svg>
+                <ExternalLink size={16} />
                 Send to Notion
               </h2>
               <button
@@ -826,7 +827,7 @@ export default function VideoViewer() {
                 <button
                   onClick={handleNotionExport}
                   disabled={!notionSelectedId || notionExporting}
-                  className="inline-flex items-center gap-2 px-4 py-2 bg-orange-600 hover:bg-orange-700 disabled:opacity-40 disabled:cursor-not-allowed text-white text-sm font-medium rounded-lg transition-colors"
+                  className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-40 disabled:cursor-not-allowed text-white text-sm font-medium rounded-lg transition-colors"
                 >
                   {notionExporting ? <Loader2 size={14} className="animate-spin" /> : <ExternalLink size={14} />}
                   Export

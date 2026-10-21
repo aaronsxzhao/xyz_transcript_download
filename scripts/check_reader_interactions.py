@@ -90,6 +90,11 @@ async def check(browser, origin, width, output, label):
     await page.wait_for_function("document.querySelector('[aria-label=\"Search saved notes\"]').value === ''")
     if width>=768:
         assert await page.get_by_title('Sign Out',exact=True).is_visible()
+    if label == 'after' and width < 1024:
+        assert not await page.get_by_label('Podcast or channel',exact=True).is_visible()
+        await page.get_by_role('button',name='Filters',exact=True).click()
+        assert await page.get_by_label('Podcast or channel',exact=True).is_visible()
+        await page.get_by_role('button',name='Filters',exact=True).click()
     result['library_preferences_and_filters']=True
     start=time.monotonic()
     await page.goto(origin+'/videos/bench')
@@ -99,6 +104,17 @@ async def check(browser, origin, width, output, label):
     result['note_and_first_image_ms']=round((time.monotonic()-start)*1000)
     result['layout']=await page.evaluate('''()=>{const a=document.querySelector('article').getBoundingClientRect(),c=document.querySelector('#video-content-scroll').getBoundingClientRect();return {article:a.width,content:c.width,viewport:innerWidth,overflow:document.documentElement.scrollWidth>innerWidth}}''')
     await page.screenshot(path=str(output/f'{label}-{width}-note.png'))
+    if label == 'after':
+        await page.locator('.reader-export > summary').click()
+        bounds = await page.locator('.reader-export-panel').bounding_box()
+        assert bounds['x'] >= 0 and bounds['x'] + bounds['width'] <= width
+        await page.locator('.reader-export > summary').press('Escape')
+        assert not await page.locator('.reader-export').evaluate('(node)=>node.open')
+        if width < 768:
+            for control in ['Smaller reading text', 'Larger reading text', 'Go back']:
+                bounds = await page.get_by_role('button',name=control,exact=True).bounding_box()
+                assert bounds['height'] >= 44 and bounds['width'] >= 44
+        result['compact_controls_and_export_bounds'] = True
     await page.get_by_label('Reading width',exact=True).select_option('comfortable')
     await page.wait_for_function("document.documentElement.dataset.readerWidth==='comfortable'")
     assert (await page.locator('article').bounding_box())['width']<=821
@@ -153,15 +169,20 @@ async def check(browser, origin, width, output, label):
               }))).observe(document.body, {childList:true});
             }""")
         await print_spy()
+        await page.locator('.reader-export > summary').click()
         await page.get_by_title('Download PDF',exact=True).click()
         await page.wait_for_timeout(250)
         result['pdf_pending_until_images_load']=await page.get_by_title('Download PDF',exact=True).is_disabled()
         assert result['pdf_pending_until_images_load']
         await page.wait_for_function('window.__printed === true',timeout=15000)
         assert not await page.get_by_title('Download PDF',exact=True).is_disabled()
+        if not await page.locator('.reader-export').evaluate('(node)=>node.open'):
+            await page.locator('.reader-export > summary').click()
         async with page.expect_download() as pending_download:
             await page.get_by_title('Download .md',exact=True).click()
         result['markdown_download_works']=(await pending_download.value).suggested_filename.endswith('.md')
+        if not await page.locator('.reader-export').evaluate('(node)=>node.open'):
+            await page.locator('.reader-export > summary').click()
         await page.get_by_title('Send to Notion',exact=True).click()
         await page.get_by_role('dialog',name='Export to Notion').wait_for()
         await page.get_by_role('button',name='Close Notion export',exact=True).first.click()
@@ -170,6 +191,7 @@ async def check(browser, origin, width, output, label):
         await page.goto(origin+'/viewer/bench')
         await page.get_by_role('heading',name='Overview',exact=True).wait_for()
         await print_spy()
+        await page.locator('.reader-export > summary').click()
         await page.get_by_title('Download PDF',exact=True).click()
         await page.wait_for_function('window.__printed === true',timeout=15000)
         result['podcast_pdf_works']=True
@@ -220,7 +242,7 @@ async def main():
             assert not report['errors'],report
             assert not report['layout']['overflow'],report
             assert report['layout']['article'] <= 1121,report
-            assert report['layout']['article'] >= min(1120, report['layout']['content']-48)*.95,report
+            assert report['layout']['article'] >= min(820, report['layout']['content']-48)*.95,report
             assert report['zoom_changes_transform'] and report.get('copy_works'),report
             assert report['reading_position_retained'],report
             assert report['server_pagination'],report

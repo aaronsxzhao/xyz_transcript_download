@@ -12,7 +12,7 @@ export default {
           bg: '#0f172a',
           surface: '#1e293b',
           border: '#334155',
-          hover: '#475569',
+          hover: '#2b3b51',
         },
       },
     },

@@ -80,6 +80,12 @@ async def check(browser, dist, label, rollback_dist=None):
             await page.get_by_role('button',name='Save Settings',exact=True).click()
             await page.get_by_text('All changes saved',exact=True).wait_for()
             await page.screenshot(path='/tmp/xyz-settings-review.png')
+            await page.set_viewport_size({'width':390,'height':960})
+            await page.screenshot(path='/tmp/xyz-settings-mobile-review.png')
+            assert not await page.evaluate('document.documentElement.scrollWidth > innerWidth')
+            save_bounds = await page.get_by_role('button',name='Save Settings',exact=True).bounding_box()
+            assert save_bounds['height'] >= 44
+            await page.set_viewport_size({'width':1440,'height':1000})
             report['settings_unsaved_guard_and_save']=True
             await page.get_by_role('button',name='Tools & Data',exact=True).click()
             await page.get_by_role('button',name='Show recent timings',exact=True).click()

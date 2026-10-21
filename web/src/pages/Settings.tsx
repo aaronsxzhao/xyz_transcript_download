@@ -585,9 +585,9 @@ export default function Settings() {
     p === 'bilibili' ? 'BiliBili' : p === 'youtube' ? 'YouTube' : p.charAt(0).toUpperCase() + p.slice(1)
 
   return (
-    <div className="max-w-2xl min-w-0 mx-auto">
+    <div className="settings-page min-w-0 mx-auto">
       <div className="mb-5">
-        <h1 className="text-2xl font-bold text-white mb-1">Settings</h1>
+        <h1 className="page-title text-2xl font-bold text-white mb-1">Settings</h1>
         <p className="text-sm text-gray-500">Configure AI models, platform logins, and system tools</p>
       </div>
 
@@ -595,7 +595,7 @@ export default function Settings() {
       {loadError && <LoadError message={loadError} onRetry={() => void loadSettings()} />}
 
           {/* Save */}
-          <div className="sticky top-0 z-20 flex flex-wrap items-center gap-3 p-3 bg-dark-bg border border-dark-border rounded-xl shadow-lg mb-4">
+          <div className="sticky top-0 z-20 flex flex-wrap items-center gap-3 p-3 bg-dark-bg border border-dark-border rounded-xl settings-savebar mb-4">
             <span role="status" className="text-sm text-gray-400">{!settings ? 'Settings not loaded' : dirty ? 'Unsaved changes' : 'All changes saved'}</span>
             <button
               onClick={saveSettings}
@@ -695,7 +695,7 @@ export default function Settings() {
                   ))}
                 </select>
               </div>
-              <button onClick={verifyAndSaveLlm} disabled={!settings || testingLlm || (llmProvider === 'groq' && !settings?.groq_available)} className="px-4 py-2 bg-purple-600 text-white rounded-lg disabled:opacity-50 flex items-center gap-2">
+              <button onClick={verifyAndSaveLlm} disabled={!settings || testingLlm || (llmProvider === 'groq' && !settings?.groq_available)} className="px-4 py-2 bg-indigo-600 text-white rounded-lg disabled:opacity-50 flex items-center gap-2">
                 {testingLlm && <Loader2 size={16} className="animate-spin" />} Test and save summaries
               </button>
               {llmTestResult && <p role="status" className="text-sm text-gray-300">{llmTestResult}</p>}

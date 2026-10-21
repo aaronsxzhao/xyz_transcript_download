@@ -241,11 +241,11 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="space-y-8">
+    <div className="workspace-page dashboard-page space-y-6">
       {error && <LoadError message={error} onRetry={() => { void loadData() }} />}
       <div className="flex items-start justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-white mb-2">Dashboard</h1>
+          <h1 className="page-title text-2xl font-bold text-white mb-2">Dashboard</h1>
           <p className="text-gray-400">Continue reading and follow your processing tasks</p>
         </div>
         <button
@@ -292,28 +292,6 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* Quick process form */}
-      <div className="p-4 md:p-6 bg-dark-surface border border-dark-border rounded-xl">
-        <h2 className="text-lg font-semibold text-white mb-4">Quick Process</h2>
-        <form onSubmit={handleProcess} className="flex flex-col sm:flex-row gap-3 sm:gap-4">
-          <input
-            type="text"
-            value={episodeUrl}
-            onChange={(e) => setEpisodeUrl(e.target.value)}
-            aria-label="Podcast episode or video URL" placeholder="Paste podcast episode or video URL..."
-            className="flex-1 px-4 py-3 bg-dark-hover border border-dark-border rounded-lg text-white placeholder:text-gray-500 focus:outline-none focus:border-indigo-500 text-base"
-          />
-          <button
-            type="submit"
-            disabled={processing || !episodeUrl.trim()}
-            className="flex items-center justify-center gap-2 px-6 py-3 bg-indigo-600 hover:bg-indigo-700 disabled:bg-gray-700 disabled:cursor-not-allowed text-white font-medium rounded-lg transition-colors"
-          >
-            {processing ? <Loader2 className="w-5 h-5 animate-spin" /> : <Plus className="w-5 h-5" />}
-            Process
-          </button>
-        </form>
-      </div>
-
       {/* Processing jobs — podcast + video combined */}
       {allQueueItems.length > 0 && (
         <div>
@@ -344,7 +322,7 @@ export default function Dashboard() {
         {/* Recent podcast summaries */}
         <div>
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-semibold text-white">Recent Summaries</h2>
+            <h2 className="text-lg font-semibold text-white">Continue reading · Podcasts</h2>
             <Link
               to="/library?kind=podcast"
               className="flex items-center gap-1 text-sm text-indigo-400 hover:text-indigo-300"
@@ -369,7 +347,7 @@ export default function Dashboard() {
         {/* Recent video notes */}
         <div>
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-semibold text-white">Recent Video Notes</h2>
+            <h2 className="text-lg font-semibold text-white">Continue reading · Videos</h2>
             <Link
               to="/library?kind=video"
               className="flex items-center gap-1 text-sm text-indigo-400 hover:text-indigo-300"
@@ -429,7 +407,7 @@ export default function Dashboard() {
                           <span className="truncate">{task.channel}</span>
                         </span>
                       )}
-                      {task.style && <span className="px-1.5 py-0.5 bg-purple-600/20 text-purple-400 rounded-full text-[10px]">{task.style}</span>}
+                      {task.style && <span className="px-1.5 py-0.5 bg-purple-600/20 text-purple-400 rounded-full text-xs">{task.style}</span>}
                     </div>
                   </div>
                 </Link>
@@ -438,9 +416,31 @@ export default function Dashboard() {
           )}
         </div>
       </div>
+      {/* Quick process form */}
+      <div id="dashboard-add-content" className="p-4 md:p-6 bg-dark-surface border border-dark-border rounded-xl">
+        <h2 className="text-lg font-semibold text-white mb-4">Add content</h2>
+        <form onSubmit={handleProcess} className="flex flex-col sm:flex-row gap-3 sm:gap-4">
+          <input
+            type="text"
+            value={episodeUrl}
+            onChange={(e) => setEpisodeUrl(e.target.value)}
+            aria-label="Podcast episode or video URL" placeholder="Paste podcast episode or video URL..."
+            className="flex-1 px-4 py-3 bg-dark-hover border border-dark-border rounded-lg text-white placeholder:text-gray-500 focus:outline-none focus:border-indigo-500 text-base"
+          />
+          <button
+            type="submit"
+            disabled={processing || !episodeUrl.trim()}
+            className="flex items-center justify-center gap-2 px-6 py-3 bg-indigo-600 hover:bg-indigo-700 disabled:bg-gray-700 disabled:cursor-not-allowed text-white font-medium rounded-lg transition-colors"
+          >
+            {processing ? <Loader2 className="w-5 h-5 animate-spin" /> : <Plus className="w-5 h-5" />}
+            Process
+          </button>
+        </form>
+      </div>
+
       {/* Stats — podcast + video combined */}
       {stats && (
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-7 gap-3 md:gap-4">
+        <div className="dashboard-stats grid grid-cols-2 md:grid-cols-3 lg:grid-cols-7 gap-3">
           <StatCard icon={Radio} label="Podcasts" value={stats.total_podcasts} color="text-indigo-500" />
           <StatCard icon={FileText} label="Episodes" value={stats.total_episodes} color="text-blue-500" />
           <StatCard icon={FileText} label="Transcripts" value={stats.total_transcripts} color="text-green-500" />

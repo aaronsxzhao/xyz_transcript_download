@@ -397,7 +397,7 @@ export default function Videos() {
   const totalVideos = channels.reduce((s, c) => s + c.total, 0)
 
   return (
-    <div className="space-y-5">
+    <div className="workspace-page space-y-5">
       {error && <LoadError message={error} onRetry={() => { void loadChannels(); if (view.type === 'videos') void loadChannelTasks(view.platform, view.channel) }} />}
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -415,7 +415,7 @@ export default function Videos() {
             </button>
           )}
           <div>
-            <h1 className="text-xl md:text-2xl font-bold text-white">
+            <h1 className="page-title text-xl md:text-2xl font-bold text-white">
               {view.type === 'platforms' && 'Videos'}
               {view.type === 'channels' && (PLATFORM_META[view.platform]?.label || view.platform)}
               {view.type === 'videos' && view.channel}
@@ -520,7 +520,7 @@ export default function Videos() {
         </div>
       ) : view.type === 'platforms' ? (
         /* Platform overview */
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="collection-grid">
           {sortedPlatforms.map(p => {
             const meta = PLATFORM_META[p] || { label: p }
             const stats = platformStats[p]

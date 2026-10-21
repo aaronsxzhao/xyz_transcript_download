@@ -74,7 +74,7 @@ export default function Login() {
           <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-indigo-600 mb-4">
             <Radio className="w-8 h-8 text-white" />
           </div>
-          <h1 className="text-2xl font-bold text-white">Podcast Transcript Tool</h1>
+          <h1 className="page-title text-2xl font-bold text-white">Podcast Transcript Tool</h1>
           <p className="text-gray-400 mt-2">
             {mode === 'signin' ? 'Sign in to your account' : mode === 'recovery' ? 'Recover your account' : 'Create a new account'}
           </p>
