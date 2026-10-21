@@ -67,6 +67,10 @@ jobs:
           docker buildx imagetools inspect "$OCIR_REGISTRY/$OCIR_NAMESPACE/$OCIR_REPO:8db4bcd17f03dff9ee0ff40a08389b1636ad0365" > /dev/null
           docker buildx imagetools inspect "$OCIR_REGISTRY/$OCIR_NAMESPACE/$OCIR_REPO:c5ead130ad344c7b698170e6ce68e6919899b5c3" > /dev/null
 
+      - name: Reject obsolete queued release
+        run: |
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "${{ github.sha }}"
+
       - name: Build and push ARM image
         uses: docker/build-push-action@v6
         with:

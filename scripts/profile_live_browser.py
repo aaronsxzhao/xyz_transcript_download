@@ -76,14 +76,20 @@ async def profile_browser(owner: str, token: str, local_video: str | None = None
                         await page.get_by_text(rows[0]['title'], exact=True).first.wait_for(timeout=10000)
                 elif label == 'podcast_index':
                     times=[]
+                    report.update(channels_opened=0, navigation_stage=0)
                     for podcast in data:
                         if podcast.get('platform')!='xiaoyuzhou' or not podcast.get('episode_preview'):continue
                         target=page.locator(f'a[href="/podcasts/{podcast["pid"]}/episodes"]')
+                        report['navigation_stage']=1  # Source card visible
                         await target.wait_for(timeout=10000)
                         opened=time.perf_counter()
+                        report['navigation_stage']=2  # Card navigation
                         await target.click()
+                        report['navigation_stage']=3  # Cached episode content
                         await page.get_by_text(podcast['episode_preview'][0]['title'],exact=True).first.wait_for(timeout=10000)
                         times.append(round((time.perf_counter()-opened)*1000))
+                        report['channels_opened']=len(times)
+                        report['navigation_stage']=4  # Return to source list
                         await page.go_back(wait_until='domcontentloaded')
                     report['channels_opened']=len(times)
                     report['max_navigation_ms']=max(times,default=0)
@@ -159,8 +165,9 @@ async def profile_browser(owner: str, token: str, local_video: str | None = None
                 sizes = await page.evaluate("(() => {const r=performance.getEntriesByType('resource').filter(e=>new URL(e.name).pathname.startsWith('/assets/'));return [r.reduce((s,e)=>s+e.encodedBodySize,0),r.reduce((s,e)=>s+e.decodedBodySize,0)]})()")
                 report['asset_wire_bytes'], report['asset_decoded_bytes'] = sizes
                 report['milliseconds'] = round((time.perf_counter() - started) * 1000)
-            except Exception:
+            except Exception as error:
                 report['status'] = 500
+                report['error_kind'] = 1 if type(error).__name__ == 'TimeoutError' else 2
             report.update(js_errors=len(errors), failed_requests=len(failed), image_server_errors=len(image_server_errors))
             if errors or failed or image_server_errors:
                 report['status'] = 500
