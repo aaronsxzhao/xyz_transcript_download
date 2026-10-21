@@ -19,9 +19,11 @@ def library(q: str = Query('', max_length=200), kind: Literal['', 'podcast', 'vi
             status: str = Query('', max_length=32), source: str = Query('', max_length=200),
             sort: Literal['newest', 'oldest'] = 'newest', cursor: str = Query('', max_length=400),
             limit: int = Query(40, ge=1, le=60), user: User = Depends(get_current_user)):
+    if status and status != 'completed':
+        return {'items': [], 'next_cursor': None}
     db = get_db(user.id)
     if db.use_supabase:
-        query = db.db.client.table('library_items').select('id,kind,title,source,date,status,sort_key').eq('user_id', user.id)
+        query = db.db.client.table('library_items').select('id,kind,title,source,date,status,sort_key,thumbnail,platform,duration,topics_count').eq('user_id', user.id).eq('status', 'completed')
         if kind: query = query.eq('kind', kind)
         if status: query = query.eq('status', status)
         if source: query = query.ilike('source', '%' + source.replace('\\', '\\\\').replace('%', '\\%').replace('_', '\\_') + '%')
@@ -32,10 +34,10 @@ def library(q: str = Query('', max_length=200), kind: Literal['', 'podcast', 'vi
     # Local summaries live as JSON files; cloud queries never take this path.
     summaries = db.get_all_summaries()
     metadata = db.get_summary_podcast_metadata([s.episode_id for s in summaries])
-    rows = [dict(id=s.episode_id, kind='podcast', title=s.title, source=metadata.get(s.episode_id, ('Podcast', ''))[0] or 'Podcast', date=s.created_at, status='completed') for s in summaries]
+    rows = [dict(id=s.episode_id, kind='podcast', title=s.title, source=metadata.get(s.episode_id, ('Podcast', ''))[0] or 'Podcast', date=s.created_at, status='completed', thumbnail=metadata.get(s.episode_id, ('', ''))[1] or '', platform='', duration=0, topics_count=len(s.topics or [])) for s in summaries]
     from video_task_db import get_video_task_db
     videos = get_video_task_db().list_tasks(user.id, limit=1000000)
-    rows += [dict(id=t['id'], kind='video', title=t.get('title') or 'Untitled video', source=t.get('channel') or t.get('platform') or 'Video', date=t.get('updated_at') or t.get('created_at') or '', status='completed' if t['status'] == 'success' else t['status']) for t in videos if t['status'] != 'discovered']
+    rows += [dict(id=t['id'], kind='video', title=t.get('title') or 'Untitled video', source=t.get('channel') or t.get('platform') or 'Video', date=t.get('updated_at') or t.get('created_at') or '', status='completed', thumbnail=t.get('thumbnail') or '', platform=t.get('platform') or '', duration=t.get('duration') or 0, topics_count=0) for t in videos if t['status'] == 'success']
     from datetime import datetime, timezone
     for row in rows:
         try: date = datetime.fromisoformat(row['date'].replace('Z', '+00:00')).replace(tzinfo=timezone.utc).strftime('%Y%m%d%H%M%S%f')

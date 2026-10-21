@@ -35,6 +35,7 @@ async def profile_browser(owner: str, token: str, local_video: str | None = None
 
         await context.route('**/*', read_only)
         routes = [
+            ('dashboard', '/', '/api/stats'),
             ('episode_navigation', '/podcasts?platform=xiaoyuzhou', '/api/podcasts/6540c81e9cb67569a2f99856/episodes'),
             ('episodes', '/podcasts/62382c1103bea1ebfffa1c00/episodes', '/api/podcasts/62382c1103bea1ebfffa1c00/episodes'),
             ('channel', '/videos?platform=youtube&channel=Brooks+Trading+Course', '/api/video-notes/tasks/by-channel'),
@@ -73,7 +74,14 @@ async def profile_browser(owner: str, token: str, local_video: str | None = None
                     rows = data if isinstance(data, list) else data['tasks']
                     if rows:
                         await page.get_by_text(rows[0]['title'], exact=True).first.wait_for(timeout=10000)
+                elif label == 'dashboard':
+                    await page.locator('.dashboard-stats svg').first.wait_for(timeout=10000)
+                    colors = await page.locator('.dashboard-stats svg').evaluate_all('(nodes)=>nodes.map(n=>getComputedStyle(n).color)')
+                    report['stat_colors'] = len(set(colors))
+                    if report['stat_colors'] < 5: raise RuntimeError('Dashboard icon colors missing')
                 elif label == 'library':
+                    if any(row['status'] != 'completed' for row in data['items']): raise RuntimeError('Library includes unfinished tasks')
+                    report['artwork_items'] = sum(bool(row.get('thumbnail')) for row in data['items'])
                     await page.get_by_role('heading', name='Library', exact=True).wait_for(timeout=10000)
                     await page.locator('main a[href^="/viewer/"], main a[href^="/videos/"]').first.wait_for(timeout=10000)
                 elif label in {'video_note', 'local_video_note'}:
