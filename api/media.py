@@ -259,7 +259,12 @@ async def backfill_previews():
                                 if not _missing_object(error):
                                     raise
                                 content = await asyncio.to_thread(storage.download, filename)
-                                await asyncio.to_thread(store_preview, folder, filename, content, storage)
+                                try:
+                                    await asyncio.to_thread(store_preview, folder, filename, content, storage)
+                                except OSError:
+                                    # A corrupt original must not block every later note.
+                                    import logging
+                                    logging.getLogger(__name__).warning('Skipping unreadable original during preview backfill')
                             await asyncio.sleep(.15)
                         if len(objects) < 100:
                             break
@@ -267,7 +272,10 @@ async def backfill_previews():
                 else:
                     for source in (DATA_DIR / folder).glob('*'):
                         if source.is_file() and source.suffix.lower() in {'.jpg', '.jpeg', '.png', '.webp'}:
-                            await load_preview(folder, source.name)
+                            try:
+                                await load_preview(folder, source.name)
+                            except OSError:
+                                continue
                             await asyncio.sleep(.15)
         except asyncio.CancelledError:
             raise

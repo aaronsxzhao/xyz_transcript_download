@@ -48,15 +48,16 @@ async def test_backfill_skips_existing_previews_and_creates_only_missing(tmp_pat
     monkeypatch.setattr(media,'DATA_DIR',tmp_path)
     monkeypatch.setattr(media,'USE_SUPABASE',True)
     storage=Mock();client=Mock();client.storage.from_.return_value=storage
-    storage.list.side_effect=[[{'name':'existing.jpg'},{'name':'old.jpg'}],[]]
+    storage.list.side_effect=[[{'name':'existing.jpg'},{'name':'corrupt.jpg'},{'name':'old.jpg'}],[]]
     class Missing(Exception):code='NoSuchKey'
-    storage.info.side_effect=[{},Missing()]
-    storage.download.return_value=image_bytes()
+    storage.info.side_effect=[{},Missing(),Missing()]
+    storage.download.side_effect=[b'not an image',image_bytes()]
     monkeypatch.setattr('api.supabase_client.get_supabase_admin_client',lambda:client)
     async def stop_after_sweep(seconds):
         if seconds==3600:raise asyncio.CancelledError()
     monkeypatch.setattr(media.asyncio,'sleep',stop_after_sweep)
     with pytest.raises(asyncio.CancelledError):await media.backfill_previews()
-    storage.download.assert_called_once_with('old.jpg')
+    assert storage.download.call_count==2
+    storage.download.assert_called_with('old.jpg')
     assert storage.upload.call_count==1
     assert storage.upload.call_args.args[0]=='previews/old.jpg.webp'
