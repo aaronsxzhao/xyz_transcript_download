@@ -1,9 +1,11 @@
+import {dismissedTasks} from '../lib/taskPreferences'
+const taskAction=async(action:'cancelTask'|'retryTask'|'dismissTask',job:import('../lib/api').ProcessingJob,kind:'podcast'|'video')=>(await import('../lib/taskActions'))[action](job,kind)
 import LoadError from '../components/LoadError'
 import { getAccountId,getPreference,setPreference } from '../lib/preferences'
 import { useState, useEffect, useMemo, useRef } from 'react'
 import { Link } from 'react-router-dom'
 import { Radio, FileText, MessageSquare, Loader2, Plus, Bell, RefreshCw, X, Video, CheckCircle, Users } from 'lucide-react'
-import { fetchStats, fetchRecentSummaries, processEpisode, fetchContentUpdates, dismissContentUpdates, type ContentUpdates, checkPodcastsForUpdates, checkVideoChannelsForUpdates, fetchRecentVideoTasks, cancelJob, cancelVideoTask, generateVideoNote, getVideoProcessingDefaults, getUserModelSettings, type Stats, type SummaryListItem, type ProcessingJob, type VideoTask } from '../lib/api'
+import { fetchStats, fetchRecentSummaries, processEpisode, fetchContentUpdates, dismissContentUpdates, type ContentUpdates, checkPodcastsForUpdates, checkVideoChannelsForUpdates, fetchRecentVideoTasks, generateVideoNote, getVideoProcessingDefaults, getUserModelSettings, type Stats, type SummaryListItem, type ProcessingJob, type VideoTask } from '../lib/api'
 import { useStore } from '../lib/store'
 import { useWarmCache, getCache, setCache, CacheKeys } from '../lib/cache'
 import { useToast } from '../components/Toast'
@@ -59,31 +61,17 @@ export default function Dashboard() {
   const dismissingRef=useRef(false)
   const [checkingUpdates, setCheckingUpdates] = useState(false)
 
-  const { jobs, updateJob, removeJob, videoTasks, setVideoTasks } = useStore()
+  const { jobs, updateJob, videoTasks } = useStore()
   const { addToast } = useToast()
-
-  async function handleCancelQueueItem(id: string, kind: 'podcast' | 'video') {
-    try {
-      if (kind === 'podcast') {
-        await cancelJob(id)
-        removeJob(id)
-      } else {
-        await cancelVideoTask(id)
-        setVideoTasks(videoTasks.filter(t => t.id !== id))
-      }
-      addToast({ type: 'info', title: 'Cancelled', message: 'Task has been cancelled' })
-    } catch (err) {
-      addToast({ type: 'error', title: 'Cancel failed', message: err instanceof Error ? err.message : 'Unknown error' })
-    }
-  }
 
   const activeVideoJobs: ProcessingJob[] = useMemo(() => {
     return videoTasks
       .filter(t => VIDEO_QUEUE_STATUSES.has(t.status) && t.status !== 'success' && t.status !== 'failed')
       .map(t => ({
         job_id: t.id,
-        status: t.status === 'saving' ? 'summarizing' : t.status,
+        status: t.status,
         progress: t.progress,
+        started_at:t.started_at,
         message: t.message || t.title || '',
         episode_title: t.title || (t.url ? (() => { try { return new URL(t.url).hostname + new URL(t.url).pathname.slice(0, 30) } catch { return t.url } })() : 'Video'),
       }))
@@ -91,7 +79,7 @@ export default function Dashboard() {
 
   const recentlyDoneVideos: ProcessingJob[] = useMemo(() => {
     return videoTasks
-      .filter(t => (t.status === 'success' || t.status === 'failed') && !shouldDismissCompleted(t.id))
+      .filter(t => (t.status === 'success' || t.status === 'failed') && (t.status === 'failed' || !shouldDismissCompleted(t.id)))
       .slice(0, 3)
       .map(t => ({
         job_id: t.id,
@@ -102,25 +90,28 @@ export default function Dashboard() {
       }))
   }, [videoTasks])
 
+  const [dismissalRevision,setDismissalRevision]=useState(0)
+  useEffect(()=>{const refresh=()=>setDismissalRevision(n=>n+1);window.addEventListener("xyz:tasks-dismissed",refresh);return()=>window.removeEventListener("xyz:tasks-dismissed",refresh)},[])
   const allQueueItems = useMemo(() => {
     const activePodcasts = jobs
       .filter(j => j.status !== 'completed' && j.status !== 'failed' && j.status !== 'cancelled')
       .map(j => ({ ...j, _kind: 'podcast' as const }))
     const donePodcasts = jobs
-      .filter(j => (j.status === 'completed' || j.status === 'failed' || j.status === 'cancelled') && !shouldDismissCompleted(j.job_id))
+      .filter(j => (j.status === 'completed' || j.status === 'failed' || j.status === 'cancelled') && (j.status === 'failed' || !shouldDismissCompleted(j.job_id)))
       .map(j => ({ ...j, _kind: 'podcast' as const }))
     const videoJobs = activeVideoJobs.map(j => ({ ...j, _kind: 'video' as const }))
     const doneVideos = recentlyDoneVideos.slice(0, 2).map(j => ({ ...j, _kind: 'video' as const }))
 
-    return [...activePodcasts, ...videoJobs, ...donePodcasts, ...doneVideos]
-  }, [jobs, activeVideoJobs, recentlyDoneVideos])
+    const dismissed=dismissedTasks()
+    return [...activePodcasts, ...videoJobs, ...donePodcasts, ...doneVideos].filter(row=>!['failed','success','completed','cancelled'].includes(row.status)||!dismissed.includes(row._kind+':'+row.job_id))
+  }, [jobs, activeVideoJobs, recentlyDoneVideos,dismissalRevision])
 
   // Mark completed queue items as seen so they auto-dismiss on next load
   const queueSeenRef = useRef(false)
   useEffect(() => {
     const doneIds = [
-      ...jobs.filter(j => j.status === 'completed' || j.status === 'failed' || j.status === 'cancelled').map(j => j.job_id),
-      ...videoTasks.filter(t => t.status === 'success' || t.status === 'failed').map(t => t.id),
+      ...jobs.filter(j => j.status === 'completed').map(j => j.job_id),
+      ...videoTasks.filter(t => t.status === 'success').map(t => t.id),
     ]
     if (doneIds.length > 0 && !queueSeenRef.current) {
       queueSeenRef.current = true
@@ -389,7 +380,9 @@ export default function Dashboard() {
                   job={item}
                   link={link}
                   kind={item._kind}
-                  onCancel={(id) => handleCancelQueueItem(id, item._kind)}
+                  onCancel={() => taskAction('cancelTask',item,item._kind)}
+                  onRetry={() => taskAction('retryTask',item,item._kind)}
+                  onDismiss={() => taskAction('dismissTask',item,item._kind)}
                 />
               )
             })}

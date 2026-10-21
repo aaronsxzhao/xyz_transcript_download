@@ -93,31 +93,14 @@ def test_processing_preserves_date_from_audio_download(tmp_path):
     assert db.get_task(task_id, 'local')['published_at'] == '2024-10-25'
 
 
-def test_library_reads_only_visible_owner_date_metadata_and_keeps_saved_order():
-    import httpx
-    from postgrest import SyncPostgrestClient
+def test_library_date_metadata_is_returned_without_extra_database_reads():
     from api.routers.library import page_rows
-    requests = []
-    def handle(request):
-        requests.append(request)
-        assert request.url.params['user_id'] == 'eq.owner'
-        assert request.url.params['limit'] == '2'
-        assert request.url.params['select'] in ('eid,pub_date,pid', 'id,published_at')
-        if request.url.path.endswith('/episodes'):
-            assert request.url.params['eid'] == 'in.(p)'
-            return httpx.Response(200, json=[{'eid': 'p', 'pid': 'source', 'pub_date': '2024-10-25'}])
-        assert request.url.params['id'] == 'in.(v)'
-        return httpx.Response(200, json=[{'id': 'v', 'published_at': '2023-01-01'}])
-    client = SyncPostgrestClient('https://fixture.test/rest/v1')
-    client.session = httpx.Client(transport=httpx.MockTransport(handle))
-    rows = [dict(id='p', kind='podcast', date='2026-10-21', sort_key='3'),
-            dict(id='v', kind='video', date='2026-10-20', sort_key='2'),
-            dict(id='off-page', kind='video', date='2026-10-19', sort_key='1')]
-    result = page_rows(rows, 2, SimpleNamespace(db=SimpleNamespace(client=client)), 'owner')
-    assert len(requests) == 2
-    assert [r['published_at'] for r in result['items']] == ['2024-10-25', '2023-01-01']
-    assert [r['date'] for r in result['items']] == ['2026-10-21', '2026-10-20']
-    assert result['next_cursor'] == '2'
+    rows=[dict(id='p',kind='podcast',date='2026-10-21',sort_key='3',published_at='2024-10-25'),
+          dict(id='v',kind='video',date='2026-10-20',sort_key='2',published_at='2023-01-01'),
+          dict(id='off-page',kind='video',date='2026-10-19',sort_key='1')]
+    result=page_rows(rows,2)
+    assert [r['published_at'] for r in result['items']]==['2024-10-25','2023-01-01']
+    assert result['next_cursor']=='2'
 
 
 def test_date_repair_does_not_call_a_player_when_watch_page_provides_date():

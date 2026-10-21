@@ -1,7 +1,7 @@
 /**
  * Shared status utilities for processing jobs
  */
-import { Loader2, CheckCircle, XCircle, Clock, Ban } from 'lucide-react'
+import { Loader2, CheckCircle, XCircle, Clock, Ban, LockKeyhole } from 'lucide-react'
 
 export type JobStatus = 
   | 'pending' 
@@ -21,10 +21,13 @@ export function getStatusIcon(status: string, size: 'sm' | 'md' = 'sm') {
   const sizeClass = size === 'sm' ? 'w-4 h-4' : 'w-5 h-5'
   
   switch (status) {
+    case 'success':
     case 'completed':
       return <CheckCircle className={`${sizeClass} text-green-400`} />
     case 'failed':
       return <XCircle className={`${sizeClass} text-red-400`} />
+    case 'restricted':
+      return <LockKeyhole className={`${sizeClass} text-amber-300`} />
     case 'cancelled':
       return <Ban className={`${sizeClass} text-gray-400`} />
     case 'cancelling':
@@ -41,6 +44,7 @@ export function getStatusIcon(status: string, size: 'sm' | 'md' = 'sm') {
  */
 export function getStatusColor(status: string): string {
   switch (status) {
+    case 'success':
     case 'completed':
       return 'bg-green-500'
     case 'failed':
@@ -53,6 +57,8 @@ export function getStatusColor(status: string): string {
       return 'bg-blue-500'
     case 'transcribing':
       return 'bg-purple-500'
+    case 'saving':
+    case 'parsing':
     case 'summarizing':
       return 'bg-indigo-500'
     case 'fetching':
@@ -69,18 +75,25 @@ export function getStatusColor(status: string): string {
  */
 export function getStatusText(status: string): string {
   switch (status) {
+    case 'restricted':
+      return 'Source access required'
     case 'pending':
-      return 'Waiting...'
+      return 'Queued'
     case 'fetching':
       return 'Fetching info...'
     case 'downloading':
       return 'Downloading...'
     case 'transcribing':
       return 'Transcribing...'
+    case 'saving':
+      return 'Saving and verifying'
+    case 'parsing':
+      return 'Reading source'
     case 'summarizing':
-      return 'Summarizing...'
+      return 'Generating summary'
+    case 'success':
     case 'completed':
-      return 'Done!'
+      return 'Completed'
     case 'failed':
       return 'Failed'
     case 'cancelled':
@@ -96,5 +109,5 @@ export function getStatusText(status: string): string {
  * Check if a job status is considered "active" (still processing)
  */
 export function isActiveStatus(status: string): boolean {
-  return !['completed', 'failed', 'cancelled'].includes(status)
+  return !['completed', 'success', 'failed', 'cancelled', 'discovered', 'restricted'].includes(status)
 }

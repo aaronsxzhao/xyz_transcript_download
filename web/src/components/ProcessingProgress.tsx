@@ -1,76 +1,117 @@
-import { useState } from 'react'
-import { Link } from 'react-router-dom'
-import { Video, Radio, ExternalLink, X } from 'lucide-react'
-import type { ProcessingJob } from '../lib/api'
-import { getStatusIcon, getStatusColor, isActiveStatus } from '../lib/statusUtils'
-
-interface ProcessingProgressProps {
-  job: ProcessingJob
-  link?: string
-  kind?: 'podcast' | 'video'
-  onCancel?: (id: string) => Promise<void>
-}
-
-export default function ProcessingProgress({ job, link, kind, onCancel }: ProcessingProgressProps) {
-  const isActive = isActiveStatus(job.status)
-  const isDone = job.status === 'completed' || job.status === 'success'
-  const clickable = isDone && !!link
-  const [cancelling, setCancelling] = useState(false)
-
-  const handleCancel = async (e: React.MouseEvent) => {
-    e.preventDefault()
-    e.stopPropagation()
-    if (!onCancel || cancelling) return
-    setCancelling(true)
-    try { await onCancel(job.job_id) } catch { /* ignore */ }
-    finally { setCancelling(false) }
+import Button from "./ui/Button";
+import { useRef, useState } from "react";
+import { Link } from "react-router-dom";
+import { Radio, Video } from "lucide-react";
+import type { ProcessingJob } from "../lib/api";
+import { isActiveStatus } from "../lib/statusUtils";
+import { TaskProgress, sourceAction } from "./TaskStatus";
+import { useToast } from "./Toast";
+export default function ProcessingProgress({
+  job,
+  link,
+  kind,
+  onCancel,
+  onRetry,
+  onDismiss,
+}: {
+  job: ProcessingJob;
+  link?: string;
+  kind?: "podcast" | "video";
+  onCancel?: (id: string) => Promise<void>;
+  onRetry?: (id: string) => Promise<void>;
+  onDismiss?: (id: string) => Promise<void>;
+}) {
+  const [busy, setBusy] = useState(false);
+  const locked = useRef(false);
+  const { addToast } = useToast();
+  const active = isActiveStatus(job.status);
+  const restricted = job.status === "failed" && sourceAction(job.message);
+  async function action(fn: ((id: string) => Promise<void>) | undefined) {
+    if (!fn || locked.current) return;
+    locked.current = true;
+    setBusy(true);
+    try {
+      await fn(job.job_id);
+    } catch (e) {
+      addToast({
+        type: "error",
+        title: "Task action failed",
+        message: e instanceof Error ? e.message : "Please retry.",
+      });
+    } finally {
+      locked.current = false;
+      setBusy(false);
+    }
   }
-
-  const content = (
-    <div className={`p-4 bg-dark-surface border rounded-xl transition-colors ${
-      clickable ? 'border-dark-border hover:border-indigo-500/50 cursor-pointer' : 'border-dark-border'
-    }`}>
-      <div className="flex items-start justify-between mb-2">
-        <div className="flex items-center gap-3 min-w-0">
-          {getStatusIcon(job.status === 'success' ? 'completed' : job.status, 'md')}
-          <div className="min-w-0 flex-1">
-            <p className="font-medium text-white truncate flex items-center gap-2">
-              {kind === 'video' && <Video size={14} className="text-cyan-400 flex-shrink-0" />}
-              {kind === 'podcast' && <Radio size={14} className="text-indigo-400 flex-shrink-0" />}
-              {job.episode_title || `Job ${job.job_id}`}
-            </p>
-            <p className="text-sm text-gray-400 truncate">{job.message}</p>
-          </div>
-        </div>
-        <div className="flex items-center gap-2 flex-shrink-0 ml-2">
-          <span className="text-xs text-gray-500 uppercase">{job.status === 'success' ? 'completed' : job.status}</span>
-          {clickable && <ExternalLink size={12} className="text-indigo-400" />}
-          {isActive && onCancel && (
-            <button
-              onClick={handleCancel}
-              disabled={cancelling}
-              className="p-1 text-gray-500 hover:text-red-400 hover:bg-red-400/10 rounded transition-colors"
-              title="Cancel"
-            >
-              <X size={14} />
-            </button>
-          )}
-        </div>
+  const Icon = kind === "video" ? Video : Radio;
+  return (
+    <article
+      className={`task-row ${job.status === "failed" ? "task-row-attention" : ""}`}
+      data-task-id={job.job_id}
+    >
+      <div className="flex gap-2 items-start">
+        <Icon
+          size={16}
+          className={kind === "video" ? "text-cyan-400" : "text-indigo-400"}
+        />
+        <h3 className="task-title">
+          {job.episode_title || "Processing content"}
+        </h3>
       </div>
-      
-      {isActive && (
-        <div className="h-2 bg-dark-hover rounded-full overflow-hidden">
-          <div 
-            className={`h-full ${getStatusColor(job.status)} transition-all duration-300`}
-            style={{ width: `${job.progress}%` }}
-          />
-        </div>
-      )}
-    </div>
-  )
-
-  if (clickable) {
-    return <Link to={link}>{content}</Link>
-  }
-  return content
+      <TaskProgress
+        status={restricted ? "restricted" : job.status}
+        progress={job.progress}
+        startedAt={job.started_at}
+      />
+      {job.message && <p className="task-message">{job.message}</p>}
+      <div className="task-actions">
+        {active && job.status !== "cancelling" && onCancel && (
+          <Button
+            variant="quiet"
+            disabled={busy}
+            onClick={() => void action(onCancel)}
+          >
+            {busy ? "Cancelling…" : "Cancel"}
+          </Button>
+        )}
+        {job.status === "failed" && !restricted && onRetry && (
+          <Button disabled={busy} onClick={() => void action(onRetry)}>
+            {busy ? "Retrying…" : "Retry"}
+          </Button>
+        )}
+        {restricted &&
+        job.episode_id &&
+        /^[a-f0-9]{24}$/i.test(job.episode_id) ? (
+          <a
+            className="ui-button"
+            target="_blank"
+            rel="noopener noreferrer"
+            href={`https://www.xiaoyuzhoufm.com/episode/${job.episode_id}`}
+          >
+            Open original episode
+          </a>
+        ) : (
+          restricted && (
+            <Link className="ui-button" to="/settings">
+              Check source access
+            </Link>
+          )
+        )}
+        {link && ["success", "completed"].includes(job.status) && (
+          <Link className="ui-button" to={link}>
+            Read summary
+          </Link>
+        )}
+        {!active && onDismiss && (
+          <Button
+            variant="quiet"
+            disabled={busy}
+            onClick={() => void action(onDismiss)}
+          >
+            Dismiss
+          </Button>
+        )}
+      </div>
+    </article>
+  );
 }

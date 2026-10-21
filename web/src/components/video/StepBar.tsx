@@ -5,7 +5,8 @@ const STEPS = [
   { key: 'downloading', label: 'Download', range: [10, 30] },
   { key: 'transcribing', label: 'Transcribe', range: [30, 60] },
   { key: 'summarizing', label: 'AI Notes', range: [60, 92] },
-  { key: 'success', label: 'Done', range: [92, 100] },
+  { key: 'saving', label: 'Save', range: [92, 99] },
+  { key: 'success', label: 'Done', range: [99, 100] },
 ]
 
 const STEP_ORDER = STEPS.map(s => s.key)
@@ -17,7 +18,7 @@ interface Props {
 
 export default function StepBar({ currentStatus, progress = 0 }: Props) {
   const currentIdx = STEP_ORDER.indexOf(currentStatus)
-  const effectiveIdx = currentStatus === 'saving' ? 3 : currentIdx
+  const effectiveIdx = currentIdx
 
   return (
     <div className="flex items-center px-2">
@@ -57,7 +58,7 @@ export default function StepBar({ currentStatus, progress = 0 }: Props) {
                 )}
               </div>
               <span
-                className={`text-[10px] mt-1 whitespace-nowrap ${
+                className={`text-xs mt-1 whitespace-nowrap ${
                   isCompleted || isCurrent ? 'text-gray-300' : 'text-gray-600'
                 }`}
               >

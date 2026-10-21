@@ -8,6 +8,7 @@ import os
 import re
 import shutil
 import subprocess
+from resource_scheduler import run_media_process
 import uuid
 from urllib.parse import parse_qs, urlparse
 from abc import ABC, abstractmethod
@@ -1356,7 +1357,7 @@ class DouyinDownloader(BaseDownloader):
 
     def _probe_media_streams(self, media_path: Path) -> dict:
         try:
-            result = subprocess.run(
+            result = run_media_process(
                 ["ffprobe", "-v", "error", "-show_streams", "-of", "json", str(media_path)],
                 capture_output=True,
                 text=True,
@@ -1395,7 +1396,7 @@ class DouyinDownloader(BaseDownloader):
                         if chunk:
                             f.write(chunk)
 
-            subprocess.run(
+            run_media_process(
                 [
                     FFMPEG_PATH, "-y",
                     "-i", str(video_path),
@@ -1609,7 +1610,7 @@ class DouyinDownloader(BaseDownloader):
                 "-vn", "-acodec", "libmp3lame", "-ab", f"{bitrate}k",
                 "-y", str(output_path),
             ]
-            subprocess.run(cmd, capture_output=True, timeout=300, check=True)
+            run_media_process(cmd, capture_output=True, timeout=300, check=True)
             return output_path if output_path.exists() else None
         except Exception as e:
             logger.error(f"Audio extraction failed: {e}")
@@ -1686,7 +1687,7 @@ class KuaishouDownloader(BaseDownloader):
                 "-vn", "-acodec", "libmp3lame", "-ab", f"{bitrate}k",
                 "-y", str(output_path),
             ]
-            subprocess.run(cmd, capture_output=True, timeout=300, check=True)
+            run_media_process(cmd, capture_output=True, timeout=300, check=True)
             return output_path if output_path.exists() else None
         except Exception as e:
             logger.error(f"Audio extraction failed: {e}")
@@ -1710,7 +1711,7 @@ class LocalVideoHandler(BaseDownloader):
                 FFMPEG_PATH, "-i", str(file_path),
                 "-f", "null", "-",
             ]
-            result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
+            result = run_media_process(cmd, capture_output=True, text=True, timeout=30)
             duration_match = re.search(r"Duration: (\d+):(\d+):(\d+)\.(\d+)", result.stderr)
             if duration_match:
                 h, m, s, _ = duration_match.groups()
@@ -1740,7 +1741,7 @@ class LocalVideoHandler(BaseDownloader):
                 "-vn", "-acodec", "libmp3lame", "-ab", f"{bitrate}k",
                 "-y", str(output_path),
             ]
-            subprocess.run(cmd, capture_output=True, timeout=600, check=True)
+            run_media_process(cmd, capture_output=True, timeout=600, check=True)
             return output_path if output_path.exists() else None
         except Exception as e:
             logger.error(f"Audio extraction failed: {e}")
@@ -1777,7 +1778,7 @@ def get_downloader(platform: str, cookies: str = "") -> BaseDownloader:
 def check_ffmpeg() -> dict:
     """Check if FFmpeg is available and return version info."""
     try:
-        result = subprocess.run(
+        result = run_media_process(
             [FFMPEG_PATH, "-version"],
             capture_output=True, text=True, timeout=10,
         )

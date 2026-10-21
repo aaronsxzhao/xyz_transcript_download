@@ -3,11 +3,14 @@ import PageErrorBoundary from './PageErrorBoundary'
 import { Suspense } from 'react'
 import { Loader2 } from 'lucide-react'
 import TopNav from './TopNav'
-import ProcessingPanel from './ProcessingPanel'
+import {lazy} from 'react'
+import {useStore} from '../lib/store'
+const ProcessingPanel=lazy(()=>import('./ProcessingPanel'))
 import { useAuth } from '../contexts/AuthContext'
 
 export default function Layout() {
   const { user } = useAuth()
+  const hasTasks=useStore(s=>s.jobs.length+s.videoTasks.filter(t=>t.status!=="discovered").length+s.uploadSessions.length>0)
   const {pathname}=useLocation()
   return (
     <div className="app-shell flex flex-col h-screen bg-dark-bg overflow-hidden">
@@ -21,7 +24,7 @@ export default function Layout() {
         </div>
       </main>
 
-      <ProcessingPanel />
+      {hasTasks&&<PageErrorBoundary inline><Suspense fallback={null}><ProcessingPanel key={user?.id}/></Suspense></PageErrorBoundary>}
     </div>
   )
 }

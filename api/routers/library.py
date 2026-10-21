@@ -3,64 +3,44 @@ from typing import Literal
 from fastapi import APIRouter, Depends, Query, HTTPException
 from api.auth import User, get_current_user
 from api.db import get_db
-from concurrent.futures import ThreadPoolExecutor
-
-_DATE_READS = ThreadPoolExecutor(max_workers=4, thread_name_prefix='library-dates')
 
 router = APIRouter()
 
 
-def page_rows(rows, limit, db=None, owner=None):
+def page_rows(rows, limit):
     more = len(rows) > limit
     items = rows[:limit]
-    if db is not None and items:
-        # At most two small, parallel, owner-scoped DB reads for this page.
-        # Never fetch source sites or full notes to display dates.
-        def dates(kind):
-            ids = [r['id'] for r in items if r['kind'] == kind]
-            if not ids:
-                return {}
-            table, ident, stamp = ('episodes', 'eid', 'pub_date') if kind == 'podcast' else ('video_tasks', 'id', 'published_at')
-            records = (db.db.client.table(table).select(f'{ident},{stamp}' + (',pid' if kind == 'podcast' else ''))
-                       .eq('user_id', owner).in_(ident, ids).limit(limit).execute().data or [])
-            return {r[ident]: '' if r.get('pid') == 'local_uploads' else r.get(stamp) or '' for r in records}
-        pending = {kind: _DATE_READS.submit(dates, kind) for kind in ('podcast', 'video')}
-        for kind, future in pending.items():
-            # Metadata failure must not hide readable summaries.
-            try:
-                stamps = future.result()
-            except Exception:
-                continue
-            for row in items:
-                if row['kind'] == kind:
-                    row['published_at'] = stamps.get(row['id'], '')
     from api.media import sign_media_urls
-    return {'items': [sign_media_urls({k: v for k, v in row.items() if k not in ('user_id', 'search_text', 'sort_key')}) for row in items],
+    return {'items': [sign_media_urls({k: v for k, v in row.items() if k not in ('user_id', 'search_text', 'sort_key', 'publication_sort_key')}) for row in items],
             'next_cursor': items[-1]['sort_key'] if more else None}
 
 
 @router.get('')
 def library(q: str = Query('', max_length=200), kind: Literal['', 'podcast', 'video'] = '',
             status: str = Query('', max_length=32), source: str = Query('', max_length=200),
-            sort: Literal['newest', 'oldest'] = 'newest', cursor: str = Query('', max_length=400),
+            sort: Literal['newest', 'oldest', 'published'] = 'newest', cursor: str = Query('', max_length=400),
             limit: int = Query(40, ge=1, le=60), ids: str = Query('',max_length=4000), user: User = Depends(get_current_user)):
     if status and status != 'completed':
         return {'items': [], 'next_cursor': None}
     requested = set(ids.split(',')) if ids else set()
     if len(requested)>30 or any(not row.startswith(('podcast:','video:')) or not row.partition(':')[2] for row in requested):
         raise HTTPException(422,'At most 30 valid reading references are allowed')
+    ordering = 'publication_sort_key' if sort == 'published' else 'sort_key'
+    descending = sort != 'oldest'
     db = get_db(user.id)
     if db.use_supabase:
-        query = db.db.client.table('library_items').select('id,kind,title,source,date,status,sort_key,thumbnail,platform,duration,topics_count').eq('user_id', user.id).eq('status', 'completed')
+        query = db.db.client.table('library_items').select('id,kind,title,source,date,status,sort_key,thumbnail,platform,duration,topics_count,published_at,publication_sort_key').eq('user_id', user.id).eq('status', 'completed')
         if requested: query = query.in_('id',[row.partition(':')[2] for row in requested])
         if kind: query = query.eq('kind', kind)
         if status: query = query.eq('status', status)
         if source: query = query.ilike('source', '%' + source.replace('\\', '\\\\').replace('%', '\\%').replace('_', '\\_') + '%')
         if q: query = query.ilike('search_text', '%' + q.replace('\\', '\\\\').replace('%', '\\%').replace('_', '\\_') + '%')
-        if cursor: query = query.lt('sort_key', cursor) if sort == 'newest' else query.gt('sort_key', cursor)
-        rows = query.order('sort_key', desc=sort == 'newest').limit(61 if requested else limit + 1).execute().data or []
+        if cursor: query = query.lt(ordering, cursor) if descending else query.gt(ordering, cursor)
+        rows = query.order(ordering, desc=descending).limit(61 if requested else limit + 1).execute().data or []
         if requested: rows=[r for r in rows if r['kind']+':'+r['id'] in requested]
-        return page_rows(rows, limit, db, user.id)
+        if ordering != 'sort_key':
+            for row in rows: row['sort_key']=row[ordering]
+        return page_rows(rows, limit)
     # Local summaries live as JSON files; cloud queries never take this path.
     summaries = db.get_all_summaries()
     metadata = db.get_summary_podcast_metadata([s.episode_id for s in summaries])
@@ -81,8 +61,8 @@ def library(q: str = Query('', max_length=200), kind: Literal['', 'podcast', 'vi
     for row in rows:
         try: date = datetime.fromisoformat(row['date'].replace('Z', '+00:00')).replace(tzinfo=timezone.utc).strftime('%Y%m%d%H%M%S%f')
         except (ValueError, TypeError): date = '00000000000000000000'
-        row['sort_key'] = date + ':' + row['kind'] + ':' + row['id']
-    rows = [r for r in rows if (not kind or r['kind'] == kind) and (not status or r['status'] == status) and source.casefold() in r['source'].casefold() and q.casefold() in (r['title'] + ' ' + r['source']).casefold() and (not cursor or (r['sort_key'] < cursor if sort == 'newest' else r['sort_key'] > cursor))]
+        row['sort_key'] = (''.join(c for c in (row.get('published_at') or '0000-00-00')[:10] if c.isdigit()) if sort == 'published' else date) + ':' + row['kind'] + ':' + row['id']
+    rows = [r for r in rows if (not kind or r['kind'] == kind) and (not status or r['status'] == status) and source.casefold() in r['source'].casefold() and q.casefold() in (r['title'] + ' ' + r['source']).casefold() and (not cursor or (r['sort_key'] < cursor if descending else r['sort_key'] > cursor))]
     if requested: rows=[r for r in rows if r['kind']+':'+r['id'] in requested]
-    rows.sort(key=lambda r: r['sort_key'], reverse=sort == 'newest')
+    rows.sort(key=lambda r: r['sort_key'], reverse=descending)
     return page_rows(rows, limit)

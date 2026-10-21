@@ -25,7 +25,7 @@ class Query:
 
 @pytest.mark.asyncio
 async def test_cursor_traverses_large_library_with_tied_dates_and_account_isolation(monkeypatch):
-    rows = [dict(user_id='a', id=str(i), kind='podcast' if i%2 else 'video', title=f'Lesson {i}', source='Source', date='2026-01-01', status='completed', search_text=f'Lesson {i} Source', sort_key=f'20260101:{i:05}', thumbnail='https://image.xyzcdn.net/fixture.jpg', platform='xiaoyuzhou', duration=600, topics_count=4, markdown='Private full body') for i in range(2105)]
+    rows = [dict(user_id='a', id=str(i), kind='podcast' if i%2 else 'video', title=f'Lesson {i}', source='Source', date='2026-01-01', status='completed', search_text=f'Lesson {i} Source', sort_key=f'20260101:{i:05}', published_at='2024-01-01',publication_sort_key=f'20240101:{i:05}',thumbnail='https://image.xyzcdn.net/fixture.jpg', platform='xiaoyuzhou', duration=600, topics_count=4, markdown='Private full body') for i in range(2105)]
     rows.append({**rows[0], 'status':'failed', 'id':'failed-note', 'sort_key':'99999998'})
     rows.append({**rows[0], 'status':'pending', 'id':'pending-note', 'sort_key':'99999997'})
     rows.append({**rows[0], 'user_id':'b', 'id':'private-other', 'sort_key':'99999999'})
@@ -57,3 +57,21 @@ async def test_cursor_traverses_large_library_with_tied_dates_and_account_isolat
         assert all(int(r['id'])%2==1 and 'Lesson 1' in r['title'] for r in oldest)
         assert (await http.get('/library',params={'limit':10000})).status_code==422
         assert (await http.get('/library',params={'q':'no match'})).json()=={'items':[],'next_cursor':None}
+
+@pytest.mark.asyncio
+async def test_publication_order_has_its_own_stable_cursor_and_one_read(monkeypatch):
+    rows=[];reads=[]
+    for i in range(3):
+        rows.append(dict(user_id='a',id=str(i),kind='video',title='Lesson',source='Source',date=f'2026-01-0{i+1}',status='completed',sort_key=f'2026010{i+1}',search_text='Lesson',thumbnail='',platform='youtube',duration=60,topics_count=0,published_at=f'2024-01-0{3-i}',publication_sort_key=f'2024010{3-i}:video:{i}'))
+    def table(name):reads.append(name);return Query(rows)
+    monkeypatch.setattr(library,'get_db',lambda _:SimpleNamespace(use_supabase=True,db=SimpleNamespace(client=SimpleNamespace(table=table))))
+    app=FastAPI();app.include_router(library.router,prefix='/library');app.dependency_overrides[get_current_user]=lambda:User('a','')
+    async with AsyncClient(transport=ASGITransport(app),base_url='http://test') as http:
+        first=(await http.get('/library',params={'sort':'published','limit':1})).json()
+        assert first['items'][0]['id']=='0'
+        assert first['next_cursor']=='20240103:video:0'
+        assert reads==['library_items']
+        second=(await http.get('/library',params={'sort':'published','limit':1,'cursor':first['next_cursor']})).json()
+        assert second['items'][0]['id']=='1'
+        saved=(await http.get('/library',params={'limit':1})).json()
+        assert saved['items'][0]['id']=='2'

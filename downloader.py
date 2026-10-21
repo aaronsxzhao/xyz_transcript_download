@@ -5,6 +5,7 @@ Downloads podcast episodes from Xiaoyuzhou.
 
 import os
 import subprocess
+from resource_scheduler import run_media_process
 import time
 from pathlib import Path
 from typing import Optional, Callable, Tuple
@@ -30,7 +31,7 @@ except ImportError:
 def _get_audio_duration_ffprobe(audio_path: Path) -> float:
     """Get audio duration in seconds using ffprobe."""
     try:
-        result = subprocess.run(
+        result = run_media_process(
             [
                 "ffprobe", "-v", "quiet",
                 "-show_entries", "format=duration",
