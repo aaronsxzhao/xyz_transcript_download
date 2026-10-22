@@ -33,9 +33,16 @@ def test_repair_preserves_sources_and_requires_verified_backup_before_replacing(
     db.client.storage.from_.return_value = storage
     class Query:
         def __init__(self, table): self.table = table
-        def select(self, *args): return self
-        def eq(self, *args): return self
-        def in_(self, *args): return self
+        def check(self, column):
+            # Match the deployed durable-job schema: status and episode_id
+            # are JSON payload fields, not separate table columns.
+            if self.table == "processing_jobs":
+                assert column.split("->>")[0] in {"id", "user_id", "payload", "updated_at"}
+        def select(self, columns):
+            for column in columns.split(","): self.check(column)
+            return self
+        def eq(self, column, value): self.check(column); return self
+        def in_(self, column, value): self.check(column); return self
         def execute(self): return NS(data=[{"user_id": "owner"}] if self.table == "summaries" else [])
     db.client.table.side_effect = Query
     db.get_summary.side_effect = [original, SummaryData(**{**asdict(original), "overview": "Intervening user edit"}) if failure == "note_changed" else original, saved]
