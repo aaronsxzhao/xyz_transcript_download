@@ -225,3 +225,21 @@ def test_duplicate_explicit_addition_ids_cannot_overwrite_source_details():
     addition = {"id": "added:1", "topic": "案例", "heading": "条件", "text": "细节。", "source_ids": ["S1"]}
     with pytest.raises(SummaryOutputError):
         audit_source("细节原文。", {}, lambda *args: {"additions": [addition, addition], "coverage": [receipt(field="added:1")]})
+
+
+def test_incremental_provider_repair_keeps_all_previous_added_details_and_references():
+    source = "".join(character * 800 for character in "甲乙丙丁戊己")
+    prior = {"additions": [{"id": f"added:{i}", "topic": "原有标题", "heading": f"细节{i}", "text": f"独立内容{i}", "source_ids": [f"S{i}"]} for i in range(1, 6)],
+             "coverage": [{"unit": f"S{i}", "kind": "content", "fields": [f"added:{i}"]} for i in range(1, 7)]}
+    # A real provider returned only the new fix while retaining references to
+    # the five earlier additions. Treating this as a full replacement lost them.
+    delta = {"additions": [{"id": "added:6", "topic": "原有标题", "heading": "细节6", "text": "独立内容6", "source_ids": ["S6"]}],
+             "coverage": [{"unit": "S6", "kind": "content", "fields": ["added:6"]}]}
+    call = Mock(side_effect=[prior, delta])
+    updated, additions, citations = audit_source(source, {}, call)
+    assert set(updated) == {f"added:{i}" for i in range(1, 7)}
+    assert len(additions) == 6
+    for i, character in enumerate("甲乙丙丁戊己", 1):
+        assert f"独立内容{i}" in updated[f"added:{i}"]
+        assert citations[f"added:{i}"] == character * 800
+    assert call.call_count == 2

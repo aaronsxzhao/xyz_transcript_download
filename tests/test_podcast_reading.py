@@ -39,7 +39,7 @@ def test_synthesis_changes_outline_without_dropping_or_rewriting_details():
     with patch.object(s,'_call_llm_with_retry',return_value=response(data)) as call:
         merged=s._merge_summaries('episode','Original title',[first,second])
     assert merged.title=='Original title'
-    assert merged.topics==['原有大标题']
+    assert merged.topics==['原有大标题','价格弹性']
     assert [p.summary for p in merged.key_points]==[first.key_points[0].summary,second.key_points[0].summary]
     assert [p.original_quote for p in merged.key_points]==['source','source']
     assert [p.timestamp for p in merged.key_points]==['00:30:00','00:30:00']
@@ -49,12 +49,13 @@ def test_synthesis_changes_outline_without_dropping_or_rewriting_details():
 
 
 @pytest.mark.parametrize('ids',[['0:0'],['0:0','0:0','1:0'],['0:0','2:0'],[{}]])
-def test_missing_duplicate_or_unknown_chapter_ids_cannot_be_saved(ids):
+def test_model_chapter_metadata_cannot_remove_detailed_source_points(ids):
     s=subject()
     data={'overview':'Intro','topic_groups':[{'topic':'Chapter','sources':ids}],'takeaways':[]}
     with patch.object(s,'_call_llm_with_retry',return_value=response(data)):
-        with pytest.raises(SummaryOutputError):
-            s._merge_summaries('episode','Title',[note([point('A')]),note([point('B')])])
+        merged=s._merge_summaries('episode','Title',[note([point('A')]),note([point('B')])])
+    assert [p.summary for p in merged.key_points]==['A','B']
+    assert merged.topics==['原有大标题']
 
 
 def test_one_chunk_avoids_an_extra_model_call_and_restores_episode_identity():
