@@ -94,3 +94,15 @@ def test_raw_audit_failure_stays_in_verified_private_storage():
     metadata = storage.upload.call_args.kwargs["file_options"]["metadata"]
     assert metadata["reference_shapes"][0]["source_ids"] == ["S1-S3"]
     assert "private draft" not in json.dumps(metadata)
+    assert metadata["response_structure"]["keys"] == ["edits"]
+
+
+def test_diagnostic_reports_latest_failure_instead_of_the_error_that_triggered_repair():
+    from source_coverage import _audit_error
+    try:
+        try:
+            raise _audit_error("missing_units", {}, missing_units=["S1"])
+        except Exception:
+            raise _audit_error("invalid_unit_repair", {}) from None
+    except Exception as error:
+        assert recovery.failure_report(error)["audit_issue"] == "invalid_unit_repair"
