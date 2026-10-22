@@ -320,3 +320,35 @@ def test_changed_point_uses_its_new_audited_evidence_instead_of_old_quote():
     with patch('summarizer.audit_source', return_value=({'overview': 'Overview', 'point:1': 'Corrected detail'}, [], {'point:1': '更正后的依据。'})):
         final = s._audit_summary(draft, '原有引用。更正后的依据。')
     assert final.key_points[0].original_quote == '更正后的依据。'
+
+
+def test_audited_quote_cannot_keep_a_different_passages_real_timestamp():
+    s = Summarizer(api_key='fixture')
+    source = '[00:00:01] 旧观点。\n[00:01:02] 更正后的依据。'
+    draft = Summary('episode', 'Title', 'Overview', [KeyPoint('主题', 'Old detail', '旧观点。', '00:00:01')], ['主题'], [])
+    with patch('summarizer.audit_source', return_value=({'overview': 'Overview', 'point:1': 'Corrected detail'}, [], {'point:1': '更正后的依据。'})):
+        final = s._audit_summary(draft, source)
+    assert final.key_points[0].timestamp == '00:01:02'
+
+
+def test_added_point_time_must_match_its_actual_evidence_too():
+    s = Summarizer(api_key='fixture')
+    draft = Summary('episode', 'Title', 'Overview', [], [], [])
+    addition = {'id': 'added:1', 'topic': '主题', 'source_quote': '新增依据。', 'timestamp': '00:00:01'}
+    with patch('summarizer.audit_source', return_value=({'overview': 'Overview', 'added:1': 'Added detail'}, [addition], {})):
+        final = s._audit_summary(draft, '[00:00:01] 开场。\n[00:02:03] 新增依据。')
+    assert final.key_points[0].timestamp == '00:02:03'
+
+
+@pytest.mark.parametrize('source,quote,preferred,expected', [
+    ('[00:01:02] Exact\n wording.', 'Exact wording.', '', '00:01:02'),
+    ('Unsegmented source.', 'source.', '00:00:00', ''),
+    ('[00:00:00] Same.\n[00:01:00] Same.', 'Same.', '', ''),
+    ('[00:00:00] Same.\n[00:01:00] Same.', 'Same.', '00:01:00', '00:01:00'),
+    ('[00:00:00] First.\n[00:01:00] Second.', 'Second.', '00:00:00', '00:01:00'),
+    ('[00:00:00] Real source.', 'Invented quote.', '00:00:00', ''),
+    ('[00:00:00] Real source.', '', '00:00:00', ''),
+])
+def test_evidence_time_uses_real_anchors_and_avoids_ambiguous_or_invented_times(source, quote, preferred, expected):
+    from source_coverage import quote_timestamp
+    assert quote_timestamp(source, quote, preferred) == expected

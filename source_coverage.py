@@ -40,6 +40,37 @@ def spoken_source(text):
     return re.sub(r"(?m)^\[\d{2,}:\d{2}(?::\d{2})?\][ \t]*", "", text)
 
 
+def quote_timestamp(source, quote, preferred=""):
+    """Use the source anchor preceding the evidence, not an unrelated model time.
+
+    Sparse anchors are approximate. Repeated evidence needs a matching supplied
+    anchor to disambiguate it; otherwise leave the time empty rather than guess.
+    """
+    from bisect import bisect_right
+    parts, anchors, length = [], [(0, "")], 0
+    for line in source.splitlines(keepends=True):
+        match = re.match(r"^\[(\d{2,}:\d{2}(?::\d{2})?)\][ \t]*", line)
+        if match:
+            anchors.append((length, match[1]))
+            line = line[match.end():]
+        text = re.sub(r"\s+", "", line)
+        parts.append(text)
+        length += len(text)
+    text = ''.join(parts)
+    evidence = re.sub(r"\s+", "", quote)
+    if not evidence:
+        return ""
+    starts = [position for position, _ in anchors]
+    choices = set()
+    offset = text.find(evidence)
+    while offset >= 0:
+        choices.add(anchors[bisect_right(starts, offset) - 1][1])
+        offset = text.find(evidence, offset + 1)
+    if preferred and preferred in choices:
+        return preferred
+    return next(iter(choices)) if len(choices) == 1 else ""
+
+
 def video_source_text(text, segments):
     """Add real anchors only when segments account for the complete saved text."""
     compact = lambda value: re.sub(r"\s+", "", value)
