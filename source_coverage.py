@@ -11,7 +11,7 @@ from summary_errors import SummaryOutputError
 
 SOURCE_CHUNK_CHARS = 4000
 SOURCE_UNIT_CHARS = 800
-EDITORIAL_VERSION = "source-audit-v3"
+EDITORIAL_VERSION = "source-audit-v4"
 
 
 def spoken_source(text):
@@ -69,13 +69,16 @@ Return JSON only:
  "additions":[{"topic":"existing relevant chapter or meaningful source heading",
  "heading":"specific subheading", "text":"complete explanatory Markdown paragraphs",
  "source_ids":["S1"], "timestamp":"explicit source timestamp or empty"}],
- "coverage":[{"unit":"S1", "kind":"content", "field":"point:0",
- "note_quote":"exact excerpt in the FINAL edited field"},
+ "coverage":[{"unit":"S1", "kind":"content", "fields":["point:0", "added:0"]},
  {"unit":"S2", "kind":"non_content", "reason":"advertisement"}]}
 Reference real source unit IDs in source_ids; do NOT rewrite or copy a quotation.
 The application extracts the actual original evidence from those source units.
 Every supplied source unit must have exactly one receipt. A content receipt
-confirms ALL its information is in the final fields, including additions.
+confirms ALL its information is in the UNION of its referenced final fields,
+including additions. A unit often contains several claims spread across multiple
+points: list every corresponding field. Use only point:N, added:N, or the video
+body field. An overview or takeaway cannot stand in for detailed coverage.
+Reference stable IDs, never copy excerpts of the draft into a receipt.
 An addition is referenced as added:0, added:1, etc.; its field value is
 "#### <heading>\\n\\n<text>". Do not put receipt IDs or editorial commentary in
 the reader's text. Each edit replaces ONE field by its stable ID, not a literal
@@ -92,7 +95,7 @@ contains no substantive information; a mixed unit must be covered as content.
 AUDIT_ISSUES = {"invalid_json", "invalid_object", "invalid_lists", "invalid_edit", "duplicate_edit_field",
                 "unknown_edit_field", "empty_edit", "ungrounded_edit", "invalid_addition",
                 "invalid_receipt", "unknown_or_duplicate_unit", "ungrounded_unit",
-                "invalid_exclusion", "invalid_note_evidence", "invalid_kind", "missing_units"}
+                "invalid_exclusion", "invalid_note_reference", "invalid_kind", "missing_units"}
 
 
 def _audit_error(issue, response, **details):
@@ -134,10 +137,6 @@ def _audit_source_once(source, fields, call_json):
     if not all(isinstance(value, list) for value in (additions, edits, receipts)):
         raise _audit_error("invalid_lists", data)
 
-    def evidence(quote, material):
-        return (isinstance(quote, str) and bool(quote.strip())
-                and re.sub(r"\s+", "", quote) in re.sub(r"\s+", "", material))
-
     def source_evidence(ids, issue, index):
         if (not isinstance(ids, list) or not ids
                 or any(not isinstance(key, str) or key not in units for key in ids)
@@ -172,6 +171,7 @@ def _audit_source_once(source, fields, call_json):
             raise _audit_error("invalid_addition", data, index=i)
         addition = dict(addition)
         addition["source_quote"] = source_evidence(addition.get("source_ids"), "invalid_addition", i)
+        citation_ids.setdefault(f"added:{i}", set()).update(addition["source_ids"])
         timestamp = addition.get("timestamp", "")
         # An unsupported timestamp must never become a misleading source link.
         addition["timestamp"] = timestamp if isinstance(timestamp, str) and f"[{timestamp}]" in source else ""
@@ -189,14 +189,20 @@ def _audit_source_once(source, fields, call_json):
             if receipt.get("reason") not in {"greeting", "advertisement", "empty_transition"}:
                 raise _audit_error("invalid_exclusion", data, unit=unit)
         elif receipt.get("kind") == "content":
-            field = receipt.get("field")
-            if not isinstance(field, str) or field not in updated or not evidence(receipt.get("note_quote"), updated[field]):
-                raise _audit_error("invalid_note_evidence", data, unit=unit, allowed_fields=list(updated))
-            citation_ids.setdefault(field, set()).add(unit)
+            targets = receipt.get("fields")
+            detailed_fields = {key for key in updated if key == "body" or key.startswith(("point:", "added:"))}
+            if (not isinstance(targets, list) or not targets
+                    or any(not isinstance(key, str) or key not in detailed_fields or not updated[key].strip() for key in targets)
+                    or len(set(targets)) != len(targets)):
+                raise _audit_error("invalid_note_reference", data, unit=unit, allowed_fields=sorted(detailed_fields))
+            for field in targets:
+                citation_ids.setdefault(field, set()).add(unit)
         else:
             raise _audit_error("invalid_kind", data, unit=unit)
     if seen != set(units):
         raise _audit_error("missing_units", data, missing_units=sorted(set(units) - seen))
     citations = {field: source_evidence(sorted(ids), "invalid_receipt", 0)
                  for field, ids in citation_ids.items()}
+    for i, addition in enumerate(checked_additions):
+        addition["source_quote"] = citations[f"added:{i}"]
     return updated, checked_additions, citations

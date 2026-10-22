@@ -13,7 +13,7 @@ from summary_errors import SummaryOutputError
 
 
 def receipt(unit="S1", field="point:0", note="不含中国"):
-    return {"unit": unit, "kind": "content", "field": field, "note_quote": note}
+    return {"unit": unit, "kind": "content", "fields": [field]}
 
 
 def result(data):
@@ -48,9 +48,9 @@ def test_invalid_receipt_or_patch_cannot_pass_even_on_retry(mutation):
     if mutation == "duplicate": data["coverage"] *= 2
     if mutation == "unknown": data["coverage"][0]["unit"] = "S9"
     if mutation == "fake_source": data["edits"] = [{"field": "point:0", "text": "changed", "source_ids": ["S99"]}]
-    if mutation == "fake_note": data["coverage"][0]["note_quote"] = "笔记中没有这句话"
+    if mutation == "fake_note": data["coverage"][0]["fields"] = ["added:99"]
     if mutation == "bad_skip": data["coverage"][0].update(kind="non_content", reason="not important")
-    if mutation == "wrong_field": data["coverage"][0]["field"] = "point:9"
+    if mutation == "wrong_field": data["coverage"][0]["fields"] = ["point:9"]
     if mutation == "wrong_patch": data["edits"] = [{"field": "point:0", "text": "changed", "source_ids": []}]
     call = Mock(return_value=data)
     with pytest.raises(SummaryOutputError, match="coverage"):
@@ -174,3 +174,17 @@ def test_original_evidence_is_extracted_by_code_across_time_anchors():
     expected = "不含中国\n库存为12%，下降1个百分点。"
     assert additions[0]["source_quote"] == expected == citations["added:0"]
     assert "MODEL" not in citations["added:0"]
+
+
+def test_one_source_unit_can_cover_several_detailed_points_with_verbatim_evidence_for_each():
+    source = "第一条是一个论点。第二条是一个反例。"
+    data = {"coverage": [{"unit": "S1", "kind": "content", "fields": ["point:0", "point:1"]}]}
+    fields = {"point:0": "#### 论点\n\n**第一条**。", "point:1": "#### 反例\n\n第二条。"}
+    updated, _, citations = audit_source(source, fields, lambda *args: data)
+    assert updated == fields
+    assert citations == {"point:0": source, "point:1": source}
+
+
+def test_an_overview_cannot_substitute_for_detailed_source_coverage():
+    with pytest.raises(SummaryOutputError):
+        audit_source("完整论据和案例。", {"overview": "一句话概览。", "point:0": "详细内容。"}, lambda *args: {"coverage": [receipt(field="overview")]})
