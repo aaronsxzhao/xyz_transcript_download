@@ -350,7 +350,7 @@ export default function Dashboard() {
         {reading.length ? <div className="collection-grid">{reading.slice(0,4).map((item,index)=><NoteCard key={`${item.kind}:${item.id}`} item={item} reading priority={index<2}/>)}</div>:readingStatus==='error'?<LoadError message="Reading history could not be verified. Your saved notes are still in Library." onRetry={retryReading}/>:<p className="text-sm text-gray-400" role="status">{readingStatus==='loading'?'Restoring reading history…':'Open a summary to start your reading history on this device.'}</p>}
       </section>
       {/* Recent additions are separate from actual reading history. */}
-      <details className="dashboard-recent" open={reading.length===0}><summary className="text-sm text-gray-400 cursor-pointer">Recently added</summary>
+      <section className="dashboard-recent" aria-label="Recently added">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-4">
           <section><div className="flex justify-between items-center mb-4"><h2 className="text-lg font-semibold">Recently added · Podcasts</h2><Link to="/library?kind=podcast" className="text-sm text-indigo-300">View all →</Link></div>
             <div className="grid gap-3">{summaries.slice(0,2).map((summary,index)=><NoteCard key={summary.episode_id} priority={index===0} item={{id:summary.episode_id,kind:'podcast',title:summary.title,source:summary.podcast_title,thumbnail:summary.podcast_cover,topics_count:summary.topics_count}}/>)}</div>
@@ -361,12 +361,12 @@ export default function Dashboard() {
             {!recentVideos.length&&<p role="status" className="text-sm text-gray-400">{recentReady.videos?'No video notes yet':'Loading saved video notes…'}</p>}
           </section>
         </div>
-      </details>
+      </section>
 
       {/* Processing jobs — podcast + video combined */}
       {allQueueItems.length > 0 && (
-        <details open={allQueueItems.some(item=>!['completed','success','failed','cancelled'].includes(item.status))} className="dashboard-queue">
-          <summary className="text-lg font-semibold text-white cursor-pointer">Processing Queue · {allQueueItems.length}</summary>
+        <section className="dashboard-queue" aria-label="Processing queue">
+          <h2 className="text-lg font-semibold text-white mb-3">Processing Queue · {allQueueItems.length}</h2>
           <div className="space-y-3">
             {allQueueItems.map((item) => {
               const isVideo = item._kind === 'video'
@@ -391,7 +391,7 @@ export default function Dashboard() {
               )
             })}
           </div>
-        </details>
+        </section>
       )}
 
 
