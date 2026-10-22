@@ -30,7 +30,7 @@ def test_partition_preserves_every_character_and_tail(source):
 def test_audit_repairs_scope_and_percentage_points_and_appends_independent_example():
     source = "库存不含中国为12%，下降1个百分点。B50若落地增加需求200万吨。"
     audit = {
-        "edits": [{"field": "point:0", "before": "全球库存12%，下降1%。", "after": "库存不含中国为12%，下降1个百分点。", "source_quote": "库存不含中国为12%，下降1个百分点。"}],
+        "edits": [{"field": "point:0", "text": "库存不含中国为12%，下降1个百分点。", "source_quote": "库存不含中国为12%，下降1个百分点。"}],
         "additions": [{"topic": "需求", "heading": "政策情景", "text": "B50若落地增加需求200万吨。", "source_quote": "B50若落地增加需求200万吨。", "timestamp": "01:00:00"}],
         "coverage": [receipt()],
     }
@@ -50,7 +50,7 @@ def test_invalid_receipt_or_patch_cannot_pass_even_on_retry(mutation):
     if mutation == "fake_note": data["coverage"][0]["note_quote"] = "笔记中没有这句话"
     if mutation == "bad_skip": data["coverage"][0].update(kind="non_content", reason="not important")
     if mutation == "wrong_field": data["coverage"][0]["field"] = "point:9"
-    if mutation == "wrong_patch": data["edits"] = [{"field": "point:0", "before": "not in draft", "after": "changed", "source_quote": "12%"}]
+    if mutation == "wrong_patch": data["edits"] = [{"field": "point:0", "text": "changed", "source_quote": "invented evidence"}]
     call = Mock(return_value=data)
     with pytest.raises(SummaryOutputError, match="coverage"):
         audit_source("库存不含中国为12%，下降1个百分点。", {"point:0": "不含中国"}, call)
@@ -131,3 +131,35 @@ def test_video_verification_receipts_do_not_leak_into_streamed_preview():
     with patch.object(s, "_call_llm", side_effect=stream):
         assert s._audit_note("不含中国", "## 原有标题\n不含中国", preview) == "## 原有标题\n不含中国"
     preview.assert_called_once_with(200, "## 原有标题\n不含中国")
+
+
+def test_audit_retry_returns_specific_feedback_and_keeps_the_original_source_and_draft():
+    bad = {"coverage": []}
+    good = {"coverage": [receipt()]}
+    calls = []
+    def call(system, payload):
+        calls.append(json.loads(payload))
+        return bad if len(calls) == 1 else good
+    fields = {"point:0": "不含中国"}
+    updated, _ = audit_source("库存不含中国为12%，下降1个百分点。", fields, call)
+    assert updated == fields
+    assert calls[1]["source_units"] == calls[0]["source_units"]
+    assert calls[1]["draft_fields"] == fields
+    assert calls[1]["previous_audit"] == bad
+    assert calls[1]["validation_feedback"] == {"issue": "missing_units", "missing_units": ["S1"]}
+
+
+def test_stable_field_correction_preserves_other_fields_and_requires_real_evidence():
+    source = "第一条是预测，不是事实。第二条仍是有效案例。"
+    fields = {"point:0": "#### 判断\n\n第一条已成事实。", "point:1": "第二条仍是有效案例。"}
+    data = {"edits": [{"field": "point:0", "text": "#### 判断\n\n第一条是预测，不是事实。", "source_quote": "第一条是预测，不是事实。"}], "coverage": [receipt(source="第一条是预测", note="是预测")]}
+    updated, _ = audit_source(source, fields, lambda *args: data)
+    assert updated["point:1"] == fields["point:1"]
+    assert "是预测" in updated["point:0"]
+
+
+def test_two_whole_field_edits_cannot_overwrite_each_others_corrections():
+    edit = {"field": "point:0", "text": "不含中国", "source_quote": "不含中国"}
+    with pytest.raises(SummaryOutputError) as caught:
+        audit_source("不含中国", {"point:0": "不含中国"}, lambda *args: {"edits": [edit, edit], "coverage": [receipt(source="不含中国")]})
+    assert caught.value.audit_feedback["issue"] == "duplicate_edit_field"

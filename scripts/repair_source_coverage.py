@@ -159,6 +159,10 @@ def failure_report(error):
         seen.add(id(error))
         if isinstance(error, SummaryOutputError):
             report["reason"] = error.code
+            from source_coverage import AUDIT_ISSUES
+            issue = getattr(error, "audit_feedback", {}).get("issue")
+            if issue in AUDIT_ISSUES:
+                report["audit_issue"] = issue
         status = getattr(error, "status_code", None)
         if type(status) is int and 400 <= status <= 599:
             report["http_status"] = status
