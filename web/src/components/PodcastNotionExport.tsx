@@ -15,7 +15,7 @@ export default function PodcastNotionExport({summary,duration,onClose}:{summary:
   const [notionSelectedId, setNotionSelectedId] = useState('')
   const [notionResult, setNotionResult] = useState<{ ok: boolean; message: string; url?: string } | null>(null)
   const notionSearchTimeout = useRef<ReturnType<typeof setTimeout> | null>(null)
-  
+
   const hasNotionKey = !!getPreference('notion_api_key')
 
   const openNotionModal = useCallback(async () => {
@@ -60,7 +60,7 @@ export default function PodcastNotionExport({summary,duration,onClose}:{summary:
       setNotionExporting(false)
     }
   }, [notionSelectedId, summary, duration])
-  
+
   useEffect(() => {
     void openNotionModal()
     return () => { if (notionSearchTimeout.current) clearTimeout(notionSearchTimeout.current) }
