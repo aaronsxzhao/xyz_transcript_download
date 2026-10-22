@@ -464,7 +464,7 @@ class NoteSummarizer:
         body = self._renumber_headings(body)
 
         if add_toc:
-            toc = self._generate_toc(body)
+            toc = self._generate_toc(body, title)
             final = f"# {title}\n\n{toc}\n\n---\n\n{body}"
         else:
             final = f"# {title}\n\n{body}"
@@ -506,33 +506,56 @@ class NoteSummarizer:
 
         return "\n".join(result)
 
-    def _generate_toc(self, markdown: str) -> str:
-        """Generate a table of contents from ## headings in markdown."""
+    def _generate_toc(self, markdown: str, title: str = "") -> str:
+        """Use parsed headings, including nested ones, in document order."""
+        from markdown_it import MarkdownIt
+        parser = MarkdownIt('commonmark', {'html': False})
+
+        def visible(tokens):
+            text = []
+            for token in tokens:
+                if token.type == 'image':
+                    text.append(visible(token.children or []))
+                elif token.type in {'text', 'code_inline'}:
+                    text.append(token.content)
+                elif token.type in {'softbreak', 'hardbreak'}:
+                    text.append(' ')
+            return ''.join(text)
+
         toc_lines = ["## 目录\n"]
         slug_counts: dict[str, int] = {}
-        for line, code in _markdown_lines(markdown):
-            match = re.match(r"^ {0,3}(#{2,3})\s+(.+)$", line) if not code else None
-            if not match:
+        if title:
+            self._github_slug(visible(parser.parseInline(title)[0].children or []), slug_counts)
+        self._github_slug('目录', slug_counts)
+        tokens = parser.parse(markdown)
+        for index, token in enumerate(tokens):
+            if token.type != 'heading_open':
                 continue
-            level = len(match.group(1))
-            heading = match.group(2).strip()
+            level = int(token.tag[1:])
+            heading = visible(tokens[index + 1].children or [])
             anchor = self._github_slug(heading, slug_counts)
+            # Deeper headings still reserve their IDs, even when omitted from
+            # the concise directory, just as they do in the browser reader.
+            if level not in {2, 3}:
+                continue
+            label = heading.replace('\\', '\\\\').replace('[', '\\[').replace(']', '\\]')
             indent = "  " * (level - 2)
-            toc_lines.append(f"{indent}- [{heading}](#{anchor})")
+            toc_lines.append(f"{indent}- [{label}](#{anchor})")
         return "\n".join(toc_lines)
 
     @staticmethod
     def _github_slug(text: str, counts: dict[str, int]) -> str:
-        """Replicate github-slugger's algorithm used by rehype-slug."""
+        """Match reader normalization and reserve every emitted anchor."""
         slug = text.lower()
         slug = re.sub(r"[^\w\u4e00-\u9fff\u3400-\u4dbf\U00020000-\U0002a6df\s-]", "", slug, flags=re.UNICODE)
-        slug = slug.strip().replace(" ", "-")
+        slug = re.sub(r'\s+', '-', slug.strip())
         slug = re.sub(r"-+", "-", slug)
-        base = slug
-        n = counts.get(base, 0)
-        if n > 0:
-            slug = f"{base}-{n}"
-        counts[base] = n + 1
+        base = slug or 'section'
+        slug = base
+        while slug in counts:
+            counts[base] = counts.get(base, 0) + 1
+            slug = f"{base}-{counts[base]}"
+        counts[slug] = 0
         return slug
 
     @retry(

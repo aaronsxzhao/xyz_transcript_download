@@ -4,9 +4,25 @@ import { createRoot } from 'react-dom/client'
 import { afterEach, expect, it, vi } from 'vitest'
 import ReaderScreenshot from '../src/components/ReaderScreenshot'
 import PlainNote from '../src/components/PlainNote'
+import {extractNoteToc,rehypeNoteHeadings} from '../src/lib/noteMarkdown'
 
 let cleanup: (() => void) | undefined
 afterEach(() => { cleanup?.(); cleanup=undefined; vi.useRealTimers() })
+
+it('keeps directory links unique and aligned with nested and suffixed headings in both renderers',()=>{
+ const markdown='# Review\n\n> ## Review\n\n## Review\n\n### Review-1\n\n#### Review\n\n## Review\n\n## 🎯'
+ const node=document.createElement('div');const root=createRoot(node)
+ cleanup=()=>act(()=>root.unmount())
+ act(()=>root.render(<PlainNote markdown={markdown}/>))
+ const headings=Array.from(node.querySelectorAll('h1,h2,h3,h4'))
+ expect(new Set(headings.map(h=>h.id)).size).toBe(headings.length)
+ expect(headings.every(h=>h.id.length>0)).toBe(true)
+ const visible=headings.filter(h=>h.tagName!=='H4')
+ expect(extractNoteToc(markdown).map(h=>h.slug)).toEqual(visible.map(h=>h.id))
+ const tree={children:headings.map(h=>({tagName:h.tagName.toLowerCase(),properties:{},children:[{value:h.textContent||''}]}))}
+ rehypeNoteHeadings()(tree)
+ expect(tree.children.map(h=>(h.properties as {id:string}).id)).toEqual(headings.map(h=>h.id))
+})
 
 it('renders semantic Markdown and matching duplicate anchors without optional formatting', () => {
   const node=document.createElement('div');const root=createRoot(node)

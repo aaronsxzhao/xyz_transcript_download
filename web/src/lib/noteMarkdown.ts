@@ -1,4 +1,4 @@
-import { Lexer, type Tokens } from 'marked'
+import { Lexer, walkTokens, type Tokens } from 'marked'
 
 export function prepareNoteMarkdown(markdown: string) {
   const tokens = Lexer.lex(markdown)
@@ -14,6 +14,17 @@ export function prepareNoteMarkdown(markdown: string) {
 
 export function noteHeadingSlug(text: string) {
   return text.toLowerCase().replace(/[^\p{L}\p{N}_\s-]/gu, '').trim().replace(/\s+/g, '-').replace(/-+/g, '-')
+}
+
+export function uniqueNoteHeadingSlug(text: string, counts: Record<string, number>): string {
+  const base = noteHeadingSlug(text) || 'section'
+  let slug = base
+  while (counts[slug] !== undefined) {
+    counts[base] = (counts[base] || 0) + 1
+    slug = `${base}-${counts[base]}`
+  }
+  counts[slug] = 0
+  return slug
 }
 
 export function decodeNoteText(value: string): string {
@@ -33,12 +44,15 @@ export function inlineNoteText(tokens:Inline[]):string {
 
 export function extractNoteToc(markdown:string) {
   const counts:Record<string,number>=Object.create(null)
-  return Lexer.lex(prepareNoteMarkdown(markdown)).filter(token=>token.type==='heading').map(token=>{
+  const headings:{level:number;text:string;slug:string}[]=[]
+  walkTokens(Lexer.lex(prepareNoteMarkdown(markdown)),token=>{
+    if(token.type!=='heading')return
     const heading=token as Tokens.Heading
     const text=inlineNoteText(heading.tokens)
-    const base=noteHeadingSlug(text);const n=counts[base]||0;counts[base]=n+1
-    return {level:heading.depth,text,slug:base+(n?`-${n}`:'')}
-  }).filter(heading=>heading.level<=3)
+    const slug=uniqueNoteHeadingSlug(text,counts)
+    if(heading.depth<=3)headings.push({level:heading.depth,text,slug})
+  })
+  return headings
 }
 
 type Node = {tagName?:string;value?:string;properties?:Record<string,unknown>;children?:Node[]}
@@ -49,8 +63,7 @@ export function rehypeNoteHeadings() {
     const content=(node:Node):string=>node.value||node.children?.map(content).join('')||''
     const visit=(node:Node)=>{
       if(node.tagName&&/^h[1-6]$/.test(node.tagName)){
-        const base=noteHeadingSlug(content(node));const n=counts[base]||0;counts[base]=n+1
-        node.properties={...node.properties,id:base+(n?`-${n}`:'')}
+        node.properties={...node.properties,id:uniqueNoteHeadingSlug(content(node),counts)}
       }
       node.children?.forEach(visit)
     }

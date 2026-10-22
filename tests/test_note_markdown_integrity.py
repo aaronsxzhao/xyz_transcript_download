@@ -44,3 +44,27 @@ def test_a_chunk_starting_with_indented_code_keeps_its_first_line():
     code = "    # Source comment\n    print(42)"
     assert NoteSummarizer._clean_markdown(code) == code
     assert code in note._merge_chunk_notes("Title", [code, "## End\n\nFinal detail."], False)
+
+
+def test_toc_tracks_nested_and_hidden_headings_and_uses_visible_link_text():
+    note = NoteSummarizer(api_key="fixture")
+    toc = note._generate_toc("## [Plan](https://example.com)\n\n> ## Plan\n\n### Plan-1\n\n#### Plan\n\n## Plan")
+    assert '[Plan](#plan)' in toc
+    assert '[Plan](#plan-1)' in toc
+    assert '[Plan-1](#plan-1-1)' in toc
+    assert '[Plan](#plan-3)' in toc
+    assert 'https://example.com' not in toc
+
+
+def test_slug_reserves_emitted_suffixes_and_supplies_an_anchor_for_symbol_only_titles():
+    counts = {}
+    anchors = [NoteSummarizer._github_slug(title, counts) for title in ['Plan', 'Plan', 'Plan-1', 'Plan', '🎯', '🎯']]
+    assert len(set(anchors)) == len(anchors)
+    assert all(anchors)
+
+
+def test_exported_toc_accounts_for_the_episode_title_before_its_first_chapter():
+    note = NoteSummarizer(api_key="fixture")
+    document = note._merge_chunk_notes('1. Plan', ['## Plan\n\nFirst detail.', '## End\n\nLast detail.'], True)
+    assert '[1. Plan](#1-plan-1)' in document
+    assert 'First detail.' in document and 'Last detail.' in document

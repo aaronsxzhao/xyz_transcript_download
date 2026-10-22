@@ -281,7 +281,7 @@ export default function Episodes() {
     setDeletingEid(episode.eid)
     try {
       await deleteEpisode(episode.eid)
-      setEpisodes(episodes.filter(e => e.eid !== episode.eid))
+      setEpisodes(previous => previous.filter(e => e.eid !== episode.eid))
       addToast({
         type: 'success',
         title: 'Episode deleted',
