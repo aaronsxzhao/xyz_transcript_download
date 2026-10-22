@@ -1,6 +1,9 @@
 name: Recover reported Groq summary
 
 on:
+  push:
+    branches: [main]
+    paths: ['scripts/repair_source_coverage.py', '.github/workflows/repair-reported-summary.yml']
   workflow_dispatch:
   workflow_run:
     workflows: ['Deploy to Oracle Cloud']
@@ -39,9 +42,9 @@ jobs:
             "$OCI_CLI_USER" "$OCI_CLI_FINGERPRINT" "$OCI_CLI_TENANCY" > ~/.oci/config
       - name: Regenerate only the reported summary and verify the saved transcript
         env:
-          EXPECTED_REVISION: ${{ github.event.workflow_run.head_sha || github.sha }}
+          EXPECTED_REVISION: ${{ github.event.workflow_run.head_sha || '' }}
         run: python scripts/repair_reported_summary.py
       - name: Back up and rebuild the two reported notes from their complete saved sources
         env:
-          EXPECTED_REVISION: ${{ github.event.workflow_run.head_sha || github.sha }}
+          EXPECTED_REVISION: ${{ github.event.workflow_run.head_sha || '' }}
         run: python scripts/repair_source_coverage.py
