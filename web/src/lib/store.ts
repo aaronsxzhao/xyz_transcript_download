@@ -46,7 +46,7 @@ export function mergeVideoTaskPair(existing: VideoTask | undefined, incoming: Vi
     channel_avatar: normalizedIncoming.channel_avatar || existing.channel_avatar,
     published_at: normalizedIncoming.published_at || existing.published_at,
     created_at: normalizedIncoming.created_at || existing.created_at,
-    updated_at: normalizedIncoming.updated_at || existing.updated_at,
+    updated_at: keepExistingProgress ? existing.updated_at : (normalizedIncoming.updated_at || existing.updated_at),
     progress: keepExistingProgress ? existing.progress : normalizedIncoming.progress,
     status: keepExistingProgress ? existing.status : normalizedIncoming.status,
     message: keepExistingProgress ? existing.message : normalizedIncoming.message,

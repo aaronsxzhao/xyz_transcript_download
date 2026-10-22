@@ -71,12 +71,13 @@ def extract_json_from_response(content: str) -> dict:
     raise json.JSONDecodeError("No valid JSON found in response", content, 0)
 
 from openai import OpenAI
-from summary_errors import SummaryOutputError
+from summary_errors import SummaryOutputError, ProcessingCancelledError
 from source_coverage import SOURCE_CHUNK_CHARS, split_source, audit_source, spoken_source
 from tenacity import (
     retry,
     stop_after_attempt,
     wait_exponential,
+    retry_if_not_exception_type,
 )
 
 from config import (
@@ -229,6 +230,8 @@ class Summarizer:
             logger.info(f"Summary generated with {len(key_points)} key points")
             return result
 
+        except ProcessingCancelledError:
+            raise
         except json.JSONDecodeError as e:
             logger.error(f"Failed to parse LLM response as JSON: {e}")
             raise SummaryOutputError('invalid') from None
@@ -264,6 +267,7 @@ class Summarizer:
                        takeaways=[updated[f"takeaway:{i+1}"] for i in range(len(summary.takeaways))])
 
     @retry(
+        retry=retry_if_not_exception_type(ProcessingCancelledError),
         stop=stop_after_attempt(MAX_RETRIES),
         wait=wait_exponential(multiplier=2, min=1, max=60),
         reraise=True,
@@ -294,17 +298,27 @@ class Summarizer:
             collected_content = []
             char_count = 0
             finish_reason = None
-            for chunk in stream:
-                if not chunk.choices:
-                    continue
-                choice = chunk.choices[0]
-                if choice.delta.content:
-                    content = choice.delta.content
-                    collected_content.append(content)
-                    char_count += len(content)
-                    progress_callback(char_count)
-                if choice.finish_reason:
-                    finish_reason = choice.finish_reason
+            try:
+                for chunk in stream:
+                    if not chunk.choices:
+                        continue
+                    choice = chunk.choices[0]
+                    if choice.delta.content:
+                        content = choice.delta.content
+                        collected_content.append(content)
+                        char_count += len(content)
+                        progress_callback(char_count)
+                    if choice.finish_reason:
+                        finish_reason = choice.finish_reason
+            finally:
+                # Close the provider connection on cancellation and parse/read
+                # errors as well as success; cleanup must not mask the cause.
+                try:
+                    close = getattr(stream, 'close', None)
+                    if close:
+                        close()
+                except Exception:
+                    logger.warning('Could not close the summary stream')
             
             final_content = "".join(collected_content)
             if finish_reason and finish_reason != "stop":

@@ -50,12 +50,15 @@ export async function cancelTask(job: ProcessingJob, kind: Kind) {
 export async function retryTask(job: ProcessingJob, kind: Kind) {
   const owner = getAccountId();
   if (kind === "video") {
+    const before = useStore.getState().videoTasks.find(t => t.id === job.job_id);
     await retryVideoTask(job.job_id);
     if (owner !== getAccountId()) return;
     const task = useStore
       .getState()
       .videoTasks.find((t) => t.id === job.job_id);
-    if (task)
+    // A websocket/poll update may already describe the new attempt. Do not
+    // replace it with an older optimistic acknowledgement from this click.
+    if (task && task === before)
       useStore.getState().updateVideoTask({
         ...task,
         status: "pending",
@@ -66,17 +69,21 @@ export async function retryTask(job: ProcessingJob, kind: Kind) {
   } else {
     const result = await retryJob(job.job_id);
     if (owner !== getAccountId()) return;
-    useStore.getState().updateJob({
-      ...job,
-      job_id: result.new_job_id,
-      status: "pending",
-      progress: 0,
-      message: "Waiting for a processing slot.",
-    });
+    if (!useStore.getState().jobs.some(t => t.job_id === result.new_job_id)) {
+      useStore.getState().updateJob({
+        ...job,
+        job_id: result.new_job_id,
+        status: "pending",
+        progress: 0,
+        message: "Waiting for a processing slot.",
+      });
+    }
     await dismissTask(job, kind, false);
+    const checkpoint = useStore.getState().jobs.find(t => t.job_id === result.new_job_id);
     void fetchJob(result.new_job_id)
       .then((current) => {
-        if (owner === getAccountId()) useStore.getState().updateJob(current);
+        if (owner === getAccountId() && useStore.getState().jobs.find(t => t.job_id === result.new_job_id) === checkpoint)
+          useStore.getState().updateJob(current);
       })
       .catch(() => {});
   }

@@ -27,6 +27,7 @@ from config import (
     VIDEO_UPLOAD_CLIENT_CONCURRENCY,
 )
 from logger import get_logger
+from summary_errors import ProcessingCancelledError
 
 logger = get_logger("video_notes")
 
@@ -55,7 +56,7 @@ _upload_meta_lock = threading.Lock()
 _last_upload_cleanup = 0.0
 
 
-class VideoCancelledException(Exception):
+class VideoCancelledException(ProcessingCancelledError):
     pass
 
 
