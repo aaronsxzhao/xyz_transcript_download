@@ -78,7 +78,7 @@ def test_podcast_integrates_audit_additions_without_losing_prior_evidence():
     with patch.object(s, "_call_llm_with_retry", return_value=result(data)):
         final = s._audit_summary(draft, source)
     assert final.key_points[0].summary == draft.key_points[0].summary
-    assert final.key_points[0].original_quote == source
+    assert final.key_points[0].original_quote == draft.key_points[0].original_quote
     assert final.key_points[1].topic == "能源路径"
     assert final.topics == ["库存", "能源路径"]
     assert final.takeaways == draft.takeaways
@@ -295,3 +295,28 @@ def test_podcast_boundaries_keep_conditions_as_context_without_dropping_or_dupli
     assert "前提是排除中国。" in requests[1].kwargs["source_context"]["before"]
     assert requests[0].kwargs["source_context"]["before"] == ""
     assert requests[-1].kwargs["source_context"]["after"] == ""
+
+
+def test_audit_preserves_a_verified_original_quote_when_the_point_is_unchanged():
+    s = Summarizer(api_key='fixture')
+    source = '[00:00:01] 原有引用。\n同一段中其他观点。'
+    draft = Summary('episode', 'Title', 'Overview', [KeyPoint('主题', '原有观点', '原有引用。', '00:00:01')], ['主题'], [])
+    with patch('summarizer.audit_source', return_value=({'overview': 'Overview', 'point:1': '原有观点'}, [], {'point:1': '原有引用。\n同一段中其他观点。'})):
+        final = s._audit_summary(draft, source)
+    assert final.key_points[0].original_quote == '原有引用。'
+
+
+def test_audit_rejects_a_point_without_any_verified_quote():
+    s = Summarizer(api_key='fixture')
+    draft = Summary('episode', 'Title', 'Overview', [KeyPoint('主题', 'Unsupported detail', 'Invented evidence', '')], ['主题'], [])
+    with patch('summarizer.audit_source', return_value=({'overview': 'Overview', 'point:1': 'Unsupported detail'}, [], {})):
+        with pytest.raises(SummaryOutputError, match='coverage'):
+            s._audit_summary(draft, 'The real source.')
+
+
+def test_changed_point_uses_its_new_audited_evidence_instead_of_old_quote():
+    s = Summarizer(api_key='fixture')
+    draft = Summary('episode', 'Title', 'Overview', [KeyPoint('主题', 'Old detail', '原有引用。', '')], ['主题'], [])
+    with patch('summarizer.audit_source', return_value=({'overview': 'Overview', 'point:1': 'Corrected detail'}, [], {'point:1': '更正后的依据。'})):
+        final = s._audit_summary(draft, '原有引用。更正后的依据。')
+    assert final.key_points[0].original_quote == '更正后的依据。'
