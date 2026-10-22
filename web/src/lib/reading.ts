@@ -23,7 +23,10 @@ export function useReadingPosition(
         }
       })();
     let target = Math.max(0, Number(saved) || 0),
-      position = target || el.scrollTop;
+      position = target;
+    // The scroll container survives route changes. Zero is a real saved
+    // position, and a new note must not inherit the previous note's offset.
+    el.scrollTop = target;
     let active = true,
       interacted = false;
     let restoring = target > 0;
