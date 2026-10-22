@@ -1,3 +1,22 @@
+## Podcast reading notes and prompt — 22 October 2026
+
+- Preserve meaningful existing chapter titles when regenerating. New notes use
+  broad chapters, detailed subheadings and paragraphs, with separate opening
+  conclusions and closing implications. Keep statistics with their units, scope,
+  historical context and forecast conditions; audit unique details instead of
+  requiring an arbitrary number of cards.
+- Synthesize one introduction for multi-part transcripts and validate complete
+  chapter mapping. Preserve every detailed point, quote and source timestamp;
+  background refinement no longer overwrites points sharing one chapter name.
+- Read chapters in a single column, expanded by default, with optional original
+  quotations and the existing Overview / Key Points by Topic / Takeaways labels.
+  Markdown, HTML, clipboard and PDF preserve hierarchy and comparisons; Chinese
+  emphasis renders correctly without altering original evidence or code samples.
+- Load PDF and Notion export tools on demand. Keep the 190 KiB compressed startup
+  budget, existing note storage, original transcripts and saved summaries.
+- No migration or automatic regeneration. Roll back using the preceding release
+  13d59a0 (see ROLLBACK.md); regenerate existing notes individually when desired.
+
 ## Unified processing workspace — 21 October 2026
 
 - A collapsed task entry opens a grouped, keyboard-accessible side/bottom drawer.

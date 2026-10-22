@@ -1,17 +1,17 @@
 import SourceAccessNotice,{sourceBlocked} from '../components/SourceAccessNotice'
 import { useWarmCache } from '../lib/cache'
-import { printHtml } from '../lib/print'
 import SummaryText from '../components/SummaryText'
 import ReaderControls from '../components/ReaderControls'
 import {useRecordReading} from '../lib/readingHistory'
-import { useReadingPosition, useDialog } from '../lib/reading'
+import { useReadingPosition } from '../lib/reading'
 import LoadError from '../components/LoadError'
 import { deferView } from '../components/DeferredView'
 const TranscriptSegments = deferView(()=>import('../components/TranscriptSegments'))
-import { escapeHtml, markdownToSafeHtml } from '../lib/safeHtml'
-import { getPreference } from '../lib/preferences'
+const PodcastNotionExport = deferView(()=>import('../components/PodcastNotionExport'))
+import { markdownToSafeHtml } from '../lib/safeHtml'
+import { summaryChapters, summaryIntroduction, summaryToMarkdown } from '../lib/summaryReading'
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { useParams, Link, useNavigate } from 'react-router-dom'
+import { useParams, useNavigate } from 'react-router-dom'
 import { 
   ArrowLeft, 
   FileText, 
@@ -28,11 +28,8 @@ import {
   Check,
   Download,
   FileDown,
-  Search,
-  X,
-  AlertTriangle,
 } from 'lucide-react'
-import { ApiError, fetchJob, fetchSummary, fetchTranscript, resummarizeEpisode, fetchNotionPages, exportMarkdownToNotion, type Summary, type Transcript, type KeyPoint, type NotionPage } from '../lib/api'
+import { ApiError, fetchJob, fetchSummary, fetchTranscript, resummarizeEpisode, type Summary, type Transcript } from '../lib/api'
 import { getAccessToken } from '../lib/auth'
 import { useStore } from '../lib/store'
 import { getCache, setCache, CacheKeys } from '../lib/cache'
@@ -40,68 +37,6 @@ import { getAccountId } from '../lib/preferences'
 import { usePageTiming } from '../lib/pageTiming'
 
 type Tab = 'summary' | 'transcript'
-
-function summaryToMarkdown(summary: Summary, transcript?: Transcript | null): string {
-  const lines: string[] = []
-  lines.push(`# ${summary.title}`)
-  lines.push('')
-
-  const metadata: string[] = []
-  if (summary.topics.length > 0) metadata.push(`- Topics: ${summary.topics.length}`)
-  if (summary.key_points.length > 0) metadata.push(`- Key points: ${summary.key_points.length}`)
-  if (transcript?.duration) {
-    const mins = Math.floor(transcript.duration / 60)
-    const secs = Math.floor(transcript.duration % 60)
-    metadata.push(`- Duration: ${mins}:${secs.toString().padStart(2, '0')}`)
-  }
-
-  if (metadata.length > 0) {
-    lines.push('## Details')
-    lines.push('')
-    lines.push(...metadata)
-    lines.push('')
-  }
-
-  if (summary.overview) {
-    lines.push('## Overview')
-    lines.push('')
-    lines.push(summary.overview)
-    lines.push('')
-  }
-
-  const byTopic: Record<string, KeyPoint[]> = {}
-  for (const kp of summary.key_points) {
-    if (!byTopic[kp.topic]) byTopic[kp.topic] = []
-    byTopic[kp.topic].push(kp)
-  }
-
-  if (Object.keys(byTopic).length > 0) {
-    lines.push('## Key Points')
-    lines.push('')
-    for (const [topic, points] of Object.entries(byTopic)) {
-      lines.push(`### ${topic}`)
-      lines.push('')
-      for (const kp of points) {
-        lines.push(`- **${kp.summary}**`)
-        if (kp.original_quote) {
-          lines.push(`  > ${kp.original_quote}`)
-        }
-        lines.push('')
-      }
-    }
-  }
-
-  if (summary.takeaways.length > 0) {
-    lines.push('## Takeaways')
-    lines.push('')
-    for (const t of summary.takeaways) {
-      lines.push(`- ${t}`)
-    }
-    lines.push('')
-  }
-
-  return lines.join('\n')
-}
 
 export default function Viewer() {
   const { eid } = useParams<{ eid: string }>()
@@ -113,13 +48,13 @@ export default function Viewer() {
   const [summary, setSummary] = useState<Summary | null>(() => getCache(CacheKeys.SUMMARY(eid!)))
   const [transcript, setTranscript] = useState<Transcript | null>(null)
   const [loading, setLoading] = useState(() => !getCache(CacheKeys.SUMMARY(eid!)))
-  useWarmCache<Summary>(CacheKeys.SUMMARY(eid!), value => {setSummary(value);setLoading(false)})
+  useWarmCache<Summary>(CacheKeys.SUMMARY(eid!), value => {setSummary(value);setExpandedTopics(new Set(summaryChapters(value).map(([topic]) => topic)));setLoading(false)})
   const [transcriptLoading, setTranscriptLoading] = useState(false)
   const [resummarizing, setResummarizing] = useState(false)
   const [error, setError] = useState('')
   const [retrying, setRetrying] = useState(false)
   usePageTiming('viewer', !loading && (summary?.episode_id === eid || transcript?.episode_id === eid), CacheKeys.SUMMARY(eid!), !!error && !loading)
-  const [expandedTopics, setExpandedTopics] = useState<Set<string>>(() => new Set(getCache<Summary>(CacheKeys.SUMMARY(eid!))?.topics.slice(0, 1)))
+  const [expandedTopics, setExpandedTopics] = useState<Set<string>>(() => new Set(summaryChapters(getCache<Summary>(CacheKeys.SUMMARY(eid!))).map(([topic]) => topic)))
   const [copied, setCopied] = useState(false)
   const [copying, setCopying] = useState(false)
   const [pdfLoading, setPdfLoading] = useState(false)
@@ -127,15 +62,6 @@ export default function Viewer() {
   useReadingPosition(`podcast:${eid}`, undefined, !loading)
   useRecordReading({id:eid!,kind:'podcast',title:summary?.title||''},!loading&&!!summary&&summary.episode_id===eid&&!summary.quality_warning)
   const [notionOpen, setNotionOpen] = useState(false)
-  useDialog(notionOpen, () => setNotionOpen(false))
-  const [notionPages, setNotionPages] = useState<NotionPage[]>([])
-  const [notionSearch, setNotionSearch] = useState('')
-  const [notionLoading, setNotionLoading] = useState(false)
-  const [notionExporting, setNotionExporting] = useState(false)
-  const [notionSelectedId, setNotionSelectedId] = useState('')
-  const [notionResult, setNotionResult] = useState<{ ok: boolean; message: string; url?: string } | null>(null)
-  const notionSearchTimeout = useRef<ReturnType<typeof setTimeout> | null>(null)
-  
   const loadTranscript = useCallback(async () => {
     const requestedEid = eid
     setTranscriptLoading(true)
@@ -155,7 +81,7 @@ export default function Viewer() {
     if (!eid) return
     const cached = getCache<Summary>(CacheKeys.SUMMARY(eid))
     setSummary(cached)
-    setExpandedTopics(new Set(cached?.topics.slice(0, 1)))
+    setExpandedTopics(new Set(summaryChapters(cached).map(([topic]) => topic)))
     setTranscript(null)
     setActiveTab('summary')
     setResummarizing(false)
@@ -187,7 +113,7 @@ export default function Viewer() {
       if (!current()) return
       setSummary(data)
       setCache(CacheKeys.SUMMARY(eid!), data, owner)
-      setExpandedTopics(new Set(data.topics.slice(0, 1)))
+      setExpandedTopics(new Set(summaryChapters(data).map(([topic]) => topic)))
     } catch (err) {
       if (!current()) return
       if (cached) setError('Cannot refresh this summary. Please retry.')
@@ -249,7 +175,7 @@ export default function Viewer() {
             if (eid !== currentEid.current) return
             setSummary(fresh)
             setCache(CacheKeys.SUMMARY(eid), fresh)
-            setExpandedTopics(new Set(fresh.topics.slice(0, 1)))
+            setExpandedTopics(new Set(summaryChapters(fresh).map(([topic]) => topic)))
             setResummarizing(false)
             if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null }
           } else if (['failed', 'cancelled'].includes(job.status)) {
@@ -269,7 +195,7 @@ export default function Viewer() {
 
   const getMarkdown = (): string => {
     if (!summary) return ''
-    return summaryToMarkdown(summary, transcript)
+    return summaryToMarkdown(summary, transcript?.duration)
   }
 
   const handleCopy = async () => {
@@ -308,28 +234,8 @@ export default function Viewer() {
     if (!md || pdfLoading) return
     setPdfLoading(true)
     try {
-      const body = await markdownToSafeHtml(md)
-      const html = `<!DOCTYPE html>
-<html><head>
-<meta charset="utf-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src https: http: data: blob:; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'">
-<title>${escapeHtml(summary?.title || 'Summary')}</title>
-<style>
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto Sans SC", "PingFang SC", "Microsoft YaHei", sans-serif; color: #1f2937; background: #fff; padding: 20px 30px; font-size: 13px; line-height: 1.75; }
-  h1 { font-size: 22px; font-weight: 700; color: #111827; border-bottom: 2px solid #e5e7eb; padding-bottom: 8px; margin: 24px 0 16px; }
-  h2 { font-size: 18px; font-weight: 700; color: #1e40af; margin: 28px 0 12px; }
-  h3 { font-size: 15px; font-weight: 600; color: #1f2937; margin: 20px 0 8px; }
-  p { font-size: 13px; line-height: 1.75; color: #374151; margin: 8px 0; }
-  li { font-size: 13px; line-height: 1.75; color: #374151; }
-  ul, ol { padding-left: 20px; margin: 6px 0; }
-  strong { color: #111827; }
-  blockquote { border-left: 3px solid #6366f1; background: #eef2ff; color: #374151; padding: 10px 16px; margin: 12px 0; border-radius: 0 6px 6px 0; font-size: 13px; }
-  blockquote p { margin: 4px 0; }
-  @media print { body { padding: 0; } h1, h2, h3 { page-break-after: avoid; } }
-</style>
-</head><body>${body}</body></html>`
-      await printHtml(html)
+      const { printPodcast } = await import('../lib/podcastPrint')
+      await printPodcast(md, summary?.title || 'Summary')
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Could not prepare the PDF. Please retry or download Markdown.')
     } finally {
@@ -337,52 +243,6 @@ export default function Viewer() {
     }
   }
 
-  const hasNotionKey = !!getPreference('notion_api_key')
-
-  const openNotionModal = useCallback(async () => {
-    setNotionOpen(true)
-    setNotionResult(null)
-    setNotionSelectedId('')
-    setNotionSearch('')
-    setNotionLoading(true)
-    try {
-      const data = await fetchNotionPages()
-      setNotionPages(data.pages)
-    } catch (err) {
-      setNotionResult({ ok: false, message: err instanceof Error ? err.message : 'Failed to load pages' })
-    } finally {
-      setNotionLoading(false)
-    }
-  }, [])
-
-  const handleNotionSearch = useCallback((q: string) => {
-    setNotionSearch(q)
-    if (notionSearchTimeout.current) clearTimeout(notionSearchTimeout.current)
-    notionSearchTimeout.current = setTimeout(async () => {
-      setNotionLoading(true)
-      try {
-        const data = await fetchNotionPages(q || undefined)
-        setNotionPages(data.pages)
-      } catch { /* keep current pages */ }
-      finally { setNotionLoading(false) }
-    }, 400)
-  }, [])
-
-  const handleNotionExport = useCallback(async () => {
-    if (!summary || !notionSelectedId) return
-    setNotionExporting(true)
-    setNotionResult(null)
-    try {
-      const md = summaryToMarkdown(summary, transcript)
-      const result = await exportMarkdownToNotion(md, summary.title, notionSelectedId)
-      setNotionResult({ ok: true, message: `Exported "${result.title}" to Notion`, url: result.url })
-    } catch (err) {
-      setNotionResult({ ok: false, message: err instanceof Error ? err.message : 'Export failed' })
-    } finally {
-      setNotionExporting(false)
-    }
-  }, [notionSelectedId, summary, transcript])
-  
   function toggleTopic(topic: string) {
     const newExpanded = new Set(expandedTopics)
     if (newExpanded.has(topic)) {
@@ -399,13 +259,8 @@ export default function Viewer() {
     return `${mins}:${secs.toString().padStart(2, '0')}`
   }
   
-  const keyPointsByTopic = summary?.key_points.reduce((acc: Record<string, KeyPoint[]>, kp: KeyPoint) => {
-    if (!acc[kp.topic]) acc[kp.topic] = []
-    acc[kp.topic].push(kp)
-    return acc
-  }, {} as Record<string, KeyPoint[]>) || {}
-  
-  const topicEntries = Object.entries(keyPointsByTopic) as [string, KeyPoint[]][]
+  const topicEntries = summaryChapters(summary)
+  const introduction = summaryIntroduction(summary?.overview || '')
 
   const [activeSection,setActiveSection] = useState('summary-overview')
   useEffect(() => {
@@ -414,7 +269,7 @@ export default function Viewer() {
       const visible = entries.filter(entry => entry.isIntersecting).sort((a,b) => a.boundingClientRect.top-b.boundingClientRect.top)
       if (visible[0]) setActiveSection(visible[0].target.id)
     }, {rootMargin:'-80px 0px -60% 0px'})
-    document.querySelectorAll('[id^="summary-topic-"], #summary-overview, #summary-key-points, #summary-takeaways').forEach(element => observer.observe(element))
+    document.querySelectorAll('[id^="summary-topic-"], #summary-conclusions, #summary-overview, #summary-key-points, #summary-takeaways').forEach(element => observer.observe(element))
     return () => observer.disconnect()
   }, [summary, loading, activeTab])
 
@@ -429,10 +284,10 @@ export default function Viewer() {
       {loading && <div role="status" className="flex items-center gap-2 text-sm text-gray-400"><Loader2 size={18} className="animate-spin text-indigo-400" />{retrying ? 'Connection interrupted. Retrying once…' : 'Loading summary…'}</div>}
       {activeTab==='summary' && summary && !summary.quality_warning && <nav aria-label="Reading outline" className="reader-outline" data-reader-contents>
         <p className="text-sm font-semibold mb-3">Contents</p>
-        {[['summary-overview','Overview'],['summary-key-points','Key points'],...topicEntries.map(([topic],index)=>[`summary-topic-${index}`,topic]),['summary-takeaways','Takeaways']].map(([id,title])=><button key={id} aria-current={activeSection===id?'location':undefined} onClick={()=>{if(id.startsWith('summary-topic-')){const topic=topicEntries[Number(id.replace('summary-topic-',''))]?.[0];if(topic)setExpandedTopics(previous=>new Set([...previous,topic]))}setActiveSection(id);requestAnimationFrame(()=>document.getElementById(id)?.scrollIntoView({block:'start'}))}}>{title}</button>)}
+        {[...(introduction.conclusions ? [['summary-conclusions','核心结论']] : []),['summary-overview','Overview'],['summary-key-points','Key points'],...topicEntries.map(([topic],index)=>[`summary-topic-${index}`,topic]),['summary-takeaways','Takeaways']].map(([id,title])=><button key={id} aria-current={activeSection===id?'location':undefined} onClick={()=>{if(id.startsWith('summary-topic-')){const topic=topicEntries[Number(id.replace('summary-topic-',''))]?.[0];if(topic)setExpandedTopics(previous=>new Set([...previous,topic]))}setActiveSection(id);requestAnimationFrame(()=>document.getElementById(id)?.scrollIntoView({block:'start'}))}}>{title}</button>)}
       </nav>}
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-start gap-3 md:gap-4">
+      <div className="podcast-header flex flex-col sm:flex-row sm:items-start gap-3 md:gap-4">
         <div className="flex items-start gap-3">
           <button
             aria-label="Go back"
@@ -442,14 +297,14 @@ export default function Viewer() {
             <ArrowLeft size={20} />
           </button>
           <div className="flex-1 min-w-0 sm:hidden">
-            <h1 className="page-title text-lg font-bold text-white line-clamp-2">
+            <h1 className="page-title text-lg font-bold text-white ">
               {summary?.title || 'Episode Viewer'}
             </h1>
           </div>
         </div>
         
-        <div className="flex-1 min-w-0 hidden sm:block">
-          <h1 className="page-title text-xl md:text-2xl font-bold text-white mb-2 line-clamp-2">
+        <div className="podcast-heading flex-1 min-w-0 hidden sm:block">
+          <h1 className="page-title text-xl md:text-2xl font-bold text-white mb-2 ">
             {summary?.title || 'Episode Viewer'}
           </h1>
           <div className="flex flex-wrap items-center gap-2 md:gap-4">
@@ -457,7 +312,7 @@ export default function Viewer() {
               <>
                 <span className="flex items-center gap-1.5 text-xs md:text-sm text-gray-400">
                   <Tag size={14} />
-                  {summary.topics.length} topics
+                  {topicEntries.length} topics
                 </span>
                 <span className="flex items-center gap-1.5 text-xs md:text-sm text-gray-400">
                   <MessageSquare size={14} />
@@ -508,7 +363,7 @@ export default function Viewer() {
                 {pdfLoading ? <Loader2 size={16} className="animate-spin" /> : <FileDown size={16} />} PDF
               </button>
               <button
-                onClick={openNotionModal}
+                onClick={() => setNotionOpen(true)}
                 className="p-2 text-gray-400 hover:text-indigo-300 transition-colors"
                 title="Send to Notion"
               >
@@ -548,7 +403,7 @@ export default function Viewer() {
           <>
             <span className="flex items-center gap-1">
               <Tag size={12} />
-              {summary.topics.length} topics
+              {topicEntries.length} topics
             </span>
             <span className="flex items-center gap-1">
               <MessageSquare size={12} />
@@ -564,7 +419,7 @@ export default function Viewer() {
         )}
       </div>
       
-      <ReaderControls>{activeTab === 'summary' && summary && !summary.quality_warning && <label className="reader-contents block text-sm">Contents<select aria-label="Summary contents" className="ml-2 max-w-full bg-dark-surface border border-dark-border rounded-lg p-2" value={activeSection} onChange={e => { const id=e.target.value;const index=Number(id.replace('summary-topic-',''));if(id.startsWith('summary-topic-')&&topicEntries[index])setExpandedTopics(previous=>new Set([...previous,topicEntries[index][0]]));setActiveSection(id);requestAnimationFrame(()=>document.getElementById(id)?.scrollIntoView({block:'start'})) }}><option value="">Jump to section…</option><option value="summary-overview">Overview</option><option value="summary-key-points">Key points</option>{topicEntries.map(([topic],index)=><option key={topic} value={`summary-topic-${index}`}>{topic}</option>)}<option value="summary-takeaways">Takeaways</option></select></label>}</ReaderControls>
+      <ReaderControls>{activeTab === 'summary' && summary && !summary.quality_warning && <label className="reader-contents block text-sm">Contents<select aria-label="Summary contents" className="ml-2 max-w-full bg-dark-surface border border-dark-border rounded-lg p-2" value={activeSection} onChange={e => { const id=e.target.value;const index=Number(id.replace('summary-topic-',''));if(id.startsWith('summary-topic-')&&topicEntries[index])setExpandedTopics(previous=>new Set([...previous,topicEntries[index][0]]));setActiveSection(id);requestAnimationFrame(()=>document.getElementById(id)?.scrollIntoView({block:'start'})) }}><option value="">Jump to section…</option>{introduction.conclusions && <option value="summary-conclusions">核心结论</option>}<option value="summary-overview">Overview</option><option value="summary-key-points">Key points</option>{topicEntries.map(([topic],index)=><option key={topic} value={`summary-topic-${index}`}>{topic}</option>)}<option value="summary-takeaways">Takeaways</option></select></label>}</ReaderControls>
       {/* Tabs */}
       <div className="flex gap-1 md:gap-2 border-b border-dark-border">
         <button
@@ -608,13 +463,17 @@ export default function Viewer() {
       {activeTab === 'summary' && summary?.quality_warning && <details className="text-sm text-gray-400"><summary className="cursor-pointer">Previous incomplete result</summary><p className="mt-3">{summary.overview}</p></details>}
       {activeTab === 'summary' && summary && !summary.quality_warning && (
         <div className="space-y-6">
+          {introduction.conclusions && <section id="summary-conclusions" className="reader-core">
+            <h2>核心结论</h2>
+            <SummaryText>{introduction.conclusions}</SummaryText>
+          </section>}
           {/* Overview */}
           <div className="reader-section">
             <h2 id="summary-overview" className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
               <FileText className="text-indigo-500" size={20} />
               Overview
             </h2>
-            <SummaryText>{summary.overview}</SummaryText>
+            <SummaryText>{introduction.overview}</SummaryText>
           </div>
           
           {/* Topics/Key Points */}
@@ -634,10 +493,11 @@ export default function Viewer() {
                 <button
                   onClick={() => toggleTopic(topic)}
                   aria-expanded={expandedTopics.has(topic)}
+                  aria-controls={`summary-topic-content-${index}`}
                   className="topic-toggle w-full flex items-center justify-between gap-3"
                 >
                   <div className="flex flex-wrap items-center gap-x-2 gap-y-1 min-w-0 text-left">
-                    <Tag className="text-indigo-400" size={18} />
+                    <span className="topic-number" aria-hidden="true">{String(index + 1).padStart(2, '0')}</span>
                     <span className="font-medium text-white">{topic}</span>
                     <span className="text-sm text-gray-500">
                       ({points.length} points)
@@ -651,17 +511,15 @@ export default function Viewer() {
                 </button>
                 
                 {expandedTopics.has(topic) && (
-                  <div className="topic-content space-y-4">
+                  <div id={`summary-topic-content-${index}`} className="topic-content space-y-4">
                     {points.map((kp, idx) => (
-                      <div key={idx} className="space-y-3">
+                      <div key={idx} className="reader-point space-y-3">
                         <SummaryText>{kp.summary}</SummaryText>
                         {kp.original_quote && (
-                          <div className="reader-quote flex items-start gap-2">
-                            <Quote className="text-gray-500 flex-shrink-0 mt-0.5" size={16} />
-                            <p className="text-sm text-gray-400">
-                              {kp.original_quote}
-                            </p>
-                          </div>
+                          <details className="reader-quote">
+                            <summary><Quote size={14} aria-hidden="true" />查看转写原话{kp.timestamp && <span> · {kp.timestamp}</span>}</summary>
+                            <blockquote>{kp.original_quote}</blockquote>
+                          </details>
                         )}
                       </div>
                     ))}
@@ -717,117 +575,8 @@ export default function Viewer() {
         </div>
       )}
 
-      {/* Notion export modal */}
-      {notionOpen && (
-        <div
-          role="dialog" aria-modal="true" aria-label="Export to Notion" className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
-          onClick={e => { if (e.target === e.currentTarget) setNotionOpen(false) }}
-        >
-          <div className="bg-dark-surface border border-dark-border rounded-2xl w-full max-w-md mx-4 shadow-2xl">
-            <div className="flex items-center justify-between p-4 border-b border-dark-border">
-              <h2 className="text-sm font-semibold text-white flex items-center gap-2">
-                <ExternalLink size={16} />
-                Send to Notion
-              </h2>
-              <button aria-label="Close Notion export" onClick={() => setNotionOpen(false)} className="p-1 text-gray-400 hover:text-white transition-colors">
-                <X size={16} />
-              </button>
-            </div>
+      {notionOpen && summary && <PodcastNotionExport summary={summary} duration={transcript?.duration} onClose={() => setNotionOpen(false)} fallback={<p role="status">Loading export…</p>} />}
 
-            <div className="p-4 space-y-3">
-              {!hasNotionKey ? (
-                <div className="space-y-3 py-2">
-                  <p className="text-sm text-gray-300">Set up your Notion integration to export summaries.</p>
-                  <ol className="text-xs text-gray-400 space-y-1.5 list-decimal list-inside">
-                    <li>Go to <a href="https://www.notion.so/profile/integrations" target="_blank" rel="noopener noreferrer" className="text-orange-400 hover:text-orange-300">Notion Integrations <ExternalLink size={10} className="inline" /></a></li>
-                    <li>Create an integration and copy the token</li>
-                    <li>Go to <Link to="/settings" className="text-orange-400 hover:text-orange-300">Settings</Link> and paste it in the Notion section</li>
-                    <li>Share target pages with your integration in Notion</li>
-                  </ol>
-                </div>
-              ) : (
-              <>
-              <div className="relative">
-                <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
-                <input
-                  type="text"
-                  value={notionSearch}
-                  onChange={e => handleNotionSearch(e.target.value)}
-                  placeholder="Search pages..."
-                  className="w-full pl-9 pr-3 py-2 bg-dark-hover border border-dark-border text-white text-sm rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
-                  autoFocus
-                />
-              </div>
-
-              <div className="max-h-60 overflow-y-auto custom-scrollbar space-y-0.5">
-                {notionLoading ? (
-                  <div className="flex items-center justify-center py-8">
-                    <Loader2 size={20} className="animate-spin text-gray-500" />
-                  </div>
-                ) : notionPages.length === 0 ? (
-                  <div className="text-center py-8 text-sm text-gray-500">
-                    {notionResult?.ok === false
-                      ? 'Could not load pages'
-                      : 'No pages found. Share pages with your integration in Notion.'}
-                  </div>
-                ) : (
-                  notionPages.map(page => (
-                    <button
-                      key={page.id}
-                      onClick={() => setNotionSelectedId(page.id === notionSelectedId ? '' : page.id)}
-                      className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-left text-sm transition-colors ${
-                        page.id === notionSelectedId
-                          ? 'bg-orange-500/15 border border-orange-500/40 text-white'
-                          : 'hover:bg-dark-hover text-gray-300 border border-transparent'
-                      }`}
-                    >
-                      <span className="flex-shrink-0 w-5 text-center">{page.icon || '📄'}</span>
-                      <span className="truncate flex-1">{page.title || 'Untitled'}</span>
-                      {page.id === notionSelectedId && (
-                        <CheckCircle size={14} className="text-orange-400 flex-shrink-0" />
-                      )}
-                    </button>
-                  ))
-                )}
-              </div>
-              </>
-              )}
-
-              {notionResult && (
-                <div className={`p-2.5 rounded-lg text-xs ${
-                  notionResult.ok
-                    ? 'bg-green-500/10 border border-green-500/30 text-green-400'
-                    : 'bg-red-500/10 border border-red-500/30 text-red-400'
-                }`}>
-                  {notionResult.ok ? <CheckCircle size={12} className="inline mr-1.5" /> : <AlertTriangle size={12} className="inline mr-1.5" />}
-                  {notionResult.message}
-                  {notionResult.url && (
-                    <a href={notionResult.url} target="_blank" rel="noopener noreferrer" className="ml-2 inline-flex items-center gap-1 text-orange-400 hover:text-orange-300">
-                      Open in Notion <ExternalLink size={10} />
-                    </a>
-                  )}
-                </div>
-              )}
-            </div>
-
-            <div className="flex items-center justify-end gap-2 p-4 border-t border-dark-border">
-              <button aria-label="Close Notion export" onClick={() => setNotionOpen(false)} className="px-4 py-2 text-sm text-gray-400 hover:text-white transition-colors">
-                {notionResult?.ok ? 'Done' : hasNotionKey ? 'Cancel' : 'Close'}
-              </button>
-              {hasNotionKey && !notionResult?.ok && (
-                <button
-                  onClick={handleNotionExport}
-                  disabled={!notionSelectedId || notionExporting}
-                  className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-40 disabled:cursor-not-allowed text-white text-sm font-medium rounded-lg transition-colors"
-                >
-                  {notionExporting ? <Loader2 size={14} className="animate-spin" /> : <ExternalLink size={14} />}
-                  Export
-                </button>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   )
 }

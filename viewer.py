@@ -2,6 +2,7 @@
 Beautiful summary viewer with multiple output formats.
 """
 import json
+import re
 from html import escape
 from pathlib import Path
 from typing import Optional
@@ -14,6 +15,7 @@ from rich.table import Table
 from rich.tree import Tree
 from rich.text import Text
 from rich import box
+from markdown_it import MarkdownIt
 
 from config import DATA_DIR
 
@@ -34,6 +36,15 @@ class Summary:
     key_points: list
     topics: list
     takeaways: list
+
+
+def normalize_summary_markdown(value: str) -> str:
+    """Keep Chinese emphasis readable without changing quoted/code evidence."""
+    parts = re.split(r'(```[\s\S]*?```|~~~[\s\S]*?~~~|`[^`\n]*`)', value)
+    for index in range(0, len(parts), 2):
+        parts[index] = re.sub(r'(?<!\\)\*\*(?=\S)([^*\n]+?)([，。；：！？、,.!?;:]+)\*\*(?=[^\W_])',
+                              r'**\1**\2', parts[index])
+    return ''.join(parts)
 
 
 def load_summary(episode_id: str) -> Optional[Summary]:
@@ -171,7 +182,7 @@ def export_markdown(summary: Summary) -> str:
     # Overview
     lines.append("## Overview")
     lines.append("")
-    lines.append(summary.overview)
+    lines.append(normalize_summary_markdown(summary.overview))
     lines.append("")
     
     # Topics
@@ -197,17 +208,20 @@ def export_markdown(summary: Summary) -> str:
         lines.append("")
         
         for kp in points:
-            lines.append(f"**{kp.summary}**")
+            lines.append(normalize_summary_markdown(kp.summary))
             lines.append("")
             if kp.original_quote:
-                lines.append(f"> {kp.original_quote}")
+                if kp.timestamp:
+                    lines.append(f"Source · {kp.timestamp}")
+                    lines.append("")
+                lines.extend(f"> {line}" for line in kp.original_quote.splitlines())
                 lines.append("")
     
     # Takeaways
     lines.append("## Takeaways")
     lines.append("")
     for t in summary.takeaways:
-        lines.append(f"- ✓ {t}")
+        lines.append(f"- ✓ {normalize_summary_markdown(t)}")
     lines.append("")
     
     return "\n".join(lines)
@@ -216,6 +230,14 @@ def export_markdown(summary: Summary) -> str:
 def export_html(summary: Summary) -> str:
     """Export summary as a beautiful HTML page."""
     
+    # Raw HTML stays escaped, including model-provided HTML and quote text.
+    markdown = MarkdownIt('commonmark', {'html': False}).enable('table')
+    render = lambda value: markdown.render(normalize_summary_markdown(value))
+    introduction = re.match(r'^\s*### 核心结论\s*\r?\n([\s\S]*?)^### 节目概览\s*\r?\n([\s\S]*)$', summary.overview, re.M)
+    overview = introduction[2].strip() if introduction else summary.overview
+    conclusions_html = ('<section class="section core"><h2 class="section-title">核心结论</h2>'
+                        + render(introduction[1].strip()) + '</section>') if introduction else ''
+
     # Group key points by topic
     topics_map = {}
     for kp in summary.key_points:
@@ -227,10 +249,11 @@ def export_html(summary: Summary) -> str:
     for topic, points in topics_map.items():
         points_html = ""
         for kp in points:
-            quote_html = f'<blockquote class="quote">{escape(kp.original_quote)}</blockquote>' if kp.original_quote else ""
+            quote_html = (f'<details class="quote"><summary>查看转写原话{(" · " + escape(kp.timestamp)) if kp.timestamp else ""}</summary>'
+                          f'<blockquote>{escape(kp.original_quote)}</blockquote></details>') if kp.original_quote else ""
             points_html += f'''
             <div class="key-point">
-                <p class="summary">{escape(kp.summary)}</p>
+                <div class="summary">{render(kp.summary)}</div>
                 {quote_html}
             </div>
             '''
@@ -242,7 +265,7 @@ def export_html(summary: Summary) -> str:
         '''
     
     topics_pills = " ".join(f'<span class="topic-pill">{escape(t)}</span>' for t in summary.topics)
-    takeaways_html = "\n".join(f'<li>{escape(t)}</li>' for t in summary.takeaways)
+    takeaways_html = "\n".join(f'<li>{render(t)}</li>' for t in summary.takeaways)
     
     html = f'''<!DOCTYPE html>
 <html lang="zh">
@@ -278,7 +301,7 @@ def export_html(summary: Summary) -> str:
         }}
         
         .container {{
-            max-width: 900px;
+            max-width: 840px;
             margin: 0 auto;
         }}
         
@@ -311,8 +334,17 @@ def export_html(summary: Summary) -> str:
         
         .overview {{
             color: var(--text);
-            white-space: pre-line;
         }}
+        .core {{ background: linear-gradient(120deg,#24263e,#1b2533); }}
+        .summary p, .overview p {{ margin-bottom: 1rem; font-weight: 400; }}
+        .summary h4 {{ font-size: 1.05rem; margin: 1.5rem 0 .75rem; }}
+        .summary table {{ width: 100%; border-collapse: collapse; margin-block: 1rem; font-size: .875rem; }}
+        .summary th, .summary td {{ padding: .65rem; border: 1px solid var(--border); text-align: left; overflow-wrap: anywhere; }}
+        .summary ul, .core ul {{ padding-left: 1.25rem; }}
+        .core li {{ margin-block: .75rem; }}
+        .quote summary {{ cursor: pointer; }}
+        .quote blockquote {{ margin-top: .75rem; white-space: pre-wrap; }}
+        @media(max-width: 600px) {{ body {{ padding: 1rem; }} h1 {{ font-size: 1.5rem; }} .section {{ padding: 1rem; }} }}
         
         .topics-container {{
             display: flex;
@@ -343,8 +375,6 @@ def export_html(summary: Summary) -> str:
         
         .key-point {{
             margin-bottom: 1rem;
-            padding-left: 1rem;
-            border-left: 3px solid var(--primary);
         }}
         
         .key-point .summary {{
@@ -391,10 +421,11 @@ def export_html(summary: Summary) -> str:
 <body>
     <div class="container">
         <h1>📻 {escape(summary.title)}</h1>
+        {conclusions_html}
         
         <div class="section">
             <div class="section-title">📝 Overview</div>
-            <div class="overview">{escape(summary.overview)}</div>
+            <div class="overview">{render(overview)}</div>
         </div>
         
         <div class="section">
