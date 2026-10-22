@@ -55,8 +55,18 @@ def archive_audit_failure(storage, path, error):
             feedback = getattr(error, "audit_feedback", {})
             shapes = [{"keys": list(row), "field": row.get("field"), "source_ids": row.get("source_ids")}
                       for row in response.get("edits", []) if isinstance(row, dict)]
+            unit_shapes = [{"keys": list(row), "unit": row.get("unit"), "kind": row.get("kind")}
+                           for row in response.get("unit_notes", []) if isinstance(row, dict)] if isinstance(response.get("unit_notes"), list) else []
+            def structure(value, depth=0):
+                if isinstance(value, dict):
+                    return {"type": "object", "keys": list(value),
+                            "members": {key: structure(item, depth + 1) for key, item in value.items()} if depth < 2 else {}}
+                if isinstance(value, list):
+                    return {"type": "array", "count": len(value), "items": [structure(item, depth + 1) for item in value[:10]] if depth < 3 else []}
+                return {"type": type(value).__name__, "characters": len(value) if isinstance(value, str) else 0}
             verified_upload(storage, path, {"feedback": feedback, "response": response},
-                            metadata={"feedback": feedback, "reference_shapes": shapes})
+                            metadata={"feedback": feedback, "reference_shapes": shapes, "unit_shapes": unit_shapes,
+                                      "response_structure": structure(response)})
             return
         error = error.__cause__ or error.__context__
 
@@ -186,11 +196,11 @@ def failure_report(error):
     while error is not None and id(error) not in seen:
         seen.add(id(error))
         if isinstance(error, SummaryOutputError):
-            report["reason"] = error.code
+            report.setdefault("reason", error.code)
             from source_coverage import AUDIT_ISSUES
             issue = getattr(error, "audit_feedback", {}).get("issue")
             if issue in AUDIT_ISSUES:
-                report["audit_issue"] = issue
+                report.setdefault("audit_issue", issue)
         status = getattr(error, "status_code", None)
         if type(status) is int and 400 <= status <= 599:
             report["http_status"] = status
@@ -199,10 +209,13 @@ def failure_report(error):
             if isinstance(code, str) and code in {"json_validate_failed", "context_length_exceeded", "invalid_request_error", "model_not_found", "rate_limit_exceeded"}:
                 report["provider_code"] = code
         trace = error.__traceback__
+        audit_line = None
         while trace:
             if Path(trace.tb_frame.f_code.co_filename).name == "source_coverage.py":
-                report["audit_line"] = trace.tb_lineno
+                audit_line = trace.tb_lineno
             trace = trace.tb_next
+        if audit_line is not None:
+            report.setdefault("audit_line", audit_line)
         error = error.__cause__ or error.__context__
     return report
 
