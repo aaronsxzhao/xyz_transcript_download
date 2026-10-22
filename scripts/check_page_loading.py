@@ -192,7 +192,7 @@ async def measure(browser, origin, verify, recovery_only=False):
     transcript_reads = sum(path.startswith('/api/transcripts/') for path, _ in requests)
     if verify:
         assert transcript_reads == 0, 'Summary opening downloaded an unrequested transcript'
-        await page.get_by_role('button', name='Transcript', exact=True).click()
+        await page.get_by_role('tab', name='Transcript', exact=True).click()
         await page.get_by_text('Full transcript on demand.', exact=True).wait_for()
     state['delay'] = 8
     for path, text in paths:
@@ -251,7 +251,7 @@ async def measure(browser, origin, verify, recovery_only=False):
         state['summary_missing'] = True
         await page.evaluate("history.pushState({},'','/viewer/transcript-only');dispatchEvent(new PopStateEvent('popstate'))")
         await page.get_by_text('Full transcript on demand.', exact=True).wait_for()
-        assert await page.get_by_role('button', name='Transcript', exact=True).count() == 1
+        assert await page.get_by_role('tab', name='Transcript', exact=True).count() == 1
         state['summary_missing'] = False
         expired = token(int(time.time()) - 60)
         await page.evaluate("value => localStorage.setItem('xyz_access_token', value)", expired)

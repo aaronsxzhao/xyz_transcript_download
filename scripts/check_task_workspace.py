@@ -64,7 +64,7 @@ async def main():
    assert not await page.get_by_role('dialog',name='Processing tasks').count()
    await page.screenshot(path=f'/tmp/audit-dashboard-{width}.png')
    print(json.dumps({'viewport':width,'overflow':await page.evaluate('document.documentElement.scrollWidth>innerWidth'),'errors':errors}),flush=True)
-   await page.locator('.dashboard-queue').scroll_into_view_if_needed();await page.screenshot(path=f'/tmp/audit-queue-{width}.png')
+   await page.locator('.dashboard-processing').scroll_into_view_if_needed();await page.screenshot(path=f'/tmp/audit-queue-{width}.png')
    await page.goto(origin+'/videos?platform=youtube&channel=Trading+Course',wait_until='domcontentloaded');await page.get_by_role('heading',name='Trading Course',exact=True).wait_for();await page.screenshot(path=f'/tmp/audit-videos-{width}.png')
    await page.goto(origin+'/videos/v0',wait_until='domcontentloaded')
    await page.get_by_text('Saving and verifying',exact=True).first.wait_for()

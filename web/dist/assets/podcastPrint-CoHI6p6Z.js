@@ -1,4 +1,4 @@
-import{n as e}from"./rolldown-runtime-CNOWq4Kh.js";import{a as t,i as n,n as r,r as i}from"./workspace-NzugeZ-5.js";async function a(e,n){let a=await t(e),o=`<!DOCTYPE html>
+import{n as e}from"./rolldown-runtime-CNOWq4Kh.js";import{a as t,i as n,n as r,r as i}from"./workspace-BUz47y49.js";async function a(e,n){let a=await t(e),o=`<!DOCTYPE html>
 <html><head>
 <meta charset="utf-8">
 <meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src https: http: data: blob:; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'">

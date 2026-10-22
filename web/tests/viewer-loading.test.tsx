@@ -46,7 +46,9 @@ it('explains restricted incomplete content instead of rendering an ordinary summ
 it('allows regeneration before the transcript tab has been loaded',async()=>{
  vi.mocked(fetchSummary).mockResolvedValueOnce(summary)
  const node=await mount()
- expect((node.querySelector('.reader-regenerate') as HTMLButtonElement).disabled).toBe(false)
+ await act(async()=>{(node.querySelector('[aria-label="More summary actions"]') as HTMLButtonElement).click()})
+ const regenerate=Array.from(node.querySelectorAll('button')).find(button=>button.textContent==='Regenerate summary')!
+ expect(regenerate.disabled).toBe(false)
  expect(fetchTranscript).not.toHaveBeenCalled()
 })
 
