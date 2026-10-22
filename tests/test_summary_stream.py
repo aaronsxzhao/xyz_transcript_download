@@ -24,7 +24,8 @@ def test_summary_stream_accepts_usage_only_events_and_keeps_all_content(video):
     assert value=='first last'
     assert progress.call_count==2
     assert create.call_args.kwargs['max_completion_tokens']==32768
-    assert create.call_args.kwargs['reasoning_effort']=='low'
+    assert create.call_args.kwargs['reasoning_effort']=='medium'
+    assert create.call_args.kwargs['temperature']==0
 
 
 @pytest.mark.parametrize('video',[False,True])

@@ -255,6 +255,32 @@ def test_short_asr_tail_keeps_its_context_and_every_original_character():
     assert all(len(text) >= 200 for text in units.values())
 
 
+def test_content_receipt_with_null_fields_requires_a_real_source_passage_after_format_retry():
+    source = "玉米基准560美分、峰值610美分，预测跨度三至六个月。"
+    calls = Mock(side_effect=[{"coverage": [{"unit": "S1", "kind": "content", "fields": None}]},
+                             {"coverage": [{"unit": "S1", "kind": "content", "fields": None}]},
+                             {"kind": "content", "topic": "价格情景", "heading": "玉米目标价",
+                              "text": "未来三至六个月，玉米基准560美分，峰值610美分。"}])
+    updated, additions, citations = audit_source(source, {}, calls)
+    assert updated["added:1"].endswith("未来三至六个月，玉米基准560美分，峰值610美分。")
+    assert citations["added:1"] == source
+    assert calls.call_count == 3
+    assert json.loads(calls.call_args.args[1])["source_text"] == source
+
+
+def test_new_chunks_receive_the_prior_meaningful_chapter_titles():
+    from transcriber import Transcript
+    engine = Summarizer(api_key="fixture")
+    engine.chunk_chars = 100
+    source = Transcript("episode", "zh", 300, "甲" * 100 + "乙" * 100, [])
+    first = Summary("episode", "Title", "Overview", [], ["原文第一章"], [])
+    second = Summary("episode", "Title", "Overview", [], ["原文第二章"], [])
+    with patch.object(engine, "_summarize_single", side_effect=[first, second]) as extract, patch.object(engine, "_merge_summaries", return_value=second):
+        engine._summarize_long_transcript(source, "Show", "Title")
+    assert extract.call_args_list[0].args[5] == []
+    assert extract.call_args_list[1].args[5] == ["原文第一章"]
+
+
 def test_podcast_boundaries_keep_conditions_as_context_without_dropping_or_duplicating_source():
     from transcriber import Transcript
     engine = Summarizer(api_key="fixture")
