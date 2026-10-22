@@ -31,7 +31,7 @@ def test_audit_repairs_scope_and_percentage_points_and_appends_independent_examp
     source = "库存不含中国为12%，下降1个百分点。B50若落地增加需求200万吨。"
     audit = {
         "edits": [{"field": "point:0", "text": "库存不含中国为12%，下降1个百分点。", "source_ids": ["S1"]}],
-        "additions": [{"topic": "需求", "heading": "政策情景", "text": "B50若落地增加需求200万吨。", "source_ids": ["S1"], "timestamp": "01:00:00"}],
+        "additions": [{"id": "added:0", "topic": "需求", "heading": "政策情景", "text": "B50若落地增加需求200万吨。", "source_ids": ["S1"], "timestamp": "01:00:00"}],
         "coverage": [receipt()],
     }
     updated, additions, citations = audit_source(source, {"point:0": "全球库存12%，下降1%。"}, lambda *args: audit)
@@ -74,7 +74,7 @@ def test_podcast_integrates_audit_additions_without_losing_prior_evidence():
     s = Summarizer(api_key="fixture", base_url="https://api.groq.com/openai/v1")
     source = "库存不含中国为12%，下降1个百分点。随后讨论可持续航空燃料。"
     draft = Summary("episode", "Original", "Intro", [KeyPoint("库存", "不含中国的库存为12%。", "库存不含中国为12%", "")], ["库存"], ["Keep conditions"])
-    data = {"additions": [{"topic": "能源路径", "heading": "航空燃料", "text": "讨论可持续航空燃料。", "source_ids": ["S1"], "timestamp": ""}], "coverage": [receipt()]}
+    data = {"additions": [{"id": "added:0", "topic": "能源路径", "heading": "航空燃料", "text": "讨论可持续航空燃料。", "source_ids": ["S1"], "timestamp": ""}], "coverage": [receipt(field="point:1")]}
     with patch.object(s, "_call_llm_with_retry", return_value=result(data)):
         final = s._audit_summary(draft, source)
     assert final.key_points[0].summary == draft.key_points[0].summary
@@ -86,7 +86,7 @@ def test_podcast_integrates_audit_additions_without_losing_prior_evidence():
 
 def test_video_audit_is_applied_to_body_and_additions_survive_merge():
     s = NoteSummarizer(api_key="fixture")
-    data = {"additions": [{"topic": "实验", "heading": "失败分支", "text": "第一次45分钟，之后几次仍为45分钟。", "source_ids": ["S1"], "timestamp": ""}], "coverage": [receipt(field="added:0", note="仍为45分钟")]}
+    data = {"additions": [{"id": "added:0", "topic": "实验", "heading": "失败分支", "text": "第一次45分钟，之后几次仍为45分钟。", "source_ids": ["S1"], "timestamp": ""}], "coverage": [receipt(field="added:0", note="仍为45分钟")]}
     with patch.object(s, "_call_llm", return_value=json.dumps(data, ensure_ascii=False)):
         audited = s._audit_note("之后几次仍为45分钟", "## 实验\n\n从1小时改善到45分钟。")
     merged = s._merge_chunk_notes("Original", [audited, "## 结尾\n\n最后一个条件。"], True)
@@ -169,7 +169,7 @@ def test_two_whole_field_edits_cannot_overwrite_each_others_corrections():
 
 def test_original_evidence_is_extracted_by_code_across_time_anchors():
     source = "[00:00:01] 不含中国\n[00:00:31] 库存为12%，下降1个百分点。"
-    data = {"additions": [{"topic": "库存", "heading": "范围", "text": "不含中国的库存为12%。", "source_ids": ["S1"], "source_quote": "MODEL INVENTED QUOTE"}], "coverage": [receipt(field="added:0")]}
+    data = {"additions": [{"id": "added:0", "topic": "库存", "heading": "范围", "text": "不含中国的库存为12%。", "source_ids": ["S1"], "source_quote": "MODEL INVENTED QUOTE"}], "coverage": [receipt(field="added:0")]}
     _, additions, citations = audit_source(source, {}, lambda *args: data)
     expected = "不含中国\n库存为12%，下降1个百分点。"
     assert additions[0]["source_quote"] == expected == citations["added:0"]
@@ -197,17 +197,31 @@ def test_unmapped_source_gets_a_dedicated_passage_and_actual_evidence_instead_of
         assert "json" in system.lower()  # Groq's json_object API requirement
         calls.append(json.loads(payload))
         if len(calls) == 1: return {"coverage": [receipt()]}
-        return {"unit_notes": [{"unit": "S2", "kind": "content", "topic": "反例", "heading": "反例的条件", "text": "第二段的独立反例只有在条件成立时才有效。"}]}
+        return {"kind": "content", "topic": "反例", "heading": "反例的条件", "text": "第二段的独立反例只有在条件成立时才有效。"}
     updated, additions, citations = audit_source(source, {"point:0": "原有细节。"}, call)
-    assert calls[1]["focus_units"] == ["S2"]
+    assert calls[1]["source_text"] == source[800:]
+    assert "previous_audit" not in calls[1]
     assert updated["point:0"] == "原有细节。"
-    assert "只有在条件成立时" in updated["added:0"]
-    assert additions[0]["source_quote"] == source[800:] == citations["added:0"]
+    assert "只有在条件成立时" in updated["added:1"]
+    assert additions[0]["source_quote"] == source[800:] == citations["added:1"]
 
 
-@pytest.mark.parametrize("notes", [[], [{"unit": "S9", "kind": "content", "topic": "X", "heading": "X", "text": "X"}], [{"unit": "S1", "kind": "content", "text": "Only an incomplete note"}]])
-def test_missing_source_cannot_pass_with_an_empty_unknown_or_incomplete_repair(notes):
-    calls = Mock(side_effect=[{"coverage": []}, {"unit_notes": notes}])
+@pytest.mark.parametrize("response", [{}, {"kind": "unknown"}, {"kind": "content", "text": "Only an incomplete note"}])
+def test_missing_source_cannot_pass_with_an_empty_unknown_or_incomplete_repair(response):
+    calls = Mock(side_effect=[{"coverage": []}, response])
     with pytest.raises(SummaryOutputError):
         audit_source("源材料包含独立细节。", {"point:0": "Old note"}, calls)
     assert calls.call_count == 2
+
+
+def test_addition_reference_uses_its_explicit_id_instead_of_array_position():
+    data = {"additions": [{"id": "added:42", "topic": "案例", "heading": "条件", "text": "保留独立条件。", "source_ids": ["S1", "S1"]}], "coverage": [receipt(field="added:42")]}
+    updated, additions, citations = audit_source("独立条件的原文。", {}, lambda *args: data)
+    assert "added:42" in updated and "added:0" not in updated
+    assert additions[0]["source_quote"] == citations["added:42"] == "独立条件的原文。"
+
+
+def test_duplicate_explicit_addition_ids_cannot_overwrite_source_details():
+    addition = {"id": "added:1", "topic": "案例", "heading": "条件", "text": "细节。", "source_ids": ["S1"]}
+    with pytest.raises(SummaryOutputError):
+        audit_source("细节原文。", {}, lambda *args: {"additions": [addition, addition], "coverage": [receipt(field="added:1")]})

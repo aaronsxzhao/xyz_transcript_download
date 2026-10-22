@@ -240,8 +240,8 @@ class Summarizer:
     def _audit_summary(self, summary: Summary, source: str, progress_callback=None) -> Summary:
         """Review extraction against the source before any outline synthesis."""
         fields = {"overview": summary.overview}
-        fields.update({f"point:{i}": point.summary for i, point in enumerate(summary.key_points)})
-        fields.update({f"takeaway:{i}": value for i, value in enumerate(summary.takeaways)})
+        fields.update({f"point:{i+1}": point.summary for i, point in enumerate(summary.key_points)})
+        fields.update({f"takeaway:{i+1}": value for i, value in enumerate(summary.takeaways)})
 
         def call(system, payload):
             response = self._call_llm_with_retry(payload, progress_callback, system_prompt=system)
@@ -249,16 +249,16 @@ class Summarizer:
 
         updated, additions, citations = audit_source(source, fields, call)
         compact = lambda value: re.sub(r"\s+", "", value)
-        points = [replace(point, summary=updated[f"point:{i}"],
-                          original_quote=citations.get(f"point:{i}", point.original_quote if compact(point.original_quote) in compact(spoken_source(source)) else ""),
+        points = [replace(point, summary=updated[f"point:{i+1}"],
+                          original_quote=citations.get(f"point:{i+1}", point.original_quote if compact(point.original_quote) in compact(spoken_source(source)) else ""),
                           timestamp=point.timestamp if f"[{point.timestamp}]" in source else "")
                   for i, point in enumerate(summary.key_points)]
         for i, addition in enumerate(additions):
-            points.append(KeyPoint(addition["topic"], updated[f"added:{i}"],
+            points.append(KeyPoint(addition["topic"], updated[addition["id"]],
                                    addition["source_quote"], addition["timestamp"]))
         return replace(summary, overview=updated["overview"], key_points=points,
                        topics=list(dict.fromkeys([*summary.topics, *(p.topic for p in points)])),
-                       takeaways=[updated[f"takeaway:{i}"] for i in range(len(summary.takeaways))])
+                       takeaways=[updated[f"takeaway:{i+1}"] for i in range(len(summary.takeaways))])
 
     @retry(
         stop=stop_after_attempt(MAX_RETRIES),
