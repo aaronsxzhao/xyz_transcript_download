@@ -6,10 +6,14 @@ import type { ProcessingJob } from "../lib/api";
 import { isActiveStatus } from "../lib/statusUtils";
 import { TaskProgress, sourceAction } from "./TaskStatus";
 import { useToast } from "./Toast";
+import { taskSource, taskFailure } from '../lib/taskSource';
 export default function ProcessingProgress({
   job,
   link,
   kind,
+  platform,
+  sourceUrl,
+  createdAt,
   onCancel,
   onRetry,
   onDismiss,
@@ -17,6 +21,9 @@ export default function ProcessingProgress({
   job: ProcessingJob;
   link?: string;
   kind?: "podcast" | "video";
+  platform?: string;
+  sourceUrl?: string;
+  createdAt?: string;
   onCancel?: (id: string) => Promise<void>;
   onRetry?: (id: string) => Promise<void>;
   onDismiss?: (id: string) => Promise<void>;
@@ -25,7 +32,10 @@ export default function ProcessingProgress({
   const locked = useRef(false);
   const { addToast } = useToast();
   const active = isActiveStatus(job.status);
-  const restricted = job.status === "failed" && sourceAction(job.message);
+  const source = taskSource(platform, sourceUrl, job.episode_id, kind);
+  const failure = taskFailure(job.message, platform);
+  const restricted = job.status === "failed" && (sourceAction(job.message) || failure.retryAfterSignIn);
+  const created = createdAt ? new Date(createdAt) : null;
   async function action(fn: ((id: string) => Promise<void>) | undefined) {
     if (!fn || locked.current) return;
     locked.current = true;
@@ -54,16 +64,22 @@ export default function ProcessingProgress({
           size={16}
           className={kind === "video" ? "text-cyan-400" : "text-indigo-400"}
         />
+        <div className="min-w-0">
         <h3 className="task-title">
-          {job.episode_title || "Processing content"}
+          {job.episode_title || `${source.name} ${kind === 'podcast' ? 'episode' : 'video'} · ${source.id || job.job_id}`}
         </h3>
+        <p className="text-xs text-gray-400 mt-1">
+        {source.name}
+        {created && Number.isFinite(created.getTime()) && <> · Task created <time dateTime={createdAt}>{created.toLocaleDateString()}</time></>}
+        </p>
+        </div>
       </div>
       <TaskProgress
         status={restricted ? "restricted" : job.status}
         progress={job.progress}
         startedAt={job.started_at}
       />
-      {job.message && <p className="task-message">{job.message}</p>}
+      {job.message && <p className="task-message">{failure.message}</p>}
       <div className="task-actions">
         {active && job.status !== "cancelling" && onCancel && (
           <Button
@@ -74,28 +90,25 @@ export default function ProcessingProgress({
             {busy ? "Cancelling…" : "Cancel"}
           </Button>
         )}
-        {job.status === "failed" && !restricted && onRetry && (
+        {job.status === "failed" && (!restricted || failure.retryAfterSignIn) && onRetry && (
           <Button disabled={busy} onClick={() => void action(onRetry)}>
             {busy ? "Retrying…" : "Retry"}
           </Button>
         )}
-        {restricted &&
-        job.episode_id &&
-        /^[a-f0-9]{24}$/i.test(job.episode_id) ? (
+        {restricted && source.original && (
           <a
             className="ui-button"
             target="_blank"
             rel="noopener noreferrer"
-            href={`https://www.xiaoyuzhoufm.com/episode/${job.episode_id}`}
+            href={source.original}
           >
-            Open original episode
+            {kind === 'podcast' ? 'Open original episode' : 'Open original video'}
           </a>
-        ) : (
-          restricted && (
+        )}
+        {restricted && (failure.retryAfterSignIn || !source.original) && (
             <Link className="ui-button" to="/settings">
-              Check source access
+              {failure.retryAfterSignIn ? `Check ${source.name} account` : 'Check source access'}
             </Link>
-          )
         )}
         {link && ["success", "completed"].includes(job.status) && (
           <Link className="ui-button" to={link}>

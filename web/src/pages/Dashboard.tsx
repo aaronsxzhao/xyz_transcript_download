@@ -370,6 +370,7 @@ export default function Dashboard() {
           <div className="space-y-3">
             {allQueueItems.map((item) => {
               const isVideo = item._kind === 'video'
+              const source = isVideo ? videoTasks.find(task => task.id === item.job_id) : undefined
               const isDone = item.status === 'completed' || item.status === 'success'
               const link = isDone
                 ? isVideo ? `/videos/${item.job_id}` : item.episode_id ? `/viewer/${item.episode_id}` : undefined
@@ -380,6 +381,9 @@ export default function Dashboard() {
                   job={item}
                   link={link}
                   kind={item._kind}
+                  platform={source?.platform}
+                  sourceUrl={source?.url}
+                  createdAt={source?.created_at}
                   onCancel={() => taskAction('cancelTask',item,item._kind)}
                   onRetry={() => taskAction('retryTask',item,item._kind)}
                   onDismiss={() => taskAction('dismissTask',item,item._kind)}
