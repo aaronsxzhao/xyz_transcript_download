@@ -136,7 +136,7 @@ def test_video_verification_receipts_do_not_leak_into_streamed_preview():
 
 
 def test_audit_retry_returns_specific_feedback_and_keeps_the_original_source_and_draft():
-    bad = {"coverage": []}
+    bad = {"coverage": [receipt(field="point:99")]}
     good = {"coverage": [receipt()]}
     calls = []
     def call(system, payload):
@@ -148,7 +148,7 @@ def test_audit_retry_returns_specific_feedback_and_keeps_the_original_source_and
     assert calls[1]["source_units"] == calls[0]["source_units"]
     assert calls[1]["draft_fields"] == fields
     assert calls[1]["previous_audit"] == bad
-    assert calls[1]["validation_feedback"] == {"issue": "missing_units", "missing_units": ["S1"]}
+    assert calls[1]["validation_feedback"] == {"issue": "invalid_note_reference", "unit": "S1", "allowed_fields": ["point:0"]}
 
 
 def test_stable_field_correction_preserves_other_fields_and_requires_real_evidence():
@@ -188,3 +188,25 @@ def test_one_source_unit_can_cover_several_detailed_points_with_verbatim_evidenc
 def test_an_overview_cannot_substitute_for_detailed_source_coverage():
     with pytest.raises(SummaryOutputError):
         audit_source("完整论据和案例。", {"overview": "一句话概览。", "point:0": "详细内容。"}, lambda *args: {"coverage": [receipt(field="overview")]})
+
+
+def test_unmapped_source_gets_a_dedicated_passage_and_actual_evidence_instead_of_a_fake_receipt():
+    source = "甲" * 800 + "第二段有一个独立反例，只有条件成立才有效。"
+    calls = []
+    def call(system, payload):
+        calls.append(json.loads(payload))
+        if len(calls) == 1: return {"coverage": [receipt()]}
+        return {"unit_notes": [{"unit": "S2", "kind": "content", "topic": "反例", "heading": "反例的条件", "text": "第二段的独立反例只有在条件成立时才有效。"}]}
+    updated, additions, citations = audit_source(source, {"point:0": "原有细节。"}, call)
+    assert calls[1]["focus_units"] == ["S2"]
+    assert updated["point:0"] == "原有细节。"
+    assert "只有在条件成立时" in updated["added:0"]
+    assert additions[0]["source_quote"] == source[800:] == citations["added:0"]
+
+
+@pytest.mark.parametrize("notes", [[], [{"unit": "S9", "kind": "content", "topic": "X", "heading": "X", "text": "X"}], [{"unit": "S1", "kind": "content", "text": "Only an incomplete note"}]])
+def test_missing_source_cannot_pass_with_an_empty_unknown_or_incomplete_repair(notes):
+    calls = Mock(side_effect=[{"coverage": []}, {"unit_notes": notes}])
+    with pytest.raises(SummaryOutputError):
+        audit_source("源材料包含独立细节。", {"point:0": "Old note"}, calls)
+    assert calls.call_count == 2
