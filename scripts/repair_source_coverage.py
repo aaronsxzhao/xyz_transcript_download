@@ -35,11 +35,30 @@ def note_content(note):
     return {key: row[key] for key in ("episode_id", "title", "overview", "topics", "takeaways", "key_points")}
 
 
-def verified_upload(storage, path, value):
+def verified_upload(storage, path, value, metadata=None):
     content = encoded(value)
-    storage.upload(path, content, file_options={"content-type": "application/json", "upsert": "false"})
+    options = {"content-type": "application/json", "upsert": "false"}
+    if metadata is not None:
+        options["metadata"] = metadata
+    storage.upload(path, content, file_options=options)
     if storage.download(path) != content:
         raise RuntimeError("Private repair backup verification failed")
+
+
+def archive_audit_failure(storage, path, error):
+    """Keep raw editorial diagnostics private; CI receives no model text."""
+    seen = set()
+    while error is not None and id(error) not in seen:
+        seen.add(id(error))
+        response = getattr(error, "audit_response", None)
+        if isinstance(response, dict):
+            feedback = getattr(error, "audit_feedback", {})
+            shapes = [{"keys": list(row), "field": row.get("field"), "source_ids": row.get("source_ids")}
+                      for row in response.get("edits", []) if isinstance(row, dict)]
+            verified_upload(storage, path, {"feedback": feedback, "response": response},
+                            metadata={"feedback": feedback, "reference_shapes": shapes})
+            return
+        error = error.__cause__ or error.__context__
 
 
 def repair():
@@ -94,7 +113,14 @@ def repair():
         transcript = Transcript(source.episode_id, source.language, source.duration, source.text,
                                 [TranscriptSegment(s["start"], s["end"], s["text"]) for s in source.segments])
         _PHASE = 3
-        candidate = engine.summarize(transcript, episode_title=original.title, existing_topics=original.topics)
+        try:
+            candidate = engine.summarize(transcript, episode_title=original.title, existing_topics=original.topics)
+        except Exception as error:
+            try:
+                archive_audit_failure(storage, prefix + f"/{attempt}-audit-failure.json", error)
+            except Exception:
+                pass  # Keep the original generation error and existing note.
+            raise
         if not candidate or not candidate.key_points:
             raise RuntimeError("Source-reviewed generation did not complete")
         candidate_content = note_content(candidate)
