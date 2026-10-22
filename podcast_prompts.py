@@ -15,6 +15,11 @@ CONTENT AND COVERAGE
 - Do not target a fixed point count or short word limit. Completeness is measured
   by coverage of the source, not the number of cards. Do not replace detailed
   analysis with generic advice or your own interpretation.
+- Treat this as a structured full-content reading edition. The overview alone
+  is concise; detailed chapters have no compression target. Retain small but
+  independent discussions, failed experiments, alternative explanations,
+  implementation constraints and speakers' differing assessments, even when
+  they do not fit the main narrative. Preserve original meaningful headings.
 - Preserve numbers WITH units, denominators, geographical scope, time horizons,
   conditions and attribution. Distinguish percentage points from percent changes.
   Separate historical observations, current-at-recording claims and forecasts.

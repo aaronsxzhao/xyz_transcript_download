@@ -72,6 +72,7 @@ def extract_json_from_response(content: str) -> dict:
 
 from openai import OpenAI
 from summary_errors import SummaryOutputError
+from source_coverage import SOURCE_CHUNK_CHARS, split_source, audit_source
 from tenacity import (
     retry,
     stop_after_attempt,
@@ -128,9 +129,12 @@ class Summarizer:
         self.base_url = base_url or LLM_BASE_URL
         self.model = model or LLM_MODEL
         self._groq = self.base_url.rstrip('/') == "https://api.groq.com/openai/v1"
-        # Groq GPT-OSS has a 131K-token context. Leave room for Chinese text,
-        # the complete prompts, and a detailed output, independent of plan limits.
-        self.chunk_chars = 30000 if self._groq else SUMMARIZER_CHUNK_CHARS
+        # Context capacity is not an editorial coverage budget. A long interview
+        # fitting in one request still loses details when reduced in one pass.
+        self.chunk_chars = min(SOURCE_CHUNK_CHARS, SUMMARIZER_CHUNK_CHARS)
+        # Outline synthesis never rewrites point bodies and has its own context
+        # budget; a small extraction unit must not prevent a full-episode outline.
+        self.outline_chars = 30000 if self._groq else SUMMARIZER_CHUNK_CHARS
         
         if not self.api_key:
             raise ValueError("LLM API key is required for summarization")
@@ -173,14 +177,10 @@ class Summarizer:
         
         logger.info(f"Transcript: {len(transcript_text):,} chars, {duration/60:.0f} min")
         
-        # Use chunked summarization if:
-        # 1. Duration > 1 hour (1 chunk per hour), OR
-        # 2. Text exceeds max chars (fallback for unknown duration)
-        use_chunking = duration_hours > 1.0 or len(transcript_text) > (self.chunk_chars if self._groq else SUMMARIZER_MAX_CHARS)
+        use_chunking = len(transcript_text) > self.chunk_chars
         
         if use_chunking:
-            num_chunks = max(1, int(duration_hours + 0.5)) if duration > 0 else None  # Round to nearest hour
-            logger.info(f"Using chunked summarization ({num_chunks or '?'} chunks for {duration_hours:.1f} hours)")
+            logger.info(f"Using bounded source extraction for {duration_hours:.1f} hours")
             return self._summarize_long_transcript(
                 transcript, podcast_title, episode_title, progress_callback, existing_topics
             )
@@ -221,6 +221,7 @@ class Summarizer:
             result = self._parse_summary(data, episode_id, episode_title)
             if len(transcript_text) >= 1000 and not result.key_points:
                 raise SummaryOutputError('invalid')
+            result = self._audit_summary(result, transcript_text, progress_callback)
             key_points = result.key_points
 
             logger.info(f"Summary generated with {len(key_points)} key points")
@@ -235,6 +236,29 @@ class Summarizer:
                 from api.llm_settings import safe_provider_error
                 raise RuntimeError(safe_provider_error(e)) from None
             return None
+
+    def _audit_summary(self, summary: Summary, source: str, progress_callback=None) -> Summary:
+        """Review extraction against the source before any outline synthesis."""
+        fields = {"overview": summary.overview}
+        fields.update({f"point:{i}": point.summary for i, point in enumerate(summary.key_points)})
+        fields.update({f"takeaway:{i}": value for i, value in enumerate(summary.takeaways)})
+
+        def call(system, payload):
+            response = self._call_llm_with_retry(payload, progress_callback, system_prompt=system)
+            return extract_json_from_response(response.choices[0].message.content)
+
+        updated, additions = audit_source(source, fields, call)
+        compact = lambda value: re.sub(r"\s+", "", value)
+        points = [replace(point, summary=updated[f"point:{i}"],
+                          original_quote=point.original_quote if compact(point.original_quote) in compact(source) else "",
+                          timestamp=point.timestamp if f"[{point.timestamp}]" in source else "")
+                  for i, point in enumerate(summary.key_points)]
+        for i, addition in enumerate(additions):
+            points.append(KeyPoint(addition["topic"], updated[f"added:{i}"],
+                                   addition["source_quote"], addition["timestamp"]))
+        return replace(summary, overview=updated["overview"], key_points=points,
+                       topics=list(dict.fromkeys([*summary.topics, *(p.topic for p in points)])),
+                       takeaways=[updated[f"takeaway:{i}"] for i in range(len(summary.takeaways))])
 
     @retry(
         stop=stop_after_attempt(MAX_RETRIES),
@@ -312,7 +336,7 @@ class Summarizer:
     ) -> Optional[Summary]:
         """Process bounded source chunks, then synthesize a complete outline."""
         text = self._transcript_text(transcript)
-        chunks = [text[i:i + self.chunk_chars] for i in range(0, len(text), self.chunk_chars)]
+        chunks = split_source(text, self.chunk_chars)
         logger.info(f"Split transcript ({(transcript.duration or 0)/60:.0f} min) into {len(chunks)} bounded chunks")
 
         # Summarize each chunk
@@ -437,7 +461,7 @@ class Summarizer:
             outlines.append({'overview': summary.overview, 'chapters': chapters,
                              'takeaways': summary.takeaways})
         payload = json.dumps(outlines, ensure_ascii=False)
-        if len(payload) > self.chunk_chars:
+        if len(payload) > self.outline_chars:
             if len(summaries) == 2:
                 # Never submit an over-context request or silently save half an
                 # episode when a provider ignores the concise overview contract.
