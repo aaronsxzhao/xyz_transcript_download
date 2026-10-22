@@ -121,6 +121,13 @@ async def check(browser,origin,width,output):
   await page.get_by_role('tab',name='Mind map',exact=True).click()
   await page.locator('svg.markmap foreignObject').first.wait_for()
   assert await page.evaluate('window.workerCreates')==0
+  task.update(title='Screenshot warning',error='Some screenshots are unavailable.')
+  await page.reload()
+  await page.locator('.unified-header').get_by_role('heading',name='Screenshot warning',exact=True).wait_for()
+  await page.get_by_role('button',name='Review screenshots',exact=True).click()
+  await page.get_by_role('button',name='Repair screenshots',exact=True).wait_for()
+  await page.get_by_role('button',name='Close details',exact=True).click()
+  task['error']=''
   # A broken worker fetch must become a recoverable error, never an endless spinner.
   task['markdown']='# Retry coverage\n\n## A chapter\n\nA complete argument.'
   task['title']='Retry coverage'

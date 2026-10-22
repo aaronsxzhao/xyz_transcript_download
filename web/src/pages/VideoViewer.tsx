@@ -696,6 +696,14 @@ export default function VideoViewer() {
           fallback={<p role="status">Loading details…</p>}
         />
       )}
+      {uiTask.status === "success" && task.error && !utility && (
+        <p role="status" className="text-sm text-amber-300 mb-4">
+          The summary is saved. {task.error}{" "}
+          <button className="underline" onClick={() => setUtility("recovery")}>
+            Review screenshots
+          </button>
+        </p>
+      )}
       {/* Failed state banner */}
       {uiTask.status === "failed" && (
         <div className="flex-shrink-0 mb-3 p-4 bg-red-500/10 border border-red-500/30 rounded-xl">

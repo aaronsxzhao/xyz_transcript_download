@@ -147,13 +147,13 @@ async def profile_browser(owner: str, token: str, local_video: str | None = None
                     if report['largest_preview_width'] > 761 or report['largest_preview_height'] > 421:
                         raise RuntimeError('Screenshot preview exceeds reader bounds')
                     mark_started = time.perf_counter()
-                    await page.get_by_role('button', name='Mind Map', exact=True).click()
+                    await page.get_by_role('tab', name='Mind map', exact=True).or_(page.get_by_role('button', name='Mind Map', exact=True)).click()
                     await page.locator('svg.markmap foreignObject').first.wait_for(timeout=15000)
                     report['mindmap_ms'] = round((time.perf_counter() - mark_started) * 1000)
                     await page.get_by_role('button', name=re.compile('zoom in', re.I)).click()
                     await page.get_by_role('button', name=re.compile('fit to view', re.I)).click()
                     note_started = time.perf_counter()
-                    await page.get_by_role('button', name='Note', exact=True).click()
+                    await page.get_by_role('tab', name='Summary', exact=True).or_(page.get_by_role('button', name='Note', exact=True)).click()
                     await page.locator('article').wait_for(state='visible', timeout=5000)
                     report['return_to_note_ms'] = round((time.perf_counter() - note_started) * 1000)
                 else:

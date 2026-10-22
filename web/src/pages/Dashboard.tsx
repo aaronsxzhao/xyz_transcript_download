@@ -539,18 +539,6 @@ export default function Dashboard() {
           </p>
         </div>
         <div className="flex flex-wrap items-center justify-end gap-2">
-          {contentUpdates.length > 0 && (
-            <a
-              href="#dashboard-new-content"
-              className="flex items-center gap-1.5 rounded-lg bg-indigo-600/20 px-3 py-2 text-sm text-indigo-300"
-            >
-              <Bell size={16} />
-              <span>
-                {contentUpdates.length}
-                {contentUpdates.length === 100 ? "+" : ""} new
-              </span>
-            </a>
-          )}
           <button
             onClick={handleCheckUpdates}
             disabled={checkingUpdates}
@@ -588,7 +576,8 @@ export default function Dashboard() {
           <Bell size={19} />
           <div>
             <h2>
-              {contentUpdates.length} new releases{" "}
+              {contentUpdates.length}{" "}
+              {contentUpdates.length === 1 ? "new release" : "new releases"}{" "}
               <span>
                 {
                   contentUpdates.filter((item) => item.kind === "podcast")
@@ -829,38 +818,34 @@ export default function Dashboard() {
         </div>
         <div className="dashboard-recent-notes">
           {recentFilter !== "video" &&
-            summaries
-              .slice(0, 2)
-              .map((summary, index) => (
-                <NoteCard
-                  key={summary.episode_id}
-                  priority={index === 0}
-                  item={{
-                    id: summary.episode_id,
-                    kind: "podcast",
-                    title: summary.title,
-                    source: summary.podcast_title,
-                    thumbnail: summary.podcast_cover,
-                    topics_count: summary.topics_count,
-                  }}
-                />
-              ))}
+            summaries.slice(0, 2).map((summary, index) => (
+              <NoteCard
+                key={summary.episode_id}
+                priority={index === 0}
+                item={{
+                  id: summary.episode_id,
+                  kind: "podcast",
+                  title: summary.title,
+                  source: summary.podcast_title,
+                  thumbnail: summary.podcast_cover,
+                  topics_count: summary.topics_count,
+                }}
+              />
+            ))}
           {recentFilter !== "podcast" &&
-            recentVideos
-              .slice(0, 2)
-              .map((task, index) => (
-                <NoteCard
-                  key={task.id}
-                  priority={index === 0}
-                  item={{
-                    id: task.id,
-                    kind: "video",
-                    title: task.title || "Untitled video",
-                    source: task.channel || task.platform,
-                    thumbnail: task.thumbnail,
-                  }}
-                />
-              ))}
+            recentVideos.slice(0, 2).map((task, index) => (
+              <NoteCard
+                key={task.id}
+                priority={index === 0}
+                item={{
+                  id: task.id,
+                  kind: "video",
+                  title: task.title || "Untitled video",
+                  source: task.channel || task.platform,
+                  thumbnail: task.thumbnail,
+                }}
+              />
+            ))}
         </div>
         {recentFilter !== "video" && !summaries.length && (
           <p role="status" className="text-sm text-gray-400">
