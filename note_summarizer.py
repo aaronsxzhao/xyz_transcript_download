@@ -323,7 +323,7 @@ class NoteSummarizer:
             audit_progress = (lambda chars, partial="": progress_callback(chars, draft)) if progress_callback else None
             return extract_json_from_response(self._call_llm(system, payload, audit_progress))
 
-        updated, additions = audit_source(source, {"body": draft}, call)
+        updated, additions, _ = audit_source(source, {"body": draft}, call)
         parts = [updated["body"]]
         for addition in additions:
             # Keep the reading document in Markdown; internal receipts never
