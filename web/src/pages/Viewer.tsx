@@ -97,13 +97,18 @@ export default function Viewer() {
   const [copying, setCopying] = useState(false);
   const [pdfLoading, setPdfLoading] = useState(false);
 
-  useReadingPosition(`podcast:${eid}`, undefined, !loading);
+  useReadingPosition(
+    `podcast:${eid}`,
+    undefined,
+    !loading && summary?.episode_id === eid && activeTab === "summary",
+  );
   useRecordReading(
     { id: eid!, kind: "podcast", title: summary?.title || "" },
     !loading &&
       !!summary &&
       summary.episode_id === eid &&
-      !summary.quality_warning,
+      !summary.quality_warning &&
+      activeTab === "summary",
   );
   const [notionOpen, setNotionOpen] = useState(false);
   const loadTranscript = useCallback(async () => {

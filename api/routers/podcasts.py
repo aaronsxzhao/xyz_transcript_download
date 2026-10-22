@@ -639,6 +639,14 @@ async def get_podcast(pid: str, user: Optional[User] = Depends(get_current_user)
     """Get podcast details by ID."""
     db = get_db(user.id if user else None)
     
+    # Cloud metadata must not download every episode and summary ID just to count them.
+    # Reuse the owner-filtered index already used by the episode list; its preview is bounded.
+    if db.use_supabase:
+        content = await run_sync(_podcast_content, db, user.id if user else None, 1, pid)
+        if not content['podcasts']:
+            raise HTTPException(status_code=404, detail="Podcast not found")
+        return PodcastResponse(**content['podcasts'][0])
+
     podcast = await run_sync(db.get_podcast, pid)
     
     if not podcast:
