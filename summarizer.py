@@ -72,7 +72,7 @@ def extract_json_from_response(content: str) -> dict:
 
 from openai import OpenAI
 from summary_errors import SummaryOutputError, ProcessingCancelledError
-from source_coverage import SOURCE_CHUNK_CHARS, split_source, audit_source, spoken_source
+from source_coverage import SOURCE_CHUNK_CHARS, split_source, audit_source, spoken_source, quote_timestamp
 from tenacity import (
     retry,
     stop_after_attempt,
@@ -267,10 +267,10 @@ class Summarizer:
             if not compact(quote) or compact(quote) not in spoken:
                 raise SummaryOutputError('coverage')
             points.append(replace(point, summary=updated[field], original_quote=quote,
-                                  timestamp=point.timestamp if f"[{point.timestamp}]" in source else ""))
+                                  timestamp=quote_timestamp(source, quote, point.timestamp)))
         for i, addition in enumerate(additions):
             points.append(KeyPoint(addition["topic"], updated[addition["id"]],
-                                   addition["source_quote"], addition["timestamp"]))
+                                   addition["source_quote"], quote_timestamp(source, addition["source_quote"], addition["timestamp"])))
         return replace(summary, overview=updated["overview"], key_points=points,
                        topics=list(dict.fromkeys([*summary.topics, *(p.topic for p in points)])),
                        takeaways=[updated[f"takeaway:{i+1}"] for i in range(len(summary.takeaways))])

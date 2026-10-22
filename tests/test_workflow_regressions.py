@@ -185,3 +185,38 @@ async def test_cancel_then_retry_does_not_cancel_or_overwrite_the_new_video_run(
     assert task["markdown"] == "Replacement note"
     assert {version["content"] for version in db.get_versions(task_id)} == {"Previous note", "Replacement note"}
     assert len(calls) == 2
+
+
+@pytest.mark.parametrize('transcribe_only', [False, True])
+def test_failed_transcript_save_cannot_report_completion_or_generate_a_summary(
+    transcribe_only, db_interface, create_test_podcast, create_test_episode, sample_transcript_data, monkeypatch,
+):
+    from api.routers import processing
+    from transcriber import Transcript
+    create_test_podcast()
+    create_test_episode()
+    source = Transcript(sample_transcript_data['episode_id'], 'en', 3600, sample_transcript_data['text'] * 10, [])
+    engine = Mock()
+    engine.transcribe.return_value = source
+    job_id = 'failed-source-save-' + str(transcribe_only)
+    processing.jobs[job_id] = ProcessingStatus(job_id=job_id, user_id='local', status='pending')
+    monkeypatch.setattr(db_interface, 'save_transcript', Mock(return_value=False))
+    try:
+        with patch.object(processing, 'get_db', return_value=db_interface), \
+             patch('api.user_settings.get_user_settings', return_value={}), \
+             patch('config.WHISPER_MODE', 'api'), \
+             patch('downloader.get_downloader') as downloader, \
+             patch('transcriber.get_transcriber', return_value=engine), \
+             patch('summarizer.get_summarizer') as summarizer, \
+             patch.object(processing, 'notify_discord') as notify:
+            downloader.return_value.download.return_value = 'fixture-audio'
+            from summarizer import Summary, KeyPoint
+            summarizer.return_value.summarize.return_value = Summary(
+                source.episode_id, 'New note', 'Overview', [KeyPoint('Topic', 'Detail', 'test transcript', '')], ['Topic'], [])
+            processing.process_episode_sync(job_id, 'local://test-episode-456', transcribe_only=transcribe_only, user_id='local')
+        assert processing.jobs[job_id].status == 'failed'
+        assert 'save' in processing.jobs[job_id].message.lower()
+        summarizer.assert_not_called()
+        notify.assert_not_called()
+    finally:
+        processing.jobs.pop(job_id, None)

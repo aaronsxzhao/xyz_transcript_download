@@ -347,6 +347,11 @@ def _background_refinement(audio_path, episode, fast_summary, db_interface, tran
     
     logger = get_logger("background_refinement")
     start_time = time.time()
+    stopped = threading.Event()
+
+    def checkpoint(*_):
+        if stopped.is_set():
+            raise ProcessingCancelledError('Refinement deadline reached')
     
     def do_refinement():
         """Inner function that does the actual refinement work."""
@@ -354,13 +359,14 @@ def _background_refinement(audio_path, episode, fast_summary, db_interface, tran
         
         # Transcribe original audio
         accurate_transcript = transcriber.transcribe(audio_path, episode.eid)
-        if not accurate_transcript:
+        if stopped.is_set() or not accurate_transcript:
             return None  # Keep fast version
         
         # Generate accurate summary
         from transcript_quality import validate_transcript
         validate_transcript(accurate_transcript,episode.duration)
-        accurate_summary = summarizer.summarize(accurate_transcript, episode_title=episode.title, existing_topics=fast_summary.topics)
+        accurate_summary = summarizer.summarize(accurate_transcript, episode_title=episode.title,
+                                               existing_topics=fast_summary.topics, progress_callback=checkpoint)
         if not accurate_summary:
             return None  # Keep fast version
         
@@ -368,7 +374,8 @@ def _background_refinement(audio_path, episode, fast_summary, db_interface, tran
     
     try:
         # Run refinement with timeout using a single-worker executor
-        with ThreadPoolExecutor(max_workers=1, thread_name_prefix="refinement") as executor:
+        executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="refinement")
+        try:
             future = executor.submit(do_refinement)
             try:
                 result = future.result(timeout=BACKGROUND_REFINEMENT_TIMEOUT)
@@ -379,6 +386,11 @@ def _background_refinement(audio_path, episode, fast_summary, db_interface, tran
                 )
                 future.cancel()
                 return
+        finally:
+            stopped.set()
+            # A context manager waits for running threads even after result()
+            # times out. Late work can finish its current call but cannot save.
+            executor.shutdown(wait=False, cancel_futures=True)
         
         if result is None:
             return  # Transcription or summarization failed, keep fast version
@@ -393,7 +405,8 @@ def _background_refinement(audio_path, episode, fast_summary, db_interface, tran
             text=accurate_transcript.text,
             segments=[{"start": s.start, "end": s.end, "text": s.text} for s in accurate_transcript.segments],
         )
-        db_interface.save_transcript(transcript_data)
+        if not db_interface.save_transcript(transcript_data):
+            raise RuntimeError("Could not save the generated transcript")
         
         # Merge summaries for best of both
         from summarizer import merge_summaries
@@ -855,7 +868,8 @@ def process_episode_sync(job_id: str, episode_url: str, transcribe_only: bool = 
             duration=transcript.duration, text=transcript.text,
             segments=[{"start": s.start, "end": s.end, "text": s.text} for s in transcript.segments],
         )
-        db_interface.save_transcript(transcript_data)
+        if not db_interface.save_transcript(transcript_data):
+            raise RuntimeError("Could not save the generated transcript")
         logger.info(f"Transcript saved for {episode.eid} ({len(transcript.segments)} segments)")
         
         if transcribe_only:
