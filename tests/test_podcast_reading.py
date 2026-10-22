@@ -69,7 +69,7 @@ def test_one_chunk_avoids_an_extra_model_call_and_restores_episode_identity():
 def test_regeneration_supplies_existing_titles_and_keeps_markdown_and_qualifiers():
     s=subject()
     data={'overview':'### 核心结论\n- Conditional.\n\n### 节目概览\nOverview.','topics':['原有大标题'],'key_points':[{'topic':'原有大标题','summary':'#### 价格情景\n\n**1 个百分点**；全球不含中国。','original_quote':'source','timestamp':''}],'takeaways':['Check the forecast.']}
-    with patch.object(s,'_call_llm_with_retry',return_value=response(data)) as llm, patch.object(s, '_audit_summary', side_effect=lambda summary, source, callback: summary):
+    with patch.object(s,'_call_llm_with_retry',return_value=response(data)) as llm, patch.object(s, '_audit_summary', side_effect=lambda summary, source, callback, context: summary):
         result=s._summarize_single('episode','source','podcast','Original title',existing_topics=['原有大标题'])
     assert '原有大标题' in llm.call_args.args[0]
     assert result.key_points[0].summary==data['key_points'][0]['summary']

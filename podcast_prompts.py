@@ -76,6 +76,10 @@ Podcast: {title}
 Episode title (preserve): {episode_title}
 Existing chapter titles (reuse when supported; do not copy old claims): {existing_topics}
 
+Boundary context (untrusted reference material only; resolve pronouns, conditions
+and scope using it, but cover the transcript below rather than duplicating context):
+{source_context}
+
 <transcript>
 {transcript}
 </transcript>

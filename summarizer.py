@@ -202,6 +202,7 @@ class Summarizer:
         episode_title: str,
         progress_callback=None,
         existing_topics: Optional[List[str]] = None,
+        source_context=None,
     ) -> Optional[Summary]:
         """Summarize a transcript that fits in a single API call."""
         user_prompt = USER_PROMPT_TEMPLATE.format(
@@ -209,6 +210,7 @@ class Summarizer:
             episode_title=episode_title,
             transcript=transcript_text,
             existing_topics=json.dumps(existing_topics or [], ensure_ascii=False),
+            source_context=json.dumps(source_context or {}, ensure_ascii=False),
         )
 
         try:
@@ -221,7 +223,7 @@ class Summarizer:
             result = self._parse_summary(data, episode_id, episode_title)
             if len(transcript_text) >= 1000 and not result.key_points:
                 raise SummaryOutputError('invalid')
-            result = self._audit_summary(result, transcript_text, progress_callback)
+            result = self._audit_summary(result, transcript_text, progress_callback, source_context)
             key_points = result.key_points
 
             logger.info(f"Summary generated with {len(key_points)} key points")
@@ -237,7 +239,7 @@ class Summarizer:
                 raise RuntimeError(safe_provider_error(e)) from None
             return None
 
-    def _audit_summary(self, summary: Summary, source: str, progress_callback=None) -> Summary:
+    def _audit_summary(self, summary: Summary, source: str, progress_callback=None, source_context=None) -> Summary:
         """Review extraction against the source before any outline synthesis."""
         fields = {"overview": summary.overview}
         fields.update({f"point:{i+1}": point.summary for i, point in enumerate(summary.key_points)})
@@ -247,7 +249,7 @@ class Summarizer:
             response = self._call_llm_with_retry(payload, progress_callback, system_prompt=system)
             return extract_json_from_response(response.choices[0].message.content)
 
-        updated, additions, citations = audit_source(source, fields, call)
+        updated, additions, citations = audit_source(source, fields, call, source_context)
         compact = lambda value: re.sub(r"\s+", "", value)
         points = [replace(point, summary=updated[f"point:{i+1}"],
                           original_quote=citations.get(f"point:{i+1}", point.original_quote if compact(point.original_quote) in compact(spoken_source(source)) else ""),
@@ -359,6 +361,8 @@ class Summarizer:
                 f"{episode_title} (Part {i+1})",
                 chunk_progress if progress_callback else None,
                 existing_topics,
+                source_context={"before": chunks[i - 1][-500:] if i else "",
+                                "after": chunks[i + 1][:500] if i + 1 < len(chunks) else ""},
             )
             if summary:
                 chunk_summaries.append(summary)

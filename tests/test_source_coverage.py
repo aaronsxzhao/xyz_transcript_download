@@ -59,7 +59,7 @@ def test_invalid_receipt_or_patch_cannot_pass_even_on_retry(mutation):
 
 
 def test_audit_requires_every_source_unit_including_the_end():
-    source = "甲" * 800 + "最后还有一个新情景。"
+    source = "甲" * 800 + "最后还有一个新情景，条件必须保留。" * 20
     with pytest.raises(SummaryOutputError):
         audit_source(source, {"point:0": "不含中国"}, lambda *args: {"coverage": [receipt()]})
 
@@ -102,7 +102,7 @@ def test_video_keeps_all_chunk_conclusions_and_does_not_call_last_one_whole_epis
 
 def test_video_empty_chunk_cannot_succeed_after_an_earlier_good_chunk():
     s = NoteSummarizer(api_key="fixture")
-    with patch.object(s, "_call_llm", side_effect=["## First\nDetails", ""]), patch.object(s, "_audit_note", side_effect=lambda source, draft, callback: draft):
+    with patch.object(s, "_call_llm", side_effect=["## First\nDetails", ""]), patch.object(s, "_audit_note", side_effect=lambda source, draft, callback, context: draft):
         with pytest.raises(SummaryOutputError):
             s._generate_chunked("Title", "甲" * 4100, "detailed", [])
 
@@ -191,7 +191,7 @@ def test_an_overview_cannot_substitute_for_detailed_source_coverage():
 
 
 def test_unmapped_source_gets_a_dedicated_passage_and_actual_evidence_instead_of_a_fake_receipt():
-    source = "甲" * 800 + "第二段有一个独立反例，只有条件成立才有效。"
+    source = "甲" * 800 + "第二段有一个独立反例，只有条件成立才有效。" + "补充说明。" * 50
     calls = []
     def call(system, payload):
         assert "json" in system.lower()  # Groq's json_object API requirement
@@ -243,3 +243,29 @@ def test_incremental_provider_repair_keeps_all_previous_added_details_and_refere
         assert f"独立内容{i}" in updated[f"added:{i}"]
         assert citations[f"added:{i}"] == character * 800
     assert call.call_count == 2
+
+
+def test_short_asr_tail_keeps_its_context_and_every_original_character():
+    from source_coverage import source_units
+    source = ("甲" * 799 + "\n") * 5 + "我通过Astron怎么做computer use\n"
+    units = source_units(source)
+    assert "".join(units.values()) == source
+    assert len(units) == 5
+    assert units["S5"].endswith("我通过Astron怎么做computer use\n")
+    assert all(len(text) >= 200 for text in units.values())
+
+
+def test_podcast_boundaries_keep_conditions_as_context_without_dropping_or_duplicating_source():
+    from transcriber import Transcript
+    engine = Summarizer(api_key="fixture")
+    engine.chunk_chars = 150
+    text = "甲" * 135 + "前提是排除中国。" + "乙" * 150 + "该条件仍然适用。"
+    source = Transcript("episode", "zh", 300, text, [])
+    draft = Summary("episode", "Title", "Overview", [], [], [])
+    with patch.object(engine, "_summarize_single", return_value=draft) as extract, patch.object(engine, "_merge_summaries", return_value=draft):
+        engine._summarize_long_transcript(source, "Show", "Title")
+    requests = extract.call_args_list
+    assert "".join(row.args[1] for row in requests) == text
+    assert "前提是排除中国。" in requests[1].kwargs["source_context"]["before"]
+    assert requests[0].kwargs["source_context"]["before"] == ""
+    assert requests[-1].kwargs["source_context"]["after"] == ""
