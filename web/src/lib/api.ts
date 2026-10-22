@@ -308,6 +308,7 @@ export async function uploadLocalPodcastAudio(
   file: File,
   options: { title?: string; description?: string } = {}
 ): Promise<LocalAudioUploadResult> {
+  const generation = getAuthGeneration()
   if (file.size > CHUNKED_AUDIO_UPLOAD_THRESHOLD) {
     return uploadLocalPodcastAudioChunked(file, options)
   }
@@ -324,21 +325,24 @@ export async function uploadLocalPodcastAudio(
       body: formData,
     })
   } catch (error) {
+    assertUploadAccount(generation)
     if (isNetworkOrTimeoutError(error)) {
-      return uploadLocalPodcastAudioChunked(file, options)
+      // This endpoint creates an episode. Losing the response does not prove
+      // the save failed, so replaying it as a new chunked upload can duplicate it.
+      throw new Error('Upload confirmation was lost. Check Local Uploads before uploading this audio again.')
     }
     throw error
   }
+  assertUploadAccount(generation)
   if (res.status === 413) {
-    return uploadLocalPodcastAudioChunked(file, options)
-  }
-  if (shouldRetryVideoUploadAsChunked(res.status)) {
     return uploadLocalPodcastAudioChunked(file, options)
   }
   if (!res.ok) {
     throw new Error(await parseLocalAudioUploadError(res))
   }
-  return res.json()
+  const result = await res.json()
+  assertUploadAccount(generation)
+  return result
 }
 
 async function parseLocalAudioUploadError(res: Response): Promise<string> {
@@ -368,6 +372,7 @@ async function uploadLocalPodcastAudioChunked(
   file: File,
   options: { title?: string; description?: string } = {}
 ): Promise<LocalAudioUploadResult> {
+  const generation = getAuthGeneration()
   const initData = new FormData()
   initData.append('filename', file.name)
   initData.append('size', String(file.size))
@@ -385,12 +390,14 @@ async function uploadLocalPodcastAudioChunked(
     chunk_size: number
     total_chunks: number
   }
+  assertUploadAccount(generation)
 
   for (let index = 0; index < init.total_chunks; index += 1) {
     const start = index * init.chunk_size
     const end = Math.min(file.size, start + init.chunk_size)
 
     for (let attempt = 0; attempt <= CHUNK_RETRY_ATTEMPTS; attempt++) {
+      assertUploadAccount(generation)
       try {
         const chunkData = new FormData()
         chunkData.append('upload_id', init.upload_id)
@@ -402,6 +409,7 @@ async function uploadLocalPodcastAudioChunked(
           { method: 'POST', body: chunkData },
           CHUNK_UPLOAD_TIMEOUT_MS,
         )
+        assertUploadAccount(generation)
         if (!chunkRes.ok) {
           const canRetry = attempt < CHUNK_RETRY_ATTEMPTS && shouldRetryVideoUploadAsChunked(chunkRes.status)
           if (canRetry) {
@@ -412,6 +420,7 @@ async function uploadLocalPodcastAudioChunked(
         }
         break
       } catch (error) {
+        assertUploadAccount(generation)
         if (isNetworkOrTimeoutError(error) && attempt < CHUNK_RETRY_ATTEMPTS) {
           await sleep(CHUNK_RETRY_BASE_MS * 2 ** attempt)
           continue
@@ -426,6 +435,7 @@ async function uploadLocalPodcastAudioChunked(
   if (options.title) completeData.append('title', options.title)
   if (options.description) completeData.append('description', options.description)
 
+  assertUploadAccount(generation)
   const completeRes = await authFetch(`${API_BASE}/podcasts/upload-audio/complete`, {
     method: 'POST',
     body: completeData,
@@ -434,7 +444,9 @@ async function uploadLocalPodcastAudioChunked(
     throw new Error(await parseLocalAudioUploadError(completeRes))
   }
 
-  return completeRes.json()
+  const result = await completeRes.json()
+  assertUploadAccount(generation)
+  return result
 }
 
 export async function removePodcast(pid: string): Promise<void> {
@@ -952,14 +964,18 @@ function sleep(ms: number): Promise<void> {
   return new Promise(resolve => window.setTimeout(resolve, ms))
 }
 
+function assertUploadAccount(generation: number): void {
+  if (generation !== getAuthGeneration()) throw new DOMException('Account changed', 'AbortError')
+}
+
 /** Detect network-level failures (connection refused, timeout, DNS, etc.)
  *  that never produce an HTTP status code — the browser throws a TypeError. */
 function isNetworkOrTimeoutError(error: unknown): boolean {
   if (error instanceof TypeError) {
     const msg = error.message.toLowerCase()
-    return msg.includes('failed to fetch') || msg.includes('network') || msg.includes('abort')
+    return msg.includes('failed to fetch') || msg.includes('network')
   }
-  if (error instanceof DOMException && ['AbortError', 'TimeoutError'].includes(error.name)) return true
+  if (error instanceof DOMException && error.name === 'TimeoutError') return true
   return false
 }
 
@@ -996,16 +1012,18 @@ function startAssemblyStatusPolling(
   filename: string,
   onProgress?: (progress: VideoUploadProgress) => void,
 ): () => void {
+  const generation = getAuthGeneration()
   const controller = new AbortController()
   let timer: ReturnType<typeof setTimeout> | undefined
   const poll = async () => {
+    if (generation !== getAuthGeneration()) { controller.abort(); return }
     try {
       const status = await fetchVideoUploadStatus(uploadId, controller.signal)
-      if (!controller.signal.aborted) onProgress?.(toUploadProgress(status, filename))
+      if (!controller.signal.aborted && generation === getAuthGeneration()) onProgress?.(toUploadProgress(status, filename))
     } catch (e) {
       if (!controller.signal.aborted) logIgnoredJsonError('assembly status poll', e)
     }
-    if (!controller.signal.aborted) timer = setTimeout(() => void poll(), VIDEO_UPLOAD_ASSEMBLY_POLL_MS)
+    if (!controller.signal.aborted && generation === getAuthGeneration()) timer = setTimeout(() => void poll(), VIDEO_UPLOAD_ASSEMBLY_POLL_MS)
   }
   void poll()
   return () => { controller.abort(); clearTimeout(timer) }
@@ -1052,6 +1070,7 @@ async function uploadVideoFileChunked(
   file: File,
   onProgress?: (progress: VideoUploadProgress) => void,
 ): Promise<{ file_id: string; path: string }> {
+  const generation = getAuthGeneration()
   const initData = new FormData()
   initData.append('filename', file.name)
   initData.append('size', String(file.size))
@@ -1071,6 +1090,7 @@ async function uploadVideoFileChunked(
     total_chunks: number
     recommended_concurrency?: number
   }
+  assertUploadAccount(generation)
 
   onProgress?.({
     uploadId: init.upload_id,
@@ -1101,6 +1121,7 @@ async function uploadVideoFileChunked(
     const end = Math.min(file.size, start + init.chunk_size)
 
     for (let attempt = 0; attempt <= CHUNK_RETRY_ATTEMPTS; attempt++) {
+      assertUploadAccount(generation)
       if (failed) return
       try {
         const chunkBlob = file.slice(start, end)
@@ -1114,6 +1135,7 @@ async function uploadVideoFileChunked(
           { method: 'POST', body: chunkForm },
           CHUNK_UPLOAD_TIMEOUT_MS,
         )
+        assertUploadAccount(generation)
         if (!chunkRes.ok) {
           const canRetry = attempt < CHUNK_RETRY_ATTEMPTS && shouldRetryVideoUploadAsChunked(chunkRes.status)
           if (canRetry) {
@@ -1127,6 +1149,7 @@ async function uploadVideoFileChunked(
         completedChunks += 1
         completedBytes += end - start
         const chunkText = await chunkRes.text()
+        assertUploadAccount(generation)
         let body = {} as { status?: VideoUploadStatus }
         if (chunkText.trim()) {
           try {
@@ -1154,6 +1177,7 @@ async function uploadVideoFileChunked(
         }
         return
       } catch (error) {
+        assertUploadAccount(generation)
         if (isNetworkOrTimeoutError(error) && attempt < CHUNK_RETRY_ATTEMPTS) {
           await sleep(CHUNK_RETRY_BASE_MS * 2 ** attempt)
           continue
@@ -1178,6 +1202,7 @@ async function uploadVideoFileChunked(
   } catch (error) {
     throw error
   }
+  assertUploadAccount(generation)
 
   onProgress?.({
     uploadId: init.upload_id,
@@ -1193,6 +1218,7 @@ async function uploadVideoFileChunked(
     locationLabel: 'Temporary server upload area',
   })
 
+  assertUploadAccount(generation)
   const stopPolling = startAssemblyStatusPolling(init.upload_id, file.name, onProgress)
   try {
     const completeForm = new FormData()
@@ -1202,6 +1228,7 @@ async function uploadVideoFileChunked(
     }, 120000)
     if (!completeRes.ok) throw new Error(await parseUploadError(completeRes, 'Failed to finalize video upload'))
     const completeBody = await completeRes.json() as {file_id:string;path:string;status?:VideoUploadStatus}
+    assertUploadAccount(generation)
     stopPolling()
     if (completeBody.status) onProgress?.(toUploadProgress(completeBody.status, file.name))
     return completeBody
@@ -1213,6 +1240,7 @@ export async function uploadVideoFile(
   file: File,
   onProgress?: (progress: VideoUploadProgress) => void,
 ): Promise<{ file_id: string; path: string }> {
+  const generation = getAuthGeneration()
   if (file.size > CHUNKED_VIDEO_UPLOAD_THRESHOLD) {
     return uploadVideoFileChunked(file, onProgress)
   }
@@ -1232,8 +1260,10 @@ export async function uploadVideoFile(
   })
   let result: { file_id: string; path: string }
   try {
+    assertUploadAccount(generation)
     result = await uploadVideoFileSimple(file)
   } catch (error) {
+    assertUploadAccount(generation)
     if (error instanceof UploadResponseError && shouldRetryVideoUploadAsChunked(error.status)) {
       return uploadVideoFileChunked(file, onProgress)
     }
@@ -1242,6 +1272,7 @@ export async function uploadVideoFile(
     }
     throw error
   }
+  assertUploadAccount(generation)
   onProgress?.({
     uploadId,
     phase: 'uploaded',

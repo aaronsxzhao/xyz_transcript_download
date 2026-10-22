@@ -30,6 +30,12 @@ function Reader({ ready = true }: { ready?: boolean }) {
   useReadingPosition("video:one", undefined, ready);
   return <article>Summary</article>;
 }
+it.each([null, '0'])("opens at the top instead of inheriting another page's scroll when saved position is %s", async saved => {
+  if (saved !== null) sessionStorage.setItem('xyz_reading:local:video:one', saved);
+  node.scrollTop = 860;
+  await act(async () => root.render(<Reader />));
+  expect(node.scrollTop).toBe(0);
+});
 it("keeps the last summary position when the DOM shrinks during a tab switch", async () => {
   await act(async () => root.render(<Reader />));
   node.scrollTop = 860;
