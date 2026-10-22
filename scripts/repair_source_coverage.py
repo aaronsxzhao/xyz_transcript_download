@@ -87,7 +87,7 @@ def repair():
     if public:
         raise RuntimeError("Repair backup bucket must be private")
     storage = db.client.storage.from_(BUCKET)
-    report = {"operation": "coverage_repair", "editorial_version": EDITORIAL_VERSION, "repaired": 0, "already_repaired": 0, "source_unchanged": 0, "source_characters": 0, "source_segments": 0}
+    report = {"operation": "coverage_repair", "editorial_version": EDITORIAL_VERSION, "repaired": 0, "already_repaired": 0, "source_unchanged": 0, "source_characters": 0, "source_segments": 0, "reading_points": 0}
     for summary_id, episode_id in TARGETS:
         rows = db.client.table("summaries").select("user_id").eq("id", summary_id).eq("episode_id", episode_id).execute().data
         if len(rows) != 1:
@@ -164,6 +164,7 @@ def repair():
         report["source_unchanged"] += 1
         report["source_characters"] += len(source.text)
         report["source_segments"] += len(source.segments)
+        report["reading_points"] += len(candidate.key_points)
     return report
 
 

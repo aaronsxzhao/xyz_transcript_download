@@ -441,7 +441,7 @@ class Summarizer:
     ) -> Summary:
         """Synthesize an outline; retain every detailed point and its evidence.
 
-        The model only maps chapter ids and writes the introduction/implications.
+        The model only writes the introduction/implications.
         It cannot accidentally remove examples by rewriting all detailed notes.
         """
         if not summaries:
@@ -450,15 +450,11 @@ class Summarizer:
             return replace(summaries[0], episode_id=episode_id, title=episode_title)
 
         outlines = []
-        sources = {}
-        for chunk_index, summary in enumerate(summaries):
+        topics = []
+        for summary in summaries:
             chapter_names = list(dict.fromkeys(summary.topics + [p.topic for p in summary.key_points]))
-            chapters = []
-            for topic_index, topic in enumerate(chapter_names):
-                source_id = f'{chunk_index}:{topic_index}'
-                sources[source_id] = [p for p in summary.key_points if p.topic == topic]
-                chapters.append({'id': source_id, 'topic': topic})
-            outlines.append({'overview': summary.overview, 'chapters': chapters,
+            topics.extend(topic for topic in chapter_names if topic not in topics)
+            outlines.append({'overview': summary.overview, 'chapters': chapter_names,
                              'takeaways': summary.takeaways})
         payload = json.dumps(outlines, ensure_ascii=False)
         if len(payload) > self.outline_chars:
@@ -478,32 +474,12 @@ class Summarizer:
             data = extract_json_from_response(response.choices[0].message.content)
         except (json.JSONDecodeError, TypeError):
             raise SummaryOutputError('invalid') from None
-        if not isinstance(data, dict) or not isinstance(data.get('topic_groups'), list):
+        if not isinstance(data, dict):
             raise SummaryOutputError('invalid')
-        groups = data['topic_groups']
-        seen = set()
-        topics = []
-        points = []
-        for group in groups:
-            if (not isinstance(group, dict) or not isinstance(group.get('topic'), str)
-                or not group['topic'].strip() or not isinstance(group.get('sources'), list)
-                or not group['sources']):
-                raise SummaryOutputError('invalid')
-            topic = group['topic'].strip()
-            if topic in topics:
-                raise SummaryOutputError('invalid')
-            topics.append(topic)
-            group_ids = group['sources']
-            for source_id in group_ids:
-                if not isinstance(source_id, str) or source_id not in sources or source_id in seen:
-                    raise SummaryOutputError('invalid')
-                seen.add(source_id)
-            # Preserve chronological point order regardless of the model's id order.
-            for source_id in sources:
-                if source_id in group_ids:
-                    points.extend(replace(p, topic=topic) for p in sources[source_id])
-        if seen != set(sources):
-            raise SummaryOutputError('invalid')
+        # No generated ID map controls whether detailed source notes survive.
+        # Keep original titles and chronological point order within each chapter.
+        points = [point for topic in topics for summary in summaries
+                  for point in summary.key_points if point.topic == topic]
         return self._parse_summary({
             'overview': data.get('overview'), 'topics': topics,
             'key_points': [asdict(p) for p in points],

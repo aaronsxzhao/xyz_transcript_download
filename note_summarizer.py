@@ -22,6 +22,22 @@ logger = get_logger("note_summarizer")
 
 NOTE_CHUNK_CHARS = SOURCE_CHUNK_CHARS
 
+
+def _markdown_lines(text):
+    """Identify code lines before interpreting heading-like source content."""
+    fence = None
+    for line in text.split("\n"):
+        marker = re.match(r"^ {0,3}(`{3,}|~{3,})(.*)$", line)
+        if fence:
+            if marker and marker[1][0] == fence[0] and len(marker[1]) >= len(fence) and not marker[2].strip():
+                fence = None
+            yield line, True
+        elif marker and (marker[1][0] != "`" or "`" not in marker[2]):
+            fence = marker[1]
+            yield line, True
+        else:
+            yield line, line.startswith(("    ", "\t"))
+
 NOTE_STYLES = {
     "minimal": {
         "name": "精简",
@@ -411,12 +427,14 @@ class NoteSummarizer:
         section_summaries = []
 
         for result in chunk_results:
-            lines = result.strip().split("\n")
             filtered = []
             in_summary = False
             summary_lines = []
 
-            for line in lines:
+            for line, code in _markdown_lines(result.strip("\r\n")):
+                if code:
+                    (summary_lines if in_summary else filtered).append(line)
+                    continue
                 stripped = line.strip()
                 if stripped.startswith("# ") and not stripped.startswith("## "):
                     continue
@@ -432,9 +450,9 @@ class NoteSummarizer:
                     continue
                 filtered.append(line)
 
-            merged_sections.append("\n".join(filtered).strip())
+            merged_sections.append("\n".join(filtered).strip("\r\n"))
             if summary_lines:
-                section_summaries.append("\n".join(summary_lines).strip())
+                section_summaries.append("\n".join(summary_lines).strip("\r\n"))
 
         body = "\n\n---\n\n".join(merged_sections)
 
@@ -456,24 +474,26 @@ class NoteSummarizer:
     @staticmethod
     def _renumber_headings(markdown: str) -> str:
         """Sequentially number ## headings and their ### sub-headings across the whole document."""
-        lines = markdown.split("\n")
         result = []
         h2_counter = 0
         h3_counter = 0
 
         strip_num = re.compile(r"^(#{2,3}\s+)(?:第?[一二三四五六七八九十\d]+[部章节]分?[：:\s]*|[\d]+(?:[.、．][\d]+)*[.、．\s]\s*)")
 
-        for line in lines:
+        for line, code in _markdown_lines(markdown):
+            if code:
+                result.append(line)
+                continue
             stripped = line.strip()
             if stripped.startswith("## ") and not stripped.startswith("### "):
                 h2_counter += 1
                 h3_counter = 0
-                cleaned = strip_num.sub(r"\1", line)
+                cleaned = strip_num.sub(r"\1", line.lstrip())
                 heading_text = cleaned.lstrip("#").strip()
                 result.append(f"## {h2_counter}. {heading_text}")
             elif stripped.startswith("### "):
                 h3_counter += 1
-                cleaned = strip_num.sub(r"\1", line)
+                cleaned = strip_num.sub(r"\1", line.lstrip())
                 heading_text = cleaned.lstrip("#").strip()
                 result.append(f"### {h2_counter}.{h3_counter} {heading_text}")
             else:
@@ -485,7 +505,10 @@ class NoteSummarizer:
         """Generate a table of contents from ## headings in markdown."""
         toc_lines = ["## 目录\n"]
         slug_counts: dict[str, int] = {}
-        for match in re.finditer(r"^(#{2,3})\s+(.+)$", markdown, re.MULTILINE):
+        for line, code in _markdown_lines(markdown):
+            match = re.match(r"^ {0,3}(#{2,3})\s+(.+)$", line) if not code else None
+            if not match:
+                continue
             level = len(match.group(1))
             heading = match.group(2).strip()
             anchor = self._github_slug(heading, slug_counts)
@@ -573,14 +596,13 @@ class NoteSummarizer:
     @staticmethod
     def _clean_markdown(text: str) -> str:
         """Strip code fence wrappers that LLMs sometimes add despite instructions."""
-        stripped = text.strip()
-        if stripped.startswith("```"):
-            first_newline = stripped.find("\n")
-            if first_newline != -1:
-                stripped = stripped[first_newline + 1:]
-        if stripped.endswith("```"):
-            stripped = stripped[:-3]
-        return stripped.strip()
+        stripped = text.strip("\r\n")
+        wrapper = re.match(r"^ {0,3}(`{3,}|~{3,})(?:markdown|md)?[ \t]*\r?\n", stripped, re.I)
+        if wrapper:
+            closing = re.search(r"\r?\n {0,3}" + re.escape(wrapper[1]) + r"[ \t]*$", stripped)
+            if closing and closing.start() >= wrapper.end():
+                stripped = stripped[wrapper.end():closing.start()]
+        return stripped.strip("\r\n")
 
 
 _note_summarizer: Optional[NoteSummarizer] = None
