@@ -66,3 +66,16 @@ def test_repair_preserves_sources_and_requires_verified_backup_before_replacing(
         db.save_summary.assert_not_called()
     # The maintenance path never downloads/retranscribes or writes source rows.
     assert {call.args[0] for call in db.client.table.call_args_list} <= {"summaries", "processing_jobs"}
+
+
+def test_failure_diagnostics_keep_nested_reason_but_never_provider_body():
+    from summary_errors import SummaryOutputError
+    try:
+        try:
+            raise SummaryOutputError("coverage")
+        except SummaryOutputError:
+            raise RuntimeError("private provider body and credentials") from None
+    except RuntimeError as error:
+        report = recovery.failure_report(error)
+    assert report["reason"] == "coverage"
+    assert "private" not in json.dumps(report) and "credentials" not in json.dumps(report)

@@ -150,9 +150,30 @@ def main():
     raise RuntimeError("Private application bindings unavailable")
 
 
+def failure_report(error):
+    """Diagnose nested model/audit failures without logging response bodies."""
+    from summary_errors import SummaryOutputError
+    report = {"operation": "coverage_repair", "failed": 1, "phase": _PHASE, "error_type": type(error).__name__}
+    seen = set()
+    while error is not None and id(error) not in seen:
+        seen.add(id(error))
+        if isinstance(error, SummaryOutputError):
+            report["reason"] = error.code
+        status = getattr(error, "status_code", None)
+        if type(status) is int and 400 <= status <= 599:
+            report["http_status"] = status
+        trace = error.__traceback__
+        while trace:
+            if Path(trace.tb_frame.f_code.co_filename).name == "source_coverage.py":
+                report["audit_line"] = trace.tb_lineno
+            trace = trace.tb_next
+        error = error.__cause__ or error.__context__
+    return report
+
+
 if __name__ == "__main__":
     try:
         print(json.dumps(main()))
     except Exception as error:
-        print(json.dumps({"operation": "coverage_repair", "failed": 1, "phase": _PHASE, "error_type": type(error).__name__}))
+        print(json.dumps(failure_report(error)))
         sys.exit(1)
