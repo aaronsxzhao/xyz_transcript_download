@@ -21,6 +21,7 @@ from api.auth import get_current_user, User
 from api.db import get_db, TranscriptData, SummaryData
 from config import DATA_DIR, BACKGROUND_REFINEMENT_TIMEOUT, WEBSOCKET_HEARTBEAT_INTERVAL, USE_SUPABASE
 from logger import notify_discord, get_logger
+from summary_errors import ProcessingCancelledError
 
 logger = get_logger("processing")
 
@@ -725,7 +726,7 @@ def process_episode_sync(job_id: str, episode_url: str, transcribe_only: bool = 
                 use_fast_track = compressed_path is not None and compressed_path != audio_path
                 process_path = compressed_path if use_fast_track else audio_path
 
-        class CancelledException(Exception):
+        class CancelledException(ProcessingCancelledError):
             pass
 
         # If we have a valid existing transcript, just summarize

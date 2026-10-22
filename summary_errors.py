@@ -1,4 +1,8 @@
 """Public, fixed-label summary errors without provider response content."""
+class ProcessingCancelledError(Exception):
+    """A requested stop must propagate without provider retries."""
+
+
 class SummaryOutputError(RuntimeError):
     MESSAGES = {
         'coverage': 'The source coverage check could not be verified. The previous note was kept. Please retry generation.',

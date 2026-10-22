@@ -9,9 +9,9 @@ import re
 from typing import List, Optional
 
 from openai import OpenAI
-from summary_errors import SummaryOutputError
+from summary_errors import SummaryOutputError, ProcessingCancelledError
 from source_coverage import SOURCE_CHUNK_CHARS, SOURCE_FIDELITY, split_source, audit_source
-from tenacity import retry, stop_after_attempt, wait_exponential
+from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_not_exception_type
 
 from config import (
     LLM_API_KEY, LLM_BASE_URL, LLM_MODEL, MAX_RETRIES,
@@ -536,6 +536,7 @@ class NoteSummarizer:
         return slug
 
     @retry(
+        retry=retry_if_not_exception_type(ProcessingCancelledError),
         stop=stop_after_attempt(MAX_RETRIES),
         wait=wait_exponential(multiplier=2, min=1, max=60),
         reraise=True,
@@ -563,17 +564,25 @@ class NoteSummarizer:
             collected = []
             char_count = 0
             finish_reason = None
-            for chunk in stream:
-                if not chunk.choices:
-                    continue
-                choice = chunk.choices[0]
-                if choice.delta.content:
-                    collected.append(choice.delta.content)
-                    char_count += len(choice.delta.content)
-                    partial_text = "".join(collected)
-                    progress_callback(char_count, partial_text)
-                if choice.finish_reason:
-                    finish_reason = choice.finish_reason
+            try:
+                for chunk in stream:
+                    if not chunk.choices:
+                        continue
+                    choice = chunk.choices[0]
+                    if choice.delta.content:
+                        collected.append(choice.delta.content)
+                        char_count += len(choice.delta.content)
+                        partial_text = "".join(collected)
+                        progress_callback(char_count, partial_text)
+                    if choice.finish_reason:
+                        finish_reason = choice.finish_reason
+            finally:
+                try:
+                    close = getattr(stream, 'close', None)
+                    if close:
+                        close()
+                except Exception:
+                    logger.warning('Could not close the summary stream')
             result = "".join(collected)
             if finish_reason and finish_reason != "stop":
                 raise SummaryOutputError(finish_reason)
