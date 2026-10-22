@@ -1,7 +1,7 @@
 import { createElement, useMemo, type ReactNode } from 'react'
 import { Lexer, type Token, type Tokens } from 'marked'
 import ReaderScreenshot from './ReaderScreenshot'
-import { noteHeadingSlug, prepareNoteMarkdown, inlineNoteText, decodeNoteText as text } from '../lib/noteMarkdown'
+import { uniqueNoteHeadingSlug, prepareNoteMarkdown, inlineNoteText, decodeNoteText as text } from '../lib/noteMarkdown'
 
 const safeLink=(url:string)=>/^(https?:\/\/|mailto:|tel:|#|\/(?![\/\\]))/i.test(url)
 const safeImage=(url:string)=>/^https?:\/\//i.test(url)||/^\/data\/(screenshots|thumbnails)\//.test(url)
@@ -13,7 +13,7 @@ export default function ReadableMarkdown({markdown,imagesReady=true,omitToc=fals
     const key=index
     switch(token.type){
       case 'space':return null
-      case 'heading':{const t=token as Tokens.Heading;const base=noteHeadingSlug(inlineNoteText(t.tokens));const n=slugs[base]||0;slugs[base]=n+1;return createElement(`h${t.depth}`,{key,id:base+(n?`-${n}`:'')},render(t.tokens))}
+      case 'heading':{const t=token as Tokens.Heading;return createElement(`h${t.depth}`,{key,id:uniqueNoteHeadingSlug(inlineNoteText(t.tokens),slugs)},render(t.tokens))}
       case 'paragraph':return <p key={key}>{render((token as Tokens.Paragraph).tokens)}</p>
       case 'text':{const t=token as Tokens.Text;return <span key={key}>{t.tokens?render(t.tokens):text(t.text)}</span>}
       case 'escape':return <span key={key}>{text((token as Tokens.Escape).text)}</span>

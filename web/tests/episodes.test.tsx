@@ -4,9 +4,9 @@ import { createRoot } from 'react-dom/client'
 import { MemoryRouter, Routes, Route } from 'react-router-dom'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import Episodes from '../src/pages/Episodes'
-import { ApiError, fetchEpisodes, fetchPodcast } from '../src/lib/api'
+import { ApiError, fetchEpisodes, fetchPodcast, deleteEpisode } from '../src/lib/api'
 
-vi.mock('../src/lib/api', async importOriginal => ({...await importOriginal<typeof import('../src/lib/api')>(), fetchEpisodes:vi.fn(), fetchPodcast:vi.fn(), fetchPodcasts:vi.fn(async()=>[])}))
+vi.mock('../src/lib/api', async importOriginal => ({...await importOriginal<typeof import('../src/lib/api')>(), fetchEpisodes:vi.fn(), fetchPodcast:vi.fn(), deleteEpisode:vi.fn(), fetchPodcasts:vi.fn(async()=>[])}))
 vi.mock('../src/components/Toast',()=>({useToast:()=>({addToast:vi.fn()})}))
 vi.mock('../src/lib/cache',()=>({getCache:()=>null,getCacheAge:()=>null,setCache:vi.fn(),useWarmCache:()=>{},CacheKeys:{PODCAST:(id:string)=>id,EPISODES:(id:string)=>id,PODCASTS:'podcasts'}}))
 vi.mock('../src/lib/pageTiming',()=>({usePageTiming:vi.fn()}))
@@ -18,7 +18,7 @@ beforeEach(()=>{
   vi.mocked(fetchEpisodes).mockReset(); vi.mocked(fetchPodcast).mockReset()
   vi.mocked(fetchPodcast).mockImplementation(()=>new Promise(()=>{}))
 })
-afterEach(()=>{cleanup?.();vi.useRealTimers()})
+afterEach(()=>{cleanup?.();vi.useRealTimers();vi.unstubAllGlobals()})
 async function mount() {
   const node=document.createElement('div');document.body.append(node)
   const root=createRoot(node)
@@ -63,4 +63,18 @@ it('retains the first page and retries the correct offset when loading more fail
   await act(async()=>node.querySelector<HTMLButtonElement>('[role="alert"] button')!.click())
   expect(fetchEpisodes).toHaveBeenLastCalledWith('test',50)
   expect(node.textContent).toContain('Episode 50')
+})
+
+it('keeps the next page when a pending episode deletion finishes after pagination',async()=>{
+ vi.stubGlobal('confirm',()=>true)
+ vi.mocked(fetchEpisodes).mockResolvedValueOnce(Array.from({length:50},(_,n)=>row(n)) as any).mockResolvedValueOnce([row(50)] as any)
+ let finish!:()=>void
+ vi.mocked(deleteEpisode).mockImplementationOnce(()=>new Promise(resolve=>{finish=resolve}))
+ const node=await mount()
+ await act(async()=>node.querySelector<HTMLButtonElement>('button[title="Delete episode"]')!.click())
+ await act(async()=>Array.from(node.querySelectorAll('button')).find(b=>b.textContent==='Load more episodes')!.click())
+ expect(node.textContent).toContain('Episode 50')
+ await act(async()=>finish())
+ expect(node.textContent).toContain('Episode 50')
+ expect(node.querySelectorAll('button[title="Delete episode"]')).toHaveLength(50)
 })
