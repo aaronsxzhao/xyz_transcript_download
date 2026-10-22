@@ -17,7 +17,7 @@ const updates=[{item_key:'podcast:one',kind:'podcast',title:'New episode',source
 let root:ReturnType<typeof createRoot>,node:HTMLDivElement
 beforeEach(()=>{vi.clearAllMocks();clearCache();localStorage.clear();localStorage.setItem('xyz_user',JSON.stringify({id:'owner',authenticated:true}));api.fetchContentUpdates.mockResolvedValue({items:updates,dismiss_before:before});api.dismissContentUpdates.mockResolvedValue(undefined);node=document.createElement('div');document.body.append(node);root=createRoot(node)})
 afterEach(()=>{vi.restoreAllMocks();act(()=>root.unmount());node.remove();clearCache()})
-async function openUpdates(){await act(async()=>{Array.from(node.querySelectorAll('button')).find(button=>button.textContent==='View new →')!.click()})}
+async function openUpdates(){await act(async()=>{Array.from(node.querySelectorAll('button')).find(button=>button.textContent==='View new →')!.click()});for(let i=0;i<100&&!node.querySelector('[role="dialog"]');i++)await act(async()=>{await new Promise(resolve=>setTimeout(resolve,10))})}
 async function closeUpdates(){await act(async()=>{(node.querySelector('[aria-label="Close dashboard dialog"]') as HTMLButtonElement).click()})}
 async function render(){await act(async()=>root.render(<MemoryRouter><Dashboard/></MemoryRouter>))}
 it('puts discoveries above stats and dismisses the unread snapshot',async()=>{

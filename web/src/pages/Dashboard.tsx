@@ -4,7 +4,10 @@ const taskAction = async (
   job: import("../lib/api").ProcessingJob,
   kind: "podcast" | "video",
 ) => (await import("../lib/taskActions"))[action](job, kind);
-import { useDialog } from "../lib/reading";
+import { deferView } from "../components/DeferredView";
+const DashboardDialog = deferView(
+  () => import("../components/DashboardDialog"),
+);
 import LoadError from "../components/LoadError";
 import { getAccountId, getPreference, setPreference } from "../lib/preferences";
 import { useState, useEffect, useMemo, useRef } from "react";
@@ -140,10 +143,49 @@ export default function Dashboard() {
   const [recentFilter, setRecentFilter] = useState<"all" | "podcast" | "video">(
     "all",
   );
-  useDialog(!!overlay, () => setOverlay(""));
 
   const { jobs, updateJob, videoTasks } = useStore();
   const { addToast } = useToast();
+
+  const previousActive = useRef(new Set<string>());
+  const completionRefresh = useRef<ReturnType<typeof setTimeout>>();
+  useEffect(() => {
+    const rows = [
+      ...jobs.map((job) => ({
+        id: "podcast:" + job.job_id,
+        status: job.status,
+      })),
+      ...videoTasks.map((task) => ({
+        id: "video:" + task.id,
+        status: task.status,
+      })),
+    ];
+    const finished = rows.some(
+      (row) =>
+        ["completed", "success"].includes(row.status) &&
+        previousActive.current.has(row.id),
+    );
+    previousActive.current = new Set(
+      rows
+        .filter(
+          (row) =>
+            ![
+              "completed",
+              "success",
+              "failed",
+              "cancelled",
+              "discovered",
+              "restricted",
+            ].includes(row.status),
+        )
+        .map((row) => row.id),
+    );
+    if (finished) {
+      clearTimeout(completionRefresh.current);
+      completionRefresh.current = setTimeout(() => void loadData(), 250);
+    }
+  }, [jobs, videoTasks]);
+  useEffect(() => () => clearTimeout(completionRefresh.current), []);
 
   const activeVideoJobs: ProcessingJob[] = useMemo(() => {
     return videoTasks
@@ -863,53 +905,29 @@ export default function Dashboard() {
         )}
       </section>
       {overlay && (
-        <div className="reader-confirm-backdrop" onClick={() => setOverlay("")}>
-          <section
-            role="dialog"
-            aria-modal="true"
-            aria-label={overlay === "updates" ? "New content" : "Task history"}
-            className="dashboard-dialog"
-            onClick={(event) => event.stopPropagation()}
-          >
-            <header>
-              <h2>{overlay === "updates" ? "New content" : "Task history"}</h2>
-              <button
-                className="reader-action reader-action-icon"
-                aria-label="Close dashboard dialog"
-                onClick={() => setOverlay("")}
-              >
-                <X size={18} />
-              </button>
-            </header>
-            {overlay === "updates" ? (
-              <ul>
-                {contentUpdates.map((item) => (
-                  <li key={item.item_key}>
-                    <Link
-                      to={
-                        item.kind === "podcast"
-                          ? `/podcasts/${encodeURIComponent(item.source_id)}/episodes`
-                          : "/videos"
-                      }
-                    >
-                      <span>{item.source_title}</span>
-                      <strong>{item.title || "New video"}</strong>
-                    </Link>
-                  </li>
-                ))}
-                {!contentUpdates.length && <li>All caught up.</li>}
-              </ul>
+        <DashboardDialog
+          kind={overlay}
+          updates={contentUpdates}
+          onClose={() => setOverlay("")}
+          history={
+            allQueueItems.length ? (
+              allQueueItems.map(renderTask)
             ) : (
-              <div className="dashboard-task-history">
-                {allQueueItems.length ? (
-                  allQueueItems.map(renderTask)
-                ) : (
-                  <p>No recent tasks. Add a podcast or video to get started.</p>
-                )}
-              </div>
-            )}
-          </section>
-        </div>
+              <p>No recent tasks. Add a podcast or video to get started.</p>
+            )
+          }
+          fallback={
+            <button
+              className="task-launcher"
+              style={{ bottom: 80, zIndex: 90 }}
+              aria-label="Cancel loading details"
+              onClick={() => setOverlay("")}
+            >
+              <Loader2 size={16} className="animate-spin" />
+              Loading details… · Cancel
+            </button>
+          }
+        />
       )}
     </div>
   );

@@ -12,7 +12,7 @@ async def check(browser,origin,width,output):
  task.update(title='Bitcoin Daily / Trading review',channel='Trading course',published_at='2026-04-12',model='Test model',formats=['summary','screenshot'],error='')
  task['markdown']='# Trading review\n\nA complete market review.\n\n'+ '\n\n'.join(f'## {i+1}. Market structure\n\nConditional argument {i}. '+('Detailed context. '*40)+f'\n\n- Confirm the signal\n- Manage risk\n\n![Chart](/data/screenshots/bench_{i}.jpg)' for i in range(14))
  summary.update(title='Podcast reading / 播客阅读',overview='### 核心结论\n- Conditional conclusions.\n\n### 节目概览\nA complete overview.',key_points=[{'topic':f'Chapter {i}','summary':'#### Explanation\n\nA complete argument with conditions.\n\n'+('Supporting detail. '*15),'original_quote':'Original transcript evidence.','timestamp':'12:00'} for i in range(7)],topics=[f'Chapter {i}' for i in range(7)])
- state={'jobs':[],'updates':True,'fail_version':False}
+ state={'jobs':[],'updates':True,'fail_version':False,'completed':False}
  context=await browser.new_context(viewport={'width':width,'height':1000},permissions=['clipboard-read','clipboard-write'],service_workers='block')
  await context.add_init_script('''localStorage.setItem('xyz_remember_me','true');localStorage.setItem('xyz_access_token',TOKEN);localStorage.setItem('xyz_user',JSON.stringify({id:'bench',email:'bench@example.com',authenticated:true}));window.WebSocket=class{static OPEN=1;readyState=1;constructor(){window.fixtureSocket=this;setTimeout(()=>this.onopen?.(),10)}send(v){if(JSON.parse(v).type==='auth')setTimeout(()=>this.onmessage?.({data:JSON.stringify({type:'init',jobs:[],video_tasks:[]})}),5)}close(){this.readyState=3}};window.workerCreates=0;const RealWorker=window.Worker;window.Worker=class extends RealWorker{constructor(...args){super(...args);window.workerCreates++}};'''.replace('TOKEN',json.dumps(token(int(time.time())+7200))))
  page=await context.new_page();errors=[];requests=[]
@@ -23,7 +23,7 @@ async def check(browser,origin,width,output):
   if path=='/api/auth/config':body={'supabase_enabled':True}
   elif path=='/api/auth/me':body={'id':'bench','email':'bench@example.com','authenticated':True}
   elif path=='/api/stats':body={'total_podcasts':13,'total_episodes':455,'total_transcripts':108,'total_summaries':96,'total_video_channels':8,'total_videos':216,'completed_videos':42}
-  elif path in ['/api/summaries','/api/summaries/recent']:body=[{**summary,'podcast_title':'My podcast','created_at':'2026-10-21','podcast_cover':'','topics_count':7}]
+  elif path in ['/api/summaries','/api/summaries/recent']:body=[{**summary,'podcast_title':'My podcast','created_at':'2026-10-21','podcast_cover':'','topics_count':7,'title':'Newly completed podcast' if state['completed'] else summary['title']}]
   elif path=='/api/summaries/bench':body=summary
   elif path=='/api/transcripts/bench':body={**task['transcript'],'episode_id':'bench','language':'en'}
   elif path=='/api/video-notes/tasks/bench':body={**task,'transcript':None,'versions':[{k:v for k,v in row.items() if k!='content'} for row in task['versions']]}
@@ -57,6 +57,12 @@ async def check(browser,origin,width,output):
  await page.locator('.dashboard-processing').wait_for()
  await page.screenshot(path=str(output/f'dashboard-active-{width}.png'))
  assert not await page.evaluate('document.documentElement.scrollWidth>innerWidth')
+ before_refresh=requests.count('/api/stats')
+ state['completed']=True
+ await page.evaluate('job=>window.fixtureSocket.onmessage({data:JSON.stringify({type:"job_update",job:{...job,status:"completed",progress:100}})})',job)
+ await page.get_by_role('heading',name='Newly completed podcast',exact=True).wait_for()
+ assert requests.count('/api/stats')>before_refresh
+ assert not await page.locator('.dashboard-processing').count()
  await page.goto(origin+'/viewer/bench')
  await page.get_by_role('heading',name='Podcast reading / 播客阅读',exact=True).wait_for()
  await page.get_by_role('tab',name='Summary',exact=True).click()
