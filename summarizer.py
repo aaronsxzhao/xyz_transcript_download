@@ -255,10 +255,19 @@ class Summarizer:
         context = {**(source_context or {}), "chapter_titles": summary.topics}
         updated, additions, citations = audit_source(source, fields, call, context)
         compact = lambda value: re.sub(r"\s+", "", value)
-        points = [replace(point, summary=updated[f"point:{i+1}"],
-                          original_quote=citations.get(f"point:{i+1}", point.original_quote if compact(point.original_quote) in compact(spoken_source(source)) else ""),
-                          timestamp=point.timestamp if f"[{point.timestamp}]" in source else "")
-                  for i, point in enumerate(summary.key_points)]
+        spoken = compact(spoken_source(source))
+        points = []
+        for i, point in enumerate(summary.key_points):
+            field = f"point:{i+1}"
+            verified_quote = bool(compact(point.original_quote)) and compact(point.original_quote) in spoken
+            # Keep the selected verbatim excerpt when the reviewed claim is
+            # unchanged; coverage receipts can span much broader source units.
+            quote = (point.original_quote if verified_quote and updated[field] == point.summary
+                     else citations.get(field, ""))
+            if not compact(quote) or compact(quote) not in spoken:
+                raise SummaryOutputError('coverage')
+            points.append(replace(point, summary=updated[field], original_quote=quote,
+                                  timestamp=point.timestamp if f"[{point.timestamp}]" in source else ""))
         for i, addition in enumerate(additions):
             points.append(KeyPoint(addition["topic"], updated[addition["id"]],
                                    addition["source_quote"], addition["timestamp"]))

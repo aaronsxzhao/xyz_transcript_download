@@ -168,7 +168,7 @@ def repair():
     return report
 
 
-def main():
+def main(operation=None):
     from scripts.diagnose_deployment import oci_json
     from scripts.repair_reported_transcript import request_json
     expected = os.environ.get("EXPECTED_REVISION")
@@ -187,7 +187,7 @@ def main():
             os.environ["WHISPER_MODE"] = "api"
             logging.disable(logging.CRITICAL)
             with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
-                return repair()
+                return (operation or repair)()
     raise RuntimeError("Private application bindings unavailable")
 
 
