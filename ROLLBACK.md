@@ -1,5 +1,19 @@
 # Restore the previous website
 
+## Podcast reading notes and prompt (22 October 2026)
+
+The preceding release is `13d59a013758a5b52f76f4d4537787216db16ab4`, tagged
+`safety/pre-podcast-reader-20261022`. Use this image revision in **Roll back
+website** to restore the previous reader and prompts. No database migration is
+required. New notes use the existing overview, topic, point and takeaway fields;
+they remain readable with the preceding application after rollback.
+
+The change does not regenerate or delete saved summaries or transcripts. It
+applies the new editing contract to new generation and user-requested
+regeneration. The standalone first and second mock previews are not production
+records. If an individual regenerated summary is unsuitable, rolling back code
+does not recover its former text; save/export that summary before regenerating.
+
 ## Groq summary stream recovery (21 October 2026)
 
 Use `safety/pre-groq-stream-fix-20261021`, image

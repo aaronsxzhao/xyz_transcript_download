@@ -49,3 +49,27 @@ it('allows regeneration before the transcript tab has been loaded',async()=>{
  expect((node.querySelector('.reader-regenerate') as HTMLButtonElement).disabled).toBe(false)
  expect(fetchTranscript).not.toHaveBeenCalled()
 })
+
+it('renders the complete chapter structure by default with opening conclusions and optional quotes',async()=>{
+ const chapters={...summary,overview:'### 核心结论\n- Keep conditions.\n\n### 节目概览\nA full overview.',topics:['模型','风险'],key_points:[
+  {topic:'模型',summary:'#### 基准\n\n1 个百分点，全球不含中国。',original_quote:'First original quote',timestamp:'28:29'},
+  {topic:'模型',summary:'#### 情景\n\nConditional on B50.',original_quote:'Second original quote',timestamp:''},
+  {topic:'风险',summary:'#### 不及预期\n\nTrack actual production.',original_quote:'',timestamp:''},
+ ]}
+ vi.mocked(fetchSummary).mockResolvedValueOnce(chapters)
+ const node=await mount()
+ expect(node.querySelectorAll('[data-topic-card]').length).toBe(2)
+ expect([...node.querySelectorAll('.topic-toggle')].every(el=>el.getAttribute('aria-expanded')==='true')).toBe(true)
+ expect(node.textContent).toContain('1 个百分点，全球不含中国。')
+ expect(node.textContent).toContain('Conditional on B50.')
+ expect(node.querySelector('#summary-conclusions')?.textContent).toContain('Keep conditions.')
+ expect(node.querySelector('#summary-overview')?.parentElement?.textContent).toContain('A full overview.')
+ expect(node.querySelector('details.reader-quote')?.hasAttribute('open')).toBe(false)
+ expect(node.querySelector('details.reader-quote summary')?.textContent).toContain('28:29')
+ expect(fetchTranscript).not.toHaveBeenCalled()
+ await act(async()=>{(node.querySelector('.topic-toggle') as HTMLButtonElement).click()})
+ expect(node.querySelectorAll('.topic-content').length).toBe(1)
+ const expand=[...node.querySelectorAll('button')].find(el=>el.textContent==='Expand all')!
+ await act(async()=>expand.click())
+ expect(node.querySelectorAll('.topic-content').length).toBe(2)
+})

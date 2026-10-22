@@ -358,7 +358,7 @@ def _background_refinement(audio_path, episode, fast_summary, db_interface, tran
         # Generate accurate summary
         from transcript_quality import validate_transcript
         validate_transcript(accurate_transcript,episode.duration)
-        accurate_summary = summarizer.summarize(accurate_transcript, episode_title=episode.title)
+        accurate_summary = summarizer.summarize(accurate_transcript, episode_title=episode.title, existing_topics=fast_summary.topics)
         if not accurate_summary:
             return None  # Keep fast version
         
@@ -770,7 +770,8 @@ def process_episode_sync(job_id: str, episode_url: str, transcribe_only: bool = 
                 summary = summarizer.summarize(
                     transcript, 
                     episode_title=episode.title,
-                    progress_callback=existing_summary_progress
+                    progress_callback=existing_summary_progress,
+                    existing_topics=existing_summary.topics if existing_summary else None,
                 )
             except CancelledException:
                 update_job_status(job_id, "cancelled", last_progress[0], "Cancelled during summarization")
@@ -912,7 +913,8 @@ def process_episode_sync(job_id: str, episode_url: str, transcribe_only: bool = 
             summary = summarizer.summarize(
                 transcript, 
                 episode_title=episode.title,
-                progress_callback=summary_progress_callback
+                progress_callback=summary_progress_callback,
+                existing_topics=existing_summary.topics if existing_summary else None,
             )
         except CancelledException:
             update_job_status(job_id, "cancelled", last_summary_progress[0], "Cancelled during summarization")

@@ -51,3 +51,6 @@ notion-markdown>=0.7.0
 
 # Note: torch, faster-whisper, mlx-whisper are NOT included
 # Cloud deployment uses Groq API for transcription (WHISPER_MODE=api)
+
+# Safe Markdown rendering for podcast HTML exports
+markdown-it-py==4.2.0

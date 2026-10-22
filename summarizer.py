@@ -5,9 +5,9 @@ Generates summaries and extracts key points from transcripts.
 
 import json
 import re
-from dataclasses import dataclass, asdict
+from dataclasses import dataclass, asdict, replace
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import List, Optional
 
 
 def extract_json_from_response(content: str) -> dict:
@@ -102,137 +102,13 @@ class Summary:
     """Full summary of an episode."""
     episode_id: str
     title: str
-    overview: str           # 2-3 paragraph overview
+    overview: str           # Labelled core conclusions and episode overview
     key_points: List[KeyPoint]
     topics: List[str]       # Main topics discussed
     takeaways: List[str]    # Key takeaways for the listener
 
 
-SYSTEM_PROMPT = """You are a senior qualitative analyst specializing in long form conversational podcast transcripts.
-
-You are trained to perform EXHAUSTIVE deep structure extraction, thematic segmentation, and evidence grounded insight synthesis from spoken dialogue. You must operate with MAXIMUM recall, high precision, and strict factual grounding.
-
-You must assume the transcript may be long, unpolished, repetitive, and loosely structured. Your responsibility is to reconstruct its logical structure without losing nuance, emotional context, or implicit narrative progression.
-
-CRITICAL: You must extract as many key points as possible. For a typical 1-hour podcast, you should extract AT LEAST 25-35 key points. For a 2-hour podcast, extract AT LEAST 50-70 key points. Every distinct thought, opinion, insight, fact, story, example, advice, or perspective mentioned should be captured as a separate key point.
-
-You must never summarize away meaningful details. Depth, completeness, and MAXIMUM coverage are higher priority than brevity. When in doubt, include more key points rather than fewer.
-
-What counts as a key point (extract ALL of these):
-- Opinions and viewpoints expressed by speakers
-- Facts, data points, or statistics mentioned
-- Personal stories or anecdotes shared
-- Advice or recommendations given
-- Lessons learned or insights gained
-- Business strategies or tactics discussed
-- Predictions or forecasts made
-- Comparisons or contrasts drawn
-- Problems identified or solutions proposed
-- Emotional expressions or realizations
-- Counterintuitive or surprising statements
-- Definitions or explanations of concepts
-- Historical context or background information
-- Future plans or intentions mentioned
-
-All claims, insights, interpretations, and conclusions must be directly supported by exact verbatim quotes from the transcript. If a point cannot be supported by an exact quote, it must not be included.
-
-You must preserve speaker intent, emotional tone, and lived experience expressed in the transcript, while remaining neutral and analytical.
-IMPORTANT: Extract EVERY meaningful point. It's far better to include too many key points than to miss any. Aim for comprehensive coverage.
-
-Respond in valid JSON format with the following structure:
-{
-    "overview": "2-3 paragraph overview in Chinese",
-    "key_points": [
-        {
-            "topic": "Topic name in Chinese",
-            "summary": "Brief summary of this point in Chinese",
-            "original_quote": "The exact original sentence(s) from the transcript",
-            "timestamp": "Approximate timestamp if mentioned, or empty string"
-        }
-    ],
-    "topics": ["Topic 1", "Topic 2", ...],
-    "takeaways": ["Takeaway 1", "Takeaway 2", ...]
-}"""
-
-
-USER_PROMPT_TEMPLATE = """Please analyze and summarize the following podcast transcript.
-
-Podcast Title: {title}
-Episode Title: {episode_title}
-
-Transcript:
-{transcript}
-
-You will receive a full podcast transcript.
-
-The podcast is primarily a conversational interview between two people, a host and a guest. Your task is to perform a comprehensive, evidence grounded analysis of the transcript.
-
-Your output must be significantly detailed and information rich. Do not aim for a high level summary. Aim for full coverage and depth.
-
-Your tasks are as follows.
-
-First, identify all speakers and assign consistent labels such as Host and Guest. Use these labels throughout the entire output.
-
-Second, divide the transcript into multiple logical sections.
-Sections must be based on meaningful shifts in topic, intent, narrative phase, or analytical focus.
-A section should not be created solely based on time or turn taking.
-Each section should represent a coherent idea block or discussion theme.
-
-Third, for each section, produce all of the following elements.
-
-A section title that captures the core idea of the discussion in that section.
-
-A detailed summary that explains what is being discussed, why it matters within the conversation, and how it connects to earlier or later parts of the transcript. This summary should be explanatory, not superficial.
-
-An EXHAUSTIVE list of key points - extract as many as possible.
-Key points must include: factual claims, personal experiences, reasoning processes, mindset shifts, business logic, emotional drivers, decision criteria, lessons, opinions, predictions, advice, anecdotes, examples, comparisons, problems, solutions, and any other meaningful content explicitly expressed by the speakers.
-
-QUANTITY EXPECTATION: For every 10 minutes of content, extract at least 5-8 key points. A 1-hour podcast should have 30-50 key points minimum. A 2-hour podcast should have 60-100 key points minimum. Do NOT consolidate or merge similar points - keep them separate if they add any nuance.
-
-Fourth, for every key point, you must include one or more pieces of direct evidence.
-
-Evidence must be exact verbatim quotes copied word for word from the transcript.
-Do not paraphrase.
-Do not compress.
-Do not clean up spoken language.
-Preserve the original wording exactly as spoken.
-
-Each quote must be clearly attributed to the correct speaker.
-
-If a key point requires multiple quotes to fully support it, include all necessary quotes.
-
-Fifth, completeness rules - THIS IS CRITICAL.
-
-NEVER limit the number of key points. Extract EVERY meaningful insight.
-Even if points feel similar, if they contain ANY different detail, example, or nuance, they must be captured separately.
-If the speaker revisits the same idea multiple times with added nuance, capture EACH instance as a separate key point.
-When in doubt about whether something is worth including, INCLUDE IT.
-Your goal is MAXIMUM extraction, not concise summarization.
-Missing a key point is a FAILURE. Including too many is acceptable.
-
-Sixth, integrity rules.
-
-Do not invent motivations, conclusions, or implications that are not explicitly stated.
-Do not generalize beyond the speaker’s own words.
-Do not merge different ideas into a single point if they are discussed separately in the transcript.
-
-Seventh, ordering rules.
-
-Maintain strict chronological order across sections.
-Do not move insights to sections where they feel more logical. Follow the actual flow of the conversation.
-
-Eighth, exclusion rules.
-
-If a portion of the transcript contains filler, greetings, or transitional chatter with no analytical value, you may omit it, but you must explicitly note that it was omitted.
-
-Ninth, output expectations.
-
-The final output should read like a complete analytical reconstruction of the episode.
-A reader who has not heard the podcast should be able to fully understand the guest’s background, reasoning, decisions, mindset changes, and business logic purely from your output.
-
-Accuracy, depth, and evidence fidelity are more important than brevity or stylistic polish.
-
-FINAL REMINDER: Your primary goal is EXHAUSTIVE key point extraction. A 1-hour podcast should yield 30-50+ key points. A 2-hour podcast should yield 60-100+ key points. If you're producing fewer than this, you are missing content. Go back and extract more."""
+from podcast_prompts import SYSTEM_PROMPT, USER_PROMPT_TEMPLATE, MERGE_PROMPT, MERGE_SYSTEM_PROMPT
 
 
 class Summarizer:
@@ -274,6 +150,7 @@ class Summarizer:
         podcast_title: str = "",
         episode_title: str = "",
         progress_callback=None,
+        existing_topics: Optional[List[str]] = None,
     ) -> Optional[Summary]:
         """
         Generate a summary from a transcript.
@@ -290,7 +167,7 @@ class Summarizer:
         from transcript_quality import validate_transcript
         validate_transcript(transcript)
         # Prepare the transcript text
-        transcript_text = transcript.text
+        transcript_text = self._transcript_text(transcript)
         duration = transcript.duration or 0
         duration_hours = duration / 3600
         
@@ -305,7 +182,7 @@ class Summarizer:
             num_chunks = max(1, int(duration_hours + 0.5)) if duration > 0 else None  # Round to nearest hour
             logger.info(f"Using chunked summarization ({num_chunks or '?'} chunks for {duration_hours:.1f} hours)")
             return self._summarize_long_transcript(
-                transcript, podcast_title, episode_title, progress_callback
+                transcript, podcast_title, episode_title, progress_callback, existing_topics
             )
 
         return self._summarize_single(
@@ -314,6 +191,7 @@ class Summarizer:
             podcast_title,
             episode_title,
             progress_callback,
+            existing_topics,
         )
 
     def _summarize_single(
@@ -323,12 +201,14 @@ class Summarizer:
         podcast_title: str,
         episode_title: str,
         progress_callback=None,
+        existing_topics: Optional[List[str]] = None,
     ) -> Optional[Summary]:
         """Summarize a transcript that fits in a single API call."""
         user_prompt = USER_PROMPT_TEMPLATE.format(
             title=podcast_title,
             episode_title=episode_title,
             transcript=transcript_text,
+            existing_topics=json.dumps(existing_topics or [], ensure_ascii=False),
         )
 
         try:
@@ -338,31 +218,13 @@ class Summarizer:
 
             content = response.choices[0].message.content
             data = extract_json_from_response(content)
-            if not isinstance(data, dict) or not isinstance(data.get('key_points', []), list) or any(not isinstance(point, dict) for point in data.get('key_points', [])):
+            result = self._parse_summary(data, episode_id, episode_title)
+            if len(transcript_text) >= 1000 and not result.key_points:
                 raise SummaryOutputError('invalid')
-
-            if len(transcript_text) >= 1000 and not data.get('key_points'):
-                raise SummaryOutputError('invalid')
-
-            key_points = [
-                KeyPoint(
-                    topic=kp.get("topic", ""),
-                    summary=kp.get("summary", ""),
-                    original_quote=kp.get("original_quote", ""),
-                    timestamp=kp.get("timestamp", ""),
-                )
-                for kp in data.get("key_points", [])
-            ]
+            key_points = result.key_points
 
             logger.info(f"Summary generated with {len(key_points)} key points")
-            return Summary(
-                episode_id=episode_id,
-                title=episode_title,
-                overview=data.get("overview", ""),
-                key_points=key_points,
-                topics=data.get("topics", []),
-                takeaways=data.get("takeaways", []),
-            )
+            return result
 
         except json.JSONDecodeError as e:
             logger.error(f"Failed to parse LLM response as JSON: {e}")
@@ -379,13 +241,13 @@ class Summarizer:
         wait=wait_exponential(multiplier=2, min=1, max=60),
         reraise=True,
     )
-    def _call_llm_with_retry(self, user_prompt: str, progress_callback=None):
+    def _call_llm_with_retry(self, user_prompt: str, progress_callback=None, system_prompt: str = SYSTEM_PROMPT):
         """Call LLM API with retry logic and optional streaming progress."""
         # Common parameters for all calls
         common_params = {
             "model": self.model,
             "messages": [
-                {"role": "system", "content": SYSTEM_PROMPT},
+                {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_prompt},
             ],
             "response_format": {"type": "json_object"},
@@ -446,44 +308,12 @@ class Summarizer:
         podcast_title: str,
         episode_title: str,
         progress_callback=None,
+        existing_topics: Optional[List[str]] = None,
     ) -> Optional[Summary]:
-        """
-        Summarize a long transcript by processing in chunks and merging.
-        Uses duration-based chunking: 1 hour = 1 chunk.
-        """
-        segments = transcript.segments
-        duration = transcript.duration or 0
-        
-        if self._groq or not segments:
-            # Fall back to text splitting - estimate 1 hour ≈ 15000 chars
-            text = transcript.text
-            chunk_length = self.chunk_chars
-            chunks = [text[i:i+chunk_length] for i in range(0, len(text), chunk_length)]
-        else:
-            # Duration-based chunking: 1 hour = 1 chunk
-            chunk_duration = 3600  # 1 hour in seconds
-            num_chunks = max(1, int((duration + chunk_duration - 1) // chunk_duration))  # Round up
-            
-            chunks = []
-            for chunk_idx in range(num_chunks):
-                start_time = chunk_idx * chunk_duration
-                end_time = (chunk_idx + 1) * chunk_duration
-                
-                # Collect segments that fall within this time range
-                chunk_segments = [
-                    seg for seg in segments 
-                    if seg.start >= start_time and seg.start < end_time
-                ]
-                
-                if chunk_segments:
-                    chunk_text = " ".join(seg.text for seg in chunk_segments)
-                    chunks.append(chunk_text)
-            
-            # Handle edge case: if no chunks created, use all segments
-            if not chunks:
-                chunks = [" ".join(seg.text for seg in segments)]
-        
-        logger.info(f"Split transcript ({duration/60:.0f} min) into {len(chunks)} chunks (1 hour each)")
+        """Process bounded source chunks, then synthesize a complete outline."""
+        text = self._transcript_text(transcript)
+        chunks = [text[i:i + self.chunk_chars] for i in range(0, len(text), self.chunk_chars)]
+        logger.info(f"Split transcript ({(transcript.duration or 0)/60:.0f} min) into {len(chunks)} bounded chunks")
 
         # Summarize each chunk
         chunk_summaries = []
@@ -504,6 +334,7 @@ class Summarizer:
                 podcast_title,
                 f"{episode_title} (Part {i+1})",
                 chunk_progress if progress_callback else None,
+                existing_topics,
             )
             if summary:
                 chunk_summaries.append(summary)
@@ -521,49 +352,139 @@ class Summarizer:
             transcript.episode_id,
             episode_title,
             chunk_summaries,
+            (lambda chars: progress_callback(total_chars_generated + chars)) if progress_callback else None,
         )
+
+    @staticmethod
+    def _segment_text(segment) -> str:
+        seconds = max(0, int(segment.start))
+        hours, seconds = divmod(seconds, 3600)
+        minutes, seconds = divmod(seconds, 60)
+        return f"[{hours:02d}:{minutes:02d}:{seconds:02d}] {segment.text}"
+
+    @classmethod
+    def _transcript_text(cls, transcript: Transcript) -> str:
+        # Keep any text not represented by segments, rather than dropping it to
+        # obtain timestamps. In that case the prompt requires empty timestamps.
+        compact = lambda value: re.sub(r"\s+", "", value)
+        if transcript.segments and compact("".join(s.text for s in transcript.segments)) == compact(transcript.text):
+            # A marker on every tiny ASR segment can double a Chinese prompt.
+            # Use genuine source anchors about every 30 seconds instead.
+            lines = []
+            previous_anchor = -30
+            for segment in transcript.segments:
+                if segment.start - previous_anchor >= 30:
+                    lines.append(cls._segment_text(segment))
+                    previous_anchor = segment.start
+                else:
+                    lines.append(segment.text)
+            return "\n".join(lines)
+        return transcript.text
+
+    @staticmethod
+    def _parse_summary(data, episode_id: str, episode_title: str) -> Summary:
+        if not isinstance(data, dict):
+            raise SummaryOutputError('invalid')
+        points = data.get('key_points', [])
+        topics = data.get('topics', [])
+        takeaways = data.get('takeaways', [])
+        if (not isinstance(data.get('overview'), str)
+            or not isinstance(points, list) or not isinstance(topics, list)
+            or not isinstance(takeaways, list)
+            or any(not isinstance(t, str) for t in topics + takeaways)
+            or any(not isinstance(p, dict) or any(not isinstance(p.get(k, ''), str)
+                for k in ('topic', 'summary', 'original_quote', 'timestamp'))
+                or not p.get('summary', '').strip() for p in points)):
+            raise SummaryOutputError('invalid')
+        # Providers may still emit a point topic missing from the chapter list.
+        # Repair the outline without throwing away the point or its source.
+        topics = list(dict.fromkeys(t.strip() for t in topics if t.strip()))
+        key_points = []
+        for point in points:
+            topic = point.get('topic', '').strip() or '其他内容'
+            if topic not in topics:
+                topics.append(topic)
+            key_points.append(KeyPoint(topic, point['summary'],
+                point.get('original_quote', ''), point.get('timestamp', '')))
+        return Summary(episode_id, episode_title, data['overview'], key_points, topics, takeaways)
 
     def _merge_summaries(
         self,
         episode_id: str,
         episode_title: str,
         summaries: List[Summary],
+        progress_callback=None,
     ) -> Summary:
-        """Merge multiple chunk summaries into a single summary."""
-        # Combine overviews
-        combined_overview = "\n\n".join(s.overview for s in summaries)
+        """Synthesize an outline; retain every detailed point and its evidence.
 
-        # Collect all key points
-        all_key_points = []
-        for s in summaries:
-            all_key_points.extend(s.key_points)
+        The model only maps chapter ids and writes the introduction/implications.
+        It cannot accidentally remove examples by rewriting all detailed notes.
+        """
+        if not summaries:
+            raise SummaryOutputError('invalid')
+        if len(summaries) == 1:
+            return replace(summaries[0], episode_id=episode_id, title=episode_title)
 
-        # Collect all topics (deduplicate)
-        all_topics = []
-        seen_topics = set()
-        for s in summaries:
-            for topic in s.topics:
-                if topic not in seen_topics:
-                    all_topics.append(topic)
-                    seen_topics.add(topic)
+        outlines = []
+        sources = {}
+        for chunk_index, summary in enumerate(summaries):
+            chapter_names = list(dict.fromkeys(summary.topics + [p.topic for p in summary.key_points]))
+            chapters = []
+            for topic_index, topic in enumerate(chapter_names):
+                source_id = f'{chunk_index}:{topic_index}'
+                sources[source_id] = [p for p in summary.key_points if p.topic == topic]
+                chapters.append({'id': source_id, 'topic': topic})
+            outlines.append({'overview': summary.overview, 'chapters': chapters,
+                             'takeaways': summary.takeaways})
+        payload = json.dumps(outlines, ensure_ascii=False)
+        if len(payload) > self.chunk_chars:
+            if len(summaries) == 2:
+                # Never submit an over-context request or silently save half an
+                # episode when a provider ignores the concise overview contract.
+                raise SummaryOutputError('length')
+            midpoint = len(summaries) // 2
+            halves = [self._merge_summaries(episode_id, episode_title, part, progress_callback)
+                      for part in (summaries[:midpoint], summaries[midpoint:])]
+            return self._merge_summaries(episode_id, episode_title, halves, progress_callback)
 
-        # Collect all takeaways (deduplicate)
-        all_takeaways = []
-        seen_takeaways = set()
-        for s in summaries:
-            for takeaway in s.takeaways:
-                if takeaway not in seen_takeaways:
-                    all_takeaways.append(takeaway)
-                    seen_takeaways.add(takeaway)
-
-        return Summary(
-            episode_id=episode_id,
-            title=episode_title,
-            overview=combined_overview,
-            key_points=all_key_points,
-            topics=all_topics,
-            takeaways=all_takeaways,
-        )
+        response = self._call_llm_with_retry(MERGE_PROMPT.format(
+            episode_title=episode_title, outlines=payload), progress_callback,
+            system_prompt=MERGE_SYSTEM_PROMPT)
+        try:
+            data = extract_json_from_response(response.choices[0].message.content)
+        except (json.JSONDecodeError, TypeError):
+            raise SummaryOutputError('invalid') from None
+        if not isinstance(data, dict) or not isinstance(data.get('topic_groups'), list):
+            raise SummaryOutputError('invalid')
+        groups = data['topic_groups']
+        seen = set()
+        topics = []
+        points = []
+        for group in groups:
+            if (not isinstance(group, dict) or not isinstance(group.get('topic'), str)
+                or not group['topic'].strip() or not isinstance(group.get('sources'), list)
+                or not group['sources']):
+                raise SummaryOutputError('invalid')
+            topic = group['topic'].strip()
+            if topic in topics:
+                raise SummaryOutputError('invalid')
+            topics.append(topic)
+            group_ids = group['sources']
+            for source_id in group_ids:
+                if not isinstance(source_id, str) or source_id not in sources or source_id in seen:
+                    raise SummaryOutputError('invalid')
+                seen.add(source_id)
+            # Preserve chronological point order regardless of the model's id order.
+            for source_id in sources:
+                if source_id in group_ids:
+                    points.extend(replace(p, topic=topic) for p in sources[source_id])
+        if seen != set(sources):
+            raise SummaryOutputError('invalid')
+        return self._parse_summary({
+            'overview': data.get('overview'), 'topics': topics,
+            'key_points': [asdict(p) for p in points],
+            'takeaways': data.get('takeaways'),
+        }, episode_id, episode_title)
 
     def save_summary(self, summary: Summary) -> Path:
         """
@@ -660,37 +581,18 @@ def merge_summaries(fast_summary: Summary, accurate_summary: Summary) -> Summary
             merged_topics.append(topic)
             seen_topics.add(topic.lower().strip())
     
-    # Merge key points - prefer accurate version
-    # Use topic as key to deduplicate, keeping the more detailed version
-    topic_to_keypoint: Dict[str, KeyPoint] = {}
-    
-    # Add accurate key points first (primary - these are preferred)
-    for kp in accurate_summary.key_points:
-        topic_key = kp.topic.lower().strip()
-        topic_to_keypoint[topic_key] = kp
-    
-    # Add fast key points only if topic not already covered
-    # For same topics, prefer accurate version (already added) as it has more detail
-    for kp in fast_summary.key_points:
-        topic_key = kp.topic.lower().strip()
-        if topic_key not in topic_to_keypoint:
-            # New topic from fast version - add it
-            topic_to_keypoint[topic_key] = kp
-        else:
-            # Same topic exists - check if fast version has a longer/better quote
-            existing_kp = topic_to_keypoint[topic_key]
-            # If fast version has more detailed content, merge the best parts
-            if len(kp.original_quote) > len(existing_kp.original_quote) and kp.original_quote:
-                # Fast version has a better quote, use it but keep accurate summary
-                topic_to_keypoint[topic_key] = KeyPoint(
-                    topic=existing_kp.topic,
-                    summary=existing_kp.summary if existing_kp.summary else kp.summary,
-                    original_quote=kp.original_quote,
-                    timestamp=existing_kp.timestamp if existing_kp.timestamp else kp.timestamp,
-                )
-    
-    merged_key_points = list(topic_to_keypoint.values())
-    
+    merged_key_points = list(accurate_summary.key_points)
+    identity = lambda p: (re.sub(r"\s+", "", p.summary).casefold(), p.original_quote.strip())
+    seen_points = {identity(p) for p in merged_key_points}
+    for point in fast_summary.key_points:
+        point_id = identity(point)
+        if point_id not in seen_points:
+            merged_key_points.append(point)
+            seen_points.add(point_id)
+    for point in merged_key_points:
+        if point.topic not in merged_topics:
+            merged_topics.append(point.topic)
+
     # Merge takeaways (accurate first, then unique fast)
     merged_takeaways = list(accurate_summary.takeaways)
     seen_takeaways = set(t.lower().strip() for t in merged_takeaways)

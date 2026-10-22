@@ -61,3 +61,6 @@ notion-markdown>=0.7.0
 
 # Optional: Flash Attention for faster inference (CUDA only)
 # flash-attn>=2.3.0  # Uncomment if using CUDA GPU
+
+# Safe Markdown rendering for podcast HTML exports
+markdown-it-py==4.2.0
