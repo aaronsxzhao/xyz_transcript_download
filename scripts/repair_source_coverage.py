@@ -77,8 +77,11 @@ def repair():
                 raise RuntimeError("Repair receipt source mismatch")
             report["already_repaired"] += 1
             continue
-        active = db.client.table("processing_jobs").select("id,payload,status").eq("user_id", owner).in_("status", ["pending", "fetching", "downloading", "transcribing", "summarizing"]).execute().data
-        if any(row.get("payload", {}).get("episode_id") == episode_id for row in active):
+        active = (db.client.table("processing_jobs").select("id,payload")
+                  .eq("user_id", owner).eq("payload->>episode_id", episode_id)
+                  .in_("payload->>status", ["pending", "fetching", "downloading", "transcribing", "summarizing"])
+                  .execute().data)
+        if active:
             raise RuntimeError("Reported note has an active task; retry maintenance later")
         original_content = note_content(original)
         # Immutable per-run backup is verified BEFORE generating or writing.
