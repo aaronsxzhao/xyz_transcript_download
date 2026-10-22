@@ -11,7 +11,10 @@ jobs:
   restore:
     if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
-    timeout-minutes: 18
+    timeout-minutes: 45
+    concurrency:
+      group: reported-reading-note-repairs
+      cancel-in-progress: false
     env:
       CONTAINER_INSTANCE_ID: ocid1.computecontainerinstance.oc1.iad.anuwcljrram2hqqaueqbs2y4opn3tm2jfpmx4a7gdsscygwyjgnac5vrqgta
     steps:
@@ -38,3 +41,7 @@ jobs:
         env:
           EXPECTED_REVISION: ${{ github.event.workflow_run.head_sha || github.sha }}
         run: python scripts/repair_reported_summary.py
+      - name: Back up and rebuild the two reported notes from their complete saved sources
+        env:
+          EXPECTED_REVISION: ${{ github.event.workflow_run.head_sha || github.sha }}
+        run: python scripts/repair_source_coverage.py

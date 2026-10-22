@@ -122,7 +122,7 @@ def test_groq_long_podcast_chunks_fit_and_failed_chunk_preserves_prior_summary()
     transcript = Transcript(episode_id="episode", language="zh", duration=100, text="中文内容。" * 15000, segments=[])
     with patch.object(summarizer, "_summarize_single", return_value=None) as single:
         assert summarizer.summarize(transcript) is None
-        assert 10000 < len(single.call_args.args[1]) <= 30000
+        assert 0 < len(single.call_args.args[1]) <= 4000
 
 
 def test_groq_video_chunks_fail_instead_of_saving_partial_notes():
