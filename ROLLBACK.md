@@ -1,5 +1,12 @@
 # Restore the previous website
 
+## Task source context (22 October 2026)
+
+The preceding deployed revision is `bb19c62e489680fe2de4ddf12f57971ad0152d60`,
+tagged `safety/pre-task-source-20261022`. This frontend-only change adds platform,
+original-video identity and creation dates to failed-task cards. No stored task,
+account cookie, transcript or summary is changed; no migration is required.
+
 ## Podcast reading notes and prompt (22 October 2026)
 
 The preceding release is `13d59a013758a5b52f76f4d4537787216db16ab4`, tagged

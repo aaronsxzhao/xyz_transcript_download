@@ -31,7 +31,7 @@ export default function ProcessingPanel() {
   }, []);
   useDialog(open, () => setOpen(false));
   const rows = [
-    ...state.jobs.map((job) => ({ ...job, kind: "podcast" as const })),
+    ...state.jobs.map((job) => ({ ...job, kind: "podcast" as const, platform: '', sourceUrl: '', createdAt: '' })),
     ...state.videoTasks
       .filter((t) => t.status !== "discovered")
       .map((t) => ({
@@ -42,6 +42,9 @@ export default function ProcessingPanel() {
         progress: t.progress,
         started_at: t.started_at,
         message: t.error || t.message,
+        platform: t.platform,
+        sourceUrl: t.url,
+        createdAt: t.created_at,
         kind: "video" as const,
       })),
   ].filter(
@@ -141,6 +144,9 @@ export default function ProcessingPanel() {
                             key={job.kind + job.job_id}
                             job={job}
                             kind={job.kind}
+                            platform={job.platform}
+                            sourceUrl={job.sourceUrl}
+                            createdAt={job.createdAt}
                             link={
                               job.kind === "video"
                                 ? `/videos/${job.job_id}`
