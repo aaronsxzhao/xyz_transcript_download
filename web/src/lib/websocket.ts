@@ -22,14 +22,26 @@ async function pollJobs(owner: number) {
     const healthySocket = ws?.readyState === WebSocket.OPEN && Date.now() - lastUpdate < 45000
     // Reconcile quiet active jobs occasionally in case a progress event was lost.
     if (document.visibilityState !== 'hidden' && (!healthySocket || (busy && Date.now() - lastProgress > 5000))) {
-      const [jobsResponse, tasks] = await Promise.all([
-        authFetch('/api/jobs', {signal:AbortSignal.timeout(10000)}), fetchProgress(state.videoTasks.filter(task => active(task.status)).map(task => task.id)),
+      const results = await Promise.allSettled([
+        authFetch('/api/jobs', {signal:AbortSignal.timeout(10000)}).then(async response => {
+          const jobs = response.ok ? (await response.json()).jobs : null
+          if (running && owner === epoch && jobs) {
+            lastProgress = Date.now()
+            useStore.getState().mergeJobs(jobs)
+          }
+        }),
+        fetchProgress(state.videoTasks.filter(task => active(task.status)).map(task => task.id)).then(tasks => {
+          if (running && owner === epoch) {
+            lastProgress = Date.now()
+            useStore.getState().mergeVideoTasks(tasks.tasks)
+          }
+        }),
       ])
-      const jobs = jobsResponse.ok ? (await jobsResponse.json()).jobs : null
-      if (!running || owner !== epoch) return
-      lastProgress = Date.now()
-      if (jobs) useStore.getState().mergeJobs(jobs)
-      useStore.getState().mergeVideoTasks(tasks.tasks)
+      if (running && owner === epoch) {
+        for (const result of results) {
+          if (result.status === 'rejected') console.debug('Progress poll failed:', result.reason)
+        }
+      }
     }
   } catch (error) {
     if (running && owner === epoch) console.debug('Progress poll failed:', error)

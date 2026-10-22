@@ -418,8 +418,18 @@ class DatabaseInterface:
                 "text": transcript_data.text,
                 "segments": transcript_data.segments,
             }
-            with open(transcript_path, "w", encoding="utf-8") as f:
-                json.dump(data, f, ensure_ascii=False, indent=2)
+            import tempfile
+            from pathlib import Path
+            temporary = None
+            try:
+                with tempfile.NamedTemporaryFile(mode="w", encoding="utf-8", dir=transcripts_dir,
+                                                 suffix=".tmp", delete=False) as f:
+                    temporary = Path(f.name)
+                    json.dump(data, f, ensure_ascii=False, indent=2)
+                temporary.replace(transcript_path)
+            finally:
+                if temporary is not None:
+                    temporary.unlink(missing_ok=True)
             return True
     
     def delete_transcript(self, episode_id: str) -> bool:
