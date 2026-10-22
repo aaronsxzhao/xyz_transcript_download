@@ -91,7 +91,7 @@ async def check(browser, origin, width, blocked, output):
         await page.get_by_role('dialog').wait_for()
         await page.keyboard.press('Escape')
         assert not await page.get_by_role('dialog').count()
-        await page.locator('#video-content-scroll').evaluate('(node)=>node.scrollTop=0')
+        await page.locator('main').evaluate('(node)=>node.scrollTop=0')
         await page.screenshot(path=str(output / f'video-{width}-{"fallback" if blocked else "rich"}.png'))
         assert not await page.evaluate('document.documentElement.scrollWidth>innerWidth')
         if width >= 1280:
@@ -100,7 +100,7 @@ async def check(browser, origin, width, blocked, output):
             assert await toc.count() == 2
             await toc.last.click()
             await page.wait_for_timeout(100)
-            assert await page.locator('#video-content-scroll').evaluate('(node)=>node.scrollTop') > 0
+            assert await page.locator('main').evaluate('(node)=>node.scrollTop') > 0
         await page.goto(origin + '/viewer/bench')
         await page.locator('[data-topic-card]').first.wait_for()
         await page.locator('[data-topic-card] button').nth(8).click()

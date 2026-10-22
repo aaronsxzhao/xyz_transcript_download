@@ -47,7 +47,7 @@ function isActiveVideoStatus(status: string) {
 
 export default function Videos() {
   const { videoTasks, mergeVideoTasks, removeVideoTask } = useStore()
-  const [formOpen, setFormOpen] = useState(false)
+  const [formOpen, setFormOpen] = useState(()=>new URLSearchParams(location.search).get('add')==='local')
   const [search, setSearch] = useState('')
   const [channelQuery, setChannelQuery] = useState('')
   const [channelStatus, setChannelStatus] = useState('')

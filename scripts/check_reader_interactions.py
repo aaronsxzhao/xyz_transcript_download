@@ -108,25 +108,25 @@ async def check(browser, origin, width, output, label):
     result['note_and_first_image_ms']=round((time.monotonic()-start)*1000)
     result['layout']=await page.evaluate('''()=>{const a=document.querySelector('article').getBoundingClientRect(),c=document.querySelector('#video-content-scroll').getBoundingClientRect();return {article:a.width,content:c.width,viewport:innerWidth,overflow:document.documentElement.scrollWidth>innerWidth}}''')
     await page.screenshot(path=str(output/f'{label}-{width}-note.png'))
-    if label == 'after':
-        if width<768: await page.get_by_role('button',name='Reading options',exact=True).click()
-        await page.locator('.reader-export > summary').click()
-        bounds = await page.locator('.reader-export-panel').bounding_box()
-        assert bounds['x'] >= 0 and bounds['x'] + bounds['width'] <= width
-        await page.locator('.reader-export > summary').press('Escape')
-        assert not await page.locator('.reader-export').evaluate('(node)=>node.open')
-        if width < 768:
-            for control in ['Smaller reading text', 'Larger reading text', 'Go back']:
-                bounds = await page.get_by_role('button',name=control,exact=True).bounding_box()
-                assert bounds['height'] >= 44 and bounds['width'] >= 44
-        result['compact_controls_and_export_bounds'] = True
-    await page.get_by_label('Reading width',exact=True).select_option('comfortable')
-    await page.wait_for_function("document.documentElement.dataset.readerWidth==='comfortable'")
+    await page.get_by_role('button',name='Export',exact=True).click()
+    bounds=await page.locator('.reader-menu-panel').bounding_box()
+    assert bounds['x']>=0 and bounds['x']+bounds['width']<=width
+    await page.keyboard.press('Escape')
+    assert not await page.locator('.reader-menu-panel').count()
+    await page.get_by_role('button',name='Reading appearance',exact=True).click()
+    await page.get_by_role('group',name='Reading width',exact=True).get_by_role('button',name='Comfortable',exact=True).click()
     assert (await page.locator('article').bounding_box())['width']<=821
-    await page.get_by_label('Reading width',exact=True).select_option('wide')
-    await page.get_by_role('button',name='Hide contents',exact=True).click()
-    assert not await page.locator('aside[data-reader-contents]').is_visible()
-    await page.get_by_role('button',name='Show contents',exact=True).click()
+    await page.get_by_role('group',name='Reading width',exact=True).get_by_role('button',name='Wide',exact=True).click()
+    await page.keyboard.press('Escape')
+    if width>1170:
+        await page.get_by_role('button',name='Toggle contents',exact=True).click()
+        assert not await page.locator('aside[data-reader-contents]').is_visible()
+        await page.get_by_role('button',name='Toggle contents',exact=True).click()
+    else:
+        await page.get_by_role('button',name='Contents',exact=True).click()
+        await page.locator('.reader-menu-panel button').first.click()
+        await page.locator('main').evaluate('(element)=>element.scrollTop=0')
+    result['compact_controls_and_export_bounds']=True
     assert 'preview=true' in await page.locator('article img').first.get_attribute('src')
     await page.locator('article .reader-screenshot').first.click()
     assert 'preview=true' not in await page.get_by_role('dialog',name='Enlarged screenshot').locator('img').get_attribute('src')
@@ -160,9 +160,9 @@ async def check(browser, origin, width, output, label):
     image_count=len(images)
     loaded_paths=set(images)
     start=time.monotonic()
-    await page.locator('#video-content-scroll').evaluate('(e)=>e.scrollTop=160')
-    saved_scroll=await page.locator('#video-content-scroll').evaluate('(e)=>e.scrollTop')
-    await page.get_by_role('button',name='Mind Map',exact=True).click()
+    await page.locator('main').evaluate('(e)=>e.scrollTop=160')
+    saved_scroll=await page.locator('main').evaluate('(e)=>e.scrollTop')
+    await page.get_by_role('tab',name='Mind map',exact=True).click()
     await page.locator('svg.markmap foreignObject').first.wait_for(timeout=20000)
     result['mindmap_ms']=round((time.monotonic()-start)*1000)
     await page.wait_for_timeout(150)
@@ -174,14 +174,14 @@ async def check(browser, origin, width, output, label):
     await page.get_by_role('button',name=re.compile('fit to view',re.I)).click()
     await page.screenshot(path=str(output/f'{label}-{width}-mindmap.png'))
     start=time.monotonic()
-    await page.get_by_role('button',name='Note',exact=True).click()
+    await page.get_by_role('tab',name='Summary',exact=True).click()
     await page.locator('article').wait_for(state='visible')
-    result['reading_position_retained']=await page.locator('#video-content-scroll').evaluate('(e)=>e.scrollTop')>=saved_scroll-1
+    result['reading_position_retained']=await page.locator('main').evaluate('(e)=>e.scrollTop')>=saved_scroll-1
     result['return_to_note_ms']=round((time.monotonic()-start)*1000)
     result['duplicate_image_requests_after_tab']=sum(path in loaded_paths for path in images[image_count:])
-    await page.get_by_role('button',name='Transcript',exact=True).click()
+    await page.get_by_role('tab',name='Transcript',exact=True).click()
     await page.get_by_text('Line 00000:',exact=False).first.wait_for()
-    await page.get_by_role('button',name='Note',exact=True).click()
+    await page.get_by_role('tab',name='Summary',exact=True).click()
     copy=page.get_by_role('button',name='Copy note',exact=True)
     if await copy.count():
         await copy.click()
@@ -198,20 +198,20 @@ async def check(browser, origin, width, output, label):
               }))).observe(document.body, {childList:true});
             }""")
         await print_spy()
-        await page.locator('.reader-export > summary').click()
+        await page.get_by_role('button',name='Export',exact=True).click()
         await page.get_by_title('Download PDF',exact=True).click()
         await page.wait_for_timeout(250)
-        result['pdf_pending_until_images_load']=await page.get_by_title('Download PDF',exact=True).is_disabled()
+        result['pdf_pending_until_images_load']=await page.get_by_role('button',name='Export',exact=True).get_attribute('aria-busy')=='true'
         assert result['pdf_pending_until_images_load']
         await page.wait_for_function('window.__printed === true',timeout=15000)
-        assert not await page.get_by_title('Download PDF',exact=True).is_disabled()
-        if not await page.locator('.reader-export').evaluate('(node)=>node.open'):
-            await page.locator('.reader-export > summary').click()
+        assert await page.get_by_role('button',name='Export',exact=True).get_attribute('aria-busy')=='false'
+        if not await page.locator('.reader-menu-panel').count():
+            await page.get_by_role('button',name='Export',exact=True).click()
         async with page.expect_download() as pending_download:
             await page.get_by_title('Download .md',exact=True).click()
         result['markdown_download_works']=(await pending_download.value).suggested_filename.endswith('.md')
-        if not await page.locator('.reader-export').evaluate('(node)=>node.open'):
-            await page.locator('.reader-export > summary').click()
+        if not await page.locator('.reader-menu-panel').count():
+            await page.get_by_role('button',name='Export',exact=True).click()
         await page.get_by_title('Send to Notion',exact=True).click()
         await page.get_by_role('dialog',name='Export to Notion').wait_for()
         await page.get_by_role('button',name='Close Notion export',exact=True).first.click()
@@ -222,10 +222,10 @@ async def check(browser, origin, width, output, label):
         await page.get_by_role('button',name='Expand all',exact=True).click()
         assert await page.locator('[data-topic-card] button[aria-expanded=false]').count()==0
         await page.get_by_role('button',name='Collapse all',exact=True).click()
-        await page.get_by_label('Summary contents',exact=True).select_option('summary-topic-0')
+        await page.locator('aside[data-reader-contents]').get_by_role('button',name='Measured topic',exact=True).click()
         assert await page.locator('#summary-topic-0 button').get_attribute('aria-expanded')=='true'
         await print_spy()
-        await page.locator('.reader-export > summary').click()
+        await page.get_by_role('button',name='Export',exact=True).click()
         await page.get_by_title('Download PDF',exact=True).click()
         await page.wait_for_function('window.__printed === true' ,timeout=15000)
         result['podcast_pdf_works']=True

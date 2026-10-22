@@ -340,15 +340,7 @@ const NoteMarkdown = memo(function NoteMarkdown({ markdown, onImage }: { markdow
                           const id = decodeURIComponent(href.slice(1))
                           const el = document.getElementById(id)
                           if (!el) return
-                          const container = document.getElementById('video-content-scroll')
-                          if (container) {
-                            const elRect = el.getBoundingClientRect()
-                            const containerRect = container.getBoundingClientRect()
-                            const scrollTop = container.scrollTop + (elRect.top - containerRect.top) - 12
-                            container.scrollTo({ top: Math.max(0, scrollTop), behavior: 'smooth' })
-                          } else {
-                            el.scrollIntoView({ behavior: 'smooth', block: 'start' })
-                          }
+                          el.scrollIntoView({ block: 'start' })
                         }}
                         className="text-indigo-400 hover:underline hover:text-indigo-300 transition-colors"
                       >

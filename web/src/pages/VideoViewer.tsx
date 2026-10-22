@@ -1,544 +1,714 @@
-import {TaskProgress} from '../components/TaskStatus'
-import { OptionalTool } from '../components/DeferredView'
-import { useWarmCache } from '../lib/cache'
-import { printHtml } from '../lib/print'
-import { extractNoteToc } from '../lib/noteMarkdown'
-const NoteRecovery = lazy(() => import('../components/DataRecovery').then(module=>({default:module.NoteRecovery})))
-import ReaderControls from '../components/ReaderControls'
-import {useRecordReading} from '../lib/readingHistory'
-import { useReadingPosition, useDialog } from '../lib/reading'
-import { escapeHtml, markdownToSafeHtml } from '../lib/safeHtml'
-import { getPreference } from '../lib/preferences'
-import { getAccountId } from '../lib/preferences'
-import { CacheKeys, getCache, setCache, removeCache } from '../lib/cache'
-import { usePageTiming } from '../lib/pageTiming'
-import { lazy, useEffect, useState, useMemo, useCallback, useRef } from 'react'
-import { useParams, Link, useNavigate } from 'react-router-dom'
+import { TaskProgress } from "../components/TaskStatus";
+import { useWarmCache } from "../lib/cache";
+import { extractNoteToc } from "../lib/noteMarkdown";
+import ReaderFrame, {
+  ReaderMenu,
+  MoreReaderActions,
+  RegenerateAction,
+} from "../components/ReaderChrome";
+import { useRecordReading } from "../lib/readingHistory";
+import { useReadingPosition, useDialog } from "../lib/reading";
+import { markdownToSafeHtml } from "../lib/safeHtml";
+import { getPreference } from "../lib/preferences";
+import { getAccountId } from "../lib/preferences";
+import { CacheKeys, getCache, setCache, removeCache } from "../lib/cache";
+import { usePageTiming } from "../lib/pageTiming";
+import { useEffect, useState, useMemo, useCallback, useRef } from "react";
+import { useParams, Link, useNavigate } from "react-router-dom";
 import {
-  ArrowLeft, Copy, Download, Check, FileText, Map, Clock, Loader2,
-  ChevronRight, FileDown, RefreshCw, XCircle, ExternalLink, RotateCcw,
-  Search, X, CheckCircle, AlertTriangle,
-} from 'lucide-react'
-import { fetchVideoTask, fetchVideoTranscript, fetchVideoVersion, retryVideoTask, fetchNotionPages, exportMarkdownToNotion, type VideoTask, type NotionPage } from '../lib/api'
-import { useStore, mergeVideoTaskPair } from '../lib/store'
-import { deferView } from '../components/DeferredView'
-import PlainNote from '../components/PlainNote'
-const MarkdownPreview = deferView(()=>import('../components/video/MarkdownPreview'))
-const TranscriptPanel = deferView(()=>import('../components/video/TranscriptPanel'))
-import MindMapView, { preloadMindMap } from '../components/video/MindMapView'
+  Copy,
+  Download,
+  Check,
+  FileText,
+  Map,
+  Loader2,
+  FileDown,
+  XCircle,
+  ExternalLink,
+  RotateCcw,
+  Search,
+  X,
+  CheckCircle,
+  AlertTriangle,
+} from "lucide-react";
+import {
+  fetchVideoTask,
+  fetchVideoTranscript,
+  fetchVideoVersion,
+  retryVideoTask,
+  fetchNotionPages,
+  exportMarkdownToNotion,
+  type VideoTask,
+  type NotionPage,
+} from "../lib/api";
+import { useStore, mergeVideoTaskPair } from "../lib/store";
+import { deferView } from "../components/DeferredView";
+import PlainNote from "../components/PlainNote";
+const MarkdownPreview = deferView(
+  () => import("../components/video/MarkdownPreview"),
+);
+const ReaderDetails = deferView(
+  () => import("../components/video/ReaderDetails"),
+);
+const TranscriptPanel = deferView(
+  () => import("../components/video/TranscriptPanel"),
+);
+const MindMapView = deferView(() => import("../components/video/MindMapView"));
+const preloadMindMap = () =>
+  import("../components/video/MindMapView").then((module) =>
+    module.preloadMindMap(),
+  );
 
-type ViewMode = 'markdown' | 'mindmap' | 'transcript'
+type ViewMode = "markdown" | "mindmap" | "transcript";
 
 export default function VideoViewer() {
-  const { taskId } = useParams<{ taskId: string }>()
-  const navigate = useNavigate()
-  const [task, setTask] = useState<VideoTask | null>(() => getCache(CacheKeys.VIDEO_NOTE(taskId!)))
-  const taskRef = useRef(task)
-  taskRef.current = task
-  const storeTaskSlice = useStore(s => (taskId ? s.videoTasks.find(t => t.id === taskId) : undefined))
+  const { taskId } = useParams<{ taskId: string }>();
+  const navigate = useNavigate();
+  const [task, setTask] = useState<VideoTask | null>(() =>
+    getCache(CacheKeys.VIDEO_NOTE(taskId!)),
+  );
+  const taskRef = useRef(task);
+  taskRef.current = task;
+  const storeTaskSlice = useStore((s) =>
+    taskId ? s.videoTasks.find((t) => t.id === taskId) : undefined,
+  );
   const displayTask = useMemo(() => {
-    if (!task) return null
-    return storeTaskSlice ? mergeVideoTaskPair(storeTaskSlice, task) : task
-  }, [task, storeTaskSlice])
-  const [loading, setLoading] = useState(() => !getCache(CacheKeys.VIDEO_NOTE(taskId!)))
-  const [taskVerified, setTaskVerified] = useState(false)
-  const [error, setError] = useState('')
-  usePageTiming('video_note', !loading && task?.id === taskId, CacheKeys.VIDEO_NOTE(taskId!), !!error && !loading)
-  const [loadAttempt, setLoadAttempt] = useState(0)
-  const [viewMode, setViewMode] = useState<ViewMode>('markdown')
-  const [mapVisited, setMapVisited] = useState(false)
-  const [selectedVersion, setSelectedVersion] = useState<string>('')
-  useWarmCache<VideoTask>(CacheKeys.VIDEO_NOTE(taskId!), value => {setTask(value);setLoading(false)})
-  const [versionContents, setVersionContents] = useState<Record<string, string>>({})
-  const [versionLoading, setVersionLoading] = useState(false)
-  const [transcript, setTranscript] = useState<VideoTask['transcript'] | undefined>()
-  const [transcriptLoading, setTranscriptLoading] = useState(false)
-  const [copied, setCopied] = useState(false)
-  const [copying, setCopying] = useState(false)
-  const [pdfLoading, setPdfLoading] = useState(false)
-  const [regenerating, setRegenerating] = useState(false)
+    if (!task) return null;
+    return storeTaskSlice ? mergeVideoTaskPair(storeTaskSlice, task) : task;
+  }, [task, storeTaskSlice]);
+  const [loading, setLoading] = useState(
+    () => !getCache(CacheKeys.VIDEO_NOTE(taskId!)),
+  );
+  const [taskVerified, setTaskVerified] = useState(false);
+  const [error, setError] = useState("");
+  usePageTiming(
+    "video_note",
+    !loading && task?.id === taskId,
+    CacheKeys.VIDEO_NOTE(taskId!),
+    !!error && !loading,
+  );
+  const [loadAttempt, setLoadAttempt] = useState(0);
+  const [viewMode, setViewMode] = useState<ViewMode>("markdown");
+  const [mapVisited, setMapVisited] = useState(false);
+  const [utility, setUtility] = useState("");
+  const tabPositions = useRef<Record<string, number>>({});
+  const changeView = (next: ViewMode) => {
+    const main = document.querySelector("main");
+    tabPositions.current[viewMode] = main?.scrollTop || 0;
+    if (next === "mindmap") setMapVisited(true);
+    setViewMode(next);
+    requestAnimationFrame(() => {
+      if (main) main.scrollTop = tabPositions.current[next] || 0;
+    });
+  };
+  const [selectedVersion, setSelectedVersion] = useState<string>("");
+  useWarmCache<VideoTask>(CacheKeys.VIDEO_NOTE(taskId!), (value) => {
+    setTask(value);
+    setLoading(false);
+  });
+  const [versionContents, setVersionContents] = useState<
+    Record<string, string>
+  >({});
+  const [versionLoading, setVersionLoading] = useState(false);
+  const [transcript, setTranscript] = useState<
+    VideoTask["transcript"] | undefined
+  >();
+  const [transcriptLoading, setTranscriptLoading] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const [copying, setCopying] = useState(false);
+  const [pdfLoading, setPdfLoading] = useState(false);
+  const [regenerating, setRegenerating] = useState(false);
 
-  const [notionOpen, setNotionOpen] = useState(false)
-  useDialog(notionOpen, () => setNotionOpen(false))
-  const [notionPages, setNotionPages] = useState<NotionPage[]>([])
-  const [notionSearch, setNotionSearch] = useState('')
-  const [notionLoading, setNotionLoading] = useState(false)
-  const [notionExporting, setNotionExporting] = useState(false)
-  const [notionSelectedId, setNotionSelectedId] = useState('')
-  const [notionResult, setNotionResult] = useState<{ ok: boolean; message: string; url?: string } | null>(null)
-  const notionSearchTimeout = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const notionModalRef = useRef<HTMLDivElement>(null)
+  const [notionOpen, setNotionOpen] = useState(false);
+  useDialog(notionOpen, () => setNotionOpen(false));
+  const [notionPages, setNotionPages] = useState<NotionPage[]>([]);
+  const [notionSearch, setNotionSearch] = useState("");
+  const [notionLoading, setNotionLoading] = useState(false);
+  const [notionExporting, setNotionExporting] = useState(false);
+  const [notionSelectedId, setNotionSelectedId] = useState("");
+  const [notionResult, setNotionResult] = useState<{
+    ok: boolean;
+    message: string;
+    url?: string;
+  } | null>(null);
+  const notionSearchTimeout = useRef<ReturnType<typeof setTimeout> | null>(
+    null,
+  );
+  const notionModalRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (!taskId) return
-    let cancelled = false
-    let inFlight = false
-    setTaskVerified(false)
-    const cached = getCache<VideoTask>(CacheKeys.VIDEO_NOTE(taskId))
-    setLoading(!cached && taskRef.current?.id !== taskId)
+    if (!taskId) return;
+    let cancelled = false;
+    let inFlight = false;
+    setTaskVerified(false);
+    const cached = getCache<VideoTask>(CacheKeys.VIDEO_NOTE(taskId));
+    setLoading(!cached && taskRef.current?.id !== taskId);
     if (taskRef.current?.id !== taskId) {
-      setTask(cached)
-      setSelectedVersion('')
-      setVersionContents({})
-      setTranscript(undefined)
+      setTask(cached);
+      setSelectedVersion("");
+      setVersionContents({});
+      setTranscript(undefined);
+      setMapVisited(false);
+      setViewMode("markdown");
+      setUtility("");
+      tabPositions.current = {};
     }
 
     const load = async () => {
-      if (cancelled || inFlight) return
-      inFlight = true
-      const owner = getAccountId()
+      if (cancelled || inFlight) return;
+      inFlight = true;
+      const owner = getAccountId();
       try {
-        const data = await fetchVideoTask(taskId)
+        const data = await fetchVideoTask(taskId);
         if (!cancelled && owner === getAccountId()) {
-          setTask(data)
-          if(!['success','failed','cancelled'].includes(data.status))useStore.getState().updateVideoTask(data)
-          setTaskVerified(true)
-          if (data.status === 'success') setCache(CacheKeys.VIDEO_NOTE(taskId), data, owner)
-          else removeCache(CacheKeys.VIDEO_NOTE(taskId))
-          setError('')
+          setTask(data);
+          if (!["success", "failed", "cancelled"].includes(data.status))
+            useStore.getState().updateVideoTask(data);
+          setTaskVerified(true);
+          if (data.status === "success")
+            setCache(CacheKeys.VIDEO_NOTE(taskId), data, owner);
+          else removeCache(CacheKeys.VIDEO_NOTE(taskId));
+          setError("");
         }
       } catch (e) {
-        console.error('Failed to load task:', e)
-        if (!cancelled) setError(e instanceof Error ? e.message : 'Cannot load video notes')
+        console.error("Failed to load task:", e);
+        if (!cancelled)
+          setError(e instanceof Error ? e.message : "Cannot load video notes");
       } finally {
-        inFlight = false
-        if (!cancelled) setLoading(false)
+        inFlight = false;
+        if (!cancelled) setLoading(false);
       }
+    };
+
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, [taskId, loadAttempt]);
+
+  const completedRead = useRef("");
+  useEffect(() => {
+    const live = storeTaskSlice;
+    if (!live || live.id !== taskId) return;
+    if (!["success", "failed", "cancelled"].includes(live.status)) {
+      completedRead.current = "";
+      return;
     }
-
-    load()
-    return () => { cancelled = true }
-  }, [taskId, loadAttempt])
-
-  const completedRead=useRef('')
-  useEffect(()=>{
-    const live=storeTaskSlice
-    if(!live||live.id!==taskId)return
-    if(!['success','failed','cancelled'].includes(live.status)){completedRead.current='';return}
-    const key=live.id+':'+live.status+':'+(live.updated_at||'')
-    if(completedRead.current===key||taskRef.current?.status===live.status)return
-    completedRead.current=key
-    setLoadAttempt(n=>n+1)
-  },[taskId,storeTaskSlice?.status,storeTaskSlice?.updated_at])
+    const key = live.id + ":" + live.status + ":" + (live.updated_at || "");
+    if (
+      completedRead.current === key ||
+      taskRef.current?.status === live.status
+    )
+      return;
+    completedRead.current = key;
+    setLoadAttempt((n) => n + 1);
+  }, [taskId, storeTaskSlice?.status, storeTaskSlice?.updated_at]);
 
   useEffect(() => {
     // An empty transcript during processing must not become the cached final
     // result. Invalidate older content on regeneration and fetch on completion.
-    if (!task || task.id !== taskId || !['success', 'failed', 'cancelled'].includes(task.status)) {
-      setTranscript(undefined)
-      return
+    if (
+      !task ||
+      task.id !== taskId ||
+      !["success", "failed", "cancelled"].includes(task.status)
+    ) {
+      setTranscript(undefined);
+      return;
     }
     // Cached notes may predate a regeneration started in another tab. Confirm
     // the current task status before caching its separately loaded transcript.
-    if (!taskVerified || !taskId || viewMode !== 'transcript' || transcript !== undefined) return
-    let active = true
-    const controller = new AbortController()
-    setTranscriptLoading(true)
-    fetchVideoTranscript(taskId, controller.signal).then(data => {
-      if (active) setTranscript(data.transcript)
-    }).catch(error => {
-      if (active) setError(error instanceof Error ? error.message : 'Cannot load transcript')
-    }).finally(() => { if (active) setTranscriptLoading(false) })
-    return () => { active = false; controller.abort() }
-  }, [taskId, task?.id, task?.status, taskVerified, viewMode, transcript, loadAttempt])
+    if (
+      !taskVerified ||
+      !taskId ||
+      viewMode !== "transcript" ||
+      transcript !== undefined
+    )
+      return;
+    let active = true;
+    const controller = new AbortController();
+    setTranscriptLoading(true);
+    fetchVideoTranscript(taskId, controller.signal)
+      .then((data) => {
+        if (active) setTranscript(data.transcript);
+      })
+      .catch((error) => {
+        if (active)
+          setError(
+            error instanceof Error ? error.message : "Cannot load transcript",
+          );
+      })
+      .finally(() => {
+        if (active) setTranscriptLoading(false);
+      });
+    return () => {
+      active = false;
+      controller.abort();
+    };
+  }, [
+    taskId,
+    task?.id,
+    task?.status,
+    taskVerified,
+    viewMode,
+    transcript,
+    loadAttempt,
+  ]);
 
   useEffect(() => {
-    setVersionLoading(false)
-    if (!taskId || !selectedVersion || selectedVersion in versionContents) return
-    let active = true
-    const controller = new AbortController()
-    setVersionLoading(true)
-    fetchVideoVersion(taskId, selectedVersion, controller.signal).then(version => {
-      if (active) setVersionContents(cache => ({ ...cache, [version.id]: version.content }))
-    }).catch(error => {
-      if (active) setError(error instanceof Error ? error.message : 'Cannot load version')
-    }).finally(() => { if (active) setVersionLoading(false) })
-    return () => { active = false; controller.abort() }
-  }, [taskId, selectedVersion, versionContents, loadAttempt])
+    setVersionLoading(false);
+    if (!taskId || !selectedVersion || selectedVersion in versionContents)
+      return;
+    let active = true;
+    const controller = new AbortController();
+    setVersionLoading(true);
+    fetchVideoVersion(taskId, selectedVersion, controller.signal)
+      .then((version) => {
+        if (active)
+          setVersionContents((cache) => ({
+            ...cache,
+            [version.id]: version.content,
+          }));
+      })
+      .catch((error) => {
+        if (active)
+          setError(
+            error instanceof Error ? error.message : "Cannot load version",
+          );
+      })
+      .finally(() => {
+        if (active) setVersionLoading(false);
+      });
+    return () => {
+      active = false;
+      controller.abort();
+    };
+  }, [taskId, selectedVersion, versionContents, loadAttempt]);
 
   const handleCopy = async () => {
-    const md = getCurrentContent()
-    if (!md || copying) return
-    setCopying(true)
+    const md = getCurrentContent();
+    if (!md || copying) return;
+    setCopying(true);
     try {
       try {
         // Passing promised HTML keeps clipboard permission tied to the click
         // on Safari, even while the formatter module is still downloading.
-        const html = markdownToSafeHtml(md).then(value => new Blob([value], { type: 'text/html' }))
-        void html.catch(() => {})
-        await navigator.clipboard.write([new ClipboardItem({ 'text/html': html, 'text/plain': new Blob([md], {type:'text/plain'}) })])
-      } catch { await navigator.clipboard.writeText(md) }
-      setCopied(true)
-      setTimeout(() => setCopied(false), 2000)
-    } catch { setError('Copy failed. Please allow clipboard access or download the Markdown file.') }
-    finally { setCopying(false) }
-  }
+        const html = markdownToSafeHtml(md).then(
+          (value) => new Blob([value], { type: "text/html" }),
+        );
+        void html.catch(() => {});
+        await navigator.clipboard.write([
+          new ClipboardItem({
+            "text/html": html,
+            "text/plain": new Blob([md], { type: "text/plain" }),
+          }),
+        ]);
+      } catch {
+        await navigator.clipboard.writeText(md);
+      }
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      setError(
+        "Copy failed. Please allow clipboard access or download the Markdown file.",
+      );
+    } finally {
+      setCopying(false);
+    }
+  };
 
   const handleDownload = () => {
-    const md = getCurrentContent()
-    if (!md || !task) return
-    const blob = new Blob([md], { type: 'text/markdown;charset=utf-8' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = `${task.title || 'notes'}.md`
-    document.body.appendChild(a)
-    a.click()
+    const md = getCurrentContent();
+    if (!md || !task) return;
+    const blob = new Blob([md], { type: "text/markdown;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${task.title || "notes"}.md`;
+    document.body.appendChild(a);
+    a.click();
     setTimeout(() => {
-      document.body.removeChild(a)
-      URL.revokeObjectURL(url)
-    }, 100)
-  }
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }, 100);
+  };
 
   const handleDownloadPdf = async () => {
-    const md = getCurrentContent()
-    if (!md || pdfLoading) return
-    setPdfLoading(true)
+    const md = getCurrentContent();
+    if (!md || pdfLoading) return;
+    setPdfLoading(true);
     try {
-      const body = await markdownToSafeHtml(md)
-
-      const html = `<!DOCTYPE html>
-<html><head>
-<meta charset="utf-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src https: http: data: blob:; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'">
-<title>${escapeHtml(task?.title || 'Notes')}</title>
-<style>
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto Sans SC", "PingFang SC", "Microsoft YaHei", sans-serif; color: #1f2937; background: #fff; padding: 20px 30px; font-size: 13px; line-height: 1.75; }
-  h1 { font-size: 22px; font-weight: 700; color: #111827; border-bottom: 2px solid #e5e7eb; padding-bottom: 8px; margin: 24px 0 16px; }
-  h2 { font-size: 18px; font-weight: 700; color: #1e40af; margin: 28px 0 12px; }
-  h3 { font-size: 15px; font-weight: 600; color: #1f2937; margin: 20px 0 8px; }
-  h4, h5, h6 { font-size: 14px; font-weight: 600; color: #374151; margin: 16px 0 6px; }
-  p { font-size: 13px; line-height: 1.75; color: #374151; margin: 8px 0; }
-  li { font-size: 13px; line-height: 1.75; color: #374151; }
-  ul, ol { padding-left: 20px; margin: 6px 0; }
-  strong { color: #111827; }
-  a { color: #4f46e5; text-decoration: none; }
-  blockquote { border-left: 3px solid #6366f1; background: #eef2ff; color: #374151; padding: 10px 16px; margin: 12px 0; border-radius: 0 6px 6px 0; font-size: 13px; }
-  blockquote p { margin: 4px 0; }
-  code { font-family: "SF Mono", "Fira Code", monospace; font-size: 12px; color: #6366f1; background: #f3f4f6; padding: 1px 5px; border-radius: 3px; }
-  pre { background: #f8fafc; border: 1px solid #e5e7eb; border-radius: 6px; padding: 12px; overflow-x: auto; margin: 12px 0; }
-  pre code { background: none; padding: 0; color: #1f2937; font-size: 12px; }
-  table { width: 100%; border-collapse: collapse; margin: 12px 0; font-size: 12.5px; }
-  th { background: #f3f4f6; font-weight: 600; color: #111827; text-align: left; padding: 8px 10px; border: 1px solid #d1d5db; }
-  td { padding: 8px 10px; border: 1px solid #d1d5db; color: #374151; }
-  hr { border: none; border-top: 1px solid #e5e7eb; margin: 24px 0; }
-  img { max-width: 100%; height: auto; border-radius: 6px; border: 1px solid #e5e7eb; margin: 10px 0; }
-  @media print {
-    body { padding: 0; }
-    table, img, blockquote, pre { page-break-inside: avoid; }
-    h1, h2, h3 { page-break-after: avoid; }
-  }
-</style>
-</head><body>${body}</body></html>`
-      await printHtml(html)
+      const { printVideo } = await import("../lib/videoPrint");
+      await printVideo(md, task?.title || "Notes");
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Could not prepare the PDF. Please retry or download Markdown.')
+      setError(
+        e instanceof Error
+          ? e.message
+          : "Could not prepare the PDF. Please retry or download Markdown.",
+      );
     } finally {
-      setPdfLoading(false)
+      setPdfLoading(false);
     }
-  }
+  };
 
   const handleRegenerate = async () => {
-    if (!task || regenerating) return
-    setRegenerating(true)
-    setError('')
+    if (!task || regenerating) return;
+    setRegenerating(true);
+    setError("");
     try {
-      await retryVideoTask(task.id)
-      completedRead.current=''
-      const pending = { ...task, status: 'pending', progress: 0, message: 'Queued for processing...', error: '' }
-      taskRef.current = pending
-      setTask(pending)
-      useStore.getState().updateVideoTask(pending)
-      setSelectedVersion('')
+      await retryVideoTask(task.id);
+      completedRead.current = "";
+      const pending = {
+        ...task,
+        status: "pending",
+        progress: 0,
+        message: "Queued for processing...",
+        error: "",
+      };
+      taskRef.current = pending;
+      setTask(pending);
+      useStore.getState().updateVideoTask(pending);
+      setSelectedVersion("");
     } catch (e) {
-      console.error('Regenerate failed:', e)
-      setError(e instanceof Error ? e.message : 'Could not regenerate notes')
+      console.error("Regenerate failed:", e);
+      setError(e instanceof Error ? e.message : "Could not regenerate notes");
     } finally {
-      setRegenerating(false)
+      setRegenerating(false);
     }
-  }
+  };
 
   const getCurrentContent = (): string => {
-    if (!task) return ''
-    if (selectedVersion) return versionContents[selectedVersion] || ''
-    return task.markdown || ''
-  }
+    if (!task) return "";
+    if (selectedVersion) return versionContents[selectedVersion] || "";
+    return task.markdown || "";
+  };
 
   const formatDuration = (sec: number) => {
-    const m = Math.floor(sec / 60)
-    const s = Math.floor(sec % 60)
-    return `${m}:${s.toString().padStart(2, '0')}`
-  }
+    const m = Math.floor(sec / 60);
+    const s = Math.floor(sec % 60);
+    return `${m}:${s.toString().padStart(2, "0")}`;
+  };
 
-  const content = getCurrentContent()
-  useReadingPosition(`video:${taskId}`, 'video-content-scroll', !loading && !!task && !!content)
-  useRecordReading({id:taskId!,kind:'video',title:task?.title||'',source:task?.channel,thumbnail:task?.thumbnail},!loading&&taskVerified&&task?.status==='success'&&!!content,'video-content-scroll')
-  const toc = useMemo(() => extractNoteToc(content), [content])
+  const content = getCurrentContent();
+  useReadingPosition(
+    `video:${taskId}`,
+    undefined,
+    !loading && !!task && !!content,
+  );
+  useRecordReading(
+    {
+      id: taskId!,
+      kind: "video",
+      title: task?.title || "",
+      source: task?.channel,
+      thumbnail: task?.thumbnail,
+    },
+    !loading &&
+      taskVerified &&
+      task?.status === "success" &&
+      !!content &&
+      viewMode === "markdown",
+  );
+  const toc = useMemo(() => extractNoteToc(content), [content]);
 
   const scrollToHeading = (slug: string) => {
-    const el = document.getElementById(slug)
-    if (!el) return
-    const container = document.getElementById('video-content-scroll')
-    if (container) {
-      const elRect = el.getBoundingClientRect()
-      const containerRect = container.getBoundingClientRect()
-      const scrollTop = container.scrollTop + (elRect.top - containerRect.top) - 12
-      container.scrollTo({ top: Math.max(0, scrollTop), behavior: 'smooth' })
-    } else {
-      el.scrollIntoView({ behavior: 'smooth', block: 'start' })
-    }
-  }
+    const el = document.getElementById(slug);
+    if (!el) return;
+    el.scrollIntoView({ block: "start" });
+  };
 
-  const hasNotionKey = !!getPreference('notion_api_key')
+  const hasNotionKey = !!getPreference("notion_api_key");
 
   const openNotionModal = useCallback(async () => {
-    setNotionOpen(true)
-    setNotionResult(null)
-    setNotionSelectedId('')
-    setNotionSearch('')
-    setNotionLoading(true)
+    setNotionOpen(true);
+    setNotionResult(null);
+    setNotionSelectedId("");
+    setNotionSearch("");
+    setNotionLoading(true);
     try {
-      const data = await fetchNotionPages()
-      setNotionPages(data.pages)
+      const data = await fetchNotionPages();
+      setNotionPages(data.pages);
     } catch (err) {
       setNotionResult({
         ok: false,
-        message: err instanceof Error ? err.message : 'Failed to load pages',
-      })
+        message: err instanceof Error ? err.message : "Failed to load pages",
+      });
     } finally {
-      setNotionLoading(false)
+      setNotionLoading(false);
     }
-  }, [])
+  }, []);
 
   const handleNotionSearch = useCallback((q: string) => {
-    setNotionSearch(q)
-    if (notionSearchTimeout.current) clearTimeout(notionSearchTimeout.current)
+    setNotionSearch(q);
+    if (notionSearchTimeout.current) clearTimeout(notionSearchTimeout.current);
     notionSearchTimeout.current = setTimeout(async () => {
-      setNotionLoading(true)
+      setNotionLoading(true);
       try {
-        const data = await fetchNotionPages(q || undefined)
-        setNotionPages(data.pages)
+        const data = await fetchNotionPages(q || undefined);
+        setNotionPages(data.pages);
       } catch {
         // keep current pages on search error
       } finally {
-        setNotionLoading(false)
+        setNotionLoading(false);
       }
-    }, 400)
-  }, [])
+    }, 400);
+  }, []);
 
   const handleNotionExport = useCallback(async () => {
-    if (!task || !notionSelectedId) return
-    setNotionExporting(true)
-    setNotionResult(null)
+    if (!task || !notionSelectedId) return;
+    setNotionExporting(true);
+    setNotionResult(null);
     try {
-      const {buildNotionExportMarkdown}=await import('../lib/notionExport')
-      const markdown = buildNotionExportMarkdown(task, content)
-      const result = await exportMarkdownToNotion(markdown, task.title || 'Untitled Video Note', notionSelectedId)
+      const { buildNotionExportMarkdown } = await import("../lib/notionExport");
+      const markdown = buildNotionExportMarkdown(task, content);
+      const result = await exportMarkdownToNotion(
+        markdown,
+        task.title || "Untitled Video Note",
+        notionSelectedId,
+      );
       setNotionResult({
         ok: true,
         message: `Exported "${result.title}" to Notion`,
         url: result.url,
-      })
+      });
     } catch (err) {
       setNotionResult({
         ok: false,
-        message: err instanceof Error ? err.message : 'Export failed',
-      })
+        message: err instanceof Error ? err.message : "Export failed",
+      });
     } finally {
-      setNotionExporting(false)
+      setNotionExporting(false);
     }
-  }, [content, notionSelectedId, task])
+  }, [content, notionSelectedId, task]);
 
   if (loading) {
     return (
       <div className="flex items-center justify-center h-[60vh]">
         <Loader2 className="w-8 h-8 animate-spin text-indigo-500" />
       </div>
-    )
+    );
   }
 
   if (!task) {
     return (
       <div className="flex flex-col items-center justify-center h-[60vh] text-gray-500">
-        <p role="alert">{error || 'Task not found'}</p>
-        <button onClick={() => setLoadAttempt(value => value + 1)} className="text-indigo-400 mt-2">Retry</button>
-        <button onClick={() => navigate(-1)} className="text-indigo-400 mt-2">Go Back</button>
+        <p role="alert">{error || "Task not found"}</p>
+        <button
+          onClick={() => setLoadAttempt((value) => value + 1)}
+          className="text-indigo-400 mt-2"
+        >
+          Retry
+        </button>
+        <button onClick={() => navigate(-1)} className="text-indigo-400 mt-2">
+          Go Back
+        </button>
       </div>
-    )
+    );
   }
 
-  const uiTask = displayTask ?? task
-  const versions = task.versions || []
+  const uiTask = displayTask ?? task;
+  const versions = task.versions || [];
 
+  const title =
+    task.title ||
+    (task.platform === "local"
+      ? task.url
+          .split(/[\\/]/)
+          .pop()
+          ?.replace(/\.[^.]+$/, "")
+      : task.url) ||
+    "Untitled video";
   return (
-    <div className="reader-workspace video-reader flex flex-col gap-2">
-      {/* Fixed header bar */}
-      {error && <div role="alert" className="text-sm text-red-300 mb-3">{error} <button className="underline" onClick={() => setLoadAttempt(value => value + 1)}>Retry</button></div>}
-      <div className="flex flex-col gap-3 pb-3 flex-shrink-0">
-        <div className="flex items-center gap-2 min-w-0">
-          <button
-            onClick={() => navigate(-1)}
-            className="p-1.5 text-gray-400 hover:text-white transition-colors flex-shrink-0"
-            aria-label="Go back"
-          >
-            <ArrowLeft size={18} />
-          </button>
-          <div className="min-w-0">
-            <h1 className="page-title text-base font-semibold text-white line-clamp-2">
-              {task.title || (task.url ? (() => {
-                if (task.platform === 'local') {
-                  const parts = task.url.split(/[\\/]/)
-                  const filename = parts[parts.length - 1] || task.url
-                  return filename.replace(/\.[^.]+$/, '') || filename
-                }
-                try {
-                  const u = new URL(task.url)
-                  return u.hostname.replace('www.', '') + u.pathname.replace(/\/$/, '')
-                } catch { return task.url }
-              })() : 'Untitled')}
-            </h1>
-            <div className="flex items-center gap-2 text-xs text-gray-500 mt-0.5">
-              {uiTask.status === 'failed' && (
-                <span className="px-1.5 py-0.5 bg-red-600/20 text-red-400 rounded-full text-xs">
-                  Failed
-                </span>
-              )}
-              {task.style && (
-                <span className="px-1.5 py-0.5 bg-purple-600/20 text-purple-400 rounded-full text-xs">
-                  {task.style}
-                </span>
-              )}
-              {task.duration > 0 && (
-                <span className="flex items-center gap-1">
-                  <Clock size={10} /> {formatDuration(task.duration)}
-                </span>
-              )}
-              {task.platform && <span>{task.platform}</span>}
-            </div>
-          </div>
-        </div>
-
-        <div className="reader-actions" role="group" aria-label="Note actions">
-          {versions.length > 0 && (
-            <select
-              aria-label="Note version"
-              value={selectedVersion}
-              onChange={e => setSelectedVersion(e.target.value)}
-              className="px-2 py-1 bg-dark-hover border border-dark-border rounded text-xs text-white"
-            >
-              <option value="">Latest</option>
-              {versions.map((v, i) => (
-                <option key={v.id} value={v.id}>
-                  v{versions.length - i} - {v.style || 'default'}
-                </option>
-              ))}
-            </select>
+    <ReaderFrame
+      kind="Video"
+      title={title}
+      sections={
+        viewMode === "markdown"
+          ? toc.map((item) => ({
+              id: item.slug,
+              title: item.text,
+              level: item.level,
+            }))
+          : []
+      }
+      onNavigate={scrollToHeading}
+      metadata={
+        <>
+          <span>{task.channel || task.platform || "Video"}</span>
+          {task.published_at && (
+            <span>
+              Published {new Date(task.published_at).toLocaleDateString()}
+            </span>
           )}
-
-          <div className="flex bg-dark-hover rounded-lg p-0.5">
-            <button
-              onClick={() => setViewMode('markdown')}
-              className={`px-3 py-2 rounded text-sm transition-colors ${
-                viewMode === 'markdown' ? 'bg-indigo-600 text-white' : 'text-gray-400 hover:text-white'
-              }`}
-            >
-              <FileText size={12} className="inline mr-1" />
-              Note
-            </button>
-            <button
-              onPointerEnter={() => void preloadMindMap().catch(() => {})}
-              onFocus={() => void preloadMindMap().catch(() => {})}
-              onClick={() => { setMapVisited(true); setViewMode('mindmap') }}
-              className={`px-3 py-2 rounded text-sm transition-colors ${
-                viewMode === 'mindmap' ? 'bg-indigo-600 text-white' : 'text-gray-400 hover:text-white'
-              }`}
-            >
-              <Map size={12} className="inline mr-1" />
-              Mind Map
-            </button>
-            <button
-              onClick={() => setViewMode('transcript')}
-              className={`px-3 py-2 rounded text-sm transition-colors ${
-                viewMode === 'transcript' ? 'bg-indigo-600 text-white' : 'text-gray-400 hover:text-white'
-              }`}
-            >
-              Transcript
-            </button>
-          </div>
-
+          {task.duration > 0 && <span>{formatDuration(task.duration)}</span>}
+          {task.style && <span>{task.style}</span>}
+          {selectedVersion && (
+            <span>
+              Saved version ·{" "}
+              {versions.findIndex(
+                (version) => version.id === selectedVersion,
+              ) >= 0
+                ? `v${versions.length - versions.findIndex((version) => version.id === selectedVersion)}`
+                : selectedVersion}
+            </span>
+          )}
+        </>
+      }
+      actions={
+        <>
           {content && (
             <>
               <button
                 onClick={handleCopy}
                 disabled={copying}
-                aria-label={copying ? 'Copying note' : copied ? 'Copied' : 'Copy note'}
-                className="inline-flex items-center gap-1.5 px-2.5 py-2 text-xs rounded-lg hover:bg-dark-hover text-gray-400 disabled:opacity-50"
-                title="Copy as rich text (paste into Notion)"
+                className="reader-action"
+                aria-label={
+                  copying ? "Copying note" : copied ? "Copied" : "Copy note"
+                }
               >
-                {copying ? <Loader2 size={14} className="animate-spin" /> : copied ? <Check size={14} className="text-green-400" /> : <Copy size={14} />}{copying ? 'Copying…' : copied ? 'Copied' : 'Copy'}
+                {copying ? (
+                  <Loader2 size={15} className="animate-spin" />
+                ) : copied ? (
+                  <Check size={15} />
+                ) : (
+                  <Copy size={15} />
+                )}{" "}
+                {copied ? "Copied" : "Copy"}
               </button>
-              <details className="reader-export" onKeyDown={e => { if (e.key === 'Escape') { e.currentTarget.open = false; e.currentTarget.querySelector('summary')?.focus() } }} onBlur={e => { if (!e.currentTarget.contains(e.relatedTarget as Node)) e.currentTarget.open = false }}>
-                <summary>Export</summary>
-                <div className="reader-export-panel">
-              <button
-                onClick={handleDownload}
-                className="inline-flex items-center gap-1.5 px-2.5 py-2 text-xs rounded-lg hover:bg-dark-hover text-gray-400"
-                title="Download .md"
+              <ReaderMenu
+                label="Export"
+                busy={pdfLoading}
+                outlined
+                icon={
+                  pdfLoading ? (
+                    <Loader2 size={15} className="animate-spin" />
+                  ) : (
+                    <Download size={15} />
+                  )
+                }
               >
-                <Download size={14} />Markdown
-              </button>
-              {uiTask.status === 'success' && (
-                <>
-                  <button
-                    onClick={handleDownloadPdf}
-                    disabled={pdfLoading}
-                    aria-busy={pdfLoading}
-                    aria-label={pdfLoading ? 'Preparing PDF' : 'Download PDF'}
-                    className="inline-flex items-center gap-1.5 px-2.5 py-2 text-xs rounded-lg hover:bg-dark-hover text-gray-400 disabled:opacity-50"
-                    title="Download PDF"
-                  >
-                    {pdfLoading ? <Loader2 size={14} className="animate-spin" /> : <FileDown size={14} />}{pdfLoading ? 'Preparing…' : 'PDF'}
-                  </button>
-                  <button
-                    onClick={openNotionModal}
-                    className="inline-flex items-center gap-1.5 px-2.5 py-2 text-xs rounded-lg hover:bg-dark-hover text-gray-400 hover:text-indigo-300"
-                    title="Send to Notion"
-                  >
-                    <ExternalLink size={16} />Notion
-                  </button>
-                </>
-              )}
-                </div>
-              </details>
+                <button onClick={handleDownload} title="Download .md">
+                  <Download size={16} />
+                  Markdown
+                </button>
+                {uiTask.status === "success" && (
+                  <>
+                    <button
+                      onClick={handleDownloadPdf}
+                      disabled={pdfLoading}
+                      aria-busy={pdfLoading}
+                      title="Download PDF"
+                    >
+                      {pdfLoading ? (
+                        <Loader2 size={16} className="animate-spin" />
+                      ) : (
+                        <FileDown size={16} />
+                      )}{" "}
+                      {pdfLoading ? "Preparing PDF…" : "PDF"}
+                    </button>
+                    <button onClick={openNotionModal} title="Send to Notion">
+                      <ExternalLink size={16} />
+                      Send to Notion
+                    </button>
+                  </>
+                )}
+              </ReaderMenu>
             </>
           )}
-          {(['success', 'failed', 'cancelled'].includes(uiTask.status)) && (
-            <button
-              onClick={handleRegenerate}
-              disabled={regenerating}
-              className="reader-regenerate flex items-center gap-1 ml-1 px-3 py-2 text-xs text-indigo-400 hover:text-indigo-300 border border-indigo-500/30 hover:border-indigo-400/50 rounded-lg transition-colors disabled:opacity-50"
-              title="Regenerate notes"
-            >
-              <RefreshCw size={13} className={regenerating ? 'animate-spin' : ''} />
-              Regenerate
+          <MoreReaderActions>
+            <button onClick={() => setUtility("source")}>
+              <FileText size={16} />
+              Source details
             </button>
-          )}
+            {versions.length > 0 && (
+              <button onClick={() => setUtility("versions")}>
+                <FileText size={16} />
+                Version history
+              </button>
+            )}
+            {["success", "failed", "cancelled"].includes(uiTask.status) && (
+              <>
+                <button onClick={() => setUtility("recovery")}>
+                  <RotateCcw size={16} />
+                  Downloads & screenshot recovery
+                </button>
+                <RegenerateAction
+                  onConfirm={() => void handleRegenerate()}
+                  busy={regenerating}
+                  description="Process this video again with your current settings. Saved versions remain available."
+                />
+              </>
+            )}
+          </MoreReaderActions>
+        </>
+      }
+      tabs={
+        <>
+          {(
+            [
+              ["markdown", "Summary"],
+              ["transcript", "Transcript"],
+              ["mindmap", "Mind map"],
+            ] as const
+          ).map(([mode, label]) => (
+            <button
+              key={mode}
+              role="tab"
+              aria-selected={viewMode === mode}
+              tabIndex={viewMode === mode ? 0 : -1}
+              aria-controls={`video-${mode}`}
+              onPointerEnter={() => {
+                if (mode === "mindmap") void preloadMindMap().catch(() => {});
+              }}
+              onFocus={() => {
+                if (mode === "mindmap") void preloadMindMap().catch(() => {});
+              }}
+              onClick={() => changeView(mode)}
+            >
+              {mode === "mindmap" ? <Map size={15} /> : <FileText size={15} />}{" "}
+              {label}
+            </button>
+          ))}
+        </>
+      }
+    >
+      {error && (
+        <div role="alert" className="text-sm text-red-300 mb-3">
+          {error}{" "}
+          <button
+            className="underline"
+            onClick={() => setLoadAttempt((value) => value + 1)}
+          >
+            Retry
+          </button>
         </div>
-      </div>
-
-      {(['success', 'failed', 'cancelled'].includes(uiTask.status)) && <OptionalTool fallback={<p>Loading recovery tools…</p>}><NoteRecovery onRestored={() => setLoadAttempt(value => value + 1)} id={taskId!} version={selectedVersion || ''} warning={uiTask.status === 'success' ? task.error : ''} failed={uiTask.status === 'failed'} local={task.platform === 'local'} /></OptionalTool>}
-
-      <ReaderControls><div className="reader-jump"><select aria-label="Jump to note section" className="reader-contents min-w-0 max-w-full p-2 rounded bg-dark-surface" defaultValue="" onChange={e => scrollToHeading(e.target.value)}><option value="" disabled>Contents</option>{toc.map(t => <option key={t.slug} value={t.slug}>{t.text}</option>)}</select></div></ReaderControls>
+      )}
+      {utility && (
+        <ReaderDetails
+          kind={utility}
+          task={uiTask}
+          selectedVersion={selectedVersion}
+          onVersion={(id) => {
+            setError("");
+            setSelectedVersion(id);
+          }}
+          onClose={() => setUtility("")}
+          onRestored={() => setLoadAttempt((value) => value + 1)}
+          fallback={<p role="status">Loading details…</p>}
+        />
+      )}
       {/* Failed state banner */}
-      {uiTask.status === 'failed' && (
+      {uiTask.status === "failed" && (
         <div className="flex-shrink-0 mb-3 p-4 bg-red-500/10 border border-red-500/30 rounded-xl">
           <div className="flex items-start gap-3">
             <XCircle className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" />
             <div className="flex-1 min-w-0">
-              <h3 className="text-sm font-medium text-red-400 mb-1">Processing Failed</h3>
+              <h3 className="text-sm font-medium text-red-400 mb-1">
+                Processing Failed
+              </h3>
               {(task.error || task.message) && (
-                <p className="text-xs text-red-400/80 mb-2">{task.error || task.message}</p>
+                <p className="text-xs text-red-400/80 mb-2">
+                  {task.error || task.message}
+                </p>
               )}
               {task.url && (
                 <a
@@ -557,7 +727,10 @@ export default function VideoViewer() {
                   disabled={regenerating}
                   className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white text-xs rounded-lg transition-colors"
                 >
-                  <RotateCcw size={12} className={regenerating ? 'animate-spin' : ''} />
+                  <RotateCcw
+                    size={12}
+                    className={regenerating ? "animate-spin" : ""}
+                  />
                   Retry
                 </button>
                 <Link
@@ -572,99 +745,90 @@ export default function VideoViewer() {
         </div>
       )}
 
-      {/* Two-column layout: both columns scroll independently within viewport */}
-
-      <div className="flex-1 flex gap-4 min-h-0">
-        {/* Left sidebar: scrolls independently */}
-        <aside data-reader-contents className={`${viewMode === 'mindmap' ? '!hidden' : ''} w-56 xl:w-60 flex-shrink-0 hidden lg:flex flex-col gap-3 overflow-y-auto custom-scrollbar`}>
-          {/* Metadata card */}
-          <div className="reader-sidebar-section p-3 flex-shrink-0">
-            <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Info</h3>
-            <div className="space-y-1.5 text-xs text-gray-400">
-              {task.platform && (
-                <div className="flex justify-between">
-                  <span>Platform</span>
-                  <span className="text-white capitalize">{task.platform}</span>
-                </div>
-              )}
-              {task.duration > 0 && (
-                <div className="flex justify-between">
-                  <span>Duration</span>
-                  <span className="text-white">{formatDuration(task.duration)}</span>
-                </div>
-              )}
-              {task.style && (
-                <div className="flex justify-between">
-                  <span>Style</span>
-                  <span className="text-white">{task.style}</span>
-                </div>
-              )}
-              {task.model && (
-                <div className="flex justify-between">
-                  <span>Model</span>
-                  <span className="text-white truncate ml-2 max-w-[120px]">{task.model}</span>
-                </div>
-              )}
-              {task.formats?.length > 0 && (
-                <div className="flex justify-between">
-                  <span>Formats</span>
-                  <span className="text-white">{task.formats.join(', ')}</span>
-                </div>
+      {!["success", "failed", "cancelled"].includes(uiTask.status) &&
+      !content ? (
+        <div className="reader-processing">
+          <TaskProgress
+            status={uiTask.status}
+            progress={uiTask.progress}
+            startedAt={uiTask.started_at}
+          />
+          <p>{uiTask.message || "Waiting for processing…"}</p>
+        </div>
+      ) : (
+        <>
+          <div
+            hidden={viewMode !== "markdown"}
+            role="tabpanel"
+            id="video-markdown"
+          >
+            <div
+              id="video-content-scroll"
+              aria-label="Video note content"
+              className="reader-body"
+            >
+              {versionLoading ? (
+                <p role="status" className="reader-loading">
+                  <Loader2 className="animate-spin" size={18} />
+                  Loading saved version…
+                </p>
+              ) : (
+                <MarkdownPreview
+                  task={{ ...uiTask, markdown: content }}
+                  fallback={<PlainNote markdown={content} />}
+                />
               )}
             </div>
           </div>
-
-          {/* TOC */}
-          {toc.length > 0 && viewMode === 'markdown' && (
-            <div className="reader-sidebar-section p-3 flex-shrink-0">
-              <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Contents</h3>
-              <nav className="space-y-0.5">
-                {toc.map((item, i) => (
-                  <button
-                    key={i}
-                    onClick={() => scrollToHeading(item.slug)}
-                    className="block w-full text-left text-xs text-gray-400 hover:text-indigo-400 transition-colors py-0.5 truncate"
-                    style={{ paddingLeft: `${(item.level - 1) * 12}px` }}
-                    title={item.text}
-                  >
-                    <ChevronRight size={10} className="inline mr-1 opacity-50" />
-                    {item.text}
-                  </button>
-                ))}
-              </nav>
+          {mapVisited && (
+            <div
+              hidden={viewMode !== "mindmap"}
+              role="tabpanel"
+              id="video-mindmap"
+            >
+              {versionLoading ? (
+                <p role="status">Loading saved version…</p>
+              ) : (
+                <MindMapView
+                  markdown={content}
+                  active={viewMode === "mindmap"}
+                  fallback={<p role="status">Loading mind map tools…</p>}
+                />
+              )}
             </div>
           )}
-        </aside>
-
-        {/* Right: main content — scrolls independently */}
-        <div className="reader-paper flex-1 min-w-0 overflow-hidden">
-          {!['success', 'failed', 'cancelled'].includes(uiTask.status) && !content ? (
-            <div className="h-full overflow-y-auto flex flex-col items-center py-8 text-center space-y-4 w-full max-w-md mx-auto">
-              <TaskProgress status={uiTask.status} progress={uiTask.progress} startedAt={uiTask.started_at}/>
-              <p className="text-sm text-gray-400 max-w-md min-h-[1.25rem]">
-                {uiTask.message || '\u00a0'}
-              </p>
+          {viewMode === "transcript" && (
+            <div role="tabpanel" id="video-transcript" className="reader-body">
+              {transcriptLoading ? (
+                <p role="status" className="reader-loading">
+                  <Loader2 size={18} className="animate-spin" />
+                  Loading transcript…
+                </p>
+              ) : (
+                <TranscriptPanel
+                  transcript={transcript || null}
+                  fallback={
+                    <p className="whitespace-pre-wrap">
+                      {transcript?.text || "No transcript available."}
+                    </p>
+                  }
+                />
+              )}
             </div>
-          ) : (
-            <>
-              <div hidden={viewMode !== 'markdown'} id="video-content-scroll" tabIndex={0} aria-label="Video note content" className="reader-body h-full overflow-y-auto custom-scrollbar p-4 md:p-6">{versionLoading
-                ? <div role="status" className="p-8 flex justify-center"><Loader2 className="animate-spin" aria-label="Loading saved version" /></div>
-                : <MarkdownPreview task={{ ...uiTask, markdown: content }} fallback={<PlainNote markdown={content} />} />}</div>
-              {mapVisited && <div hidden={viewMode !== 'mindmap'} className="h-full">{versionLoading ? <p role="status">Loading saved version…</p> : <MindMapView markdown={content} />}</div>}
-              {viewMode === 'transcript' && <div className="reader-body h-full overflow-y-auto custom-scrollbar p-4 md:p-6">{
-                transcriptLoading ? <div role="status" className="p-8 flex justify-center"><Loader2 className="animate-spin" aria-label="Loading transcript" /></div>
-                  : <TranscriptPanel transcript={transcript || null} fallback={<p className="whitespace-pre-wrap">{transcript?.text || 'No transcript available.'}</p>} />
-              }</div>}
-            </>
           )}
-        </div>
-      </div>
+        </>
+      )}
 
       {/* Notion export modal */}
       {notionOpen && (
         <div
-          role="dialog" aria-modal="true" aria-label="Export to Notion" className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
-          onClick={e => { if (e.target === e.currentTarget) setNotionOpen(false) }}
+          role="dialog"
+          aria-modal="true"
+          aria-label="Export to Notion"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setNotionOpen(false);
+          }}
         >
           <div
             ref={notionModalRef}
@@ -676,7 +840,8 @@ export default function VideoViewer() {
                 Send to Notion
               </h2>
               <button
-                aria-label="Close Notion export" onClick={() => setNotionOpen(false)}
+                aria-label="Close Notion export"
+                onClick={() => setNotionOpen(false)}
                 className="p-1 text-gray-400 hover:text-white transition-colors"
               >
                 <X size={16} />
@@ -686,75 +851,117 @@ export default function VideoViewer() {
             <div className="p-4 space-y-3">
               {!hasNotionKey ? (
                 <div className="space-y-3 py-2">
-                  <p className="text-sm text-gray-300">Set up your Notion integration to export notes.</p>
+                  <p className="text-sm text-gray-300">
+                    Set up your Notion integration to export notes.
+                  </p>
                   <ol className="text-xs text-gray-400 space-y-1.5 list-decimal list-inside">
-                    <li>Go to <a href="https://www.notion.so/profile/integrations" target="_blank" rel="noopener noreferrer" className="text-orange-400 hover:text-orange-300">Notion Integrations <ExternalLink size={10} className="inline" /></a></li>
+                    <li>
+                      Go to{" "}
+                      <a
+                        href="https://www.notion.so/profile/integrations"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-orange-400 hover:text-orange-300"
+                      >
+                        Notion Integrations{" "}
+                        <ExternalLink size={10} className="inline" />
+                      </a>
+                    </li>
                     <li>Create an integration and copy the token</li>
-                    <li>Go to <Link to="/settings" className="text-orange-400 hover:text-orange-300">Settings</Link> and paste it in the Notion section</li>
+                    <li>
+                      Go to{" "}
+                      <Link
+                        to="/settings"
+                        className="text-orange-400 hover:text-orange-300"
+                      >
+                        Settings
+                      </Link>{" "}
+                      and paste it in the Notion section
+                    </li>
                     <li>Share target pages with your integration in Notion</li>
                   </ol>
                 </div>
               ) : (
-              <>
-              {/* Search */}
-              <div className="relative">
-                <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
-                <input
-                  type="text"
-                  value={notionSearch}
-                  onChange={e => handleNotionSearch(e.target.value)}
-                  placeholder="Search pages..."
-                  className="w-full pl-9 pr-3 py-2 bg-dark-hover border border-dark-border text-white text-sm rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
-                  autoFocus
-                />
-              </div>
-
-              {/* Page list */}
-              <div className="max-h-60 overflow-y-auto custom-scrollbar space-y-0.5">
-                {notionLoading ? (
-                  <div className="flex items-center justify-center py-8">
-                    <Loader2 size={20} className="animate-spin text-gray-500" />
+                <>
+                  {/* Search */}
+                  <div className="relative">
+                    <Search
+                      size={14}
+                      className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500"
+                    />
+                    <input
+                      type="text"
+                      value={notionSearch}
+                      onChange={(e) => handleNotionSearch(e.target.value)}
+                      placeholder="Search pages..."
+                      className="w-full pl-9 pr-3 py-2 bg-dark-hover border border-dark-border text-white text-sm rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                      autoFocus
+                    />
                   </div>
-                ) : notionPages.length === 0 ? (
-                  <div className="text-center py-8 text-sm text-gray-500">
-                    {notionResult?.ok === false
-                      ? 'Could not load pages'
-                      : 'No pages found. Share pages with your integration in Notion.'}
-                  </div>
-                ) : (
-                  notionPages.map(page => (
-                    <button
-                      key={page.id}
-                      onClick={() => setNotionSelectedId(page.id === notionSelectedId ? '' : page.id)}
-                      className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-left text-sm transition-colors ${
-                        page.id === notionSelectedId
-                          ? 'bg-orange-500/15 border border-orange-500/40 text-white'
-                          : 'hover:bg-dark-hover text-gray-300 border border-transparent'
-                      }`}
-                    >
-                      <span className="flex-shrink-0 w-5 text-center">
-                        {page.icon || '📄'}
-                      </span>
-                      <span className="truncate flex-1">{page.title || 'Untitled'}</span>
-                      {page.id === notionSelectedId && (
-                        <CheckCircle size={14} className="text-orange-400 flex-shrink-0" />
-                      )}
-                    </button>
-                  ))
-                )}
-              </div>
 
-              </>
+                  {/* Page list */}
+                  <div className="max-h-60 overflow-y-auto custom-scrollbar space-y-0.5">
+                    {notionLoading ? (
+                      <div className="flex items-center justify-center py-8">
+                        <Loader2
+                          size={20}
+                          className="animate-spin text-gray-500"
+                        />
+                      </div>
+                    ) : notionPages.length === 0 ? (
+                      <div className="text-center py-8 text-sm text-gray-500">
+                        {notionResult?.ok === false
+                          ? "Could not load pages"
+                          : "No pages found. Share pages with your integration in Notion."}
+                      </div>
+                    ) : (
+                      notionPages.map((page) => (
+                        <button
+                          key={page.id}
+                          onClick={() =>
+                            setNotionSelectedId(
+                              page.id === notionSelectedId ? "" : page.id,
+                            )
+                          }
+                          className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-left text-sm transition-colors ${
+                            page.id === notionSelectedId
+                              ? "bg-orange-500/15 border border-orange-500/40 text-white"
+                              : "hover:bg-dark-hover text-gray-300 border border-transparent"
+                          }`}
+                        >
+                          <span className="flex-shrink-0 w-5 text-center">
+                            {page.icon || "📄"}
+                          </span>
+                          <span className="truncate flex-1">
+                            {page.title || "Untitled"}
+                          </span>
+                          {page.id === notionSelectedId && (
+                            <CheckCircle
+                              size={14}
+                              className="text-orange-400 flex-shrink-0"
+                            />
+                          )}
+                        </button>
+                      ))
+                    )}
+                  </div>
+                </>
               )}
 
               {/* Result message */}
               {notionResult && (
-                <div className={`p-2.5 rounded-lg text-xs ${
-                  notionResult.ok
-                    ? 'bg-green-500/10 border border-green-500/30 text-green-400'
-                    : 'bg-red-500/10 border border-red-500/30 text-red-400'
-                }`}>
-                  {notionResult.ok ? <CheckCircle size={12} className="inline mr-1.5" /> : <AlertTriangle size={12} className="inline mr-1.5" />}
+                <div
+                  className={`p-2.5 rounded-lg text-xs ${
+                    notionResult.ok
+                      ? "bg-green-500/10 border border-green-500/30 text-green-400"
+                      : "bg-red-500/10 border border-red-500/30 text-red-400"
+                  }`}
+                >
+                  {notionResult.ok ? (
+                    <CheckCircle size={12} className="inline mr-1.5" />
+                  ) : (
+                    <AlertTriangle size={12} className="inline mr-1.5" />
+                  )}
                   {notionResult.message}
                   {notionResult.url && (
                     <a
@@ -773,10 +980,11 @@ export default function VideoViewer() {
             {/* Footer */}
             <div className="flex items-center justify-end gap-2 p-4 border-t border-dark-border">
               <button
-                aria-label="Close Notion export" onClick={() => setNotionOpen(false)}
+                aria-label="Close Notion export"
+                onClick={() => setNotionOpen(false)}
                 className="px-4 py-2 text-sm text-gray-400 hover:text-white transition-colors"
               >
-                {notionResult?.ok ? 'Done' : hasNotionKey ? 'Cancel' : 'Close'}
+                {notionResult?.ok ? "Done" : hasNotionKey ? "Cancel" : "Close"}
               </button>
               {hasNotionKey && !notionResult?.ok && (
                 <button
@@ -784,7 +992,11 @@ export default function VideoViewer() {
                   disabled={!notionSelectedId || notionExporting}
                   className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-40 disabled:cursor-not-allowed text-white text-sm font-medium rounded-lg transition-colors"
                 >
-                  {notionExporting ? <Loader2 size={14} className="animate-spin" /> : <ExternalLink size={14} />}
+                  {notionExporting ? (
+                    <Loader2 size={14} className="animate-spin" />
+                  ) : (
+                    <ExternalLink size={14} />
+                  )}
                   Export
                 </button>
               )}
@@ -792,6 +1004,6 @@ export default function VideoViewer() {
           </div>
         </div>
       )}
-    </div>
-  )
+    </ReaderFrame>
+  );
 }
