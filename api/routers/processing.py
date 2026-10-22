@@ -7,6 +7,7 @@ import uuid
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import Dict, Set, Optional
+from urllib.parse import urlparse
 from fastapi import APIRouter, HTTPException, WebSocket, WebSocketDisconnect, BackgroundTasks, Depends
 
 from api.local_media import (
@@ -1015,29 +1016,32 @@ async def process_episode(
     try:
         user_id = user.id if user else None
         
-        # Try to fetch episode info for immediate display
+        # Admission uses only saved, owned metadata. Provider reads belong to the
+        # worker, so a slow share page cannot delay creating/queuing the job.
         episode_id = None
         episode_title = None
-        is_local = is_local_episode_url(data.episode_url)
-        is_apple = data.episode_url.startswith("apple://")
-        try:
-            if is_local or is_apple:
-                eid = get_local_episode_id(data.episode_url) if is_local else data.episode_url.replace("apple://", "")
+        if is_local_episode_url(data.episode_url):
+            episode_id = get_local_episode_id(data.episode_url)
+        elif data.episode_url.startswith("apple://"):
+            episode_id = data.episode_url.replace("apple://", "", 1)
+        else:
+            try:
+                parsed = urlparse(data.episode_url)
+                parts = parsed.path.strip("/").split("/")
+                if parsed.hostname in ("xiaoyuzhoufm.com", "www.xiaoyuzhoufm.com") and len(parts) == 2 and parts[0] == "episode":
+                    episode_id = parts[1] or None
+            except ValueError:
+                pass  # Preserve worker-side handling of unrecognized source URLs.
+        if episode_id:
+            try:
                 db_interface = get_db(user_id)
-                ep = await asyncio.to_thread(db_interface.get_episode, eid)
+                ep = await asyncio.to_thread(db_interface.get_episode, episode_id)
                 if ep:
                     episode_id = ep.eid
                     episode_title = ep.title
-            else:
-                from xyz_client import get_client
-                client = get_client()
-                episode = await asyncio.to_thread(client.get_episode_by_share_url, data.episode_url)
-                if episode:
-                    episode_id = episode.eid
-                    episode_title = episode.title
-        except Exception:
-            pass  # Will be fetched again in background task
-        
+            except Exception:
+                pass  # The worker resolves metadata and reports source errors.
+
         # Create job with episode info if available
         job_id = str(uuid.uuid4())
         with _jobs_lock:
