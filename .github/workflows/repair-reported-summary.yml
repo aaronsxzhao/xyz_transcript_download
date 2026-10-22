@@ -1,18 +1,10 @@
 name: Recover reported Groq summary
 
 on:
-  push:
-    branches: [main]
-    paths: ['scripts/repair_source_coverage.py', '.github/workflows/repair-reported-summary.yml']
   workflow_dispatch:
-  workflow_run:
-    workflows: ['Deploy to Oracle Cloud']
-    types: [completed]
-    branches: [main]
 
 jobs:
   restore:
-    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
     timeout-minutes: 45
     concurrency:

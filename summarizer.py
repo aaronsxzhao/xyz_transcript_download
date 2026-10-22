@@ -249,7 +249,8 @@ class Summarizer:
             response = self._call_llm_with_retry(payload, progress_callback, system_prompt=system)
             return extract_json_from_response(response.choices[0].message.content)
 
-        updated, additions, citations = audit_source(source, fields, call, source_context)
+        context = {**(source_context or {}), "chapter_titles": summary.topics}
+        updated, additions, citations = audit_source(source, fields, call, context)
         compact = lambda value: re.sub(r"\s+", "", value)
         points = [replace(point, summary=updated[f"point:{i+1}"],
                           original_quote=citations.get(f"point:{i+1}", point.original_quote if compact(point.original_quote) in compact(spoken_source(source)) else ""),
@@ -277,11 +278,11 @@ class Summarizer:
                 {"role": "user", "content": user_prompt},
             ],
             "response_format": {"type": "json_object"},
-            "temperature": 0.3,
+            "temperature": 0,
         }
         
         if self._groq:
-            common_params.update(max_completion_tokens=32768, reasoning_effort='low')
+            common_params.update(max_completion_tokens=32768, reasoning_effort='medium')
         if progress_callback:
             # Usage-only SSE events may have no choices.
             # Use streaming for progress updates
@@ -345,6 +346,7 @@ class Summarizer:
         chunk_summaries = []
         total_chars_generated = 0
         
+        chapter_titles = list(existing_topics or [])
         for i, chunk in enumerate(chunks):
             logger.info(f"Processing chunk {i+1}/{len(chunks)} ({len(chunk):,} chars)")
             
@@ -360,12 +362,13 @@ class Summarizer:
                 podcast_title,
                 f"{episode_title} (Part {i+1})",
                 chunk_progress if progress_callback else None,
-                existing_topics,
+                chapter_titles,
                 source_context={"before": chunks[i - 1][-500:] if i else "",
                                 "after": chunks[i + 1][:500] if i + 1 < len(chunks) else ""},
             )
             if summary:
                 chunk_summaries.append(summary)
+                chapter_titles = list(dict.fromkeys([*chapter_titles, *summary.topics]))
                 # Estimate chars generated for this chunk
                 total_chars_generated += 2000  # rough estimate per chunk
             else:

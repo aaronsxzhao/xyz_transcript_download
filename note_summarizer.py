@@ -10,7 +10,7 @@ from typing import List, Optional
 
 from openai import OpenAI
 from summary_errors import SummaryOutputError
-from source_coverage import SOURCE_CHUNK_CHARS, split_source, audit_source
+from source_coverage import SOURCE_CHUNK_CHARS, SOURCE_FIDELITY, split_source, audit_source
 from tenacity import retry, stop_after_attempt, wait_exponential
 
 from config import (
@@ -134,7 +134,7 @@ def _build_system_prompt(style: str, formats: List[str], duration: float = 0) ->
 
     format_text = "\n".join(f"- {inst}" for inst in format_instructions) if format_instructions else ""
 
-    return f"""你是一个专业的视频内容笔记助手。你的任务是根据视频的转录文本（和可选的视觉分析）生成高质量的、结构清晰的 Markdown 格式笔记。
+    return SOURCE_FIDELITY + f"""你是一个专业的视频内容笔记助手。你的任务是根据视频的转录文本（和可选的视觉分析）生成高质量的、结构清晰的 Markdown 格式笔记。
 
 风格要求:
 {style_instruction}
@@ -553,11 +553,11 @@ class NoteSummarizer:
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_prompt},
             ],
-            "temperature": 0.4,
+            "temperature": 0,
         }
 
         if self._groq:
-            params.update(max_completion_tokens=32768, reasoning_effort='low')
+            params.update(max_completion_tokens=32768, reasoning_effort='medium')
         if progress_callback:
             stream = self.client.chat.completions.create(**params, stream=True)
             collected = []
