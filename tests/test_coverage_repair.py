@@ -79,3 +79,18 @@ def test_failure_diagnostics_keep_nested_reason_but_never_provider_body():
         report = recovery.failure_report(error)
     assert report["reason"] == "coverage"
     assert "private" not in json.dumps(report) and "credentials" not in json.dumps(report)
+
+
+def test_raw_audit_failure_stays_in_verified_private_storage():
+    from source_coverage import _audit_error
+    response = {"edits": [{"field": "point:0", "text": "private draft", "source_ids": ["S1-S3"]}]}
+    error = _audit_error("ungrounded_edit", response, allowed_units=["S1", "S2", "S3"])
+    storage = Mock()
+    objects = {}
+    storage.upload.side_effect = lambda path, content, **kwargs: objects.update({path: content})
+    storage.download.side_effect = lambda path: objects[path]
+    recovery.archive_audit_failure(storage, "private/failure.json", error)
+    assert json.loads(objects["private/failure.json"])["response"] == response
+    metadata = storage.upload.call_args.kwargs["file_options"]["metadata"]
+    assert metadata["reference_shapes"][0]["source_ids"] == ["S1-S3"]
+    assert "private draft" not in json.dumps(metadata)
