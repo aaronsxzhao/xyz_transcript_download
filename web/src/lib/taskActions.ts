@@ -36,10 +36,16 @@ export async function cancelTask(job: ProcessingJob, kind: Kind) {
   const state = useStore.getState();
   const status = result.status || "cancelling";
   const message = status === "cancelled" ? "Cancelled" : ["success", "completed"].includes(status) ? "Completed" : "Stopping safely…";
+  // A websocket completion/removal can arrive before this older HTTP response.
+  // Apply the acknowledgement to current state, never to the click's snapshot.
+  const terminal = ["success", "completed", "failed", "cancelled"];
   if (kind === "video") {
-    const task = state.videoTasks.find(t => t.id === job.job_id);
-    if (task) state.updateVideoTask({...task, status, message});
-  } else state.updateJob({...job, status, message});
+    const current = state.videoTasks.find(t => t.id === job.job_id);
+    if (current && !terminal.includes(current.status)) state.updateVideoTask({...current, status, message});
+  } else {
+    const current = state.jobs.find(t => t.job_id === job.job_id);
+    if (current && !terminal.includes(current.status)) state.updateJob({...current, status, message});
+  }
 }
 export async function retryTask(job: ProcessingJob, kind: Kind) {
   const owner = getAccountId();

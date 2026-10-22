@@ -205,8 +205,10 @@ async def test_slow_episode_lookup_does_not_pause_the_website(client):
     def lookup(url):
         observed.append(threading.get_ident()); entered.set(); release.wait(2)
         return None
-    with patch('xyz_client.get_client') as provider:
-        provider.return_value.get_episode_by_share_url.side_effect = lookup
+    # Admission now reads saved metadata only; a slow database read must still
+    # run off the event loop while other pages remain responsive.
+    with patch('api.routers.processing.get_db') as database:
+        database.return_value.get_episode.side_effect = lookup
         pending = asyncio.create_task(client.post('/api/process', json={'episode_url': 'https://www.xiaoyuzhoufm.com/episode/slow'}))
         try:
             assert await asyncio.to_thread(entered.wait, 1)
