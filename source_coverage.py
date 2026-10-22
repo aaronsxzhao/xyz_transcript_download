@@ -11,7 +11,12 @@ from summary_errors import SummaryOutputError
 
 SOURCE_CHUNK_CHARS = 4000
 SOURCE_UNIT_CHARS = 800
-EDITORIAL_VERSION = "source-audit-v2"
+EDITORIAL_VERSION = "source-audit-v3"
+
+
+def spoken_source(text):
+    """Remove only structural timestamp anchors, never spoken words/numbers."""
+    return re.sub(r"(?m)^\[\d{2,}:\d{2}(?::\d{2})?\][ \t]*", "", text)
 
 
 def video_source_text(text, segments):
@@ -60,15 +65,15 @@ be excluded. Repetition is covered by the existing field, not excluded.
 
 Return JSON only:
 {"edits":[{"field":"point:0", "text":"complete corrected field, retaining ALL its accurate details",
- "source_quote":"verbatim source evidence supporting the correction"}],
+ "source_ids":["S1"]}],
  "additions":[{"topic":"existing relevant chapter or meaningful source heading",
  "heading":"specific subheading", "text":"complete explanatory Markdown paragraphs",
- "source_quote":"contiguous verbatim source excerpt", "timestamp":"explicit source timestamp or empty"}],
+ "source_ids":["S1"], "timestamp":"explicit source timestamp or empty"}],
  "coverage":[{"unit":"S1", "kind":"content", "field":"point:0",
- "source_quote":"verbatim excerpt from this source unit",
  "note_quote":"exact excerpt in the FINAL edited field"},
- {"unit":"S2", "kind":"non_content", "reason":"advertisement",
- "source_quote":"verbatim excerpt from this source unit"}]}
+ {"unit":"S2", "kind":"non_content", "reason":"advertisement"}]}
+Reference real source unit IDs in source_ids; do NOT rewrite or copy a quotation.
+The application extracts the actual original evidence from those source units.
 Every supplied source unit must have exactly one receipt. A content receipt
 confirms ALL its information is in the final fields, including additions.
 An addition is referenced as added:0, added:1, etc.; its field value is
@@ -122,6 +127,7 @@ def _audit_source_once(source, fields, call_json):
     if not isinstance(data, dict):
         raise _audit_error("invalid_object", data)
     updated = dict(fields)
+    citation_ids = {}
     additions = data.get("additions", [])
     edits = data.get("edits", [])
     receipts = data.get("coverage", [])
@@ -131,6 +137,17 @@ def _audit_source_once(source, fields, call_json):
     def evidence(quote, material):
         return (isinstance(quote, str) and bool(quote.strip())
                 and re.sub(r"\s+", "", quote) in re.sub(r"\s+", "", material))
+
+    def source_evidence(ids, issue, index):
+        if (not isinstance(ids, list) or not ids
+                or any(not isinstance(key, str) or key not in units for key in ids)
+                or len(set(ids)) != len(ids)):
+            raise _audit_error(issue, data, index=index, allowed_units=list(units))
+        # Include the intervening source instead of joining disconnected quotes
+        # or inventing ellipses. Evidence is always extracted by code.
+        ordered = list(units)
+        positions = [ordered.index(key) for key in ids]
+        return spoken_source("".join(units[key] for key in ordered[min(positions):max(positions) + 1]))
 
     edited_fields = set()
     for index, edit in enumerate(edits):
@@ -144,17 +161,17 @@ def _audit_source_once(source, fields, call_json):
         edited_fields.add(field)
         if not isinstance(text, str) or not text.strip():
             raise _audit_error("empty_edit", data, index=index)
-        if not evidence(edit.get("source_quote"), source):
-            raise _audit_error("ungrounded_edit", data, index=index)
+        source_evidence(edit.get("source_ids"), "ungrounded_edit", index)
+        citation_ids.setdefault(field, set()).update(edit["source_ids"])
         updated[field] = text
     checked_additions = []
     for i, addition in enumerate(additions):
         if (not isinstance(addition, dict)
                 or not all(isinstance(addition.get(key), str) and addition[key].strip()
-                           for key in ("topic", "heading", "text"))
-                or not evidence(addition.get("source_quote"), source)):
+                           for key in ("topic", "heading", "text"))):
             raise _audit_error("invalid_addition", data, index=i)
         addition = dict(addition)
+        addition["source_quote"] = source_evidence(addition.get("source_ids"), "invalid_addition", i)
         timestamp = addition.get("timestamp", "")
         # An unsupported timestamp must never become a misleading source link.
         addition["timestamp"] = timestamp if isinstance(timestamp, str) and f"[{timestamp}]" in source else ""
@@ -167,8 +184,6 @@ def _audit_source_once(source, fields, call_json):
         unit = receipt.get("unit")
         if not isinstance(unit, str) or unit not in units or unit in seen:
             raise _audit_error("unknown_or_duplicate_unit", data, allowed_units=list(units))
-        if not evidence(receipt.get("source_quote"), units[unit]):
-            raise _audit_error("ungrounded_unit", data, unit=unit)
         seen.add(unit)
         if receipt.get("kind") == "non_content":
             if receipt.get("reason") not in {"greeting", "advertisement", "empty_transition"}:
@@ -177,8 +192,11 @@ def _audit_source_once(source, fields, call_json):
             field = receipt.get("field")
             if not isinstance(field, str) or field not in updated or not evidence(receipt.get("note_quote"), updated[field]):
                 raise _audit_error("invalid_note_evidence", data, unit=unit, allowed_fields=list(updated))
+            citation_ids.setdefault(field, set()).add(unit)
         else:
             raise _audit_error("invalid_kind", data, unit=unit)
     if seen != set(units):
         raise _audit_error("missing_units", data, missing_units=sorted(set(units) - seen))
-    return updated, checked_additions
+    citations = {field: source_evidence(sorted(ids), "invalid_receipt", 0)
+                 for field, ids in citation_ids.items()}
+    return updated, checked_additions, citations

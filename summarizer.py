@@ -72,7 +72,7 @@ def extract_json_from_response(content: str) -> dict:
 
 from openai import OpenAI
 from summary_errors import SummaryOutputError
-from source_coverage import SOURCE_CHUNK_CHARS, split_source, audit_source
+from source_coverage import SOURCE_CHUNK_CHARS, split_source, audit_source, spoken_source
 from tenacity import (
     retry,
     stop_after_attempt,
@@ -247,10 +247,10 @@ class Summarizer:
             response = self._call_llm_with_retry(payload, progress_callback, system_prompt=system)
             return extract_json_from_response(response.choices[0].message.content)
 
-        updated, additions = audit_source(source, fields, call)
+        updated, additions, citations = audit_source(source, fields, call)
         compact = lambda value: re.sub(r"\s+", "", value)
         points = [replace(point, summary=updated[f"point:{i}"],
-                          original_quote=point.original_quote if compact(point.original_quote) in compact(source) else "",
+                          original_quote=citations.get(f"point:{i}", point.original_quote if compact(point.original_quote) in compact(spoken_source(source)) else ""),
                           timestamp=point.timestamp if f"[{point.timestamp}]" in source else "")
                   for i, point in enumerate(summary.key_points)]
         for i, addition in enumerate(additions):
