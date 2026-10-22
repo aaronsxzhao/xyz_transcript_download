@@ -137,7 +137,7 @@ def _repair_missing_units(source, fields, call_json, error):
     units = {f"S{i + 1}": text for i, text in enumerate(split_source(source, SOURCE_UNIT_CHARS))}
     system = AUDIT_SYSTEM.split("Return JSON only:")[0] + """
 The previous editorial pass left source units unmapped. For THIS request return
-only {"unit_notes":[{"unit":"S1", "kind":"content", "topic":"meaningful chapter",
+only valid JSON: {"unit_notes":[{"unit":"S1", "kind":"content", "topic":"meaningful chapter",
 "heading":"specific heading", "text":"complete detailed Markdown reading passage",
 "timestamp":"explicit source timestamp or empty"}]}.
 Return exactly one entry for EVERY focus unit. Cover all its substantive claims,

@@ -168,6 +168,10 @@ def failure_report(error):
         status = getattr(error, "status_code", None)
         if type(status) is int and 400 <= status <= 599:
             report["http_status"] = status
+        for key in ("code", "type"):
+            code = getattr(error, key, None)
+            if isinstance(code, str) and code in {"json_validate_failed", "context_length_exceeded", "invalid_request_error", "model_not_found", "rate_limit_exceeded"}:
+                report["provider_code"] = code
         trace = error.__traceback__
         while trace:
             if Path(trace.tb_frame.f_code.co_filename).name == "source_coverage.py":

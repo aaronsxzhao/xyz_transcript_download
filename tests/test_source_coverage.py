@@ -194,6 +194,7 @@ def test_unmapped_source_gets_a_dedicated_passage_and_actual_evidence_instead_of
     source = "甲" * 800 + "第二段有一个独立反例，只有条件成立才有效。"
     calls = []
     def call(system, payload):
+        assert "json" in system.lower()  # Groq's json_object API requirement
         calls.append(json.loads(payload))
         if len(calls) == 1: return {"coverage": [receipt()]}
         return {"unit_notes": [{"unit": "S2", "kind": "content", "topic": "反例", "heading": "反例的条件", "text": "第二段的独立反例只有在条件成立时才有效。"}]}
