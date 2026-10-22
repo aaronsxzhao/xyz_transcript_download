@@ -57,6 +57,8 @@ def archive_audit_failure(storage, path, error):
                       for row in response.get("edits", []) if isinstance(row, dict)]
             unit_shapes = [{"keys": list(row), "unit": row.get("unit"), "kind": row.get("kind")}
                            for row in response.get("unit_notes", []) if isinstance(row, dict)] if isinstance(response.get("unit_notes"), list) else []
+            coverage_refs = [{key: row.get(key) for key in ("unit", "kind", "fields")}
+                             for row in response.get("coverage", []) if isinstance(row, dict)]
             def structure(value, depth=0):
                 if isinstance(value, dict):
                     return {"type": "object", "keys": list(value),
@@ -66,7 +68,7 @@ def archive_audit_failure(storage, path, error):
                 return {"type": type(value).__name__, "characters": len(value) if isinstance(value, str) else 0}
             verified_upload(storage, path, {"feedback": feedback, "response": response},
                             metadata={"feedback": feedback, "reference_shapes": shapes, "unit_shapes": unit_shapes,
-                                      "response_structure": structure(response)})
+                                      "response_structure": structure(response), "coverage_refs": coverage_refs})
             return
         error = error.__cause__ or error.__context__
 
