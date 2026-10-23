@@ -10,6 +10,12 @@ const LOCAL_VIDEO_TASK_GRACE_MS = 20000
 const removedJobIds = new Set<string>()
 const removedVideoTaskIds = new Set<string>()
 
+// Channel pages keep their own paginated rows, outside the progress store.
+// Apply the same account-session deletion policy before displaying/caching them.
+export function filterRemovedVideoTasks(tasks: VideoTask[]): VideoTask[] {
+  return tasks.filter(task => !removedVideoTaskIds.has(task.id))
+}
+
 function mergeProcessingJobPair(existing: ProcessingJob | undefined, incoming: ProcessingJob): ProcessingJob {
   if (!existing) return incoming
   // HTTP snapshots and websocket events can arrive in either order.
@@ -171,10 +177,10 @@ export const useStore = create<AppState>((set) => ({
   
   // Video tasks
   videoTasks: [],
-  setVideoTasks: (tasks) => set({ videoTasks: tasks.filter(task => !removedVideoTaskIds.has(task.id)) }),
+  setVideoTasks: (tasks) => set({ videoTasks: filterRemovedVideoTasks(tasks) }),
   mergeVideoTasks: (serverTasks) =>
     set((state) => {
-      const visibleServerTasks = serverTasks.filter(task => !removedVideoTaskIds.has(task.id))
+      const visibleServerTasks = filterRemovedVideoTasks(serverTasks)
       const hasAnyActiveTasks =
         visibleServerTasks.some(task => isActiveVideoTaskStatus(task.status)) ||
         state.videoTasks.some(task => isActiveVideoTaskStatus(task.status))
