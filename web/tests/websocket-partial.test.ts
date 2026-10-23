@@ -8,8 +8,11 @@ import {useStore} from '../src/lib/store'
 
 class Socket {
   static OPEN=1
+  static current: Socket
+  onmessage?: (event: {data:string}) => void
   readyState=1
   close=vi.fn()
+  constructor(){Socket.current=this}
 }
 const completedJob={job_id:'podcast',status:'completed',progress:100}
 const completedVideo={id:'video',status:'success',progress:100}
@@ -58,4 +61,14 @@ it.each(['podcast','video'])('updates %s progress without waiting for a slow cou
     finish(kind==='podcast'?{tasks:[]}:{ok:true,json:async()=>({jobs:[]})})
     await vi.advanceTimersByTimeAsync(0)
   }
+})
+
+it('keeps websocket completion when an older HTTP poll finishes afterward',async()=>{
+  let finish!:(value:any)=>void
+  api.authFetch.mockImplementationOnce(()=>new Promise(resolve=>{finish=resolve}))
+  connectWebSocket();await vi.advanceTimersByTimeAsync(5000)
+  Socket.current.onmessage?.({data:JSON.stringify({type:'job_update',job:{...completedJob,revision:2}})})
+  finish({ok:true,json:async()=>({jobs:[{...completedJob,status:'transcribing',progress:40,revision:1}]})})
+  await vi.advanceTimersByTimeAsync(0)
+  expect(useStore.getState().jobs[0]).toMatchObject({status:'completed',progress:100,revision:2})
 })

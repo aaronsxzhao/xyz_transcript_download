@@ -65,6 +65,7 @@ def _load_jobs_from_file():
                         job.user_id = "local"
                     if job.status in ("pending", "fetching", "downloading", "transcribing", "summarizing", "cancelling"):
                         job.status = "failed"
+                        job.advance_revision()
                         job.message = "Interrupted by server restart"
                 _save_jobs_to_file_unlocked()
             except (json.JSONDecodeError, IOError, TypeError) as e:
@@ -101,6 +102,7 @@ async def _persist_new_job(job):
     except Exception:
         with _jobs_lock:
             job.status = 'failed'
+            job.advance_revision()
             job.message = 'Cloud history is temporarily unavailable. Retry this job shortly.'
             _jobs_cache.clear()
             _save_jobs_to_file_unlocked()
@@ -252,6 +254,7 @@ def update_job_status(job_id: str, status: str, progress: float = 0, message: st
             if not jobs[job_id].started_at and status not in ("pending","cancelling","completed","failed","cancelled"):
                 jobs[job_id].started_at = time.time()
             jobs[job_id].status = status
+            jobs[job_id].advance_revision()
             jobs[job_id].progress = progress
             jobs[job_id].message = message
             if episode_id:
@@ -1634,6 +1637,7 @@ async def batch_process(
         with _jobs_lock:
             for job in batch:
                 job.status = 'failed'
+                job.advance_revision()
                 job.message = 'Batch could not start. Retry when the cloud connection is available.'
             _jobs_cache.clear()
             _save_jobs_to_file_unlocked()
