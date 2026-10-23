@@ -123,8 +123,8 @@ def get_podcast_by_url(url: str) -> Optional[Podcast]:
         return None
 
 
-def get_episodes_from_feed(feed_url: str, pid: str = "", limit: int = 50) -> List[Episode]:
-    """Fetch episodes from an RSS feed URL."""
+def get_episodes_from_feed(feed_url: str, pid: str = "", limit: int = 50, *, strict: bool = False) -> List[Episode]:
+    """Fetch episodes from RSS; strict callers distinguish source errors from empty feeds."""
     try:
         resp = requests.get(
             feed_url,
@@ -134,17 +134,23 @@ def get_episodes_from_feed(feed_url: str, pid: str = "", limit: int = 50) -> Lis
         resp.raise_for_status()
     except Exception as e:
         logger.error(f"Failed to fetch RSS feed {feed_url}: {e}")
+        if strict:
+            raise
         return []
 
     try:
         root = ElementTree.fromstring(resp.content)
     except ElementTree.ParseError as e:
         logger.error(f"Failed to parse RSS feed: {e}")
+        if strict:
+            raise
         return []
 
     ns = {"itunes": "http://www.itunes.com/dtds/podcast-1.0.dtd"}
     channel = root.find("channel")
     if channel is None:
+        if strict:
+            raise ValueError("Source did not return a podcast RSS channel")
         return []
 
     episodes: List[Episode] = []

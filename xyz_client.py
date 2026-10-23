@@ -135,13 +135,14 @@ class XyzClient:
         url = f"https://www.xiaoyuzhoufm.com/podcast/{pid}"
         return self.get_podcast_by_url(url)
 
-    def get_episodes_from_page(self, pid: str, limit: int = 20) -> List[Episode]:
+    def get_episodes_from_page(self, pid: str, limit: int = 20, *, strict: bool = False) -> List[Episode]:
         """
         Get episodes by scraping the podcast page.
         
         Args:
             pid: Podcast ID
             limit: Maximum number of episodes
+            strict: Propagate source errors instead of returning an empty list.
             
         Returns:
             List of episodes
@@ -177,6 +178,8 @@ class XyzClient:
 
         except Exception as e:
             logger.error(f"Failed to get episodes: {e}")
+            if strict:
+                raise
 
         return episodes
 
