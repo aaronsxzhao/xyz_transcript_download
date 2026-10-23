@@ -5,10 +5,12 @@ import { MAP_FORMAT, type MapOutline } from "./mindmapOutline";
 export async function mapCacheKey(markdown: string) {
   const digest = await crypto.subtle.digest(
     "SHA-256",
-    new TextEncoder().encode(markdown.replace(/!\[[^\]]*\]\([^\n]*?\)/g, "")),
+    new TextEncoder().encode(markdown),
   );
   return (
-    `mindmap:v${MAP_FORMAT}:` +
+    // Hash the actual worker input. Image-like text inside code is meaningful;
+    // regex stripping could alias different notes. Isolate older stripped keys.
+    `mindmap:v${MAP_FORMAT}:source:` +
     Array.from(new Uint8Array(digest), (byte) =>
       byte.toString(16).padStart(2, "0"),
     ).join("")
