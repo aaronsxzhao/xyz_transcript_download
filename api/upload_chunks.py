@@ -6,6 +6,28 @@ from pathlib import Path
 from fastapi import HTTPException, UploadFile
 
 
+def validated_upload_parts(session_dir: Path, total_chunks: int, expected_size: int) -> list[Path]:
+    """Reject incomplete sessions before assembly can consume their chunks."""
+    parts = sorted(session_dir.glob("*.part"))
+    if not parts:
+        raise HTTPException(status_code=400, detail="No uploaded chunks found")
+    if total_chunks > 0 and (
+        len(parts) != total_chunks or
+        any(part.name != f"{index:06d}.part" for index, part in enumerate(parts))
+    ):
+        raise HTTPException(status_code=400, detail="Upload incomplete: missing or unexpected chunks")
+    sizes = [part.stat().st_size for part in parts]
+    if any(size <= 0 for size in sizes):
+        raise HTTPException(status_code=400, detail="Uploaded chunk is empty")
+    size = sum(sizes)
+    if expected_size > 0 and size != expected_size:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Upload incomplete: expected {expected_size} bytes, received {size} bytes",
+        )
+    return parts
+
+
 async def save_upload_chunk(chunk: UploadFile, part_path: Path) -> tuple[int, int]:
     """Return (new size, replaced size), leaving an earlier chunk intact on failure.
 

@@ -16,7 +16,7 @@ from fastapi import APIRouter, HTTPException, BackgroundTasks, Depends, UploadFi
 from api.media import sign_media_urls
 from api.auth import get_current_user, User
 from api.local_media import LOCAL_VIDEO_CHANNEL, LOCAL_VIDEO_EXTENSIONS
-from api.upload_chunks import save_upload_chunk
+from api.upload_chunks import save_upload_chunk, validated_upload_parts
 from api.routers.processing import (
     manager, get_main_loop, ConnectionManager,
 )
@@ -1532,9 +1532,9 @@ def complete_chunked_upload(
         raise HTTPException(status_code=403, detail="Upload session does not belong to this user")
 
     session_dir = _upload_session_dir(upload_id)
-    part_paths = sorted(session_dir.glob("*.part"))
-    if not part_paths:
-        raise HTTPException(status_code=400, detail="No uploaded chunks found")
+    part_paths = validated_upload_parts(
+        session_dir, int(meta.get("total_chunks") or 0), int(meta.get("size") or 0),
+    )
 
     try:
         meta = _update_upload_meta(upload_id, lambda current: {
