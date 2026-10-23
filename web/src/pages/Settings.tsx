@@ -1,5 +1,7 @@
 import { OptionalTool } from '../components/DeferredView'
 const PerformancePanel = lazy(() => import('../components/PerformancePanel'))
+const CustomModelFields = lazy(() => import('../components/CustomModelFields'))
+import type {ConnectionDraft} from '../components/CustomModelFields'
 import { useUnsavedChanges } from '../lib/unsavedChanges'
 const DataRecovery = lazy(() => import('../components/DataRecovery'))
 import { useAuth } from '../contexts/AuthContext'
@@ -29,7 +31,14 @@ interface SettingsData {
   whisper_backend: string
   whisper_device: string
   llm_model: string
-  llm_provider: 'server' | 'groq'
+  llm_provider: 'server' | 'groq' | 'custom'
+  transcription_provider: 'server' | 'custom'
+  llm_base_url: string
+  whisper_base_url: string
+  llm_key_saved: boolean
+  whisper_key_saved: boolean
+  llm_key_error?: string
+  whisper_key_error?: string
   groq_available: boolean
   llm_configured: boolean
   whisper_provider: string
@@ -50,92 +59,7 @@ const WHISPER_MODELS = [
   { value: 'whisper-large-v3-turbo', label: 'whisper-large-v3-turbo', description: 'Faster, slightly less accurate' },
 ]
 
-const LLM_MODELS = [
-  { value: '', label: 'Server Default' },
-  // Google Gemini — Vertex AI
-  { value: 'vertex_ai/gemini-3-flash-preview', label: 'Gemini 3 Flash (Vertex)' },
-  { value: 'vertex_ai/gemini-3.1-flash-lite-preview', label: 'Gemini 3.1 Flash Lite (Vertex)' },
-  { value: 'vertex_ai/gemini-2.5-pro', label: 'Gemini 2.5 Pro (Vertex)' },
-  { value: 'vertex_ai/gemini-2.5-flash', label: 'Gemini 2.5 Flash (Vertex)' },
-  { value: 'vertex_ai/gemini-2.5-flash-image', label: 'Gemini 2.5 Flash Image (Vertex)' },
-  { value: 'vertex_ai/gemini-2.5-flash-lite', label: 'Gemini 2.5 Flash Lite (Vertex)' },
-  { value: 'vertex_ai/gemini-2.5-flash-lite-preview-09-2025', label: 'Gemini 2.5 Flash Lite 09-2025 (Vertex)' },
-  // Google Gemini — Firebase
-  { value: 'gemini-2.5-flash-fb', label: 'Gemini 2.5 Flash (Firebase)' },
-  { value: 'gemini-2.5-pro-fb', label: 'Gemini 2.5 Pro (Firebase)' },
-  // Google Gemini — OpenRouter
-  { value: 'openrouter/google/gemini-3.1-pro-preview', label: 'Gemini 3.1 Pro Preview (OpenRouter)' },
-  { value: 'openrouter/google/gemini-3-flash-preview', label: 'Gemini 3 Flash Preview (OpenRouter)' },
-  { value: 'openrouter/google/gemini-2.5-pro', label: 'Gemini 2.5 Pro (OpenRouter)' },
-  { value: 'openrouter/google/gemini-2.5-flash', label: 'Gemini 2.5 Flash (OpenRouter)' },
-  { value: 'openrouter/google/gemini-2.0-flash-001', label: 'Gemini 2.0 Flash (OpenRouter)' },
-  // Anthropic Claude — OpenRouter
-  { value: 'openrouter/anthropic/claude-opus-4.6', label: 'Claude Opus 4.6 (OpenRouter)' },
-  { value: 'openrouter/anthropic/claude-opus-4.5', label: 'Claude Opus 4.5 (OpenRouter)' },
-  { value: 'openrouter/anthropic/claude-opus-4.1', label: 'Claude Opus 4.1 (OpenRouter)' },
-  { value: 'openrouter/anthropic/claude-opus-4', label: 'Claude Opus 4 (OpenRouter)' },
-  { value: 'openrouter/anthropic/claude-sonnet-4.6', label: 'Claude Sonnet 4.6 (OpenRouter)' },
-  { value: 'openrouter/anthropic/claude-sonnet-4.5', label: 'Claude Sonnet 4.5 (OpenRouter)' },
-  { value: 'openrouter/anthropic/claude-sonnet-4', label: 'Claude Sonnet 4 (OpenRouter)' },
-  { value: 'openrouter/anthropic/claude-haiku-4.5', label: 'Claude Haiku 4.5 (OpenRouter)' },
-  { value: 'openrouter/anthropic/claude-3.7-sonnet', label: 'Claude 3.7 Sonnet (OpenRouter)' },
-  { value: 'openrouter/anthropic/claude-3.5-sonnet', label: 'Claude 3.5 Sonnet (OpenRouter)' },
-  { value: 'openrouter/anthropic/claude-3-haiku', label: 'Claude 3 Haiku (OpenRouter)' },
-  // OpenAI — OpenRouter
-  { value: 'openrouter/openai/gpt-4o', label: 'GPT-4o (OpenRouter)' },
-  { value: 'openrouter/openai/gpt-4o-2024-05-13', label: 'GPT-4o 2024-05-13 (OpenRouter)' },
-  { value: 'openrouter/openai/gpt-4', label: 'GPT-4 (OpenRouter)' },
-  { value: 'openrouter/openai/gpt-3.5-turbo', label: 'GPT-3.5 Turbo (OpenRouter)' },
-  { value: 'openrouter/openai/gpt-3.5-turbo-16k', label: 'GPT-3.5 Turbo 16K (OpenRouter)' },
-  { value: 'openrouter/openai/gpt-oss-120b', label: 'GPT OSS 120B (OpenRouter)' },
-  { value: 'openrouter/openai/gpt-oss-20b', label: 'GPT OSS 20B (OpenRouter)' },
-  // xAI Grok — OpenRouter
-  { value: 'openrouter/x-ai/grok-4', label: 'Grok 4 (OpenRouter)' },
-  { value: 'openrouter/x-ai/grok-4-fast', label: 'Grok 4 Fast (OpenRouter)' },
-  { value: 'openrouter/x-ai/grok-3-mini', label: 'Grok 3 Mini (OpenRouter)' },
-  // DeepSeek — OpenRouter
-  { value: 'openrouter/deepseek/deepseek-r1-0528', label: 'DeepSeek R1 0528 (OpenRouter)' },
-  { value: 'openrouter/deepseek/deepseek-r1', label: 'DeepSeek R1 (OpenRouter)' },
-  { value: 'openrouter/deepseek/deepseek-chat-v3.1', label: 'DeepSeek Chat V3.1 (OpenRouter)' },
-  { value: 'openrouter/deepseek/deepseek-chat-v3-0324', label: 'DeepSeek Chat V3 0324 (OpenRouter)' },
-  { value: 'openrouter/deepseek/deepseek-chat', label: 'DeepSeek Chat (OpenRouter)' },
-  // Qwen — OpenRouter
-  { value: 'openrouter/qwen/qwen3.5-397b-a17b', label: 'Qwen3.5 397B (OpenRouter)' },
-  { value: 'openrouter/qwen/qwen3.5-122b-a10b', label: 'Qwen3.5 122B (OpenRouter)' },
-  { value: 'openrouter/qwen/qwen3.5-35b-a3b', label: 'Qwen3.5 35B (OpenRouter)' },
-  { value: 'openrouter/qwen/qwen3.5-27b', label: 'Qwen3.5 27B (OpenRouter)' },
-  { value: 'openrouter/qwen/qwen3-235b-a22b-thinking-2507', label: 'Qwen3 235B Thinking (OpenRouter)' },
-  { value: 'openrouter/qwen/qwen3-235b-a22b-2507', label: 'Qwen3 235B (OpenRouter)' },
-  { value: 'openrouter/qwen/qwen3-coder-plus', label: 'Qwen3 Coder Plus (OpenRouter)' },
-  { value: 'openrouter/qwen/qwen3-coder', label: 'Qwen3 Coder (OpenRouter)' },
-  { value: 'openrouter/qwen/qwen3.5-plus-02-15', label: 'Qwen3.5 Plus (OpenRouter)' },
-  { value: 'openrouter/qwen/qwen3.5-flash-02-23', label: 'Qwen3.5 Flash (OpenRouter)' },
-  { value: 'openrouter/qwen/qwen-2.5-coder-32b-instruct', label: 'Qwen2.5 Coder 32B (OpenRouter)' },
-  // Mistral — OpenRouter
-  { value: 'openrouter/mistralai/mistral-large-2512', label: 'Mistral Large 2512 (OpenRouter)' },
-  { value: 'openrouter/mistralai/mistral-large', label: 'Mistral Large (OpenRouter)' },
-  { value: 'openrouter/mistralai/mixtral-8x22b-instruct', label: 'Mixtral 8x22B (OpenRouter)' },
-  { value: 'openrouter/mistralai/ministral-14b-2512', label: 'Ministral 14B (OpenRouter)' },
-  { value: 'openrouter/mistralai/ministral-8b-2512', label: 'Ministral 8B (OpenRouter)' },
-  { value: 'openrouter/mistralai/ministral-3b-2512', label: 'Ministral 3B (OpenRouter)' },
-  { value: 'openrouter/mistralai/devstral-2512', label: 'Devstral 2512 (OpenRouter)' },
-  // Meta — OpenRouter
-  { value: 'openrouter/meta-llama/llama-3-70b-instruct', label: 'Llama 3 70B (OpenRouter)' },
-  // Moonshot — OpenRouter
-  { value: 'openrouter/moonshotai/kimi-k2.5', label: 'Kimi K2.5 (OpenRouter)' },
-  // MiniMax — OpenRouter
-  { value: 'openrouter/minimax/minimax-m2.5', label: 'MiniMax M2.5 (OpenRouter)' },
-  { value: 'openrouter/minimax/minimax-m2.1', label: 'MiniMax M2.1 (OpenRouter)' },
-  { value: 'openrouter/minimax/minimax-m2', label: 'MiniMax M2 (OpenRouter)' },
-  // GLM — OpenRouter
-  { value: 'openrouter/z-ai/glm-5', label: 'GLM-5 (OpenRouter)' },
-  { value: 'openrouter/z-ai/glm-4.7', label: 'GLM-4.7 (OpenRouter)' },
-  { value: 'openrouter/z-ai/glm-4.7-flash', label: 'GLM-4.7 Flash (OpenRouter)' },
-  { value: 'openrouter/z-ai/glm-4.6', label: 'GLM-4.6 (OpenRouter)' },
-  // Other
-  { value: 'openrouter/xiaomi/mimo-v2-flash', label: 'MiMo V2 Flash (OpenRouter)' },
-  { value: 'openrouter/bytedance/ui-tars-1.5-7b', label: 'UI-TARS 1.5 7B (OpenRouter)' },
-]
+
 
 type TopTab = 'general' | 'accounts' | 'tools'
 
@@ -156,11 +80,16 @@ export default function Settings() {
   const whisperModels = settings?.whisper_mode === 'local' ? localWhisperModels : WHISPER_MODELS
   const [whisperModel, setWhisperModel] = useState('')
   const [llmModel, setLlmModel] = useState('')
-  const [llmProvider, setLlmProvider] = useState<'server' | 'groq'>('server')
+  const [llmProvider, setLlmProvider] = useState<'server' | 'groq' | 'custom'>('server')
+  const [transcriptionProvider,setTranscriptionProvider]=useState<'server'|'custom'>('server')
+  const [summaryConnection,setSummaryConnection]=useState<ConnectionDraft>({baseUrl:''})
+  const [transcriptionConnection,setTranscriptionConnection]=useState<ConnectionDraft>({baseUrl:''})
   const [testingLlm, setTestingLlm] = useState(false)
   const [llmTestResult, setLlmTestResult] = useState('')
+  const [legacyModels,setLegacyModels]=useState([{value:"",label:"Server Default"}])
+  useEffect(()=>{if(llmProvider==='server')void import('../lib/legacyModelOptions').then(module=>setLegacyModels(module.LLM_MODELS)).catch(()=>{})},[llmProvider])
   const groqModels = ['openai/gpt-oss-120b', 'openai/gpt-oss-20b']
-  const llmModels = llmProvider === 'groq' ? groqModels.map(value => ({ value, label: value })) : LLM_MODELS
+  const llmModels = llmProvider === 'groq' ? groqModels.map(value => ({ value, label: value })) : legacyModels
   const [saving, setSaving] = useState(false)
   const [saveResult, setSaveResult] = useState<string | null>(null)
 
@@ -252,7 +181,7 @@ export default function Settings() {
   const [vdQuality, setVdQuality] = useState(() => getPreference('vd_quality') || 'medium')
   const [vdVideoQuality, setVdVideoQuality] = useState(() => getPreference('vd_video_quality') || '720')
   const [savedDraft, setSavedDraft] = useState('')
-  const draft = JSON.stringify([whisperModel, llmModel, llmProvider, vdStyle, vdFormats, vdQuality, vdVideoQuality])
+  const draft = JSON.stringify([whisperModel, llmModel, llmProvider, vdStyle, vdFormats, vdQuality, vdVideoQuality,transcriptionProvider,summaryConnection,transcriptionConnection])
   const dirty = !!savedDraft && draft !== savedDraft
   useUnsavedChanges(dirty)
 
@@ -467,12 +396,15 @@ export default function Settings() {
 
   useEffect(() => {
     if (settings) {
-      const savedWhisperModel = getPreference('whisper_model') || settings.whisper_model
+      const savedWhisperModel = settings.whisper_model
       const savedLlmModel = settings.llm_model
-      setWhisperModel(whisperModels.some(model => model.value === savedWhisperModel) ? savedWhisperModel : settings.whisper_model)
+      setWhisperModel(savedWhisperModel)
       setLlmModel(savedLlmModel)
       setLlmProvider(settings.llm_provider)
-      setSavedDraft(JSON.stringify([whisperModels.some(model => model.value === savedWhisperModel) ? savedWhisperModel : settings.whisper_model, savedLlmModel, settings.llm_provider, vdStyle, vdFormats, vdQuality, vdVideoQuality]))
+      setTranscriptionProvider(settings.transcription_provider||'server')
+      const summaryDraft={baseUrl:settings.llm_base_url||''},transcriptionDraft={baseUrl:settings.whisper_base_url||''}
+      setSummaryConnection(summaryDraft);setTranscriptionConnection(transcriptionDraft)
+      setSavedDraft(JSON.stringify([savedWhisperModel, savedLlmModel, settings.llm_provider, vdStyle, vdFormats, vdQuality, vdVideoQuality,settings.transcription_provider||'server',summaryDraft,transcriptionDraft]))
     }
   }, [settings])
 
@@ -493,14 +425,21 @@ export default function Settings() {
   }
 
   async function saveSettings() {
+    const owner=getAccountId()
     setSaving(true)
     setSaveResult(null)
     try {
-      await updateSettings({
+      const result=await updateSettings({
         whisper_model: whisperModel,
         llm_model: llmModel,
         llm_provider: llmProvider,
+        transcription_provider:transcriptionProvider,
+        llm_base_url:summaryConnection.baseUrl,
+        whisper_base_url:transcriptionConnection.baseUrl,
+        llm_api_key:summaryConnection.apiKey,
+        whisper_api_key:transcriptionConnection.apiKey,
       })
+      if(owner!==getAccountId())return
       setPreference('whisper_model', whisperModel)
       setPreference('llm_model', llmModel)
       setPreference('vd_style', vdStyle)
@@ -508,6 +447,7 @@ export default function Settings() {
       setPreference('vd_quality', vdQuality)
       setPreference('vd_video_quality', vdVideoQuality)
       setSavedDraft(draft)
+      if(result.settings){setSettings(result.settings);setCache(CacheKeys.SETTINGS,result.settings,owner)}
       setSaveResult('Settings saved successfully!')
       setTimeout(() => setSaveResult(null), 3000)
     } catch (err) {
@@ -519,11 +459,14 @@ export default function Settings() {
   }
 
   async function verifyAndSaveLlm() {
+    const owner=getAccountId()
     setTestingLlm(true)
     setLlmTestResult('')
     try {
       const result = await testLlmConnection({ llm_provider: llmProvider, llm_model: llmModel })
+      if(owner!==getAccountId())return
       await updateSettings({ llm_provider: llmProvider, llm_model: result.model })
+      if(owner!==getAccountId())return
       setLlmModel(result.model)
       setSavedDraft(previous => { if (!previous) return previous; const values = JSON.parse(previous); values[1] = result.model; values[2] = llmProvider; return JSON.stringify(values) })
       setPreference('llm_model', result.model)
@@ -653,7 +596,9 @@ export default function Settings() {
               Transcription (Whisper)
             </h2>
             <div className="space-y-3">
-              <SettingRow label="Provider" value={!settings ? 'Loading…' : settings.whisper_mode === 'api' ? `${settings.whisper_provider || 'Configured'} API` : 'Local model'} />
+              <label className="flex flex-wrap items-center justify-between gap-2 text-sm">Transcription provider<select aria-label="Transcription provider" disabled={!settings||saving} value={transcriptionProvider} onChange={e=>{const provider=e.target.value as 'server'|'custom';setTranscriptionProvider(provider);setWhisperModel(provider==='custom'?'':whisperModels[0].value)}} className="bg-dark-hover border border-dark-border rounded-lg px-3 py-2"><option value="server">Server configured transcription</option><option value="custom">My OpenAI-compatible service</option></select></label>
+              {transcriptionProvider==='custom'?<OptionalTool fallback={<p role="status">Loading model settings…</p>}><CustomModelFields kind="transcription" value={transcriptionConnection} model={whisperModel} keySaved={!!settings?.whisper_key_saved} savedBase={settings?.whisper_base_url||''} onChange={setTranscriptionConnection} onModel={setWhisperModel} disabled={!settings||saving}/></OptionalTool>:<>
+              <SettingRow label="Server provider" value={!settings ? 'Loading…' : settings.whisper_mode === 'api' ? `${settings.whisper_provider || 'Configured'} API` : 'Local model'} />
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 py-2 border-b border-dark-border">
                 <span className="text-gray-400 text-sm">Model</span>
                 <select
@@ -669,7 +614,9 @@ export default function Settings() {
               </div>
               <p className="text-xs text-gray-500">
                 {whisperModels.find(m => m.value === whisperModel)?.description || 'Select a model'}
-              </p>
+              </p></>}
+              {settings?.whisper_key_saved&&<button type="button" disabled={saving} className="text-sm text-gray-400 underline" onClick={()=>{setTranscriptionProvider('server');setWhisperModel(whisperModels[0].value);setTranscriptionConnection(value=>({...value,apiKey:''}))}}>Remove saved transcription key on save</button>}
+              {settings?.whisper_key_error&&<p role="alert" className="text-sm text-amber-300">{settings.whisper_key_error}</p>}
             </div>
           </section>
 
@@ -683,17 +630,18 @@ export default function Settings() {
               <label className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 text-sm text-gray-400">
                 Summary provider
                 <select aria-label="Summary provider" disabled={!settings || testingLlm || saving} value={llmProvider} onChange={e => {
-                  const provider = e.target.value as 'server' | 'groq'
+                  const provider = e.target.value as 'server' | 'groq' | 'custom'
                   setLlmProvider(provider)
-                  setLlmModel(provider === 'groq' ? groqModels[0] : settings?.llm_model || '')
+                  setLlmModel(provider === 'custom' ? '' : provider === 'groq' ? groqModels[0] : settings?.llm_provider==='server'?settings.llm_model:'')
                   setLlmTestResult('')
                 }} className="bg-dark-hover border border-dark-border text-white rounded-lg px-3 py-2">
                   <option value="groq" disabled={!settings?.groq_available}>Groq — reuse transcription API key</option>
                   <option value="server">Server configured provider</option>
+                  <option value="custom">My OpenAI-compatible service</option>
                 </select>
               </label>
               <p className="text-xs text-gray-400">Groq generates summaries with the existing transcription key and your current Groq plan. No OpenAI API account is needed. Video frame analysis requires a vision-capable provider.</p>
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 py-2 border-b border-dark-border">
+              {llmProvider==='custom'?<OptionalTool fallback={<p role="status">Loading model settings…</p>}><CustomModelFields kind="summary" value={summaryConnection} model={llmModel} keySaved={!!settings?.llm_key_saved} savedBase={settings?.llm_base_url||''} onChange={setSummaryConnection} onModel={setLlmModel} disabled={!settings||saving}/></OptionalTool>:<div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 py-2 border-b border-dark-border">
                 <span className="text-gray-400 text-sm">Model</span>
                 <select
                   aria-label="Summary model"
@@ -707,10 +655,12 @@ export default function Settings() {
                     <option key={m.value} value={m.value}>{m.label}</option>
                   ))}
                 </select>
-              </div>
-              <button onClick={verifyAndSaveLlm} disabled={!settings || testingLlm || (llmProvider === 'groq' && !settings?.groq_available)} className="px-4 py-2 bg-indigo-600 text-white rounded-lg disabled:opacity-50 flex items-center gap-2">
+              </div>}
+              {settings?.llm_key_saved&&<button type="button" disabled={saving} className="block text-sm text-gray-400 underline" onClick={()=>{setLlmProvider('server');setLlmModel('');setSummaryConnection(value=>({...value,apiKey:''}))}}>Remove saved summary key on save</button>}
+              {settings?.llm_key_error&&<p role="alert" className="text-sm text-amber-300">{settings.llm_key_error}</p>}
+              {llmProvider!=='custom'&&<button onClick={verifyAndSaveLlm} disabled={!settings || testingLlm || (llmProvider === 'groq' && !settings?.groq_available)} className="px-4 py-2 bg-indigo-600 text-white rounded-lg disabled:opacity-50 flex items-center gap-2">
                 {testingLlm && <Loader2 size={16} className="animate-spin" />} Test and save summaries
-              </button>
+              </button>}
               {llmTestResult && <p role="status" className="text-sm text-gray-300">{llmTestResult}</p>}
             </div>
           </section>

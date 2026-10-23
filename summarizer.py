@@ -117,7 +117,7 @@ class Summarizer:
     """Handles transcript summarization using LLM with retry logic."""
 
     def __init__(self, api_key: Optional[str] = None, base_url: Optional[str] = None, 
-                 model: Optional[str] = None):
+                 model: Optional[str] = None, custom_endpoint: bool = False):
         """
         Initialize summarizer.
         
@@ -129,6 +129,7 @@ class Summarizer:
         self.api_key = api_key or LLM_API_KEY
         self.base_url = base_url or LLM_BASE_URL
         self.model = model or LLM_MODEL
+        self.custom_endpoint = custom_endpoint
         self._groq = self.base_url.rstrip('/') == "https://api.groq.com/openai/v1"
         # Context capacity is not an editorial coverage budget. A long interview
         # fitting in one request still loses details when reduced in one pass.
@@ -140,11 +141,13 @@ class Summarizer:
         if not self.api_key:
             raise ValueError("LLM API key is required for summarization")
         
+        from api.custom_models import custom_http_client
         self.client = OpenAI(
             api_key=self.api_key, 
             base_url=self.base_url,
             timeout=600.0,
             max_retries=MAX_RETRIES,
+            **({"http_client": custom_http_client()} if custom_endpoint else {}),
         )
         
         logger.info(f"Summarizer initialized with model: {self.model}")
@@ -236,7 +239,10 @@ class Summarizer:
             logger.error(f"Failed to parse LLM response as JSON: {e}")
             raise SummaryOutputError('invalid') from None
         except Exception as e:
-            logger.error(f"Summarization failed: {e}")
+            logger.error(f"Summarization failed: {type(e).__name__ if self.custom_endpoint else e}")
+            if self.custom_endpoint:
+                from api.custom_models import public_model_error
+                raise RuntimeError(public_model_error(e, "summary")) from None
             if self._groq and "cancel" not in type(e).__name__.lower():
                 from api.llm_settings import safe_provider_error
                 raise RuntimeError(safe_provider_error(e)) from None
@@ -645,7 +651,7 @@ def merge_summaries(fast_summary: Summary, accurate_summary: Summary) -> Summary
 _summarizer: Optional[Summarizer] = None
 
 
-def get_summarizer(model: Optional[str] = None, *, api_key: str = "", base_url: str = "") -> Summarizer:
+def get_summarizer(model: Optional[str] = None, *, api_key: str = "", base_url: str = "", custom_endpoint: bool = False) -> Summarizer:
     """
     Get or create a Summarizer instance.
     
@@ -659,7 +665,7 @@ def get_summarizer(model: Optional[str] = None, *, api_key: str = "", base_url: 
     global _summarizer
     
     if model is not None or api_key or base_url:
-        return Summarizer(model=model, api_key=api_key, base_url=base_url)
+        return Summarizer(model=model, api_key=api_key, base_url=base_url, custom_endpoint=custom_endpoint)
     
     if _summarizer is None:
         _summarizer = Summarizer()

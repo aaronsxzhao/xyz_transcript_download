@@ -326,20 +326,13 @@ export default function Viewer() {
     }
   };
 
-  const handleDownloadMd = () => {
+  const handleDownloadMd = async () => {
     const md = getMarkdown();
     if (!md) return;
-    const blob = new Blob([md], { type: "text/markdown;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `${summary?.title || "summary"}.md`;
-    document.body.appendChild(a);
-    a.click();
-    setTimeout(() => {
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-    }, 100);
+    try {
+      const {downloadMarkdown} = await import('../lib/markdownDownload');
+      downloadMarkdown(md, summary?.title || "summary");
+    } catch { setError("Could not prepare Markdown download. Please retry."); }
   };
 
   const handleDownloadPdf = async () => {

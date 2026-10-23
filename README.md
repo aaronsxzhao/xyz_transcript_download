@@ -170,6 +170,32 @@ to verify the connection. Choose **Server configured provider** to use the
 `LLM_*` configuration below instead. These preferences are saved per account;
 API keys stay on the server. ChatGPT subscriptions do not include OpenAI API credits.
 
+To use your own provider, select **My OpenAI-compatible service** separately for
+transcription and summaries. Enter the API root (for example,
+`https://api.example.com/v1`), API key, and exact model ID. The model list is read
+from that endpoint; providers without a `/models` API support manual model IDs.
+Use **Test summary** or **Test transcription**, then **Save Settings**. Tests use
+synthetic input and can incur a small provider charge. Summary models must support
+JSON chat completions; transcription requires the audio transcription API with
+verbose JSON and segment timestamps. A successful small test does not guarantee
+that every model supports the context/output capacity of a long recording.
+
+Keys are encrypted per account and never returned by Settings or stored in browser
+preferences. Blank password fields keep a saved key; use the explicit removal
+action and save to remove it. Changing the Base URL requires re-entering the key.
+Cloud endpoints must use HTTPS and be publicly reachable. Existing saved outputs
+are retained; configured services receive content when a new processing request
+requires them (valid transcripts or source subtitles may be reused).
+
+For deployment, credential encryption uses `MODEL_CREDENTIAL_KEY` when supplied,
+otherwise a key derived from `SUPABASE_SERVICE_KEY`; local installations use a
+private key file in the persistent data directory. Keep the encryption secret/data
+directory stable and backed up. Rotating it requires users to re-enter model keys.
+
+Markdown downloads preserve source formatting and use absolute screenshot links.
+Signed media URLs retain their original expiry; the `.md` file does not embed images
+or extend access indefinitely.
+
 Groq token and request limits depend on your plan. Long recordings are split to
 fit the model's context window while preserving the full summary prompts.
 Groq summary models use

@@ -295,20 +295,13 @@ export default function VideoViewer() {
     }
   };
 
-  const handleDownload = () => {
+  const handleDownload = async () => {
     const md = getCurrentContent();
-    if (!md || !task) return;
-    const blob = new Blob([md], { type: "text/markdown;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `${task.title || "notes"}.md`;
-    document.body.appendChild(a);
-    a.click();
-    setTimeout(() => {
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-    }, 100);
+    if (!md) return;
+    try {
+      const {downloadMarkdown} = await import('../lib/markdownDownload');
+      downloadMarkdown(md, task?.title || "notes");
+    } catch { setError("Could not prepare Markdown download. Please retry."); }
   };
 
   const handleDownloadPdf = async () => {

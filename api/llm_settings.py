@@ -6,6 +6,9 @@ GROQ_MODELS = ("openai/gpt-oss-120b", "openai/gpt-oss-20b")
 
 def resolve_llm_settings(preferences: dict, model: str = "") -> dict:
     provider = preferences.get("llm_provider", "server")
+    if provider == "custom":
+        from api.custom_models import resolve_custom
+        return resolve_custom(preferences, "summary")
     if provider == "groq":
         if not GROQ_API_KEY:
             raise ValueError("Groq API key is missing on the server. Configure GROQ_API_KEY first.")
@@ -23,12 +26,15 @@ def provider_status(preferences: dict) -> dict:
     """Configuration presence is separate from an actual successful connection test."""
     provider = preferences.get("llm_provider", "server")
     return {"llm_provider": provider, "groq_available": bool(GROQ_API_KEY),
-            "llm_configured": bool(GROQ_API_KEY if provider == "groq" else LLM_API_KEY)}
+            "llm_configured": bool(preferences.get("llm_api_key") if provider == "custom" else GROQ_API_KEY if provider == "groq" else LLM_API_KEY)}
 
 
 def test_summary_connection(preferences: dict) -> dict:
     """A small real completion verifies the key, endpoint, model, and JSON support."""
     import json
+    if preferences.get("llm_provider") == "custom":
+        from api.custom_models import probe_provider
+        return probe_provider(preferences, "summary")
     from openai import OpenAI
     settings = resolve_llm_settings(preferences)
     with OpenAI(api_key=settings["api_key"], base_url=settings["base_url"],
@@ -47,6 +53,9 @@ def test_summary_connection(preferences: dict) -> dict:
 def safe_provider_error(error: Exception) -> str:
     """Do not return provider response bodies, URLs, or headers containing credentials."""
     from summary_errors import SummaryOutputError
+    from api.custom_models import ModelConfigurationError
+    if isinstance(error, ModelConfigurationError):
+        return str(error)
     if isinstance(error, SummaryOutputError):
         return str(error)
     if type(error).__name__ in {'APITimeoutError','ReadTimeout','ConnectTimeout'}:

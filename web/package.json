@@ -19,6 +19,7 @@
     "marked": "^17.0.3",
     "markmap-lib": "^0.18.12",
     "markmap-view": "^0.18.12",
+    "mdast-util-from-markdown": "2.0.2",
     "qrcode.react": "^4.2.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",

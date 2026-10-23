@@ -76,7 +76,7 @@ function detailFromApiBody(body: unknown): string | undefined {
  * Read JSON from a fetch Response once. Proxies sometimes return 5xx plain text;
  * this surfaces that text instead of a cryptic JSON.parse error.
  */
-async function parseApiResponseAsJson<T>(res: Response, operation: string): Promise<T> {
+export async function parseApiResponseAsJson<T>(res: Response, operation: string): Promise<T> {
   const text = await res.text()
   let body: unknown
   try {
@@ -523,7 +523,12 @@ export async function fetchSettings(): Promise<{
   whisper_backend: string
   whisper_device: string
   llm_model: string
-  llm_provider: 'server' | 'groq'
+  llm_provider: 'server' | 'groq' | 'custom'
+  transcription_provider: 'server' | 'custom'
+  llm_base_url: string
+  whisper_base_url: string
+  llm_key_saved: boolean
+  whisper_key_saved: boolean
   groq_available: boolean
   llm_configured: boolean
   whisper_provider: string
@@ -535,18 +540,22 @@ export async function fetchSettings(): Promise<{
 export async function updateSettings(settings: {
   whisper_model?: string
   llm_model?: string
-  llm_provider?: 'server' | 'groq'
-}): Promise<{ message: string }> {
+  llm_provider?: 'server' | 'groq' | 'custom'
+  transcription_provider?: 'server' | 'custom'
+  llm_base_url?: string
+  whisper_base_url?: string
+  llm_api_key?: string
+  whisper_api_key?: string
+}): Promise<{ message: string; settings?: Awaited<ReturnType<typeof fetchSettings>> }> {
   const res = await authFetch(`${API_BASE}/settings`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(settings),
   })
-  if (!res.ok) throw new Error('Failed to update settings')
-  return res.json()
+  return parseApiResponseAsJson(res, 'Failed to update settings')
 }
 
-export async function testLlmConnection(settings: { llm_provider: string; llm_model: string }): Promise<{ message: string; model: string }> {
+export async function testLlmConnection(settings: { llm_provider: string; llm_model: string; llm_base_url?:string; llm_api_key?:string }): Promise<{ message: string; model: string }> {
   return parseApiResponseAsJson(await authFetch(`${API_BASE}/settings/test-llm`, {
     method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(settings),
   }), 'Summary connection failed')

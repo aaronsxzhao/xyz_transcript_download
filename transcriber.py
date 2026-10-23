@@ -517,7 +517,7 @@ class APITranscriber:
     _last_api_call: float = 0
     _min_interval: float = 3.0  # Minimum 3 seconds between API calls for safety
 
-    def __init__(self, api_key: Optional[str] = None, base_url: Optional[str] = None, model: Optional[str] = None):
+    def __init__(self, api_key: Optional[str] = None, base_url: Optional[str] = None, model: Optional[str] = None, custom_endpoint: bool = False):
         from openai import OpenAI
 
         self.api_key = api_key or WHISPER_API_KEY
@@ -528,12 +528,17 @@ class APITranscriber:
         if not self.api_key:
             raise ValueError("API key is required for API transcription. Set GROQ_API_KEY or OPENAI_API_KEY.")
 
-        self.client = OpenAI(api_key=self.api_key, base_url=self.base_url)
+        self.custom_endpoint = custom_endpoint
+        from api.custom_models import custom_http_client
+        self.client = OpenAI(api_key=self.api_key, base_url=self.base_url, **({"http_client": custom_http_client()} if custom_endpoint else {}))
         self.max_size = MAX_AUDIO_SIZE_MB * 1024 * 1024
         
         logger.info(f"Using Whisper API: {self.base_url}, model: {self.model}")
 
     def _format_api_error(self, error: Exception) -> str:
+        if getattr(self, "custom_endpoint", False):
+            from api.custom_models import public_model_error
+            return public_model_error(error, "audio transcription")
         raw = str(error)
         lower = raw.lower()
         if "403" in lower or "forbidden" in lower:
@@ -1024,9 +1029,11 @@ class Transcriber:
     as a fallback via WHISPER_MODE=local in .env.
     """
 
-    def __init__(self, model: Optional[str] = None):
+    def __init__(self, model: Optional[str] = None, api_key: str = "", base_url: str = "", custom_endpoint: bool = False):
         self.last_error = ""
-        if WHISPER_MODE == "local":
+        if custom_endpoint:
+            self._transcriber = APITranscriber(model=model, api_key=api_key, base_url=base_url, custom_endpoint=True)
+        elif WHISPER_MODE == "local":
             from config import VALID_WHISPER_MODELS
             local_model = model if model in VALID_WHISPER_MODELS else WHISPER_LOCAL_MODEL
             backend = WHISPER_BACKEND
@@ -1109,7 +1116,7 @@ class Transcriber:
 _transcriber: Optional[Transcriber] = None
 
 
-def get_transcriber(model: Optional[str] = None) -> Transcriber:
+def get_transcriber(model: Optional[str] = None, *, preferences: Optional[dict] = None) -> Transcriber:
     """
     Get or create a Transcriber instance.
     
@@ -1121,6 +1128,9 @@ def get_transcriber(model: Optional[str] = None) -> Transcriber:
         Transcriber instance
     """
     global _transcriber
+    if preferences and preferences.get("transcription_provider") == "custom":
+        from api.custom_models import resolve_custom
+        return Transcriber(**resolve_custom(preferences, "transcription"))
     
     # If a specific model is requested, create a new instance
     if model is not None:
