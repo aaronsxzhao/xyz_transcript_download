@@ -72,3 +72,19 @@ it('keeps websocket completion when an older HTTP poll finishes afterward',async
   await vi.advanceTimersByTimeAsync(0)
   expect(useStore.getState().jobs[0]).toMatchObject({status:'completed',progress:100,revision:2})
 })
+
+it.each(['podcast','video'] as const)('does not restore a deleted %s from an in-flight progress poll',async kind=>{
+  let finish!:(value:any)=>void
+  if(kind==='podcast')api.authFetch.mockImplementationOnce(()=>new Promise(resolve=>{finish=resolve}))
+  else api.fetchProgress.mockImplementationOnce(()=>new Promise(resolve=>{finish=resolve}))
+  connectWebSocket();await vi.advanceTimersByTimeAsync(5000)
+  if(kind==='podcast'){
+    useStore.getState().removeJob('podcast')
+    finish({ok:true,json:async()=>({jobs:[completedJob]})})
+  }else{
+    useStore.getState().removeVideoTask('video')
+    finish({tasks:[completedVideo]})
+  }
+  await vi.advanceTimersByTimeAsync(0)
+  expect(kind==='podcast'?useStore.getState().jobs:useStore.getState().videoTasks).toEqual([])
+})

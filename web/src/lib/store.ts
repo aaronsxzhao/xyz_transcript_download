@@ -5,6 +5,10 @@ import { create } from 'zustand'
 import type { ProcessingJob, VideoTask, VideoUploadProgress } from './api'
 
 const LOCAL_VIDEO_TASK_GRACE_MS = 20000
+// Successful deletions must outlive requests/events already in flight. These
+// markers belong to the current browser account and clear with its state.
+const removedJobIds = new Set<string>()
+const removedVideoTaskIds = new Set<string>()
 
 function mergeProcessingJobPair(existing: ProcessingJob | undefined, incoming: ProcessingJob): ProcessingJob {
   if (!existing) return incoming
@@ -103,14 +107,19 @@ interface AppState {
 }
 
 export const useStore = create<AppState>((set) => ({
-  reset: () => set({ jobs: [], videoTasks: [], uploadSessions: [], selectedVideoTaskId: null, wsConnected: false }),
+  reset: () => {
+    removedJobIds.clear()
+    removedVideoTaskIds.clear()
+    set({ jobs: [], videoTasks: [], uploadSessions: [], selectedVideoTaskId: null, wsConnected: false })
+  },
   // Jobs
   jobs: [],
-  setJobs: (jobs) => set({ jobs }),
+  setJobs: (jobs) => set({ jobs: jobs.filter(job => !removedJobIds.has(job.job_id)) }),
   mergeJobs: (serverJobs) =>
     set((state) => {
+      const visibleServerJobs = serverJobs.filter(job => !removedJobIds.has(job.job_id))
       // Create a map of server jobs by job_id
-      const serverJobMap = new Map(serverJobs.map(j => [j.job_id, j]))
+      const serverJobMap = new Map(visibleServerJobs.map(j => [j.job_id, j]))
       
       // Keep local jobs that are either:
       // 1. Present in server response (will be updated)
@@ -127,7 +136,7 @@ export const useStore = create<AppState>((set) => ({
       const existingById = new Map(state.jobs.map(job => [job.job_id, job]))
       // Compare server versions rather than response arrival order.
       const mergedJobs = [
-        ...serverJobs.map(job => mergeProcessingJobPair(existingById.get(job.job_id), job)),
+        ...visibleServerJobs.map(job => mergeProcessingJobPair(existingById.get(job.job_id), job)),
         ...localOnlyJobs
       ]
       
@@ -135,6 +144,7 @@ export const useStore = create<AppState>((set) => ({
     }),
   updateJob: (job) =>
     set((state) => {
+      if (removedJobIds.has(job.job_id)) return state
       const existingIndex = state.jobs.findIndex((j) => j.job_id === job.job_id)
       if (existingIndex >= 0) {
         // Merge with existing job (preserve fields like episode_title if not in update)
@@ -146,10 +156,12 @@ export const useStore = create<AppState>((set) => ({
         return { jobs: [job, ...state.jobs] }
       }
     }),
-  removeJob: (jobId) =>
+  removeJob: (jobId) => {
+    removedJobIds.add(jobId)
     set((state) => ({
       jobs: state.jobs.filter((j) => j.job_id !== jobId),
-    })),
+    }))
+  },
   clearCompletedJobs: () =>
     set((state) => ({
       jobs: state.jobs.filter((j) => 
@@ -159,16 +171,17 @@ export const useStore = create<AppState>((set) => ({
   
   // Video tasks
   videoTasks: [],
-  setVideoTasks: (tasks) => set({ videoTasks: tasks }),
+  setVideoTasks: (tasks) => set({ videoTasks: tasks.filter(task => !removedVideoTaskIds.has(task.id)) }),
   mergeVideoTasks: (serverTasks) =>
     set((state) => {
+      const visibleServerTasks = serverTasks.filter(task => !removedVideoTaskIds.has(task.id))
       const hasAnyActiveTasks =
-        serverTasks.some(task => isActiveVideoTaskStatus(task.status)) ||
+        visibleServerTasks.some(task => isActiveVideoTaskStatus(task.status)) ||
         state.videoTasks.some(task => isActiveVideoTaskStatus(task.status))
       const now = Date.now()
 
       const mergedById = new Map<string, VideoTask>()
-      for (const serverTask of serverTasks) {
+      for (const serverTask of visibleServerTasks) {
         const existing = state.videoTasks.find(task => task.id === serverTask.id)
         mergedById.set(serverTask.id, mergeVideoTaskPair(existing, serverTask))
       }
@@ -189,14 +202,15 @@ export const useStore = create<AppState>((set) => ({
       }
 
       const orderedTasks = [
-        ...serverTasks.map(task => mergedById.get(task.id) ?? task),
-        ...Array.from(mergedById.values()).filter(task => !serverTasks.some(serverTask => serverTask.id === task.id)),
+        ...visibleServerTasks.map(task => mergedById.get(task.id) ?? task),
+        ...Array.from(mergedById.values()).filter(task => !visibleServerTasks.some(serverTask => serverTask.id === task.id)),
       ]
 
       return { videoTasks: orderedTasks }
     }),
   updateVideoTask: (task) =>
     set((state) => {
+      if (removedVideoTaskIds.has(task.id)) return state
       const normalizedTask = normalizeVideoTask(task)
       const idx = state.videoTasks.findIndex((t) => t.id === normalizedTask.id)
       if (idx >= 0) {
@@ -206,10 +220,12 @@ export const useStore = create<AppState>((set) => ({
       }
       return { videoTasks: [normalizedTask, ...state.videoTasks] }
     }),
-  removeVideoTask: (taskId) =>
+  removeVideoTask: (taskId) => {
+    removedVideoTaskIds.add(taskId)
     set((state) => ({
       videoTasks: state.videoTasks.filter((t) => t.id !== taskId),
-    })),
+    }))
+  },
   selectedVideoTaskId: null,
   setSelectedVideoTaskId: (id) => set({ selectedVideoTaskId: id }),
 
