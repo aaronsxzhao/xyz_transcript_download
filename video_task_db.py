@@ -162,7 +162,7 @@ class _SQLiteVideoTaskDB:
                 ).fetchone()
             return row[0] if row else 0
 
-    def get_existing_urls(self, urls: list, user_id: str = None) -> set:
+    def get_existing_urls(self, urls: list, user_id: str = None, exclude_discovered: bool = False) -> set:
         """Return the subset of *urls* that already have tasks for this user."""
         if not urls:
             return set()
@@ -170,15 +170,15 @@ class _SQLiteVideoTaskDB:
         with self._conn() as conn:
             if user_id:
                 rows = conn.execute(
-                    f"SELECT url FROM video_tasks WHERE url IN ({placeholders}) AND user_id = ?",
+                    f"SELECT url,status FROM video_tasks WHERE url IN ({placeholders}) AND user_id = ?",
                     (*urls, user_id),
                 ).fetchall()
             else:
                 rows = conn.execute(
-                    f"SELECT url FROM video_tasks WHERE url IN ({placeholders})",
+                    f"SELECT url,status FROM video_tasks WHERE url IN ({placeholders})",
                     urls,
                 ).fetchall()
-            return {r[0] for r in rows}
+            return {r[0] for r in rows if not exclude_discovered or r[1] != 'discovered'}
 
     def get_distinct_channels(self, user_id: str = None) -> List[dict]:
         with self._conn() as conn:
@@ -655,10 +655,10 @@ class _SupabaseVideoTaskDB:
             return 0
         return self._sb.count_channel_tasks(channel, user_id)
 
-    def get_existing_urls(self, urls: list, user_id: str = None) -> set:
+    def get_existing_urls(self, urls: list, user_id: str = None, exclude_discovered: bool = False) -> set:
         if not urls or not user_id:
             return set()
-        return self._sb.get_existing_video_urls(urls, user_id)
+        return self._sb.get_existing_video_urls(urls, user_id, exclude_discovered)
 
     def get_distinct_channels(self, user_id: str = None) -> List[dict]:
         if not user_id:
@@ -803,8 +803,8 @@ class VideoTaskDB:
     def count_channel_tasks(self, channel: str, user_id: str = None) -> int:
         return self._backend.count_channel_tasks(channel, user_id)
 
-    def get_existing_urls(self, urls: list, user_id: str = None) -> set:
-        return self._backend.get_existing_urls(urls, user_id)
+    def get_existing_urls(self, urls: list, user_id: str = None, exclude_discovered: bool = False) -> set:
+        return self._backend.get_existing_urls(urls, user_id, exclude_discovered)
 
     def get_distinct_channels(self, user_id: str = None) -> List[dict]:
         return self._backend.get_distinct_channels(user_id)

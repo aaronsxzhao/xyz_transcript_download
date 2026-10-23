@@ -30,10 +30,7 @@ async def get_episode(eid: str, user: Optional[User] = Depends(get_current_user)
     if not episode:
         raise HTTPException(status_code=404, detail="Episode not found")
     
-    def get_status():
-        return db.has_transcript(eid), db.has_summary(eid)
-    
-    has_transcript, has_summary = await run_sync(get_status)
+    annotations = await run_sync(db.get_episode_annotations, [eid])
     
     return EpisodeResponse(
         eid=episode.eid,
@@ -46,8 +43,7 @@ async def get_episode(eid: str, user: Optional[User] = Depends(get_current_user)
         audio_url=episode.audio_url,
         status=episode.status,
         source_status=episode.source_status,
-        has_transcript=has_transcript,
-        has_summary=has_summary,
+        **annotations.get(eid, {"has_transcript":False,"has_summary":False}),
         created_at=episode.created_at,
     )
 

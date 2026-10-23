@@ -11,6 +11,26 @@ pytestmark = [pytest.mark.api, pytest.mark.asyncio]
 
 class TestGetEpisode:
     """Tests for GET /api/episodes/{eid}"""
+
+    async def test_completed_refresh_preserves_summary_counts_and_readiness(
+        self, client, create_test_podcast, create_test_episode, create_test_summary,
+    ):
+        create_test_podcast()
+        create_test_episode(override={"duration":5100})
+        summary = create_test_summary()
+        result = (await client.get('/api/episodes/test-episode-456')).json()
+        assert result['topics_count'] == len(summary['topics'])
+        assert result['key_points_count'] == len(summary['key_points'])
+        assert result['quality_status'] == 'ready'
+
+    async def test_genuinely_empty_long_summary_still_needs_review(
+        self, client, create_test_podcast, create_test_episode, create_test_summary,
+    ):
+        create_test_podcast()
+        create_test_episode(override={"duration":5100})
+        create_test_summary({"topics":[],"key_points":[]})
+        result = (await client.get('/api/episodes/test-episode-456')).json()
+        assert result['quality_status'] == 'needs_review'
     
     async def test_get_episode_exists(
         self, client: AsyncClient, create_test_podcast, create_test_episode

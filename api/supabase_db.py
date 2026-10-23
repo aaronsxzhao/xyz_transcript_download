@@ -843,18 +843,18 @@ class SupabaseDatabase:
         )
         return result.count or 0
 
-    def get_existing_video_urls(self, urls: list, user_id: str) -> set:
+    def get_existing_video_urls(self, urls: list, user_id: str, exclude_discovered: bool = False) -> set:
         """Return URLs that already have tasks for this user."""
         if not self.client or not user_id or not urls:
             return set()
         result = (
             self.client.table("video_tasks")
-            .select("url")
+            .select("url,status")
             .eq("user_id", user_id)
             .in_("url", urls)
             .execute()
         )
-        return {r["url"] for r in (result.data or [])}
+        return {r["url"] for r in (result.data or []) if not exclude_discovered or r.get("status") != 'discovered'}
 
     def get_distinct_video_channels(self, user_id: str) -> list:
         """Return distinct channels with their metadata."""
