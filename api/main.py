@@ -612,18 +612,18 @@ def get_stats(user: Optional["User"] = Depends(get_current_user)):
 @app.get("/api/settings")
 async def get_settings(user: User = Depends(get_current_user)):
     """Get current settings."""
-    from config import (
-        WHISPER_MODE, WHISPER_BACKEND,
-        WHISPER_DEVICE, WHISPER_API_PROVIDER, CHECK_INTERVAL
-    )
-    
     from api.user_settings import get_user_settings
-    from api.llm_settings import provider_status
     try:
         runtime = await asyncio.to_thread(get_user_settings, user.id)
     except Exception:
         raise HTTPException(status_code=503, detail="Account settings unavailable. Check the user settings database migration.")
     
+    return _public_settings(runtime)
+
+
+def _public_settings(runtime: dict) -> dict:
+    from config import WHISPER_MODE, WHISPER_BACKEND, WHISPER_DEVICE, WHISPER_API_PROVIDER, CHECK_INTERVAL
+    from api.llm_settings import provider_status
     return {
         **provider_status(runtime),
         "whisper_mode": WHISPER_MODE,
@@ -632,6 +632,13 @@ async def get_settings(user: User = Depends(get_current_user)):
         "whisper_device": WHISPER_DEVICE,
         "whisper_provider": WHISPER_API_PROVIDER,
         "llm_model": runtime.get("llm_model", "openrouter/openai/gpt-4o"),
+        "transcription_provider": runtime.get("transcription_provider", "server"),
+        "llm_base_url": runtime.get("llm_base_url", ""),
+        "whisper_base_url": runtime.get("whisper_base_url", ""),
+        "llm_key_saved": bool(runtime.get("llm_api_key")),
+        "whisper_key_saved": bool(runtime.get("whisper_api_key")),
+        "llm_key_error": runtime.get("llm_api_key_error", ""),
+        "whisper_key_error": runtime.get("whisper_api_key_error", ""),
         "check_interval": CHECK_INTERVAL,
     }
 
@@ -640,20 +647,21 @@ async def get_settings(user: User = Depends(get_current_user)):
 async def update_settings(settings: dict, user: User = Depends(get_current_user)):
     """Update this account's model preferences."""
     from api.user_settings import save_user_settings
-    
-    allowed_keys = {"whisper_model", "llm_model", "llm_provider"}
-    filtered = {k: v for k, v in settings.items() if k in allowed_keys}
-    
-    if any(not isinstance(v, str) or len(v) > 200 for v in filtered.values()):
-        raise HTTPException(status_code=422, detail="Model names must be strings of at most 200 characters")
-    if filtered.get("llm_provider", "server") not in {"server", "groq"}:
-        raise HTTPException(status_code=422, detail="Choose a supported summary provider")
+    from api.model_settings import prepared_settings
+    from api.custom_models import ModelConfigurationError, resolve_custom
     try:
+        preferences, filtered = await asyncio.to_thread(prepared_settings, user.id, settings)
+        if preferences.get("llm_provider") == "custom":
+            resolve_custom(preferences, "summary")
+        if preferences.get("transcription_provider") == "custom":
+            resolve_custom(preferences, "transcription")
         await asyncio.to_thread(save_user_settings, user.id, filtered)
+    except ModelConfigurationError as error:
+        raise HTTPException(422, detail=str(error))
     except Exception:
         raise HTTPException(status_code=503, detail="Could not save account settings. Check the user settings database migration.")
     
-    return {"message": "Settings updated successfully"}
+    return {"message": "Settings updated successfully", "settings": _public_settings(preferences)}
 
 
 @app.post("/api/settings/test-llm")
@@ -661,15 +669,20 @@ def test_llm_connection(settings: dict, user: User = Depends(get_current_user)):
     """Verify the selected summary provider without processing private content."""
     from api.llm_settings import test_summary_connection, safe_provider_error
     from api.user_settings import get_user_settings
-    provider = settings.get("llm_provider", "server")
-    model = settings.get("llm_model", "")
-    if not isinstance(provider, str) or provider not in {"server", "groq"} or not isinstance(model, str) or len(model) > 200:
-        raise HTTPException(status_code=422, detail="Choose a supported summary provider and model")
-    preferences = {**get_user_settings(user.id), "llm_provider": provider, "llm_model": model}
+    from api.model_settings import prepared_settings
+    from api.custom_models import ModelConfigurationError, public_model_error
     try:
+        preferences, _ = prepared_settings(user.id, settings)
         return test_summary_connection(preferences)
+    except ModelConfigurationError as error:
+        raise HTTPException(422, detail=str(error))
     except Exception as error:
-        raise HTTPException(status_code=502, detail=safe_provider_error(error))
+        detail = public_model_error(error, "summary JSON output") if settings.get("llm_provider") == "custom" else safe_provider_error(error)
+        raise HTTPException(status_code=502, detail=detail)
+
+
+from api.model_settings import router as model_settings_router
+app.include_router(model_settings_router, prefix="/api/settings", tags=["settings"])
 
 
 # Serve React frontend for all non-API routes (must be last)

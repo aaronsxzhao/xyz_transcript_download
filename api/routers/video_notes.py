@@ -605,7 +605,7 @@ def process_video_note_sync(
                 _update_task_status(db, task_id, "transcribing", 42, "Transcribing audio with Whisper...", user_id)
 
                 from transcriber import get_transcriber
-                transcriber = get_transcriber(model=preferences.get("whisper_model") or None)
+                transcriber = get_transcriber(model=preferences.get("whisper_model") or None, **({"preferences": preferences} if preferences.get("transcription_provider") == "custom" else {}))
 
                 last_progress = [42]
 

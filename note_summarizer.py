@@ -240,21 +240,25 @@ class NoteSummarizer:
         api_key: str = "",
         base_url: str = "",
         model: str = "",
+        custom_endpoint: bool = False,
     ):
         self.api_key = api_key or LLM_API_KEY
         self.base_url = base_url or LLM_BASE_URL
         self.model = model or LLM_MODEL
+        self.custom_endpoint = custom_endpoint
         self._groq = self.base_url.rstrip('/') == "https://api.groq.com/openai/v1"
         self.chunk_chars = NOTE_CHUNK_CHARS
 
         if not self.api_key:
             raise ValueError("LLM API key is required for note generation")
 
+        from api.custom_models import custom_http_client
         self.client = OpenAI(
             api_key=self.api_key,
             base_url=self.base_url,
             timeout=600.0,
             max_retries=MAX_RETRIES,
+            **({"http_client": custom_http_client()} if custom_endpoint else {}),
         )
         logger.info(f"NoteSummarizer initialized: model={self.model}")
 
@@ -309,7 +313,10 @@ class NoteSummarizer:
         except Exception as e:
             if "cancel" in type(e).__name__.lower() or "cancel" in str(e).lower():
                 raise
-            logger.error(f"Note generation failed: {e}")
+            logger.error(f"Note generation failed: {type(e).__name__ if self.custom_endpoint else e}")
+            if self.custom_endpoint:
+                from api.custom_models import public_model_error
+                raise RuntimeError(public_model_error(e, "summary")) from None
             if self._groq:
                 from api.llm_settings import safe_provider_error
                 raise RuntimeError(safe_provider_error(e)) from None
@@ -410,7 +417,7 @@ class NoteSummarizer:
             except Exception as e:
                 if "cancel" in type(e).__name__.lower() or "cancel" in str(e).lower():
                     raise
-                logger.error(f"Chunk {i + 1}/{num_chunks} failed: {e}")
+                logger.error(f"Chunk {i + 1}/{num_chunks} failed: {type(e).__name__ if self.custom_endpoint else e}")
                 raise
 
             if result:
@@ -645,11 +652,11 @@ class NoteSummarizer:
 _note_summarizer: Optional[NoteSummarizer] = None
 
 
-def get_note_summarizer(model: str = "", *, api_key: str = "", base_url: str = "") -> NoteSummarizer:
+def get_note_summarizer(model: str = "", *, api_key: str = "", base_url: str = "", custom_endpoint: bool = False) -> NoteSummarizer:
     """Get or create a NoteSummarizer instance, reusing the existing LLM config."""
     global _note_summarizer
     if model or api_key or base_url:
-        return NoteSummarizer(model=model, api_key=api_key, base_url=base_url)
+        return NoteSummarizer(model=model, api_key=api_key, base_url=base_url, custom_endpoint=custom_endpoint)
     if _note_summarizer is None:
         _note_summarizer = NoteSummarizer()
     return _note_summarizer

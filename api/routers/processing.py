@@ -824,7 +824,7 @@ def process_episode_sync(job_id: str, episode_url: str, transcribe_only: bool = 
         # ===== PHASE 4: Transcribe (30-70%) =====
         update_job_status(job_id, "transcribing", 30, "Starting transcription...")
         
-        transcriber = get_transcriber(model=whisper_model)
+        transcriber = get_transcriber(model=whisper_model, **({"preferences": preferences} if preferences.get("transcription_provider") == "custom" else {}))
         
         last_progress = [30]
         def progress_callback(progress: float):

@@ -204,6 +204,7 @@ def analyze_grids(
     api_key: str = "",
     base_url: str = "",
     model: str = "",
+    custom_endpoint: bool = False,
 ) -> str:
     """
     Send grid images to a vision-capable LLM for analysis.
@@ -228,7 +229,9 @@ def analyze_grids(
         logger.error("No API key for vision analysis")
         return ""
 
-    client = OpenAI(api_key=api_key, base_url=base_url, timeout=120.0)
+    from api.custom_models import custom_http_client
+    client = OpenAI(api_key=api_key, base_url=base_url, timeout=120.0,
+                    **({"http_client": custom_http_client()} if custom_endpoint else {}))
 
     content_parts = [
         {
