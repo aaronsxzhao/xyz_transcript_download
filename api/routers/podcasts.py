@@ -16,6 +16,7 @@ from api.schemas import (
 )
 from api.auth import get_current_user, User
 from api.db import get_db
+from api.upload_chunks import save_upload_chunk
 from api.local_media import (
     LOCAL_AUDIO_DIR,
     LOCAL_AUDIO_EXTENSIONS,
@@ -391,22 +392,7 @@ async def upload_local_audio_chunk(
         raise HTTPException(status_code=400, detail=f"Chunk index {index} is out of range")
 
     part_path = _audio_upload_chunk_path(upload_id, index)
-    previous_size = part_path.stat().st_size if part_path.exists() else 0
-    chunk_size = 0
-    try:
-        with open(part_path, "wb") as out:
-            while True:
-                data = await chunk.read(1024 * 1024)
-                if not data:
-                    break
-                out.write(data)
-                chunk_size += len(data)
-    finally:
-        await chunk.close()
-
-    if chunk_size <= 0:
-        part_path.unlink(missing_ok=True)
-        raise HTTPException(status_code=400, detail="Uploaded chunk is empty")
+    chunk_size, previous_size = await save_upload_chunk(chunk, part_path)
 
     _update_audio_upload_meta(upload_id, lambda current: {
         **current,
