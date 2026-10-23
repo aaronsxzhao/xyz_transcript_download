@@ -56,6 +56,9 @@ export function useReadingPosition(
       restoring = false;
       interacted = true;
     };
+    const navigate = (event: KeyboardEvent) => {
+      if (['ArrowUp', 'ArrowDown', 'PageUp', 'PageDown', 'Home', 'End', ' '].includes(event.key)) stop();
+    };
     const timeout = setTimeout(stop, 5000);
     const save = () => {
       if (owner === getAccountId())
@@ -72,6 +75,8 @@ export function useReadingPosition(
     el.addEventListener("scroll", scroll, { passive: true });
     el.addEventListener("wheel", stop, { passive: true });
     el.addEventListener("touchstart", stop, { passive: true });
+    el.addEventListener("pointerdown", stop, { passive: true });
+    el.addEventListener("keydown", navigate);
     return () => {
       active = false;
       clearTimeout(timeout);
@@ -80,6 +85,8 @@ export function useReadingPosition(
       el.removeEventListener("scroll", scroll);
       el.removeEventListener("wheel", stop);
       el.removeEventListener("touchstart", stop);
+      el.removeEventListener("pointerdown", stop);
+      el.removeEventListener("keydown", navigate);
     };
   }, [key, elementId, ready]);
 }

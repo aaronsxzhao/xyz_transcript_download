@@ -101,3 +101,24 @@ it("records the restored position after asynchronous history hydration", async (
     getCache<{ position: number }[]>("reading_history")?.[0].position,
   ).toBe(860);
 });
+
+it.each(['keyboard','pointer'])('stops restoring when the reader navigates by %s while content is still growing', async mode => {
+  let resize!:()=>void, maximum=50, position=0;
+  vi.stubGlobal('ResizeObserver',class {
+    constructor(callback:()=>void){resize=callback}
+    observe(){}
+    disconnect(){}
+  });
+  Object.defineProperty(node,'scrollTop',{
+    configurable:true,get:()=>position,set:(value:number)=>{position=Math.min(value,maximum)},
+  });
+  sessionStorage.setItem('xyz_reading:local:video:one','860');
+  await act(async()=>root.render(<Reader/>));
+  expect(node.scrollTop).toBe(50);
+  node.dispatchEvent(mode==='keyboard'?new KeyboardEvent('keydown',{key:'PageDown',bubbles:true}):new Event('pointerdown',{bubbles:true}));
+  node.scrollTop=20;
+  node.dispatchEvent(new Event('scroll'));
+  maximum=2000;resize();
+  expect(node.scrollTop).toBe(20);
+  expect(sessionStorage.getItem('xyz_reading:local:video:one')).toBe('20');
+});
