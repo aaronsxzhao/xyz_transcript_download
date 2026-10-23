@@ -16,6 +16,7 @@ from fastapi import APIRouter, HTTPException, BackgroundTasks, Depends, UploadFi
 from api.media import sign_media_urls
 from api.auth import get_current_user, User
 from api.local_media import LOCAL_VIDEO_CHANNEL, LOCAL_VIDEO_EXTENSIONS
+from api.upload_chunks import save_upload_chunk
 from api.routers.processing import (
     manager, get_main_loop, ConnectionManager,
 )
@@ -1483,22 +1484,7 @@ async def upload_video_chunk(
         raise HTTPException(status_code=400, detail=f"Chunk index {index} is out of range")
 
     part_path = _session_chunk_path(upload_id, index)
-    previous_size = part_path.stat().st_size if part_path.exists() else 0
-    total_size = 0
-    try:
-        with open(part_path, "wb") as f:
-            while True:
-                data = await chunk.read(1024 * 1024)
-                if not data:
-                    break
-                f.write(data)
-                total_size += len(data)
-    finally:
-        await chunk.close()
-
-    if total_size <= 0:
-        part_path.unlink(missing_ok=True)
-        raise HTTPException(status_code=400, detail="Uploaded chunk is empty")
+    total_size, previous_size = await save_upload_chunk(chunk, part_path)
 
     try:
         status = _update_upload_meta(upload_id, lambda current: {
