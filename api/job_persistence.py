@@ -39,8 +39,25 @@ def save_job(job):
 def restore_jobs():
     if not USE_SUPABASE:
         return []
-    rows = client().table('processing_jobs').select('payload').order('updated_at', desc=True).limit(500).execute().data
-    return [r['payload'] for r in rows]
+    provider = client()
+    def query():
+        return provider.table('processing_jobs').select('id,payload')
+    recent = query().order('updated_at', desc=True).order('id').limit(500).execute().data
+    restored = {row['id']: row['payload'] for row in recent}
+    if len(recent) < 500:
+        return list(restored.values())
+    # Keep history bounded, but never let newer completed jobs hide an older
+    # interrupted task from startup reconciliation. Read before marking failures
+    # so those writes cannot move records between these ordered pages.
+    offset = 0
+    while True:
+        rows = (query().not_.in_('payload->>status', ['completed', 'failed', 'cancelled'])
+                .order('updated_at', desc=True).order('id').range(offset, offset + 499).execute().data)
+        restored.update({row['id']: row['payload'] for row in rows})
+        if len(rows) < 500:
+            break
+        offset += 500
+    return list(restored.values())
 
 
 def delete_job(job_id, user_id):
