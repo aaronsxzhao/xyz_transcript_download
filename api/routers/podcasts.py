@@ -43,6 +43,15 @@ async def run_sync(func, *args):
     return await loop.run_in_executor(None, func, *args)
 
 
+async def _fetch_source_episodes(fetcher):
+    """An unavailable source is not a successful refresh with zero episodes."""
+    try:
+        return await run_sync(fetcher)
+    except Exception:
+        logger.exception("Failed to read podcast episode source")
+        raise HTTPException(status_code=502, detail="Could not read episodes from the podcast source. Please retry.")
+
+
 def _get_media_duration_seconds(file_path: Path) -> int:
     """Read media duration with ffprobe. Returns 0 if unavailable."""
     try:
@@ -505,6 +514,10 @@ async def _add_apple_podcast(url: str, db) -> PodcastResponse:
     existing = await run_sync(db.get_podcast, podcast.pid)
     if existing:
         raise HTTPException(status_code=400, detail="Already subscribed to this podcast")
+
+    def fetch_episodes():
+        return get_episodes_from_feed(podcast.feed_url, podcast.pid, limit=50, strict=True)
+    episodes = await _fetch_source_episodes(fetch_episodes)
     
     def save_podcast():
         return db.add_podcast(
@@ -513,10 +526,8 @@ async def _add_apple_podcast(url: str, db) -> PodcastResponse:
             platform="apple", feed_url=podcast.feed_url,
         )
     podcast_id = await run_sync(save_podcast)
-    
-    def fetch_episodes():
-        return get_episodes_from_feed(podcast.feed_url, podcast.pid, limit=50)
-    episodes = await run_sync(fetch_episodes)
+    if podcast_id is None:
+        raise HTTPException(status_code=409, detail="Podcast subscription was not saved. Refresh your subscriptions and retry.")
     
     def save_episodes():
         for ep in episodes:
@@ -564,6 +575,11 @@ async def _add_xyz_podcast(url: str, db) -> PodcastResponse:
     existing = await run_sync(db.get_podcast, podcast.pid)
     if existing:
         raise HTTPException(status_code=400, detail="Already subscribed to this podcast")
+
+    def fetch_episodes():
+        return client.get_episodes_from_page(podcast.pid, limit=50, strict=True)
+    episodes = await _fetch_source_episodes(fetch_episodes)
+    episode_count = len(episodes)
     
     def save_podcast():
         return db.add_podcast(
@@ -572,11 +588,8 @@ async def _add_xyz_podcast(url: str, db) -> PodcastResponse:
             platform="xiaoyuzhou",
         )
     podcast_id = await run_sync(save_podcast)
-    
-    def fetch_episodes():
-        return client.get_episodes_from_page(podcast.pid, limit=50)
-    episodes = await run_sync(fetch_episodes)
-    episode_count = len(episodes)
+    if podcast_id is None:
+        raise HTTPException(status_code=409, detail="Podcast subscription was not saved. Refresh your subscriptions and retry.")
     
     def save_episodes():
         for ep in episodes:
@@ -735,8 +748,8 @@ async def refresh_podcast_episodes(pid: str, user: Optional[User] = Depends(get_
     if platform == "apple" and feed_url:
         from apple_podcasts_client import get_episodes_from_feed
         def fetch_episodes():
-            return get_episodes_from_feed(feed_url, pid, limit=50)
-        episodes = await run_sync(fetch_episodes)
+            return get_episodes_from_feed(feed_url, pid, limit=50, strict=True)
+        episodes = await _fetch_source_episodes(fetch_episodes)
     else:
         from xyz_client import get_client
         client = get_client()
@@ -745,8 +758,8 @@ async def refresh_podcast_episodes(pid: str, user: Optional[User] = Depends(get_
             if fresh_info and fresh_info.cover_url:
                 await run_sync(db.update_podcast_cover, pid, fresh_info.cover_url)
         def fetch_episodes():
-            return client.get_episodes_from_page(pid, limit=50)
-        episodes = await run_sync(fetch_episodes)
+            return client.get_episodes_from_page(pid, limit=50, strict=True)
+        episodes = await _fetch_source_episodes(fetch_episodes)
     
     def save_new_episodes():
         new_count = 0
@@ -846,6 +859,12 @@ async def import_user_subscriptions(
                 if full_podcast:
                     podcast = full_podcast
             
+            # Fetch first: failed imports must remain retryable rather than
+            # becoming empty subscriptions that the next import skips.
+            def fetch_episodes():
+                return client.get_episodes_from_page(podcast.pid, limit=20, strict=True)
+            episodes = await _fetch_source_episodes(fetch_episodes)
+
             # Save podcast to database
             def save_podcast():
                 return db.add_podcast(
@@ -853,11 +872,8 @@ async def import_user_subscriptions(
                     podcast.description, podcast.cover_url
                 )
             podcast_id = await run_sync(save_podcast)
-            
-            # Fetch and save episodes (limit to 20 for faster import)
-            def fetch_episodes():
-                return client.get_episodes_from_page(podcast.pid, limit=20)
-            episodes = await run_sync(fetch_episodes)
+            if podcast_id is None:
+                raise RuntimeError("Podcast subscription was not saved")
             
             def save_episodes():
                 for ep in episodes:
