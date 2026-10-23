@@ -1,5 +1,6 @@
 """Pydantic schemas for API requests and responses."""
 from typing import List, Optional
+import time
 from pydantic import model_validator, BaseModel
 
 
@@ -137,6 +138,8 @@ class BatchProcessRequest(BaseModel):
 
 class ProcessingStatus(BaseModel):
     job_id: str
+    # Ordering survives checkpoints and does not depend on network arrival time.
+    revision: int = 0
     source_url: str = ""
     transcribe_only: bool = False
     resummarize: bool = False
@@ -159,6 +162,12 @@ class ProcessingStatus(BaseModel):
     message: str = ""
     episode_id: Optional[str] = None
     episode_title: Optional[str] = None
+
+    def advance_revision(self):
+        # Microsecond epoch values fit in JavaScript's safe integer range. A
+        # restart can restore an older checkpoint than a browser last saw, so
+        # a counter alone would incorrectly reject the recovery status.
+        self.revision = max(self.revision + 1, time.time_ns() // 1000)
 
 
 # Stats schemas

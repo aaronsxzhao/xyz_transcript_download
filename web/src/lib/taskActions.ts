@@ -73,6 +73,7 @@ export async function retryTask(job: ProcessingJob, kind: Kind) {
       useStore.getState().updateJob({
         ...job,
         job_id: result.new_job_id,
+        revision: 0,
         status: "pending",
         progress: 0,
         message: "Waiting for a processing slot.",

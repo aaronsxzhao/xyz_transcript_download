@@ -6,6 +6,18 @@ import type { ProcessingJob, VideoTask, VideoUploadProgress } from './api'
 
 const LOCAL_VIDEO_TASK_GRACE_MS = 20000
 
+function mergeProcessingJobPair(existing: ProcessingJob | undefined, incoming: ProcessingJob): ProcessingJob {
+  if (!existing) return incoming
+  // HTTP snapshots and websocket events can arrive in either order.
+  if ((incoming.revision ?? 0) < (existing.revision ?? 0)) return existing
+  return {
+    ...existing,
+    ...incoming,
+    episode_title: incoming.episode_title || existing.episode_title,
+    episode_id: incoming.episode_id || existing.episode_id,
+  }
+}
+
 function isActiveVideoTaskStatus(status: string) {
   return !['success', 'failed', 'cancelled', 'discovered'].includes(status)
 }
@@ -112,9 +124,10 @@ export const useStore = create<AppState>((set) => ({
         return isActive
       })
       
-      // Merge: server jobs take precedence, then local-only active jobs
+      const existingById = new Map(state.jobs.map(job => [job.job_id, job]))
+      // Compare server versions rather than response arrival order.
       const mergedJobs = [
-        ...serverJobs,
+        ...serverJobs.map(job => mergeProcessingJobPair(existingById.get(job.job_id), job)),
         ...localOnlyJobs
       ]
       
@@ -126,14 +139,7 @@ export const useStore = create<AppState>((set) => ({
       if (existingIndex >= 0) {
         // Merge with existing job (preserve fields like episode_title if not in update)
         const newJobs = [...state.jobs]
-        const existingJob = newJobs[existingIndex]
-        newJobs[existingIndex] = {
-          ...existingJob,
-          ...job,
-          // Preserve episode_title if it was set and new update doesn't have it
-          episode_title: job.episode_title || existingJob.episode_title,
-          episode_id: job.episode_id || existingJob.episode_id,
-        }
+        newJobs[existingIndex] = mergeProcessingJobPair(newJobs[existingIndex], job)
         return { jobs: newJobs }
       } else {
         // Add new job

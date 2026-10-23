@@ -217,6 +217,7 @@ async def startup_event():
         job = ProcessingStatus(**saved)
         if job.status not in {'completed', 'failed', 'cancelled'}:
             job.status = 'failed'
+            job.advance_revision()
             job.message = 'Interrupted by server restart. Retry to continue from saved data.'
             await asyncio.to_thread(save_job, job)
         processing.jobs[job.job_id] = job
