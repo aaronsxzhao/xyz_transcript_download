@@ -19,7 +19,7 @@ import {OptionalTool} from '../components/DeferredView'
 const VideoNoteForm=lazy(()=>import('../components/video/VideoNoteForm'))
 const BilibiliFavorites=lazy(()=>import('../components/video/BilibiliFavorites'))
 import PlatformIcon, { PLATFORM_COLORS } from '../components/PlatformIcon'
-import { useStore, mergeVideoTaskPair } from '../lib/store'
+import { useStore, mergeVideoTaskPair, filterRemovedVideoTasks } from '../lib/store'
 import { useToast } from '../components/Toast'
 import { markSeen, isNewItem } from '../lib/seen'
 import {
@@ -115,7 +115,7 @@ export default function Videos() {
     view.type === 'videos' ? channelCacheKey(view.platform, view.channel) : CacheKeys.VIDEO_CHANNELS,
     !!error)
   useReadingPosition(view.type === 'videos' ? `channel:${view.platform}:${view.channel}:${channelFilter}` : 'video-channels', undefined, !channelTasksLoading && (view.type!=='videos'||loadedChannelFilter===channelFilter))
-  useWarmCache<{tasks:VideoTask[];next_cursor:string|null}>(view.type==='videos'?channelCacheKey(view.platform,view.channel):CacheKeys.VIDEO_CHANNELS, value=>{if(view.type==='videos'&&value.tasks){setChannelTasks(value.tasks);setChannelCursor(value.next_cursor);setLoadedChannelFilter(channelFilter);setChannelTasksLoading(false)}else if(view.type!=='videos'&&Array.isArray(value)){setChannels(value);setChannelsLoading(false)}})
+  useWarmCache<{tasks:VideoTask[];next_cursor:string|null}>(view.type==='videos'?channelCacheKey(view.platform,view.channel):CacheKeys.VIDEO_CHANNELS, value=>{if(view.type==='videos'&&value.tasks){setChannelTasks(filterRemovedVideoTasks(value.tasks));setChannelCursor(value.next_cursor);setLoadedChannelFilter(channelFilter);setChannelTasksLoading(false)}else if(view.type!=='videos'&&Array.isArray(value)){setChannels(value);setChannelsLoading(false)}})
   const loadChannelTasks = useCallback(async (platform: string, channel: string, options: { preserveExisting?: boolean; cursor?:string } = {}) => {
     const owner = getAccountId(), attempt = ++channelRequest.current
     channelAbort.current?.abort(); channelAbort.current = new AbortController()
@@ -127,7 +127,7 @@ export default function Videos() {
       const data = await fetchVideoTasksByChannel(platform, channel, {q:channelQuery,status:channelStatus,sort:channelSort,cursor:options.cursor,signal:channelAbort.current.signal})
       if (attempt !== channelRequest.current || owner !== getAccountId()) return
       setChannelTasks(previous => {
-        const tasks = options.cursor ? [...previous, ...data.tasks.filter(row => !previous.some(old => old.id === row.id))] : data.tasks
+        const tasks = filterRemovedVideoTasks(options.cursor ? [...previous, ...data.tasks.filter(row => !previous.some(old => old.id === row.id))] : data.tasks)
         setCache(cacheKey, {tasks,next_cursor:data.next_cursor,at:Date.now()}, owner)
         return tasks
       })
@@ -148,7 +148,7 @@ export default function Videos() {
     if (view.type === 'videos') {
       const cached = getCache<{tasks:VideoTask[];next_cursor:string|null;at:number}>(channelCacheKey(view.platform,view.channel))
       const sameChannel = loadedChannelRef.current === `${view.platform}::${view.channel}`
-      if (cached) {setChannelTasks(cached.tasks);setChannelCursor(cached.next_cursor);setLoadedChannelFilter(channelFilter);setChannelTasksLoading(false)}
+      if (cached) {setChannelTasks(filterRemovedVideoTasks(cached.tasks));setChannelCursor(cached.next_cursor);setLoadedChannelFilter(channelFilter);setChannelTasksLoading(false)}
       else if (!sameChannel) {setChannelTasks([]);setChannelTasksLoading(true);setChannelCursor(null)}
       if (!cached || Date.now()-cached.at>60000) void loadChannelTasks(view.platform,view.channel)
       else {loadedChannelRef.current=`${view.platform}::${view.channel}`;setChannelRefreshing(false)}
