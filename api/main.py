@@ -20,7 +20,7 @@ from api.request_timing import RequestTimingMiddleware
 
 from api.routers import podcasts, episodes, transcripts, summaries, processing
 from api.routers import auth_router, video_notes, cookies, notion
-from api.routers import performance, maintenance, library
+from api.routers import performance, maintenance, library, bilibili_favorites
 from api.auth import get_current_user, require_debug_access, User
 from logger import get_logger
 
@@ -339,6 +339,7 @@ app.include_router(transcripts.router, prefix="/api/transcripts", tags=["Transcr
 app.include_router(summaries.router, prefix="/api/summaries", tags=["Summaries"])
 app.include_router(processing.router, prefix="/api", tags=["Processing"])
 app.include_router(video_notes.router, prefix="/api/video-notes", tags=["Video Notes"])
+app.include_router(bilibili_favorites.router, prefix="/api/bilibili-favorites", tags=["Bilibili favorites"])
 app.include_router(cookies.router, prefix="/api/cookies", tags=["Cookies"])
 app.include_router(notion.router, prefix="/api/notion", tags=["Notion"])
 app.include_router(library.router, prefix="/api/library", tags=["Library"])

@@ -17,6 +17,7 @@ import {
 import {lazy} from 'react'
 import {OptionalTool} from '../components/DeferredView'
 const VideoNoteForm=lazy(()=>import('../components/video/VideoNoteForm'))
+const BilibiliFavorites=lazy(()=>import('../components/video/BilibiliFavorites'))
 import PlatformIcon, { PLATFORM_COLORS } from '../components/PlatformIcon'
 import { useStore, mergeVideoTaskPair } from '../lib/store'
 import { useToast } from '../components/Toast'
@@ -48,6 +49,7 @@ function isActiveVideoStatus(status: string) {
 export default function Videos() {
   const { videoTasks, mergeVideoTasks, removeVideoTask } = useStore()
   const [formOpen, setFormOpen] = useState(()=>new URLSearchParams(location.search).get('add')==='local')
+  const [favoritesOpen,setFavoritesOpen]=useState(false)
   const [search, setSearch] = useState('')
   const [channelQuery, setChannelQuery] = useState('')
   const [channelStatus, setChannelStatus] = useState('')
@@ -417,7 +419,8 @@ export default function Videos() {
             </p>
           </div>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <button onClick={()=>setFavoritesOpen(value=>!value)} aria-expanded={favoritesOpen} className="rounded-lg border border-dark-border px-3 py-2 text-sm">Bilibili favorites</button>
           <button
             onClick={handleCheckUpdates}
             disabled={checking}
@@ -458,6 +461,7 @@ export default function Videos() {
         </div>
       )}
 
+      {favoritesOpen&&<OptionalTool fallback={<p role="status">Loading favorites tools…</p>}><BilibiliFavorites onImported={()=>void loadChannels()}/></OptionalTool>}
       {/* Search */}
       <div className="relative max-w-md">
         <Search size={16} className="absolute left-3 top-2.5 text-gray-500" />

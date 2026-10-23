@@ -1026,6 +1026,8 @@ def generate_note_json(
     _invalidate_list_cache(user_id)
 
     existing = db.get_task_by_url(url, user_id)
+    if existing and data.get("skip_existing") and existing.get("status") != "discovered":
+        return {"task_id":existing["id"], "skipped":True}
     if is_local and USE_SUPABASE:
         from api.local_media import get_local_video_dir
         candidate = Path(url).resolve()

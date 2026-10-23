@@ -730,6 +730,7 @@ export interface VideoTaskVersion {
 }
 
 export interface VideoNoteRequest {
+  skip_existing?: boolean
   url: string
   title?: string
   platform?: string
@@ -745,7 +746,7 @@ export interface VideoNoteRequest {
   grid_rows?: number
 }
 
-export async function generateVideoNote(data: VideoNoteRequest): Promise<{ task_id: string }> {
+export async function generateVideoNote(data: VideoNoteRequest): Promise<{ task_id: string; skipped?: boolean }> {
   const modelSettings = getUserModelSettings()
   const res = await authFetch(`${API_BASE}/video-notes/generate-json`, {
     method: 'POST',
@@ -755,14 +756,14 @@ export async function generateVideoNote(data: VideoNoteRequest): Promise<{ task_
       llm_model: data.llm_model || modelSettings.llm_model,
     }),
   })
-  const parsed = await parseApiResponseAsJson<{ task_id?: string }>(
+  const parsed = await parseApiResponseAsJson<{ task_id?: string; skipped?: boolean }>(
     res,
     'Video note request failed',
   )
   if (typeof parsed.task_id !== 'string' || !parsed.task_id.trim()) {
     throw new Error('Video note request failed: server response missing task_id')
   }
-  return { task_id: parsed.task_id }
+  return { task_id: parsed.task_id, ...(parsed.skipped ? {skipped:true} : {}) }
 }
 
 export async function fetchVideoTasks(): Promise<{ tasks: VideoTask[] }> {
