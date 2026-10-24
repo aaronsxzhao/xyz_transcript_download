@@ -17,3 +17,9 @@ it('keeps source links platform specific and excludes unsafe links and unrelated
  expect(taskSource('youtube','', '0123456789abcdef01234567','video').original).toBe('')
  expect(taskSource('', '', '0123456789abcdef01234567','podcast').original).toContain('xiaoyuzhoufm.com/episode/')
 })
+it.each(['twitter','substack'])('does not send %s public-source failures to nonexistent account settings',platform=>{
+ const failure=taskFailure('LOGIN_REQUIRED',platform)
+ expect(failure.retryAfterSignIn).toBe(false)
+ expect(failure.message).toContain('Open the original link')
+ expect(failure.message).not.toContain('Settings')
+})

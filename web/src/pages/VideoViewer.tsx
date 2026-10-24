@@ -1,6 +1,7 @@
 import LoadError from '../components/LoadError';
 import { videoFailureHint } from '../lib/videoFailure';
-import { TaskProgress } from "../components/TaskStatus";
+import { taskFailure } from '../lib/taskSource';
+import { TaskProgress, sourceAction } from "../components/TaskStatus";
 import { useWarmCache } from "../lib/cache";
 import { extractNoteToc, normalizeNoteHeadings } from "../lib/noteMarkdown";
 import ReaderFrame, {
@@ -419,6 +420,7 @@ export default function VideoViewer() {
 
   const uiTask = displayTask ?? task;
   const versions = task.versions || [];
+  const publicSourceFailure = ['twitter','substack'].includes(uiTask.platform) && sourceAction(uiTask.error || uiTask.message);
 
   const title =
     task.title ||
@@ -502,7 +504,7 @@ export default function VideoViewer() {
                   <Download size={16} />
                   Markdown
                 </button>
-                {uiTask.status === "success" && (
+                {content && (
                   <>
                     <button
                       onClick={handleDownloadPdf}
@@ -593,6 +595,11 @@ export default function VideoViewer() {
       </div>}
       {!["success", "failed", "cancelled"].includes(uiTask.status) && content &&
         <p role="status" className="text-sm text-gray-400 mb-3">A new version is processing. Showing the saved note.</p>}
+      {uiTask.status === "cancelled" && (
+        <p role="status" className="text-sm text-gray-400 mb-3">
+          Processing was cancelled. {content ? "Showing the saved note." : "No saved note is available yet. You can retry from the actions menu."}
+        </p>
+      )}
       {utility && (
         <ReaderDetails
           kind={utility}
@@ -625,14 +632,15 @@ export default function VideoViewer() {
               <h3 className="text-sm font-medium text-red-400 mb-1">
                 Processing Failed
               </h3>
+              {content && <p className="text-xs text-gray-300 mb-2">The saved note below is still available.</p>}
               {(task.error || task.message) && (
                 <p className="text-xs text-red-400/80 mb-2">
-                  {task.error && /^[A-Z_]+$/.test(task.error)
+                  {publicSourceFailure ? taskFailure(uiTask.error || uiTask.message, uiTask.platform).message : task.error && /^[A-Z_]+$/.test(task.error)
                     ? task.message && task.message !== "Failed" && task.message !== task.error ? task.message : videoFailureHint(task)
                     : task.error || task.message}
                 </p>
               )}
-              {task.url && (
+              {/^https?:\/\//.test(task.url) && (
                 <a
                   href={task.url}
                   target="_blank"
@@ -655,12 +663,12 @@ export default function VideoViewer() {
                   />
                   Retry
                 </button>
-                <Link
+                {!publicSourceFailure && <Link
                   to="/settings"
                   className="flex items-center gap-1.5 px-3 py-1.5 bg-dark-hover hover:bg-dark-border text-gray-300 text-xs rounded-lg transition-colors"
                 >
                   Check Settings
-                </Link>
+                </Link>}
               </div>
             </div>
           </div>
@@ -696,7 +704,7 @@ export default function VideoViewer() {
                 </p>
               ) : (
                 isOriginal ? <PlainNote markdown={content} preserveSource/> : <MarkdownPreview
-                  task={{ ...uiTask, markdown: content }}
+                  markdown={content}
                   fallback={<PlainNote markdown={content} />}
                 />
               )}

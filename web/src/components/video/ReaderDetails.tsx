@@ -23,6 +23,7 @@ export default function ReaderDetails({
   onRestored: () => void;
 }) {
   const versions = task.versions || [];
+  const original = task.style === 'original' && ['twitter', 'substack'].includes(task.platform);
   const duration = `${Math.floor(task.duration / 60)}:${String(Math.floor(task.duration % 60)).padStart(2, "0")}`;
   return (
     <section
@@ -48,10 +49,9 @@ export default function ReaderDetails({
           <dl>
             <dt>Platform</dt>
             <dd>{task.platform}</dd>
-            <dt>Duration</dt>
-            <dd>{duration}</dd>
+            {task.duration > 0 && <><dt>Duration</dt><dd>{duration}</dd></>}
             <dt>Model</dt>
-            <dd>{task.model || "Not recorded"}</dd>
+            <dd>{original ? "No AI used · original text" : task.model || "Not recorded"}</dd>
             <dt>Formats</dt>
             <dd>{task.formats?.join(", ") || "Summary"}</dd>
           </dl>
