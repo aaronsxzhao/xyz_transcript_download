@@ -456,7 +456,7 @@ export async function removePodcast(pid: string): Promise<void> {
   const res = await authFetch(`${API_BASE}/podcasts/${pid}`, {
     method: 'DELETE',
   })
-  if (!res.ok) throw new Error('Failed to remove podcast')
+  if (!res.ok) await parseApiResponseAsJson(res, 'Failed to remove podcast')
 }
 
 export async function fetchPodcast(pid: string): Promise<Podcast> {
@@ -618,8 +618,7 @@ export async function deleteEpisode(eid: string): Promise<{ message: string }> {
   const res = await authFetch(`${API_BASE}/episodes/${eid}`, {
     method: 'DELETE',
   })
-  if (!res.ok) throw new Error('Failed to delete episode')
-  return res.json()
+  return parseApiResponseAsJson(res, 'Failed to delete episode')
 }
 
 export interface NewEpisode {
@@ -1503,11 +1502,7 @@ export async function fetchNotionPages(query?: string): Promise<{ pages: NotionP
   const res = await authFetch(`${API_BASE}/notion/pages${params}`, {
     headers: { 'X-Notion-Key': getNotionKey() },
   })
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({ detail: 'Failed to fetch Notion pages' }))
-    throw new Error(err.detail || 'Failed to fetch Notion pages')
-  }
-  return res.json()
+  return parseApiResponseAsJson(res, 'Failed to fetch Notion pages')
 }
 
 export async function exportToNotion(taskId: string, parentPageId: string): Promise<{ url: string; page_id: string; title: string }> {
@@ -1535,11 +1530,7 @@ export async function exportMarkdownToNotion(markdown: string, title: string, pa
     },
     body: JSON.stringify({ markdown, title, parent_page_id: parentPageId }),
   })
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({ detail: 'Export to Notion failed' }))
-    throw new Error(err.detail || 'Export to Notion failed')
-  }
-  return res.json()
+  return parseApiResponseAsJson(res, 'Export to Notion failed')
 }
 
 export interface LibraryItem { id:string; kind:'podcast'|'video'; title:string; source:string; date:string; published_at?:string; status:string; thumbnail?:string; platform?:string; duration?:number; topics_count?:number }

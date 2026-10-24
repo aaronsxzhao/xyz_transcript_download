@@ -126,10 +126,11 @@ async def delete_episode(eid: str, user: Optional[User] = Depends(get_current_us
     episode_title = episode.title
     episode_pid = episode.pid
     
-    # Delete all data in one batch (DB + files)
+    # Confirm the primary deletion before cleaning related records and files.
     def delete_all_data():
         # Delete from database
-        db.delete_episode(eid)
+        if not db.delete_episode(eid):
+            raise HTTPException(status_code=503, detail="Could not confirm episode deletion. Refresh the list before retrying.")
         
         # Delete associated files (for local storage)
         db.delete_transcript(eid)

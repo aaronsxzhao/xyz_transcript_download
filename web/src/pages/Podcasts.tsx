@@ -187,8 +187,8 @@ export default function Podcasts() {
       await removePodcast(pid)
       changePodcasts(prev => prev.filter(p => p.pid !== pid))
       addToast({ type: 'success', title: 'Podcast removed', message: podcast?.title || '' })
-    } catch {
-      addToast({ type: 'error', title: 'Failed to remove podcast' })
+    } catch (err) {
+      addToast({ type: 'error', title: 'Failed to remove podcast', message: err instanceof Error ? err.message : undefined })
     } finally {
       setDeletingPid(null)
     }

@@ -7,7 +7,8 @@ import Podcasts from '../src/pages/Podcasts'
 import {CacheKeys,setCache,getCache,clearCache} from '../src/lib/cache'
 import {fetchPodcasts,removePodcast,addPodcast,refreshPodcast,type Podcast} from '../src/lib/api'
 vi.mock('../src/lib/api',async load=>({...await load<object>(),fetchPodcasts:vi.fn(),removePodcast:vi.fn(),addPodcast:vi.fn(),refreshPodcast:vi.fn()}))
-vi.mock('../src/components/Toast',()=>({useToast:()=>({addToast:vi.fn(),removeToast:vi.fn()})}))
+const notify=vi.hoisted(()=>vi.fn())
+vi.mock('../src/components/Toast',()=>({useToast:()=>({addToast:notify,removeToast:vi.fn()})}))
 vi.mock('../src/lib/pageTiming',()=>({usePageTiming:()=>{}}))
 const row=(pid:string):Podcast=>({pid,title:'Show '+pid,author:'Author',description:'',cover_url:'',episode_count:1,summarized_count:0,platform:'apple',feed_url:''})
 let root:ReturnType<typeof createRoot>,node:HTMLDivElement
@@ -63,6 +64,7 @@ it('retains the subscription and accepts fresh data when removal fails',async()=
  await mount()
  await act(async()=>node.querySelector<HTMLButtonElement>('[title="Remove podcast"]')!.click())
  expect(node.textContent).toContain('Show one')
+ expect(notify).toHaveBeenCalledWith(expect.objectContaining({type:'error',message:'Disconnected'}))
  await act(async()=>finish([row('one'),row('new')]))
  expect(node.textContent).toContain('Show new')
  expect(getCache<Podcast[]>(CacheKeys.PODCASTS)?.map(row=>row.pid)).toEqual(['one','new'])

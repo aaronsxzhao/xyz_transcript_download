@@ -47,6 +47,7 @@ async def delete_transcript(eid: str, user: Optional[User] = Depends(get_current
     if not has_transcript:
         raise HTTPException(status_code=404, detail="Transcript not found")
     
-    await run_sync(db.delete_transcript, eid)
+    if not await run_sync(db.delete_transcript, eid):
+        raise HTTPException(status_code=503, detail="Could not confirm transcript deletion. Refresh before retrying.")
     
     return {"message": "Transcript deleted"}

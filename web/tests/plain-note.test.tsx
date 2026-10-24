@@ -9,6 +9,14 @@ import {extractNoteToc,rehypeNoteHeadings,normalizeNoteHeadings} from '../src/li
 let cleanup: (() => void) | undefined
 afterEach(() => { cleanup?.(); cleanup=undefined; vi.useRealTimers() })
 
+it.each([0,1,5])('preserves ordered lists starting at %s', start => {
+ const node=document.createElement('div');const root=createRoot(node)
+ cleanup=()=>act(()=>root.unmount())
+ act(()=>root.render(<PlainNote markdown={`${start}. Collect data\n${start+1}. Review results`}/>))
+ expect(node.querySelector('ol')?.start).toBe(start)
+ expect(node.querySelectorAll('li')).toHaveLength(2)
+})
+
 it('repairs duplicate markers in numbered headings without changing code, quotations or normal prose', () => {
  const title='优化模式识别的重要性'
  const source=`## 8. 学习\n\n### 8.2 #### ${title}\n\n保留 **非常重要** 的论述。\n\n### 8.3 ### 视频风格说明\n\n\`### 8.2 #### Literal\`\n\n\`\`\`md\n### 8.2 #### Literal\n\`\`\`\n\n> ### 8.2 #### Quoted original\n\n    ### 8.2 #### Indented code\n\n8.2 #### Plain text\n\n### C# and ## symbols\n`

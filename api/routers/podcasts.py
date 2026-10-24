@@ -698,7 +698,8 @@ async def remove_podcast(pid: str, user: Optional[User] = Depends(get_current_us
             return {"message": f"Removed entry: {pid}"}
         raise HTTPException(status_code=404, detail="Podcast not found")
     
-    await run_sync(db.delete_podcast, pid)
+    if not await run_sync(db.delete_podcast, pid):
+        raise HTTPException(status_code=503, detail="Could not confirm podcast removal. Refresh the list before retrying.")
     
     return {"message": f"Unsubscribed from {podcast.title}"}
 
