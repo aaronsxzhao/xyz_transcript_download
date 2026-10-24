@@ -103,6 +103,12 @@ def test_substack_podcast_routes_to_media_instead_of_summarizing_show_notes(monk
     assert source.media[0]['kind']=='audio' and 'Original show notes' in source.body
 
 
+def test_substack_video_selects_the_public_mp4_stream_explicitly(monkeypatch):
+    monkeypatch.setattr(social,'_json',lambda *a:{'title':'Video episode','body_html':'<p>Original video notes</p>','videoUpload':{'id':'video-123','duration':120}})
+    source=social.resolve_social_content('https://writer.substack.com/p/video')
+    assert source.media==[{'url':'https://writer.substack.com/api/v1/video/upload/video-123/src?type=mp4','kind':'video','duration':120}]
+
+
 def test_source_html_removes_scripts_but_keeps_literal_code_and_text():
     result=social.html_markdown('<h2>Title</h2><script>bad()</script><pre><code>a &lt; b</code></pre><a href="javascript:bad()">Label</a>','https://writer.substack.com/p/post')
     assert 'bad()' not in result and 'a < b' in result and 'Label' in result
