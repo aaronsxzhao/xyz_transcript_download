@@ -1,10 +1,12 @@
 import {TaskProgress} from '../components/TaskStatus'
 import ContentDates from '../components/ContentDates'
 import SourceAccessNotice,{sourceBlocked} from '../components/SourceAccessNotice'
-import { useState, useEffect, useRef } from 'react'
+import { lazy, useState, useEffect, useRef } from 'react'
+import {OptionalTool} from '../components/DeferredView'
+const LocalPodcastUpload=lazy(()=>import('../components/LocalPodcastUpload'))
 import { useParams, useNavigate, Link } from 'react-router-dom'
-import { ArrowLeft, Play, FileText, MessageSquare, Loader2, CheckCircle, Trash2, RefreshCw, Tag, Sparkles, Upload } from 'lucide-react'
-import { ApiError, fetchPodcasts, fetchEpisodes, processEpisode, deleteEpisode, resummarizeEpisode, uploadLocalPodcastAudio, type Podcast, type Episode } from '../lib/api'
+import { ArrowLeft, Play, FileText, MessageSquare, Loader2, CheckCircle, Trash2, RefreshCw, Tag, Sparkles } from 'lucide-react'
+import { ApiError, fetchPodcast, fetchPodcasts, fetchEpisodes, processEpisode, deleteEpisode, resummarizeEpisode, type Podcast, type Episode } from '../lib/api'
 import { useToast } from '../components/Toast'
 import { useStore } from '../lib/store'
 import { markSeen, isNewItem } from '../lib/seen'
@@ -15,6 +17,10 @@ import { getAccountId } from '../lib/preferences'
 import { prefetchSummary } from '../lib/summaryPrefetch'
 import { usePageTiming } from '../lib/pageTiming'
 
+function cachedHasMore(rows:Episode[],count?:number) {
+  return rows.length>0 && (rows.length%50===0 || (count===undefined?rows.length>=12:rows.length<count))
+}
+
 export default function Episodes() {
   const { pid } = useParams<{ pid: string }>()
   const cachedPodcast = () => getCache<Podcast>(CacheKeys.PODCAST(pid!))
@@ -22,7 +28,9 @@ export default function Episodes() {
   const [podcast, setPodcast] = useState<Podcast | null>(cachedPodcast)
   const [episodes, setEpisodes] = useState<Episode[]>(() => getCache(CacheKeys.EPISODES(pid!)) || [])
   const [loading, setLoading] = useState(() => !getCache(CacheKeys.EPISODES(pid!)))
-  useWarmCache<Episode[]>(CacheKeys.EPISODES(pid!),value=>{setEpisodes(value);setLoading(false);setError('');const cached=cachedPodcast();if(cached){setPodcast(cached);setHasMore(value.length<cached.episode_count)}})
+  const removedEpisodes = useRef(new Set<string>())
+  const ownCache = useRef<Episode[] | null>(null)
+  useWarmCache<Episode[]>(CacheKeys.EPISODES(pid!),value=>{if(value===ownCache.current)return;setEpisodes(value.filter(row=>!removedEpisodes.current.has(row.eid)));setLoading(false);setError('');const cached=cachedPodcast();if(cached)setPodcast(cached);setHasMore(cachedHasMore(value,cached?.episode_count))})
   const [error, setError] = useState('')
   const [refreshWarning,setRefreshWarning] = useState('')
   const [errorSource, setErrorSource] = useState<'initial' | 'more'>('initial')
@@ -30,22 +38,55 @@ export default function Episodes() {
   const [loadingMore, setLoadingMore] = useState(false)
   const [hasMore, setHasMore] = useState(() => {
     const cached = getCache<Episode[]>(CacheKeys.EPISODES(pid!))
-    return !!cached && cached.length < (cachedPodcast()?.episode_count ?? cached.length)
+    return !!cached && cachedHasMore(cached,cachedPodcast()?.episode_count)
   })
   const completedJobsRef = useRef(new Set<string>())
-  const [processingEid, setProcessingEid] = useState<string | null>(null)
-  const [regeneratingEid, setRegeneratingEid] = useState<string | null>(null)
-  const [deletingEid, setDeletingEid] = useState<string | null>(null)
-  const [uploading, setUploading] = useState(false)
-  const [uploadTitle, setUploadTitle] = useState('')
-  const [uploadDescription, setUploadDescription] = useState('')
+  const [pendingActions, setPendingActions] = useState<Record<string,string>>({})
+  const actionLocks = useRef(new Set<string>())
+  const [metadataError,setMetadataError] = useState('')
+  const [metadataLoading,setMetadataLoading] = useState(false)
+  const metadataVersion = useRef(0)
   const navigate = useNavigate()
   const { addToast } = useToast()
   const { jobs, updateJob } = useStore()
-  const fileInputRef = useRef<HTMLInputElement>(null)
   const currentPid = useRef(pid)
   currentPid.current = pid
   const loadVersion = useRef(0)
+
+  function beginAction(eid: string, action: string) {
+    if (actionLocks.current.has(eid)) return false
+    actionLocks.current.add(eid)
+    setPendingActions(previous=>({...previous,[eid]:action}))
+    return true
+  }
+  function finishAction(eid: string) {
+    actionLocks.current.delete(eid)
+    setPendingActions(previous=>{const next={...previous};delete next[eid];return next})
+  }
+  function saveEpisodes(rows:Episode[],owner=getAccountId()) {
+    ownCache.current=rows
+    setCache(CacheKeys.EPISODES(pid!),rows,owner)
+  }
+  function changeEpisodes(update: (previous:Episode[])=>Episode[]) {
+    const owner=getAccountId()
+    setEpisodes(previous=>{
+      const rows=update(previous).filter(row=>!removedEpisodes.current.has(row.eid))
+      saveEpisodes(rows,owner)
+      return rows
+    })
+  }
+  async function loadMetadata() {
+    if(!pid)return
+    const version=++metadataVersion.current, owner=getAccountId(), requestedPid=pid
+    const current=()=>version===metadataVersion.current&&currentPid.current===requestedPid&&owner===getAccountId()
+    setMetadataLoading(true);setMetadataError('')
+    try {
+      const data=await fetchPodcast(pid)
+      if(current()){setPodcast(data);setCache(CacheKeys.PODCAST(pid),data,owner)}
+    } catch(error) {
+      if(current())setMetadataError('Could not load podcast details: '+(error instanceof Error?error.message:'Please retry.'))
+    } finally {if(current())setMetadataLoading(false)}
+  }
 
   
   // Helper to find active job for an episode
@@ -62,13 +103,16 @@ export default function Episodes() {
     setEpisodes(cached || [])
     const metadata = cachedPodcast()
     setPodcast(metadata)
-    setHasMore(!!cached && cached.length < (metadata?.episode_count ?? cached.length))
+    setMetadataError('')
+    setMetadataLoading(false)
+    if(!metadata)void loadMetadata()
+    setHasMore(!!cached && cachedHasMore(cached,metadata?.episode_count))
     setLoading(!cached)
     setLoadingMore(false)
     completedJobsRef.current.clear()
     seenMarkedRef.current = false
     void loadData()
-    return () => { loadVersion.current += 1 }
+    return () => { loadVersion.current += 1; metadataVersion.current += 1 }
   }, [pid])
 
   const seenMarkedRef = useRef(false)
@@ -99,25 +143,30 @@ export default function Episodes() {
     setRefreshWarning('')
     const key=CacheKeys.EPISODES(pid), cached=getCache<Episode[]>(key)
     setLoading(!cached)
-    if(!cached || !cachedPodcast()) void fetchPodcasts().catch(()=>{})
     if(cached && (getCacheAge(key) ?? Infinity)<60000) {
       setEpisodes(cached)
       const count=cachedPodcast()?.episode_count
-      setHasMore(count===undefined?cached.length>=12:cached.length<count)
+      setHasMore(cachedHasMore(cached,count))
       return
     }
     try {
       const data = await fetchEpisodes(pid)
       if (!current()) return
-      setEpisodes(data)
-      setCache(CacheKeys.EPISODES(pid), data, owner)
+      const rows=data.filter(row=>!removedEpisodes.current.has(row.eid))
+      setEpisodes(rows)
+      saveEpisodes(rows,owner)
       // A full page may have a successor even if metadata is unavailable/stale.
       setHasMore(data.length === 50)
     } catch (err) {
       if (current()) {
         const available=getCache<Episode[]>(CacheKeys.EPISODES(pid))
         if(available){setEpisodes(available);setRefreshWarning('Showing saved episodes. Live refresh is unavailable.')}
-        else setError(episodeError(err))
+        else {
+          setError(episodeError(err))
+          // The collection's bounded previews can still recover a failed page
+          // read. Keep this fallback off the successful opening path.
+          void fetchPodcasts().catch(()=>{})
+        }
       }
     } finally {
       if (current()) { setLoading(false) }
@@ -138,8 +187,8 @@ export default function Episodes() {
       if (!current()) return
       setEpisodes(previous => {
         const ids=new Set(previous.map(row=>row.eid))
-        const rows=[...previous,...next.filter(row=>!ids.has(row.eid))]
-        setCache(CacheKeys.EPISODES(pid),rows,owner)
+        const rows=[...previous,...next.filter(row=>!ids.has(row.eid))].filter(row=>!removedEpisodes.current.has(row.eid))
+        saveEpisodes(rows,owner)
         return rows
       })
       setHasMore(next.length === 50)
@@ -152,124 +201,52 @@ export default function Episodes() {
       if (job.status !== 'completed' || !job.episode_id || completedJobsRef.current.has(job.job_id)) continue
       if (!episodes.some(episode => episode.eid === job.episode_id)) continue
       completedJobsRef.current.add(job.job_id)
+      const owner=getAccountId(),requestedPid=pid
       void fetchEpisode(job.episode_id).then(fresh => {
-        setEpisodes(previous => previous.map(episode => episode.eid === fresh.eid ? fresh : episode))
+        if(owner===getAccountId()&&currentPid.current===requestedPid)
+          changeEpisodes(previous => previous.map(episode => episode.eid === fresh.eid ? fresh : episode))
       }).catch(() => completedJobsRef.current.delete(job.job_id))
     }
   }, [jobs, episodes])
   
-  async function handleProcess(episode: Episode) {
-    setProcessingEid(episode.eid)
+  async function handleSubmit(episode: Episode, regenerate=false) {
+    if((!regenerate&&!podcast) || getActiveJob(episode.eid) || !beginAction(episode.eid,regenerate?'regenerate':'process'))return
+    const owner=getAccountId()
+    const operation=regenerate?'Re-summarization':'Processing'
     try {
-      const isLocal = podcast?.platform === 'local'
-      const isApple = podcast?.platform === 'apple'
-      const episodeUrl = isLocal
-        ? `local://${episode.eid}`
-        : isApple
-          ? `apple://${episode.eid}`
-          : `https://www.xiaoyuzhoufm.com/episode/${episode.eid}`
-      const result = await processEpisode(episodeUrl)
-      
-      // Immediately add job to store for instant UI feedback
-      updateJob({
-        job_id: result.job_id,
-        status: 'pending',
-        progress: 0,
-        message: 'Starting...',
-        episode_id: episode.eid,
-        episode_title: episode.title,
-      })
-      
-      addToast({
-        type: 'success',
-        title: 'Processing started',
-        message: episode.title,
-      })
-    } catch (err) {
-      console.error('Failed to start processing:', err)
-      addToast({
-        type: 'error',
-        title: 'Failed to start processing',
-      })
-    } finally {
-      setProcessingEid(null)
-    }
+      const episodeUrl=podcast?.platform==='local' ? `local://${episode.eid}`
+        : podcast?.platform==='apple' ? `apple://${episode.eid}`
+        : `https://www.xiaoyuzhoufm.com/episode/${episode.eid}`
+      const result=await (regenerate ? resummarizeEpisode(episode.eid) : processEpisode(episodeUrl))
+      if(owner!==getAccountId())return
+      updateJob({job_id:result.job_id,status:'pending',progress:0,
+        message:regenerate?'Re-summarizing...':'Starting...',episode_id:episode.eid,episode_title:episode.title})
+      addToast({type:'success',title:`${operation} started`,message:episode.title})
+    } catch(error) {
+      if(owner===getAccountId())addToast({type:'error',title:`${operation} could not start`,message:error instanceof Error?error.message:'Please retry.'})
+    } finally {finishAction(episode.eid)}
   }
 
-  async function handleLocalUpload(file: File) {
-    setUploading(true)
-    try {
-      const result = await uploadLocalPodcastAudio(file, {
-        title: uploadTitle.trim(),
-        description: uploadDescription.trim(),
-      })
-      if (result.podcast.pid === pid) {
-        setEpisodes(prev => [result.episode, ...prev])
-      } else {
-        await loadData()
-      }
-      setUploadTitle('')
-      setUploadDescription('')
-      if (fileInputRef.current) fileInputRef.current.value = ''
-      addToast({ type: 'success', title: 'Audio uploaded', message: result.episode.title })
-    } catch (err) {
-      console.error('Failed to upload audio:', err)
-      addToast({
-        type: 'error',
-        title: 'Upload failed',
-        message: err instanceof Error ? err.message : 'Unknown error',
-      })
-    } finally {
-      setUploading(false)
-    }
-  }
-  
-  async function handleRegenerate(episode: Episode) {
-    setRegeneratingEid(episode.eid)
-    try {
-      const result = await resummarizeEpisode(episode.eid)
-      
-      // Add job to store for instant UI feedback
-      updateJob({
-        job_id: result.job_id,
-        status: 'pending',
-        progress: 0,
-        message: 'Re-summarizing...',
-        episode_id: episode.eid,
-        episode_title: episode.title,
-      })
-      
-      addToast({
-        type: 'success',
-        title: 'Re-summarization started',
-        message: episode.title,
-      })
-    } catch (err) {
-      console.error('Failed to start re-summarization:', err)
-      addToast({
-        type: 'error',
-        title: 'Failed to start re-summarization',
-      })
-    } finally {
-      setRegeneratingEid(null)
-    }
-  }
-  
   async function handleDelete(episode: Episode) {
+    if(actionLocks.current.has(episode.eid))return
     if (!confirm(`Delete "${episode.title}"?\n\nThis will also delete any transcript and summary.`)) {
       return
     }
     
-    setDeletingEid(episode.eid)
+    if(!beginAction(episode.eid,'delete'))return
+    const owner=getAccountId(),requestedPid=pid
     try {
       await deleteEpisode(episode.eid)
-      setEpisodes(previous => previous.filter(e => e.eid !== episode.eid))
+      if(owner!==getAccountId())return
+      removedEpisodes.current.add(episode.eid)
+      if(currentPid.current===requestedPid)changeEpisodes(previous => previous.filter(e => e.eid !== episode.eid))
       addToast({
         type: 'success',
         title: 'Episode deleted',
         message: episode.title,
       })
     } catch (err) {
+      if(owner!==getAccountId())return
       console.error('Failed to delete episode:', err)
       addToast({
         type: 'error',
@@ -277,7 +254,7 @@ export default function Episodes() {
         message: err instanceof Error ? err.message : undefined,
       })
     } finally {
-      setDeletingEid(null)
+      finishAction(episode.eid)
     }
   }
   
@@ -289,6 +266,7 @@ export default function Episodes() {
   return (
     <div className="space-y-4 md:space-y-6">
       {error && <LoadError message={error} onRetry={() => { void (errorSource === 'more' ? loadMore() : loadData()) }} />}
+      {metadataError && <LoadError message={metadataError} onRetry={() => void loadMetadata()} />}
       <div className="flex items-center gap-3 md:gap-4">
         <button
           aria-label="Go back"
@@ -299,55 +277,18 @@ export default function Episodes() {
         </button>
         <div className="min-w-0">
           <h1 className="page-title text-lg md:text-2xl font-bold text-white line-clamp-1">{podcast?.title || 'Episodes'}</h1>
-          <p className="text-sm md:text-base text-gray-400">{loading ? 'Loading episodes…' : `${episodes.length}${hasMore && podcast?.episode_count ? ` of ${Math.max(podcast.episode_count, episodes.length)}` : ''} episodes`}</p>
+          <p className="text-sm md:text-base text-gray-400">{loading ? 'Loading episodes…' : `${episodes.length}${hasMore && (podcast?.episode_count||0)>episodes.length ? ` of ${podcast!.episode_count}` : ''} episodes`}</p>
         </div>
       </div>
+      {metadataLoading && <p role="status" className="text-sm text-gray-400">Loading podcast details…</p>}
 
-      {podcast?.platform === 'local' && (
-        <div className="p-4 bg-dark-surface border border-dark-border rounded-xl space-y-4">
-          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
-            <div>
-              <h2 className="text-base font-semibold text-white">Add More Local Audio</h2>
-              <p className="text-sm text-gray-400">New uploads are added to this local podcast and can be processed like normal episodes.</p>
-            </div>
-            <button
-              onClick={() => fileInputRef.current?.click()}
-              disabled={uploading}
-              className="flex items-center justify-center gap-2 px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 disabled:bg-gray-700 text-white font-medium rounded-lg transition-colors"
-            >
-              {uploading ? <Loader2 size={16} className="animate-spin" /> : <Upload size={16} />}
-              Upload Audio
-            </button>
-          </div>
-          <div className="grid gap-3 md:grid-cols-2">
-            <input
-              type="text"
-              value={uploadTitle}
-              onChange={e => setUploadTitle(e.target.value)}
-              placeholder="Optional title override"
-              className="w-full px-4 py-3 bg-dark-hover border border-dark-border rounded-lg text-white placeholder:text-gray-500 focus:outline-none focus:border-indigo-500 text-base"
-            />
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="audio/*,.mp3,.m4a,.wav,.aac,.flac,.ogg,.opus,.mp4,.mpeg,.mpga"
-              className="hidden"
-              onChange={e => {
-                const file = e.target.files?.[0]
-                if (file) void handleLocalUpload(file)
-              }}
-            />
-            <textarea
-              value={uploadDescription}
-              onChange={e => setUploadDescription(e.target.value)}
-              placeholder="Optional description"
-              rows={2}
-              className="md:col-span-2 w-full px-4 py-3 bg-dark-hover border border-dark-border rounded-lg text-white placeholder:text-gray-500 focus:outline-none focus:border-indigo-500 text-base resize-y"
-            />
-          </div>
-        </div>
-      )}
-      
+      {podcast?.platform === 'local' && <OptionalTool fallback={<p role="status">Loading upload tools…</p>}>
+        <LocalPodcastUpload onUploaded={result=>{
+          if(currentPid.current!==pid)return
+          changeEpisodes(previous=>[result.episode,...previous.filter(row=>row.eid!==result.episode.eid)])
+        }}/>
+      </OptionalTool>}
+
       {refreshWarning && <p role="status" className="text-sm text-gray-400">{refreshWarning}</p>}
       {loading && <div role="status" className="flex items-center gap-2 p-4 text-sm text-gray-400">
         <Loader2 size={18} className="animate-spin text-indigo-400" />
@@ -359,6 +300,7 @@ export default function Episodes() {
         {episodes.map((episode) => (
           <div
             key={episode.eid}
+            data-episode-id={episode.eid}
             onClick={episode.has_summary ? () => navigate(`/viewer/${episode.eid}`) : undefined}
             onPointerEnter={() => { if (episode.has_summary) prefetchSummary(episode.eid) }}
             onTouchStart={() => { if (episode.has_summary) prefetchSummary(episode.eid) }}
@@ -407,12 +349,12 @@ export default function Episodes() {
                     return (
                       <>
                         <button
-                          onClick={() => handleRegenerate(episode)}
-                          disabled={regeneratingEid === episode.eid || !!activeJob || sourceBlocked(episode.source_status) && episode.key_points_count===0}
+                          onClick={() => handleSubmit(episode,true)}
+                          disabled={!!pendingActions[episode.eid] || !!activeJob || sourceBlocked(episode.source_status) && episode.key_points_count===0}
                           className="flex items-center gap-2 px-3 py-2 bg-dark-hover hover:bg-dark-border text-gray-300 rounded-lg transition-colors disabled:opacity-50"
                           title={sourceBlocked(episode.source_status) && episode.key_points_count===0 ? episode.source_message : "Re-process episode"}
                         >
-                          {regeneratingEid === episode.eid ? (
+                          {pendingActions[episode.eid] === 'regenerate' ? (
                             <Loader2 size={16} className="animate-spin" />
                           ) : (
                             <RefreshCw size={16} />
@@ -440,11 +382,11 @@ export default function Episodes() {
                   
                   return (
                     <button
-                      onClick={() => handleProcess(episode)}
-                      disabled={processingEid === episode.eid || sourceBlocked(episode.source_status) && !episode.has_transcript}
+                      onClick={() => handleSubmit(episode)}
+                      disabled={!podcast || !!pendingActions[episode.eid] || sourceBlocked(episode.source_status) && !episode.has_transcript}
                       className="flex items-center gap-2 px-4 py-2 bg-dark-hover hover:bg-dark-border text-white rounded-lg transition-colors disabled:opacity-50"
                     >
-                      {processingEid === episode.eid ? (
+                      {pendingActions[episode.eid] === 'process' ? (
                         <Loader2 size={16} className="animate-spin" />
                       ) : (
                         <Play size={16} />
@@ -457,11 +399,11 @@ export default function Episodes() {
                 {/* Delete button */}
                 <button
                   onClick={() => handleDelete(episode)}
-                  disabled={deletingEid === episode.eid}
+                  disabled={!!pendingActions[episode.eid]}
                   className="p-2 bg-dark-hover hover:bg-red-600/20 text-red-400 rounded-lg transition-colors disabled:opacity-50"
                   title="Delete episode"
                 >
-                  {deletingEid === episode.eid ? (
+                  {pendingActions[episode.eid] === 'delete' ? (
                     <Loader2 size={16} className="animate-spin" />
                   ) : (
                     <Trash2 size={16} />

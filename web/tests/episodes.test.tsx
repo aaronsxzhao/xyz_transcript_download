@@ -35,7 +35,8 @@ it('keeps navigation visible and retries a failed read without waiting for metad
   await act(async()=>node.querySelector<HTMLButtonElement>('[role="alert"] button')!.click())
   await act(async()=>finish([row()]))
   expect(node.textContent).toContain('Episode 0')
-  expect(node.querySelector('[role="status"]')).toBeNull()
+  expect(node.textContent).not.toContain('Loading episodes…')
+  expect(node.textContent).toContain('Loading podcast details…')
   expect(fetchEpisodes).toHaveBeenCalledTimes(2)
 })
 it('shows missing-podcast errors immediately without retrying or waiting for metadata',async()=>{
