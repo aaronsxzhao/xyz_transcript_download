@@ -165,6 +165,7 @@ def _repair(task, owner, key):
     from screenshot_extractor import extract_screenshots_batch
     from cookie_manager import get_cookie_manager
     from video_downloader import get_downloader
+    from social_content import social_platform, SocialSourceError
     report = {'status': 'running', 'missing': 0, 'message': 'Restoring screenshots…', 'started_at': datetime.now(timezone.utc).isoformat()}
     try:
         _save_report(key, report)
@@ -178,7 +179,8 @@ def _repair(task, owner, key):
             else:
                 host = (urlparse(task['url']).hostname or '').lower()
                 domains = {'youtube': ('youtube.com', 'youtu.be'), 'bilibili': ('bilibili.com', 'b23.tv'), 'douyin': ('douyin.com', 'tiktok.com'), 'kuaishou': ('kuaishou.com', 'kwai.com')}
-                if urlparse(task['url']).scheme != 'https' or not any(host == d or host.endswith('.' + d) for d in domains.get(task.get('platform'), ())):
+                social = task.get('platform') in {'twitter','substack'} and social_platform(task['url']) == task['platform']
+                if urlparse(task['url']).scheme != 'https' or not (social or any(host == d or host.endswith('.' + d) for d in domains.get(task.get('platform'), ()))):
                     raise ValueError('Unsupported source URL')
                 downloader = get_downloader(task['platform'], get_cookie_manager(owner).get_cookie(task['platform']))
                 source = downloader.download_video(task['url'], task['id'], video_quality='360')
@@ -195,6 +197,8 @@ def _repair(task, owner, key):
                 db.flush_task(task['id'], strict=True)
         report.update(status='completed' if not remaining else 'failed', missing=remaining,
                       message='Screenshots restored' if not remaining else 'Some screenshots are unavailable. Check your platform connection or original file.')
+    except SocialSourceError as error:
+        report.update(status='failed', message=str(error))
     except Exception:
         report.update(status='failed', message='Cannot restore these frames. Reconnect the platform account, or provide the original uploaded file.')
     finally:
