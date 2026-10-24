@@ -58,10 +58,10 @@ export function inlineNoteText(tokens:Inline[]):string {
   return tokens.map(token=>token.tokens?inlineNoteText(token.tokens):token.type === 'codespan' ? token.text || '' : decodeNoteText(token.text || '')).join('')
 }
 
-export function extractNoteToc(markdown:string) {
+export function extractNoteToc(markdown:string,preserveSource=false) {
   const counts:Record<string,number>=Object.create(null)
   const headings:{level:number;text:string;slug:string}[]=[]
-  walkTokens(Lexer.lex(prepareNoteMarkdown(markdown)),token=>{
+  walkTokens(Lexer.lex(preserveSource?markdown:prepareNoteMarkdown(markdown)),token=>{
     if(token.type!=='heading')return
     const heading=token as Tokens.Heading
     const text=inlineNoteText(heading.tokens)

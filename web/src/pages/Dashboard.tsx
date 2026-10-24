@@ -1,3 +1,4 @@
+import {detectContentPlatform as detectVideoPlatform} from '../lib/contentLinks'
 import { dismissedTasks } from "../lib/taskPreferences";
 const taskAction = async (
   action: "cancelTask" | "retryTask" | "dismissTask",
@@ -86,14 +87,7 @@ const VIDEO_QUEUE_STATUSES = new Set([
   "failed",
 ]);
 
-function detectVideoPlatform(url: string): string {
-  const u = url.toLowerCase();
-  if (/bilibili\.com|b23\.tv/.test(u)) return "bilibili";
-  if (/youtube\.com|youtu\.be/.test(u)) return "youtube";
-  if (/douyin\.com|tiktok\.com/.test(u)) return "douyin";
-  if (/kuaishou\.com|kwai\.com/.test(u)) return "kuaishou";
-  return "";
-}
+
 
 export default function Dashboard() {
   const {
@@ -486,7 +480,7 @@ export default function Dashboard() {
         setEpisodeUrl("");
         addToast({
           type: "success",
-          title: "Video processing started",
+          title: "Content processing started",
           message: "Check the processing panel for progress",
         });
         loadData();
@@ -734,7 +728,7 @@ export default function Dashboard() {
                 value={episodeUrl}
                 onChange={(e) => setEpisodeUrl(e.target.value)}
                 aria-label="Podcast episode or video URL"
-                placeholder="Paste podcast episode or video URL..."
+                placeholder="Paste podcast, video, X or Substack link…"
                 className="flex-1 px-4 py-3 bg-dark-hover border border-dark-border rounded-lg text-white placeholder:text-gray-500 focus:outline-none focus:border-indigo-500 text-base"
               />
               <button
@@ -766,7 +760,7 @@ export default function Dashboard() {
               </div>
             )}
             <div className="dashboard-add-helper">
-              <span>Xiaoyuzhou · Spotify · YouTube · BiliBili</span>
+              <span>Xiaoyuzhou · Spotify · YouTube · BiliBili · X · Substack</span>
               <Link to="/videos?add=local" className="reader-action">
                 Upload a local file ↗
               </Link>

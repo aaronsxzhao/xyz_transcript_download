@@ -1,3 +1,4 @@
+import {detectContentPlatform as detectPlatform} from '../../lib/contentLinks'
 import { useState, useRef, useEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
@@ -14,16 +15,11 @@ const PLATFORM_LABELS: Record<string, string> = {
   douyin: 'Douyin',
   kuaishou: 'Kuaishou',
   local: 'Local File',
+  twitter: 'X / Twitter',
+  substack: 'Substack',
 }
 
-function detectPlatform(url: string): string {
-  const u = url.toLowerCase()
-  if (/bilibili\.com|b23\.tv/.test(u)) return 'bilibili'
-  if (/youtube\.com|youtu\.be/.test(u)) return 'youtube'
-  if (/douyin\.com|tiktok\.com/.test(u)) return 'douyin'
-  if (/kuaishou\.com|kwai\.com/.test(u)) return 'kuaishou'
-  return ''
-}
+
 
 const STYLES = [
   { id: 'minimal', label: '精简 Minimal' },
@@ -123,6 +119,7 @@ export default function VideoNoteForm({ onTaskCreated, hideTitle }: Props) {
     return isLocalFile ? 'local' : ''
   }, [url, isLocalFile])
 
+  const socialLink=['twitter','substack'].includes(detectedPlatform)
   const [ytCookieWarning, setYtCookieWarning] = useState(false)
   const ytCheckRef = useRef(false)
 
@@ -428,7 +425,7 @@ export default function VideoNoteForm({ onTaskCreated, hideTitle }: Props) {
                   setActiveUploadId(null)
                   useStore.getState().uploadSessions.map(s => s.id).forEach(id => removeUploadSession(id))
                 }}
-                placeholder="Paste video URL here..."
+                placeholder="Paste video, X or Substack link…"
                 className="w-full px-3 py-2.5 bg-dark-hover border border-dark-border rounded-lg text-white text-sm placeholder-gray-500 focus:outline-none focus:border-indigo-500 pr-24"
               />
               {detectedPlatform && (
@@ -461,6 +458,7 @@ export default function VideoNoteForm({ onTaskCreated, hideTitle }: Props) {
         />
       </div>
 
+      {socialLink && <p className="text-sm text-gray-400">Public text is imported in its original language without AI summarization. Audio/video is transcribed and summarized; its original post is retained. Paid or inaccessible content is reported explicitly.</p>}
       {/* YouTube cookie warning */}
       {ytCookieWarning && detectedPlatform === 'youtube' && (
         <div className="flex items-start gap-2 p-2.5 bg-amber-900/20 border border-amber-500/30 rounded-lg">

@@ -10,7 +10,7 @@ import { prefetchSummary, prefetchVideoNote, cancelPrefetch } from '../lib/summa
 import { usePageTiming } from '../lib/pageTiming'
 import { useReadingPosition } from '../lib/reading'
 import {useReadingHistory} from '../lib/readingHistory'
-import { Headphones, Video, ArrowUpRight, RefreshCw, Search, LayoutGrid, List } from 'lucide-react'
+import { Headphones, Video, FileText, ArrowUpRight, RefreshCw, Search, LayoutGrid, List } from 'lucide-react'
 import { useRef } from 'react'
 import LoadError from '../components/LoadError'
 
@@ -74,7 +74,7 @@ export default function Library() {
       <button className="library-filter-toggle border border-dark-border px-3" aria-expanded={filtersOpen} aria-controls="library-filter-options" onClick={() => setFiltersOpen(open => !open)}>Filters{kind || source ? ' · Active' : ''}</button>
       <div id="library-filter-options" className="library-filter-options" data-expanded={filtersOpen}>
       <select aria-label="Podcast or channel" value={source} onChange={e=>update("source",e.target.value)} className="min-w-0 px-3 py-3 bg-dark-surface border border-dark-border rounded-lg"><option value="">All sources</option>{Array.from(new Set([source,...items.map(i=>i.source)])).filter(Boolean).sort().map(value=><option key={value} value={value}>{value}</option>)}</select>
-      <select aria-label="Media type" value={kind} onChange={e => update('kind', e.target.value)} className="px-3 py-3 bg-dark-surface rounded-lg"><option value="">All media</option><option value="podcast">Podcasts</option><option value="video">Videos</option></select>
+      <select aria-label="Media type" value={kind} onChange={e => update('kind', e.target.value)} className="px-3 py-3 bg-dark-surface rounded-lg"><option value="">All media</option><option value="podcast">Podcasts</option><option value="video">Videos & posts</option></select>
 
     </div></div>
     <div className="library-results-bar"><p role="status" className="text-sm text-gray-400">{loading ? 'Loading your notes…' : `${shown.length} notes loaded${cursor ? " · More available" : ""}`}{refreshing && !loading ? loadedFilter !== filterKey ? ' · Searching…' : ' · Updating…' : ''}</p><select aria-label="Sort notes" value={sort} onChange={e => update('sort', e.target.value)} className="p-2 rounded bg-dark-surface"><option value="newest">Recently saved</option><option value="oldest">Earliest saved</option><option value="published">Recently published</option></select><div className="flex gap-1 rounded-lg border border-dark-border p-1">{(['grid', 'list'] as const).map(mode => <button key={mode} aria-label={`${mode} layout`} aria-pressed={layout === mode} onClick={() => { setLayout(mode); setPreference('library_layout', mode) }} className={`p-2 rounded ${layout === mode ? 'bg-indigo-600 text-white' : 'text-gray-400 hover:bg-dark-hover'}`}>{mode === 'grid' ? <LayoutGrid size={16} /> : <List size={16} />}</button>)}</div></div>
@@ -83,10 +83,10 @@ export default function Library() {
     <div className={layout === 'grid' ? 'collection-grid' : 'grid gap-3'}>{shown.map((i,index) => <Link key={`${i.kind}:${i.id}`} to={i.kind === 'podcast' ? `/viewer/${i.id}` : `/videos/${i.id}`} onPointerEnter={() => i.kind === 'podcast' ? prefetchSummary(i.id) : prefetchVideoNote(i.id)} onPointerLeave={cancelPrefetch} onBlur={cancelPrefetch} onFocus={() => i.kind === 'podcast' ? prefetchSummary(i.id) : prefetchVideoNote(i.id)} className="library-card group" data-layout={layout} data-kind={i.kind}>
       <LibraryArtwork priority={index<4} key={`${i.kind}:${i.id}:${i.thumbnail || ''}`} item={i} />
       <div className="library-card-body">
-        <div className="library-card-meta"><span>{i.platform === 'youtube' ? 'YouTube' : i.platform === 'bilibili' ? 'Bilibili' : i.kind === 'podcast' ? 'Podcast' : 'Video'}</span><time title={i.published_at ? `Published ${i.published_at.slice(0,10)}` : "Date this summary was saved, not its original publication date"} dateTime={i.published_at || i.date}>{i.published_at ? `Published ${i.published_at.slice(0,10)}` : i.date ? `Saved ${new Date(i.date).toLocaleDateString()}` : ''}</time></div>
+        <div className="library-card-meta"><span>{i.platform === 'youtube' ? 'YouTube' : i.platform === 'bilibili' ? 'Bilibili' : i.platform === 'twitter' ? 'X / Twitter' : i.platform === 'substack' ? 'Substack' : i.kind === 'podcast' ? 'Podcast' : 'Video'}</span><time title={i.published_at ? `Published ${i.published_at.slice(0,10)}` : "Date this summary was saved, not its original publication date"} dateTime={i.published_at || i.date}>{i.published_at ? `Published ${i.published_at.slice(0,10)}` : i.date ? `Saved ${new Date(i.date).toLocaleDateString()}` : ''}</time></div>
         <h2 className="font-semibold leading-snug line-clamp-2 group-hover:text-indigo-200">{i.title}</h2>
         <p className="mt-2 text-sm text-gray-400 truncate">{i.source}</p>
-        <div className="library-card-footer"><span>{history.some(r=>r.kind===i.kind&&r.id===i.id) ? `${history.find(r=>r.kind===i.kind&&r.id===i.id)!.progress}% read` : i.topics_count ? `${i.topics_count} topics` : 'Ready to read'}</span><span className="flex items-center gap-1">Read summary <ArrowUpRight size={14} /></span></div>
+        <div className="library-card-footer"><span>{history.some(r=>r.kind===i.kind&&r.id===i.id) ? `${history.find(r=>r.kind===i.kind&&r.id===i.id)!.progress}% read` : i.topics_count ? `${i.topics_count} topics` : 'Ready to read'}</span><span className="flex items-center gap-1">{['twitter','substack'].includes(i.platform||'')?'Read post':'Read summary'} <ArrowUpRight size={14} /></span></div>
       </div>
     </Link>)}</div>
     {!loading && !refreshing && !error && shown.length === 0 && <EmptyState title="No matching notes"><Search size={28} className="mx-auto mb-3 text-indigo-300" /><p className="text-gray-400 mt-2">Try another search or add content from <Link className="underline" to="/podcasts">Podcasts</Link> or <Link className="underline" to="/videos">Videos</Link>.</p></EmptyState>}
@@ -95,11 +95,11 @@ export default function Library() {
 }
 
 function LibraryArtwork({item,priority}: {item: Item;priority:boolean}) {
-  const Icon = item.kind === 'podcast' ? Headphones : Video
+  const Icon = item.kind === 'podcast' ? Headphones : ['twitter','substack'].includes(item.platform||'') ? FileText : Video
   const minutes = Math.floor((item.duration || 0) / 60)
   return <div className="library-artwork" aria-hidden="true">
     <CachedImage priority={priority} src={item.thumbnail || ''} alt="" className="library-cover-image" fit={item.kind === 'podcast' ? 'contain' : 'cover'} fallback={<div className="library-artwork-fallback"><Icon size={36} strokeWidth={1.5}/><span>{item.source.slice(0, 24)}</span></div>} />
-    <span className="library-media-badge"><Icon size={13}/>{item.kind === 'podcast' ? 'Audio' : 'Video'}</span>
+    <span className="library-media-badge"><Icon size={13}/>{item.kind === 'podcast' ? 'Audio' : ['twitter','substack'].includes(item.platform||'') ? 'Post' : 'Video'}</span>
     {minutes > 0 && <span className="library-duration">{minutes} min</span>}
   </div>
 }

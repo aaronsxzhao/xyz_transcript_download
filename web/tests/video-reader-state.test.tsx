@@ -30,6 +30,17 @@ beforeEach(() => {
 afterEach(() => {act(()=>root.unmount());node.remove();useStore.getState().reset();vi.useRealTimers();vi.unstubAllGlobals()})
 async function mount() {await act(async()=>root.render(<MemoryRouter initialEntries={['/videos/one']}><Routes><Route path="/videos/:taskId" element={<VideoViewer/>}/></Routes></MemoryRouter>))}
 
+it('shows imported social text verbatim without a transcript tab or generated-note cleanup',async()=>{
+ vi.mocked(fetchVideoTask).mockResolvedValue({...note(),'platform':'substack',style:'original',formats:['original'],model:'',markdown:'# Original\n\n## Table of Contents\n- [Part](#part)\n\n## Part\n\n### 2.1 #### Literal source heading\n\nFinal original paragraph.'})
+ await mount()
+ expect([...node.querySelectorAll('[role=tab]')].map(el=>el.textContent?.trim())).toContain('Original text')
+ expect([...node.querySelectorAll('[role=tab]')].map(el=>el.textContent?.trim())).not.toContain('Transcript')
+ expect(node.querySelector('.reader-body')?.textContent).toContain('Table of Contents')
+ expect(node.querySelector('.reader-body')?.textContent).toContain('2.1 #### Literal source heading')
+ expect(node.querySelector('.reader-body')?.textContent).toContain('Final original paragraph.')
+ expect(fetchVideoTranscript).not.toHaveBeenCalled()
+})
+
 it('reloads a completed note after a regeneration in another page, even when the final status is unchanged', async () => {
   await mount()
   expect(node.textContent).toContain('Saved first note')

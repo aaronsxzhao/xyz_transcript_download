@@ -36,6 +36,8 @@ const PLATFORM_META: Record<string, { label: string }> = {
   douyin: { label: '抖音' },
   kuaishou: { label: '快手' },
   local: { label: 'Local' },
+  twitter: { label: 'X / Twitter' },
+  substack: { label: 'Substack' },
 }
 
 type View = { type: 'platforms' } | { type: 'channels'; platform: string } | { type: 'videos'; platform: string; channel: string }
@@ -411,12 +413,12 @@ export default function Videos() {
           )}
           <div>
             <h1 className="page-title text-xl md:text-2xl font-bold text-white">
-              {view.type === 'platforms' && 'Videos'}
+              {view.type === 'platforms' && 'Videos & social'}
               {view.type === 'channels' && (PLATFORM_META[view.platform]?.label || view.platform)}
               {view.type === 'videos' && view.channel}
             </h1>
             <p className="text-sm text-gray-400">
-              {view.type === 'platforms' && `${totalVideos} video note${totalVideos !== 1 ? 's' : ''}`}
+              {view.type === 'platforms' && `${totalVideos} saved item${totalVideos !== 1 ? 's' : ''}`}
               {view.type === 'channels' && `${platformChannels.length} channel${platformChannels.length !== 1 ? 's' : ''}`}
               {view.type === 'videos' && (channelTasksLoading ? 'Loading...' : `${sortedChannelTasks.length} videos`)}
             </p>
@@ -439,7 +441,7 @@ export default function Videos() {
           </button>
           <button onPointerEnter={()=>void import('../components/video/VideoNoteForm').catch(()=>{})} onFocus={()=>void import('../components/video/VideoNoteForm').catch(()=>{})} onClick={() => setFormOpen(!formOpen)}
             className="flex items-center gap-2 px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-medium rounded-lg transition-colors">
-            <Plus size={16} /> New Video Note
+            <Plus size={16} /> Add content
           </button>
         </div>
       </div>
@@ -453,7 +455,7 @@ export default function Videos() {
       {formOpen && (
         <div className="bg-dark-surface rounded-xl border border-dark-border overflow-hidden">
           <div className="flex items-center justify-between px-4 pt-3 pb-0">
-            <h3 className="text-sm font-semibold text-white">Generate Video Notes</h3>
+            <h3 className="text-sm font-semibold text-white">Add video or social content</h3>
             <button aria-label="Close new video note form" onClick={() => setFormOpen(false)} className="p-1 text-gray-500 hover:text-white transition-colors">
               <ChevronUp size={16} />
             </button>
