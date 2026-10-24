@@ -33,6 +33,8 @@ async def main():
    episode_state={'metadata':None,'one':None,'two':None,'submitted':[],'uploads':0}
    social_state={'library':False,'submitted':[]}
    social_markdown='# Original public article\n\nAuthor: Synthetic writer\n\n[Original source](https://writer.substack.com/p/public)\n\n## Table of Contents\n- [Original heading](#original-heading)\n\n## Original heading\n\nFirst original paragraph.\n\n### 2.1 #### Literal source heading\n\nFull final original paragraph. 原文末段完整保留。'
+   long_caption='Synthetic chart explanation · '+('LongUnbrokenCaption'*80)
+   screenshot_markdown='# Screenshot review\n\n![Missing chart](/data/screenshots/fixture-missing.jpg)\n\n!['+long_caption+'](https://images.example.test/landscape.svg)\n\n![Portrait chart](https://images.example.test/portrait.svg)'
    maintenance={'empty':False}
    context=await browser.new_context(viewport={'width':width,'height':844},is_mobile=width<768,has_touch=width<768,service_workers='block')
    await context.add_init_script("localStorage.setItem('xyz_access_token',"+json.dumps(token(int(time.time())+7200))+");localStorage.setItem('xyz_user',JSON.stringify({id:'bench',email:'bench@example.com',authenticated:true}));window.WebSocket=class{static OPEN=1;readyState=1;constructor(){setTimeout(()=>this.onopen?.(),1)}send(){setTimeout(()=>this.onmessage?.({data:JSON.stringify({type:'init',jobs:[{job_id:'fixture-job',episode_title:'A long podcast title / 一期较长的播客标题',status:'failed',progress:0,message:'Connection needs attention'}],video_tasks:[]})}),1)}close(){}}")
@@ -103,6 +105,7 @@ async def main():
     elif path=='/api/stats':body={k:12 for k in ['total_podcasts','total_episodes','total_transcripts','total_summaries','total_video_channels','total_videos','completed_videos']}
     elif path=='/api/summaries/bench':body=summary
     elif path=='/api/video-notes/tasks/bench':body=task
+    elif path=='/api/video-notes/tasks/screenshots':body={**task,'id':'screenshots','markdown':screenshot_markdown,'versions':[]}
     elif path in ['/api/video-notes/tasks/saved-failed','/api/video-notes/tasks/saved-cancelled','/api/video-notes/tasks/saved-processing']:
      state=path.rsplit('-',1)[1]
      status={'failed':'failed','cancelled':'cancelled','processing':'summarizing'}[state]
@@ -120,6 +123,11 @@ async def main():
     elif path.startswith('/api/video-notes/'):body={'tasks':[]}
     await route.fulfill(content_type='application/json',body=json.dumps(body))
    await page.route('**/api/**',api)
+   await page.route('**/data/screenshots/fixture-missing.jpg*',lambda route:route.fulfill(status=404,body='Missing fixture'))
+   async def fixture_image(route):
+    portrait='portrait' in route.request.url
+    await route.fulfill(content_type='image/svg+xml',body=f'<svg xmlns="http://www.w3.org/2000/svg" width="{600 if portrait else 960}" height="{1200 if portrait else 540}"><rect width="100%" height="100%" fill="#334155"/><text x="20" y="40" fill="white">Synthetic chart</text></svg>')
+   await page.route('https://images.example.test/**',fixture_image)
    # One retry must recover the session and page together, without adding a
    # second viewport above the app or requiring two independent retry buttons.
    connection_offline=True
@@ -346,6 +354,28 @@ async def main():
     assert await page.get_by_role('button',name='Send to Notion',exact=True).count()==1
     await inspect('saved-'+state)
     await page.screenshot(path=str(args.output/f'saved-{state}-{width}.png'))
+   await page.goto(origin+'/videos/screenshots',wait_until='networkidle')
+   await page.locator('[data-rendering="formatted"]').wait_for()
+   await page.get_by_role('button',name='Open screenshot recovery',exact=True).click()
+   panel=page.get_by_role('region',name='Screenshot recovery',exact=True)
+   await panel.get_by_role('button',name='Repair screenshots',exact=True).wait_for(state='visible')
+   assert await panel.evaluate('(el)=>document.activeElement===el'),(width,'recovery did not receive focus')
+   await inspect('missing-screenshot-recovery')
+   await panel.get_by_role('button',name='Close details',exact=True).click()
+   await page.locator('button.reader-screenshot').first.click()
+   gallery=page.get_by_role('dialog',name='Enlarged screenshot',exact=True)
+   await gallery.locator('.gallery-viewport img').wait_for(state='visible')
+   if width<768:await page.set_viewport_size({'width':width,'height':420})
+   await inspect('long-gallery-caption')
+   assert await gallery.locator('.gallery-caption').text_content()==long_caption
+   assert await gallery.locator('.gallery-viewport').evaluate('(el)=>el.clientHeight>=100'),(width,'caption displaced image')
+   await page.screenshot(path=str(args.output/f'gallery-long-caption-{width}.png'))
+   await page.keyboard.press('ArrowRight')
+   await gallery.get_by_role('img',name='Portrait chart',exact=True).wait_for(state='visible')
+   assert await gallery.locator('.gallery-viewport').evaluate('(el)=>{const v=el.getBoundingClientRect(),i=el.querySelector("img").getBoundingClientRect();return i.height>0&&i.bottom<=v.bottom+1&&i.right<=v.right+1}'),(width,'fit image exceeds available canvas')
+   await page.screenshot(path=str(args.output/f'gallery-{width}.png'))
+   await gallery.get_by_role('button',name='Close enlarged screenshot',exact=True).click()
+   await page.set_viewport_size({'width':width,'height':844})
    social_state['library']=True
    await page.goto(origin+'/library',wait_until='networkidle')
    await page.get_by_role('button',name='Refresh library',exact=True).click()

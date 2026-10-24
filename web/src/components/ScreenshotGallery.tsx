@@ -58,8 +58,8 @@ export default function ScreenshotGallery({images,initial,onClose}:{images:{src:
       onPointerUp={e=>{pointers.current.delete(e.pointerId)}} onPointerCancel={()=>pointers.current.clear()}>
       {state==='loading'&&<p role="status" className="text-center p-4">Loading original image…</p>}
       {state==='error'?<div role="alert" className="text-center p-4">Original image could not load. <button onClick={()=>{setState('loading');setRetry(n=>n+1)}}>Retry original</button></div>:
-      <img key={`${index}:${retry}`} src={current.src} alt={current.alt||'Screenshot'} referrerPolicy="no-referrer" onLoad={()=>setState('ready')} onError={()=>setState('error')} draggable={false} style={{display:state==='ready'?'block':'none',width:zoom===1?'auto':`${zoom*100}%`,maxWidth:zoom===1?'100%':'none',maxHeight:zoom===1?'calc(100dvh - 120px)':'none',margin:'0 auto',objectFit:'contain'}}/>}
+      <img key={`${index}:${retry}`} src={current.src} alt={current.alt||'Screenshot'} referrerPolicy="no-referrer" onLoad={()=>setState('ready')} onError={()=>setState('error')} draggable={false} style={{display:state==='ready'?'block':'none',width:zoom===1?'auto':`${zoom*100}%`,maxWidth:zoom===1?'100%':'none',maxHeight:zoom===1?'100%':'none',margin:'0 auto',objectFit:'contain'}}/>}
     </div>
-    <p className="text-center text-sm text-gray-400 pt-2 shrink-0">{current.alt}</p>
+    <p className="gallery-caption text-center text-sm text-gray-400 pt-2 shrink-0">{current.alt}</p>
   </div>,document.body)
 }

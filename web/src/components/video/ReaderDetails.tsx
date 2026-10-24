@@ -1,4 +1,4 @@
-import { lazy } from "react";
+import { lazy, useEffect, useRef } from "react";
 import { ExternalLink, X } from "lucide-react";
 import { OptionalTool } from "../DeferredView";
 import type { VideoTask } from "../../lib/api";
@@ -22,11 +22,19 @@ export default function ReaderDetails({
   onClose: () => void;
   onRestored: () => void;
 }) {
+  const panel = useRef<HTMLElement>(null);
+  useEffect(() => {
+    if (kind !== 'recovery') return;
+    panel.current?.focus({preventScroll:true});
+    panel.current?.scrollIntoView({block:'start'});
+  }, [kind]);
   const versions = task.versions || [];
   const original = task.style === 'original' && ['twitter', 'substack'].includes(task.platform);
   const duration = `${Math.floor(task.duration / 60)}:${String(Math.floor(task.duration % 60)).padStart(2, "0")}`;
   return (
     <section
+      ref={panel}
+      tabIndex={-1}
       className="reader-utility-panel"
       aria-label={
         kind === "versions"
@@ -94,6 +102,7 @@ export default function ReaderDetails({
       {kind === "recovery" && (
         <OptionalTool fallback={<p role="status">Loading recovery tools…</p>}>
           <NoteRecovery
+            expanded
             onRestored={onRestored}
             id={task.id}
             version={selectedVersion}

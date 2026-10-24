@@ -1,5 +1,19 @@
 import { fromMarkdown } from "mdast-util-from-markdown";
 
+/** Locate the destination after the balanced label without decoding source bytes. */
+function destinationOffset(raw: string, image: boolean): number {
+  let depth = 1, index = image ? 2 : 1;
+  for (; index < raw.length; index++) {
+    if (raw[index] === '\\') { index++; continue; }
+    if (raw[index] === '[') depth++;
+    if (raw[index] === ']' && --depth === 0) break;
+  }
+  if (raw[index + 1] !== (image ? '(' : ':')) return -1;
+  index += 2;
+  while (/\s/.test(raw[index] || '') && index < raw.length) index++;
+  return raw[index] === '<' ? index + 1 : index;
+}
+
 /** Preserve source formatting and code while making generated media portable. */
 export function portableMarkdown(source: string, origin: string): string {
   const edits: { start: number; end: number; text: string }[] = [];
@@ -12,15 +26,13 @@ export function portableMarkdown(source: string, origin: string): string {
       const start = node.position?.start.offset,
         end = node.position?.end.offset;
       if (typeof start === "number" && typeof end === "number") {
-        const raw = source.slice(start, end),
-          marker = node.type === "image" ? "](" : "]:";
-        const delimiter = raw.indexOf(marker);
-        const index = delimiter < 0 ? -1 : raw.indexOf(node.url, delimiter + 2);
+        const raw = source.slice(start, end);
+        const index = destinationOffset(raw, node.type === 'image');
         if (index >= 0)
           edits.push({
             start: start + index,
-            end: start + index + node.url.length,
-            text: new URL(node.url, origin).href,
+            end: start + index,
+            text: new URL(node.url, origin).origin,
           });
       }
     }

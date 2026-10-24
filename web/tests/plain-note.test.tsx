@@ -3,6 +3,7 @@ import React, { act } from 'react'
 import { createRoot } from 'react-dom/client'
 import { afterEach, expect, it, vi } from 'vitest'
 import ReaderScreenshot from '../src/components/ReaderScreenshot'
+import { ScreenshotRecoveryContext } from '../src/lib/screenshotRecovery'
 import PlainNote from '../src/components/PlainNote'
 import {extractNoteToc,rehypeNoteHeadings,normalizeNoteHeadings} from '../src/lib/noteMarkdown'
 
@@ -101,4 +102,17 @@ it.each([403,404])('explains image HTTP %s instead of offering endless retries',
     await vi.waitFor(()=>expect(node.textContent).toContain(status===403?'Image link expired':'Source image is missing'))
     expect(node.textContent).not.toContain('Retry image')
   } finally { vi.unstubAllGlobals() }
+})
+
+it('opens the owning reader recovery action for a missing image without requiring obsolete DOM markup',async()=>{
+ const node=document.createElement('div');const root=createRoot(node);const recover=vi.fn()
+ cleanup=()=>act(()=>root.unmount())
+ vi.stubGlobal('fetch',vi.fn().mockResolvedValue(new Response('',{status:404})))
+ try {
+  await act(async()=>root.render(<ScreenshotRecoveryContext.Provider value={recover}><ReaderScreenshot src="/data/screenshots/missing.png"/></ScreenshotRecoveryContext.Provider>))
+  await act(async()=>node.querySelector('img')!.dispatchEvent(new Event('error')))
+  await vi.waitFor(()=>expect(node.textContent).toContain('Open screenshot recovery'))
+  await act(async()=>node.querySelector('button')!.click())
+  expect(recover).toHaveBeenCalledOnce()
+ }finally{vi.unstubAllGlobals()}
 })

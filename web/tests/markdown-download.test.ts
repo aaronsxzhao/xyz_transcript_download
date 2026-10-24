@@ -21,3 +21,14 @@ it("preserves inline code, fenced source, external images and ordinary links", (
     source,
   );
 });
+
+it('preserves Markdown escapes and character references while exporting private images',()=>{
+ const source='![Chart](/data/screenshots/chart.jpg?expires=1&amp;signature=abc "Source chart")\n\n![Reference][chart]\n\n[chart]: </data/screenshots/chart\\(1\\).jpg?expires=1&amp;signature=def> "Chart title"'
+ const expected=source.replaceAll('/data/screenshots/','https://aipodcastsummary.online/data/screenshots/')
+ expect(portableMarkdown(source,'https://aipodcastsummary.online')).toBe(expected)
+})
+
+it('locates the image destination after nested and escaped labels without rewriting alt text',()=>{
+ const source='![Nested [label] and escaped \\](/data/screenshots/example)](</data/screenshots/chart.jpg?expires=1&amp;signature=abc> "Caption")'
+ expect(portableMarkdown(source,'https://aipodcastsummary.online')).toBe(source.replace('(</data/','(<https://aipodcastsummary.online/data/'))
+})

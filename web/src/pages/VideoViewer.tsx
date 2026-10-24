@@ -15,7 +15,8 @@ import { markdownToSafeHtml } from "../lib/safeHtml";
 import { getAccountId } from "../lib/preferences";
 import { CacheKeys, getCache, setCache, removeCache } from "../lib/cache";
 import { usePageTiming } from "../lib/pageTiming";
-import { useEffect, useState, useMemo, useRef } from "react";
+import { useEffect, useState, useMemo, useRef, useCallback } from "react";
+import { ScreenshotRecoveryContext } from '../lib/screenshotRecovery';
 import { useParams, Link, useNavigate } from "react-router-dom";
 import {
   Copy,
@@ -94,6 +95,7 @@ export default function VideoViewer() {
   const [viewMode, setViewMode] = useState<ViewMode>("markdown");
   const [mapVisited, setMapVisited] = useState(false);
   const [utility, setUtility] = useState("");
+  const openRecovery = useCallback(() => setUtility('recovery'), []);
   const tabPositions = useRef<Record<string, number>>({});
   const changeView = (next: ViewMode) => {
     if (next !== "transcript") clearReadError("transcript");
@@ -432,6 +434,7 @@ export default function VideoViewer() {
       : task.url) ||
     "Untitled video";
   return (
+    <ScreenshotRecoveryContext.Provider value={!isOriginal && ['success','failed','cancelled'].includes(uiTask.status) ? openRecovery : undefined}>
     <ReaderFrame
       kind={isOriginal ? 'Original post' : 'Video'}
       title={title}
@@ -764,5 +767,6 @@ export default function VideoViewer() {
         />
       )}
     </ReaderFrame>
+    </ScreenshotRecoveryContext.Provider>
   );
 }
