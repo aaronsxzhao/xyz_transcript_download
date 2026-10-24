@@ -4,10 +4,27 @@ import { createRoot } from 'react-dom/client'
 import { afterEach, expect, it, vi } from 'vitest'
 import ReaderScreenshot from '../src/components/ReaderScreenshot'
 import PlainNote from '../src/components/PlainNote'
-import {extractNoteToc,rehypeNoteHeadings} from '../src/lib/noteMarkdown'
+import {extractNoteToc,rehypeNoteHeadings,normalizeNoteHeadings} from '../src/lib/noteMarkdown'
 
 let cleanup: (() => void) | undefined
 afterEach(() => { cleanup?.(); cleanup=undefined; vi.useRealTimers() })
+
+it('repairs duplicate markers in numbered headings without changing code, quotations or normal prose', () => {
+ const title='优化模式识别的重要性'
+ const source=`## 8. 学习\n\n### 8.2 #### ${title}\n\n保留 **非常重要** 的论述。\n\n### 8.3 ### 视频风格说明\n\n\`### 8.2 #### Literal\`\n\n\`\`\`md\n### 8.2 #### Literal\n\`\`\`\n\n> ### 8.2 #### Quoted original\n\n    ### 8.2 #### Indented code\n\n8.2 #### Plain text\n\n### C# and ## symbols\n`
+ const expected=source.replace(`### 8.2 #### ${title}`,`### 8.2 ${title}`).replace('### 8.3 ### 视频风格说明','### 8.3 视频风格说明')
+ expect(normalizeNoteHeadings(source)).toBe(expected)
+ expect(normalizeNoteHeadings(expected)).toBe(expected)
+ expect(normalizeNoteHeadings(source.replaceAll('\n','\r\n'))).toBe(expected.replaceAll('\n','\r\n'))
+ const node=document.createElement('div');const root=createRoot(node)
+ cleanup=()=>act(()=>root.unmount())
+ act(()=>root.render(<PlainNote markdown={source}/>))
+ const heading=node.querySelectorAll('h3')[0]
+ expect(heading.textContent).toBe(`8.2 ${title}`)
+ expect(extractNoteToc(source).find(item=>item.text===`8.2 ${title}`)?.slug).toBe(heading.id)
+ expect(node.querySelector('p strong')?.textContent).toBe('非常重要')
+ expect(node.querySelector('pre code')?.textContent).toBe('### 8.2 #### Literal')
+})
 
 it('keeps directory links unique and aligned with nested and suffixed headings in both renderers',()=>{
  const markdown='# Review\n\n> ## Review\n\n## Review\n\n### Review-1\n\n#### Review\n\n## Review\n\n## 🎯'

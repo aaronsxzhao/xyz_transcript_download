@@ -1,6 +1,6 @@
 import { TaskProgress } from "../components/TaskStatus";
 import { useWarmCache } from "../lib/cache";
-import { extractNoteToc } from "../lib/noteMarkdown";
+import { extractNoteToc, normalizeNoteHeadings } from "../lib/noteMarkdown";
 import ReaderFrame, {
   ReaderMenu,
   MoreReaderActions,
@@ -348,11 +348,9 @@ export default function VideoViewer() {
     }
   };
 
-  const getCurrentContent = (): string => {
-    if (!task) return "";
-    if (selectedVersion) return versionContents[selectedVersion] || "";
-    return task.markdown || "";
-  };
+  const rawContent = !task ? "" : selectedVersion ? versionContents[selectedVersion] || "" : task.markdown || "";
+  const content = useMemo(() => normalizeNoteHeadings(rawContent), [rawContent]);
+  const getCurrentContent = () => content;
 
   const formatDuration = (sec: number) => {
     const m = Math.floor(sec / 60);
@@ -360,7 +358,6 @@ export default function VideoViewer() {
     return `${m}:${s.toString().padStart(2, "0")}`;
   };
 
-  const content = getCurrentContent();
   useReadingPosition(
     `video:${taskId}`,
     undefined,
