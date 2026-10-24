@@ -196,6 +196,14 @@ Markdown downloads preserve source formatting and use absolute screenshot links.
 Signed media URLs retain their original expiry; the `.md` file does not embed images
 or extend access indefinitely.
 
+Summary delivery prioritizes an available result. Editorial coverage checks run
+once per source chunk; a failed check returns the generated draft with a visible
+notice. Failed chunks retain clearly labelled original transcript sections, and
+an outline merge failure preserves the generated sections. Unmatched quotations
+are left empty rather than presented as verified original speech. Cancellation
+still stops processing, and a request that generated no usable content still
+reports failure. Notices remain in saved/exported reading content.
+
 Groq token and request limits depend on your plan. Long recordings are split to
 fit the model's context window while preserving the full summary prompts.
 Groq summary models use

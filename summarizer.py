@@ -227,7 +227,23 @@ class Summarizer:
             result = self._parse_summary(data, episode_id, episode_title)
             if len(transcript_text) >= 1000 and not result.key_points:
                 raise SummaryOutputError('invalid')
-            result = self._audit_summary(result, transcript_text, progress_callback, source_context)
+            try:
+                result = self._audit_summary(result, transcript_text, progress_callback, source_context)
+            except Exception as audit_error:
+                from summary_errors import delivery_notice, is_cancellation
+                if is_cancellation(audit_error):
+                    raise
+                logger.warning("Delivering draft after audit failure: %s", getattr(audit_error, "audit_feedback", {}).get("issue", type(audit_error).__name__))
+                # A failed editorial pass must not discard an available draft.
+                # Keep only quotations actually present in this source; leave
+                # unverified evidence/timestamps empty instead of guessing.
+                compact = lambda value: re.sub(r"\s+", "", value)
+                spoken = compact(spoken_source(transcript_text))
+                points = []
+                for point in result.key_points:
+                    quote = point.original_quote if compact(point.original_quote) and compact(point.original_quote) in spoken else ""
+                    points.append(replace(point, original_quote=quote, timestamp=quote_timestamp(transcript_text, quote, point.timestamp)))
+                result = replace(result, overview=delivery_notice(result.overview), key_points=points)
             key_points = result.key_points
 
             logger.info(f"Summary generated with {len(key_points)} key points")
@@ -239,6 +255,9 @@ class Summarizer:
             logger.error(f"Failed to parse LLM response as JSON: {e}")
             raise SummaryOutputError('invalid') from None
         except Exception as e:
+            from summary_errors import is_cancellation
+            if is_cancellation(e):
+                raise
             logger.error(f"Summarization failed: {type(e).__name__ if self.custom_endpoint else e}")
             if self.custom_endpoint:
                 from api.custom_models import public_model_error
@@ -259,7 +278,7 @@ class Summarizer:
             return extract_json_from_response(response.choices[0].message.content)
 
         context = {**(source_context or {}), "chapter_titles": summary.topics}
-        updated, additions, citations = audit_source(source, fields, call, context)
+        updated, additions, citations = audit_source(source, fields, call, context, repair=False)
         compact = lambda value: re.sub(r"\s+", "", value)
         spoken = compact(spoken_source(source))
         points = []
@@ -373,6 +392,7 @@ class Summarizer:
 
         # Summarize each chunk
         chunk_summaries = []
+        generated = 0
         total_chars_generated = 0
         
         chapter_titles = list(existing_topics or [])
@@ -385,26 +405,37 @@ class Summarizer:
                 if progress_callback:
                     progress_callback(total_chars_generated + chars, i + 1, len(chunks))
             
-            summary = self._summarize_single(
-                f"{transcript.episode_id}_chunk_{i}",
-                chunk,
-                podcast_title,
-                f"{episode_title} (Part {i+1})",
-                chunk_progress if progress_callback else None,
-                chapter_titles,
-                source_context={"before": chunks[i - 1][-500:] if i else "",
-                                "after": chunks[i + 1][:500] if i + 1 < len(chunks) else ""},
-            )
+            try:
+                summary = self._summarize_single(
+                    f"{transcript.episode_id}_chunk_{i}",
+                    chunk,
+                    podcast_title,
+                    f"{episode_title} (Part {i+1})",
+                    chunk_progress if progress_callback else None,
+                    chapter_titles,
+                    source_context={"before": chunks[i - 1][-500:] if i else "",
+                                    "after": chunks[i + 1][:500] if i + 1 < len(chunks) else ""},
+                )
+            except Exception as error:
+                from summary_errors import is_cancellation
+                if is_cancellation(error):
+                    raise
+                logger.warning("Source chunk %s/%s unavailable: %s", i + 1, len(chunks), type(error).__name__)
+                summary = None
             if summary:
+                generated += 1
                 chunk_summaries.append(summary)
                 chapter_titles = list(dict.fromkeys([*chapter_titles, *summary.topics]))
                 # Estimate chars generated for this chunk
                 total_chars_generated += 2000  # rough estimate per chunk
             else:
-                # An incomplete episode must not replace the previous summary.
-                return None
+                from summary_errors import delivery_notice
+                topic = f"第 {i + 1}/{len(chunks)} 部分：原始转写"
+                chunk_summaries.append(Summary(transcript.episode_id, episode_title,
+                    delivery_notice(f"{topic}未能生成摘要，保留原始转写。"),
+                    [KeyPoint(topic, spoken_source(chunk), "", "")], [topic], []))
 
-        if not chunk_summaries:
+        if not generated:
             return None
 
         # Merge chunk summaries
@@ -469,6 +500,25 @@ class Summarizer:
         return Summary(episode_id, episode_title, data['overview'], key_points, topics, takeaways)
 
     def _merge_summaries(
+        self, episode_id: str, episode_title: str, summaries: List[Summary], progress_callback=None,
+    ) -> Summary:
+        from summary_errors import DELIVERY_WARNING, delivery_notice, is_cancellation
+        try:
+            result = self._merge_summaries_verified(episode_id, episode_title, summaries, progress_callback)
+        except Exception as error:
+            if is_cancellation(error) or not summaries:
+                raise
+            logger.warning("Delivering source sections after outline merge failure: %s", type(error).__name__)
+            result = Summary(episode_id, episode_title,
+                delivery_notice("\n\n".join(summary.overview.replace(DELIVERY_WARNING, "").strip("\r\n") for summary in summaries)),
+                [point for summary in summaries for point in summary.key_points],
+                list(dict.fromkeys(topic for summary in summaries for topic in summary.topics)),
+                [item for summary in summaries for item in summary.takeaways])
+        if any(DELIVERY_WARNING in summary.overview for summary in summaries):
+            result = replace(result, overview=delivery_notice(result.overview))
+        return result
+
+    def _merge_summaries_verified(
         self,
         episode_id: str,
         episode_title: str,

@@ -100,11 +100,12 @@ def test_video_keeps_all_chunk_conclusions_and_does_not_call_last_one_whole_epis
     assert "## 分段小结" in final and "## AI 总结" not in final
 
 
-def test_video_empty_chunk_cannot_succeed_after_an_earlier_good_chunk():
+def test_video_empty_chunk_keeps_earlier_notes_and_labels_the_raw_source_fallback():
     s = NoteSummarizer(api_key="fixture")
     with patch.object(s, "_call_llm", side_effect=["## First\nDetails", ""]), patch.object(s, "_audit_note", side_effect=lambda source, draft, callback, context: draft):
-        with pytest.raises(SummaryOutputError):
-            s._generate_chunked("Title", "甲" * 4100, "detailed", [])
+        result = s._generate_chunked("Title", "甲" * 4100, "detailed", [])
+    assert 'Details' in result and '原始转写' in result
+    assert '甲' * 100 in result
 
 
 def test_every_style_keeps_substantive_information_and_source_headings():

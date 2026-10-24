@@ -341,6 +341,16 @@ class NoteSummarizer:
         return self._audit_note(transcript_text, result, progress_callback)
 
     def _audit_note(self, source: str, draft: str, progress_callback=None, source_context=None) -> str:
+        from summary_errors import delivery_notice, is_cancellation
+        try:
+            return self._audit_note_verified(source, draft, progress_callback, source_context)
+        except Exception as error:
+            if is_cancellation(error) or not draft.strip():
+                raise
+            logger.warning("Delivering video draft after audit failure: %s", getattr(error, "audit_feedback", {}).get("issue", type(error).__name__))
+            return delivery_notice(draft)
+
+    def _audit_note_verified(self, source: str, draft: str, progress_callback=None, source_context=None) -> str:
         from summarizer import extract_json_from_response
 
         def call(system, payload):
@@ -349,7 +359,7 @@ class NoteSummarizer:
             audit_progress = (lambda chars, partial="": progress_callback(chars, draft)) if progress_callback else None
             return extract_json_from_response(self._call_llm(system, payload, audit_progress))
 
-        updated, additions, _ = audit_source(source, {"body": draft}, call, source_context)
+        updated, additions, _ = audit_source(source, {"body": draft}, call, source_context, repair=False)
         parts = [updated["body"]]
         for addition in additions:
             # Keep the reading document in Markdown; internal receipts never
@@ -378,6 +388,7 @@ class NoteSummarizer:
         chunk_formats_no_summary = [f for f in chunk_formats if f != "summary"]
 
         chunk_results = []
+        generated = 0
         total_chars = 0
         accumulated_text = f"# {title}\n\n"
 
@@ -414,18 +425,20 @@ class NoteSummarizer:
                 if not result or not result.strip():
                     raise SummaryOutputError('empty')
                 result = self._audit_note(chunk_text, result, chunk_progress, source_context)
+                generated += 1
             except Exception as e:
                 if "cancel" in type(e).__name__.lower() or "cancel" in str(e).lower():
                     raise
                 logger.error(f"Chunk {i + 1}/{num_chunks} failed: {type(e).__name__ if self.custom_endpoint else e}")
-                raise
+                from summary_errors import delivery_notice
+                result = delivery_notice(f"## 第 {i + 1}/{num_chunks} 部分：原始转写\n\n{chunk_text}")
 
             if result:
                 chunk_results.append(result)
                 total_chars += len(result)
                 accumulated_text += result + "\n\n---\n\n"
 
-        if not chunk_results:
+        if not generated:
             return None
 
         return self._merge_chunk_notes(title, chunk_results, "toc" in formats)
@@ -435,6 +448,9 @@ class NoteSummarizer:
 
     def _merge_chunk_notes(self, title: str, chunk_results: List[str], add_toc: bool) -> str:
         """Merge chunk note results into a single document with sequential heading numbers."""
+        from summary_errors import DELIVERY_WARNING, delivery_notice
+        provisional = any(DELIVERY_WARNING in result for result in chunk_results)
+        chunk_results = [result.replace(DELIVERY_WARNING, "").strip("\r\n") for result in chunk_results]
         merged_sections = []
         section_summaries = []
 
@@ -481,7 +497,7 @@ class NoteSummarizer:
             # not the entire video. Preserve every one and label their scope.
             final += "\n\n---\n\n## 分段小结\n\n" + "\n\n".join(section_summaries)
 
-        return final
+        return delivery_notice(final) if provisional else final
 
     @staticmethod
     def _renumber_headings(markdown: str) -> str:

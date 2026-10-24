@@ -1,4 +1,15 @@
 """Public, fixed-label summary errors without provider response content."""
+DELIVERY_WARNING = "> ⚠️ 部分生成或内容核对未完成，先提供可用结果。未总结的分段会标为原始转写，请结合 Transcript 阅读。"
+
+
+def delivery_notice(text: str) -> str:
+    return text if DELIVERY_WARNING in text else DELIVERY_WARNING + "\n\n" + text
+
+
+def is_cancellation(error: Exception) -> bool:
+    return isinstance(error, ProcessingCancelledError) or "cancel" in type(error).__name__.lower()
+
+
 class ProcessingCancelledError(Exception):
     """A requested stop must propagate without provider retries."""
 
