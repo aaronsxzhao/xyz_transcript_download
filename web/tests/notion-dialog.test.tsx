@@ -5,12 +5,14 @@ import { MemoryRouter } from "react-router-dom";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import NotionExport from "../src/components/PodcastNotionExport";
 import {
+  ApiError,
   fetchNotionPages,
   exportMarkdownToNotion,
   type Summary,
   type VideoTask,
 } from "../src/lib/api";
-vi.mock("../src/lib/api", () => ({
+vi.mock("../src/lib/api", async load => ({
+  ...await load<object>(),
   fetchNotionPages: vi.fn(),
   exportMarkdownToNotion: vi.fn(),
 }));
@@ -47,6 +49,42 @@ function type(value: string) {
   )!.set!.call(input, value);
   input.dispatchEvent(new Event("input", { bubbles: true }));
 }
+const button=(label:string)=>[...node.querySelectorAll('button')].find(item=>item.textContent?.trim()===label)!;
+async function readyToExport(){
+ vi.mocked(fetchNotionPages).mockResolvedValue({pages:[{id:'target',title:'Notebook'}]} as any);
+ await act(async()=>root.render(<MemoryRouter><NotionExport summary={summary} onClose={()=>{}}/></MemoryRouter>));
+ await act(async()=>button('📄Notebook').click());
+}
+it('locks the destination during export and preserves the success receipt',async()=>{
+ let finish!:(value:any)=>void;
+ vi.mocked(exportMarkdownToNotion).mockImplementationOnce(()=>new Promise(resolve=>{finish=resolve}));
+ await readyToExport();await act(async()=>button('Export').click());
+ expect(node.querySelector('input')!.disabled).toBe(true);
+ expect(button('📄Notebook').disabled).toBe(true);
+ await act(async()=>finish({title:'Saved',url:'https://notion.so/saved'}));
+ expect(node.querySelector('input')!.disabled).toBe(true);
+ expect(node.querySelector('[role=status]')?.textContent).toContain('Exported "Saved"');
+ expect(button('Export')).toBeUndefined();
+});
+it('does not offer immediate resubmission after an unconfirmed export',async()=>{
+ vi.mocked(exportMarkdownToNotion).mockRejectedValueOnce(new Error('No confirmation received'));
+ await readyToExport();await act(async()=>button('Export').click());
+ expect(node.querySelector('[role=alert]')?.textContent).toContain('Check Notion');
+ expect(button('Export')).toBeUndefined();
+});
+it('submits only once even when two clicks arrive before React renders the pending state',async()=>{
+ vi.mocked(exportMarkdownToNotion).mockImplementationOnce(()=>new Promise(()=>{}));
+ await readyToExport();const submit=button('Export');
+ await act(async()=>{submit.click();submit.click()});
+ expect(exportMarkdownToNotion).toHaveBeenCalledOnce();
+});
+it('allows correcting a rejected destination before any page was created',async()=>{
+ vi.mocked(exportMarkdownToNotion).mockRejectedValueOnce(new ApiError('Invalid Notion API key',401));
+ await readyToExport();await act(async()=>button('Export').click());
+ expect(node.querySelector('[role=alert]')?.textContent).toContain('Invalid Notion API key');
+ expect(node.querySelector('input')!.disabled).toBe(false);
+ expect(button('Export').disabled).toBe(false);
+});
 it("ignores stale searches, including replies arriving during the next debounce", async () => {
   let finish!: (value: any) => void;
   vi.mocked(fetchNotionPages)

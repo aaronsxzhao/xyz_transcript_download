@@ -52,6 +52,28 @@ it('allows regeneration before the transcript tab has been loaded',async()=>{
  expect(regenerate.disabled).toBe(false)
  expect(fetchTranscript).not.toHaveBeenCalled()
 })
+it('dismisses a copy failure without reloading the saved summary',async()=>{
+ vi.mocked(fetchSummary).mockResolvedValue(summary)
+ const node=await mount()
+ await act(async()=>node.querySelector<HTMLButtonElement>('[aria-label="Copy note"]')!.click())
+ const error=node.querySelector('[role=alert]')!
+ expect(error.textContent).toContain('Copy failed')
+ expect(error.querySelector('button')?.textContent).toBe('Dismiss')
+ await act(async()=>error.querySelector<HTMLButtonElement>('button')!.click())
+ expect(node.querySelector('[role=alert]')).toBeNull()
+ expect(fetchSummary).toHaveBeenCalledOnce()
+})
+it('clears a copy error when the user successfully retries the copy action',async()=>{
+ vi.mocked(fetchSummary).mockResolvedValue(summary)
+ const node=await mount()
+ await act(async()=>node.querySelector<HTMLButtonElement>('[aria-label="Copy note"]')!.click())
+ expect(node.querySelector('[role=alert]')?.textContent).toContain('Copy failed')
+ Object.defineProperty(navigator,'clipboard',{configurable:true,value:{writeText:vi.fn().mockResolvedValue(undefined)}})
+ await act(async()=>node.querySelector<HTMLButtonElement>('[aria-label="Copy note"]')!.click())
+ expect(node.querySelector('[role=alert]')).toBeNull()
+ expect(fetchSummary).toHaveBeenCalledOnce()
+ delete (navigator as any).clipboard
+})
 
 it('renders the complete chapter structure by default with opening conclusions and optional quotes',async()=>{
  const chapters={...summary,overview:'### 核心结论\n- Keep conditions.\n\n### 节目概览\nA full overview.',topics:['模型','风险'],key_points:[

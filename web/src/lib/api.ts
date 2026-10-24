@@ -1489,32 +1489,33 @@ export async function fetchNotionPages(query?: string): Promise<{ pages: NotionP
   return parseApiResponseAsJson(res, 'Failed to fetch Notion pages')
 }
 
+async function submitNotionExport(path: string, body: object): Promise<{ url: string; page_id: string; title: string }> {
+  const generation = getAuthGeneration()
+  return requestWithDeadline(async signal => {
+    assertSessionGeneration(generation)
+    const res = await authFetch(`${API_BASE}/notion/${path}`, {
+      method: 'POST',
+      signal,
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Notion-Key': getNotionKey(),
+      },
+      body: JSON.stringify(body),
+    })
+    const result = await parseApiResponseAsJson<{url:string;page_id:string;title:string}>(res, 'Export to Notion failed')
+    assertSessionGeneration(generation)
+    if (!result || typeof result.page_id !== 'string' || !result.page_id || typeof result.url !== 'string' || typeof result.title !== 'string')
+      throw new Error('Notion returned an incomplete export confirmation. Check Notion before exporting again.')
+    return result
+  }, {timeout:120000,message:'Notion did not confirm the export in time. It may still be running.'})
+}
+
 export async function exportToNotion(taskId: string, parentPageId: string): Promise<{ url: string; page_id: string; title: string }> {
-  const res = await authFetch(`${API_BASE}/notion/export`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'X-Notion-Key': getNotionKey(),
-    },
-    body: JSON.stringify({ task_id: taskId, parent_page_id: parentPageId }),
-  })
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({ detail: 'Export to Notion failed' }))
-    throw new Error(err.detail || 'Export to Notion failed')
-  }
-  return res.json()
+  return submitNotionExport('export', {task_id:taskId,parent_page_id:parentPageId})
 }
 
 export async function exportMarkdownToNotion(markdown: string, title: string, parentPageId: string): Promise<{ url: string; page_id: string; title: string }> {
-  const res = await authFetch(`${API_BASE}/notion/export-markdown`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'X-Notion-Key': getNotionKey(),
-    },
-    body: JSON.stringify({ markdown, title, parent_page_id: parentPageId }),
-  })
-  return parseApiResponseAsJson(res, 'Export to Notion failed')
+  return submitNotionExport('export-markdown', {markdown,title,parent_page_id:parentPageId})
 }
 
 export interface LibraryItem { id:string; kind:'podcast'|'video'; title:string; source:string; date:string; published_at?:string; status:string; thumbnail?:string; platform?:string; duration?:number; topics_count?:number }
