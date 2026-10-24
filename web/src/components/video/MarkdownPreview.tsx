@@ -1,203 +1,20 @@
 import ReaderScreenshot from '../ReaderScreenshot'
 import { lazy, memo, Suspense, useEffect, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { useDialog } from '../../lib/reading'
 import { prepareNoteMarkdown, rehypeNoteHeadings } from '../../lib/noteMarkdown'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import type { PluggableList } from 'unified'
-import {
-  AlertCircle, Loader2, RotateCcw, Square,
-  Play, ExternalLink, X, ImageIcon, FileText,
-} from 'lucide-react'
-import StepBar from './StepBar'
-import YouTubeCookieGuide from './YouTubeCookieGuide'
-import type { VideoTask } from '../../lib/api'
+import { Play, ExternalLink, ImageIcon } from 'lucide-react'
 
 const HighlightedCode = lazy(() => import('./HighlightedCode'))
 
-function NoteImage({ src, alt, priority = false }: { src?: string; alt?: string; onImage: (src: string) => void; priority?: boolean }) {
+function NoteImage({ src, alt, priority = false }: { src?: string; alt?: string; priority?: boolean }) {
   return src ? <ReaderScreenshot src={src} alt={alt} priority={priority} /> : null
 }
 
-interface Props {
-  task: VideoTask | null
-}
-
-export default function MarkdownPreview({ task }: Props) {
-  const [zoomedImg, setZoomedImg] = useState<string | null>(null)
-  const navigate = useNavigate()
-  useDialog(!!zoomedImg, () => setZoomedImg(null))
-
-  if (!task) {
-    return (
-      <div className="flex flex-col items-center justify-center h-full text-gray-500">
-        <FileText size={48} className="mb-4 opacity-30" />
-        <p className="text-lg">Select a task or start a new one</p>
-        <p className="text-sm mt-1">Your generated notes will appear here</p>
-      </div>
-    )
-  }
-
-  const isActive = !['success', 'failed', 'cancelled', 'pending'].includes(task.status) && task.status !== ''
-  const isFailed = task.status === 'failed'
-  const isCancelled = task.status === 'cancelled'
-  const isSuccess = task.status === 'success'
-  const isInFlight =
-    task.status !== '' &&
-    !['success', 'failed', 'cancelled', 'discovered'].includes(task.status)
-  const progressPct = Math.min(Math.max(task.progress ?? 0, 0), 100)
-  const progressIndeterminate = task.status === 'pending' || progressPct <= 0
-
+/** The reader owns task status; saved content remains readable in every state. */
+export default function MarkdownPreview({ markdown }: { markdown: string }) {
   return (
-    <div>
-
-      {/* Stable-height progress chrome for queued + all active pipeline states */}
-      {isInFlight && (
-        <div className="mb-4 flex-shrink-0 min-h-[5.5rem] flex flex-col justify-start gap-2">
-          <div className="min-h-[4.5rem] flex flex-col justify-center">
-            {task.status === 'pending' ? (
-              <div className="flex items-center justify-center gap-2 py-2 text-xs text-gray-400">
-                <Loader2 size={16} className="animate-spin text-indigo-400" />
-                <span>Queued for processing…</span>
-              </div>
-            ) : (
-              <StepBar currentStatus={task.status} progress={task.progress} />
-            )}
-          </div>
-          <div className="relative h-1.5 bg-dark-border rounded-full overflow-hidden flex-shrink-0">
-            <div
-              className="h-full bg-indigo-500 transition-[width] duration-500 ease-out"
-              style={{ width: `${progressPct}%` }}
-            />
-            {progressIndeterminate && (
-              <div className="absolute inset-0 pointer-events-none overflow-hidden rounded-full">
-                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/15 to-transparent animate-shimmer" />
-              </div>
-            )}
-          </div>
-          <div className="flex items-center justify-center gap-3 min-h-[1.25rem]">
-            <p className="text-xs text-gray-500 truncate max-w-[min(100%,20rem)] text-center">
-              {task.message || (task.status === 'pending' ? 'Waiting in server queue…' : 'Processing…')}
-            </p>
-            <button
-              type="button"
-              onClick={async () => {
-                try {
-                  const { cancelVideoTask } = await import('../../lib/api')
-                  await cancelVideoTask(task.id)
-                } catch (e) {
-                  console.error('Cancel failed:', e)
-                }
-              }}
-              className="flex items-center gap-1 px-2 py-0.5 text-xs text-orange-400 hover:text-orange-300 border border-orange-500/30 hover:border-orange-400/50 rounded transition-colors flex-shrink-0"
-            >
-              <Square size={10} className="fill-current" />
-              Cancel
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* Failed state */}
-      {isFailed && (
-        <div className="flex flex-col items-center justify-center py-20 text-gray-500">
-          <AlertCircle size={32} className="mb-3 text-red-400" />
-          <p className="text-red-400">Processing failed</p>
-          {(() => {
-            const isYouTubeLogin = (task.error === 'LOGIN_REQUIRED' || task.error === 'AGE_RESTRICTED' || task.error === 'COOKIES_REQUIRED')
-              && task.platform === 'youtube'
-            const needsSettings = [
-              'BILIBILI_LOGIN_REQUIRED', 'LOGIN_REQUIRED', 'COOKIES_REQUIRED', 'AGE_RESTRICTED',
-            ].includes(task.error || '') && !isYouTubeLogin
-            const errorMessages: Record<string, string> = {
-              BILIBILI_LOGIN_REQUIRED: 'BiliBili requires login. Please scan the QR code in Settings → BiliBili Login.',
-              LOGIN_REQUIRED: 'This video requires login.',
-              COOKIES_REQUIRED: 'Server rejected the request.',
-              AGE_RESTRICTED: 'This video is age-restricted and requires login.',
-              VIDEO_PRIVATE: 'This video is private and cannot be accessed.',
-              VIDEO_UNAVAILABLE: 'This video has been removed or is no longer available.',
-              GEO_RESTRICTED: 'This video is not available in your region.',
-              COPYRIGHT_BLOCKED: 'This video is blocked due to copyright restrictions.',
-              RATE_LIMITED: 'Rate limited by the platform. Please wait a few minutes and try again.',
-              FFMPEG_MISSING: 'FFmpeg is required but not installed on the server.',
-              UNSUPPORTED_URL: 'This URL is not supported. Please check the URL and try again.',
-            }
-            const displayMsg = errorMessages[task.error || ''] || task.message || task.error || 'Unknown error'
-
-            return (
-              <>
-                <p className="text-sm mt-2 text-center text-gray-400 max-w-md">
-                  {displayMsg}
-                </p>
-
-                {isYouTubeLogin && (
-                  <div className="mt-4 p-4 bg-dark-hover rounded-xl border border-dark-border max-w-md w-full">
-                    <YouTubeCookieGuide compact />
-                  </div>
-                )}
-
-                <div className="flex items-center gap-3 mt-4">
-                  {(needsSettings || isYouTubeLogin) && (
-                    <button
-                      onClick={() => navigate('/settings')}
-                      className="flex items-center gap-2 px-4 py-2 bg-pink-600 hover:bg-pink-700 text-white text-sm rounded-lg transition-colors"
-                    >
-                      {isYouTubeLogin ? 'Upload Cookies in Settings' : 'Go to Settings'}
-                    </button>
-                  )}
-                  <button
-                    onClick={async () => {
-                      try {
-                        const { retryVideoTask } = await import('../../lib/api')
-                        await retryVideoTask(task.id)
-                      } catch (e) {
-                        console.error('Retry failed:', e)
-                      }
-                    }}
-                    className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm rounded-lg transition-colors"
-                  >
-                    <RotateCcw size={14} />
-                    Retry
-                  </button>
-                </div>
-              </>
-            )
-          })()}
-        </div>
-      )}
-
-      {/* Cancelled state */}
-      {isCancelled && (
-        <div className="flex flex-col items-center justify-center py-20 text-gray-500">
-          <Square size={32} className="mb-3 text-orange-400" />
-          <p className="text-orange-400">Processing cancelled</p>
-          <button
-            onClick={async () => {
-              try {
-                const { retryVideoTask } = await import('../../lib/api')
-                await retryVideoTask(task.id)
-              } catch (e) {
-                console.error('Retry failed:', e)
-              }
-            }}
-            className="mt-4 flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm rounded-lg transition-colors"
-          >
-            <RotateCcw size={14} />
-            Retry
-          </button>
-        </div>
-      )}
-
-      {/* Markdown content (finished or streaming) */}
-      {(isSuccess || (isActive && task.markdown)) && task.markdown && (
-        <div>
-          {isActive && (
-            <div className="flex items-center gap-2 mb-3 px-1 text-xs text-indigo-400">
-              <Loader2 size={12} className="animate-spin" />
-              <span>Writing notes...</span>
-            </div>
-          )}
           <article data-rendering="formatted" className="note-prose prose prose-invert max-w-none pb-4
             prose-headings:text-gray-100 prose-headings:font-bold
             prose-h1:text-2xl prose-h1:border-b prose-h1:border-dark-border prose-h1:pb-2 prose-h1:mb-6
@@ -215,41 +32,12 @@ export default function MarkdownPreview({ task }: Props) {
             prose-table:border-collapse prose-th:bg-dark-hover prose-th:border prose-th:border-dark-border prose-th:px-3 prose-th:py-2
             prose-td:border prose-td:border-dark-border prose-td:px-3 prose-td:py-2
           ">
-            <NoteMarkdown markdown={task.markdown} onImage={setZoomedImg} />
+            <NoteMarkdown markdown={markdown} />
           </article>
-        </div>
-      )}
-
-      {/* Image zoom overlay */}
-      {zoomedImg && (
-        <div
-          role="dialog" aria-modal="true" aria-label="Enlarged screenshot" className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center cursor-zoom-out"
-          onClick={() => setZoomedImg(null)}
-        >
-          <button
-            onClick={() => setZoomedImg(null)}
-            aria-label="Close enlarged screenshot"
-            className="absolute top-4 right-4 text-white/70 hover:text-white p-2"
-          >
-            <X size={24} />
-          </button>
-          <img loading="lazy" decoding="async"
-            src={zoomedImg}
-            alt="Zoomed screenshot"
-            className="max-w-[90vw] max-h-[90vh] rounded-lg shadow-2xl"
-          />
-        </div>
-      )}
-
-      {/* In-flight with no markdown yet: keep a calm spacer so layout does not jump when notes start streaming */}
-      {isInFlight && !task.markdown && (
-        <div className="min-h-[8rem]" aria-hidden />
-      )}
-    </div>
   )
 }
 
-const NoteMarkdown = memo(function NoteMarkdown({ markdown, onImage }: { markdown: string; onImage: (src: string) => void }) {
+const NoteMarkdown = memo(function NoteMarkdown({ markdown }: { markdown: string }) {
   const [math, setMath] = useState<{
     remark: typeof import('remark-math').default
     rehype: typeof import('rehype-katex').default
@@ -313,7 +101,7 @@ const NoteMarkdown = memo(function NoteMarkdown({ markdown, onImage }: { markdow
                   )
                 },
                 img({ src, alt }) {
-                  return <NoteImage key={src} src={src} alt={alt} onImage={onImage} priority={!!src && priorityImages.includes(src)} />
+                  return <NoteImage key={src} src={src} alt={alt} priority={!!src && priorityImages.includes(src)} />
                 },
                 a({ href, children }) {
                   const text = String(children)
@@ -336,11 +124,12 @@ const NoteMarkdown = memo(function NoteMarkdown({ markdown, onImage }: { markdow
                       <a
                         href={href}
                         onClick={(e) => {
-                          e.preventDefault()
-                          const id = decodeURIComponent(href.slice(1))
-                          const el = document.getElementById(id)
-                          if (!el) return
-                          el.scrollIntoView({ block: 'start' })
+                          try {
+                            const el = document.getElementById(decodeURIComponent(href.slice(1)))
+                            if (!el) return
+                            e.preventDefault()
+                            el.scrollIntoView({ block: 'start' })
+                          } catch { /* Invalid source anchors remain ordinary links. */ }
                         }}
                         className="text-indigo-400 hover:underline hover:text-indigo-300 transition-colors"
                       >

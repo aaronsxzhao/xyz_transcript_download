@@ -30,6 +30,37 @@ beforeEach(() => {
 afterEach(() => {act(()=>root.unmount());node.remove();useStore.getState().reset();vi.useRealTimers();vi.unstubAllGlobals()})
 async function mount() {await act(async()=>root.render(<MemoryRouter initialEntries={['/videos/one']}><Routes><Route path="/videos/:taskId" element={<VideoViewer/>}/></Routes></MemoryRouter>))}
 
+it.each(['failed','cancelled','summarizing'])('keeps saved content and export actions available after status becomes %s',async status=>{
+ vi.mocked(fetchVideoTask).mockResolvedValue({...note(),status,error:status==='failed'?'Provider unavailable':''})
+ await mount()
+ expect(node.querySelector('.reader-body')?.textContent).toContain('Saved first note')
+ await act(async()=>[...node.querySelectorAll('button')].find(b=>b.textContent?.trim()==='Export')!.click())
+ expect(node.textContent).toContain('Markdown')
+ expect(node.textContent).toContain('PDF')
+ expect(node.textContent).toContain('Send to Notion')
+ if(status==='cancelled')expect(node.textContent).toContain('Processing was cancelled. Showing the saved note.')
+})
+
+it.each(['twitter','substack'])('explains %s source restrictions without a nonexistent account setup link',async platform=>{
+ vi.mocked(fetchVideoTask).mockResolvedValue({...note(),platform,status:'failed',error:'LOGIN_REQUIRED',message:'Failed',markdown:''})
+ await mount()
+ expect(node.textContent).toContain('Open the original link')
+ expect(node.textContent).not.toContain('LOGIN_REQUIRED')
+ expect(node.textContent).not.toContain('Check Settings')
+})
+
+it('retains settings access for a social processing provider failure',async()=>{
+ vi.mocked(fetchVideoTask).mockResolvedValue({...note(),platform:'substack',status:'failed',error:'Invalid model API key',message:'Failed',markdown:''})
+ await mount()
+ expect(node.textContent).toContain('Check Settings')
+})
+
+it('does not turn a local upload path into an external source link',async()=>{
+ vi.mocked(fetchVideoTask).mockResolvedValue({...note(),platform:'local',status:'failed',url:'/data/videos/upload.mp4',error:'Provider unavailable',markdown:''})
+ await mount()
+ expect(node.querySelector('a[href="/data/videos/upload.mp4"]')).toBeNull()
+})
+
 it('shows imported social text verbatim without a transcript tab or generated-note cleanup',async()=>{
  vi.mocked(fetchVideoTask).mockResolvedValue({...note(),'platform':'substack',style:'original',formats:['original'],model:'',markdown:'# Original\n\n## Table of Contents\n- [Part](#part)\n\n## Part\n\n### 2.1 #### Literal source heading\n\nFinal original paragraph.'})
  await mount()

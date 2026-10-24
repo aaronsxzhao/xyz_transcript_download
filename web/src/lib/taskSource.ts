@@ -25,6 +25,10 @@ export function taskFailure(message = '', platform = '') {
   const login = /^(?:BILIBILI_)?LOGIN_REQUIRED$|^COOKIES_REQUIRED$|^AGE_RESTRICTED$/i.test(message.trim())
   if (!login) return { message, retryAfterSignIn: false }
   const name = taskSource(platform).name
+  if (platform === 'twitter' || platform === 'substack') return {
+    message: `${name} did not allow public access when this task ran. Open the original link to check access. Private or subscription-only content cannot be imported through the public link.`,
+    retryAfterSignIn: false,
+  }
   return {
     message: platform === 'youtube'
       ? 'YouTube requested sign-in or anti-bot verification when this task ran. Check YouTube in Settings, then retry.'

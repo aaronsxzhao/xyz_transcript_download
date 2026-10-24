@@ -103,6 +103,10 @@ async def main():
     elif path=='/api/stats':body={k:12 for k in ['total_podcasts','total_episodes','total_transcripts','total_summaries','total_video_channels','total_videos','completed_videos']}
     elif path=='/api/summaries/bench':body=summary
     elif path=='/api/video-notes/tasks/bench':body=task
+    elif path in ['/api/video-notes/tasks/saved-failed','/api/video-notes/tasks/saved-cancelled','/api/video-notes/tasks/saved-processing']:
+     state=path.rsplit('-',1)[1]
+     status={'failed':'failed','cancelled':'cancelled','processing':'summarizing'}[state]
+     body={**task,'id':'saved-'+state,'status':status,'markdown':'# Saved complete note\n\nOriginal explanation remains readable.','error':'Provider temporarily unavailable' if state=='failed' else '', 'message':'Provider temporarily unavailable' if state=='failed' else 'Processing','versions':[]}
     elif path=='/api/video-notes/tasks/social':body={**task,'id':'social','title':'Original public article','platform':'substack','style':'original','formats':['original'],'model':'','duration':0,'markdown':social_markdown,'url':'https://writer.substack.com/p/public','versions':[]}
     elif path=='/api/video-notes/generate-json':
      submitted=route.request.post_data_json
@@ -330,6 +334,18 @@ async def main():
      await download.save_as(file)
      assert file.read_text()==social_markdown
      await page.screenshot(path=str(args.output/f'social-{width}.png'))
+   for state in ['failed','cancelled','processing']:
+    await page.goto(origin+'/videos/saved-'+state,wait_until='networkidle')
+    await page.locator('[data-rendering="formatted"]').wait_for()
+    await page.get_by_role('heading',name='Saved complete note',exact=True).wait_for()
+    assert await page.get_by_text('Original explanation remains readable.',exact=True).count()==1
+    assert not await page.get_by_text('Processing failed',exact=True).count()
+    assert not await page.get_by_role('button',name='Cancel',exact=True).count()
+    await page.get_by_role('button',name='Export',exact=True).click()
+    assert await page.get_by_role('button',name='PDF',exact=True).count()==1
+    assert await page.get_by_role('button',name='Send to Notion',exact=True).count()==1
+    await inspect('saved-'+state)
+    await page.screenshot(path=str(args.output/f'saved-{state}-{width}.png'))
    social_state['library']=True
    await page.goto(origin+'/library',wait_until='networkidle')
    await page.get_by_role('button',name='Refresh library',exact=True).click()

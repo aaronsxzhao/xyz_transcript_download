@@ -53,6 +53,16 @@ it('a late cancel acknowledgement preserves an already completed task',async()=>
  expect(useStore.getState().videoTasks[0].message).toBe('Completed')
 })
 
+it.each(['twitter','substack'])('keeps %s source access actions on the original platform',async platform=>{
+ const url=platform==='twitter'?'https://x.com/writer/status/123':'https://writer.substack.com/p/post'
+ useStore.getState().setVideoTasks([{id:'social',title:'Original source',platform,url,status:'failed',error:'LOGIN_REQUIRED',message:'Failed'} as any])
+ await render();await open()
+ const card=document.querySelector('[data-task-id="social"]')!
+ expect(card.textContent).toContain('Open the original link')
+ expect(card.querySelector(`a[href="${url}"]`)).not.toBeNull()
+ expect(card.querySelector('a[href="/settings"]')).toBeNull()
+})
+
 it('identifies saved YouTube login failures separately from an active podcast and allows retry',async()=>{
  useStore.getState().setJobs([job('podcast-now','transcribing')])
  useStore.getState().setVideoTasks([{id:'old-video',title:'',url:'https://www.youtube.com/watch?v=abcdefghijk&private=never-display',platform:'youtube',status:'failed',progress:0,error:'LOGIN_REQUIRED',message:'Failed',created_at:'2026-04-13T09:23:31Z'} as any])
