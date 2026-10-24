@@ -1,3 +1,4 @@
+import { retryConnection, useConnectionRecovery } from '../lib/connectionRecovery'
 /**
  * Authentication context for managing user state
  */
@@ -22,6 +23,8 @@ interface AuthContextType {
   user: AuthUser | null
   loading: boolean
   authEnabled: boolean
+  connectionError: string
+  retryConnection: () => void
   signIn: (email: string, password: string) => Promise<void>
   signUp: (email: string, password: string) => Promise<boolean>
   signOut: () => Promise<void>
@@ -41,6 +44,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [authEnabled, setAuthEnabled] = useState(!!restored)
   const [authError, setAuthError] = useState('')
   const [attempt, setAttempt] = useState(0)
+  useConnectionRecovery(() => setAttempt(value => value + 1), !!authError)
 
   useEffect(() => {
     const changed = () => {
@@ -128,15 +132,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   if (authError && !user) return (
     <div className="min-h-screen bg-dark-bg text-gray-200 flex flex-col items-center justify-center gap-4 p-6" role="alert">
       <p>{authError}</p>
-      <button className="px-4 py-2 bg-indigo-600 rounded-lg" onClick={() => setAttempt(value => value + 1)}>Retry connection</button>
+      <button className="px-4 py-2 bg-indigo-600 rounded-lg" onClick={retryConnection}>Retry connection</button>
     </div>
   )
 
   return (
-    <AuthContext.Provider value={{ user, loading, authEnabled, signIn, signUp, signOut }}>
-      {authError && <div role="alert" className="bg-dark-surface text-gray-300 px-4 py-2 text-sm">
-        {authError} <button className="underline ml-2" onClick={() => setAttempt(value => value + 1)}>Retry connection</button>
-      </div>}
+    <AuthContext.Provider value={{ user, loading, authEnabled, connectionError:authError, retryConnection, signIn, signUp, signOut }}>
+
       {children}
     </AuthContext.Provider>
   )

@@ -32,7 +32,7 @@ describe('account isolation', () => {
   })
 
   it('fails closed if auth configuration cannot be loaded', async () => {
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response('Unavailable', { status: 503 })))
+    vi.stubGlobal('fetch', vi.fn().mockImplementation(async()=>new Response('Unavailable', { status: 503 })))
     await expect(getAuthConfig()).rejects.toThrow('connection')
   })
 })

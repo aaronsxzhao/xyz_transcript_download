@@ -1,3 +1,4 @@
+import { bufferResponse, requestWithDeadline } from './requestDeadline'
 /**
  * API client for backend communication
  */
@@ -18,32 +19,23 @@ export class ApiError extends Error {
   constructor(message: string, public readonly status: number) { super(message) }
 }
 
+function assertSessionGeneration(generation: number): void {
+  if (generation !== getAuthGeneration()) throw new DOMException('Account changed', 'AbortError')
+}
+
 function readJson<T>(url: string, operation: string, signal?: AbortSignal): Promise<T> {
   const generation = getAuthGeneration()
   const key = `${generation}:${url}`
   const existing = pendingReads.get(key)
   if (existing && !signal) return existing as Promise<T>
-  const controller = new AbortController()
-  let timer: ReturnType<typeof setTimeout>
-  let cancel = () => {}
-  const deadline = new Promise<never>((_, reject) => {
-    cancel = () => { controller.abort(); reject(new DOMException('Navigation cancelled','AbortError')) }
-    signal?.addEventListener('abort', cancel, {once:true})
-    if (signal?.aborted) cancel()
-    timer = setTimeout(() => {
-      controller.abort()
-      reject(new Error('Loading timed out. Please retry.'))
-    }, 10000)
-  })
-  const request = Promise.race([
-    authFetch(url, { signal: controller.signal }).then(response => parseApiResponseAsJson<T>(response, operation)).then(data => {
-      if (generation !== getAuthGeneration()) throw new DOMException('Account changed', 'AbortError')
+  const request = requestWithDeadline(async controllerSignal => {
+    assertSessionGeneration(generation)
+    return authFetch(url, { signal: controllerSignal }).then(response => parseApiResponseAsJson<T>(response, operation)).then(data => {
+      assertSessionGeneration(generation)
       return data
-    }),
-    deadline,
-  ]).finally(() => {
-    clearTimeout(timer)
-    signal?.removeEventListener('abort', cancel)
+    })
+  }, {signal, retry:true},
+  ).finally(() => {
     if (pendingReads.get(key) === request) pendingReads.delete(key)
   })
   if (!signal) pendingReads.set(key, request)
@@ -110,23 +102,18 @@ export async function parseApiResponseAsJson<T>(res: Response, operation: string
 /** Shared deadline covers authentication, headers and body; mutations are never auto-retried on timeout. */
 export async function authFetch(url: string, options: RequestInit = {}): Promise<Response> {
   if (options.signal) return performAuthFetch(url, options)
-  const controller = new AbortController()
   const mutation = !['GET', 'HEAD'].includes((options.method || 'GET').toUpperCase())
-  let timer: ReturnType<typeof setTimeout>
-  const deadline = new Promise<never>((_, reject) => {
-    timer = setTimeout(() => {
-      controller.abort()
-      reject(new Error(mutation ? 'No confirmation received. The operation may still be running. Check its status before submitting again.' : 'Loading timed out. Please retry.'))
-    }, mutation ? 60000 : 15000)
-  })
   const generation = getAuthGeneration()
-  const request = performAuthFetch(url, {...options, signal:controller.signal}).then(async response => {
-    const body = [204,205,304].includes(response.status) ? null : await response.text()
-    if (generation !== getAuthGeneration()) throw new DOMException('Account changed', 'AbortError')
-    return new Response(body, {status:response.status,headers:response.headers})
+  return requestWithDeadline(async signal => {
+    assertSessionGeneration(generation)
+    return performAuthFetch(url, {...options, signal}).then(bufferResponse).then(response => {
+      assertSessionGeneration(generation)
+      return response
+    })
+  }, {
+    timeout:mutation ? 60000 : 15000, retry:!mutation,
+    message:mutation ? 'No confirmation received. The operation may still be running. Check its status before submitting again.' : undefined,
   })
-  try { return await Promise.race([request, deadline]) }
-  finally { clearTimeout(timer!) }
 }
 
 async function performAuthFetch(url: string, options: RequestInit = {}): Promise<Response> {
@@ -135,7 +122,7 @@ async function performAuthFetch(url: string, options: RequestInit = {}): Promise
   let token = getAccessToken()
   if (accessTokenNeedsRefresh(token) && getRefreshToken()) {
     token = (await refreshToken())?.access_token || null
-    if (ownerGeneration !== getAuthGeneration()) throw new DOMException('Account changed', 'AbortError')
+    assertSessionGeneration(ownerGeneration)
   }
   if (token) headers.set('Authorization', `Bearer ${token}`)
   const mutating = !['GET', 'HEAD'].includes((options.method || 'GET').toUpperCase())
@@ -143,18 +130,18 @@ async function performAuthFetch(url: string, options: RequestInit = {}): Promise
   
   const pendingStartup = (options.method || 'GET').toUpperCase() === 'GET' && !options.body ? takeStartupRead(url, token) : null
   const early = pendingStartup ? await pendingStartup : null
-  if (ownerGeneration !== getAuthGeneration()) throw new DOMException('Account changed', 'AbortError')
+  assertSessionGeneration(ownerGeneration)
   const res = early || await fetch(url, { ...options, headers })
-  if (ownerGeneration !== getAuthGeneration()) throw new DOMException('Account changed', 'AbortError')
+  assertSessionGeneration(ownerGeneration)
   if (mutating && res.ok) invalidateForMutation(url)
 
   if (res.status === 401) {
     const tokens = await refreshToken()
     if (tokens) {
-      if (ownerGeneration !== getAuthGeneration()) throw new DOMException('Account changed', 'AbortError')
+      assertSessionGeneration(ownerGeneration)
       headers.set('Authorization', `Bearer ${tokens.access_token}`)
       const retry = await fetch(url, { ...options, headers })
-      if (ownerGeneration !== getAuthGeneration()) throw new DOMException('Account changed', 'AbortError')
+      assertSessionGeneration(ownerGeneration)
       if (mutating && retry.ok) invalidateForMutation(url)
       return retry
     }
@@ -328,7 +315,7 @@ export async function uploadLocalPodcastAudio(
       body: formData,
     })
   } catch (error) {
-    assertUploadAccount(generation)
+    assertSessionGeneration(generation)
     if (isNetworkOrTimeoutError(error)) {
       // This endpoint creates an episode. Losing the response does not prove
       // the save failed, so replaying it as a new chunked upload can duplicate it.
@@ -336,7 +323,7 @@ export async function uploadLocalPodcastAudio(
     }
     throw error
   }
-  assertUploadAccount(generation)
+  assertSessionGeneration(generation)
   if (res.status === 413) {
     return uploadLocalPodcastAudioChunked(file, options)
   }
@@ -344,7 +331,7 @@ export async function uploadLocalPodcastAudio(
     throw new Error(await parseLocalAudioUploadError(res))
   }
   const result = await res.json()
-  assertUploadAccount(generation)
+  assertSessionGeneration(generation)
   return result
 }
 
@@ -393,14 +380,14 @@ async function uploadLocalPodcastAudioChunked(
     chunk_size: number
     total_chunks: number
   }
-  assertUploadAccount(generation)
+  assertSessionGeneration(generation)
 
   for (let index = 0; index < init.total_chunks; index += 1) {
     const start = index * init.chunk_size
     const end = Math.min(file.size, start + init.chunk_size)
 
     for (let attempt = 0; attempt <= CHUNK_RETRY_ATTEMPTS; attempt++) {
-      assertUploadAccount(generation)
+      assertSessionGeneration(generation)
       try {
         const chunkData = new FormData()
         chunkData.append('upload_id', init.upload_id)
@@ -412,7 +399,7 @@ async function uploadLocalPodcastAudioChunked(
           { method: 'POST', body: chunkData },
           CHUNK_UPLOAD_TIMEOUT_MS,
         )
-        assertUploadAccount(generation)
+        assertSessionGeneration(generation)
         if (!chunkRes.ok) {
           const canRetry = attempt < CHUNK_RETRY_ATTEMPTS && shouldRetryVideoUploadAsChunked(chunkRes.status)
           if (canRetry) {
@@ -423,7 +410,7 @@ async function uploadLocalPodcastAudioChunked(
         }
         break
       } catch (error) {
-        assertUploadAccount(generation)
+        assertSessionGeneration(generation)
         if (isNetworkOrTimeoutError(error) && attempt < CHUNK_RETRY_ATTEMPTS) {
           await sleep(CHUNK_RETRY_BASE_MS * 2 ** attempt)
           continue
@@ -438,7 +425,7 @@ async function uploadLocalPodcastAudioChunked(
   if (options.title) completeData.append('title', options.title)
   if (options.description) completeData.append('description', options.description)
 
-  assertUploadAccount(generation)
+  assertSessionGeneration(generation)
   const completeRes = await authFetch(`${API_BASE}/podcasts/upload-audio/complete`, {
     method: 'POST',
     body: completeData,
@@ -448,7 +435,7 @@ async function uploadLocalPodcastAudioChunked(
   }
 
   const result = await completeRes.json()
-  assertUploadAccount(generation)
+  assertSessionGeneration(generation)
   return result
 }
 
@@ -993,9 +980,6 @@ function sleep(ms: number): Promise<void> {
   return new Promise(resolve => window.setTimeout(resolve, ms))
 }
 
-function assertUploadAccount(generation: number): void {
-  if (generation !== getAuthGeneration()) throw new DOMException('Account changed', 'AbortError')
-}
 
 /** Detect network-level failures (connection refused, timeout, DNS, etc.)
  *  that never produce an HTTP status code — the browser throws a TypeError. */
@@ -1119,7 +1103,7 @@ async function uploadVideoFileChunked(
     total_chunks: number
     recommended_concurrency?: number
   }
-  assertUploadAccount(generation)
+  assertSessionGeneration(generation)
 
   onProgress?.({
     uploadId: init.upload_id,
@@ -1150,7 +1134,7 @@ async function uploadVideoFileChunked(
     const end = Math.min(file.size, start + init.chunk_size)
 
     for (let attempt = 0; attempt <= CHUNK_RETRY_ATTEMPTS; attempt++) {
-      assertUploadAccount(generation)
+      assertSessionGeneration(generation)
       if (failed) return
       try {
         const chunkBlob = file.slice(start, end)
@@ -1164,7 +1148,7 @@ async function uploadVideoFileChunked(
           { method: 'POST', body: chunkForm },
           CHUNK_UPLOAD_TIMEOUT_MS,
         )
-        assertUploadAccount(generation)
+        assertSessionGeneration(generation)
         if (!chunkRes.ok) {
           const canRetry = attempt < CHUNK_RETRY_ATTEMPTS && shouldRetryVideoUploadAsChunked(chunkRes.status)
           if (canRetry) {
@@ -1178,7 +1162,7 @@ async function uploadVideoFileChunked(
         completedChunks += 1
         completedBytes += end - start
         const chunkText = await chunkRes.text()
-        assertUploadAccount(generation)
+        assertSessionGeneration(generation)
         let body = {} as { status?: VideoUploadStatus }
         if (chunkText.trim()) {
           try {
@@ -1206,7 +1190,7 @@ async function uploadVideoFileChunked(
         }
         return
       } catch (error) {
-        assertUploadAccount(generation)
+        assertSessionGeneration(generation)
         if (isNetworkOrTimeoutError(error) && attempt < CHUNK_RETRY_ATTEMPTS) {
           await sleep(CHUNK_RETRY_BASE_MS * 2 ** attempt)
           continue
@@ -1231,7 +1215,7 @@ async function uploadVideoFileChunked(
   } catch (error) {
     throw error
   }
-  assertUploadAccount(generation)
+  assertSessionGeneration(generation)
 
   onProgress?.({
     uploadId: init.upload_id,
@@ -1247,7 +1231,7 @@ async function uploadVideoFileChunked(
     locationLabel: 'Temporary server upload area',
   })
 
-  assertUploadAccount(generation)
+  assertSessionGeneration(generation)
   const stopPolling = startAssemblyStatusPolling(init.upload_id, file.name, onProgress)
   try {
     const completeForm = new FormData()
@@ -1257,7 +1241,7 @@ async function uploadVideoFileChunked(
     }, 120000)
     if (!completeRes.ok) throw new Error(await parseUploadError(completeRes, 'Failed to finalize video upload'))
     const completeBody = await completeRes.json() as {file_id:string;path:string;status?:VideoUploadStatus}
-    assertUploadAccount(generation)
+    assertSessionGeneration(generation)
     stopPolling()
     if (completeBody.status) onProgress?.(toUploadProgress(completeBody.status, file.name))
     return completeBody
@@ -1289,10 +1273,10 @@ export async function uploadVideoFile(
   })
   let result: { file_id: string; path: string }
   try {
-    assertUploadAccount(generation)
+    assertSessionGeneration(generation)
     result = await uploadVideoFileSimple(file)
   } catch (error) {
-    assertUploadAccount(generation)
+    assertSessionGeneration(generation)
     if (error instanceof UploadResponseError && shouldRetryVideoUploadAsChunked(error.status)) {
       return uploadVideoFileChunked(file, onProgress)
     }
@@ -1301,7 +1285,7 @@ export async function uploadVideoFile(
     }
     throw error
   }
-  assertUploadAccount(generation)
+  assertSessionGeneration(generation)
   onProgress?.({
     uploadId,
     phase: 'uploaded',

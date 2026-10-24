@@ -1,6 +1,7 @@
 import { readFileSync, writeFileSync, readdirSync } from 'node:fs'
 import { gzipSync, brotliCompressSync, constants } from 'node:zlib'
 import { createHash } from 'node:crypto'
+import { minify } from 'vite'
 import { documentProgram } from './document-program.mjs'
 const root = new URL('../dist/', import.meta.url)
 let html = readFileSync(new URL('index.html', root), 'utf8')
@@ -16,7 +17,10 @@ html = html.replace(/<script type="module"[^>]*src="[^"]+"[^>]*><\/script>/,'')
 // streaming documents can paint navigation and start data reads immediately.
 html = html.replace('</body>',()=>setup+`<script type="module" data-cfasync="false" data-entry="${program.entry}">import(${JSON.stringify(program.entry)}).catch(function(error){console.error('Application startup failed',error);window.__xyzEntryFailed=true;window.dispatchEvent(new Event('xyz:entry-error'))})</script></body>`)
 
-html = html.replace('<!-- xyz-startup -->', () => '<script data-cfasync="false">' + readFileSync(new URL('../src/startup.js', import.meta.url), 'utf8') + '</script>')
+// The inline startup shell needs the same production minification as the app.
+const startup = await minify('startup.js', readFileSync(new URL('../src/startup.js', import.meta.url), 'utf8'))
+if (startup.errors?.length) throw new Error('Startup script minification failed')
+html = html.replace('<!-- xyz-startup -->', () => '<script data-cfasync="false">' + startup.code + '</script>')
 html = html.replace(/<link rel="stylesheet"[^>]*href="(\/assets\/[^\"]+\.css)"[^>]*>/g, (_, href) =>
   `<style data-app-style data-asset="${href}">${readFileSync(new URL('../dist' + href, import.meta.url),'utf8')}</style>`)
 html = html.replace(/<script type="module"([^>]+)>/g, '<script type="module"$1 onerror="window.__xyzEntryFailed=true;window.dispatchEvent(new Event(\'xyz:entry-error\'))">')
