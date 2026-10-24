@@ -352,7 +352,7 @@ def _substack(url: str, deadline: float) -> SocialContent:
             kind=attachment.get('type') or upload.get('type') or ''
             if kind in ('video','audio'):
                 if not target and upload.get('id'):
-                    target=f'https://substack.com/api/v1/{kind}/upload/{upload["id"]}/src'
+                    target=f'https://substack.com/api/v1/{kind}/upload/{upload["id"]}/src'+('?type=mp4' if kind=='video' else '')
                 media.append({'url':_media_url(target,'substack',url),'kind':kind,'duration':upload.get('duration') or 0})
             elif kind in ('image','photo') and target:
                 body+=f'\n\n![Note image]({_link(target,url)})'
@@ -384,7 +384,7 @@ def _substack(url: str, deadline: float) -> SocialContent:
     if video:
         target = video.get('url') or video.get('src')
         if not target and re.fullmatch(r'[\w-]+', str(video.get('id') or '')):
-            target = f'{p.scheme}://{p.netloc}/api/v1/video/upload/{video["id"]}/src'
+            target = f'{p.scheme}://{p.netloc}/api/v1/video/upload/{video["id"]}/src?type=mp4'
         if target: attachments.append({'url':_media_url(target, 'substack',url), 'kind':'video','duration':video.get('duration') or 0})
     elif post.get('podcast_url'):
         attachments.append({'url':_media_url(post['podcast_url'], 'substack'), 'kind':'audio','duration':post.get('podcast_duration') or 0})
