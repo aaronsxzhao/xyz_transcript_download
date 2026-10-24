@@ -23,52 +23,8 @@ def extract_json_from_response(content: str) -> dict:
     Raises:
         json.JSONDecodeError: If no valid JSON found
     """
-    # First, try direct parsing
-    try:
-        return json.loads(content)
-    except json.JSONDecodeError:
-        pass
-    
-    # Try to find JSON object boundaries
-    # Look for the first { and last }
-    first_brace = content.find('{')
-    last_brace = content.rfind('}')
-    
-    if first_brace != -1 and last_brace != -1 and last_brace > first_brace:
-        json_str = content[first_brace:last_brace + 1]
-        try:
-            return json.loads(json_str)
-        except json.JSONDecodeError:
-            pass
-    
-    # Try to extract JSON using regex (handles markdown code blocks)
-    json_pattern = r'```(?:json)?\s*(\{[\s\S]*?\})\s*```'
-    matches = re.findall(json_pattern, content)
-    for match in matches:
-        try:
-            return json.loads(match)
-        except json.JSONDecodeError:
-            continue
-    
-    # Last resort: try to find balanced braces
-    if first_brace != -1:
-        depth = 0
-        end_pos = -1
-        for i, char in enumerate(content[first_brace:], first_brace):
-            if char == '{':
-                depth += 1
-            elif char == '}':
-                depth -= 1
-                if depth == 0:
-                    end_pos = i
-                    break
-        
-        if end_pos != -1:
-            json_str = content[first_brace:end_pos + 1]
-            return json.loads(json_str)
-    
-    # If nothing works, raise the original error
-    raise json.JSONDecodeError("No valid JSON found in response", content, 0)
+    from summary_format import extract_model_json
+    return extract_model_json(content)
 
 from openai import OpenAI
 from summary_errors import SummaryOutputError, ProcessingCancelledError
@@ -223,10 +179,22 @@ class Summarizer:
             response = self._call_llm_with_retry(user_prompt, progress_callback)
 
             content = response.choices[0].message.content
-            data = extract_json_from_response(content)
-            result = self._parse_summary(data, episode_id, episode_title)
-            if len(transcript_text) >= 1000 and not result.key_points:
-                raise SummaryOutputError('invalid')
+            try:
+                data = extract_json_from_response(content)
+                result = self._parse_summary(data, episode_id, episode_title)
+            except json.JSONDecodeError:
+                # Preserve readable provider text even when its JSON envelope is broken.
+                raw = content.strip('\r\n')
+                if not raw.strip():
+                    raise SummaryOutputError('empty')
+                from summary_errors import delivery_notice
+                return Summary(episode_id, episode_title,
+                    delivery_notice('模型返回的格式未能结构化，以下保留原始正文。'),
+                    [KeyPoint('生成正文', raw, '', '')], ['生成正文'], [])
+            if not result.key_points:
+                from summary_errors import delivery_notice
+                return replace(result, overview=delivery_notice('模型未提供结构化要点，以下保留生成正文。'),
+                    key_points=[KeyPoint('生成正文', result.overview, '', '')], topics=['生成正文'])
             try:
                 result = self._audit_summary(result, transcript_text, progress_callback, source_context)
             except Exception as audit_error:
@@ -474,19 +442,11 @@ class Summarizer:
 
     @staticmethod
     def _parse_summary(data, episode_id: str, episode_title: str) -> Summary:
-        if not isinstance(data, dict):
-            raise SummaryOutputError('invalid')
-        points = data.get('key_points', [])
-        topics = data.get('topics', [])
-        takeaways = data.get('takeaways', [])
-        if (not isinstance(data.get('overview'), str)
-            or not isinstance(points, list) or not isinstance(topics, list)
-            or not isinstance(takeaways, list)
-            or any(not isinstance(t, str) for t in topics + takeaways)
-            or any(not isinstance(p, dict) or any(not isinstance(p.get(k, ''), str)
-                for k in ('topic', 'summary', 'original_quote', 'timestamp'))
-                or not p.get('summary', '').strip() for p in points)):
-            raise SummaryOutputError('invalid')
+        from summary_format import normalize_summary_fields
+        data = normalize_summary_fields(data)
+        points = data['key_points']
+        topics = data['topics']
+        takeaways = data['takeaways']
         # Providers may still emit a point topic missing from the chapter list.
         # Repair the outline without throwing away the point or its source.
         topics = list(dict.fromkeys(t.strip() for t in topics if t.strip()))

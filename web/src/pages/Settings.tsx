@@ -87,7 +87,7 @@ export default function Settings() {
   const [testingLlm, setTestingLlm] = useState(false)
   const [llmTestResult, setLlmTestResult] = useState('')
   const [legacyModels,setLegacyModels]=useState([{value:"",label:"Server Default"}])
-  useEffect(()=>{if(llmProvider==='server')void import('../lib/legacyModelOptions').then(module=>setLegacyModels(module.LLM_MODELS)).catch(()=>{})},[llmProvider])
+  const loadLegacyModels=()=>void import('../lib/legacyModelOptions').then(module=>setLegacyModels(module.LLM_MODELS)).catch(()=>{})
   const groqModels = ['openai/gpt-oss-120b', 'openai/gpt-oss-20b']
   const llmModels = llmProvider === 'groq' ? groqModels.map(value => ({ value, label: value })) : legacyModels
   const [saving, setSaving] = useState(false)
@@ -234,7 +234,7 @@ export default function Settings() {
   const stopQrPolling = useCallback(() => {
     if (qrPollRef.current) { clearInterval(qrPollRef.current); qrPollRef.current = null }
     if (qrTimerRef.current) { clearInterval(qrTimerRef.current); qrTimerRef.current = null }
-    qrAutoRef.current = 0
+    qrAutoRef.current += 1
     qrScannedRef.current = false
     qrRetryCountRef.current = 0
   }, [])
@@ -252,7 +252,7 @@ export default function Settings() {
     if (isManual) setQrMessage('')
     qrScannedRef.current = false
     qrPlatformRef.current = platform
-    const autoId = isManual ? ++qrAutoRef.current : qrAutoRef.current
+    const autoId = ++qrAutoRef.current
 
     const generateFn = platform === 'bilibili' ? bilibiliQrGenerate : douyinQrGenerate
     const pollFn = platform === 'bilibili'
@@ -333,7 +333,7 @@ export default function Settings() {
           }
         } catch (err) {
           console.warn('QR poll error:', err)
-          setQrMessage('Connection interrupted. Checking again…')
+          if(qrAutoRef.current===autoId)setQrMessage(err instanceof Error ? err.message : 'Connection interrupted. Checking again…')
         } finally { pollInFlight = false }
       }, 2000)
     } catch (err) {
@@ -645,6 +645,7 @@ export default function Settings() {
                 <span className="text-gray-400 text-sm">Model</span>
                 <select
                   aria-label="Summary model"
+                  onFocus={loadLegacyModels} onPointerEnter={loadLegacyModels}
                   disabled={!settings || testingLlm || saving}
                   value={llmModel}
                   onChange={e => { setLlmModel(e.target.value); setLlmTestResult('') }}

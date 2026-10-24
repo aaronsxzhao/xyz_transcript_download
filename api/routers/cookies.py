@@ -28,37 +28,48 @@ class CookieUpdate(BaseModel):
     cookie_data: str
 
 
+async def _request_bilibili_qr(path: str, params=None):
+    """Finish before the browser's 15s read deadline; never log login tokens."""
+    try:
+        async with asyncio.timeout(10):
+            async with httpx.AsyncClient(headers=BILIBILI_HEADERS,
+                    timeout=httpx.Timeout(8.0, connect=4.0), follow_redirects=False) as client:
+                response = await client.get('https://passport.bilibili.com/x/passport-login/web/qrcode/' + path, params=params)
+        if response.status_code in {403, 412, 429}:
+            raise HTTPException(502, detail='Bilibili restricted QR login requests from the server. Wait before retrying, or use cookie import below.')
+        if response.status_code != 200:
+            raise HTTPException(502, detail=f'Bilibili QR service returned HTTP {response.status_code}. Retry later or use cookie import.')
+        try:
+            data = response.json()
+        except ValueError:
+            raise HTTPException(502, detail='Bilibili returned a verification page instead of QR data. Retry later or use cookie import.') from None
+        if not isinstance(data, dict) or data.get('code') != 0:
+            raise HTTPException(502, detail='Bilibili did not accept the QR login request. Retry later or use cookie import.')
+        return response, data
+    except (TimeoutError, httpx.TimeoutException):
+        raise HTTPException(504, detail='Bilibili QR service timed out. Retry or use cookie import; your current connection has not been changed.') from None
+    except httpx.RequestError:
+        raise HTTPException(502, detail='The server could not connect to Bilibili QR login. Retry later or use cookie import.') from None
+
+
 @router.get("/bilibili/qr/generate")
 async def bilibili_qr_generate(user: Optional[User] = Depends(get_current_user)):
     """Generate a BiliBili QR code for login."""
-    try:
-        async with httpx.AsyncClient(
-            headers=BILIBILI_HEADERS,
-            timeout=httpx.Timeout(30.0, connect=15.0),
-            follow_redirects=True,
-        ) as client:
-            resp = await client.get(
-                "https://passport.bilibili.com/x/passport-login/web/qrcode/generate"
-            )
-            data = resp.json()
-    except httpx.TimeoutException:
-        raise HTTPException(status_code=504, detail="BiliBili API timed out. Check your network or try again.")
-    except Exception as e:
-        logger.error(f"BiliBili QR generate error: {e}")
-        raise HTTPException(status_code=502, detail=f"Failed to reach BiliBili: {type(e).__name__}")
+    _, data = await _request_bilibili_qr('generate')
+    qr_data = data.get('data')
+    if not isinstance(qr_data, dict):
+        raise HTTPException(502, detail='Bilibili returned incomplete QR data. Please generate a new code.')
+    qr_url, qrcode_key = qr_data.get('url'), qr_data.get('qrcode_key')
+    from urllib.parse import urlparse
+    if (not isinstance(qr_url, str) or urlparse(qr_url).scheme != 'https'
+            or urlparse(qr_url).hostname != 'passport.bilibili.com'
+            or not isinstance(qrcode_key, str) or not qrcode_key):
+        raise HTTPException(502, detail='Bilibili returned incomplete QR data. Please generate a new code.')
 
-    logger.info(f"BiliBili QR generate response: code={data.get('code')}")
-
-    if data.get("code") != 0:
-        logger.error(f"BiliBili QR generate failed: {data}")
-        raise HTTPException(status_code=502, detail="Failed to generate BiliBili QR code")
-
-    qr_data = data["data"]
-    qr_url = qr_data["url"]
-    qrcode_key = qr_data["qrcode_key"]
-
+    for key in [key for key, session in _qr_sessions.items() if time.time() - session['created_at'] > 180]:
+        _qr_sessions.pop(key, None)
     _qr_sessions[qrcode_key] = {"created_at": time.time(), "status": "pending", "user_id": user.id if user else None}
-    logger.info(f"BiliBili QR generated: key={qrcode_key[:8]}..., url_len={len(qr_url)}")
+    logger.info('Bilibili QR generated')
 
     return {
         "qr_url": qr_url,
@@ -78,27 +89,11 @@ async def bilibili_qr_poll(
     if time.time() - session["created_at"] > 180:
         _qr_sessions.pop(qrcode_key, None)
         return {"status": "expired", "message": "QR code expired"}
-    try:
-        async with httpx.AsyncClient(
-            headers=BILIBILI_HEADERS,
-            timeout=httpx.Timeout(15.0, connect=10.0),
-            follow_redirects=False,
-        ) as client:
-            resp = await client.get(
-                "https://passport.bilibili.com/x/passport-login/web/qrcode/poll",
-                params={"qrcode_key": qrcode_key},
-            )
-            data = resp.json()
-            set_cookie_headers = resp.headers.get_list("set-cookie")
-            logger.debug(f"BiliBili QR poll HTTP {resp.status_code}, "
-                          f"set-cookie count: {len(set_cookie_headers)}")
-    except httpx.TimeoutException:
-        return {"status": "waiting", "message": "BiliBili API slow, retrying..."}
-    except Exception as e:
-        logger.warning(f"BiliBili QR poll error: {e}")
-        return {"status": "waiting", "message": "Network error, retrying..."}
+    resp, data = await _request_bilibili_qr('poll', {'qrcode_key': qrcode_key})
 
     poll_data = data.get("data", {})
+    if not isinstance(poll_data, dict):
+        raise HTTPException(502, detail='Bilibili returned incomplete login status. Please retry.')
     code = poll_data.get("code")
     msg = poll_data.get("message", "")
     logger.info(f"BiliBili QR poll: code={code}, message={msg}, raw_keys={list(poll_data.keys())}")

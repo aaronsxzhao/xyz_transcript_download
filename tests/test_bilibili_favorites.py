@@ -125,3 +125,58 @@ async def test_discovered_video_can_start_but_a_second_import_does_not_restart_i
     assert first.json()['task_id'] == task
     assert second.json() == {"task_id":task,"skipped":True}
     worker.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_submission_confirmation_is_owned_and_never_starts_work(client, monkeypatch):
+    from video_task_db import get_video_task_db
+    db = get_video_task_db()
+    url = 'https://www.bilibili.com/video/BV1234567890'
+    other = db.create_task({'url': url, 'user_id': 'other', 'status': 'pending'})
+    response = await client.get('/api/video-notes/submission', params={'url':url, 'platform':'bilibili'})
+    assert response.json() == {'task_id': None}
+    task = db.create_task({'url': url, 'user_id':'local', 'status':'discovered'})
+    response = await client.get('/api/video-notes/submission', params={'url':url})
+    assert response.json() == {'task_id':None}
+    db.update_task(task, {'status':'transcribing'})
+    worker = AsyncMock()
+    monkeypatch.setattr(video_notes, 'process_video_note_async', worker)
+    response = await client.get('/api/video-notes/submission', params={'url':url+'?spm_id=test', 'platform':'bilibili'})
+    assert response.json() == {'task_id':task, 'status':'transcribing'}
+    worker.assert_not_called()
+    assert db.get_task(other, 'other')['status'] == 'pending'
+
+
+@pytest.mark.asyncio
+async def test_channel_read_failure_is_not_a_successful_empty_list(client, monkeypatch):
+    from video_task_db import get_video_task_db
+    video_notes._list_cache.clear()
+    monkeypatch.setattr(get_video_task_db(), 'list_channels_with_stats', Mock(side_effect=RuntimeError('private upstream detail')))
+    response = await client.get('/api/video-notes/channels')
+    assert response.status_code == 503
+    assert 'temporarily unavailable' in response.json()['detail']
+    assert 'private upstream detail' not in response.text
+
+
+@pytest.mark.asyncio
+async def test_import_response_finishes_while_processing_is_still_running(client, monkeypatch):
+    import asyncio
+    from video_task_db import get_video_task_db
+    started, release = asyncio.Event(), asyncio.Event()
+    async def slow_worker(*args, **kwargs):
+        started.set()
+        await release.wait()
+    monkeypatch.setattr(video_notes, 'process_video_note_async', slow_worker)
+    try:
+        response = await asyncio.wait_for(client.post('/api/video-notes/generate-json', json={
+            'url':'https://www.bilibili.com/video/BV1234567890','platform':'bilibili','skip_existing':True,
+        }), timeout=1)
+        assert response.status_code == 200
+        await asyncio.wait_for(started.wait(), timeout=1)
+        assert not release.is_set()
+        assert get_video_task_db().get_task(response.json()['task_id'], 'local')['status'] == 'pending'
+        assert video_notes._video_workers
+    finally:
+        release.set()
+        await asyncio.gather(*list(video_notes._video_workers))
+    assert not video_notes._video_workers

@@ -53,6 +53,7 @@ _cancelled_tasks: Set[str] = set()
 _video_attempts: dict[str, int] = {}
 _video_worker = threading.local()
 _video_locks: weakref.WeakValueDictionary = weakref.WeakValueDictionary()
+_video_workers: set[asyncio.Task] = set()
 _upload_meta_lock = threading.Lock()
 _last_upload_cleanup = 0.0
 
@@ -883,6 +884,17 @@ async def process_video_note_async(task_id: str, **kwargs):
         logger.error(f"[Video {task_id}] Unhandled error: {e}")
 
 
+async def enqueue_video_note(task_id: str, **kwargs):
+    """End the submission request after admission, not after media processing.
+
+    Keep strong references until completion. The existing bounded executor,
+    per-task lock and attempt checks still control actual processing.
+    """
+    worker = asyncio.create_task(process_video_note_async(task_id, **kwargs))
+    _video_workers.add(worker)
+    worker.add_done_callback(_video_workers.discard)
+
+
 @router.post("/generate")
 def generate_note(
     background_tasks: BackgroundTasks,
@@ -976,7 +988,7 @@ def generate_note(
             raise HTTPException(status_code=500, detail=f"Failed to create task: {type(e).__name__}: {e}")
 
     background_tasks.add_task(
-        process_video_note_async,
+        enqueue_video_note,
         task_id,
         attempt_id=_new_video_attempt(task_id),
         url=url,
@@ -995,6 +1007,20 @@ def generate_note(
     )
 
     return {"task_id": task_id, "message": "Processing started"}
+
+
+@router.get("/submission")
+def video_submission(url: str = Query(..., max_length=2048), platform: str = Query('', max_length=32),
+                     user: Optional[User] = Depends(get_current_user)):
+    """Reconcile a lost acknowledgement without re-submitting processing work."""
+    from video_task_db import get_video_task_db
+    from video_downloader import normalize_video_url
+    if USE_SUPABASE and not user:
+        raise HTTPException(status_code=401, detail="Authentication required")
+    task = get_video_task_db().get_task_by_url(normalize_video_url(url, platform), user.id if user else None)
+    if not task or task.get('status') == 'discovered':
+        return {"task_id": None}
+    return {"task_id": task['id'], "status": task.get('status')}
 
 
 @router.post("/generate-json")
@@ -1081,7 +1107,7 @@ def generate_note_json(
             raise HTTPException(status_code=500, detail=f"Failed to create task: {type(e).__name__}: {e}")
 
     background_tasks.add_task(
-        process_video_note_async,
+        enqueue_video_note,
         task_id,
         attempt_id=_new_video_attempt(task_id),
         url=url,
@@ -1142,7 +1168,11 @@ def list_channels(user: Optional[User] = Depends(get_current_user)):
     if entry and now - entry["t"] < _LIST_TTL:
         return entry["data"]
     db = get_video_task_db()
-    channels = db.list_channels_with_stats(user_id)
+    try:
+        channels = db.list_channels_with_stats(user_id)
+    except Exception:
+        logger.warning('Video channel read failed', exc_info=True)
+        raise HTTPException(status_code=503, detail="Video channels are temporarily unavailable. Your saved videos are unchanged. Please retry.")
     result = {"channels": [sign_media_urls(ch, Path(ch.get("thumbnail") or "").stem.split("_")[0]) for ch in channels]}
     _list_cache[cache_key] = {"t": now, "data": result}
     return result
@@ -1323,7 +1353,7 @@ async def retry_task(
     })
 
     background_tasks.add_task(
-        process_video_note_async,
+        enqueue_video_note,
         task_id,
         attempt_id=_new_video_attempt(task_id),
         url=task["url"],
