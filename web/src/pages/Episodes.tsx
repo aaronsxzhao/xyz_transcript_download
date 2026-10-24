@@ -292,6 +292,7 @@ export default function Episodes() {
       addToast({
         type: 'error',
         title: 'Failed to delete episode',
+        message: err instanceof Error ? err.message : undefined,
       })
     } finally {
       setDeletingEid(null)

@@ -1,10 +1,25 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
-import { ApiError, fetchSettings, fetchSummary, fetchVideoTasksByChannel } from '../src/lib/api'
+import { ApiError, fetchSettings, fetchSummary, fetchVideoTasksByChannel, removePodcast, deleteEpisode, fetchNotionPages, exportMarkdownToNotion } from '../src/lib/api'
 import { clearTokens } from '../src/lib/auth'
 
 beforeEach(() => { clearTokens(); localStorage.clear(); sessionStorage.clear() })
 afterEach(() => { vi.useRealTimers(); vi.unstubAllGlobals() })
+
+it.each([removePodcast,deleteEpisode])('preserves a rejected deletion status and its recovery message',async remove=>{
+ vi.stubGlobal('fetch',vi.fn().mockResolvedValue(Response.json({detail:'Could not confirm deletion. Refresh before retrying.'},{status:503})))
+ await expect(remove('owned-id')).rejects.toMatchObject({status:503,message:'Could not confirm deletion. Refresh before retrying.'})
+})
+it('keeps successful deletion responses compatible',async()=>{
+ vi.stubGlobal('fetch',vi.fn().mockImplementation(async()=>Response.json({message:'Deleted'})))
+ await expect(removePodcast('owned-id')).resolves.toBeUndefined()
+ await expect(deleteEpisode('owned-id')).resolves.toEqual({message:'Deleted'})
+})
+it.each(['search','export'])('keeps Notion %s proxy errors readable with their status',async kind=>{
+ vi.stubGlobal('fetch',vi.fn().mockResolvedValue(new Response('Upstream unavailable',{status:502})))
+ const pending=kind==='search'?fetchNotionPages():exportMarkdownToNotion('# Note','Title','parent')
+ await expect(pending).rejects.toMatchObject({status:502,message:expect.stringContaining('Upstream unavailable')})
+})
 
 it('limits a stalled page read and allows a fresh retry', async () => {
   vi.useFakeTimers()

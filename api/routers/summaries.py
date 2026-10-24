@@ -210,7 +210,8 @@ async def delete_summary(eid: str, user: Optional[User] = Depends(get_current_us
     if not has_summary:
         raise HTTPException(status_code=404, detail="Summary not found")
     
-    await run_sync(db.delete_summary, eid)
+    if not await run_sync(db.delete_summary, eid):
+        raise HTTPException(status_code=503, detail="Could not confirm summary deletion. Refresh before retrying.")
     
     return {"message": "Summary deleted"}
 
