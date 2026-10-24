@@ -209,6 +209,10 @@ def _classify_ytdlp_error(e: Exception, platform: str) -> VideoDownloadError:
 def detect_platform(url: str) -> str:
     """Auto-detect the video platform from a URL."""
     url = extract_first_url(url)
+    from social_content import social_platform
+    social = social_platform(url)
+    if social:
+        return social
     url_lower = url.lower()
     if "bilibili.com" in url_lower or "b23.tv" in url_lower:
         return "bilibili"
@@ -237,6 +241,9 @@ def normalize_video_url(url: str, platform: str = "") -> str:
     if not url:
         return url
     url = extract_first_url(url)
+    from social_content import social_platform, normalize_social_url
+    if social_platform(url):
+        return normalize_social_url(url)
 
     platform = platform or detect_platform(url)
     try:
@@ -653,9 +660,10 @@ class BaseDownloader(ABC):
 class YtdlpDownloader(BaseDownloader):
     """Downloader using yt-dlp Python library (for Bilibili, YouTube, etc.)."""
 
-    def __init__(self, platform: str, cookies: str = ""):
+    def __init__(self, platform: str, cookies: str = "", use_saved_cookies: bool = True):
         self.platform = platform
         self.cookies = cookies
+        self.use_saved_cookies = use_saved_cookies
 
     def _get_base_opts(self) -> dict:
         """Build base yt-dlp options with cookie support from QR login or manual input."""
@@ -700,7 +708,7 @@ class YtdlpDownloader(BaseDownloader):
                 "default": ["-x", "16", "-s", "16", "-k", "1M", "--min-split-size=1M"],
             }
         cookie_str = self.cookies
-        if not cookie_str:
+        if not cookie_str and self.use_saved_cookies:
             try:
                 from cookie_manager import get_cookie_manager
                 cookie_str = get_cookie_manager().get_cookie(self.platform)
@@ -1742,6 +1750,9 @@ class LocalVideoHandler(BaseDownloader):
 
 def get_downloader(platform: str, cookies: str = "") -> BaseDownloader:
     """Factory to get the appropriate downloader for a platform."""
+    if platform in ('twitter','substack'):
+        from social_downloader import SocialLinkDownloader
+        return SocialLinkDownloader()
     downloaders = {
         "bilibili": lambda: BilibiliDownloader(cookies),
         "youtube": lambda: YoutubeDownloader(cookies),

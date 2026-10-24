@@ -7,6 +7,7 @@ export function videoFailureHint(task: { error?: string; message?: string }): st
 
 function hint(text: string): string {
   const message = text.toLowerCase()
+  if (/subscription|paywall|purchase required/.test(message))return 'Source access required. Open the original post; a preview is not a complete article.'
   if (/rate.limit|too many requests|\b429\b/.test(message))
     return 'Too many requests. Wait a few minutes before retrying.'
   if (/copyright/.test(message))

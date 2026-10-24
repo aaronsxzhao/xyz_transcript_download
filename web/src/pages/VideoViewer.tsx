@@ -361,7 +361,8 @@ export default function VideoViewer() {
   };
 
   const rawContent = !task ? "" : selectedVersion ? versionContents[selectedVersion] || "" : task.markdown || "";
-  const content = useMemo(() => normalizeNoteHeadings(rawContent), [rawContent]);
+  const isOriginal = task?.style === 'original' && ['twitter','substack'].includes(task?.platform||'');
+  const content = useMemo(() => isOriginal?rawContent:normalizeNoteHeadings(rawContent), [rawContent,isOriginal]);
   const getCurrentContent = () => content;
 
   const formatDuration = (sec: number) => {
@@ -389,7 +390,7 @@ export default function VideoViewer() {
       !!content &&
       viewMode === "markdown",
   );
-  const toc = useMemo(() => extractNoteToc(content), [content]);
+  const toc = useMemo(() => extractNoteToc(content,isOriginal), [content,isOriginal]);
 
   const scrollToHeading = (slug: string) => {
     const el = document.getElementById(slug);
@@ -430,7 +431,7 @@ export default function VideoViewer() {
     "Untitled video";
   return (
     <ReaderFrame
-      kind="Video"
+      kind={isOriginal ? 'Original post' : 'Video'}
       title={title}
       sections={
         viewMode === "markdown"
@@ -539,7 +540,7 @@ export default function VideoViewer() {
                 Version history
               </button>
             )}
-            {["success", "failed", "cancelled"].includes(uiTask.status) && (
+            {!isOriginal && ["success", "failed", "cancelled"].includes(uiTask.status) && (
               <>
                 <button onClick={() => setUtility("recovery")}>
                   <RotateCcw size={16} />
@@ -552,6 +553,7 @@ export default function VideoViewer() {
                 />
               </>
             )}
+            {isOriginal && <button onClick={()=>void handleRegenerate()} disabled={regenerating}><RotateCcw size={16}/>Refresh original</button>}
           </MoreReaderActions>
         </>
       }
@@ -563,7 +565,7 @@ export default function VideoViewer() {
               ["transcript", "Transcript"],
               ["mindmap", "Mind map"],
             ] as const
-          ).map(([mode, label]) => (
+          ).filter(([mode])=>!isOriginal||mode!=='transcript').map(([mode, label]) => (
             <button
               key={mode}
               role="tab"
@@ -579,7 +581,7 @@ export default function VideoViewer() {
               onClick={() => changeView(mode)}
             >
               {mode === "mindmap" ? <Map size={15} /> : <FileText size={15} />}{" "}
-              {label}
+              {isOriginal && mode==='markdown' ? 'Original text' : label}
             </button>
           ))}
         </>
@@ -693,7 +695,7 @@ export default function VideoViewer() {
                   Loading saved version…
                 </p>
               ) : (
-                <MarkdownPreview
+                isOriginal ? <PlainNote markdown={content} preserveSource/> : <MarkdownPreview
                   task={{ ...uiTask, markdown: content }}
                   fallback={<PlainNote markdown={content} />}
                 />

@@ -31,6 +31,8 @@ async def main():
    holds={'read':None,'save':None,'test':None,'notion':None}
    notion={'failed':False,'submitted':0}
    episode_state={'metadata':None,'one':None,'two':None,'submitted':[],'uploads':0}
+   social_state={'library':False,'submitted':[]}
+   social_markdown='# Original public article\n\nAuthor: Synthetic writer\n\n[Original source](https://writer.substack.com/p/public)\n\n## Table of Contents\n- [Original heading](#original-heading)\n\n## Original heading\n\nFirst original paragraph.\n\n### 2.1 #### Literal source heading\n\nFull final original paragraph. 原文末段完整保留。'
    maintenance={'empty':False}
    context=await browser.new_context(viewport={'width':width,'height':844},is_mobile=width<768,has_touch=width<768,service_workers='block')
    await context.add_init_script("localStorage.setItem('xyz_access_token',"+json.dumps(token(int(time.time())+7200))+");localStorage.setItem('xyz_user',JSON.stringify({id:'bench',email:'bench@example.com',authenticated:true}));window.WebSocket=class{static OPEN=1;readyState=1;constructor(){setTimeout(()=>this.onopen?.(),1)}send(){setTimeout(()=>this.onmessage?.({data:JSON.stringify({type:'init',jobs:[{job_id:'fixture-job',episode_title:'A long podcast title / 一期较长的播客标题',status:'failed',progress:0,message:'Connection needs attention'}],video_tasks:[]})}),1)}close(){}}")
@@ -101,11 +103,16 @@ async def main():
     elif path=='/api/stats':body={k:12 for k in ['total_podcasts','total_episodes','total_transcripts','total_summaries','total_video_channels','total_videos','completed_videos']}
     elif path=='/api/summaries/bench':body=summary
     elif path=='/api/video-notes/tasks/bench':body=task
+    elif path=='/api/video-notes/tasks/social':body={**task,'id':'social','title':'Original public article','platform':'substack','style':'original','formats':['original'],'model':'','duration':0,'markdown':social_markdown,'url':'https://writer.substack.com/p/public','versions':[]}
+    elif path=='/api/video-notes/generate-json':
+     submitted=route.request.post_data_json
+     social_state['submitted'].append(submitted)
+     body={'task_id':'generated-social','message':'Processing started'}
     elif path in ['/api/summaries/recent','/api/podcasts']:body=[]
     elif path=='/api/jobs':body={'jobs':[{'job_id':'fixture-job','episode_title':'A long podcast title / 一期较长的播客标题','status':'failed','progress':0,'message':'Connection needs attention'}]}
     elif path=='/api/content-updates':body={'items':[]}
-    elif path=='/api/video-notes/channels':body={'channels':[{'platform':platform,'channel':f'{platform}-{i}','total':total,'done':done,'channel_avatar':'','thumbnail':'','channel_url':'','last_updated':''} for platform,count,total,done in [('bilibili',12,17,2),('youtube',4,34,5),('local',1,2,2)] for i in range(count)]}
-    elif path=='/api/library':body={'items':[],'next_cursor':None}
+    elif path=='/api/video-notes/channels':body={'channels':[{'platform':platform,'channel':f'{platform}-{i}','total':total,'done':done,'channel_avatar':'','thumbnail':'','channel_url':'','last_updated':''} for platform,count,total,done in [('bilibili',12,17,2),('youtube',4,34,5),('local',1,2,2),('twitter',2,3,1),('substack',1,4,4)] for i in range(count)]}
+    elif path=='/api/library':body={'items':[{'id':'social','kind':'video','title':'Original public article','source':'Synthetic writer','date':'2026-10-24','published_at':'2026-10-23','status':'completed','platform':'substack','duration':0}] if social_state['library'] else [],'next_cursor':None}
     elif path.startswith('/api/video-notes/'):body={'tasks':[]}
     await route.fulfill(content_type='application/json',body=json.dumps(body))
    await page.route('**/api/**',api)
@@ -175,7 +182,7 @@ async def main():
    await page.get_by_text('Synthetic audio format rejected',exact=False).first.wait_for()
    await inspect('long-upload-error')
    await page.screenshot(path=str(args.output/f'notifications-{width}.png'),animations='disabled')
-   for path in ['/','/library','/podcasts','/videos','/settings','/viewer/bench','/videos/bench']:
+   for path in ['/','/library','/podcasts','/videos','/settings','/viewer/bench','/videos/bench','/videos/social']:
     await page.goto(origin+path,wait_until='networkidle')
     await inspect(path)
     if path=='/':
@@ -194,11 +201,16 @@ async def main():
      await inspect('add-podcast')
     if path=='/videos':
      cards=page.locator('.platform-overview-card')
-     assert await cards.count()==3
+     assert await cards.count()==5
      for card in await cards.all():
       result=await card.evaluate("""el=>{const title=el.querySelector('h3'),row=el.children[0].getBoundingClientRect(),stats=el.children[1].getBoundingClientRect();return {singleLine:title.getBoundingClientRect().height<=parseFloat(getComputedStyle(title).lineHeight)+1,stacked:stats.top>=row.bottom-1,contained:el.scrollWidth<=el.clientWidth+1}}""")
       assert all(result.values()),(width,result)
      await page.screenshot(path=str(args.output/f'platforms-{width}.png'))
+     await page.get_by_role('button',name='Add content',exact=True).click()
+     await page.get_by_label('Video URL',exact=True).fill('https://writer.substack.com/p/public')
+     await page.get_by_text('Public text is imported in its original language',exact=False).wait_for()
+     await inspect('social-content-form')
+     await page.get_by_role('button',name='Add content',exact=True).click()
     if path=='/settings':
      # Cached settings may render immediately while a stale background read is
      # still pending. Neither that read nor a save acknowledgement may erase edits.
@@ -304,6 +316,33 @@ async def main():
      # Readable enlarged labels must fit too, not be hidden behind clipping.
      await page.add_style_tag(content='.app-shell button, .ui-scope button { font-size:18px !important; }')
      await inspect('enlarged-controls')
+    if path=='/videos/social':
+     await page.get_by_role('tab',name='Original text',exact=True).wait_for()
+     assert not await page.get_by_role('tab',name='Transcript',exact=True).count()
+     await page.get_by_role('heading',name='Table of Contents',exact=True).wait_for()
+     await page.get_by_text('Full final original paragraph. 原文末段完整保留。',exact=True).wait_for()
+     await inspect('original-social-reader')
+     await page.get_by_role('button',name='Export',exact=True).click()
+     async with page.expect_download() as pending_download:
+      await page.get_by_role('button',name='Markdown',exact=True).click()
+     download=await pending_download.value
+     file=args.output/f'original-social-{width}.md'
+     await download.save_as(file)
+     assert file.read_text()==social_markdown
+     await page.screenshot(path=str(args.output/f'social-{width}.png'))
+   social_state['library']=True
+   await page.goto(origin+'/library',wait_until='networkidle')
+   await page.get_by_role('button',name='Refresh library',exact=True).click()
+   await page.get_by_role('heading',name='Original public article',exact=True).wait_for()
+   await page.get_by_text('Read post',exact=True).wait_for()
+   await inspect('social-library')
+   await page.goto(origin+'/',wait_until='networkidle')
+   for url in ['https://x.com/writer/status/123','https://writer.substack.com/p/public']:
+    field=page.get_by_label('Podcast episode or video URL',exact=True)
+    await field.fill(url)
+    await field.press('Enter')
+    await page.wait_for_function("document.querySelector('[aria-label=\"Podcast episode or video URL\"]')?.value===''")
+   assert [row['platform'] for row in social_state['submitted']]==['twitter','substack']
    assert not errors,errors
    print(json.dumps({'width':width,'engine':'webkit' if args.webkit else 'chromium','button_text_contained':True,'icons_centered':True,'settings_and_reader_menus':True,'navigation_closes_on_route_change':width<768,'errors':errors}),flush=True)
    await context.close()

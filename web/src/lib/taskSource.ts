@@ -1,6 +1,6 @@
 /** Source restrictions belong to a task/platform, not the website session. */
 export function taskSource(platform = '', url = '', episodeId = '', kind?: string) {
-  const name = ({youtube:'YouTube',bilibili:'BiliBili',local:'Local upload',xiaoyuzhou:'Xiaoyuzhou'} as Record<string,string>)[platform] || (kind === 'podcast' ? 'Podcast' : 'Video')
+  const name = ({youtube:'YouTube',bilibili:'BiliBili',local:'Local upload',xiaoyuzhou:'Xiaoyuzhou',twitter:'X / Twitter',substack:'Substack'} as Record<string,string>)[platform] || (kind === 'podcast' ? 'Podcast' : 'Video')
   let id = '', original = ''
   try {
     const source = new URL(url)
@@ -8,6 +8,10 @@ export function taskSource(platform = '', url = '', episodeId = '', kind?: strin
     if (platform === 'youtube' && ['youtube.com','www.youtube.com','m.youtube.com','youtu.be'].includes(host)) {
       const candidate = host === 'youtu.be' ? source.pathname.slice(1) : source.searchParams.get('v') || source.pathname.match(/^\/(?:shorts|live|embed)\/([^/]+)/)?.[1] || ''
       if (/^[a-zA-Z0-9_-]{11}$/.test(candidate)) { id = candidate; original = `https://www.youtube.com/watch?v=${id}` }
+    } else if (platform === 'twitter' && ['x.com','www.x.com','mobile.x.com','twitter.com','www.twitter.com','mobile.twitter.com','t.co'].includes(host)) {
+      original=source.href
+    } else if (platform === 'substack' && /^https?:$/.test(source.protocol) && !source.username && !source.password) {
+      original=source.href
     } else if (platform === 'bilibili' && /(^|\.)bilibili\.com$/.test(host)) {
       id = source.pathname.match(/\/video\/(BV[a-zA-Z0-9]+|av\d+)/)?.[1] || ''
       if (id) original = `https://www.bilibili.com/video/${id}`

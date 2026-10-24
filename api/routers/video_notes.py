@@ -399,6 +399,35 @@ def process_video_note_sync(
     from video_task_db import get_video_task_db
     db = get_video_task_db()
     try:
+        from social_content import social_platform, resolve_social_content
+        social_source = None
+        if social_platform(url):
+            if is_video_task_cancelled(task_id):
+                raise VideoCancelledException('Cancelled')
+            if not db.get_task(task_id, user_id):
+                return
+            _update_task_status(db, task_id, 'parsing', 5, 'Reading original social content…', user_id)
+            social_source = resolve_social_content(url)
+            platform = social_source.platform
+            db.update_task(task_id, {'platform':platform,'title':social_source.title,'thumbnail':social_source.thumbnail,
+                'channel':social_source.author or platform,'channel_url':social_source.url,'published_at':social_source.published})
+            if not social_source.media:
+                if is_video_task_cancelled(task_id):
+                    raise VideoCancelledException('Cancelled')
+                db.update_task(task_id, {'style':'original','formats':['original'],'model':'','duration':0,'transcript_json':''})
+                _update_task_status(db,task_id,'saving',95,'Saving original text — no AI summarization…',user_id)
+                db.complete_task(task_id,social_source.markdown(),'original','',user_id)
+                _invalidate_list_cache(user_id)
+                _broadcast_from_thread(task_id,db.get_task(task_id,user_id),user_id)
+                return
+            if all(item['kind']=='audio' for item in social_source.media):
+                formats=[value for value in formats if value!='screenshot']
+                video_understanding=False
+            # Timestamps refer to the combined attachments; generic source links
+            # must not pretend that every service supports timestamp deep links.
+            formats=[value for value in formats if value!='link']
+            if style=='original': style='detailed'
+            db.update_task(task_id, {'formats':formats,'video_understanding':video_understanding,'style':style})
         from api.user_settings import get_user_settings
         preferences = get_user_settings(user_id)
         llm_model = llm_model or preferences.get("llm_model", "")
@@ -435,7 +464,11 @@ def process_video_note_sync(
             and len(existing_transcript["text"]) > 50
         )
 
-        downloader = None
+        if social_source:
+            from social_downloader import SocialDownloader
+            downloader = SocialDownloader(social_source)
+        else:
+            downloader = None
         title = (existing_task or {}).get("title", "")
         thumbnail = (existing_task or {}).get("thumbnail", "")
         duration = (existing_task or {}).get("duration", 0)
@@ -487,7 +520,7 @@ def process_video_note_sync(
                     "may fail due to bot detection. Recommend uploading cookies."
                 )
 
-            downloader = get_downloader(platform, cookies)
+            downloader = downloader or get_downloader(platform, cookies)
 
             metadata = None
             try:
@@ -642,6 +675,9 @@ def process_video_note_sync(
                 ]
 
             # Save transcript
+            if social_source and not duration:
+                duration=max((float(segment.get('end') or 0) for segment in transcript_segments),default=0)
+                db.update_task(task_id,{'duration':duration})
             db.update_task(task_id, {
                 "transcript_json": json.dumps({
                     "text": transcript_text,
@@ -838,6 +874,12 @@ def process_video_note_sync(
                 # retry can fill them later without changing the saved note.
                 markdown = replace_screenshot_markers(markdown, task_id, keep_missing=True)
 
+        if social_source:
+            # Quoting keeps generated-note cleanup and marker replacement from
+            # interpreting the original author's headings or media markers.
+            original='\n'.join('> '+line for line in social_source.markdown().splitlines())
+            markdown += '\n\n---\n\n## Original post / article\n\n' + original
+
         if _attempt_superseded(task_id) or is_video_task_cancelled(task_id):
             raise VideoCancelledException('Processing superseded or cancelled')
         try:
@@ -930,7 +972,12 @@ def generate_note(
     from video_task_db import get_video_task_db
     from video_downloader import normalize_video_url
     db = get_video_task_db()
-    url = normalize_video_url(url, platform)
+    try:
+        url = normalize_video_url(url, platform)
+    except ValueError as error:
+        raise HTTPException(status_code=400, detail=str(error)) from error
+    from social_content import social_platform
+    platform = social_platform(url) or platform
     is_local = platform == "local"
 
     _invalidate_list_cache(user_id)
@@ -1046,7 +1093,12 @@ def generate_note_json(
     from video_downloader import normalize_video_url
     db = get_video_task_db()
     platform = data.get("platform", "")
-    url = normalize_video_url(url, platform)
+    try:
+        url = normalize_video_url(url, platform)
+    except ValueError as error:
+        raise HTTPException(status_code=400, detail=str(error)) from error
+    from social_content import social_platform
+    platform = social_platform(url) or platform
     is_local = platform == "local"
 
     _invalidate_list_cache(user_id)

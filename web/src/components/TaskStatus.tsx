@@ -89,7 +89,7 @@ export function taskGroup(status: string) {
         : "Processing";
 }
 export function sourceAction(message = "") {
-  return /purchas|paywall|付费|购买|restricted|source.access|required.*login|login.required|sign.in|cookie.*expir/i.test(
+  return /purchas|paywall|subscription|付费|购买|restricted|source.access|required.*login|login.required|sign.in|cookie.*expir/i.test(
     message,
   );
 }
