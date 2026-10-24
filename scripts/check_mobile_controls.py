@@ -115,7 +115,8 @@ async def main():
      submitted=route.request.post_data_json
      social_state['submitted'].append(submitted)
      body={'task_id':'generated-social','message':'Processing started'}
-    elif path in ['/api/summaries/recent','/api/podcasts']:body=[]
+    elif path=='/api/summaries/recent':body=[]
+    elif path=='/api/podcasts':body=[{'pid':'origin-'+platform,'title':'Source '+platform,'platform':platform,'description':'','cover_url':'','episode_count':1,'summarized_count':0} for platform in ['apple','spotify','xiaoyuzhou','local']]
     elif path=='/api/jobs':body={'jobs':[{'job_id':'fixture-job','episode_title':'A long podcast title / 一期较长的播客标题','status':'failed','progress':0,'message':'Connection needs attention'}]}
     elif path=='/api/content-updates':body={'items':[]}
     elif path=='/api/video-notes/channels':body={'channels':[{'platform':platform,'channel':f'{platform}-{i}','total':total,'done':done,'channel_avatar':'','thumbnail':'','channel_url':'','last_updated':''} for platform,count,total,done in [('bilibili',12,17,2),('youtube',4,34,5),('local',1,2,2),('twitter',2,3,1),('substack',1,4,4)] for i in range(count)]}
@@ -197,6 +198,17 @@ async def main():
    for path in ['/','/library','/podcasts','/videos','/settings','/viewer/bench','/videos/bench','/videos/social']:
     await page.goto(origin+path,wait_until='networkidle')
     await inspect(path)
+    if path=='/podcasts':
+     await page.get_by_role('button',name='Spotify',exact=False).first.click()
+     await page.get_by_text('Source spotify',exact=True).wait_for()
+     assert not await page.get_by_text('Source apple',exact=True).count()
+     await inspect('spotify-podcast-category')
+     assert await page.locator('.podcast-source-actions button').evaluate_all('(buttons)=>buttons.every(button=>{const range=document.createRange();range.selectNodeContents(button);return [...range.getClientRects()].filter(r=>r.height>0).every(r=>r.height<=30) && button.clientHeight<=60})'),(width,'source action labels fragmented')
+     await page.screenshot(path=str(args.output/f'spotify-category-{width}.png'))
+     await page.get_by_role('button',name='Apple Podcasts',exact=False).first.click()
+     await page.get_by_text('Source apple',exact=True).wait_for()
+     assert not await page.get_by_text('Source spotify',exact=True).count()
+     await inspect('apple-podcast-category')
     if path=='/':
      await page.get_by_role('button',name='Open processing tasks',exact=True).click()
      await page.get_by_role('dialog',name='Processing tasks',exact=True).wait_for()

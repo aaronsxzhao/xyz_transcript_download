@@ -215,7 +215,7 @@ export default function Episodes() {
     const operation=regenerate?'Re-summarization':'Processing'
     try {
       const episodeUrl=podcast?.platform==='local' ? `local://${episode.eid}`
-        : podcast?.platform==='apple' ? `apple://${episode.eid}`
+        : ['apple','spotify'].includes(podcast?.platform||'') ? `apple://${episode.eid}`
         : `https://www.xiaoyuzhoufm.com/episode/${episode.eid}`
       const result=await (regenerate ? resummarizeEpisode(episode.eid) : processEpisode(episodeUrl))
       if(owner!==getAccountId())return

@@ -247,14 +247,16 @@ async def list_podcasts(include_content: int = Query(0, ge=0, le=12), user: Opti
 async def add_podcast(data: PodcastCreate, user: Optional[User] = Depends(get_current_user)):
     """Subscribe to a new podcast by URL.
     
-    Supports Xiaoyuzhou and Apple Podcasts URLs.
+    Supports Xiaoyuzhou, Apple Podcasts and Spotify episode URLs.
     If an episode URL is provided (Xiaoyuzhou), it resolves to the parent podcast.
     """
     from apple_podcasts_client import detect_platform as detect_podcast_platform
     
     db = get_db(user.id if user else None)
     url = data.url.strip()
-    platform = detect_podcast_platform(url) or "xiaoyuzhou"
+    platform = detect_podcast_platform(url)
+    if not platform:
+        raise HTTPException(status_code=400, detail="Use a Xiaoyuzhou, Apple Podcasts or Spotify episode link. Video and social links belong in Add content.")
     
     try:
         from spotify_podcasts_client import is_spotify_url, resolve_spotify_episode, SpotifySourceError
@@ -757,12 +759,14 @@ async def refresh_podcast_episodes(pid: str, user: Optional[User] = Depends(get_
     platform = getattr(podcast, 'platform', 'xiaoyuzhou') or 'xiaoyuzhou'
     feed_url = getattr(podcast, 'feed_url', '') or ''
     
-    if platform == "apple" and feed_url:
+    if platform in ("apple", "spotify"):
+        if not feed_url:
+            raise HTTPException(status_code=422, detail="This podcast has no saved public RSS feed. Import its original link again to restore the source.")
         from apple_podcasts_client import get_episodes_from_feed
         def fetch_episodes():
             return get_episodes_from_feed(feed_url, pid, limit=50, strict=True)
         episodes = await _fetch_source_episodes(fetch_episodes)
-    else:
+    elif platform == 'xiaoyuzhou':
         from xyz_client import get_client
         client = get_client()
         if not podcast.cover_url:
@@ -772,6 +776,8 @@ async def refresh_podcast_episodes(pid: str, user: Optional[User] = Depends(get_
         def fetch_episodes():
             return client.get_episodes_from_page(pid, limit=50, strict=True)
         episodes = await _fetch_source_episodes(fetch_episodes)
+    else:
+        raise HTTPException(status_code=400, detail="This podcast source does not support automatic episode refresh.")
     
     def save_new_episodes():
         new_count = 0

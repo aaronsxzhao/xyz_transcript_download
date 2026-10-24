@@ -973,7 +973,7 @@ class SupabaseDatabase:
 
         allowed = {
             "status", "progress", "message", "markdown", "transcript_json",
-            "title", "thumbnail", "duration", "error", "model",
+            "title", "thumbnail", "duration", "error", "model", "platform",
             "channel", "channel_url", "channel_avatar", "published_at",
             "style", "formats", "quality", "video_quality",
         }

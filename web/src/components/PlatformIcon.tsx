@@ -41,6 +41,8 @@ export default function PlatformIcon({ platform, size = 16, className = '' }: Pl
           <ellipse cx="12" cy="12" rx="10" ry="4" fill="none" stroke="currentColor" strokeWidth="1.5" transform="rotate(-30 12 12)"/>
         </svg>
       )
+    case 'spotify':
+      return <svg viewBox="0 0 24 24" width={s} height={s} className={cls} fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><circle cx="12" cy="12" r="10"/><path d="M6 9c4-1.5 8-1.2 12 1M7 12c3.5-1.1 6.7-.8 10 1M8 15c2.8-.8 5.2-.5 8 1"/></svg>
     case 'apple':
       return (
         <svg viewBox="0 0 24 24" width={s} height={s} className={cls} fill="currentColor">
@@ -83,4 +85,5 @@ export const PLATFORM_COLORS: Record<string, string> = {
   substack: 'text-orange-400',
   xiaoyuzhou: 'text-[#EE6723]',
   apple: 'text-[#872EC4]',
+  spotify: 'text-[#1DB954]',
 }

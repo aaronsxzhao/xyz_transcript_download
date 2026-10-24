@@ -9,6 +9,7 @@ from dataclasses import dataclass
 from email.utils import parsedate_to_datetime
 from typing import List, Optional
 from xml.etree import ElementTree
+from urllib.parse import urlsplit
 
 import requests
 
@@ -43,11 +44,14 @@ class Episode:
 
 def detect_platform(url: str) -> str:
     """Detect podcast platform from URL."""
-    u = url.lower()
-    if "xiaoyuzhoufm.com" in u:
-        return "xiaoyuzhou"
-    if "podcasts.apple.com" in u or "itunes.apple.com" in u:
-        return "apple"
+    try:
+        parsed = urlsplit(url.strip())
+        if parsed.scheme not in ('http','https') or parsed.username or parsed.password or parsed.port not in (None,80,443):
+            return ''
+        return {'xiaoyuzhoufm.com':'xiaoyuzhou','www.xiaoyuzhoufm.com':'xiaoyuzhou',
+                'podcasts.apple.com':'apple','itunes.apple.com':'apple','open.spotify.com':'spotify'}.get((parsed.hostname or '').lower(), '')
+    except ValueError:
+        pass
     return ""
 
 

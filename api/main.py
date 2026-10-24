@@ -83,13 +83,15 @@ async def _scan_podcasts_for_new_episodes(db, inter_podcast_delay: Optional[floa
             platform = getattr(podcast, "platform", "xiaoyuzhou")
             if platform == "local":
                 continue
-            if platform == "apple":
+            if platform in ("apple", "spotify"):
                 from apple_podcasts_client import get_episodes_from_feed
                 if not podcast.feed_url:
                     continue
                 episodes = await asyncio.to_thread(get_episodes_from_feed, podcast.feed_url, podcast.pid, 50)
-            else:
+            elif platform == 'xiaoyuzhou':
                 episodes = await asyncio.to_thread(get_client().get_episodes_from_page, podcast.pid, limit=50)
+            else:
+                continue
 
             new_count = 0
             for ep in episodes:

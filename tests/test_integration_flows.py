@@ -296,7 +296,7 @@ class TestErrorHandlingFlow:
             
             response = await client.post(
                 "/api/podcasts",
-                json={"url": "https://example.com/podcast"}
+                json={"url": "https://www.xiaoyuzhoufm.com/podcast/0123456789abcdef01234567"}
             )
             
             # Should return error, not crash

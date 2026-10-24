@@ -970,14 +970,14 @@ def generate_note(
         fmt_list = []
 
     from video_task_db import get_video_task_db
-    from video_downloader import normalize_video_url
+    from video_downloader import normalize_video_url, detect_platform
     db = get_video_task_db()
+    platform = detect_platform(url) or platform
     try:
         url = normalize_video_url(url, platform)
     except ValueError as error:
         raise HTTPException(status_code=400, detail=str(error)) from error
-    from social_content import social_platform
-    platform = social_platform(url) or platform
+    platform = detect_platform(url) or platform
     is_local = platform == "local"
 
     _invalidate_list_cache(user_id)
@@ -994,6 +994,7 @@ def generate_note(
         task_id = existing["id"]
         db.update_task(task_id, {
             "title": title or (_local_video_title(url) if is_local and not existing.get("title") else existing.get("title", "")),
+            "platform": platform or existing.get('platform',''),
             "style": style,
             "formats": fmt_list,
             "quality": quality,
@@ -1061,7 +1062,7 @@ def video_submission(url: str = Query(..., max_length=2048), platform: str = Que
                      user: Optional[User] = Depends(get_current_user)):
     """Reconcile a lost acknowledgement without re-submitting processing work."""
     from video_task_db import get_video_task_db
-    from video_downloader import normalize_video_url
+    from video_downloader import normalize_video_url, detect_platform
     if USE_SUPABASE and not user:
         raise HTTPException(status_code=401, detail="Authentication required")
     task = get_video_task_db().get_task_by_url(normalize_video_url(url, platform), user.id if user else None)
@@ -1090,15 +1091,15 @@ def generate_note_json(
         )
 
     from video_task_db import get_video_task_db
-    from video_downloader import normalize_video_url
+    from video_downloader import normalize_video_url, detect_platform
     db = get_video_task_db()
     platform = data.get("platform", "")
+    platform = detect_platform(url) or platform
     try:
         url = normalize_video_url(url, platform)
     except ValueError as error:
         raise HTTPException(status_code=400, detail=str(error)) from error
-    from social_content import social_platform
-    platform = social_platform(url) or platform
+    platform = detect_platform(url) or platform
     is_local = platform == "local"
 
     _invalidate_list_cache(user_id)
@@ -1117,6 +1118,7 @@ def generate_note_json(
         task_id = existing["id"]
         db.update_task(task_id, {
             "title": data.get("title", "") or (_local_video_title(url) if is_local and not existing.get("title") else existing.get("title", "")),
+            "platform": platform or existing.get('platform',''),
             "style": data.get("style", "detailed"),
             "formats": data.get("formats", []),
             "quality": data.get("quality", "medium"),
