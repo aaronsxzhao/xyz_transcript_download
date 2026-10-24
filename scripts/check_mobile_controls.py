@@ -28,7 +28,8 @@ async def main():
   browser=await p.webkit.launch() if args.webkit else await p.chromium.launch(executable_path=args.browser_path,args=['--no-sandbox'])
   for width in args.widths:
    settings.update(llm_model='openai/gpt-oss-120b',llm_provider='groq',whisper_model='whisper-large-v3')
-   holds={'read':None,'save':None,'test':None}
+   holds={'read':None,'save':None,'test':None,'notion':None}
+   notion={'failed':False,'submitted':0}
    maintenance={'empty':False}
    context=await browser.new_context(viewport={'width':width,'height':844},is_mobile=width<768,has_touch=width<768,service_workers='block')
    await context.add_init_script("localStorage.setItem('xyz_access_token',"+json.dumps(token(int(time.time())+7200))+");localStorage.setItem('xyz_user',JSON.stringify({id:'bench',email:'bench@example.com',authenticated:true}));window.WebSocket=class{static OPEN=1;readyState=1;constructor(){setTimeout(()=>this.onopen?.(),1)}send(){setTimeout(()=>this.onmessage?.({data:JSON.stringify({type:'init',jobs:[{job_id:'fixture-job',episode_title:'A long podcast title / 一期较长的播客标题',status:'failed',progress:0,message:'Connection needs attention'}],video_tasks:[]})}),1)}close(){}}")
@@ -66,6 +67,15 @@ async def main():
      assert route.request.post_data_json=={'episode_ids':['reviewed']}
      await route.fulfill(status=503,content_type='application/json',body=json.dumps({'detail':'Synthetic cleanup unavailable'}))
      return
+    elif path=='/api/notion/pages':body={'pages':[{'id':str(i),'title':f'Synthetic notebook {i} · 一个较长的笔记本名称','icon':'📄','url':'https://notion.so/target'} for i in range(12)]}
+    elif path=='/api/notion/export-markdown':
+     notion['submitted']+=1
+     assert route.request.post_data_json['markdown'].strip()
+     if holds['notion']:await holds['notion'].wait()
+     if notion['failed']:
+      await route.fulfill(status=502,content_type='application/json',body=json.dumps({'detail':'Notion page was created at https://notion.so/'+('created-page-'*12)+', but content upload was not completed. Check this page before exporting again.'}))
+      return
+     body={'title':'Synthetic saved note','page_id':'created','url':'https://notion.so/created'}
     elif path=='/api/cookies':body={'cookies':[{'platform':'bilibili','has_cookie':True},{'platform':'youtube','has_cookie':True}]}
     elif path=='/api/settings/models':body={'models':['fixture-model']}
     elif path=='/api/cookies/douyin/diagnose':body={'has_cookie':False,'looks_usable':False,'message':'No saved cookies','present':[],'missing':[],'cookie_count':0,'domains':[]}
@@ -197,6 +207,39 @@ async def main():
      await page.screenshot(path=str(args.output/f'accounts-{width}.png'))
      await page.add_style_tag(content='.app-shell button, .ui-scope button { font-size:18px !important; }')
      await inspect('enlarged-account-controls')
+    if path in ['/viewer/bench','/videos/bench']:
+     await page.evaluate("localStorage.setItem('xyz_pref:bench:notion_api_key','synthetic-test-key')")
+     await page.get_by_role('button',name='Export',exact=True).click()
+     await page.get_by_role('button',name='Send to Notion',exact=True).click()
+     dialog=page.get_by_role('dialog',name='Export to Notion',exact=True)
+     await dialog.get_by_role('button',name='📄 Synthetic notebook 0 · 一个较长的笔记本名称',exact=True).click()
+     holds['notion']=asyncio.Event()
+     await dialog.get_by_role('button',name='Export',exact=True).click()
+     await dialog.get_by_text('Exporting to Notion…',exact=False).wait_for()
+     assert await dialog.get_by_label('Search Notion pages',exact=True).is_disabled()
+     await inspect('notion-exporting')
+     holds['notion'].set()
+     await dialog.get_by_text('Exported "Synthetic saved note" to Notion',exact=False).wait_for()
+     assert await dialog.get_by_label('Search Notion pages',exact=True).is_disabled()
+     await dialog.get_by_role('button',name='Close Notion export',exact=True).first.click()
+     assert notion['submitted']==1
+     await page.get_by_role('button',name='Export',exact=True).click()
+     await page.get_by_role('button',name='Send to Notion',exact=True).click()
+     await dialog.get_by_role('button',name='📄 Synthetic notebook 0 · 一个较长的笔记本名称',exact=True).click()
+     notion['failed']=True
+     await dialog.get_by_role('button',name='Export',exact=True).click()
+     await dialog.get_by_role('alert').wait_for()
+     assert not await dialog.get_by_role('button',name='Export',exact=True).count()
+     if width<768:await page.set_viewport_size({'width':width,'height':420})
+     await inspect('notion-incomplete')
+     rect=await dialog.locator('>div').bounding_box()
+     assert rect['y']>=0 and rect['y']+rect['height']<=(420 if width<768 else 844)+1,(width,rect)
+     await dialog.get_by_role('button',name='Close Notion export',exact=True).last.scroll_into_view_if_needed()
+     await page.screenshot(path=str(args.output/f'notion-{width}.png'))
+     await dialog.get_by_role('button',name='Close Notion export',exact=True).last.click()
+     await page.set_viewport_size({'width':width,'height':844})
+     holds['notion']=None
+     notion.update(failed=False,submitted=0)
     if path=='/videos/bench':
      await page.get_by_role('button',name='More summary actions',exact=True).click()
      await inspect('reader-actions')

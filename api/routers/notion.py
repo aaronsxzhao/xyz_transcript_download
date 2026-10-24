@@ -134,7 +134,8 @@ async def _create_notion_page(
             "parent": {"type": "page_id", "page_id": parent_page_id},
             "properties": {
                 "title": {
-                    "title": [{"text": {"content": title}}]
+                    "title": [{"text": {"content": title[start:start + 2000]}}
+                              for start in range(0, len(title), 2000)]
                 }
             },
         },
@@ -179,6 +180,26 @@ async def _append_notion_blocks(
                     f"Batch {i // 100 + 1} was rejected: {detail}"
                 ),
             )
+
+
+async def _export_note_content(
+    client: httpx.AsyncClient, key: str, parent_page_id: str, title: str, blocks: list[dict]
+) -> dict:
+    page_id, page_url = await _create_notion_page(client, key, parent_page_id, title)
+    try:
+        await _append_notion_blocks(client, key, page_id, blocks)
+    except Exception as error:
+        reason = error.detail if isinstance(error, HTTPException) else (
+            "Content upload timed out." if isinstance(error, httpx.TimeoutException)
+            else "Content upload could not be confirmed."
+        )
+        logger.warning("Notion content upload incomplete: %s", type(error).__name__)
+        raise HTTPException(
+            status_code=504 if isinstance(error, httpx.TimeoutException) else 502,
+            detail=(f"Notion page was created at {page_url or page_id}, but its content may be incomplete. "
+                    f"{reason} Check this page before exporting again to avoid duplicates."),
+        ) from error
+    return {"url": page_url, "page_id": page_id, "title": title}
 
 
 @router.get("/pages")
@@ -269,25 +290,21 @@ async def export_to_notion(
 
     title = task.get("title", "Untitled Video Note")
 
-    blocks = _prepare_export_blocks(markdown, request)
-
     try:
+        blocks = await asyncio.to_thread(_prepare_export_blocks, markdown, request)
         async with httpx.AsyncClient(timeout=60.0) as client:
-            page_id, page_url = await _create_notion_page(
-                client, key, req.parent_page_id, title
-            )
-            await _append_notion_blocks(client, key, page_id, blocks)
+            result = await _export_note_content(client, key, req.parent_page_id, title, blocks)
 
-        logger.info(f"Exported video note '{title}' to Notion: {page_url}")
-        return {"url": page_url, "page_id": page_id, "title": title}
+        logger.info("Exported video note to Notion: %s", result["page_id"])
+        return result
 
     except httpx.TimeoutException:
-        raise HTTPException(status_code=504, detail="Notion API timed out")
+        raise HTTPException(status_code=504, detail="Notion page creation timed out. Check Notion before exporting again; a page may already exist.")
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Notion export error: {e}")
-        raise HTTPException(status_code=502, detail=f"Notion export failed: {type(e).__name__}: {str(e)[:200]}")
+        logger.error("Notion export could not be confirmed: %s", type(e).__name__)
+        raise HTTPException(status_code=502, detail="Notion export could not be confirmed. Check Notion before exporting again.")
 
 
 @router.post("/export-markdown")
@@ -303,23 +320,20 @@ async def export_markdown_to_notion(
     if not req.markdown.strip():
         raise HTTPException(status_code=400, detail="No content to export")
 
-    blocks = _prepare_export_blocks(req.markdown, request)
     title = req.title or "Untitled"
 
     try:
+        blocks = await asyncio.to_thread(_prepare_export_blocks, req.markdown, request)
         async with httpx.AsyncClient(timeout=60.0) as client:
-            page_id, page_url = await _create_notion_page(
-                client, key, req.parent_page_id, title
-            )
-            await _append_notion_blocks(client, key, page_id, blocks)
+            result = await _export_note_content(client, key, req.parent_page_id, title, blocks)
 
-        logger.info(f"Exported markdown '{title}' to Notion: {page_url}")
-        return {"url": page_url, "page_id": page_id, "title": title}
+        logger.info("Exported markdown to Notion: %s", result["page_id"])
+        return result
 
     except httpx.TimeoutException:
-        raise HTTPException(status_code=504, detail="Notion API timed out")
+        raise HTTPException(status_code=504, detail="Notion page creation timed out. Check Notion before exporting again; a page may already exist.")
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Notion markdown export error: {e}")
-        raise HTTPException(status_code=502, detail=f"Notion export failed: {type(e).__name__}: {str(e)[:200]}")
+        logger.error("Notion markdown export could not be confirmed: %s", type(e).__name__)
+        raise HTTPException(status_code=502, detail="Notion export could not be confirmed. Check Notion before exporting again.")

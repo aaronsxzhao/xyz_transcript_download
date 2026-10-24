@@ -78,6 +78,7 @@ export default function Viewer() {
   const [transcriptLoading, setTranscriptLoading] = useState(false);
   const [resummarizing, setResummarizing] = useState(false);
   const [error, setError] = useState("");
+  const [actionError, setActionError] = useState("");
   usePageTiming(
     "viewer",
     !loading && (summary?.episode_id === eid || transcript?.episode_id === eid),
@@ -134,6 +135,7 @@ export default function Viewer() {
     setTranscript(null);
     setActiveTab("summary");
     setResummarizing(false);
+    setActionError("");
     void loadData();
     return () => {
       loadVersion.current += 1;
@@ -271,6 +273,7 @@ export default function Viewer() {
   const handleCopy = async () => {
     const md = getMarkdown();
     if (!md || copying) return;
+    setActionError("");
     setCopying(true);
     try {
       try {
@@ -292,7 +295,7 @@ export default function Viewer() {
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch {
-      setError(
+      setActionError(
         "Copy failed. Please allow clipboard access or download the Markdown file.",
       );
     } finally {
@@ -303,21 +306,23 @@ export default function Viewer() {
   const handleDownloadMd = async () => {
     const md = getMarkdown();
     if (!md) return;
+    setActionError("");
     try {
       const {downloadMarkdown} = await import('../lib/markdownDownload');
       downloadMarkdown(md, summary?.title || "summary");
-    } catch { setError("Could not prepare Markdown download. Please retry."); }
+    } catch { setActionError("Could not prepare Markdown download. Please retry."); }
   };
 
   const handleDownloadPdf = async () => {
     const md = getMarkdown();
     if (!md || pdfLoading) return;
+    setActionError("");
     setPdfLoading(true);
     try {
       const { printPodcast } = await import("../lib/podcastPrint");
       await printPodcast(md, summary?.title || "Summary");
     } catch (e) {
-      setError(
+      setActionError(
         e instanceof Error
           ? e.message
           : "Could not prepare the PDF. Please retry or download Markdown.",
@@ -522,6 +527,9 @@ export default function Viewer() {
           }}
         />
       )}
+      {actionError && <div role="alert" className="text-sm text-red-300 mb-3">
+        {actionError}{" "}<button className="underline" onClick={() => setActionError("")}>Dismiss</button>
+      </div>}
       {loading && (
         <p role="status" className="reader-loading">
           <Loader2 size={18} className="animate-spin" />

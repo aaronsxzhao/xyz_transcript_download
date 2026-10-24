@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
-import { ApiError, fetchSettings, fetchSummary, fetchVideoTasksByChannel, removePodcast, deleteEpisode, fetchNotionPages, exportMarkdownToNotion } from '../src/lib/api'
+import { ApiError, fetchSettings, fetchSummary, fetchVideoTasksByChannel, removePodcast, deleteEpisode, fetchNotionPages, exportMarkdownToNotion, exportToNotion } from '../src/lib/api'
 import { clearTokens } from '../src/lib/auth'
 
 beforeEach(() => { clearTokens(); localStorage.clear(); sessionStorage.clear() })
@@ -15,10 +15,36 @@ it('keeps successful deletion responses compatible',async()=>{
  await expect(removePodcast('owned-id')).resolves.toBeUndefined()
  await expect(deleteEpisode('owned-id')).resolves.toEqual({message:'Deleted'})
 })
-it.each(['search','export'])('keeps Notion %s proxy errors readable with their status',async kind=>{
+it.each(['search','export','saved-video'])('keeps Notion %s proxy errors readable with their status',async kind=>{
  vi.stubGlobal('fetch',vi.fn().mockImplementation(async()=>new Response('Upstream unavailable',{status:502})))
- const pending=kind==='search'?fetchNotionPages():exportMarkdownToNotion('# Note','Title','parent')
+ const pending=kind==='search'?fetchNotionPages():kind==='saved-video'?exportToNotion('task','parent'):exportMarkdownToNotion('# Note','Title','parent')
  await expect(pending).rejects.toMatchObject({status:502,message:expect.stringContaining('Upstream unavailable')})
+})
+it.each(['markdown','saved-video'])('waits for a long Notion %s export without replaying it',async kind=>{
+ vi.useFakeTimers()
+ let finish!:(value:Response)=>void
+ const fetch=vi.fn().mockImplementation(()=>new Promise(resolve=>{finish=resolve}))
+ vi.stubGlobal('fetch',fetch)
+ const pending=kind==='markdown'?exportMarkdownToNotion('# Note','Title','parent'):exportToNotion('task','parent')
+ await vi.advanceTimersByTimeAsync(65000)
+ expect(fetch).toHaveBeenCalledOnce()
+ await vi.advanceTimersByTimeAsync(1000)
+ finish(Response.json({url:'https://notion.so/note',page_id:'note',title:'Title'}))
+ await expect(pending).resolves.toMatchObject({page_id:'note'})
+})
+it('bounds an unconfirmed Notion export and never resends the mutation',async()=>{
+ vi.useFakeTimers()
+ let signal:AbortSignal|undefined|null
+ const fetch=vi.fn((_url:string,options:RequestInit)=>{signal=options.signal;return new Promise(()=>{})})
+ vi.stubGlobal('fetch',fetch)
+ const pending=expect(exportMarkdownToNotion('# Note','Title','parent')).rejects.toThrow('may still be running')
+ await vi.advanceTimersByTimeAsync(120000)
+ await pending
+ expect(signal?.aborted).toBe(true);expect(fetch).toHaveBeenCalledOnce()
+})
+it('does not treat an incomplete export response as a successful receipt',async()=>{
+ vi.stubGlobal('fetch',vi.fn().mockResolvedValue(Response.json({message:'Accepted'})))
+ await expect(exportMarkdownToNotion('# Note','Title','parent')).rejects.toThrow('incomplete export confirmation')
 })
 
 it('limits a stalled page read and allows a fresh retry', async () => {
