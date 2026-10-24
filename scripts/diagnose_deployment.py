@@ -180,7 +180,6 @@ def inspect_containers() -> None:
         }}))
         if settings.get("GROQ_API_KEY"):
             probe_groq_summary(settings["GROQ_API_KEY"])
-        profile_library(settings)
         for previous in (False, True):
             with tempfile.TemporaryDirectory() as directory:
                 path = Path(directory) / "container.log"
@@ -195,6 +194,8 @@ def inspect_containers() -> None:
                 else:
                     result["logs_available"] = False
                 print(json.dumps(result))
+
+        profile_library(settings)
 
 
 def profile_library(settings: dict) -> None:
