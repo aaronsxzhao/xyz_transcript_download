@@ -1,8 +1,9 @@
 """Bounded, lossless source partitioning and an independent editorial audit.
 
-Coverage receipts make missing source units a hard failure. They are model
-judgements, not proof of semantic equivalence; the original transcript remains
-the authority. Never replace a saved note when a receipt cannot be validated.
+These strict primitives report malformed or missing coverage receipts. They are
+model judgements, not proof of semantic equivalence. Reader generation treats
+their failures as advisory and delivers its available draft with a notice;
+the original transcript remains the authority.
 """
 import json
 import re
@@ -200,8 +201,12 @@ def _merge_audit_response(previous, revision):
     return merged
 
 
-def audit_source(source, fields, call_json, context=None):
+def audit_source(source, fields, call_json, context=None, *, repair=True):
     """Allow one bounded retry for a malformed coverage receipt."""
+    if not repair:
+        # Reader delivery is best effort: one editorial pass, then the caller
+        # returns its existing draft with a notice instead of repairing receipts.
+        return _audit_source_once(source, fields, call_json, context)
     try:
         return _audit_source_once(source, fields, call_json, context)
     except (SummaryOutputError, json.JSONDecodeError) as error:

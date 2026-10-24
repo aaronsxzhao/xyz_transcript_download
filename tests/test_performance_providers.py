@@ -125,7 +125,7 @@ def test_groq_long_podcast_chunks_fit_and_failed_chunk_preserves_prior_summary()
         assert 0 < len(single.call_args.args[1]) <= 4000
 
 
-def test_groq_video_chunks_fail_instead_of_saving_partial_notes():
+def test_groq_video_audit_or_later_chunk_failure_keeps_the_available_notes():
     from note_summarizer import NoteSummarizer
     summarizer = NoteSummarizer(api_key="fixture", base_url="https://api.groq.com/openai/v1", model="openai/gpt-oss-120b")
     text = "一段中文内容。" * 4000
@@ -133,8 +133,9 @@ def test_groq_video_chunks_fail_instead_of_saving_partial_notes():
     assert "".join(chunks) == text
     assert max(map(len, chunks)) <= 10000
     with patch.object(summarizer, "_call_llm", side_effect=["First part", RuntimeError("quota exceeded")]):
-        with pytest.raises(RuntimeError):
-            summarizer.generate_note("Title", text)
+        result = summarizer.generate_note("Title", text)
+    assert 'First part' in result
+    assert '核对未完成' in result and '原始转写' in result
 
 
 @pytest.mark.asyncio
