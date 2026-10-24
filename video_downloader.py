@@ -626,6 +626,23 @@ def _enrich_youtube_publish_dates(videos: List[dict], channel_url: str) -> List[
 ProgressCallback = Optional["Callable[[float, str], None]"]
 
 
+def original_subtitle_language(info: dict, subtitles: dict, hint: str = '') -> Optional[str]:
+    """Use a proven original track; ambiguous translated tracks defer to ASR."""
+    original = info.get('language') or hint
+    if isinstance(original, str) and original:
+        base = original.lower().split('-')[0]
+        for key in (original + '-orig', original):
+            if key in subtitles:
+                return key
+        for key in subtitles:
+            if key.lower().removeprefix('ai-').split('-')[0] == base:
+                return key
+    for key in subtitles:
+        if key.endswith('-orig'):
+            return key
+    return None
+
+
 class BaseDownloader(ABC):
     """Base class for platform-specific downloaders."""
 
@@ -748,6 +765,7 @@ class YtdlpDownloader(BaseDownloader):
 
             pub = publication_date(info)
 
+            self._source_language = info.get("language") or ""
             return VideoMetadata(
                 title=info.get("title", ""),
                 description=info.get("description", ""),
@@ -906,7 +924,7 @@ class YtdlpDownloader(BaseDownloader):
             opts.update({
                 "writesubtitles": True,
                 "writeautomaticsub": True,
-                "subtitleslangs": ["zh-Hans", "zh", "zh-CN", "ai-zh", "en"],
+                "subtitleslangs": list(dict.fromkeys([getattr(self, "_source_language", "") or "en-orig", "en-orig", "zh-orig", "zh-Hans", "zh", "zh-CN", "ai-zh", "en"])),
                 "subtitlesformat": "json3/srt/best",
                 "skip_download": True,
                 "outtmpl": str(sub_dir / f"{task_id}.%(ext)s"),
@@ -918,37 +936,14 @@ class YtdlpDownloader(BaseDownloader):
             if not subtitles:
                 return None
 
-            priority_langs = ["zh-Hans", "zh", "zh-CN", "ai-zh", "en"]
-            sub_info = None
-            detected_lang = None
-            for lang in priority_langs:
-                if lang in subtitles:
-                    detected_lang = lang
-                    sub_info = subtitles[lang]
-                    break
-            if not sub_info:
-                for lang, info_item in subtitles.items():
-                    if lang != "danmaku":
-                        detected_lang = lang
-                        sub_info = info_item
-                        break
+            detected_lang = original_subtitle_language(info, subtitles, getattr(self, '_source_language', ''))
+            sub_info = subtitles.get(detected_lang)
 
             if not sub_info:
                 return None
 
             ext = sub_info.get("ext", "json3")
             subtitle_file = sub_dir / f"{task_id}.{detected_lang}.{ext}"
-
-            if not subtitle_file.exists():
-                for f in sub_dir.glob(f"{task_id}*.json3"):
-                    subtitle_file = f
-                    ext = "json3"
-                    break
-                else:
-                    for f in sub_dir.glob(f"{task_id}*.srt"):
-                        subtitle_file = f
-                        ext = "srt"
-                        break
 
             if not subtitle_file.exists():
                 return None

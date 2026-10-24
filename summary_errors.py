@@ -2,8 +2,46 @@
 DELIVERY_WARNING = "> ⚠️ 部分生成或内容核对未完成，先提供可用结果。未总结的分段会标为原始转写，请结合 Transcript 阅读。"
 
 
-def delivery_notice(text: str) -> str:
-    return text if DELIVERY_WARNING in text else DELIVERY_WARNING + "\n\n" + text
+GENERATION_WARNING = "> ⚠️ 部分分段未能生成摘要，已保留原始转写；请结合 Transcript 阅读。"
+AUDIT_WARNING = "> ℹ️ 摘要已生成，但全文覆盖核对未完成；完整性尚未验证，可对照 Transcript 阅读。"
+FORMAT_WARNING = "> ℹ️ 生成内容已保留，但未能完整整理为结构化格式。"
+MERGE_WARNING = "> ℹ️ 各分段正文已保留，但全文概览未能合并。"
+_EN_NOTICES = {
+    'generation': "> ⚠️ Some sections could not be summarized and are included as original transcript. See Transcript for the full source.",
+    'audit': "> ℹ️ Notes were generated, but the full-source coverage review did not complete. Completeness is unverified; compare with Transcript.",
+    'format': "> ℹ️ Generated content is preserved, but could not be fully organized into structured fields.",
+    'merge': "> ℹ️ All available section notes are preserved, but the episode overview could not be merged.",
+}
+_NOTICES = (DELIVERY_WARNING, GENERATION_WARNING, AUDIT_WARNING, FORMAT_WARNING, MERGE_WARNING, *_EN_NOTICES.values())
+
+
+def delivery_notice(text: str, reason: str = 'generation', source: str = '') -> str:
+    from reading_language import chinese_source
+    chinese = not source or chinese_source(source)
+    notice = ({'generation': GENERATION_WARNING, 'audit': AUDIT_WARNING, 'format': FORMAT_WARNING, 'merge': MERGE_WARNING}[reason]
+              if chinese else _EN_NOTICES[reason])
+    return text if notice in text else notice + "\n\n" + text
+
+
+def _leading_notices(text: str):
+    notices = []
+    while True:
+        body = text.lstrip('\r\n')
+        notice = next((value for value in _NOTICES if body == value or body.startswith(value + '\n')), None)
+        if notice is None:
+            return notices, text.strip('\r\n')
+        notices.append(notice)
+        text = body[len(notice):]
+
+
+def strip_delivery_notices(text: str) -> str:
+    # Remove generated prefixes only; quotations/code in the body are source.
+    return _leading_notices(text)[1]
+
+
+def merge_delivery_notices(text: str, sources) -> str:
+    notices = list(dict.fromkeys(notice for source in sources for notice in _leading_notices(source)[0]))
+    return "\n\n".join([*notices, strip_delivery_notices(text)]) if notices else text
 
 
 def is_cancellation(error: Exception) -> bool:

@@ -8,7 +8,7 @@ import pytest
 from summarizer import Summarizer,Summary,KeyPoint
 from transcriber import Transcript
 from note_summarizer import NoteSummarizer
-from summary_errors import SummaryOutputError,ProcessingCancelledError,DELIVERY_WARNING
+from summary_errors import SummaryOutputError,ProcessingCancelledError,DELIVERY_WARNING,delivery_notice
 
 
 def draft():
@@ -25,7 +25,7 @@ def test_podcast_returns_generated_draft_when_audit_fails(error):
     assert result.key_points[0].summary=='Generated detail'
     assert result.key_points[0].original_quote=='Real source.'
     assert result.key_points[0].timestamp=='00:01:00'
-    assert DELIVERY_WARNING in result.overview
+    assert delivery_notice("", "audit", "Real source.").strip() in result.overview
     assert 'private-provider-error' not in result.overview
 
 
@@ -43,10 +43,10 @@ def test_podcast_keeps_other_parts_and_original_source_for_a_failed_chunk():
     transcript=Transcript('episode','en',30,'first sourceSECOND SOURCE',[])
     with patch.object(engine,'_summarize_single',side_effect=[SummaryOutputError('invalid'),draft()]),patch.object(engine,'_call_llm_with_retry',side_effect=RuntimeError('merge failed')):
         result=engine._summarize_long_transcript(transcript,'Show','Title')
-    assert DELIVERY_WARNING in result.overview
+    assert "Original transcript" in result.overview
     assert any('first source' in point.summary for point in result.key_points)
     assert any(point.summary=='Generated detail' for point in result.key_points)
-    assert any('原始转写' in topic for topic in result.topics)
+    assert any('Original transcript' in topic for topic in result.topics)
 
 
 def test_merge_failure_or_notice_cannot_discard_earlier_details():
@@ -55,7 +55,7 @@ def test_merge_failure_or_notice_cannot_discard_earlier_details():
     with patch.object(engine,'_call_llm_with_retry',side_effect=RuntimeError('provider unavailable')):
         result=engine._merge_summaries('episode','Title',[first,second])
     assert [p.summary for p in result.key_points]==['Generated detail','Second detail']
-    assert DELIVERY_WARNING in result.overview
+    assert delivery_notice("", "merge", "Generated detail").strip() in result.overview
 
 
 @pytest.mark.parametrize('video',[False,True])
@@ -65,7 +65,7 @@ def test_audit_is_a_single_best_effort_pass_without_receipt_repair(video):
     if video:
         with patch.object(engine,'_call_llm',callback):
             result=engine._audit_note('Real source.','Available video draft')
-        assert 'Available video draft' in result and DELIVERY_WARNING in result
+        assert 'Available video draft' in result and delivery_notice('', 'audit', 'Real source.').strip() in result
     else:
         callback.return_value=NS(choices=[NS(message=NS(content='{"coverage":[]}'))])
         with patch.object(engine,'_call_llm_with_retry',callback):

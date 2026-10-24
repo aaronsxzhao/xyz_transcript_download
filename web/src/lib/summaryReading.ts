@@ -10,7 +10,7 @@ export function normalizeSummaryMarkdown(markdown: string): string {
  * Legacy prose is left intact; no guessed heading or inferred grouping.
  */
 export function summaryIntroduction(overview: string) {
-  const match = overview.match(/^\s*### 核心结论\s*\r?\n([\s\S]*?)^### 节目概览\s*\r?\n([\s\S]*)$/m)
+  const match = overview.match(/^\s*### (?:核心结论|Key conclusions)\s*\r?\n([\s\S]*?)^### (?:节目概览|Episode overview)\s*\r?\n([\s\S]*)$/m)
   if (!match || overview.slice(0, match.index).trim()) return { conclusions: '', overview }
   return { conclusions: match[1].trim(), overview: match[2].trim() }
 }
@@ -30,7 +30,7 @@ export function summaryToMarkdown(summary: Summary, duration?: number): string {
   const lines = [`# ${summary.title}`, '']
   if (duration) lines.push(`- Duration: ${Math.floor(duration / 60)}:${Math.floor(duration % 60).toString().padStart(2, '0')}`, '')
   const intro = summaryIntroduction(summary.overview)
-  if (intro.conclusions) lines.push('## 核心结论', '', normalizeSummaryMarkdown(intro.conclusions), '')
+  if (intro.conclusions) lines.push(/### Key conclusions/.test(summary.overview) ? '## Key conclusions' : '## 核心结论', '', normalizeSummaryMarkdown(intro.conclusions), '')
   lines.push('## Overview', '', normalizeSummaryMarkdown(intro.overview), '', '## Key Points by Topic', '')
   for (const [topic, points] of summaryChapters(summary)) {
     lines.push(`### ${topic}`, '')

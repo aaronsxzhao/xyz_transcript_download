@@ -63,3 +63,10 @@ def test_summary_failure_diagnostics_emit_only_counts():
     assert report['summary_failures']['output_limit'] == 1
     assert report['summary_failures']['empty_choices'] == 1
     assert 'secret-key' not in str(report)
+
+
+def test_audit_issue_counts_do_not_include_private_source_or_unknown_labels():
+    report=safe_log_summary('Delivering video draft after audit failure: invalid_note_reference\nDelivering draft after audit failure: missing_units\nDelivering draft after audit failure: secret-token')
+    assert report['summary_audit_issues']['invalid_note_reference']==1
+    assert report['summary_audit_issues']['missing_units']==1
+    assert 'secret-token' not in str(report)

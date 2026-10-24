@@ -30,3 +30,11 @@ it('renders Chinese emphasis while preserving code samples and original quote te
  const summary={episode_id:'e',title:'Title',overview:'Overview',topics:['Chapter'],key_points:[{...point('Chapter',source),original_quote:'**原话。**不能改'}],takeaways:[]}
  expect(summaryToMarkdown(summary)).toContain('> **原话。**不能改')
 })
+
+it('recognizes English overview headings and preserves English in Markdown export',()=>{
+ const overview='### Key conclusions\n- A conditional claim.\n\n### Episode overview\nAn English source explanation.'
+ expect(summaryIntroduction(overview)).toEqual({conclusions:'- A conditional claim.',overview:'An English source explanation.'})
+ const markdown=summaryToMarkdown({episode_id:'e',title:'Title',overview,topics:[],key_points:[],takeaways:[]})
+ expect(markdown).toContain('## Key conclusions')
+ expect(markdown).not.toContain('核心结论')
+})
