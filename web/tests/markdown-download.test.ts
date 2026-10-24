@@ -32,3 +32,8 @@ it('locates the image destination after nested and escaped labels without rewrit
  const source='![Nested [label] and escaped \\](/data/screenshots/example)](</data/screenshots/chart.jpg?expires=1&amp;signature=abc> "Caption")'
  expect(portableMarkdown(source,'https://aipodcastsummary.online')).toBe(source.replace('(</data/','(<https://aipodcastsummary.online/data/'))
 })
+
+it('keeps multiline image destinations inside nested quotations and lists in their original containers',()=>{
+ const source='> > ![Chart](\n> >   /data/screenshots/a.png?x=1&amp;y=2)\n\n> [cover]:\n>   </data/thumbnails/cover\\(1\\).webp?x=1&amp;y=2> "Cover"\n\n- ![List](\n    /data/screenshots/list.png)'
+ expect(portableMarkdown(source,'https://aipodcastsummary.online')).toBe(source.replaceAll('/data/','https://aipodcastsummary.online/data/'))
+})

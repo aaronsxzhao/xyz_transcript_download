@@ -10,7 +10,12 @@ function destinationOffset(raw: string, image: boolean): number {
   }
   if (raw[index + 1] !== (image ? '(' : ':')) return -1;
   index += 2;
-  while (/\s/.test(raw[index] || '') && index < raw.length) index++;
+  let continued = false;
+  while (index < raw.length) {
+    if (raw[index] === '\n' || raw[index] === '\r') continued = true;
+    if (/\s/.test(raw[index]) || (continued && raw[index] === '>')) index++;
+    else break;
+  }
   return raw[index] === '<' ? index + 1 : index;
 }
 
