@@ -1,7 +1,8 @@
 const transientStatus = (status: number) => [408, 502, 503, 504].includes(status)
 
 export async function bufferResponse(response: Response): Promise<Response> {
-  return new Response([204,205,304].includes(response.status) ? null : await response.text(),
+  // Authenticated endpoints also return ZIPs; text decoding corrupts binary bytes.
+  return new Response([204,205,304].includes(response.status) ? null : await response.arrayBuffer(),
     {status:response.status, headers:response.headers})
 }
 
