@@ -180,6 +180,8 @@ async def test_cancel_then_retry_does_not_cancel_or_overwrite_the_new_video_run(
             release.set()
         await first
         assert (await retry).status_code == 200
+        # Submission now acknowledges queue admission before media work ends.
+        await asyncio.gather(*list(video_notes._video_workers))
     task = db.get_task(task_id, "local")
     assert task["status"] == "success"
     assert task["markdown"] == "Replacement note"

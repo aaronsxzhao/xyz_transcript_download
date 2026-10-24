@@ -757,14 +757,31 @@ export interface VideoNoteRequest {
 
 export async function generateVideoNote(data: VideoNoteRequest): Promise<{ task_id: string; skipped?: boolean }> {
   const modelSettings = getUserModelSettings()
-  const res = await authFetch(`${API_BASE}/video-notes/generate-json`, {
+  const generation = getAuthGeneration()
+  let res: Response
+  try {
+    res = await authFetch(`${API_BASE}/video-notes/generate-json`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       ...data,
       llm_model: data.llm_model || modelSettings.llm_model,
     }),
-  })
+    })
+  } catch (error) {
+    // Favorites use skip_existing: only reconcile this non-destructive import.
+    // Never replay a timed-out POST or start a second worker automatically.
+    if (data.skip_existing && generation === getAuthGeneration() && !(error instanceof DOMException && error.name === 'AbortError')) {
+      try {
+        const query = new URLSearchParams({url:data.url, platform:data.platform || ''})
+        const found = await readJson<{task_id:string|null;status?:string}>(`${API_BASE}/video-notes/submission?${query}`, 'Cannot confirm submission')
+        if (found.task_id && generation === getAuthGeneration()) {
+          return {task_id:found.task_id, ...(['failed','cancelled'].includes(found.status || '') ? {skipped:true} : {})}
+        }
+      } catch { /* Keep the original ambiguous error; no mutation retry. */ }
+    }
+    throw error
+  }
   const parsed = await parseApiResponseAsJson<{ task_id?: string; skipped?: boolean }>(
     res,
     'Video note request failed',
@@ -1378,6 +1395,7 @@ export async function bilibiliQrGenerate(): Promise<{ qr_url: string; qrcode_key
 
 export async function bilibiliQrPoll(qrcodeKey: string): Promise<{ status: string; message: string }> {
   const res = await authFetch(`${API_BASE}/cookies/bilibili/qr/poll?qrcode_key=${encodeURIComponent(qrcodeKey)}`)
+  if(res.status===404)return {status:'expired',message:'QR session expired. Please generate a new code.'}
   if (!res.ok) {
     let detail = 'Failed to poll QR status'
     try {

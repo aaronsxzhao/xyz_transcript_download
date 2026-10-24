@@ -896,7 +896,9 @@ class SupabaseDatabase:
                 .execute()
             )
         except Exception:
-            return []
+            # A failed read must not replace a previously populated channel list
+            # with a successful-looking empty response.
+            raise
         # Aggregate in Python (PostgREST doesn't expose GROUP BY)
         channels: dict = {}
         for r in (result.data or []):

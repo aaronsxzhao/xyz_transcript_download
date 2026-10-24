@@ -105,7 +105,7 @@ it("queues only selected available videos with saved settings and duplicate prot
       formats: ["link", "summary"],
     }),
   );
-  expect(node.textContent).toContain("1 queued");
+  expect(node.textContent).toContain("1 confirmed queued");
   expect(imported).toHaveBeenCalledOnce();
 });
 
@@ -176,7 +176,7 @@ it("stops after an ambiguous submission failure and leaves remaining choices for
   expect(node.querySelector('[role="alert"]')?.textContent).toContain(
     "Remaining videos were not submitted",
   );
-  expect(node.textContent).toContain("1 queued");
+  expect(node.textContent).toContain("1 confirmed queued");
   expect(node.textContent).toContain("Process selected (2)");
 });
 

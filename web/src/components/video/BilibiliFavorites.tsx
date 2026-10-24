@@ -107,6 +107,7 @@ export default function BilibiliFavorites({
     setError("");
     let queued = 0,
       skipped = 0;
+    let unconfirmed = false;
     try {
       const defaults = getVideoProcessingDefaults();
       for (const [index, video] of videos.entries()) {
@@ -144,6 +145,7 @@ export default function BilibiliFavorites({
         });
       }
     } catch (err) {
+      unconfirmed = true;
       if (current())
         setError(
           `${err instanceof Error ? err.message : "Submission failed."} Remaining videos were not submitted. Refresh before retrying.`,
@@ -152,7 +154,7 @@ export default function BilibiliFavorites({
       if (current()) {
         setBusy(false);
         setMessage(
-          `${queued} queued${skipped ? `, ${skipped} already imported` : ""}. Follow progress in Processing.`,
+          `${queued} confirmed queued${skipped ? `, ${skipped} already imported` : ""}. ${unconfirmed ? "The last submission is unconfirmed. Check Processing before retrying." : "Follow progress in Processing."}`,
         );
         if (queued || skipped) onImported();
       }

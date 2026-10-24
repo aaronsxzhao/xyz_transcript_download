@@ -97,13 +97,15 @@ export default function Videos() {
     setError('')
     try {
       const data = await fetchVideoChannels()
+      if (owner !== getAccountId()) return
       setChannels(data.channels)
       setCache(CacheKeys.VIDEO_CHANNELS, data.channels, owner)
     } catch (e) {
       console.error('Failed to load channels:', e)
-      setError('Cannot load your video channels. Please retry.')
+      if (owner !== getAccountId()) return
+      setError(e instanceof Error ? e.message : 'Cannot load your video channels. Please retry.')
     } finally {
-      setChannelsLoading(false)
+      if (owner === getAccountId()) setChannelsLoading(false)
     }
   }, [])
 
