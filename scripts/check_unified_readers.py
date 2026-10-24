@@ -119,14 +119,21 @@ async def check(browser,origin,width,output):
  await page.wait_for_function('document.querySelector("svg.markmap")?.textContent.includes("Trading review")')
  assert await page.evaluate('window.workerCreates')==1
  if width==1440:
-  # Expiring screenshot query signatures must not invalidate the same outline.
+  # Cache identity follows exact worker input, including image query changes.
+  # Rebuild changed source, then reuse that exact source after another reload.
   task['markdown']=task['markdown'].replace('.jpg)', '.jpg?token=fresh)')
   task['title']='Updated screenshot signatures'
   await page.reload()
   await page.get_by_role('heading',name=task['title'],exact=True).wait_for()
   await page.get_by_role('tab',name='Mind map',exact=True).click()
   await page.locator('svg.markmap foreignObject').first.wait_for()
-  assert await page.evaluate('window.workerCreates')==0
+  await page.wait_for_function('document.querySelector(".mindmap-canvas").getAttribute("aria-busy")==="false"')
+  assert await page.evaluate('window.workerCreates')==1,'Changed Markdown must not reuse an outline for different source'
+  await page.reload()
+  await page.get_by_role('heading',name=task['title'],exact=True).wait_for()
+  await page.get_by_role('tab',name='Mind map',exact=True).click()
+  await page.locator('svg.markmap foreignObject').first.wait_for()
+  assert await page.evaluate('window.workerCreates')==0,'Unchanged Markdown should reuse the persisted outline'
   task.update(title='Screenshot warning',error='Some screenshots are unavailable.')
   await page.reload()
   await page.locator('.unified-header').get_by_role('heading',name='Screenshot warning',exact=True).wait_for()
