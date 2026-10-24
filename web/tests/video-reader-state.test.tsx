@@ -27,7 +27,7 @@ beforeEach(() => {
   vi.mocked(fetchVideoTranscript).mockResolvedValue({transcript:{text:'Original words',duration:120,segments:[]}} as any)
   node=document.createElement('div'); document.body.append(node); root=createRoot(node)
 })
-afterEach(() => {act(()=>root.unmount());node.remove();useStore.getState().reset();vi.unstubAllGlobals()})
+afterEach(() => {act(()=>root.unmount());node.remove();useStore.getState().reset();vi.useRealTimers();vi.unstubAllGlobals()})
 async function mount() {await act(async()=>root.render(<MemoryRouter initialEntries={['/videos/one']}><Routes><Route path="/videos/:taskId" element={<VideoViewer/>}/></Routes></MemoryRouter>))}
 
 it('reloads a completed note after a regeneration in another page, even when the final status is unchanged', async () => {
@@ -106,4 +106,42 @@ it('retains a descriptive server message for an unfamiliar classified failure', 
   await mount()
   expect(node.textContent).toContain('FFmpeg is missing on the server.')
   expect(node.textContent).not.toContain('FFMPEG_MISSING')
+})
+
+it('retains read recovery after a separate clipboard error is dismissed', async () => {
+  await mount()
+  vi.mocked(fetchVideoTask).mockRejectedValueOnce(new TypeError('Failed to fetch'))
+  await act(async()=>useStore.getState().updateVideoTask(note('2026-10-24T00:00:04Z')))
+  await act(async()=>node.querySelector<HTMLButtonElement>('[aria-label="Copy note"]')!.click())
+  await act(async()=>[...node.querySelectorAll('button')].find(b=>b.textContent==='Dismiss')!.click())
+  expect(node.querySelector('[role=alert]')?.textContent).toContain('Failed to fetch')
+  vi.mocked(fetchVideoTask).mockResolvedValue(note('2026-10-24T00:00:04Z','Current note'))
+  await act(async()=>node.querySelector<HTMLButtonElement>('[role=alert] button')!.click())
+  expect(node.querySelector('[role=alert]')).toBeNull()
+  expect(node.textContent).toContain('Current note')
+})
+
+it('clears a previous copy failure after the user successfully copies again', async () => {
+  await mount()
+  await act(async()=>node.querySelector<HTMLButtonElement>('[aria-label="Copy note"]')!.click())
+  expect(node.querySelector('[role=alert]')?.textContent).toContain('Copy failed')
+  vi.useFakeTimers()
+  const writeText=vi.fn().mockResolvedValue(undefined)
+  vi.stubGlobal('navigator',{clipboard:{writeText}})
+  await act(async()=>node.querySelector<HTMLButtonElement>('[aria-label="Copy note"]')!.click())
+  expect(writeText).toHaveBeenCalled()
+  expect(node.querySelector('[role=alert]')).toBeNull()
+  expect(node.querySelector('[aria-label="Copied"]')).not.toBeNull()
+})
+
+it('clears a transcript read error when the user reopens the tab and it succeeds', async () => {
+  await mount()
+  vi.mocked(fetchVideoTranscript).mockRejectedValueOnce(new TypeError('Failed to fetch'))
+  const tab=(name:string)=>[...node.querySelectorAll('button')].find(b=>b.textContent?.trim()===name)!
+  await act(async()=>tab('Transcript').click())
+  expect(node.querySelector('[role=alert]')?.textContent).toContain('Failed to fetch')
+  await act(async()=>tab('Summary').click())
+  await act(async()=>tab('Transcript').click())
+  expect(node.textContent).toContain('Original words')
+  expect(node.querySelector('[role=alert]')).toBeNull()
 })
