@@ -23,7 +23,7 @@ export default defineConfig({
           groups: [
             {name:'VideoCreation',priority:20,test:/\/src\/components\/video\/(VideoNoteForm|YouTubeCookieGuide)\./},
             {name:'workspace',priority:10,test:(id) => {
-              if(id.includes('/src/') && !/\/lib\/(taskActions|notionExport|podcastPrint|videoPrint|mindmapCache|mindmapOutline|bilibiliFavorites|markdownDownload|legacyModelOptions)\./.test(id) && !/\/components\/(CustomModelFields|DashboardDialog|ReaderAppearance|RegenerateDialog|PodcastNotionExport|ProcessingPanel|FormattedSummary|TranscriptSegments|ScreenshotGallery|PerformancePanel|DataRecovery|TranscriptMaintenance)\.|\/components\/video\/(ReaderDetails|MindMapView|MarkdownPreview|HighlightedCode|TranscriptPanel|VideoNoteForm|YouTubeCookieGuide|BilibiliFavorites)\./.test(id)) return true
+              if(id.includes('/src/') && !/\/lib\/(taskActions|notionExport|podcastPrint|videoPrint|mindmapCache|mindmapOutline|bilibiliFavorites|markdownDownload|legacyModelOptions)\./.test(id) && !/\/components\/(CustomModelFields|DashboardDialog|ReaderAppearance|RegenerateDialog|PodcastNotionExport|ProcessingPanel|FormattedSummary|TranscriptSegments|ScreenshotGallery|PerformancePanel|DataRecovery|TranscriptMaintenance|LocalPodcastUpload|PodcastUploadForm)\.|\/components\/video\/(ReaderDetails|MindMapView|MarkdownPreview|HighlightedCode|TranscriptPanel|VideoNoteForm|YouTubeCookieGuide|BilibiliFavorites)\./.test(id)) return true
               return id.includes('/node_modules/lucide-react/') || id.includes('commonjsHelpers') || /\/node_modules\/(react|react-dom|react-router|react-router-dom|scheduler)\//.test(id)
             }},
           ],

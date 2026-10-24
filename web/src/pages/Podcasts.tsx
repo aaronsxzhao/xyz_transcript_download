@@ -1,6 +1,8 @@
+import {OptionalTool} from '../components/DeferredView'
+const PodcastUploadForm=lazy(()=>import('../components/PodcastUploadForm'))
 import CachedImage from '../components/CachedImage'
 import LoadError from '../components/LoadError'
-import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
+import { lazy, useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { Radio, Plus, Trash2, RefreshCw, Loader2, ExternalLink, ArrowLeft, ChevronRight, Search, Upload } from 'lucide-react'
 import { fetchPodcasts, addPodcast, removePodcast, refreshPodcast, uploadLocalPodcastAudio, type Podcast } from '../lib/api'
@@ -369,56 +371,10 @@ export default function Podcasts() {
         </div>
       )}
 
-      {showUploadForm && (
-        <div className="p-4 md:p-6 bg-dark-surface border border-dark-border rounded-xl">
-          <h2 className="text-lg font-semibold text-white mb-4">Upload Local Audio</h2>
-          <form onSubmit={handleUploadAudio} className="space-y-4">
-            <div className="grid gap-4 md:grid-cols-2">
-              <div>
-                <label className="block text-sm text-gray-400 mb-2">Audio file</label>
-                <input
-                  type="file"
-                  accept="audio/*,.mp3,.m4a,.wav,.aac,.flac,.ogg,.opus,.mp4,.mpeg,.mpga"
-                  onChange={e => setAudioFile(e.target.files?.[0] || null)}
-                  className="block w-full text-sm text-gray-300 file:mr-4 file:rounded-lg file:border-0 file:bg-indigo-600 file:px-4 file:py-2 file:text-sm file:font-medium file:text-white hover:file:bg-indigo-700"
-                />
-                {audioFile && <p className="mt-2 text-xs text-gray-500">{audioFile.name}</p>}
-              </div>
-              <div>
-                <label className="block text-sm text-gray-400 mb-2">Episode title</label>
-                <input
-                  type="text"
-                  value={uploadTitle}
-                  onChange={e => setUploadTitle(e.target.value)}
-                  placeholder="Optional, defaults to filename"
-                  className="w-full px-4 py-3 bg-dark-hover border border-dark-border rounded-lg text-white placeholder:text-gray-500 focus:outline-none focus:border-indigo-500 text-base"
-                />
-              </div>
-            </div>
-            <div>
-              <label className="block text-sm text-gray-400 mb-2">Description</label>
-              <textarea
-                value={uploadDescription}
-                onChange={e => setUploadDescription(e.target.value)}
-                placeholder="Optional notes about this upload"
-                rows={3}
-                className="w-full px-4 py-3 bg-dark-hover border border-dark-border rounded-lg text-white placeholder:text-gray-500 focus:outline-none focus:border-indigo-500 text-base resize-y"
-              />
-            </div>
-            <div className="flex flex-col sm:flex-row gap-3 sm:items-center sm:justify-between">
-              <p className="text-sm text-gray-500">First upload creates your Local Uploads podcast automatically. Later uploads go into the same library section.</p>
-              <button
-                type="submit"
-                disabled={uploading || !audioFile}
-                className="flex items-center justify-center gap-2 px-6 py-3 bg-indigo-600 hover:bg-indigo-700 disabled:bg-gray-700 disabled:cursor-not-allowed text-white font-medium rounded-lg transition-colors"
-              >
-                {uploading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Upload className="w-5 h-5" />}
-                Upload
-              </button>
-            </div>
-          </form>
-        </div>
-      )}
+      {showUploadForm && <OptionalTool fallback={<p role="status">Loading upload tools…</p>}>
+        <PodcastUploadForm audioFile={audioFile} onFile={setAudioFile} title={uploadTitle} onTitle={setUploadTitle}
+          description={uploadDescription} onDescription={setUploadDescription} uploading={uploading} onSubmit={handleUploadAudio}/>
+      </OptionalTool>}
 
       {/* Search */}
       <div className="relative max-w-md">

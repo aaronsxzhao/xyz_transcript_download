@@ -341,9 +341,10 @@ html[data-reader-contents="hidden"] [data-reader-contents], html[data-reader-con
 .task-more>div { position:absolute; right:0; top:calc(100% + 4px); z-index:20; padding:4px; min-width:160px; background:#1e293b; border:1px solid var(--ui-border); border-radius:8px; box-shadow:0 4px 16px #0005; }
 .task-more button { display:flex; align-items:center; justify-content:flex-start; gap:8px; width:100%; }
 @media(max-width:767px){.task-more>summary{min-height:44px}}
-.toast-stack { font-size:14px; max-width:min(384px,calc(100vw - 32px)); }
-.toast-stack>div { background-color:#1e293b; }
-.toast-stack button { display:flex; align-items:center; justify-content:center; min-width:var(--ui-control-height); min-height:var(--ui-control-height); }
+.toast-stack { font-size:14px; width:min(384px,calc(100vw - 32px)); max-height:calc(100dvh - 96px); overflow-y:auto; overflow-x:hidden; overscroll-behavior:contain; }
+.toast-stack>div { background-color:#1e293b; flex-shrink:0; overflow-wrap:anywhere; }
+.toast-stack>div>svg { flex-shrink:0; }
+.toast-stack button { display:flex; flex-shrink:0; align-items:center; justify-content:center; min-width:var(--ui-control-height); min-height:var(--ui-control-height); }
 
 /* Shared document chrome for podcast and video summaries. */
 .unified-reader{--reader-measure:820px;width:100%;max-width:1140px;margin:16px auto 48px;display:grid;grid-template-columns:180px minmax(0,var(--reader-measure));justify-content:center;gap:40px}

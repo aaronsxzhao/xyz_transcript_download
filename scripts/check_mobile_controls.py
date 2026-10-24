@@ -1,7 +1,7 @@
 """Synthetic mobile control geometry and interaction checks; no private data."""
 import sys,asyncio,json,time,argparse
 from pathlib import Path
-from urllib.parse import urlparse
+from urllib.parse import urlparse,parse_qs
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]))
 from scripts.check_library_browser import serve,fixtures
 from scripts.check_page_loading import token
@@ -30,6 +30,7 @@ async def main():
    settings.update(llm_model='openai/gpt-oss-120b',llm_provider='groq',whisper_model='whisper-large-v3')
    holds={'read':None,'save':None,'test':None,'notion':None}
    notion={'failed':False,'submitted':0}
+   episode_state={'metadata':None,'one':None,'two':None,'submitted':[],'uploads':0}
    maintenance={'empty':False}
    context=await browser.new_context(viewport={'width':width,'height':844},is_mobile=width<768,has_touch=width<768,service_workers='block')
    await context.add_init_script("localStorage.setItem('xyz_access_token',"+json.dumps(token(int(time.time())+7200))+");localStorage.setItem('xyz_user',JSON.stringify({id:'bench',email:'bench@example.com',authenticated:true}));window.WebSocket=class{static OPEN=1;readyState=1;constructor(){setTimeout(()=>this.onopen?.(),1)}send(){setTimeout(()=>this.onmessage?.({data:JSON.stringify({type:'init',jobs:[{job_id:'fixture-job',episode_title:'A long podcast title / 一期较长的播客标题',status:'failed',progress:0,message:'Connection needs attention'}],video_tasks:[]})}),1)}close(){}}")
@@ -37,10 +38,13 @@ async def main():
    connection_offline=False
    connection_reads={'/api/auth/me':0,'/api/library':0}
    async def inspect(label):
+    await page.evaluate("async()=>{await Promise.all(document.querySelector('.toast-stack')?.getAnimations({subtree:true}).map(animation=>animation.finished.catch(()=>{}))||[])}")
     result=await page.evaluate(AUDIT)
     assert not result['problems'],(width,label,result['problems'])
     assert not result['overflow'],(width,label,'horizontal overflow')
     assert result['shellFits'],(width,label,'viewport height mismatch')
+    assert await page.evaluate("()=>[...document.querySelectorAll('.toast-stack p')].every(el=>el.scrollWidth<=el.clientWidth+1)"),(width,label,'notification text overflow')
+    assert await page.evaluate("()=>{const el=document.querySelector('.toast-stack'),r=el?.getBoundingClientRect();return !r||!el.children.length||(r.left>=0&&r.right<=innerWidth+1&&r.bottom<=innerHeight+1)}"),(width,label,'notifications outside viewport')
     return result
    async def api(route):
     path=urlparse(route.request.url).path;body={}
@@ -76,6 +80,21 @@ async def main():
       await route.fulfill(status=502,content_type='application/json',body=json.dumps({'detail':'Notion page was created at https://notion.so/'+('created-page-'*12)+', but content upload was not completed. Check this page before exporting again.'}))
       return
      body={'title':'Synthetic saved note','page_id':'created','url':'https://notion.so/created'}
+    elif path in ['/api/podcasts/fixture-source','/api/podcasts/fixture-local']:
+     if path.endswith('fixture-source') and episode_state['metadata']:await episode_state['metadata'].wait()
+     body={'pid':path.rsplit('/',1)[1],'title':'Synthetic source · 一个较长的播客名称','platform':'local' if path.endswith('fixture-local') else 'apple','episode_count':3,'summarized_count':1}
+    elif path=='/api/podcasts/content':
+     pid=parse_qs(urlparse(route.request.url).query)['pid'][0]
+     body=[{'eid':eid,'pid':pid,'title':'Synthetic episode '+eid+' · 播客标题与处理状态测试','duration':5100,'pub_date':'2026-10-23','created_at':'2026-10-24','source_status':'','has_summary':eid=='ready','has_transcript':eid=='ready','topics_count':28,'key_points_count':42} for eid in ['one','two','ready']]
+    elif path=='/api/process':
+     source=route.request.post_data_json['episode_url'];episode_state['submitted'].append(source)
+     eid=source.split('://',1)[1]
+     if episode_state[eid]:await episode_state[eid].wait()
+     body={'job_id':'episode-'+eid}
+    elif path=='/api/podcasts/upload-audio':
+     episode_state['uploads']+=1
+     await route.fulfill(status=422,content_type='application/json',body=json.dumps({'detail':'Synthetic audio format rejected: https://source.example/'+('audio-file-'*25)}))
+     return
     elif path=='/api/cookies':body={'cookies':[{'platform':'bilibili','has_cookie':True},{'platform':'youtube','has_cookie':True}]}
     elif path=='/api/settings/models':body={'models':['fixture-model']}
     elif path=='/api/cookies/douyin/diagnose':body={'has_cookie':False,'looks_usable':False,'message':'No saved cookies','present':[],'missing':[],'cookie_count':0,'domains':[]}
@@ -121,6 +140,41 @@ async def main():
      await page.get_by_text('No matching notes',exact=True).wait_for()
      assert not await page.locator('.connection-notice,[role=alert]').count()
      if event=='visibilitychange':await page.evaluate("delete document.visibilityState")
+   # A cold episode page must show its list while source metadata is pending,
+   # and two submissions must retain their individual button states.
+   episode_state['metadata']=asyncio.Event()
+   await page.goto(origin+'/podcasts/fixture-source/episodes',wait_until='domcontentloaded')
+   first=page.locator('[data-episode-id="one"]');second=page.locator('[data-episode-id="two"]')
+   await first.get_by_role('button',name='Process',exact=True).wait_for()
+   assert await first.get_by_role('button',name='Process',exact=True).is_disabled()
+   episode_state['metadata'].set()
+   await page.get_by_role('heading',name='Synthetic source · 一个较长的播客名称',exact=True).wait_for()
+   await inspect('episodes')
+   episode_state['one']=asyncio.Event();episode_state['two']=asyncio.Event()
+   await first.get_by_role('button',name='Process',exact=True).click()
+   await second.get_by_role('button',name='Process',exact=True).click()
+   assert await first.get_by_role('button',name='Process',exact=True).is_disabled()
+   assert await second.get_by_role('button',name='Process',exact=True).is_disabled()
+   assert await first.get_by_role('button',name='Delete episode',exact=True).is_disabled()
+   await inspect('parallel-episode-submissions')
+   episode_state['one'].set()
+   await first.get_by_role('button',name='Process',exact=True).wait_for(state='hidden')
+   assert await second.get_by_role('button',name='Process',exact=True).is_disabled()
+   episode_state['two'].set()
+   await second.get_by_role('button',name='Process',exact=True).wait_for(state='hidden')
+   assert episode_state['submitted']==['apple://one','apple://two']
+   await page.screenshot(path=str(args.output/f'episodes-{width}.png'))
+   await page.goto(origin+'/podcasts/fixture-local/episodes',wait_until='networkidle')
+   await page.get_by_role('button',name='Upload Audio',exact=True).wait_for()
+   await inspect('local-audio-tools')
+   for attempt in range(2):
+    await page.get_by_label('Local audio file',exact=True).set_input_files({'name':'fixture.wav','mimeType':'audio/wav','buffer':b'RIFF synthetic audio'})
+    await page.wait_for_function("document.querySelector('input[type=file]')?.disabled===false")
+    assert await page.get_by_label('Local audio file',exact=True).input_value()==''
+   assert episode_state['uploads']==2
+   await page.get_by_text('Synthetic audio format rejected',exact=False).first.wait_for()
+   await inspect('long-upload-error')
+   await page.screenshot(path=str(args.output/f'notifications-{width}.png'),animations='disabled')
    for path in ['/','/library','/podcasts','/videos','/settings','/viewer/bench','/videos/bench']:
     await page.goto(origin+path,wait_until='networkidle')
     await inspect(path)
