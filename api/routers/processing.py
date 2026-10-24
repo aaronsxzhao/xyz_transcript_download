@@ -8,7 +8,7 @@ from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import Dict, Set, Optional
 from urllib.parse import urlparse
-from fastapi import APIRouter, HTTPException, WebSocket, WebSocketDisconnect, BackgroundTasks, Depends
+from fastapi import APIRouter, HTTPException, WebSocket, WebSocketDisconnect, BackgroundTasks, Depends, Query
 
 from api.local_media import (
     LOCAL_PODCAST_PID,
@@ -16,7 +16,7 @@ from api.local_media import (
     get_local_episode_id,
     is_local_episode_url,
 )
-from api.schemas import ProcessRequest, BatchProcessRequest, ProcessingStatus, ResummarizeRequest
+from api.schemas import ProcessRequest, BatchProcessRequest, ProcessingStatus, ResummarizeRequest, TruncatedCleanupRequest
 from api.auth import get_current_user, User
 from api.db import get_db, TranscriptData, SummaryData
 from config import DATA_DIR, BACKGROUND_REFINEMENT_TIMEOUT, WEBSOCKET_HEARTBEAT_INTERVAL, USE_SUPABASE
@@ -1689,7 +1689,7 @@ async def batch_process(
 
 @router.get("/truncated")
 def get_truncated_transcripts(
-    threshold: float = 0.85,
+    threshold: float = Query(0.85, ge=0, le=1),
     user: Optional[User] = Depends(get_current_user)
 ):
     """
@@ -1783,6 +1783,23 @@ def debug_transcript_durations(
     }
 
 
+def _delete_truncated_item(db, episode_id: str, delete_summaries: bool) -> dict:
+    result = {"episode_id": episode_id, "deleted_transcript": False, "deleted_summary": False}
+    try:
+        result["deleted_transcript"] = bool(db.delete_transcript(episode_id))
+        if not result["deleted_transcript"]:
+            result["detail"] = "Could not confirm transcript deletion. No summary was removed."
+            return result
+        if delete_summaries:
+            result["deleted_summary"] = bool(db.delete_summary(episode_id))
+            if not result["deleted_summary"] and db.has_summary(episode_id):
+                result["detail"] = "Transcript removed, but summary deletion is unconfirmed. Check Library."
+    except Exception as error:
+        logger.warning("Truncated cleanup could not be confirmed: %s", type(error).__name__)
+        result["detail"] = "Deletion could not be confirmed. Recheck before retrying."
+    return result
+
+
 @router.delete("/truncated/{episode_id}")
 def delete_truncated_data(
     episode_id: str,
@@ -1802,22 +1819,16 @@ def delete_truncated_data(
     
     db = get_db(user.id if user else None)
     
-    deleted_transcript = db.delete_transcript(episode_id)
-    deleted_summary = False
-    
-    if delete_summary:
-        deleted_summary = db.delete_summary(episode_id)
-    
-    return {
-        "episode_id": episode_id,
-        "deleted_transcript": deleted_transcript,
-        "deleted_summary": deleted_summary,
-    }
+    result = _delete_truncated_item(db, episode_id, delete_summary)
+    if result.get("detail"):
+        raise HTTPException(status_code=503, detail=result["detail"])
+    return result
 
 
 @router.post("/truncated/cleanup")
 def cleanup_truncated_data(
-    threshold: float = 0.85,
+    data: Optional[TruncatedCleanupRequest] = None,
+    threshold: float = Query(0.85, ge=0, le=1),
     delete_summaries: bool = True,
     user: Optional[User] = Depends(get_current_user)
 ):
@@ -1838,25 +1849,23 @@ def cleanup_truncated_data(
     db = get_db(user.id if user else None)
     truncated = db.get_truncated_transcripts(threshold)
     
-    deleted = []
+    reviewed = set(data.episode_ids) if data is not None else None
+    listed = {item["episode_id"] for item in truncated}
+    deleted, failed = [], []
     for item in truncated:
         episode_id = item["episode_id"]
-        deleted_transcript = db.delete_transcript(episode_id)
-        deleted_summary = False
-        
-        if delete_summaries:
-            deleted_summary = db.delete_summary(episode_id)
-        
-        deleted.append({
-            "episode_id": episode_id,
-            "episode_title": item["episode_title"],
-            "percentage": item["percentage"],
-            "deleted_transcript": deleted_transcript,
-            "deleted_summary": deleted_summary,
-        })
-    
+        if reviewed is not None and episode_id not in reviewed:
+            continue
+        result = _delete_truncated_item(db, episode_id, delete_summaries)
+        if result["deleted_transcript"]:
+            deleted.append({**result, "episode_title": item["episode_title"], "percentage": item["percentage"]})
+        if result.get("detail"):
+            failed.append(result)
+
     return {
-        "message": f"Cleaned up {len(deleted)} truncated transcripts",
+        "message": f"Confirmed {len(deleted)} transcript deletions; {len(failed)} items need attention",
         "threshold_percent": round(threshold * 100, 1),
         "deleted": deleted,
+        "failed": failed,
+        "skipped": sorted(reviewed - listed) if reviewed is not None else [],
     }

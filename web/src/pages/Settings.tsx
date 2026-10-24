@@ -4,6 +4,7 @@ const CustomModelFields = lazy(() => import('../components/CustomModelFields'))
 import type {ConnectionDraft} from '../components/CustomModelFields'
 import { useUnsavedChanges } from '../lib/unsavedChanges'
 const DataRecovery = lazy(() => import('../components/DataRecovery'))
+const TranscriptMaintenance = lazy(() => import('../components/TranscriptMaintenance'))
 import { useAuth } from '../contexts/AuthContext'
 import { getAccountId, getPreference, setPreference } from '../lib/preferences'
 import { CacheKeys, getCache, setCache } from '../lib/cache'
@@ -11,13 +12,13 @@ import { usePageTiming } from '../lib/pageTiming'
 import LoadError from '../components/LoadError'
 import { lazy, useState, useEffect, useRef, useCallback } from 'react'
 import {
-  Cpu, MessageSquare, Clock, Loader2, CheckCircle, Trash2, AlertTriangle,
-  Search, Save, Download, X, Activity, Smartphone, Chrome,
+  Cpu, MessageSquare, Clock, Loader2, CheckCircle, AlertTriangle,
+  Save, Download, X, Activity, Smartphone, Chrome,
   ExternalLink, Settings2, UserCircle, Wrench, Upload, FileText, Link, Video,
 } from 'lucide-react'
 const QRCodeSVG = lazy(() => import('qrcode.react').then(module=>({default:module.QRCodeSVG})))
 import {
-  fetchSettings, updateSettings, testLlmConnection, authFetch, importUserSubscriptions,
+  fetchSettings, updateSettings, testLlmConnection, importUserSubscriptions,
   ImportSubscriptionsResult, fetchSysHealth, fetchAllCookies, validateBilibiliCookie,
   bilibiliQrGenerate, bilibiliQrPoll, douyinQrGenerate, douyinQrPoll,
   uploadCookieFile, importBrowserCookies, saveSimpleCookie,
@@ -45,14 +46,6 @@ interface SettingsData {
   check_interval: number
 }
 
-interface TruncatedItem {
-  episode_id: string
-  pid: string
-  episode_title: string
-  episode_duration: number
-  transcript_duration: number
-  percentage: number
-}
 
 const WHISPER_MODELS = [
   { value: 'whisper-large-v3', label: 'whisper-large-v3', description: 'More accurate, slower' },
@@ -72,6 +65,7 @@ const TOP_TABS: { id: TopTab; label: string; icon: React.ReactNode }[] = [
 export default function Settings() {
   const { authEnabled } = useAuth()
   const [activeTab, setActiveTab] = useState<TopTab>('general')
+  const [maintenanceOpened,setMaintenanceOpened] = useState(false)
   const [settings, setSettings] = useState<SettingsData | null>(() => getCache(CacheKeys.SETTINGS))
   const [loadError, setLoadError] = useState('')
   const [loading, setLoading] = useState(true)
@@ -93,10 +87,6 @@ export default function Settings() {
   const [saving, setSaving] = useState(false)
   const [saveResult, setSaveResult] = useState<string | null>(null)
 
-  const [truncatedItems, setTruncatedItems] = useState<TruncatedItem[]>([])
-  const [checking, setChecking] = useState(false)
-  const [cleaning, setCleaning] = useState(false)
-  const [cleanupResult, setCleanupResult] = useState<string | null>(null)
 
   const [importUsername, setImportUsername] = useState('')
   const [importing, setImporting] = useState(false)
@@ -175,12 +165,18 @@ export default function Settings() {
 
   const [vdStyle, setVdStyle] = useState(() => getPreference('vd_style') || 'detailed')
   const [vdFormats, setVdFormats] = useState<string[]>(() => {
-    try { return JSON.parse(getPreference('vd_formats') || '["toc","summary","screenshot"]') }
+    try {
+      const saved=JSON.parse(getPreference('vd_formats') || 'null')
+      return Array.isArray(saved)&&saved.every(value=>typeof value==='string') ? saved : ['toc','summary','screenshot']
+    }
     catch { return ['toc', 'summary', 'screenshot'] }
   })
   const [vdQuality, setVdQuality] = useState(() => getPreference('vd_quality') || 'medium')
   const [vdVideoQuality, setVdVideoQuality] = useState(() => getPreference('vd_video_quality') || '720')
   const [savedDraft, setSavedDraft] = useState('')
+  const savedVideoDraft = useRef([vdStyle,vdFormats,vdQuality,vdVideoQuality])
+  const settingsRequest = useRef(0)
+  const settingsWrite = useRef(false)
   const draft = JSON.stringify([whisperModel, llmModel, llmProvider, vdStyle, vdFormats, vdQuality, vdVideoQuality,transcriptionProvider,summaryConnection,transcriptionConnection])
   const dirty = !!savedDraft && draft !== savedDraft
   useUnsavedChanges(dirty)
@@ -366,7 +362,7 @@ export default function Settings() {
     return () => { stopQrPolling() }
   }, [stopQrPolling])
 
-  useEffect(() => { loadSettings() }, [])
+  useEffect(() => { void loadSettings(); return () => { settingsRequest.current++ } }, [])
 
   const [accountValidation,setAccountValidation] = useState<{valid:boolean;reason:string;message:string}|null>(null)
   const [validatingAccount,setValidatingAccount] = useState(false)
@@ -395,7 +391,7 @@ export default function Settings() {
   }, [activeTab, activePlatform, cookies])
 
   useEffect(() => {
-    if (settings) {
+    if (settings && (!savedDraft || draft === savedDraft)) {
       const savedWhisperModel = settings.whisper_model
       const savedLlmModel = settings.llm_model
       setWhisperModel(savedWhisperModel)
@@ -404,27 +400,33 @@ export default function Settings() {
       setTranscriptionProvider(settings.transcription_provider||'server')
       const summaryDraft={baseUrl:settings.llm_base_url||''},transcriptionDraft={baseUrl:settings.whisper_base_url||''}
       setSummaryConnection(summaryDraft);setTranscriptionConnection(transcriptionDraft)
-      setSavedDraft(JSON.stringify([savedWhisperModel, savedLlmModel, settings.llm_provider, vdStyle, vdFormats, vdQuality, vdVideoQuality,settings.transcription_provider||'server',summaryDraft,transcriptionDraft]))
+      setSavedDraft(JSON.stringify([savedWhisperModel, savedLlmModel, settings.llm_provider, ...savedVideoDraft.current,settings.transcription_provider||'server',summaryDraft,transcriptionDraft]))
     }
   }, [settings])
 
   async function loadSettings() {
+    if (settingsWrite.current) return
+    const request = ++settingsRequest.current
     const owner = getAccountId()
     setLoading(true)
     setLoadError('')
     try {
       const data = await fetchSettings()
-      if (owner !== getAccountId()) return
+      if (owner !== getAccountId() || request !== settingsRequest.current) return
       setSettings(data)
       setCache(CacheKeys.SETTINGS, data, owner)
     } catch (err) {
-      if (owner === getAccountId()) setLoadError(err instanceof Error ? err.message : 'Cannot load settings. Please retry.')
+      if (owner === getAccountId() && request === settingsRequest.current) setLoadError(err instanceof Error ? err.message : 'Cannot load settings. Please retry.')
     } finally {
-      if (owner === getAccountId()) setLoading(false)
+      if (owner === getAccountId() && request === settingsRequest.current) setLoading(false)
     }
   }
 
   async function saveSettings() {
+    if (!settings || settingsWrite.current) return
+    settingsWrite.current=true
+    const operation=++settingsRequest.current
+    setLoading(false)
     const owner=getAccountId()
     setSaving(true)
     setSaveResult(null)
@@ -446,77 +448,47 @@ export default function Settings() {
       setPreference('vd_formats', JSON.stringify(vdFormats))
       setPreference('vd_quality', vdQuality)
       setPreference('vd_video_quality', vdVideoQuality)
+      savedVideoDraft.current=[vdStyle,vdFormats,vdQuality,vdVideoQuality]
       setSavedDraft(draft)
       if(result.settings){setSettings(result.settings);setCache(CacheKeys.SETTINGS,result.settings,owner)}
-      setSaveResult('Settings saved successfully!')
-      setTimeout(() => setSaveResult(null), 3000)
+      setLoadError('')
+      setSaveResult('Submitted settings saved.')
+      setTimeout(() => { if (operation===settingsRequest.current && owner===getAccountId()) setSaveResult(null) }, 3000)
     } catch (err) {
       console.error('Failed to save settings:', err)
-      setSaveResult('Failed to save settings: ' + (err instanceof Error ? err.message : 'Please retry'))
+      if (owner===getAccountId()) setSaveResult('Failed to save settings: ' + (err instanceof Error ? err.message : 'Please retry'))
     } finally {
-      setSaving(false)
+      settingsWrite.current=false
+      if (owner===getAccountId()) setSaving(false)
     }
   }
 
   async function verifyAndSaveLlm() {
+    if (!settings || settingsWrite.current) return
+    settingsWrite.current=true
+    settingsRequest.current++
+    setLoading(false)
+    setSaveResult(null)
     const owner=getAccountId()
     setTestingLlm(true)
     setLlmTestResult('')
     try {
       const result = await testLlmConnection({ llm_provider: llmProvider, llm_model: llmModel })
       if(owner!==getAccountId())return
-      await updateSettings({ llm_provider: llmProvider, llm_model: result.model })
+      const saved = await updateSettings({ llm_provider: llmProvider, llm_model: result.model })
       if(owner!==getAccountId())return
-      setLlmModel(result.model)
+      setLlmModel(current => current === llmModel ? result.model : current)
       setSavedDraft(previous => { if (!previous) return previous; const values = JSON.parse(previous); values[1] = result.model; values[2] = llmProvider; return JSON.stringify(values) })
       setPreference('llm_model', result.model)
+      const confirmed=saved.settings || {...settings,llm_provider:llmProvider,llm_model:result.model}
+      setSettings(confirmed);setCache(CacheKeys.SETTINGS,confirmed,owner)
+      setLoadError('')
       setLlmTestResult('Connected and saved. Podcast and video summaries are ready.')
     } catch (error) {
-      setLlmTestResult(error instanceof Error ? error.message : 'Could not connect to the summary provider')
-    } finally { setTestingLlm(false) }
+      if (owner===getAccountId()) setLlmTestResult(error instanceof Error ? error.message : 'Could not connect to the summary provider')
+    } finally { settingsWrite.current=false; if (owner===getAccountId()) setTestingLlm(false) }
   }
 
-  async function checkTruncated() {
-    setChecking(true)
-    setCleanupResult(null)
-    try {
-      const response = await authFetch('/api/truncated')
-      if (response.ok) {
-        const data = await response.json()
-        setTruncatedItems(data.truncated || [])
-        if (data.truncated.length === 0) {
-          setCleanupResult('No truncated transcripts found. All data looks good!')
-        }
-      }
-    } catch (err) {
-      console.error('Failed to check truncated:', err)
-      setCleanupResult('Failed to check for truncated data')
-    } finally {
-      setChecking(false)
-    }
-  }
-
-  async function cleanupTruncated() {
-    if (!confirm(`This will delete ${truncatedItems.length} truncated transcripts and their summaries. Continue?`)) return
-    setCleaning(true)
-    try {
-      const response = await authFetch('/api/truncated/cleanup', { method: 'POST' })
-      if (response.ok) {
-        const data = await response.json()
-        setCleanupResult(`Cleaned up ${data.deleted.length} truncated transcripts. You can now reprocess these episodes.`)
-        setTruncatedItems([])
-      }
-    } catch (err) {
-      console.error('Failed to cleanup:', err)
-      setCleanupResult('Failed to clean up truncated data')
-    } finally {
-      setCleaning(false)
-    }
-  }
-
-  function formatDuration(seconds: number): string {
-    return `${Math.floor(seconds / 60)} min`
-  }
 
   async function handleImportSubscriptions() {
     if (!importUsername.trim()) return
@@ -555,7 +527,7 @@ export default function Settings() {
             <span role="status" className="text-sm text-gray-400">{!settings ? 'Settings not loaded' : dirty ? 'Unsaved changes' : 'All changes saved'}</span>
             <button
               onClick={saveSettings}
-              disabled={!settings || saving || !dirty}
+              disabled={!settings || saving || testingLlm || !dirty}
               className="inline-flex items-center gap-2 px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium rounded-lg transition-colors disabled:opacity-50"
             >
               {saving ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
@@ -573,7 +545,7 @@ export default function Settings() {
         {TOP_TABS.map(tab => (
           <button
             key={tab.id}
-            onClick={() => setActiveTab(tab.id)}
+            onClick={() => {setActiveTab(tab.id);if(tab.id==='tools')setMaintenanceOpened(true)}}
             className={`min-w-0 flex flex-col sm:flex-row items-center justify-center gap-2 px-2 py-2.5 text-sm font-medium rounded-lg transition-colors ${
               activeTab === tab.id
                 ? 'bg-indigo-600 text-white'
@@ -659,7 +631,7 @@ export default function Settings() {
               </div>}
               {settings?.llm_key_saved&&<button type="button" disabled={saving} className="block text-sm text-gray-400 underline" onClick={()=>{setLlmProvider('server');setLlmModel('');setSummaryConnection(value=>({...value,apiKey:''}))}}>Remove saved summary key on save</button>}
               {settings?.llm_key_error&&<p role="alert" className="text-sm text-amber-300">{settings.llm_key_error}</p>}
-              {llmProvider!=='custom'&&<button onClick={verifyAndSaveLlm} disabled={!settings || testingLlm || (llmProvider === 'groq' && !settings?.groq_available)} className="px-4 py-2 bg-indigo-600 text-white rounded-lg disabled:opacity-50 flex items-center gap-2">
+              {llmProvider!=='custom'&&<button onClick={verifyAndSaveLlm} disabled={!settings || saving || testingLlm || (llmProvider === 'groq' && !settings?.groq_available)} className="px-4 py-2 bg-indigo-600 text-white rounded-lg disabled:opacity-50 flex items-center gap-2">
                 {testingLlm && <Loader2 size={16} className="animate-spin" />} Test and save summaries
               </button>}
               {llmTestResult && <p role="status" className="text-sm text-gray-300">{llmTestResult}</p>}
@@ -782,6 +754,7 @@ export default function Settings() {
                   {VIDEO_STYLES.map(s => (
                     <button
                       key={s.id}
+                      aria-pressed={vdStyle===s.id}
                       onClick={() => setVdStyle(s.id)}
                       className={`px-3 py-1.5 rounded-lg text-xs transition-colors ${
                         vdStyle === s.id
@@ -801,6 +774,7 @@ export default function Settings() {
                   {VIDEO_FORMATS.map(f => (
                     <button
                       key={f.id}
+                      aria-pressed={vdFormats.includes(f.id)}
                       onClick={() => toggleVdFormat(f.id)}
                       className={`px-3 py-1.5 rounded-lg text-xs transition-colors ${
                         vdFormats.includes(f.id)
@@ -821,6 +795,7 @@ export default function Settings() {
                     {AUDIO_QUALITIES.map(q => (
                       <button
                         key={q.id}
+                        aria-pressed={vdQuality===q.id}
                         onClick={() => setVdQuality(q.id)}
                         className={`px-3 py-1.5 rounded-lg text-xs transition-colors ${
                           vdQuality === q.id
@@ -840,6 +815,7 @@ export default function Settings() {
                     {VIDEO_QUALITIES.map(q => (
                       <button
                         key={q.id}
+                        aria-pressed={vdVideoQuality===q.id}
                         onClick={() => setVdVideoQuality(q.id)}
                         className={`px-3 py-1.5 rounded-lg text-xs transition-colors ${
                           vdVideoQuality === q.id
@@ -1232,65 +1208,6 @@ export default function Settings() {
             )}
           </section>
 
-          {/* Data Maintenance */}
-          <section className="p-5 bg-dark-surface border border-dark-border rounded-xl">
-            <h2 className="text-base font-semibold text-white mb-3 flex items-center gap-2">
-              <Trash2 className="text-red-500" size={18} />
-              Data Maintenance
-            </h2>
-            <p className="text-sm text-gray-400 mb-3">
-              Check for truncated transcripts (duration &lt; 85% of expected).
-            </p>
-            <div className="flex flex-col sm:flex-row gap-3 mb-3">
-              <button
-                onClick={checkTruncated}
-                disabled={checking}
-                className="flex items-center gap-2 px-4 py-2 bg-dark-hover hover:bg-dark-border text-white rounded-lg transition-colors disabled:opacity-50"
-              >
-                {checking ? <Loader2 size={16} className="animate-spin" /> : <Search size={16} />}
-                Check for Truncated
-              </button>
-              {truncatedItems.length > 0 && (
-                <button
-                  onClick={cleanupTruncated}
-                  disabled={cleaning}
-                  className="flex items-center gap-2 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors disabled:opacity-50"
-                >
-                  {cleaning ? <Loader2 size={16} className="animate-spin" /> : <Trash2 size={16} />}
-                  Delete {truncatedItems.length} Truncated
-                </button>
-              )}
-            </div>
-            {cleanupResult && (
-              <div className={`p-3 rounded-lg mb-3 ${
-                cleanupResult.includes('Failed')
-                  ? 'bg-red-500/10 border border-red-500/30 text-red-300'
-                  : 'bg-green-500/10 border border-green-500/30 text-green-300'
-              }`}>
-                <div className="flex items-center gap-2">
-                  <CheckCircle size={16} />
-                  {cleanupResult}
-                </div>
-              </div>
-            )}
-            {truncatedItems.length > 0 && (
-              <div className="space-y-2 max-h-48 overflow-y-auto">
-                <p className="text-sm text-yellow-400 flex items-center gap-2 mb-2">
-                  <AlertTriangle size={16} />
-                  Found {truncatedItems.length} truncated transcripts:
-                </p>
-                {truncatedItems.map(item => (
-                  <div key={item.episode_id} className="p-3 bg-dark-hover rounded-lg text-sm">
-                    <p className="text-white font-medium truncate">{item.episode_title}</p>
-                    <p className="text-gray-400 mt-1">
-                      Transcript: {formatDuration(item.transcript_duration)} / Expected: {formatDuration(item.episode_duration)}
-                      <span className="text-red-400 ml-2">({item.percentage}%)</span>
-                    </p>
-                  </div>
-                ))}
-              </div>
-            )}
-          </section>
 
           {/* Import Subscriptions */}
           <section className="p-5 bg-dark-surface border border-dark-border rounded-xl">
@@ -1373,6 +1290,9 @@ export default function Settings() {
           </section>
         </div>
       )}
+      {maintenanceOpened && <div hidden={activeTab!=='tools'} className="mt-5">
+        <OptionalTool fallback={<p role="status">Loading maintenance tools…</p>}><TranscriptMaintenance/></OptionalTool>
+      </div>}
     </div>
   )
 }
