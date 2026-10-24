@@ -27,6 +27,9 @@ async def main():
  async with async_playwright() as p:
   browser=await p.webkit.launch() if args.webkit else await p.chromium.launch(executable_path=args.browser_path,args=['--no-sandbox'])
   for width in args.widths:
+   settings.update(llm_model='openai/gpt-oss-120b',llm_provider='groq',whisper_model='whisper-large-v3')
+   holds={'read':None,'save':None,'test':None}
+   maintenance={'empty':False}
    context=await browser.new_context(viewport={'width':width,'height':844},is_mobile=width<768,has_touch=width<768,service_workers='block')
    await context.add_init_script("localStorage.setItem('xyz_access_token',"+json.dumps(token(int(time.time())+7200))+");localStorage.setItem('xyz_user',JSON.stringify({id:'bench',email:'bench@example.com',authenticated:true}));window.WebSocket=class{static OPEN=1;readyState=1;constructor(){setTimeout(()=>this.onopen?.(),1)}send(){setTimeout(()=>this.onmessage?.({data:JSON.stringify({type:'init',jobs:[{job_id:'fixture-job',episode_title:'A long podcast title / 一期较长的播客标题',status:'failed',progress:0,message:'Connection needs attention'}],video_tasks:[]})}),1)}close(){}}")
    page=await context.new_page();errors=[];page.on('pageerror',lambda e:errors.append(str(e)))
@@ -47,7 +50,22 @@ async def main():
       return
     if path=='/api/auth/config':body={'supabase_enabled':True}
     elif path=='/api/auth/me':body={'id':'bench','email':'bench@example.com','authenticated':True}
-    elif path=='/api/settings':body=settings
+    elif path=='/api/settings':
+     if route.request.method=='POST':
+      settings.update(route.request.post_data_json)
+      body={'message':'Saved','settings':dict(settings)}
+      if holds['save']:await holds['save'].wait()
+     else:
+      body=dict(settings)
+      if holds['read']:await holds['read'].wait()
+    elif path=='/api/settings/test-llm':
+     body={'message':'Connected','model':route.request.post_data_json['llm_model']}
+     if holds['test']:await holds['test'].wait()
+    elif path=='/api/truncated':body={'truncated':[] if maintenance['empty'] else [{'episode_id':'reviewed','episode_title':'Synthetic incomplete transcript','episode_duration':100,'transcript_duration':20,'percentage':20}]}
+    elif path=='/api/truncated/cleanup':
+     assert route.request.post_data_json=={'episode_ids':['reviewed']}
+     await route.fulfill(status=503,content_type='application/json',body=json.dumps({'detail':'Synthetic cleanup unavailable'}))
+     return
     elif path=='/api/cookies':body={'cookies':[{'platform':'bilibili','has_cookie':True},{'platform':'youtube','has_cookie':True}]}
     elif path=='/api/settings/models':body={'models':['fixture-model']}
     elif path=='/api/cookies/douyin/diagnose':body={'has_cookie':False,'looks_usable':False,'message':'No saved cookies','present':[],'missing':[],'cookie_count':0,'domains':[]}
@@ -118,6 +136,50 @@ async def main():
       assert all(result.values()),(width,result)
      await page.screenshot(path=str(args.output/f'platforms-{width}.png'))
     if path=='/settings':
+     # Cached settings may render immediately while a stale background read is
+     # still pending. Neither that read nor a save acknowledgement may erase edits.
+     holds['read']=asyncio.Event()
+     await page.reload(wait_until='domcontentloaded')
+     await page.get_by_label('Summary model',exact=True).select_option('openai/gpt-oss-20b')
+     holds['read'].set()
+     await page.get_by_text('Refreshing settings…',exact=True).wait_for(state='hidden')
+     assert await page.get_by_label('Summary model',exact=True).input_value()=='openai/gpt-oss-20b'
+     holds['read']=None
+     holds['save']=asyncio.Event()
+     await page.get_by_role('button',name='Save Settings',exact=True).click()
+     await page.get_by_label('Transcription model',exact=True).select_option('whisper-large-v3-turbo')
+     await page.get_by_role('button',name='教程 Tutorial',exact=True).click()
+     holds['save'].set()
+     await page.get_by_role('button',name='Save Settings',exact=True).wait_for()
+     assert await page.get_by_role('button',name='Save Settings',exact=True).is_enabled()
+     assert await page.get_by_label('Transcription model',exact=True).input_value()=='whisper-large-v3-turbo'
+     assert await page.get_by_role('button',name='教程 Tutorial',exact=True).get_attribute('aria-pressed')=='true'
+     assert await page.get_by_text('Unsaved changes',exact=True).count()==1
+     holds['save']=None
+     await page.get_by_role('button',name='Save Settings',exact=True).click()
+     await page.get_by_text('All changes saved',exact=True).wait_for()
+     holds['test']=asyncio.Event()
+     await page.get_by_label('Summary model',exact=True).select_option('openai/gpt-oss-120b')
+     await page.get_by_role('button',name='Test and save summaries',exact=True).click()
+     assert await page.get_by_role('button',name='Save Settings',exact=True).is_disabled()
+     holds['test'].set()
+     await page.get_by_text('Connected and saved. Podcast and video summaries are ready.',exact=True).wait_for()
+     holds['test']=None
+     await page.get_by_role('button',name='Tools & Data',exact=True).click()
+     await page.get_by_role('button',name='Check for Truncated',exact=True).click()
+     await page.get_by_text('Found 1 truncated transcripts:',exact=True).wait_for()
+     page.once('dialog',lambda dialog:dialog.accept())
+     await page.get_by_role('button',name='Delete 1 Truncated',exact=True).click()
+     await page.get_by_text('Failed to confirm cleanup:',exact=False).wait_for()
+     assert await page.get_by_role('button',name='Delete 1 Truncated',exact=True).is_disabled()
+     await inspect('maintenance-failure')
+     await page.get_by_role('button',name='General',exact=True).click()
+     await page.get_by_role('button',name='Tools & Data',exact=True).click()
+     assert await page.get_by_text('Failed to confirm cleanup:',exact=False).is_visible()
+     maintenance['empty']=True
+     await page.get_by_role('button',name='Check for Truncated',exact=True).click()
+     await page.get_by_text('No truncated transcripts found.',exact=True).wait_for()
+     await page.get_by_role('button',name='General',exact=True).click()
      await page.get_by_label('Summary provider',exact=True).select_option('custom')
      await page.get_by_label('Summary Base URL',exact=True).wait_for()
      await inspect('custom-models')

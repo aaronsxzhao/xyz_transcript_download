@@ -210,3 +210,7 @@ class ImportSubscriptionsResponse(BaseModel):
     already_subscribed: int
     failed: int
     podcasts: List[str]  # Names of imported podcasts
+
+
+class TruncatedCleanupRequest(BaseModel):
+    episode_ids: List[str]
