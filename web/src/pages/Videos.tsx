@@ -1,3 +1,4 @@
+import { videoFailureHint } from '../lib/videoFailure'
 import {sourceAction,TaskProgress} from '../components/TaskStatus'
 import ContentDates from '../components/ContentDates'
 import CachedImage from '../components/CachedImage'
@@ -717,30 +718,6 @@ function getDisplayTitle(task: VideoTask): string {
   return 'Untitled'
 }
 
-function getErrorHint(task: VideoTask): string | null {
-  const err = (task.error || '').toLowerCase()
-  const msg = (task.message || '').toLowerCase()
-  const combined = err + ' ' + msg
-  if (combined.includes('login') || combined.includes('cookie') || combined.includes('403') || combined.includes('sign in') || combined.includes('412'))
-    return 'This video may require login. Go to Settings → Platform Accounts and upload cookies or scan QR code for this platform.'
-  if (combined.includes('not found') || combined.includes('404') || combined.includes('unavailable') || combined.includes('removed'))
-    return 'The video could not be found or is no longer available. Check the URL and try again.'
-  if (combined.includes('geo') || combined.includes('region') || combined.includes('country'))
-    return 'This video may be region-restricted. Try using a VPN or a different region.'
-  if (combined.includes('private'))
-    return 'This video is private. Make sure you have access and upload platform cookies in Settings.'
-  if (combined.includes('age') || combined.includes('restricted'))
-    return 'This video is age-restricted. Upload platform cookies in Settings to verify your account.'
-  if (combined.includes('timeout') || combined.includes('timed out'))
-    return 'The request timed out. Try again later or check your connection.'
-  if (combined.includes('copyright') || combined.includes('blocked'))
-    return 'This video is blocked due to copyright. It cannot be processed.'
-  if (combined.includes('rate limit') || combined.includes('429'))
-    return 'Too many requests. Wait a few minutes and try again.'
-  if (combined.includes('unsupported'))
-    return 'This URL format is not supported. Check the URL and try again.'
-  return 'Something went wrong. Try again, or check Settings → Platform Accounts if the video requires login.'
-}
 
 function VideoList({ videos, onDelete, onRetry, onCancel }: {
   videos: VideoTask[]
@@ -787,8 +764,8 @@ function VideoList({ videos, onDelete, onRetry, onCancel }: {
     <div className="space-y-3 video-task-list">
       {videos.map((task,index) => {
         const isFailed = task.status === 'failed'
-        const errorMsg = task.error || task.message || ''
-        const hint = isFailed ? getErrorHint(task) : null
+        const errorMsg = task.message && task.message !== 'Failed' ? task.message : task.error || ''
+        const hint = isFailed ? videoFailureHint(task) : null
         const displayTitle = getDisplayTitle(task)
 
         const isClickable = task.status === 'success'

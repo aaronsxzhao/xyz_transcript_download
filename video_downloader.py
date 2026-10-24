@@ -104,6 +104,28 @@ def _classify_ytdlp_error(e: Exception, platform: str) -> VideoDownloadError:
     raw = str(e)
     logger.error(f"[yt-dlp error] platform={platform}, error={raw[:500]}")
 
+    # Specific restrictions take precedence over generic 403/sign-in hints.
+    if any(term in msg for term in ("rate limit", "too many requests", "http error 429", "status code 429")):
+        return VideoDownloadError(
+            f"Rate limited by {platform}. Please wait a few minutes and try again.",
+            "RATE_LIMITED",
+        )
+    if "copyright" in msg:
+        return VideoDownloadError("This video is blocked due to copyright restrictions.", "COPYRIGHT_BLOCKED")
+    if any(term in msg for term in ("geo-restrict", "geo restrict", "geo-block", "geoblock",
+            "not available in your country", "not available in your region", "not available from your location",
+            "not made this video available in your country")):
+        return VideoDownloadError("This video is not available in your region.", "GEO_RESTRICTED")
+    if any(term in msg for term in ("private video", "video is private", "private content", "account is private")):
+        return VideoDownloadError("This video is private. Only accounts with access can view it.", "VIDEO_PRIVATE")
+    if any(term in msg for term in ("age-restrict", "age restrict", "age verif", "age gate", "confirm your age", "verify your age")):
+        return VideoDownloadError(
+            f"This video is age-restricted on {platform}. Please set cookies from a logged-in browser in Settings.",
+            "AGE_RESTRICTED",
+        )
+    if "removed" in msg or "deleted" in msg:
+        return VideoDownloadError("This video has been removed or is no longer available.", "VIDEO_UNAVAILABLE")
+
     if "412" in msg or "precondition" in msg:
         if platform == "bilibili":
             return VideoDownloadError(
@@ -140,47 +162,10 @@ def _classify_ytdlp_error(e: Exception, platform: str) -> VideoDownloadError:
             "LOGIN_REQUIRED",
         )
 
-    if "private" in msg:
+    if any(term in msg for term in ("unavailable", "not available", "not found")):
         return VideoDownloadError(
-            "This video is private and cannot be accessed.",
-            "VIDEO_PRIVATE",
-        )
-
-    if "removed" in msg or "deleted" in msg or "not available" in msg or "not found" in msg:
-        if platform == "youtube" and ("unavailable" in msg or "not available" in msg):
-            return VideoDownloadError(
-                "YouTube says this video is unavailable. This often happens when accessing YouTube "
-                "from a cloud server. Try uploading your YouTube cookies in Settings → Platform Accounts "
-                "→ YouTube to authenticate your session.",
-                "LOGIN_REQUIRED",
-            )
-        return VideoDownloadError(
-            "This video has been removed or is no longer available.",
+            "The source reports this video is unavailable. Check the original link before retrying.",
             "VIDEO_UNAVAILABLE",
-        )
-
-    if "age" in msg and ("restrict" in msg or "verif" in msg or "gate" in msg):
-        return VideoDownloadError(
-            f"This video is age-restricted on {platform}. Please set cookies from a logged-in browser in Settings.",
-            "AGE_RESTRICTED",
-        )
-
-    if "geo" in msg or "country" in msg or "region" in msg or "not available in your" in msg:
-        return VideoDownloadError(
-            "This video is not available in your region.",
-            "GEO_RESTRICTED",
-        )
-
-    if "copyright" in msg or "blocked" in msg:
-        return VideoDownloadError(
-            "This video is blocked due to copyright restrictions.",
-            "COPYRIGHT_BLOCKED",
-        )
-
-    if "rate limit" in msg or "too many" in msg or "429" in msg:
-        return VideoDownloadError(
-            f"Rate limited by {platform}. Please wait a few minutes and try again.",
-            "RATE_LIMITED",
         )
 
     if "ffmpeg" in msg or "ffprobe" in msg:
