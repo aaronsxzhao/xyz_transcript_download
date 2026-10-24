@@ -6,7 +6,7 @@ from unittest.mock import patch
 import pytest
 
 from summarizer import Summarizer,extract_json_from_response
-from summary_errors import DELIVERY_WARNING,SummaryOutputError
+from summary_errors import DELIVERY_WARNING,SummaryOutputError,delivery_notice
 
 
 @pytest.mark.parametrize('raw',[
@@ -42,7 +42,7 @@ def test_delivers_readable_prose_or_overview_without_requiring_valid_points(cont
     response=NS(choices=[NS(message=NS(content=content))])
     with patch.object(engine,'_call_llm_with_retry',return_value=response):
         result=engine._summarize_single('episode','Source '*400,'Show','Title')
-    assert result.key_points and DELIVERY_WARNING in result.overview
+    assert result.key_points and delivery_notice("", "format", "Source").strip() in result.overview
     assert any(word in result.key_points[0].summary for word in ('Readable','Overview only'))
     assert result.key_points[0].original_quote==''
 

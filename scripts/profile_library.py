@@ -155,6 +155,8 @@ async def profile() -> list[dict]:
         httpx.Client.send = original
         app.dependency_overrides.clear()
     reports.extend(await asyncio.to_thread(profile_public_routes, owner, routes, local_video))
+    from scripts.probe_summary_language import probe_summary_language
+    reports.extend(await asyncio.to_thread(probe_summary_language))
     return reports
 
 

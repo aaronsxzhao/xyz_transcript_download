@@ -177,7 +177,7 @@ class FastLocalTranscriber:
         self,
         audio_path: Path,
         episode_id: str,
-        language: str = "zh",
+        language: Optional[str] = None,
         progress_callback: Optional[Callable[[float], None]] = None,
     ) -> Optional[Transcript]:
         """
@@ -186,7 +186,7 @@ class FastLocalTranscriber:
         Args:
             audio_path: Path to the audio file
             episode_id: Episode ID for reference
-            language: Language code (default: zh for Chinese)
+            language: Language code (default: automatic detection)
             progress_callback: Optional callback for progress updates
 
         Returns:
@@ -354,7 +354,7 @@ class MLXTranscriber:
         self,
         audio_path: Path,
         episode_id: str,
-        language: str = "zh",
+        language: Optional[str] = None,
         progress_callback: Optional[Callable[[float], None]] = None,
     ) -> Optional[Transcript]:
         """
@@ -363,7 +363,7 @@ class MLXTranscriber:
         Args:
             audio_path: Path to the audio file
             episode_id: Episode ID for reference
-            language: Language code (default: zh for Chinese)
+            language: Language code (default: automatic detection)
             progress_callback: Optional callback for progress updates
 
         Returns:
@@ -568,7 +568,7 @@ class APITranscriber:
         self,
         audio_path: Path,
         episode_id: str,
-        language: str = "zh",
+        language: Optional[str] = None,
         progress_callback: Optional[Callable[[float], None]] = None,
     ) -> Optional[Transcript]:
         """Transcribe an audio file using OpenAI API."""
@@ -625,7 +625,7 @@ class APITranscriber:
                             result_holder["response"] = self.client.audio.transcriptions.create(
                                 model=self.model,
                                 file=audio_file,
-                                language=language,
+                                **({"language": language} if language else {}),
                                 response_format="verbose_json",
                                 timestamp_granularities=["segment"],
                             )
@@ -719,7 +719,7 @@ class APITranscriber:
             from transcript_quality import validate_transcript
             candidate = Transcript(
                 episode_id=episode_id,
-                language=getattr(response, 'language', language),
+                language=getattr(response, 'language', None) or language or 'unknown',
                 duration=getattr(response, 'duration', 0) or 0,
                 text=response.text, segments=segments,
             )
@@ -734,7 +734,7 @@ class APITranscriber:
 
             return Transcript(
                 episode_id=episode_id,
-                language=response.language if hasattr(response, 'language') else language,
+                language=getattr(response, 'language', None) or language or 'unknown',
                 duration=response.duration if hasattr(response, 'duration') else 0,
                 text=response.text,
                 segments=segments,
@@ -772,6 +772,7 @@ class APITranscriber:
 
         all_segments = []
         all_text = []
+        detected_languages = {}
         time_offset = 0
 
         # Create a cancel check function that uses progress_callback
@@ -867,6 +868,8 @@ class APITranscriber:
                     all_segments.append(adjusted_seg)
 
                 all_text.append(chunk_transcript.text)
+                if chunk_transcript.language:
+                    detected_languages[chunk_transcript.language] = detected_languages.get(chunk_transcript.language, 0) + len(chunk_transcript.text)
                 
                 logger.info(f"Chunk {i+1}/{num_chunks} complete")
 
@@ -882,7 +885,7 @@ class APITranscriber:
 
         return Transcript(
             episode_id=episode_id,
-            language=language,
+            language=language or (max(detected_languages, key=detected_languages.get) if detected_languages else "unknown"),
             duration=duration,
             text=" ".join(all_text),
             segments=all_segments,
@@ -1053,7 +1056,7 @@ class Transcriber:
         self,
         audio_path: Path,
         episode_id: str,
-        language: str = "zh",
+        language: Optional[str] = None,
         progress_callback: Optional[Callable[[float], None]] = None,
     ) -> Optional[Transcript]:
         """Transcribe an audio file."""

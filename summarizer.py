@@ -28,6 +28,7 @@ def extract_json_from_response(content: str) -> dict:
 
 from openai import OpenAI
 from summary_errors import SummaryOutputError, ProcessingCancelledError
+from reading_language import chinese_source
 from source_coverage import SOURCE_CHUNK_CHARS, split_source, audit_source, spoken_source, quote_timestamp
 from tenacity import (
     retry,
@@ -189,12 +190,12 @@ class Summarizer:
                     raise SummaryOutputError('empty')
                 from summary_errors import delivery_notice
                 return Summary(episode_id, episode_title,
-                    delivery_notice('模型返回的格式未能结构化，以下保留原始正文。'),
-                    [KeyPoint('生成正文', raw, '', '')], ['生成正文'], [])
+                    delivery_notice('', 'format', transcript_text),
+                    [KeyPoint('生成正文' if chinese_source(transcript_text) else 'Generated notes', raw, '', '')], ['生成正文' if chinese_source(transcript_text) else 'Generated notes'], [])
             if not result.key_points:
                 from summary_errors import delivery_notice
-                return replace(result, overview=delivery_notice('模型未提供结构化要点，以下保留生成正文。'),
-                    key_points=[KeyPoint('生成正文', result.overview, '', '')], topics=['生成正文'])
+                return replace(result, overview=delivery_notice('', 'format', transcript_text),
+                    key_points=[KeyPoint('生成正文' if chinese_source(transcript_text) else 'Generated notes', result.overview, '', '')], topics=['生成正文' if chinese_source(transcript_text) else 'Generated notes'])
             try:
                 result = self._audit_summary(result, transcript_text, progress_callback, source_context)
             except Exception as audit_error:
@@ -211,7 +212,7 @@ class Summarizer:
                 for point in result.key_points:
                     quote = point.original_quote if compact(point.original_quote) and compact(point.original_quote) in spoken else ""
                     points.append(replace(point, original_quote=quote, timestamp=quote_timestamp(transcript_text, quote, point.timestamp)))
-                result = replace(result, overview=delivery_notice(result.overview), key_points=points)
+                result = replace(result, overview=delivery_notice(result.overview, "audit", transcript_text), key_points=points)
             key_points = result.key_points
 
             logger.info(f"Summary generated with {len(key_points)} key points")
@@ -398,9 +399,9 @@ class Summarizer:
                 total_chars_generated += 2000  # rough estimate per chunk
             else:
                 from summary_errors import delivery_notice
-                topic = f"第 {i + 1}/{len(chunks)} 部分：原始转写"
+                topic = (f"第 {i + 1}/{len(chunks)} 部分：原始转写" if chinese_source(text) else f"Part {i + 1}/{len(chunks)}: Original transcript")
                 chunk_summaries.append(Summary(transcript.episode_id, episode_title,
-                    delivery_notice(f"{topic}未能生成摘要，保留原始转写。"),
+                    delivery_notice(topic, source=text),
                     [KeyPoint(topic, spoken_source(chunk), "", "")], [topic], []))
 
         if not generated:
@@ -462,7 +463,7 @@ class Summarizer:
     def _merge_summaries(
         self, episode_id: str, episode_title: str, summaries: List[Summary], progress_callback=None,
     ) -> Summary:
-        from summary_errors import DELIVERY_WARNING, delivery_notice, is_cancellation
+        from summary_errors import delivery_notice, is_cancellation, strip_delivery_notices, merge_delivery_notices
         try:
             result = self._merge_summaries_verified(episode_id, episode_title, summaries, progress_callback)
         except Exception as error:
@@ -470,12 +471,11 @@ class Summarizer:
                 raise
             logger.warning("Delivering source sections after outline merge failure: %s", type(error).__name__)
             result = Summary(episode_id, episode_title,
-                delivery_notice("\n\n".join(summary.overview.replace(DELIVERY_WARNING, "").strip("\r\n") for summary in summaries)),
+                delivery_notice("\n\n".join(strip_delivery_notices(summary.overview) for summary in summaries), "merge", "\n".join(point.summary for summary in summaries for point in summary.key_points)),
                 [point for summary in summaries for point in summary.key_points],
                 list(dict.fromkeys(topic for summary in summaries for topic in summary.topics)),
                 [item for summary in summaries for item in summary.takeaways])
-        if any(DELIVERY_WARNING in summary.overview for summary in summaries):
-            result = replace(result, overview=delivery_notice(result.overview))
+        result = replace(result, overview=merge_delivery_notices(result.overview, [result.overview, *[summary.overview for summary in summaries]]))
         return result
 
     def _merge_summaries_verified(
