@@ -30,6 +30,8 @@ async def main():
    context=await browser.new_context(viewport={'width':width,'height':844},is_mobile=width<768,has_touch=width<768,service_workers='block')
    await context.add_init_script("localStorage.setItem('xyz_access_token',"+json.dumps(token(int(time.time())+7200))+");localStorage.setItem('xyz_user',JSON.stringify({id:'bench',email:'bench@example.com',authenticated:true}));window.WebSocket=class{static OPEN=1;readyState=1;constructor(){setTimeout(()=>this.onopen?.(),1)}send(){setTimeout(()=>this.onmessage?.({data:JSON.stringify({type:'init',jobs:[{job_id:'fixture-job',episode_title:'A long podcast title / 一期较长的播客标题',status:'failed',progress:0,message:'Connection needs attention'}],video_tasks:[]})}),1)}close(){}}")
    page=await context.new_page();errors=[];page.on('pageerror',lambda e:errors.append(str(e)))
+   connection_offline=False
+   connection_reads={'/api/auth/me':0,'/api/library':0}
    async def inspect(label):
     result=await page.evaluate(AUDIT)
     assert not result['problems'],(width,label,result['problems'])
@@ -38,6 +40,11 @@ async def main():
     return result
    async def api(route):
     path=urlparse(route.request.url).path;body={}
+    if path in connection_reads:
+     connection_reads[path]+=1
+     if connection_offline:
+      await route.fulfill(status=503,content_type='application/json',body=json.dumps({'detail':'Service temporarily unavailable'}))
+      return
     if path=='/api/auth/config':body={'supabase_enabled':True}
     elif path=='/api/auth/me':body={'id':'bench','email':'bench@example.com','authenticated':True}
     elif path=='/api/settings':body=settings
@@ -50,11 +57,33 @@ async def main():
     elif path in ['/api/summaries/recent','/api/podcasts']:body=[]
     elif path=='/api/jobs':body={'jobs':[{'job_id':'fixture-job','episode_title':'A long podcast title / 一期较长的播客标题','status':'failed','progress':0,'message':'Connection needs attention'}]}
     elif path=='/api/content-updates':body={'items':[]}
-    elif path=='/api/video-notes/channels':body={'channels':[]}
+    elif path=='/api/video-notes/channels':body={'channels':[{'platform':platform,'channel':f'{platform}-{i}','total':total,'done':done,'channel_avatar':'','thumbnail':'','channel_url':'','last_updated':''} for platform,count,total,done in [('bilibili',12,17,2),('youtube',4,34,5),('local',1,2,2)] for i in range(count)]}
     elif path=='/api/library':body={'items':[],'next_cursor':None}
     elif path.startswith('/api/video-notes/'):body={'tasks':[]}
     await route.fulfill(content_type='application/json',body=json.dumps(body))
    await page.route('**/api/**',api)
+   # One retry must recover the session and page together, without adding a
+   # second viewport above the app or requiring two independent retry buttons.
+   connection_offline=True
+   await page.goto(origin+'/library',wait_until='networkidle')
+   await page.locator('.connection-notice').wait_for()
+   await page.get_by_role('button',name='Retry',exact=True).wait_for()
+   await inspect('connection-failure')
+   await page.screenshot(path=str(args.output/f'connection-{width}.png'))
+   connection_offline=False
+   await page.get_by_role('button',name='Retry connection',exact=True).click()
+   await page.get_by_text('No matching notes',exact=True).wait_for()
+   assert not await page.locator('.connection-notice,[role=alert]').count()
+   assert list(connection_reads.values())==[3,3],connection_reads
+   if width==390:
+    connection_offline=True
+    await page.goto(origin+'/library?q=reconnect',wait_until='networkidle')
+    await page.locator('.connection-notice').wait_for()
+    await page.get_by_role('button',name='Retry',exact=True).wait_for()
+    connection_offline=False
+    await page.evaluate("dispatchEvent(new Event('online'))")
+    await page.get_by_text('No matching notes',exact=True).wait_for()
+    assert not await page.locator('.connection-notice,[role=alert]').count()
    for path in ['/','/library','/podcasts','/videos','/settings','/viewer/bench','/videos/bench']:
     await page.goto(origin+path,wait_until='networkidle')
     await inspect(path)
@@ -72,6 +101,13 @@ async def main():
     if path=='/podcasts':
      await page.get_by_role('button',name='Add Podcast',exact=True).click()
      await inspect('add-podcast')
+    if path=='/videos':
+     cards=page.locator('.platform-overview-card')
+     assert await cards.count()==3
+     for card in await cards.all():
+      result=await card.evaluate("""el=>{const title=el.querySelector('h3'),row=el.children[0].getBoundingClientRect(),stats=el.children[1].getBoundingClientRect();return {singleLine:title.getBoundingClientRect().height<=parseFloat(getComputedStyle(title).lineHeight)+1,stacked:stats.top>=row.bottom-1,contained:el.scrollWidth<=el.clientWidth+1}}""")
+      assert all(result.values()),(width,result)
+     await page.screenshot(path=str(args.output/f'platforms-{width}.png'))
     if path=='/settings':
      await page.get_by_label('Summary provider',exact=True).select_option('custom')
      await page.get_by_label('Summary Base URL',exact=True).wait_for()

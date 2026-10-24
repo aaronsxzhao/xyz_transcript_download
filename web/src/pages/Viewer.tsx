@@ -78,7 +78,6 @@ export default function Viewer() {
   const [transcriptLoading, setTranscriptLoading] = useState(false);
   const [resummarizing, setResummarizing] = useState(false);
   const [error, setError] = useState("");
-  const [retrying, setRetrying] = useState(false);
   usePageTiming(
     "viewer",
     !loading && (summary?.episode_id === eid || transcript?.episode_id === eid),
@@ -156,24 +155,8 @@ export default function Viewer() {
       version === loadVersion.current &&
       requestedEid === currentEid.current &&
       owner === getAccountId();
-    setRetrying(false);
     try {
-      let data: Summary;
-      try {
-        data = await fetchSummary(eid!);
-      } catch (err) {
-        if (
-          !current() ||
-          !(
-            err instanceof TypeError ||
-            (err instanceof Error && err.message.includes("timed out")) ||
-            (err instanceof ApiError && [502, 503, 504].includes(err.status))
-          )
-        )
-          throw err;
-        setRetrying(true);
-        data = await fetchSummary(eid!);
-      }
+      const data = await fetchSummary(eid!);
       if (!current()) return;
       setSummary(data);
       setCache(CacheKeys.SUMMARY(eid!), data, owner);
@@ -202,19 +185,10 @@ export default function Viewer() {
     } finally {
       if (current()) {
         setLoading(false);
-        setRetrying(false);
       }
     }
   }
 
-  useEffect(() => {
-    if (!error || activeTab !== "summary") return;
-    const reconnect = () => {
-      void loadData();
-    };
-    window.addEventListener("online", reconnect);
-    return () => window.removeEventListener("online", reconnect);
-  }, [error, activeTab, eid]);
 
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const { updateJob } = useStore();
@@ -551,9 +525,7 @@ export default function Viewer() {
       {loading && (
         <p role="status" className="reader-loading">
           <Loader2 size={18} className="animate-spin" />
-          {retrying
-            ? "Connection interrupted. Retrying once…"
-            : "Loading summary…"}
+          Loading summary…
         </p>
       )}
       {resummarizing && summary && (

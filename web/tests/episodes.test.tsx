@@ -26,12 +26,13 @@ async function mount() {
   cleanup=()=>{act(()=>root.unmount());node.remove()}
   return node
 }
-it('keeps navigation visible while loading and recovers one transient read failure without waiting for metadata',async()=>{
+it('keeps navigation visible and retries a failed read without waiting for metadata',async()=>{
   let finish!:(data:any)=>void
   vi.mocked(fetchEpisodes).mockRejectedValueOnce(new TypeError('Failed to fetch')).mockImplementationOnce(()=>new Promise(resolve=>{finish=resolve}))
   const node=await mount()
   expect(node.querySelector('[aria-label="Go back"]')).not.toBeNull()
-  expect(node.textContent).toContain('Retrying once')
+  expect(node.textContent).toContain('connection was interrupted')
+  await act(async()=>node.querySelector<HTMLButtonElement>('[role="alert"] button')!.click())
   await act(async()=>finish([row()]))
   expect(node.textContent).toContain('Episode 0')
   expect(node.querySelector('[role="status"]')).toBeNull()
@@ -43,10 +44,10 @@ it('shows missing-podcast errors immediately without retrying or waiting for met
   expect(node.querySelector('[role="alert"]')?.textContent).toContain('no longer available')
   expect(fetchEpisodes).toHaveBeenCalledOnce()
 })
-it('stops after one automatic retry and allows a manual retry of the first page',async()=>{
+it('allows a manual retry after the bounded API read fails',async()=>{
   vi.mocked(fetchEpisodes).mockRejectedValue(new Error('Loading timed out. Please retry.'))
   const node=await mount()
-  expect(fetchEpisodes).toHaveBeenCalledTimes(2)
+  expect(fetchEpisodes).toHaveBeenCalledTimes(1)
   expect(node.querySelector('[role="alert"]')?.textContent).toContain('timed out')
   vi.mocked(fetchEpisodes).mockResolvedValueOnce([row()] as any)
   await act(async()=>node.querySelector<HTMLButtonElement>('[role="alert"] button')!.click())

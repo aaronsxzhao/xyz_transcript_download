@@ -438,7 +438,7 @@ export default function Podcasts() {
           <button
             aria-label="Back to podcast platforms"
                 onClick={() => setView({ type: 'platforms' })}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm whitespace-nowrap transition-colors ${
+            className={`flex shrink-0 items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm whitespace-nowrap transition-colors ${
               view.type === 'platforms'
                 ? 'bg-indigo-600 text-white'
                 : 'bg-dark-surface border border-dark-border text-gray-400 hover:text-white hover:bg-dark-hover'
@@ -454,7 +454,7 @@ export default function Podcasts() {
               <button
                 key={p}
                 onClick={() => setView({ type: 'podcasts', platform: p })}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm whitespace-nowrap transition-colors ${
+                className={`flex shrink-0 items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm whitespace-nowrap transition-colors ${
                   isActive
                     ? 'bg-indigo-600 text-white'
                     : 'bg-dark-surface border border-dark-border text-gray-400 hover:text-white hover:bg-dark-hover'

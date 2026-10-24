@@ -1,3 +1,4 @@
+import { bufferResponse, requestWithDeadline } from './requestDeadline'
 /**
  * Authentication utilities for Supabase
  */
@@ -88,14 +89,10 @@ export function getRememberMe(): boolean {
 
 /** Startup auth must not leave every page waiting on a hung connection. */
 function startupAuthFetch(url: string, options: RequestInit = {}): Promise<Response> {
-  const controller = new AbortController()
-  let timer: ReturnType<typeof setTimeout>
-  const timeout = new Promise<never>((_, reject) => {
-    timer = setTimeout(() => { controller.abort(); reject(new Error('Server connection timed out. Please retry.')) }, 10000)
-  })
-  const request = fetch(url, { ...options, signal: controller.signal }).then(async response =>
-    new Response(await response.text(), {status:response.status, headers:response.headers}))
-  return Promise.race([request, timeout]).finally(() => clearTimeout(timer))
+  return requestWithDeadline(signal => fetch(url, {...options, signal}).then(bufferResponse), {
+      signal:options.signal, retry:['GET','HEAD'].includes((options.method || 'GET').toUpperCase()),
+      message:'Server connection timed out. Please retry.',
+    })
 }
 
 /** Bound both connection and body download; never show proxy HTML as an error. */
@@ -247,7 +244,12 @@ export async function refreshToken(): Promise<AuthTokens | null> {
   if (refreshInFlight) return refreshInFlight
   const request = performRefresh()
   refreshInFlight = request
-  try { return await request } finally {
+  try { return await request }
+  catch (error) {
+    // A refresh may rotate its token even if the response was lost. Do not
+    // let an enclosing GET retry submit that ambiguous refresh again.
+    throw Object.assign(new Error(error instanceof Error ? error.message : 'Session connection failed. Please retry.'), {retryable:false})
+  } finally {
     if (refreshInFlight === request) refreshInFlight = null
   }
 }

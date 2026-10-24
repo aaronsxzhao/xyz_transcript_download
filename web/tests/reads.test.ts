@@ -16,7 +16,7 @@ it('keeps successful deletion responses compatible',async()=>{
  await expect(deleteEpisode('owned-id')).resolves.toEqual({message:'Deleted'})
 })
 it.each(['search','export'])('keeps Notion %s proxy errors readable with their status',async kind=>{
- vi.stubGlobal('fetch',vi.fn().mockResolvedValue(new Response('Upstream unavailable',{status:502})))
+ vi.stubGlobal('fetch',vi.fn().mockImplementation(async()=>new Response('Upstream unavailable',{status:502})))
  const pending=kind==='search'?fetchNotionPages():exportMarkdownToNotion('# Note','Title','parent')
  await expect(pending).rejects.toMatchObject({status:502,message:expect.stringContaining('Upstream unavailable')})
 })
@@ -30,18 +30,18 @@ it('limits a stalled page read and allows a fresh retry', async () => {
   })
   vi.stubGlobal('fetch', fetch)
   const read = expect(fetchSettings()).rejects.toThrow('timed out')
-  await vi.advanceTimersByTimeAsync(10000)
+  await vi.advanceTimersByTimeAsync(20000)
   await read
   expect(signal?.aborted).toBe(true)
   fetch.mockImplementationOnce(async () => Response.json({ llm_provider: 'groq' }))
   expect((await fetchSettings()).llm_provider).toBe('groq')
-  expect(fetch).toHaveBeenCalledTimes(2)
+  expect(fetch).toHaveBeenCalledTimes(3)
 })
 
 it('preserves missing-summary status separately from a server connection failure', async () => {
   vi.stubGlobal('fetch', vi.fn()
     .mockResolvedValueOnce(Response.json({ detail: 'Summary not found' }, { status: 404 }))
-    .mockResolvedValueOnce(Response.json({ detail: 'Please retry' }, { status: 503 })))
+    .mockImplementation(async()=>Response.json({ detail: 'Please retry' }, { status: 503 })))
   await expect(fetchSummary('missing')).rejects.toMatchObject({ status: 404 })
   await expect(fetchSummary('existing')).rejects.toMatchObject({ status: 503 })
   expect(new ApiError('message', 503)).toBeInstanceOf(Error)
@@ -55,6 +55,6 @@ it('limits response body reads too and shares overlapping channel requests', asy
   const b = fetchVideoTasksByChannel('youtube', 'A + B')
   const result = expect(Promise.all([a, b])).rejects.toThrow('timed out')
   expect(fetch).toHaveBeenCalledOnce()
-  await vi.advanceTimersByTimeAsync(10000)
+  await vi.advanceTimersByTimeAsync(20000)
   await result
 })

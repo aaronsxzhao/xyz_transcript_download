@@ -17,15 +17,16 @@ let cleanup:()=>void
 beforeEach(()=>{vi.mocked(fetchSummary).mockReset();vi.mocked(fetchTranscript).mockReset();vi.stubGlobal('IntersectionObserver',class{observe(){} disconnect(){}})})
 afterEach(()=>{cleanup?.();vi.unstubAllGlobals()})
 async function mount(){const node=document.createElement('div');document.body.append(node);const root=createRoot(node);await act(async()=>root.render(<MemoryRouter initialEntries={['/viewer/test']}><Routes><Route path="/viewer/:eid" element={<Viewer/>}/></Routes></MemoryRouter>));cleanup=()=>{act(()=>root.unmount());node.remove()};return node}
-it('recovers Failed to fetch without dropping navigation or fetching the transcript',async()=>{
+it('keeps navigation and permits retrying a failed read without fetching the transcript',async()=>{
   let finish!:(value:any)=>void
   vi.mocked(fetchSummary).mockRejectedValueOnce(new TypeError('Failed to fetch')).mockImplementationOnce(()=>new Promise(resolve=>{finish=resolve}))
-  const node=await mount();expect(node.querySelector('[aria-label="Go back"]')).not.toBeNull();expect(node.textContent).toContain('Retrying once')
+  const node=await mount();expect(node.querySelector('[aria-label="Go back"]')).not.toBeNull();expect(node.textContent).toContain('connection was interrupted')
+  await act(async()=>[...node.querySelectorAll('button')].find(b=>b.textContent==='Retry')!.click())
   await act(async()=>finish(summary));expect(node.textContent).toContain('Saved content');expect(fetchTranscript).not.toHaveBeenCalled()
 })
 it('stops automatic retries and resumes on a network online event',async()=>{
   vi.mocked(fetchSummary).mockRejectedValue(new TypeError('Failed to fetch'))
-  const node=await mount();expect(fetchSummary).toHaveBeenCalledTimes(2);expect(node.textContent).toContain('connection was interrupted')
+  const node=await mount();expect(fetchSummary).toHaveBeenCalledTimes(1);expect(node.textContent).toContain('connection was interrupted')
   vi.mocked(fetchSummary).mockResolvedValueOnce(summary)
   await act(async()=>window.dispatchEvent(new Event('online')))
   expect(node.textContent).toContain('Saved content');expect(node.querySelector('[role="alert"]')).toBeNull()

@@ -24,7 +24,6 @@ export default function Episodes() {
   const [loading, setLoading] = useState(() => !getCache(CacheKeys.EPISODES(pid!)))
   useWarmCache<Episode[]>(CacheKeys.EPISODES(pid!),value=>{setEpisodes(value);setLoading(false);setError('');const cached=cachedPodcast();if(cached){setPodcast(cached);setHasMore(value.length<cached.episode_count)}})
   const [error, setError] = useState('')
-  const [retrying, setRetrying] = useState(false)
   const [refreshWarning,setRefreshWarning] = useState('')
   const [errorSource, setErrorSource] = useState<'initial' | 'more'>('initial')
   usePageTiming('episodes', !loading && !error && (episodes[0]?.pid === pid || podcast?.pid === pid), CacheKeys.EPISODES(pid!), !!error)
@@ -97,7 +96,6 @@ export default function Episodes() {
     const current = () => version === loadVersion.current && currentPid.current === requestedPid && owner === getAccountId()
     setError('')
     setErrorSource('initial')
-    setRetrying(false)
     setRefreshWarning('')
     const key=CacheKeys.EPISODES(pid), cached=getCache<Episode[]>(key)
     setLoading(!cached)
@@ -109,23 +107,7 @@ export default function Episodes() {
       return
     }
     try {
-      let data: Episode[]
-      try { data = await fetchEpisodes(pid) }
-      catch (err) {
-        // One fresh connection for transient read failures; never retry auth,
-        // missing records, cancellation, or any mutation automatically.
-        const available=getCache<Episode[]>(CacheKeys.EPISODES(pid))
-        if(current() && available) {
-          setEpisodes(available)
-          setRefreshWarning('Showing saved episodes. Live refresh is unavailable.')
-          return
-        }
-        if (!current() || !(err instanceof TypeError ||
-          err instanceof Error && err.message.includes('timed out') ||
-          err instanceof ApiError && [502, 503, 504].includes(err.status))) throw err
-        setRetrying(true)
-        data = await fetchEpisodes(pid)
-      }
+      const data = await fetchEpisodes(pid)
       if (!current()) return
       setEpisodes(data)
       setCache(CacheKeys.EPISODES(pid), data, owner)
@@ -138,7 +120,7 @@ export default function Episodes() {
         else setError(episodeError(err))
       }
     } finally {
-      if (current()) { setLoading(false); setRetrying(false) }
+      if (current()) { setLoading(false) }
     }
   }
 
@@ -369,7 +351,7 @@ export default function Episodes() {
       {refreshWarning && <p role="status" className="text-sm text-gray-400">{refreshWarning}</p>}
       {loading && <div role="status" className="flex items-center gap-2 p-4 text-sm text-gray-400">
         <Loader2 size={18} className="animate-spin text-indigo-400" />
-        {retrying ? 'Connection interrupted. Retrying once…' : 'Loading episodes…'}
+        Loading episodes…
       </div>}
       {!loading && !error && episodes.length === 0 && <p className="text-gray-400">No episodes saved yet.</p>}
       {/* Episodes list */}

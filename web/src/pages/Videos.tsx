@@ -478,7 +478,7 @@ export default function Videos() {
         <div className="flex items-center gap-2 overflow-x-auto pb-1">
           <button
             onClick={() => setView({ type: 'platforms' })}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm whitespace-nowrap transition-colors ${
+            className={`flex shrink-0 items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm whitespace-nowrap transition-colors ${
               view.type === 'platforms'
                 ? 'bg-indigo-600 text-white'
                 : 'bg-dark-surface border border-dark-border text-gray-400 hover:text-white hover:bg-dark-hover'
@@ -494,7 +494,7 @@ export default function Videos() {
               <button
                 key={p}
                 onClick={() => setView({ type: 'channels', platform: p })}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm whitespace-nowrap transition-colors ${
+                className={`flex shrink-0 items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm whitespace-nowrap transition-colors ${
                   isActive
                     ? 'bg-indigo-600 text-white'
                     : 'bg-dark-surface border border-dark-border text-gray-400 hover:text-white hover:bg-dark-hover'
@@ -522,7 +522,7 @@ export default function Videos() {
         </div>
       ) : view.type === 'platforms' ? (
         /* Platform overview */
-        <div className="collection-grid">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {sortedPlatforms.map(p => {
             const meta = PLATFORM_META[p] || { label: p }
             const stats = platformStats[p]
@@ -531,13 +531,13 @@ export default function Videos() {
               <button
                 key={p}
                 onClick={() => setView({ type: 'channels', platform: p })}
-                className="p-5 bg-dark-surface border border-dark-border rounded-xl hover:border-indigo-500/50 transition-colors text-left"
+                className="platform-overview-card block w-full min-w-0 p-5 bg-dark-surface border border-dark-border rounded-xl hover:border-indigo-500/50 transition-colors text-left"
               >
                 <div className="flex items-center gap-3 mb-3">
                   <PlatformIcon platform={p} size={28} className={PLATFORM_COLORS[p] || 'text-gray-400'} />
-                  <h3 className="text-lg font-semibold text-white">{meta.label}</h3>
+                  <h3 className="text-lg font-semibold text-white whitespace-nowrap">{meta.label}</h3>
                 </div>
-                <div className="flex items-center gap-4 text-sm text-gray-400">
+                <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-gray-400">
                   <span>{platformChCount} channel{platformChCount !== 1 ? 's' : ''}</span>
                   <span>{stats.done}/{stats.total} completed</span>
                 </div>

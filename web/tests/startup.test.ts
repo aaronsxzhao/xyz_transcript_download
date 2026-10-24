@@ -23,7 +23,7 @@ it('bounds stalled session verification without logging the user out', async () 
   vi.useFakeTimers()
   vi.stubGlobal('fetch',vi.fn(()=>new Promise(()=>{})))
   const pending=expect(getCurrentUser()).rejects.toThrow('timed out')
-  await vi.advanceTimersByTimeAsync(10000);await pending
+  await vi.advanceTimersByTimeAsync(20000);await pending
   expect(getAccessToken()).toBe('synthetic-token')
   vi.stubGlobal('fetch',vi.fn(async()=>Response.json({id:'bench',email:'bench@example.com',authenticated:true})))
   expect((await getCurrentUser())?.id).toBe('bench')
