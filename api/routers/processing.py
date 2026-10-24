@@ -4,6 +4,7 @@ import json
 import threading
 import time
 import uuid
+from weakref import WeakValueDictionary
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import Dict, Set, Optional
@@ -37,6 +38,12 @@ _jobs_lock = threading.RLock()
 
 # In-memory job tracking (loaded from file on startup)
 jobs: Dict[str, ProcessingStatus] = {}
+
+# Duplicate retry requests share an acknowledged attempt while it is active.
+# Locks cover admission only; different failed jobs still queue independently.
+_retry_locks = WeakValueDictionary()
+_retry_targets = {}
+_RETRY_ACTIVE = {'pending','fetching','downloading','transcribing','summarizing','saving'}
 
 # Track cancelled jobs
 cancelled_jobs: Set[str] = set()
@@ -118,8 +125,7 @@ def _cleanup_old_jobs(max_completed_jobs: int = 100):
             if job.status in ("completed", "failed", "cancelled")
         ]
         if len(terminal_jobs) > max_completed_jobs:
-            # Keep only the most recent jobs (by job_id which has timestamp-like ordering)
-            terminal_jobs.sort(key=lambda x: x[0])
+            terminal_jobs.sort(key=lambda item: item[1].created_at or item[1].started_at)
             jobs_to_remove = terminal_jobs[:-max_completed_jobs]
             for job_id, _ in jobs_to_remove:
                 del jobs[job_id]
@@ -1082,6 +1088,7 @@ async def process_episode(
         with _jobs_lock:
             jobs[job_id] = ProcessingStatus(
                 job_id=job_id,
+                created_at=time.time(),
                 user_id=user_id,  # Track job ownership for user isolation
                 status="pending",
                 progress=0,
@@ -1253,6 +1260,29 @@ async def retry_job(
     background_tasks: BackgroundTasks,
     user: Optional[User] = Depends(get_current_user)
 ):
+    owner = user.id if user else None
+    key = (owner, job_id)
+    lock = _retry_locks.setdefault(key, asyncio.Lock())
+    async with lock:
+        with _jobs_lock:
+            for source, target in list(_retry_targets.items()):
+                candidate = jobs.get(target)
+                if source[1] not in jobs or not candidate or candidate.user_id != source[0] or candidate.status not in _RETRY_ACTIVE:
+                    _retry_targets.pop(source, None)
+            parent = jobs.get(job_id)
+            target = jobs.get(_retry_targets.get(key))
+            if parent and parent.user_id == owner and parent.status in {'failed','cancelled'} and target and target.user_id == owner:
+                return {'message':'Retry already started','old_job_id':job_id,
+                        'new_job_id':target.job_id,'episode_id':target.episode_id}
+        # Publish the retry target only after durable admission succeeds. A
+        # failed save must remain retryable rather than advertise a pending job.
+        result = await _retry_job_once(job_id, background_tasks, user)
+        with _jobs_lock:
+            _retry_targets[key] = result['new_job_id']
+        return result
+
+
+async def _retry_job_once(job_id: str, background_tasks: BackgroundTasks, user: Optional[User]):
     """Retry a failed or cancelled job (only if user owns the job)."""
     user_id = user.id if user else None
     
@@ -1308,6 +1338,7 @@ async def retry_job(
     with _jobs_lock:
         jobs[new_job_id] = ProcessingStatus(
             job_id=new_job_id,
+            created_at=time.time(),
             user_id=user_id,
             status="pending",
             progress=0,
@@ -1394,6 +1425,7 @@ async def resummarize_episode(
     with _jobs_lock:
         jobs[job_id] = ProcessingStatus(
             job_id=job_id,
+            created_at=time.time(),
             user_id=user_id,
             status="pending",
             progress=0,
@@ -1634,6 +1666,7 @@ async def batch_process(
             job_id = str(uuid.uuid4())
             jobs[job_id] = ProcessingStatus(
                 job_id=job_id,
+                created_at=time.time(),
                 user_id=user_id,  # Track job ownership
                 status="pending",
                 progress=0,

@@ -42,7 +42,7 @@ async def main():
    screenshot_markdown='# Screenshot review\n\n![Missing chart](/data/screenshots/fixture-missing.jpg)\n\n!['+long_caption+'](https://images.example.test/landscape.svg)\n\n![Portrait chart](https://images.example.test/portrait.svg)'
    maintenance={'empty':False,'bundle_requests':0}
    context=await browser.new_context(viewport={'width':width,'height':844},is_mobile=width<768,has_touch=width<768,service_workers='block')
-   await context.add_init_script("localStorage.setItem('xyz_access_token',"+json.dumps(token(int(time.time())+7200))+");localStorage.setItem('xyz_user',JSON.stringify({id:'bench',email:'bench@example.com',authenticated:true}));window.WebSocket=class{static OPEN=1;readyState=1;constructor(){setTimeout(()=>this.onopen?.(),1)}send(){setTimeout(()=>this.onmessage?.({data:JSON.stringify({type:'init',jobs:[{job_id:'fixture-job',episode_title:'A long podcast title / 一期较长的播客标题',status:'failed',progress:0,message:'Connection needs attention'}],video_tasks:[]})}),1)}close(){}}")
+   await context.add_init_script("localStorage.setItem('xyz_access_token',"+json.dumps(token(int(time.time())+7200))+");localStorage.setItem('xyz_user',JSON.stringify({id:'bench',email:'bench@example.com',authenticated:true}));window.WebSocket=class{static OPEN=1;readyState=1;constructor(){setTimeout(()=>this.onopen?.(),1)}send(){setTimeout(()=>this.onmessage?.({data:JSON.stringify({type:'init',jobs:[{job_id:'fixture-job',episode_title:'A long podcast title / 一期较长的播客标题',status:'failed',created_at:1700000000,progress:0,message:'Connection needs attention'}],video_tasks:[]})}),1)}close(){}}")
    page=await context.new_page();errors=[];page.on('pageerror',lambda e:errors.append(str(e)))
    connection_offline=False
    connection_reads={'/api/auth/me':0,'/api/library':0}
@@ -129,7 +129,7 @@ async def main():
      body={'task_id':'generated-social','message':'Processing started'}
     elif path=='/api/summaries/recent':body=[]
     elif path=='/api/podcasts':body=[{'pid':'origin-'+platform,'title':'Source '+platform,'platform':platform,'description':'','cover_url':'','episode_count':1,'summarized_count':0} for platform in ['apple','spotify','xiaoyuzhou','local']]
-    elif path=='/api/jobs':body={'jobs':[{'job_id':'fixture-job','episode_title':'A long podcast title / 一期较长的播客标题','status':'failed','progress':0,'message':'Connection needs attention'}]}
+    elif path=='/api/jobs':body={'jobs':[{'job_id':'fixture-job','episode_title':'A long podcast title / 一期较长的播客标题','status':'failed','created_at':1700000000,'progress':0,'message':'Connection needs attention'}]}
     elif path=='/api/content-updates':body={'items':[]}
     elif path=='/api/video-notes/channels':body={'channels':[{'platform':platform,'channel':f'{platform}-{i}','total':total,'done':done,'channel_avatar':'','thumbnail':'','channel_url':'','last_updated':''} for platform,count,total,done in [('bilibili',12,17,2),('youtube',4,34,5),('local',1,2,2),('twitter',2,3,1),('substack',1,4,4)] for i in range(count)]}
     elif path=='/api/library':body={'items':[{'id':'social','kind':'video','title':'Original public article','source':'Synthetic writer','date':'2026-10-24','published_at':'2026-10-23','status':'completed','platform':'substack','duration':0}] if social_state['library'] else [],'next_cursor':None}
@@ -224,6 +224,7 @@ async def main():
     if path=='/':
      await page.get_by_role('button',name='Open processing tasks',exact=True).click()
      await page.get_by_role('dialog',name='Processing tasks',exact=True).wait_for()
+     assert await page.get_by_role('dialog',name='Processing tasks',exact=True).locator('time').get_attribute('datetime')=='2023-11-14T22:13:20.000Z'
      await inspect('processing')
      await page.get_by_role('button',name='Close processing tasks',exact=True).click()
      if width<768:
