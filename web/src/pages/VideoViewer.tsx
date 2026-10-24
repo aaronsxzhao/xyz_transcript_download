@@ -1,3 +1,5 @@
+import LoadError from '../components/LoadError';
+import { videoFailureHint } from '../lib/videoFailure';
 import { TaskProgress } from "../components/TaskStatus";
 import { useWarmCache } from "../lib/cache";
 import { extractNoteToc, normalizeNoteHeadings } from "../lib/noteMarkdown";
@@ -76,6 +78,11 @@ export default function VideoViewer() {
   );
   const [taskVerified, setTaskVerified] = useState(false);
   const [error, setError] = useState("");
+  const [readFailed, setReadFailed] = useState(false);
+  const showError = (message: string, reloadable = false) => {
+    setError(message);
+    setReadFailed(reloadable);
+  };
   usePageTiming(
     "video_note",
     !loading && task?.id === taskId,
@@ -119,6 +126,7 @@ export default function VideoViewer() {
     if (!taskId) return;
     let cancelled = false;
     let inFlight = false;
+    showError("");
     setTaskVerified(false);
     const cached = getCache<VideoTask>(CacheKeys.VIDEO_NOTE(taskId));
     setLoading(!cached && taskRef.current?.id !== taskId);
@@ -147,12 +155,11 @@ export default function VideoViewer() {
           if (data.status === "success")
             setCache(CacheKeys.VIDEO_NOTE(taskId), data, owner);
           else removeCache(CacheKeys.VIDEO_NOTE(taskId));
-          setError("");
         }
       } catch (e) {
         console.error("Failed to load task:", e);
         if (!cancelled)
-          setError(e instanceof Error ? e.message : "Cannot load video notes");
+          showError(e instanceof Error ? e.message : "Cannot load video notes", true);
       } finally {
         inFlight = false;
         if (!cancelled) setLoading(false);
@@ -170,18 +177,20 @@ export default function VideoViewer() {
     const live = storeTaskSlice;
     if (!live || live.id !== taskId) return;
     if (!["success", "failed", "cancelled"].includes(live.status)) {
-      completedRead.current = "";
+      completedRead.current = live.id + ":active";
+      setTaskVerified(false);
       return;
     }
     const key = live.id + ":" + live.status + ":" + (live.updated_at || "");
-    if (
-      completedRead.current === key ||
-      taskRef.current?.status === live.status
-    )
-      return;
+    const previous = taskRef.current;
+    const wasProcessing = completedRead.current === live.id + ":active";
+    if (!previous || previous.id !== live.id || completedRead.current === key) return;
+    const unchanged = previous.status === live.status &&
+      (!live.updated_at || Date.parse(live.updated_at) <= Date.parse(previous.updated_at || ""));
+    if (!wasProcessing && (!taskVerified || unchanged)) return;
     completedRead.current = key;
     setLoadAttempt((n) => n + 1);
-  }, [taskId, storeTaskSlice?.status, storeTaskSlice?.updated_at]);
+  }, [taskId, storeTaskSlice?.status, storeTaskSlice?.updated_at, taskVerified]);
 
   useEffect(() => {
     // An empty transcript during processing must not become the cached final
@@ -189,9 +198,10 @@ export default function VideoViewer() {
     if (
       !task ||
       task.id !== taskId ||
-      !["success", "failed", "cancelled"].includes(task.status)
+      !["success", "failed", "cancelled"].includes(displayTask?.status || task.status)
     ) {
       setTranscript(undefined);
+      setTranscriptLoading(false);
       return;
     }
     // Cached notes may predate a regeneration started in another tab. Confirm
@@ -212,8 +222,8 @@ export default function VideoViewer() {
       })
       .catch((error) => {
         if (active)
-          setError(
-            error instanceof Error ? error.message : "Cannot load transcript",
+          showError(
+            error instanceof Error ? error.message : "Cannot load transcript", true,
           );
       })
       .finally(() => {
@@ -227,6 +237,7 @@ export default function VideoViewer() {
     taskId,
     task?.id,
     task?.status,
+    displayTask?.status,
     taskVerified,
     viewMode,
     transcript,
@@ -250,8 +261,8 @@ export default function VideoViewer() {
       })
       .catch((error) => {
         if (active)
-          setError(
-            error instanceof Error ? error.message : "Cannot load version",
+          showError(
+            error instanceof Error ? error.message : "Cannot load version", true,
           );
       })
       .finally(() => {
@@ -287,7 +298,7 @@ export default function VideoViewer() {
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch {
-      setError(
+      showError(
         "Copy failed. Please allow clipboard access or download the Markdown file.",
       );
     } finally {
@@ -301,7 +312,7 @@ export default function VideoViewer() {
     try {
       const {downloadMarkdown} = await import('../lib/markdownDownload');
       downloadMarkdown(md, task?.title || "notes");
-    } catch { setError("Could not prepare Markdown download. Please retry."); }
+    } catch { showError("Could not prepare Markdown download. Please retry."); }
   };
 
   const handleDownloadPdf = async () => {
@@ -312,7 +323,7 @@ export default function VideoViewer() {
       const { printVideo } = await import("../lib/videoPrint");
       await printVideo(md, task?.title || "Notes");
     } catch (e) {
-      setError(
+      showError(
         e instanceof Error
           ? e.message
           : "Could not prepare the PDF. Please retry or download Markdown.",
@@ -325,7 +336,7 @@ export default function VideoViewer() {
   const handleRegenerate = async () => {
     if (!task || regenerating) return;
     setRegenerating(true);
-    setError("");
+    showError("");
     try {
       await retryVideoTask(task.id);
       completedRead.current = "";
@@ -342,7 +353,7 @@ export default function VideoViewer() {
       setSelectedVersion("");
     } catch (e) {
       console.error("Regenerate failed:", e);
-      setError(e instanceof Error ? e.message : "Could not regenerate notes");
+      showError(e instanceof Error ? e.message : "Could not regenerate notes");
     } finally {
       setRegenerating(false);
     }
@@ -396,13 +407,7 @@ export default function VideoViewer() {
   if (!task) {
     return (
       <div className="flex flex-col items-center justify-center h-[60vh] text-gray-500">
-        <p role="alert">{error || "Task not found"}</p>
-        <button
-          onClick={() => setLoadAttempt((value) => value + 1)}
-          className="text-indigo-400 mt-2"
-        >
-          Retry
-        </button>
+        <LoadError message={error || "Task not found"} onRetry={() => setLoadAttempt(value => value + 1)} />
         <button onClick={() => navigate(-1)} className="text-indigo-400 mt-2">
           Go Back
         </button>
@@ -579,24 +584,21 @@ export default function VideoViewer() {
         </>
       }
     >
-      {error && (
+      {error && (readFailed ?
+        <LoadError message={error} onRetry={() => setLoadAttempt(value => value + 1)} /> :
         <div role="alert" className="text-sm text-red-300 mb-3">
-          {error}{" "}
-          <button
-            className="underline"
-            onClick={() => setLoadAttempt((value) => value + 1)}
-          >
-            Retry
-          </button>
+          {error}{" "}<button className="underline" onClick={() => showError("")}>Dismiss</button>
         </div>
       )}
+      {!["success", "failed", "cancelled"].includes(uiTask.status) && content &&
+        <p role="status" className="text-sm text-gray-400 mb-3">A new version is processing. Showing the saved note.</p>}
       {utility && (
         <ReaderDetails
           kind={utility}
           task={uiTask}
           selectedVersion={selectedVersion}
           onVersion={(id) => {
-            setError("");
+            showError("");
             setSelectedVersion(id);
           }}
           onClose={() => setUtility("")}
@@ -623,7 +625,7 @@ export default function VideoViewer() {
               </h3>
               {(task.error || task.message) && (
                 <p className="text-xs text-red-400/80 mb-2">
-                  {task.error || task.message}
+                  {task.error && /^[A-Z_]+$/.test(task.error) ? videoFailureHint(task) : task.error || task.message}
                 </p>
               )}
               {task.url && (
@@ -715,10 +717,10 @@ export default function VideoViewer() {
           )}
           {viewMode === "transcript" && (
             <div role="tabpanel" id="video-transcript" className="reader-body">
-              {transcriptLoading ? (
+              {transcriptLoading || (!taskVerified && transcript === undefined) ? (
                 <p role="status" className="reader-loading">
-                  <Loader2 size={18} className="animate-spin" />
-                  Loading transcript…
+                  {!(readFailed && error) && <Loader2 size={18} className="animate-spin" />}
+                  {readFailed && error ? "Retry above to load the transcript." : !taskVerified ? "Waiting for the latest transcript…" : "Loading transcript…"}
                 </p>
               ) : (
                 <TranscriptPanel

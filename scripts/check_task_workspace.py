@@ -25,7 +25,7 @@ async def main():
   launch={}
   if Path('/tmp/chromium').exists():launch={'executable_path':'/tmp/chromium','args':json.loads(Path('/tmp/xyz-chromium-args.json').read_text())}
   for width in [1440,390]:
-   tasks[0].update(status="saving",progress=98,markdown="")
+   tasks[0].update(status="saving",progress=98,markdown="",updated_at='2026-10-21T14:59:59Z')
    detail_reads=0
    browser=await p.chromium.launch(**launch)
    context=await browser.new_context(viewport={'width':width,'height':960},service_workers='block')
@@ -75,6 +75,19 @@ async def main():
    await page.evaluate("task=>window.__auditSocket.onmessage({data:JSON.stringify({type:'video_job_update',task})})",tasks[0])
    await page.get_by_text('Completed task content.',exact=True).first.wait_for()
    assert detail_reads==2,detail_reads
+   # A second processing cycle must refresh the note and its already-open map,
+   # even though the original note and the final task both say success.
+   await page.get_by_role('tab',name='Mind map',exact=True).click()
+   await page.locator('svg.markmap foreignObject').first.wait_for(timeout=20000)
+   tasks[0].update(status='transcribing',progress=45,updated_at='2026-10-21T15:00:01Z')
+   await page.evaluate("task=>window.__auditSocket.onmessage({data:JSON.stringify({type:'video_job_update',task})})",tasks[0])
+   await page.get_by_text('A new version is processing. Showing the saved note.',exact=True).wait_for()
+   tasks[0].update(status='success',progress=100,markdown='# Revised after external regeneration\n\nUpdated full note content.',updated_at='2026-10-21T15:00:02Z')
+   await page.evaluate("task=>window.__auditSocket.onmessage({data:JSON.stringify({type:'video_job_update',task})})",tasks[0])
+   await page.locator('svg.markmap foreignObject').filter(has_text='Revised after external regeneration').first.wait_for(timeout=20000)
+   await page.get_by_role('tab',name='Summary',exact=True).click()
+   await page.get_by_text('Updated full note content.',exact=True).first.wait_for()
+   assert detail_reads==3,detail_reads
    assert not errors,errors
    print(json.dumps({'viewport':width,'detail_reads_while_processing':before_reads,'detail_reads_after_completion':detail_reads,'drawer_grouped':True}),flush=True)
    await browser.close()

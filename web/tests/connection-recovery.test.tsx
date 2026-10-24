@@ -89,3 +89,22 @@ it('one retry action recovers both the failed page and session check', async () 
   expect(node!.querySelector('[data-session-error]')!.textContent).toBe('')
   expect(node!.querySelector('[role=alert]')).toBeNull()
 })
+
+it('recovers when a mobile browser becomes visible, without reloading healthy or hidden pages', async () => {
+  const state = await mountOfflineSession()
+  const initial = state.fetch.mock.calls.length
+  let visibility = 'hidden'
+  Object.defineProperty(document,'visibilityState',{configurable:true,get:()=>visibility})
+  try {
+    state.recover()
+    await act(async()=>document.dispatchEvent(new Event('visibilitychange')))
+    expect(state.fetch).toHaveBeenCalledTimes(initial)
+    visibility='visible'
+    await act(async()=>document.dispatchEvent(new Event('visibilitychange')))
+    expect(node!.querySelector('[data-session-error]')!.textContent).toBe('')
+    expect(node!.querySelector('[role=alert]')).toBeNull()
+    const recovered=state.fetch.mock.calls.length
+    await act(async()=>document.dispatchEvent(new Event('visibilitychange')))
+    expect(state.fetch).toHaveBeenCalledTimes(recovered)
+  } finally { delete (document as any).visibilityState }
+})
