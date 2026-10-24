@@ -625,7 +625,9 @@ export default function VideoViewer() {
               </h3>
               {(task.error || task.message) && (
                 <p className="text-xs text-red-400/80 mb-2">
-                  {task.error && /^[A-Z_]+$/.test(task.error) ? videoFailureHint(task) : task.error || task.message}
+                  {task.error && /^[A-Z_]+$/.test(task.error)
+                    ? task.message && task.message !== "Failed" && task.message !== task.error ? task.message : videoFailureHint(task)
+                    : task.error || task.message}
                 </p>
               )}
               {task.url && (
