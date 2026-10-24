@@ -2,16 +2,31 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { authFetch } from '../lib/api'
 import { clearCache } from '../lib/cache'
+import { getAuthGeneration } from '../lib/auth'
+import { requestWithDeadline } from '../lib/requestDeadline'
 
 type Repair = { status: string; message?: string; missing?: number }
 export async function downloadArchive(path: string, filename: string): Promise<string> {
-  const response = await authFetch(path)
-  if (!response.ok) { const body = await response.json(); throw new Error(body.detail || 'Download failed. Please retry.') }
-  const blob = await response.blob()
+  const generation=getAuthGeneration()
+  const {blob,missing}=await requestWithDeadline(async signal=>{
+    const response = await authFetch(path,{signal})
+    if (!response.ok) {
+      let detail=''
+      try {const body=await response.json();if(typeof body.detail==='string')detail=body.detail}catch{/* Proxy failures may contain HTML instead of JSON. */}
+      throw new Error(detail || `Backup download failed (HTTP ${response.status}). Please retry.`)
+    }
+    const blob=await response.blob()
+    const header=new Uint8Array(await blob.slice(0,4).arrayBuffer())
+    if(header[0]!==0x50||header[1]!==0x4b||!((header[2]===3&&header[3]===4)||(header[2]===5&&header[3]===6)||(header[2]===7&&header[3]===8)))
+      throw new Error('The server did not return a ZIP backup. Please retry; no backup file was downloaded.')
+    if(generation!==getAuthGeneration())throw new DOMException('Account changed while preparing download.','AbortError')
+    return {blob,missing:Number(response.headers.get('X-Missing-Images')||0)}
+  },{timeout:180000,retry:false,message:'Backup preparation timed out. Try downloading individual notes, or retry the library backup later.'})
+  if(generation!==getAuthGeneration())throw new DOMException('Account changed while preparing download.','AbortError')
   const url = URL.createObjectURL(blob)
-  const link = document.createElement('a'); link.href = url; link.download = filename; link.click()
-  setTimeout(() => URL.revokeObjectURL(url), 30000)
-  const missing = Number(response.headers.get('X-Missing-Images') || 0)
+  const link = document.createElement('a'); link.href = url; link.download = filename
+  document.body.append(link)
+  try{link.click()}finally{link.remove();setTimeout(() => URL.revokeObjectURL(url), 30000)}
   return missing ? `Downloaded. ${missing} unavailable images are listed in manifest.json.` : 'Downloaded with all referenced images.'
 }
 const button = 'px-3 py-2 text-sm rounded-lg bg-dark-hover border border-dark-border disabled:opacity-50'
@@ -26,14 +41,23 @@ export function NoteRecovery({ id, version = '', warning = '', failed = false, l
   useEffect(() => {
     if (repair?.status !== 'running') return
     let stopped = false
-    const timer = setInterval(() => {
-      void authFetch(base + '/repair-media').then(async r => {
-        if (!r.ok) throw new Error('Could not check screenshot repair. You can retry later.')
-        const next = await r.json()
-        if (!stopped) { setRepair(next); if (next.status === 'completed') { clearCache(); setMessage('Screenshots restored.'); onRestored?.() } }
-      }).catch(e => { if (!stopped) setError(e.message) })
-    }, 4000)
-    return () => { stopped = true; clearInterval(timer) }
+    const generation=getAuthGeneration()
+    const current=()=>!stopped && generation===getAuthGeneration()
+    const controller=new AbortController()
+    let timer:ReturnType<typeof setTimeout>
+    const poll=async()=>{
+      try {
+        const next=await requestWithDeadline(async signal=>{
+          const r=await authFetch(base + '/repair-media',{signal})
+          if (!r.ok) throw new Error('Could not check screenshot repair. You can retry later.')
+          return await r.json() as Repair
+        },{signal:controller.signal,timeout:15000,message:'Could not check screenshot repair. Retrying status shortly.'})
+        if (current()) { setError('');setRepair(next); if (next.status === 'completed') { clearCache(); setMessage(''); onRestored?.() } }
+      }catch(e){if(current())setError(e instanceof Error?e.message:'Could not check screenshot repair.')}
+      finally{if(current())timer=setTimeout(()=>void poll(),4000)}
+    }
+    timer=setTimeout(()=>void poll(),4000)
+    return () => { stopped = true; clearTimeout(timer); controller.abort() }
   }, [base, repair?.status])
   async function run(action: () => Promise<void>) {
     setBusy(true); setError('')
@@ -61,7 +85,7 @@ export function NoteRecovery({ id, version = '', warning = '', failed = false, l
       }} /></label>}
     </div>
     </details>
-    {repair?.message && <p role="status">{repair.message}</p>}
+    {repair?.message && <p role={repair.status==='failed'?'alert':'status'} className={repair.status==='failed'?'text-red-300':undefined}>{repair.message}</p>}
     {message && <p role="status" className="text-gray-300">{message}</p>}
     {error && <p role="alert" className="text-red-300">{error}</p>}
   </section>

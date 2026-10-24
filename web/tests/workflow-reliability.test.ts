@@ -10,7 +10,7 @@ afterEach(() => { vi.useRealTimers(); vi.unstubAllGlobals() })
 
 it('bounds login and recovery requests including a stalled response body', async () => {
   vi.useFakeTimers()
-  vi.stubGlobal('fetch', vi.fn().mockResolvedValue({text: () => new Promise(() => {})}))
+  vi.stubGlobal('fetch', vi.fn().mockResolvedValue({arrayBuffer: () => new Promise(() => {})}))
   const result = expect(requestAuth('password-reset', {method:'POST'})).rejects.toThrow('timed out')
   await vi.advanceTimersByTimeAsync(10000)
   await result
