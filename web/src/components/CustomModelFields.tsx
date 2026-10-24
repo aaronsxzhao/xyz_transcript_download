@@ -52,8 +52,14 @@ export default function CustomModelFields({
     setTesting(false);
     if (!value.baseUrl || !canUseKey) return;
     const controller = new AbortController();
+    let deadline: ReturnType<typeof setTimeout> | undefined;
     const timer = setTimeout(() => {
       setLoading(true);
+      deadline = setTimeout(() => {
+        setListingError("Model list request timed out. Retry, or enter a model ID manually.");
+        setLoading(false);
+        controller.abort();
+      }, 15000);
       void authFetch("/api/settings/models", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -84,11 +90,13 @@ export default function CustomModelFields({
             );
         })
         .finally(() => {
+          clearTimeout(deadline);
           if (!controller.signal.aborted) setLoading(false);
         });
     }, 600);
     return () => {
       clearTimeout(timer);
+      clearTimeout(deadline);
       controller.abort();
       version.current++;
     };

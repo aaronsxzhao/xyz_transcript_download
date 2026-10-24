@@ -32,6 +32,8 @@ export default function TopNav() {
 
   useEffect(() => { const close = (e: KeyboardEvent) => { if (e.key === 'Escape') setMobileOpen(false) }; document.addEventListener('keydown', close); return () => document.removeEventListener('keydown', close) }, [])
 
+  useEffect(() => { setMobileOpen(false) }, [location.pathname, location.search])
+
   const handleSignOut = async () => {
     await signOut()
   }

@@ -864,21 +864,22 @@ export default function Settings() {
       {activeTab === 'accounts' && (
         <div className="p-5 bg-dark-surface border border-dark-border rounded-xl space-y-5">
           {/* Platform pill tabs */}
-          <div className="flex flex-wrap gap-1 p-1 bg-dark-hover rounded-lg">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-1 p-1 bg-dark-hover rounded-lg">
             {PLATFORMS.map(p => {
               const loggedIn = cookies.find(c => c.platform === p)?.has_cookie
               return (
                 <button
                   key={p}
                   onClick={() => handleSwitchPlatform(p)}
-                  className={`flex-1 min-w-[110px] flex items-center justify-center gap-1.5 px-3 py-2 text-sm rounded-md transition-colors ${
+                  aria-pressed={activePlatform === p}
+                  className={`min-w-0 flex items-center justify-center gap-1.5 px-3 py-2 text-sm rounded-md transition-colors ${
                     activePlatform === p
                       ? 'bg-indigo-600 text-white'
                       : 'text-gray-400 hover:text-white hover:bg-dark-border'
                   }`}
                 >
                   <PlatformIcon platform={p} size={15} className={activePlatform === p ? 'text-white' : PLATFORM_COLORS[p] || 'text-gray-400'} />
-                  {platformLabel(p)}
+                  <span className="min-w-0 break-words">{platformLabel(p)}</span>
                   {loggedIn && <span className="w-1.5 h-1.5 rounded-full bg-green-400 flex-shrink-0" />}
                 </button>
               )
@@ -1160,12 +1161,12 @@ export default function Settings() {
               {PLATFORMS.map(p => {
                 const info = cookies.find(c => c.platform === p)
                 return (
-                  <div key={p} className="flex items-center justify-between p-2.5 bg-dark-hover rounded-lg text-sm">
-                    <span className="flex items-center gap-2 text-white">
+                  <div key={p} data-account-status className="min-w-0 flex flex-col items-start gap-1 sm:flex-row sm:items-center sm:justify-between p-2.5 bg-dark-hover rounded-lg text-sm">
+                    <span className="min-w-0 flex items-center gap-2 text-white">
                       <PlatformIcon platform={p} size={14} className={PLATFORM_COLORS[p] || 'text-gray-400'} />
                       {platformLabel(p)}
                     </span>
-                    <span className={`text-xs ${info?.has_cookie ? 'text-green-400' : 'text-gray-500'}`}>
+                    <span className={`min-w-0 break-words text-xs ${info?.has_cookie ? 'text-green-400' : 'text-gray-500'}`}>
                       {accountsLoading?'Loading…':accountsError?'Unknown':info?.has_cookie ? 'Saved · not verified' : 'Not connected'}
                     </span>
                   </div>

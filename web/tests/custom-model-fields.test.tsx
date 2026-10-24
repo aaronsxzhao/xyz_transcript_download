@@ -139,3 +139,22 @@ it("explains a model listing failure, allows manual selection and tests the audi
     ),
   ).toBe(true);
 });
+
+it("ends a stalled model-list request and permits a fresh retry without accepting late results", async () => {
+  let finish!: (response: Response) => void;
+  const fetch=vi.fn().mockImplementationOnce(()=>new Promise(resolve=>{finish=resolve})).mockResolvedValue(Response.json({models:['recovered-model']}));
+  vi.stubGlobal('fetch',fetch);
+  await act(async()=>root.render(<Host/>));
+  await tick();
+  expect(node.textContent).toContain('Reading models…');
+  await act(async()=>vi.advanceTimersByTimeAsync(15000));
+  expect(node.textContent).toContain('Model list request timed out');
+  const refresh=[...node.querySelectorAll('button')].find(button=>button.textContent==='Refresh models')!;
+  expect(refresh.disabled).toBe(false);
+  await act(async()=>refresh.click());
+  await tick();
+  expect(node.querySelector('option[value="recovered-model"]')).not.toBeNull();
+  await act(async()=>finish(Response.json({models:['late-model']})));
+  expect(node.querySelector('option[value="late-model"]')).toBeNull();
+  expect(node.textContent).not.toContain('timed out');
+});
