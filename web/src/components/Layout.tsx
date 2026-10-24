@@ -13,7 +13,7 @@ export default function Layout() {
   const hasTasks=useStore(s=>s.jobs.length+s.videoTasks.filter(t=>t.status!=="discovered").length+s.uploadSessions.length>0)
   const {pathname}=useLocation()
   return (
-    <div className="app-shell flex flex-col h-screen bg-dark-bg overflow-hidden">
+    <div className="app-shell flex flex-col bg-dark-bg overflow-hidden">
       <TopNav />
 
       <main className="flex-1 min-h-0 overflow-auto">
