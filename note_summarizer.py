@@ -81,7 +81,7 @@ NOTE_STYLES = {
 }
 
 
-def _build_system_prompt(style: str, formats: List[str], duration: float = 0) -> str:
+def _build_system_prompt(style: str, formats: List[str], duration: float = 0, source_text: str = "") -> str:
     """Build the system prompt based on style and format options."""
     style_info = NOTE_STYLES.get(style, NOTE_STYLES["detailed"])
     style_instruction = style_info["prompt"]
@@ -134,7 +134,7 @@ def _build_system_prompt(style: str, formats: List[str], duration: float = 0) ->
 
     format_text = "\n".join(f"- {inst}" for inst in format_instructions) if format_instructions else ""
 
-    return SOURCE_FIDELITY + f"""你是一个专业的视频内容笔记助手。你的任务是根据视频的转录文本（和可选的视觉分析）生成高质量的、结构清晰的 Markdown 格式笔记。
+    prompt = SOURCE_FIDELITY + f"""你是一个专业的视频内容笔记助手。你的任务是根据视频的转录文本（和可选的视觉分析）生成高质量的、结构清晰的 Markdown 格式笔记。
 
 风格要求:
 {style_instruction}
@@ -192,6 +192,14 @@ Markdown 结构规范（严格遵守）:
 ## AI 总结
 概括性总结...
 ```"""
+    from reading_language import chinese_source
+    if source_text and not chinese_source(source_text):
+        # Literal Chinese example headings were copied into English output in
+        # the live Groq probe despite the general language rule.
+        prompt = prompt.split('输出示例结构:', 1)[0]
+        prompt = prompt.replace('`## AI 总结`', '`## AI Summary`')
+        prompt += "\nUse the source transcript's language for every reader-facing heading and paragraph. Do not copy Chinese placeholder labels from these instructions.\n"
+    return prompt
 
 
 def _build_user_prompt(
@@ -335,7 +343,7 @@ class NoteSummarizer:
         duration: float = 0,
     ) -> Optional[str]:
         """Generate notes from a single (short) transcript."""
-        system_prompt = _build_system_prompt(style, formats, duration=duration)
+        system_prompt = _build_system_prompt(style, formats, duration=duration, source_text=transcript_text)
         user_prompt = _build_user_prompt(title, transcript_text, visual_context, tags, extras)
         result = self._call_llm(system_prompt, user_prompt, progress_callback)
         return self._audit_note(transcript_text, result, progress_callback)
@@ -400,7 +408,7 @@ class NoteSummarizer:
                 "二级标题请使用描述性名称（如 ## 市场分析），不要自行编号（如 ## 第一部分：市场分析），编号会在后期统一处理。"
             )
 
-            system_prompt = _build_system_prompt(style, these_formats, duration=duration)
+            system_prompt = _build_system_prompt(style, these_formats, duration=duration, source_text=transcript_text)
             source_context = {"before": chunks[i - 1][-500:] if i else "",
                               "after": chunks[i + 1][:500] if i + 1 < num_chunks else ""}
             user_prompt = _build_user_prompt(

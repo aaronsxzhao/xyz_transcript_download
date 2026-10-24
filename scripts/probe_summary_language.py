@@ -24,7 +24,7 @@ def probe_summary_language():
             latin = len(re.findall(r'[A-Za-z]', body))
             matches = bool(body.strip()) and (han == 0 and latin > 50 if language == 'en' else han > 40)
             report.update(status=200 if matches else 500, language_matches=int(matches),
-                          audit_completed=int(body == note.strip("\r\n")), response_bytes=len(note.encode()))
+                          audit_completed=int(body == note.strip("\r\n")), han_characters=han, latin_characters=latin, response_bytes=len(note.encode()))
         except Exception:
             report.update(status=500, language_matches=0, audit_completed=0)
         reports.append(report)

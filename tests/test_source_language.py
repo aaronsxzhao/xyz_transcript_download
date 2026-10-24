@@ -104,3 +104,12 @@ def test_notice_cleanup_preserves_quoted_source_and_code():
     body='## Source example\n\n```markdown\n'+AUDIT_WARNING+'\n```'
     assert strip_delivery_notices(body)==body
     assert strip_delivery_notices(delivery_notice(body, 'audit'))==body
+
+
+def test_english_video_prompt_does_not_request_literal_chinese_summary_headings():
+    prompt=_build_system_prompt('detailed',['summary'],source_text='An English source explanation.')
+    assert '`## AI Summary`' in prompt
+    assert '`## AI 总结`' not in prompt
+    assert '输出示例结构:' not in prompt
+    chinese=_build_system_prompt('detailed',['summary'],source_text='中文原文和说明。')
+    assert '`## AI 总结`' in chinese
