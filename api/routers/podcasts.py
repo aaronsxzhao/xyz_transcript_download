@@ -257,6 +257,17 @@ async def add_podcast(data: PodcastCreate, user: Optional[User] = Depends(get_cu
     platform = detect_podcast_platform(url) or "xiaoyuzhou"
     
     try:
+        from spotify_podcasts_client import is_spotify_url, resolve_spotify_episode, SpotifySourceError
+        if is_spotify_url(url):
+            from api.podcast_import import save_public_episode
+            try:
+                resolution = await run_sync(resolve_spotify_episode, url)
+            except SpotifySourceError as error:
+                raise HTTPException(status_code=422, detail=str(error)) from None
+            podcast = await run_sync(save_public_episode, db, resolution)
+            response = await run_sync(_podcast_response_from_record, db, podcast)
+            return response.model_copy(update={"resolved_episode_id": resolution.episode.eid,
+                                               "resolved_episode_title": resolution.episode.title})
         if platform == "apple":
             return await _add_apple_podcast(url, db)
         return await _add_xyz_podcast(url, db)

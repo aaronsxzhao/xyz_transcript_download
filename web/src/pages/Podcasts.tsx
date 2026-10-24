@@ -111,11 +111,12 @@ export default function Podcasts() {
 
     try {
       const podcast = await addPodcast(newUrl)
-      setPodcasts(prev => [podcast, ...prev])
+      setPodcasts(prev => [podcast, ...prev.filter(item => item.pid !== podcast.pid)])
       setNewUrl('')
       setShowAddForm(false)
       removeToast(toastId)
-      addToast({ type: 'success', title: 'Podcast added', message: podcast.title })
+      addToast({ type: 'success', title: podcast.resolved_episode_id ? 'Spotify episode matched to public RSS' : 'Podcast added', message: podcast.resolved_episode_title || podcast.title })
+      if (podcast.resolved_episode_id) navigate(`/podcasts/${podcast.pid}/episodes`)
     } catch (err: unknown) {
       removeToast(toastId)
       addToast({
@@ -331,7 +332,7 @@ export default function Podcasts() {
                 type="text"
                 value={newUrl}
                 onChange={(e) => setNewUrl(e.target.value)}
-                placeholder="Paste Xiaoyuzhou or Apple Podcasts URL..."
+                placeholder="Xiaoyuzhou, Apple Podcasts or Spotify episode URL…"
                 className="w-full px-4 py-3 bg-dark-hover border border-dark-border rounded-lg text-white placeholder:text-gray-500 focus:outline-none focus:border-indigo-500 text-base"
               />
               {detectedPlatform && (
@@ -350,6 +351,7 @@ export default function Podcasts() {
               Add
             </button>
           </form>
+          <p className="mt-3 text-sm text-gray-400">Spotify links import matching public RSS audio. Paid, exclusive or unmatched episodes may be unavailable.</p>
         </div>
       )}
 

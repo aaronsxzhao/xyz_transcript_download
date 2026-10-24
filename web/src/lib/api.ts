@@ -164,6 +164,8 @@ async function performAuthFetch(url: string, options: RequestInit = {}): Promise
 }
 
 export interface Podcast {
+  resolved_episode_id?: string | null
+  resolved_episode_title?: string | null
   pid: string
   title: string
   author: string
