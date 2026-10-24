@@ -170,6 +170,8 @@ html[data-reader-contents="hidden"] [data-reader-contents], html[data-reader-con
 .library-filter-toggle { display: none; }
 .library-results-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
 .library-results-bar > p { flex: 1; }
+.podcast-source-actions { flex-wrap:wrap; }
+.podcast-source-actions>button { flex:0 0 auto; white-space:nowrap; overflow-wrap:normal; }
 .settings-page { width: 100%; max-width: 960px; }
 .settings-page section { padding: 20px; }
 .settings-page section > h2 { font-size: 18px; }

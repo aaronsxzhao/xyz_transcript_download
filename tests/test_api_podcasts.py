@@ -85,7 +85,8 @@ class TestAddPodcast:
                 json={"url": "https://invalid-url.com/something"}
             )
             
-            assert response.status_code == 404
+            assert response.status_code == 400
+            mock_client.assert_not_called()
     
     async def test_add_podcast_episode_url(self, client: AsyncClient):
         """Test adding a podcast using episode URL (should auto-subscribe to parent)."""

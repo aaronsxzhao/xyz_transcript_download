@@ -125,16 +125,29 @@ def test_feed_size_and_audio_content_type_are_bounded(monkeypatch):
 
 def test_import_reuses_existing_owned_rss_episode_and_never_overwrites_its_summary(public):
     result = spotify.resolve_spotify_episode(URL)
-    db = Mock(); db.get_podcast.return_value = NS(id=7); db.get_episode.return_value = NS(eid=result.episode.eid)
+    db = Mock(); db.get_podcast.return_value = NS(id=7,platform='apple'); db.get_episode.return_value = NS(eid=result.episode.eid)
     assert save_public_episode(db, result).id == 7
     db.add_podcast.assert_not_called(); db.add_episode.assert_not_called(); db.save_summary.assert_not_called()
+    assert db.get_podcast.return_value.platform=='apple'
+
+
+def test_new_spotify_import_keeps_origin_separate_from_rss_transport(public,db_interface):
+    result=spotify.resolve_spotify_episode(URL)
+    podcast=save_public_episode(db_interface,result)
+    assert podcast.platform=='spotify'
+    assert podcast.pid=='apple_123'
+    assert podcast.feed_url=='https://feed.example/rss'
+    assert save_public_episode(db_interface,result).id==podcast.id
+    assert len(db_interface.get_episodes_by_podcast(podcast.pid))==1
+    from api.routers.processing import _episode_url_from_db_episode
+    assert _episode_url_from_db_episode(db_interface.get_episode(result.episode.eid))=='apple://'+result.episode.eid
 
 
 def test_import_confirms_both_records_were_saved(public):
     result = spotify.resolve_spotify_episode(URL)
     db = Mock(); db.get_podcast.side_effect = [None, NS(id=7)]; db.get_episode.side_effect = [None, NS(eid=result.episode.eid)]
     save_public_episode(db, result)
-    assert db.add_podcast.call_args.kwargs == {'platform': 'apple', 'feed_url': 'https://feed.example/rss'}
+    assert db.add_podcast.call_args.kwargs == {'platform': 'spotify', 'feed_url': 'https://feed.example/rss'}
     assert db.add_episode.call_args.kwargs['eid'] == result.episode.eid
     db.get_podcast.side_effect = None; db.get_podcast.return_value = None
     with pytest.raises(RuntimeError, match='save the public podcast'): save_public_episode(db, result)
@@ -179,7 +192,7 @@ async def test_successful_import_returns_the_matched_episode_and_owned_subscript
     from api.schemas import PodcastCreate
     result = spotify.resolve_spotify_episode(URL)
     monkeypatch.setattr(spotify, 'resolve_spotify_episode', lambda url: result)
-    record = NS(id=7, platform='apple', **asdict(result.podcast))
+    record = NS(id=7, platform='spotify', **asdict(result.podcast))
     db = Mock(); db.get_podcast.return_value = record
     db.get_episode.return_value = NS(eid=result.episode.eid)
     db.get_episodes_by_podcast.return_value = [result.episode]
@@ -188,7 +201,7 @@ async def test_successful_import_returns_the_matched_episode_and_owned_subscript
     response = await podcasts.add_podcast(PodcastCreate(url=URL), NS(id='owner'))
     assert response.resolved_episode_id == result.episode.eid
     assert response.resolved_episode_title == TITLE
-    assert response.platform == 'apple' and response.feed_url == result.podcast.feed_url
+    assert response.platform == 'spotify' and response.feed_url == result.podcast.feed_url
     get_db.assert_called_once_with('owner')
     db.add_episode.assert_not_called()
 

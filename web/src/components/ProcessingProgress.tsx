@@ -32,7 +32,7 @@ export default function ProcessingProgress({
   const locked = useRef(false);
   const { addToast } = useToast();
   const active = isActiveStatus(job.status);
-  const source = taskSource(platform, sourceUrl, job.episode_id, kind);
+  const source = taskSource(platform, sourceUrl || job.source_url, job.episode_id, kind);
   const failure = taskFailure(job.message, platform);
   const restricted = job.status === "failed" && (sourceAction(job.message) || failure.retryAfterSignIn);
   const created = createdAt ? new Date(createdAt) : null;

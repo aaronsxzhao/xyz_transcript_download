@@ -23,3 +23,11 @@ it.each(['twitter','substack'])('does not send %s public-source failures to none
  expect(failure.message).toContain('Open the original link')
  expect(failure.message).not.toContain('Settings')
 })
+
+it('keeps Spotify, Apple, local and RSS task sources separate from Xiaoyuzhou',()=>{
+ const eid='0123456789abcdef01234567'
+ expect(taskSource('','https://open.spotify.com/episode/08tccyLPpPurxtPPrezQGZ?si=tracking',eid,'podcast')).toMatchObject({name:'Spotify',original:'https://open.spotify.com/episode/08tccyLPpPurxtPPrezQGZ'})
+ expect(taskSource('','https://podcasts.apple.com/podcast/id123?i=456&utm_source=copy',eid,'podcast')).toMatchObject({name:'Apple Podcasts',original:'https://podcasts.apple.com/podcast/id123?i=456'})
+ expect(taskSource('','apple://'+eid,eid,'podcast')).toMatchObject({name:'Public RSS',original:''})
+ expect(taskSource('','local://'+eid,eid,'podcast')).toMatchObject({name:'Local upload',original:''})
+})

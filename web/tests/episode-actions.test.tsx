@@ -25,7 +25,7 @@ afterEach(()=>{act(()=>root.unmount());node.remove();clearCache();useStore.getSt
 async function mount(){await act(async()=>root.render(<MemoryRouter initialEntries={['/podcasts/show/episodes']}><Routes><Route path='/podcasts/:pid/episodes' element={<Episodes/>}/></Routes></MemoryRouter>))}
 const card=(id:string)=>[...node.querySelectorAll('h3')].find(el=>el.textContent==='Episode '+id)!.closest('.rounded-xl')!
 const process=(id:string)=>[...card(id).querySelectorAll('button')].find(el=>el.textContent?.trim()==='Process')!
-it.each(['apple','local'])('loads source details on a cold %s page without blocking its episodes',async platform=>{
+it.each(['apple','spotify','local'])('loads source details on a cold %s page without blocking its episodes',async platform=>{
  let finish!:(value:Podcast)=>void
  vi.mocked(fetchPodcast).mockImplementationOnce(()=>new Promise(resolve=>{finish=resolve}))
  await mount()
@@ -34,7 +34,7 @@ it.each(['apple','local'])('loads source details on a cold %s page without block
  expect(node.querySelector('h1')?.textContent).toBe('Saved source')
  vi.mocked(processEpisode).mockResolvedValueOnce({job_id:'queued'})
  await act(async()=>process('one').click())
- expect(processEpisode).toHaveBeenCalledWith(platform+'://one')
+ expect(processEpisode).toHaveBeenCalledWith((platform==='spotify'?'apple':platform)+'://one')
  expect(fetchPodcasts).not.toHaveBeenCalled()
 })
 it('can retry failed source details while keeping the loaded episode list',async()=>{

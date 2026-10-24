@@ -7,7 +7,7 @@ def save_public_episode(db, resolution: SpotifyResolution):
     podcast = db.get_podcast(source.pid)
     if not podcast:
         db.add_podcast(source.pid, source.title, source.author, source.description, source.cover_url,
-                       platform='apple', feed_url=source.feed_url)
+                       platform='spotify', feed_url=source.feed_url)
         podcast = db.get_podcast(source.pid)
     if not podcast:
         raise RuntimeError('Could not save the public podcast subscription. Please retry.')

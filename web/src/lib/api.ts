@@ -247,6 +247,7 @@ export interface SummaryListItem {
 }
 
 export interface ProcessingJob {
+  source_url?: string
   revision?: number
   started_at?: number
   job_id: string

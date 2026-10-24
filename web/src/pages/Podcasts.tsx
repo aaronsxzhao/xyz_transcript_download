@@ -12,16 +12,19 @@ import { useWarmCache, getCache, setCache, CacheKeys } from '../lib/cache'
 import { getAccountId } from '../lib/preferences'
 import { prefetchEpisodes, cancelPrefetch } from '../lib/summaryPrefetch'
 import { usePageTiming } from '../lib/pageTiming'
+import { detectPodcastPlatform } from '../lib/contentLinks'
 
 const PODCAST_PLATFORMS: { id: string; label: string }[] = [
   { id: 'xiaoyuzhou', label: '小宇宙' },
   { id: 'apple', label: 'Apple Podcasts' },
+  { id: 'spotify', label: 'Spotify' },
   { id: 'local', label: 'Local Uploads' },
 ]
 
 const PLATFORM_LABELS: Record<string, string> = {
   xiaoyuzhou: '小宇宙',
   apple: 'Apple Podcasts',
+  spotify: 'Spotify',
   local: 'Local Uploads',
 }
 
@@ -30,10 +33,7 @@ type View =
   | { type: 'podcasts'; platform: string }
 
 function detectPlatform(url: string): string {
-  const u = url.toLowerCase()
-  if (/xiaoyuzhoufm\.com/.test(u)) return 'xiaoyuzhou'
-  if (/podcasts\.apple\.com|itunes\.apple\.com/.test(u)) return 'apple'
-  return ''
+  return detectPodcastPlatform(url)
 }
 
 export default function Podcasts() {
@@ -259,7 +259,7 @@ export default function Podcasts() {
   }, [filtered])
 
   const sortedPlatforms = useMemo(() => {
-    const order = ['xiaoyuzhou', 'apple', 'local']
+    const order = ['xiaoyuzhou', 'apple', 'spotify', 'local']
     return Object.keys(platformCounts).sort((a, b) =>
       (order.indexOf(a) === -1 ? 99 : order.indexOf(a)) -
       (order.indexOf(b) === -1 ? 99 : order.indexOf(b))
@@ -309,7 +309,7 @@ export default function Podcasts() {
             </p>
           </div>
         </div>
-        <div className="flex items-center gap-2 w-full sm:w-auto">
+        <div className="podcast-source-actions flex items-center gap-2 w-full sm:w-auto">
           {view.type === 'podcasts' && view.platform !== 'local' && (
             <button
               onClick={handleCheckAllUpdates}

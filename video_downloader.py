@@ -213,15 +213,17 @@ def detect_platform(url: str) -> str:
     social = social_platform(url)
     if social:
         return social
-    url_lower = url.lower()
-    if "bilibili.com" in url_lower or "b23.tv" in url_lower:
-        return "bilibili"
-    elif "youtube.com" in url_lower or "youtu.be" in url_lower:
-        return "youtube"
-    elif "douyin.com" in url_lower or "tiktok.com" in url_lower:
-        return "douyin"
-    elif "kuaishou.com" in url_lower or "kwai.com" in url_lower:
-        return "kuaishou"
+    try:
+        parsed = urlparse(url)
+        if parsed.scheme not in ('http','https') or parsed.username or parsed.password or parsed.port not in (None,80,443):
+            return ''
+        host = (parsed.hostname or '').lower()
+        for platform, domains in {'bilibili':('bilibili.com','b23.tv'),'youtube':('youtube.com','youtu.be'),
+                                  'douyin':('douyin.com','tiktok.com'),'kuaishou':('kuaishou.com','kwai.com')}.items():
+            if any(host == domain or host.endswith('.'+domain) for domain in domains):
+                return platform
+    except ValueError:
+        pass
     return ""
 
 
@@ -251,7 +253,7 @@ def normalize_video_url(url: str, platform: str = "") -> str:
     except Exception:
         return url
 
-    if platform == "youtube":
+    if platform == "youtube" and detect_platform(url) == 'youtube':
         video_id = ""
         host = (parsed.netloc or "").lower()
         if "youtu.be" in host:
@@ -266,7 +268,7 @@ def normalize_video_url(url: str, platform: str = "") -> str:
         if video_id:
             return f"https://www.youtube.com/watch?v={video_id}"
 
-    if platform == "bilibili":
+    if platform == "bilibili" and detect_platform(url) == 'bilibili':
         m = re.search(r"/video/(BV[\w]+)", url, re.IGNORECASE)
         page = ""
         try:

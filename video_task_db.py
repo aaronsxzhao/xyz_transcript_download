@@ -252,7 +252,7 @@ class _SQLiteVideoTaskDB:
     def update_task(self, task_id: str, updates: dict):
         allowed = {
             "status", "progress", "message", "markdown", "transcript_json",
-            "title", "thumbnail", "duration", "error", "model",
+            "title", "thumbnail", "duration", "error", "model", "platform",
             "channel", "channel_url", "channel_avatar",
             "style", "formats", "quality", "video_quality", "published_at",
         }

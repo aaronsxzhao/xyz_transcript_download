@@ -83,11 +83,12 @@ def test_reusing_a_transcript_needs_no_audio_and_preserves_failures(outcome, db_
 
 
 @pytest.mark.asyncio
-async def test_global_updates_use_apple_feed_and_skip_local_uploads():
+@pytest.mark.parametrize('platform',['apple','spotify'])
+async def test_global_updates_use_apple_feed_and_skip_local_uploads(platform):
     from api.main import _scan_podcasts_for_new_episodes
     db = Mock()
     db.get_all_podcasts.return_value = [
-        SimpleNamespace(pid="apple-show", title="Apple", platform="apple", feed_url="https://example.com/feed.xml"),
+        SimpleNamespace(pid="apple-show", title="Apple", platform=platform, feed_url="https://example.com/feed.xml"),
         SimpleNamespace(pid="local_uploads", title="Local", platform="local"),
     ]
     with patch("apple_podcasts_client.get_episodes_from_feed", return_value=[]) as feed, patch("xyz_client.get_client") as xyz:

@@ -9,7 +9,18 @@ import apple_podcasts_client
 import xyz_client
 
 
-@pytest.fixture(params=["xiaoyuzhou", "apple"])
+@pytest.mark.asyncio
+@pytest.mark.parametrize('platform',['apple','spotify'])
+async def test_rss_without_feed_never_falls_back_to_xiaoyuzhou(client,db_interface,monkeypatch,platform):
+    db_interface.add_podcast('missing-feed','Missing feed',platform=platform)
+    xyz=Mock();monkeypatch.setattr(xyz_client,'get_client',xyz)
+    response=await client.post('/api/podcasts/missing-feed/refresh')
+    assert response.status_code==422
+    assert 'RSS' in response.json()['detail']
+    xyz.assert_not_called()
+
+
+@pytest.fixture(params=["xiaoyuzhou", "apple", "spotify"])
 def source(request, monkeypatch):
     platform = request.param
     podcast = SimpleNamespace(
@@ -21,7 +32,7 @@ def source(request, monkeypatch):
         duration=60, pub_date="2026-10-23", audio_url="https://example.com/audio.mp3",
     )
     network = Mock(side_effect=requests.Timeout("source timeout"))
-    if platform == "apple":
+    if platform in ("apple", "spotify"):
         monkeypatch.setattr(apple_podcasts_client, "get_podcast_by_url", lambda _: podcast)
         monkeypatch.setattr(apple_podcasts_client.requests, "get", network)
         url = "https://podcasts.apple.com/podcast/id123456"
