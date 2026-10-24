@@ -219,7 +219,10 @@ export default function CustomModelFields({
             aria-label={`${label} custom model`}
             value={model}
             disabled={disabled}
-            onChange={(e) => onModel(e.target.value)}
+            onChange={(e) => {
+              setManualEntry(true);
+              onModel(e.target.value);
+            }}
             placeholder="Enter the provider's exact model ID"
             className="mt-1 block w-full min-w-0 rounded-lg bg-dark-hover border border-dark-border px-3 py-2"
           />
