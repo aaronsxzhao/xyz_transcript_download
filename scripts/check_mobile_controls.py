@@ -1,5 +1,5 @@
 """Synthetic mobile control geometry and interaction checks; no private data."""
-import sys,asyncio,json,time,argparse
+import sys,asyncio,json,time,argparse,io,zipfile
 from pathlib import Path
 from urllib.parse import urlparse,parse_qs
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]))
@@ -23,6 +23,11 @@ async def main():
  parser=argparse.ArgumentParser();parser.add_argument('--browser-path');parser.add_argument('--webkit',action='store_true');parser.add_argument('--widths',type=int,nargs='+',default=[320,360,390,430,1440]);parser.add_argument('--output',type=Path,default=Path('/tmp/xyz-mobile-controls'));args=parser.parse_args();args.output.mkdir(parents=True,exist_ok=True)
  server=serve(Path(__file__).resolve().parents[1]/'web/dist');origin=f'http://127.0.0.1:{server.server_port}'
  task,summary=fixtures();task['versions']=[]
+ archive_stream=io.BytesIO()
+ with zipfile.ZipFile(archive_stream,'w',zipfile.ZIP_DEFLATED) as archive:
+  archive.writestr('note.md','# Synthetic archive\n\n原始文字完整保留。')
+  archive.writestr('images/chart.bin',bytes(range(256)))
+ archive_bytes=archive_stream.getvalue()
  settings={'whisper_mode':'api','whisper_model':'whisper-large-v3','llm_provider':'groq','llm_model':'openai/gpt-oss-120b','check_interval':3600,'groq_available':True}
  async with async_playwright() as p:
   browser=await p.webkit.launch() if args.webkit else await p.chromium.launch(executable_path=args.browser_path,args=['--no-sandbox'])
@@ -35,7 +40,7 @@ async def main():
    social_markdown='# Original public article\n\nAuthor: Synthetic writer\n\n[Original source](https://writer.substack.com/p/public)\n\n## Table of Contents\n- [Original heading](#original-heading)\n\n## Original heading\n\nFirst original paragraph.\n\n### 2.1 #### Literal source heading\n\nFull final original paragraph. 原文末段完整保留。'
    long_caption='Synthetic chart explanation · '+('LongUnbrokenCaption'*80)
    screenshot_markdown='# Screenshot review\n\n![Missing chart](/data/screenshots/fixture-missing.jpg)\n\n!['+long_caption+'](https://images.example.test/landscape.svg)\n\n![Portrait chart](https://images.example.test/portrait.svg)'
-   maintenance={'empty':False}
+   maintenance={'empty':False,'bundle_requests':0}
    context=await browser.new_context(viewport={'width':width,'height':844},is_mobile=width<768,has_touch=width<768,service_workers='block')
    await context.add_init_script("localStorage.setItem('xyz_access_token',"+json.dumps(token(int(time.time())+7200))+");localStorage.setItem('xyz_user',JSON.stringify({id:'bench',email:'bench@example.com',authenticated:true}));window.WebSocket=class{static OPEN=1;readyState=1;constructor(){setTimeout(()=>this.onopen?.(),1)}send(){setTimeout(()=>this.onmessage?.({data:JSON.stringify({type:'init',jobs:[{job_id:'fixture-job',episode_title:'A long podcast title / 一期较长的播客标题',status:'failed',progress:0,message:'Connection needs attention'}],video_tasks:[]})}),1)}close(){}}")
    page=await context.new_page();errors=[];page.on('pageerror',lambda e:errors.append(str(e)))
@@ -52,6 +57,13 @@ async def main():
     return result
    async def api(route):
     path=urlparse(route.request.url).path;body={}
+    if path=='/api/maintenance/notes/screenshots/bundle':
+     maintenance['bundle_requests']+=1
+     if maintenance['bundle_requests']==1:
+      await route.fulfill(content_type='text/html',body='<html>Temporary proxy error</html>')
+     else:
+      await route.fulfill(content_type='application/zip',headers={'X-Missing-Images':'0'},body=archive_bytes)
+     return
     if path in connection_reads:
      connection_reads[path]+=1
      if connection_offline:
@@ -373,6 +385,21 @@ async def main():
    await panel.get_by_role('button',name='Repair screenshots',exact=True).wait_for(state='visible')
    assert await panel.evaluate('(el)=>document.activeElement===el'),(width,'recovery did not receive focus')
    await inspect('missing-screenshot-recovery')
+   await panel.get_by_role('button',name='Download with images',exact=True).click()
+   await panel.get_by_role('alert').filter(has_text='did not return a ZIP backup').wait_for()
+   await inspect('backup-invalid-response')
+   assert maintenance['bundle_requests']==1
+   async with page.expect_download() as archive_download:
+    await panel.get_by_role('button',name='Download with images',exact=True).click()
+   archive_file=args.output/f'note-with-images-{width}.zip'
+   await (await archive_download.value).save_as(archive_file)
+   assert archive_file.read_bytes()==archive_bytes
+   with zipfile.ZipFile(archive_file) as downloaded:
+    assert downloaded.testzip() is None
+    assert downloaded.read('images/chart.bin')==bytes(range(256))
+    assert downloaded.read('note.md').decode()=='# Synthetic archive\n\n原始文字完整保留。'
+   assert not await panel.get_by_role('alert').count()
+   await inspect('backup-download-complete')
    await panel.get_by_role('button',name='Close details',exact=True).click()
    await page.locator('button.reader-screenshot').first.click()
    gallery=page.get_by_role('dialog',name='Enlarged screenshot',exact=True)
