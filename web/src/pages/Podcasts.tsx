@@ -1,6 +1,6 @@
 import CachedImage from '../components/CachedImage'
 import LoadError from '../components/LoadError'
-import { useState, useEffect, useMemo, useCallback } from 'react'
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { Radio, Plus, Trash2, RefreshCw, Loader2, ExternalLink, ArrowLeft, ChevronRight, Search, Upload } from 'lucide-react'
 import { fetchPodcasts, addPodcast, removePodcast, refreshPodcast, uploadLocalPodcastAudio, type Podcast } from '../lib/api'
@@ -68,21 +68,35 @@ export default function Podcasts() {
     setSearchParams(params)
   }, [setSearchParams])
 
-  useEffect(() => { loadPodcasts() }, [])
+  const listRequest = useRef(0)
+  useEffect(() => { loadPodcasts(); return () => { listRequest.current++ } }, [])
+
+  function changePodcasts(change: (rows: Podcast[]) => Podcast[]) {
+    const owner = getAccountId()
+    listRequest.current++
+    setError('')
+    setPodcasts(previous => {
+      const next = change(previous)
+      setCache(CacheKeys.PODCASTS, next, owner)
+      return next
+    })
+  }
 
   async function loadPodcasts() {
     const owner = getAccountId()
+    const request = ++listRequest.current
     setError('')
     try {
       const data = await fetchPodcasts()
-      if (owner !== getAccountId()) return
+      if (owner !== getAccountId() || request !== listRequest.current) return
       setPodcasts(data)
       setCache(CacheKeys.PODCASTS, data, owner)
     } catch (err) {
+      if (owner !== getAccountId() || request !== listRequest.current) return
       console.error('Failed to load podcasts:', err)
       setError('Cannot load your podcasts. Check the connection and retry.')
     } finally {
-      setLoading(false)
+      if (owner === getAccountId() && request === listRequest.current) setLoading(false)
     }
   }
 
@@ -111,7 +125,7 @@ export default function Podcasts() {
 
     try {
       const podcast = await addPodcast(newUrl)
-      setPodcasts(prev => [podcast, ...prev.filter(item => item.pid !== podcast.pid)])
+      changePodcasts(prev => [podcast, ...prev.filter(item => item.pid !== podcast.pid)])
       setNewUrl('')
       setShowAddForm(false)
       removeToast(toastId)
@@ -171,7 +185,7 @@ export default function Podcasts() {
     setDeletingPid(pid)
     try {
       await removePodcast(pid)
-      setPodcasts(prev => prev.filter(p => p.pid !== pid))
+      changePodcasts(prev => prev.filter(p => p.pid !== pid))
       addToast({ type: 'success', title: 'Podcast removed', message: podcast?.title || '' })
     } catch {
       addToast({ type: 'error', title: 'Failed to remove podcast' })

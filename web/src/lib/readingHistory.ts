@@ -38,6 +38,7 @@ export function useRecordReading(
       : document.querySelector("main");
     if (!el) return;
     let active = true,
+      viewed = !document.hidden,
       timer: ReturnType<typeof setTimeout> | undefined;
     const snapshot = () => {
       const range = el.scrollHeight - el.clientHeight;
@@ -51,7 +52,7 @@ export function useRecordReading(
     };
     let position = snapshot();
     const save = () => {
-      if (!active || owner !== getAccountId() || document.hidden) return;
+      if (!active || !viewed || owner !== getAccountId()) return;
       const history = getCache<ReadingEntry[]>(KEY) || [];
       const metadata =
         value.current.id === entry.id && value.current.kind === entry.kind
@@ -67,22 +68,32 @@ export function useRecordReading(
       );
     };
     void hydrateCache(KEY).then(() => {
-      if (active) {
+      if (active && !document.hidden) {
         position = snapshot();
         save();
       }
     });
     const scroll = () => {
+      if (document.hidden) return;
       position = snapshot();
       clearTimeout(timer);
       timer = setTimeout(save, 750);
     };
+    const visibility = () => {
+      clearTimeout(timer);
+      if (!viewed && !document.hidden) { viewed = true; position = snapshot(); }
+      save();
+    };
     el.addEventListener("scroll", scroll, { passive: true });
+    document.addEventListener("visibilitychange", visibility);
+    window.addEventListener("pagehide", visibility);
     return () => {
       clearTimeout(timer);
       save();
       active = false;
       el.removeEventListener("scroll", scroll);
+      document.removeEventListener("visibilitychange", visibility);
+      window.removeEventListener("pagehide", visibility);
     };
   }, [entry.id, entry.kind, ready, elementId]);
 }
