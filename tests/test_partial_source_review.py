@@ -64,7 +64,7 @@ def test_unknown_source_patch_is_discarded_without_inventing_a_quote():
 
 def test_unambiguous_packaging_repairs_do_not_invalidate_complete_review():
     data={'edits':None,'additions':{'text':'A real source detail.','source_ids':' s01 '},
-          'coverage':[{'unit':' s01 ','kind':'content','fields':'added:1'},receipt('S2'),receipt('S3')]}
+          'coverage':[{'unit':' s01 ','kind':'content','fields':'body'},receipt('S2'),receipt('S3')]}
     result=review(data)
     assert result.complete
     assert result.additions[0]['id']=='added:1'
@@ -194,3 +194,13 @@ def test_podcast_explicit_gap_preserves_original_evidence_and_takeaways():
     assert result.key_points[-1].summary==result.key_points[-1].original_quote=='Actual source.'
     assert result.key_points[-1].timestamp=='00:01:00'
     assert 'potentially uncovered content' in result.overview
+
+
+def test_generated_display_id_cannot_manufacture_a_model_coverage_link():
+    item=addition()
+    item.pop('id')
+    result=review({'additions':[item], 'coverage':[receipt('S1','added:1'),receipt('S2'),receipt('S3')]})
+    assert len(result.additions)==1
+    assert result.additions[0]['source_quote']=='A'*800
+    assert result.unverified_units==['S1'] and not result.complete
+    assert 'invalid_note_reference' in result.issues
