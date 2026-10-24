@@ -307,12 +307,14 @@ def test_audit_preserves_a_verified_original_quote_when_the_point_is_unchanged()
     assert final.key_points[0].original_quote == '原有引用。'
 
 
-def test_audit_rejects_a_point_without_any_verified_quote():
+def test_audit_preserves_a_point_without_fabricating_its_missing_quote():
     s = Summarizer(api_key='fixture')
     draft = Summary('episode', 'Title', 'Overview', [KeyPoint('主题', 'Unsupported detail', 'Invented evidence', '')], ['主题'], [])
     with patch('summarizer.audit_source', return_value=({'overview': 'Overview', 'point:1': 'Unsupported detail'}, [], {})):
-        with pytest.raises(SummaryOutputError, match='coverage'):
-            s._audit_summary(draft, 'The real source.')
+        final = s._audit_summary(draft, 'The real source.')
+    assert final.key_points[0].summary == 'Unsupported detail'
+    assert final.key_points[0].original_quote == final.key_points[0].timestamp == ''
+    assert 'coverage review did not complete' in final.overview
 
 
 def test_changed_point_uses_its_new_audited_evidence_instead_of_old_quote():

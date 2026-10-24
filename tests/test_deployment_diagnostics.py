@@ -70,3 +70,11 @@ def test_audit_issue_counts_do_not_include_private_source_or_unknown_labels():
     assert report['summary_audit_issues']['invalid_note_reference']==1
     assert report['summary_audit_issues']['missing_units']==1
     assert 'secret-token' not in str(report)
+
+
+def test_partial_review_diagnostics_count_only_whitelisted_reasons():
+    report=safe_log_summary('Video review retained valid items; unresolved checks: invalid_addition,missing_units\nPodcast review retained valid items; unresolved checks: missing_units\nprivate source and secret-token')
+    assert report['summary_audit_issues']['missing_units']==2
+    assert report['summary_audit_issues']['invalid_addition']==1
+    assert 'private source' not in str(report)
+    assert 'secret-token' not in str(report)

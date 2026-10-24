@@ -4,21 +4,23 @@ DELIVERY_WARNING = "> ⚠️ 部分生成或内容核对未完成，先提供可
 
 GENERATION_WARNING = "> ⚠️ 部分分段未能生成摘要，已保留原始转写；请结合 Transcript 阅读。"
 AUDIT_WARNING = "> ℹ️ 摘要已生成，但全文覆盖核对未完成；完整性尚未验证，可对照 Transcript 阅读。"
+COVERAGE_GAP_WARNING = "> ℹ️ 核对提示部分内容可能未覆盖，已附对应原文供对照阅读。"
 FORMAT_WARNING = "> ℹ️ 生成内容已保留，但未能完整整理为结构化格式。"
 MERGE_WARNING = "> ℹ️ 各分段正文已保留，但全文概览未能合并。"
 _EN_NOTICES = {
     'generation': "> ⚠️ Some sections could not be summarized and are included as original transcript. See Transcript for the full source.",
     'audit': "> ℹ️ Notes were generated, but the full-source coverage review did not complete. Completeness is unverified; compare with Transcript.",
+    'coverage_gap': "> ℹ️ The review flagged potentially uncovered content. Corresponding source passages are included for comparison.",
     'format': "> ℹ️ Generated content is preserved, but could not be fully organized into structured fields.",
     'merge': "> ℹ️ All available section notes are preserved, but the episode overview could not be merged.",
 }
-_NOTICES = (DELIVERY_WARNING, GENERATION_WARNING, AUDIT_WARNING, FORMAT_WARNING, MERGE_WARNING, *_EN_NOTICES.values())
+_NOTICES = (DELIVERY_WARNING, GENERATION_WARNING, AUDIT_WARNING, COVERAGE_GAP_WARNING, FORMAT_WARNING, MERGE_WARNING, *_EN_NOTICES.values())
 
 
 def delivery_notice(text: str, reason: str = 'generation', source: str = '') -> str:
     from reading_language import chinese_source
     chinese = not source or chinese_source(source)
-    notice = ({'generation': GENERATION_WARNING, 'audit': AUDIT_WARNING, 'format': FORMAT_WARNING, 'merge': MERGE_WARNING}[reason]
+    notice = ({'generation': GENERATION_WARNING, 'audit': AUDIT_WARNING, 'coverage_gap': COVERAGE_GAP_WARNING, 'format': FORMAT_WARNING, 'merge': MERGE_WARNING}[reason]
               if chinese else _EN_NOTICES[reason])
     return text if notice in text else notice + "\n\n" + text
 
