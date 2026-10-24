@@ -112,7 +112,7 @@ async def main():
      await route.fulfill(status=422,content_type='application/json',body=json.dumps({'detail':'Synthetic audio format rejected: https://source.example/'+('audio-file-'*25)}))
      return
     elif path=='/api/cookies':body={'cookies':[{'platform':'bilibili','has_cookie':True},{'platform':'youtube','has_cookie':True}]}
-    elif path=='/api/settings/models':body={'models':['fixture-model']}
+    elif path=='/api/settings/models':body={'models':['fixture-model', 'provider/'+('long-model-name-'*8)]+['model-'+str(i) for i in range(12)]}
     elif path=='/api/cookies/douyin/diagnose':body={'has_cookie':False,'looks_usable':False,'message':'No saved cookies','present':[],'missing':[],'cookie_count':0,'domains':[]}
     elif path=='/api/stats':body={k:12 for k in ['total_podcasts','total_episodes','total_transcripts','total_summaries','total_video_channels','total_videos','completed_videos']}
     elif path=='/api/summaries/bench':body=summary
@@ -295,7 +295,24 @@ async def main():
      await page.get_by_role('button',name='General',exact=True).click()
      await page.get_by_label('Summary provider',exact=True).select_option('custom')
      await page.get_by_label('Summary Base URL',exact=True).wait_for()
+     assert await page.get_by_text('Groq generates summaries',exact=False).count()==0
+     await page.get_by_label('Summary Base URL',exact=True).fill('https://models.example.test/v1')
+     await page.get_by_label('Summary API key',exact=True).fill('synthetic-test-key')
+     model_picker=page.get_by_role('combobox',name='Summary model',exact=True)
+     await model_picker.locator('option[value="model:fixture-model"]').wait_for(state='attached')
+     assert await model_picker.locator('option[value^="model:"]').count()==14
+     await model_picker.select_option('model:provider/'+('long-model-name-'*8))
+     assert await page.get_by_label('Summary custom model',exact=True).count()==0
+     await model_picker.scroll_into_view_if_needed()
      await inspect('custom-models')
+     await page.screenshot(path=str(args.output/f'custom-models-{width}.png'))
+     await model_picker.select_option('manual')
+     await page.get_by_label('Summary custom model',exact=True).fill('private/manual-model')
+     await inspect('custom-model-manual')
+     await model_picker.select_option('model:fixture-model')
+     async with page.expect_request('**/api/settings/test-llm') as model_test:
+      await page.get_by_role('button',name='Test summary',exact=True).click()
+     assert (await model_test.value).post_data_json['llm_model']=='fixture-model'
      await page.get_by_role('button',name='Platform Accounts',exact=True).click()
      await inspect('accounts')
      for platform in ['BiliBili','YouTube','Douyin','Kuaishou']:
