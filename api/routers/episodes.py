@@ -132,6 +132,7 @@ async def delete_episode(eid: str, user: Optional[User] = Depends(get_current_us
         if not db.delete_episode(eid):
             raise HTTPException(status_code=503, detail="Could not confirm episode deletion. Refresh the list before retrying.")
         
+        # Cascades can already remove child records; cleanup stays idempotent.
         # Delete associated files (for local storage)
         db.delete_transcript(eid)
         db.delete_summary(eid)
