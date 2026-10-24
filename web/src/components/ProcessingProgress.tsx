@@ -35,7 +35,8 @@ export default function ProcessingProgress({
   const source = taskSource(platform, sourceUrl || job.source_url, job.episode_id, kind);
   const failure = taskFailure(job.message, platform);
   const restricted = job.status === "failed" && (sourceAction(job.message) || failure.retryAfterSignIn);
-  const created = createdAt ? new Date(createdAt) : null;
+  const createdValue = createdAt || job.created_at;
+  const created = createdValue ? new Date(typeof createdValue === 'number' ? createdValue * 1000 : createdValue) : null;
   async function action(fn: ((id: string) => Promise<void>) | undefined) {
     if (!fn || locked.current) return;
     locked.current = true;
@@ -70,7 +71,7 @@ export default function ProcessingProgress({
         </h3>
         <p className="text-xs text-gray-400 mt-1">
         {source.name}
-        {created && Number.isFinite(created.getTime()) && <> · Task created <time dateTime={createdAt}>{created.toLocaleDateString()}</time></>}
+        {created && Number.isFinite(created.getTime()) && <> · Task created <time dateTime={typeof createdValue === 'string' ? createdValue : created.toISOString()}>{created.toLocaleDateString()}</time></>}
         </p>
         </div>
       </div>

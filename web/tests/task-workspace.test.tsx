@@ -17,6 +17,12 @@ afterEach(()=>{act(()=>root.unmount());node.remove();useStore.getState().reset()
 const job=(job_id:string,status:string,message='Working')=>({job_id,status,message,progress:status==='pending'?0:44,episode_id:'0123456789abcdef01234567',episode_title:job_id})
 async function render(){await act(async()=>root.render(<MemoryRouter><ProcessingPanel/></MemoryRouter>))}
 async function open(){await act(async()=>(node.querySelector('[aria-label="Open processing tasks"]') as HTMLButtonElement).click())}
+it('shows known podcast creation times without inventing dates for legacy jobs',async()=>{
+ useStore.getState().setJobs([{...job('recent','failed'),created_at:1700000000},{...job('legacy','failed'),created_at:0}])
+ await render();await open()
+ expect(document.querySelector('[data-task-id="recent"] time')?.getAttribute('datetime')).toBe(new Date(1700000000*1000).toISOString())
+ expect(document.querySelector('[data-task-id="legacy"] time')).toBeNull()
+})
 it('starts collapsed, separates running from queued, retains seen failures, and closes with Escape',async()=>{
  useStore.getState().setJobs([job('running','transcribing'),job('waiting','pending'),job('failed','failed')]);markSeen(['failed'])
  await render();expect(document.querySelector('[role="dialog"]')).toBeNull();expect(node.textContent).toContain('1 processing · 1 queued · 1 need attention')

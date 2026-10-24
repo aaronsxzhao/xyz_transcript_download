@@ -140,6 +140,8 @@ class BatchProcessRequest(BaseModel):
 
 class ProcessingStatus(BaseModel):
     job_id: str
+    # Legacy checkpoints have no creation time; use their start time for retention.
+    created_at: float = 0
     # Ordering survives checkpoints and does not depend on network arrival time.
     revision: int = 0
     source_url: str = ""
