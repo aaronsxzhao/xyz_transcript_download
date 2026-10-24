@@ -61,11 +61,13 @@ export default function PodcastNotionExport({
       const data = await fetchNotionPages();
       if (attempt === request.current) setNotionPages(data.pages);
     } catch (err) {
-      if (attempt === request.current)
+      if (attempt === request.current) {
+        setNotionPages([]);
         setNotionResult({
           ok: false,
           message: err instanceof Error ? err.message : "Failed to load pages",
         });
+      }
     } finally {
       if (attempt === request.current) setNotionLoading(false);
     }
@@ -84,12 +86,14 @@ export default function PodcastNotionExport({
         const data = await fetchNotionPages(q || undefined);
         if (attempt === request.current) setNotionPages(data.pages);
       } catch (err) {
-        if (attempt === request.current)
+        if (attempt === request.current) {
+          setNotionPages([]);
           setNotionResult({
             ok: false,
             message:
               err instanceof Error ? err.message : "Failed to load pages",
           });
+        }
       } finally {
         if (attempt === request.current) setNotionLoading(false);
       }
@@ -217,6 +221,11 @@ export default function PodcastNotionExport({
                     {notionResult?.ok === false
                       ? "Could not load pages"
                       : "No pages found. Share pages with your integration in Notion."}
+                    {notionResult?.ok === false && (
+                      <button type="button" className="block mx-auto mt-2 text-indigo-300 underline" onClick={() => handleNotionSearch(notionSearch)}>
+                        Retry search
+                      </button>
+                    )}
                   </div>
                 ) : (
                   notionPages.map((page) => (

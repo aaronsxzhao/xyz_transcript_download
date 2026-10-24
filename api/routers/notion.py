@@ -1,6 +1,5 @@
 """Notion integration endpoints for exporting video notes."""
 import asyncio
-import re
 from typing import Optional
 
 import httpx
@@ -17,8 +16,6 @@ router = APIRouter()
 
 NOTION_API_BASE = "https://api.notion.com/v1"
 NOTION_VERSION = "2022-06-28"
-_MARKDOWN_URL_PATTERN = re.compile(r'(!?)\[([^\]]*)\]\(([^)]+)\)')
-_HTML_ATTR_URL_PATTERN = re.compile(r'((?:src|href)=["\'])([^"\']+)(["\'])', re.IGNORECASE)
 
 
 def _get_notion_key(x_notion_key: Optional[str] = Header(None)) -> str:
@@ -70,38 +67,58 @@ def _extract_notion_error(resp: httpx.Response) -> str:
     return resp.text[:300]
 
 
-def _normalize_export_markdown(markdown: str, request: Request) -> str:
-    if not markdown:
-        return markdown
+def _prepare_export_blocks(markdown: str, request: Request) -> list[dict]:
+    """Normalize actual Notion URLs and text limits without rewriting source code."""
+    from notion_markdown import to_notion
 
     base_origin = str(request.base_url).rstrip("/")
 
-    markdown = _MARKDOWN_URL_PATTERN.sub(
-        lambda match: match.group(2) if match.group(3).strip().startswith("#") else match.group(0),
-        markdown,
-    )
-
-    def normalize_url(raw_url: str) -> str:
-        url = raw_url.strip()
-        if not url or url.startswith(("#", "mailto:", "tel:", "data:")):
-            return raw_url
-        if re.match(r"^[a-zA-Z][a-zA-Z0-9+.-]*://", url):
-            return raw_url
+    def normalize_url(url: str) -> str:
         if url.startswith("//"):
             return f"{request.url.scheme}:{url}"
         if url.startswith("/"):
             return f"{base_origin}{url}"
-        return raw_url
+        return url
 
-    markdown = _MARKDOWN_URL_PATTERN.sub(
-        lambda match: f"{match.group(1)}[{match.group(2)}]({normalize_url(match.group(3))})",
-        markdown,
-    )
-    markdown = _HTML_ATTR_URL_PATTERN.sub(
-        lambda match: f"{match.group(1)}{normalize_url(match.group(2))}{match.group(3)}",
-        markdown,
-    )
-    return markdown
+    def prepare(value):
+        if isinstance(value, dict):
+            result = {}
+            for key, item in value.items():
+                # Notion cannot navigate source-document fragment links. Keep
+                # the label and its formatting, removing only the link itself.
+                if (
+                    key == "link"
+                    and isinstance(item, dict)
+                    and str(item.get("url", "")).startswith("#")
+                ):
+                    continue
+                result[key] = (
+                    normalize_url(item)
+                    if key == "url" and isinstance(item, str)
+                    else prepare(item)
+                )
+            return result
+        if isinstance(value, list):
+            result = []
+            for item in value:
+                item = prepare(item)
+                text = (
+                    item.get("text")
+                    if isinstance(item, dict) and item.get("type") == "text"
+                    else None
+                )
+                content = text.get("content") if isinstance(text, dict) else None
+                if isinstance(content, str) and len(content) > 2000:
+                    result.extend(
+                        {**item, "text": {**text, "content": content[start:start + 2000]}}
+                        for start in range(0, len(content), 2000)
+                    )
+                else:
+                    result.append(item)
+            return result
+        return value
+
+    return prepare(to_notion(markdown))
 
 
 async def _create_notion_page(
@@ -252,8 +269,7 @@ async def export_to_notion(
 
     title = task.get("title", "Untitled Video Note")
 
-    from notion_markdown import to_notion
-    blocks = to_notion(_normalize_export_markdown(markdown, request))
+    blocks = _prepare_export_blocks(markdown, request)
 
     try:
         async with httpx.AsyncClient(timeout=60.0) as client:
@@ -287,8 +303,7 @@ async def export_markdown_to_notion(
     if not req.markdown.strip():
         raise HTTPException(status_code=400, detail="No content to export")
 
-    from notion_markdown import to_notion
-    blocks = to_notion(_normalize_export_markdown(req.markdown, request))
+    blocks = _prepare_export_blocks(req.markdown, request)
     title = req.title or "Untitled"
 
     try:

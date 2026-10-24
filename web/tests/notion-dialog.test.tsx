@@ -78,6 +78,24 @@ it("ignores stale searches, including replies arriving during the next debounce"
   expect(node.textContent).toContain("Current page");
   expect(node.textContent).not.toContain("Obsolete page");
 });
+it("does not offer previous results after a failed search and can retry that query", async () => {
+  vi.mocked(fetchNotionPages)
+    .mockResolvedValueOnce({ pages: [{ id: "old", title: "Old notebook" }] })
+    .mockRejectedValueOnce(new Error("Search connection interrupted"))
+    .mockResolvedValueOnce({ pages: [{ id: "new", title: "New notebook" }] });
+  await act(async () => root.render(<MemoryRouter><NotionExport summary={summary} onClose={() => {}} /></MemoryRouter>));
+  expect(node.textContent).toContain("Old notebook");
+  await act(async () => { type("New"); await vi.advanceTimersByTimeAsync(400); });
+  expect(node.textContent).toContain("Search connection interrupted");
+  expect(node.textContent).not.toContain("Old notebook");
+  const submit = [...node.querySelectorAll("button")].find(button => button.textContent?.trim() === "Export")!;
+  expect(submit.disabled).toBe(true);
+  await act(async () => [...node.querySelectorAll("button")].find(button => button.textContent?.trim() === "Retry search")!.click());
+  await act(async () => vi.advanceTimersByTimeAsync(400));
+  expect(fetchNotionPages).toHaveBeenLastCalledWith("New");
+  expect(node.textContent).toContain("New notebook");
+  expect(node.textContent).not.toContain("Search connection interrupted");
+});
 it.each(["podcast", "video"])(
   "exports %s through the shared dialog with its full note",
   async (kind) => {
