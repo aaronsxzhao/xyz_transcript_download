@@ -1,7 +1,11 @@
 name: Spotify public source check
 on:
   push:
-    branches: [fix/spotify-public-rss]
+    branches: [fix/spotify-public-rss, main]
+    paths:
+      - 'spotify_podcasts_client.py'
+      - 'scripts/check_spotify_public.py'
+      - '.github/workflows/spotify-public-source.yml'
   workflow_dispatch:
 permissions:
   contents: read

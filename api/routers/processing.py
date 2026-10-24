@@ -484,6 +484,21 @@ def process_episode_sync(job_id: str, episode_url: str, transcribe_only: bool = 
         
         is_local = is_local_episode_url(episode_url)
         is_apple = episode_url.startswith("apple://")
+        spotify_resolution = None
+        from spotify_podcasts_client import is_spotify_url, resolve_spotify_episode
+        if is_spotify_url(episode_url):
+            update_job_status(job_id, "fetching", 5, "Finding this Spotify episode in a public RSS feed…")
+            resolution = resolve_spotify_episode(episode_url)
+            spotify_resolution = resolution
+            if is_job_cancelled(job_id):
+                update_job_status(job_id, "cancelled", 0, "Cancelled")
+                mark_job_cancelled(job_id)
+                return
+            from api.podcast_import import save_public_episode
+            save_public_episode(db_interface, resolution)
+            # Reuse the owned RSS episode path for download, retry and refresh.
+            episode_url = f"apple://{resolution.episode.eid}"
+            is_apple = True
         
         if is_local:
             local_eid = get_local_episode_id(episode_url)
@@ -538,6 +553,8 @@ def process_episode_sync(job_id: str, episode_url: str, transcribe_only: bool = 
                 description=db_ep.description, duration=db_ep.duration,
                 pub_date=db_ep.pub_date, audio_url=db_ep.audio_url,
             )
+            if spotify_resolution:
+                episode = spotify_resolution.episode
             podcast_id_for_db = db_ep.podcast_id
         else:
             episode = client.get_episode_by_share_url(episode_url)

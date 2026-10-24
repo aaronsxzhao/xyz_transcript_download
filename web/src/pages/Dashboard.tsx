@@ -766,7 +766,7 @@ export default function Dashboard() {
               </div>
             )}
             <div className="dashboard-add-helper">
-              <span>Xiaoyuzhou · YouTube · BiliBili</span>
+              <span>Xiaoyuzhou · Spotify · YouTube · BiliBili</span>
               <Link to="/videos?add=local" className="reader-action">
                 Upload a local file ↗
               </Link>

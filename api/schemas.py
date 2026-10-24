@@ -23,6 +23,8 @@ class PodcastResponse(PodcastBase):
     platform: str = "xiaoyuzhou"
     feed_url: str = ""
     episode_preview: Optional[List["EpisodeResponse"]] = None
+    resolved_episode_id: Optional[str] = None
+    resolved_episode_title: Optional[str] = None
     
     class Config:
         from_attributes = True
