@@ -450,6 +450,7 @@ def _apply_audit_data(source, fields, data, context=None, *, best_effort=False):
     checked_additions = []
     reserved_ids = {row.get('id') for row in additions if isinstance(row, dict) and isinstance(row.get('id'), str)}
     accepted_additions = {}
+    generated_ids = set()
     for index, original in enumerate(additions):
         try:
             if not isinstance(original, dict):
@@ -462,6 +463,7 @@ def _apply_audit_data(source, fields, data, context=None, *, best_effort=False):
                         number += 1
                     addition['id'] = f'added:{number}'
                     reserved_ids.add(addition['id'])
+                    generated_ids.add(addition['id'])
                 from reading_language import chinese_source
                 label = '补充内容' if chinese_source(source) else 'Additional details'
                 heading = addition.get('heading')
@@ -513,7 +515,9 @@ def _apply_audit_data(source, fields, data, context=None, *, best_effort=False):
                     targets = [targets]
                 if best_effort and isinstance(targets, list) and all(isinstance(key, str) for key in targets):
                     targets = list(dict.fromkeys(field_id(key) for key in targets))
-                detailed = {key for key in updated if key == 'body' or key.startswith(('point:', 'added:'))}
+                # A recovered display ID was never supplied by the model. It
+                # cannot establish a model receipt link merely by matching a number.
+                detailed = {key for key in updated if key not in generated_ids and (key == 'body' or key.startswith(('point:', 'added:')))}
                 if (not isinstance(targets, list) or not targets
                         or any(not isinstance(key, str) or key not in detailed or not updated[key].strip() for key in targets)
                         or len(set(targets)) != len(targets)):
