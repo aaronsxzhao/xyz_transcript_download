@@ -69,7 +69,9 @@ def test_audit_is_a_single_best_effort_pass_without_receipt_repair(video):
     else:
         callback.return_value=NS(choices=[NS(message=NS(content='{"coverage":[]}'))])
         with patch.object(engine,'_call_llm_with_retry',callback):
-            with pytest.raises(SummaryOutputError):engine._audit_summary(draft(),'Real source.')
+            result=engine._audit_summary(draft(),'Real source.')
+            assert result.key_points[0].summary=='Generated detail'
+            assert 'coverage review did not complete' in result.overview
     assert callback.call_count==1
 
 

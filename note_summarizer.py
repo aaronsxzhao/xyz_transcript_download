@@ -367,13 +367,28 @@ class NoteSummarizer:
             audit_progress = (lambda chars, partial="": progress_callback(chars, draft)) if progress_callback else None
             return extract_json_from_response(self._call_llm(system, payload, audit_progress, json_output=True))
 
-        updated, additions, _ = audit_source(source, {"body": draft}, call, source_context, repair=False)
+        review = audit_source(source, {"body": draft}, call, source_context, repair=False, best_effort=True)
+        updated, additions, _ = review
         parts = [updated["body"]]
         for addition in additions:
             # Keep the reading document in Markdown; internal receipts never
             # become visible source IDs or a second copy of the transcript.
             parts.append(f"### {addition['heading']}\n\n{addition['text']}")
-        return "\n\n".join(parts)
+        gaps = getattr(review, 'identified_gaps', {})
+        if gaps:
+            from reading_language import chinese_source
+            heading = '核对标出的原文' if chinese_source(source) else 'Source passages flagged by review'
+            parts.append(f'### {heading}')
+            for passage in gaps.values():
+                parts.append('\n'.join('> ' + line for line in passage.splitlines()))
+        result = "\n\n".join(parts)
+        from summary_errors import delivery_notice
+        if gaps:
+            return delivery_notice(result, 'coverage_gap', source)
+        if not getattr(review, 'complete', True):
+            logger.warning('Video review retained valid items; unresolved checks: %s', ','.join(review.issues))
+            return delivery_notice(result, 'audit', source)
+        return result
 
     def _generate_chunked(
         self,

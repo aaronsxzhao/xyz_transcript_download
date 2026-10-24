@@ -45,7 +45,7 @@ def safe_log_summary(text: str) -> dict:
             "connection": len(re.findall(r"APIConnectionError|APITimeoutError", text)),
         },
         "summary_audit_issues": {
-            issue: len(re.findall(r"Delivering (?:video )?draft after audit failure: " + re.escape(issue) + r"\b", text))
+            issue: len(re.findall(r"Delivering (?:video )?draft after audit failure: " + re.escape(issue) + r"\b", text)) + sum(issue in row.split(',') for row in re.findall(r"(?:Podcast|Video) review retained valid items; unresolved checks: ([a-z_,]+)", text))
             for issue in ("missing_units", "invalid_note_reference", "invalid_addition", "ungrounded_edit", "unknown_edit_field", "duplicate_edit_field", "invalid_lists", "invalid_receipt", "unknown_or_duplicate_unit", "invalid_kind", "SummaryOutputError", "JSONDecodeError", "RuntimeError")
         },
         "timeout_mentions": len(re.findall(r"ReadTimeout|ConnectTimeout|PoolTimeout|timed out", text)),

@@ -247,7 +247,9 @@ class Summarizer:
             return extract_json_from_response(response.choices[0].message.content)
 
         context = {**(source_context or {}), "chapter_titles": summary.topics}
-        updated, additions, citations = audit_source(source, fields, call, context, repair=False)
+        review = audit_source(source, fields, call, context, repair=False, best_effort=True)
+        updated, additions, citations = review
+        evidence_incomplete = False
         compact = lambda value: re.sub(r"\s+", "", value)
         spoken = compact(spoken_source(source))
         points = []
@@ -259,13 +261,28 @@ class Summarizer:
             quote = (point.original_quote if verified_quote and updated[field] == point.summary
                      else citations.get(field, ""))
             if not compact(quote) or compact(quote) not in spoken:
-                raise SummaryOutputError('coverage')
+                # Missing evidence affects this citation, not the other notes.
+                quote = ""
+                evidence_incomplete = True
             points.append(replace(point, summary=updated[field], original_quote=quote,
                                   timestamp=quote_timestamp(source, quote, point.timestamp)))
         for i, addition in enumerate(additions):
             points.append(KeyPoint(addition["topic"], updated[addition["id"]],
                                    addition["source_quote"], quote_timestamp(source, addition["source_quote"], addition["timestamp"])))
-        return replace(summary, overview=updated["overview"], key_points=points,
+        gaps = getattr(review, 'identified_gaps', {})
+        if gaps:
+            gap_topic = '核对标出的原文' if chinese_source(source) else 'Source passages flagged by review'
+            for passage in gaps.values():
+                points.append(KeyPoint(gap_topic, passage, passage, quote_timestamp(source, passage)))
+        overview = updated['overview']
+        from summary_errors import delivery_notice
+        if gaps:
+            overview = delivery_notice(overview, 'coverage_gap', source)
+        elif not getattr(review, 'complete', True) or evidence_incomplete:
+            overview = delivery_notice(overview, 'audit', source)
+        if not getattr(review, 'complete', True):
+            logger.warning('Podcast review retained valid items; unresolved checks: %s', ','.join(review.issues))
+        return replace(summary, overview=overview, key_points=points,
                        topics=list(dict.fromkeys([*summary.topics, *(p.topic for p in points)])),
                        takeaways=[updated[f"takeaway:{i+1}"] for i in range(len(summary.takeaways))])
 

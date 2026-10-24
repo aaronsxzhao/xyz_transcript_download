@@ -2,12 +2,13 @@
 
 These strict primitives report malformed or missing coverage receipts. They are
 model judgements, not proof of semantic equivalence. Reader generation treats
-their failures as advisory and delivers its available draft with a notice;
+their failures as advisory, retains independent valid review items, and marks unresolved checks;
 the original transcript remains the authority.
 """
 import json
 import re
 from copy import deepcopy
+from dataclasses import dataclass, field
 
 from summary_errors import SummaryOutputError
 
@@ -203,8 +204,31 @@ def _merge_audit_response(previous, revision):
     return merged
 
 
-def audit_source(source, fields, call_json, context=None, *, repair=True):
-    """Allow one bounded retry for a malformed coverage receipt."""
+@dataclass
+class SourceReview:
+    fields: dict
+    additions: list
+    citations: dict
+    unverified_units: list[str] = field(default_factory=list)
+    identified_gaps: dict[str, str] = field(default_factory=dict)
+    issues: list[str] = field(default_factory=list)
+    unresolved_fields: list[str] = field(default_factory=list)
+
+    @property
+    def complete(self):
+        return not (self.unverified_units or self.unresolved_fields or self.identified_gaps
+                    or any(issue in {"invalid_object", "invalid_lists"} for issue in self.issues))
+
+    def __iter__(self):
+        # Preserve the established three-value result for callers/tools.
+        return iter((self.fields, self.additions, self.citations))
+
+
+def audit_source(source, fields, call_json, context=None, *, repair=True, best_effort=False):
+    """Review once for readers; strict tools may request one bounded repair."""
+    if best_effort:
+        # One provider call; validate/apply each independent item separately.
+        return _audit_source_once(source, fields, call_json, context, best_effort=True)
     if not repair:
         # Reader delivery is best effort: one editorial pass, then the caller
         # returns its existing draft with a notice instead of repairing receipts.
@@ -305,11 +329,12 @@ extracts their real source evidence and rechecks all source references.
     return _audit_source_once(source, fields, lambda *_: patched, context)
 
 
-def _audit_source_once(source, fields, call_json, context=None):
+def _audit_source_once(source, fields, call_json, context=None, *, best_effort=False):
     """Apply grounded patches, append omissions, validate every source receipt.
 
     The callback is provider-specific and must reject truncated/empty output.
-    No receipt, bad evidence or failed audit => no partially accepted result.
+    Strict tools reject an invalid review. Reader mode retains independent valid
+    items and returns explicit unresolved coverage instead of discarding them.
     """
     units = source_units(source)
     payload = json.dumps({"source_units": units, "draft_fields": fields, "boundary_context": context or {}}, ensure_ascii=False)
@@ -317,86 +342,209 @@ def _audit_source_once(source, fields, call_json, context=None):
     if set(fields) == {"body"}:
         # Video has one body field, never the podcast point:1 example.
         system = system.replace('"point:1"', '"body"')
+    if best_effort:
+        system += "\nIf you identify specific substantive source information still absent from both the draft and your additions, use a coverage receipt with kind=missing for that unit. Do not label uncertain or malformed bookkeeping as missing content. Prefer writing a grounded addition to fill an actual gap.\n"
     data = call_json(system, payload)
+    return _apply_audit_data(source, fields, data, context, best_effort=best_effort)
+
+
+def _apply_audit_data(source, fields, data, context=None, *, best_effort=False):
+    """Apply grounded items independently; receipts never stand in for source.
+
+    Strict mode retains the offline validation/repair contract. Reader mode
+    repairs only unambiguous packaging, and reports unresolved items separately
+    while preserving valid patches. A missing receipt does not prove omission.
+    """
+    units = source_units(source)
+    issues = []
     if not isinstance(data, dict):
-        raise _audit_error("invalid_object", data)
+        if not best_effort:
+            raise _audit_error("invalid_object", data)
+        return SourceReview(dict(fields), [], {}, list(units), issues=['invalid_object'])
     updated = dict(fields)
     citation_ids = {}
-    additions = data.get("additions", [])
-    edits = data.get("edits", [])
-    receipts = data.get("coverage", [])
-    if not all(isinstance(value, list) for value in (additions, edits, receipts)):
-        raise _audit_error("invalid_lists", data)
+    rejected_units = set()
+    unresolved_fields = set()
 
-    def source_evidence(ids, issue, index):
-        if (not isinstance(ids, list) or not ids
-                or any(not isinstance(key, str) or key not in units for key in ids)):
+    def rejected(error, record=None, broad=False):
+        if not best_effort:
+            raise error
+        issue = error.audit_feedback['issue']
+        if issue not in issues:
+            issues.append(issue)
+        if broad:
+            rejected_units.update(units)
+        if isinstance(record, dict):
+            keys = ids(record.get('source_ids'))
+            if isinstance(keys, list):
+                rejected_units.update(key for key in keys if isinstance(key, str) and key in units)
+            key = record.get('field')
+            if isinstance(key, str) and field_id(key) in fields:
+                unresolved_fields.add(field_id(key))
+
+    def rows(section):
+        values = data.get(section, [])
+        if best_effort:
+            if values is None and section != 'coverage':
+                return []
+            if isinstance(values, dict):
+                return [values] if values else []
+        if not isinstance(values, list):
+            rejected(_audit_error('invalid_lists', data), broad=True)
+            return []
+        return values
+
+    # Validate all section shapes up front in strict mode as before.
+    edits, additions, receipts = rows('edits'), rows('additions'), rows('coverage')
+
+    def ids(value):
+        if not best_effort:
+            return value
+        value = [value] if isinstance(value, str) else value
+        if isinstance(value, list) and all(isinstance(key, str) for key in value):
+            value = [re.sub(r'^s0*(\d+)$', lambda m: 'S' + str(int(m[1])), key.strip(), flags=re.I) for key in value]
+            return list(dict.fromkeys(value))
+        return value
+
+    def source_evidence(keys, issue, index):
+        if (not isinstance(keys, list) or not keys
+                or any(not isinstance(key, str) or key not in units for key in keys)):
             raise _audit_error(issue, data, index=index, allowed_units=list(units))
-        # Include the intervening source instead of joining disconnected quotes
-        # or inventing ellipses. Evidence is always extracted by code.
         ordered = list(units)
-        positions = [ordered.index(key) for key in ids]
+        positions = [ordered.index(key) for key in keys]
         return spoken_source("".join(units[key] for key in ordered[min(positions):max(positions) + 1]))
 
-    edited_fields = set()
-    for index, edit in enumerate(edits):
-        if not isinstance(edit, dict):
-            raise _audit_error("invalid_edit", data, index=index)
-        field, text = edit.get("field"), edit.get("text")
-        if not isinstance(field, str) or field not in updated:
-            raise _audit_error("unknown_edit_field", data, index=index, allowed_fields=list(fields))
-        if field in edited_fields:
-            raise _audit_error("duplicate_edit_field", data, index=index)
-        edited_fields.add(field)
-        if not isinstance(text, str) or not text.strip():
-            raise _audit_error("empty_edit", data, index=index)
-        source_evidence(edit.get("source_ids"), "ungrounded_edit", index)
-        citation_ids.setdefault(field, set()).update(edit["source_ids"])
-        updated[field] = text
+    def field_id(value):
+        if not best_effort or not isinstance(value, str):
+            return value
+        value = value.strip()
+        if value in updated:
+            return value
+        match = re.fullmatch(r'(point|added):0*(\d+)', value)
+        canonical = f'{match[1]}:{int(match[2])}' if match else value
+        return canonical if canonical in updated else value
+
+    edited_fields = {}
+    for index, original in enumerate(edits):
+        try:
+            if not isinstance(original, dict):
+                raise _audit_error('invalid_edit', data, index=index)
+            edit = dict(original)
+            key, text = field_id(edit.get('field')), edit.get('text')
+            if not isinstance(key, str) or key not in fields:
+                raise _audit_error('unknown_edit_field', data, index=index)
+            keys = ids(edit.get('source_ids'))
+            if key in edited_fields:
+                if best_effort and edited_fields[key] == (text, keys):
+                    continue
+                raise _audit_error('duplicate_edit_field', data, index=index)
+            if not isinstance(text, str) or not text.strip():
+                raise _audit_error('empty_edit', data, index=index)
+            source_evidence(keys, 'ungrounded_edit', index)
+            edited_fields[key] = (text, keys)
+            citation_ids.setdefault(key, set()).update(keys)
+            updated[key] = text
+        except SummaryOutputError as error:
+            rejected(error, original)
+
     checked_additions = []
-    for i, addition in enumerate(additions):
-        if (not isinstance(addition, dict)
-                or not isinstance(addition.get("id"), str)
-                or not re.fullmatch(r"added:\d+", addition["id"])
-                or addition["id"] in updated
-                or not all(isinstance(addition.get(key), str) and addition[key].strip()
-                           for key in ("topic", "heading", "text"))):
-            raise _audit_error("invalid_addition", data, index=i)
-        addition = dict(addition)
-        addition["source_quote"] = source_evidence(addition.get("source_ids"), "invalid_addition", i)
-        field = addition["id"]
-        citation_ids.setdefault(field, set()).update(addition["source_ids"])
-        timestamp = addition.get("timestamp", "")
-        # An unsupported timestamp must never become a misleading source link.
-        addition["timestamp"] = timestamp if isinstance(timestamp, str) and f"[{timestamp}]" in source else ""
-        updated[field] = f"#### {addition['heading']}\n\n{addition['text']}"
-        checked_additions.append(addition)
-    seen = set()
-    for receipt in receipts:
-        if not isinstance(receipt, dict):
-            raise _audit_error("invalid_receipt", data)
-        unit = receipt.get("unit")
-        if not isinstance(unit, str) or unit not in units or unit in seen:
-            raise _audit_error("unknown_or_duplicate_unit", data, allowed_units=list(units))
-        seen.add(unit)
-        if receipt.get("kind") == "non_content":
-            if receipt.get("reason") not in {"greeting", "advertisement", "empty_transition"}:
-                raise _audit_error("invalid_exclusion", data, unit=unit)
-        elif receipt.get("kind") == "content":
-            targets = receipt.get("fields")
-            detailed_fields = {key for key in updated if key == "body" or key.startswith(("point:", "added:"))}
-            if (not isinstance(targets, list) or not targets
-                    or any(not isinstance(key, str) or key not in detailed_fields or not updated[key].strip() for key in targets)
-                    or len(set(targets)) != len(targets)):
-                raise _audit_error("invalid_note_reference", data, unit=unit, allowed_fields=sorted(detailed_fields))
-            for field in targets:
-                citation_ids.setdefault(field, set()).add(unit)
-        else:
-            raise _audit_error("invalid_kind", data, unit=unit)
-    if seen != set(units):
-        raise _audit_error("missing_units", data, missing_units=sorted(set(units) - seen))
-    citations = {field: source_evidence(sorted(ids), "invalid_receipt", 0)
-                 for field, ids in citation_ids.items()}
+    reserved_ids = {row.get('id') for row in additions if isinstance(row, dict) and isinstance(row.get('id'), str)}
+    accepted_additions = {}
+    for index, original in enumerate(additions):
+        try:
+            if not isinstance(original, dict):
+                raise _audit_error('invalid_addition', data, index=index)
+            addition = dict(original)
+            if best_effort:
+                if not addition.get('id'):
+                    number = 1
+                    while f'added:{number}' in reserved_ids or f'added:{number}' in updated:
+                        number += 1
+                    addition['id'] = f'added:{number}'
+                    reserved_ids.add(addition['id'])
+                from reading_language import chinese_source
+                label = '补充内容' if chinese_source(source) else 'Additional details'
+                heading = addition.get('heading')
+                topic = addition.get('topic')
+                addition['heading'] = heading if isinstance(heading, str) and heading.strip() else (topic if isinstance(topic, str) and topic.strip() else label)
+                addition['topic'] = topic if isinstance(topic, str) and topic.strip() else addition['heading']
+            key = addition.get('id')
+            keys = ids(addition.get('source_ids'))
+            addition['source_ids'] = keys
+            if best_effort and isinstance(key, str) and key in accepted_additions and accepted_additions[key] == addition:
+                continue
+            if (not isinstance(key, str) or not re.fullmatch(r'added:\d+', key) or key in updated
+                    or not all(isinstance(addition.get(name), str) and addition[name].strip() for name in ('topic', 'heading', 'text'))):
+                raise _audit_error('invalid_addition', data, index=index)
+            evidence = source_evidence(keys, 'invalid_addition', index)
+            accepted_additions[key] = dict(addition)
+            addition['source_quote'] = evidence
+            timestamp = addition.get('timestamp', '')
+            addition['timestamp'] = timestamp if isinstance(timestamp, str) and f'[{timestamp}]' in source else ''
+            citation_ids.setdefault(key, set()).update(keys)
+            updated[key] = f"#### {addition['heading']}\n\n{addition['text']}"
+            checked_additions.append(addition)
+        except SummaryOutputError as error:
+            rejected(error, original)
+
+    accepted_receipts = {}
+    conflicting_units = set()
+    identified_gaps = {}
+    for original in receipts:
+        try:
+            if not isinstance(original, dict):
+                raise _audit_error('invalid_receipt', data)
+            unit = original.get('unit')
+            normalized = ids(unit) if best_effort and isinstance(unit, str) else None
+            if normalized:
+                unit = normalized[0]
+            if not isinstance(unit, str) or unit not in units:
+                raise _audit_error('unknown_or_duplicate_unit', data)
+            kind = original.get('kind')
+            if kind == 'non_content':
+                reason = original.get('reason')
+                if not isinstance(reason, str) or reason not in {'greeting', 'advertisement', 'empty_transition'}:
+                    raise _audit_error('invalid_exclusion', data, unit=unit)
+                canonical = (kind, reason)
+                targets = []
+            elif kind == 'content':
+                targets = original.get('fields')
+                if best_effort and isinstance(targets, str):
+                    targets = [targets]
+                if best_effort and isinstance(targets, list) and all(isinstance(key, str) for key in targets):
+                    targets = list(dict.fromkeys(field_id(key) for key in targets))
+                detailed = {key for key in updated if key == 'body' or key.startswith(('point:', 'added:'))}
+                if (not isinstance(targets, list) or not targets
+                        or any(not isinstance(key, str) or key not in detailed or not updated[key].strip() for key in targets)
+                        or len(set(targets)) != len(targets)):
+                    raise _audit_error('invalid_note_reference', data, unit=unit, allowed_fields=sorted(detailed))
+                canonical = (kind, tuple(sorted(targets)))
+            elif best_effort and kind == 'missing':
+                # Only an explicit source-editor finding identifies a gap.
+                # Absent/broken bookkeeping alone is never called missing content.
+                canonical = (kind,)
+                targets = []
+            else:
+                raise _audit_error('invalid_kind', data, unit=unit)
+            if unit in accepted_receipts:
+                if best_effort and accepted_receipts[unit] == canonical:
+                    continue
+                conflicting_units.add(unit)
+                raise _audit_error('unknown_or_duplicate_unit', data, unit=unit)
+            accepted_receipts[unit] = canonical
+            if kind == 'missing':
+                identified_gaps[unit] = spoken_source(units[unit])
+            for key in targets:
+                citation_ids.setdefault(key, set()).add(unit)
+        except SummaryOutputError as error:
+            rejected(error)
+
+    unverified = set(units) - set(accepted_receipts) | conflicting_units | set(identified_gaps) | rejected_units
+    if unverified:
+        rejected(_audit_error('missing_units', data, missing_units=sorted(unverified)))
+    citations = {key: source_evidence(sorted(keys), 'invalid_receipt', 0) for key, keys in citation_ids.items()}
     for addition in checked_additions:
-        addition["source_quote"] = citations[addition["id"]]
+        addition['source_quote'] = citations[addition['id']]
+    if best_effort:
+        return SourceReview(updated, checked_additions, citations, [unit for unit in units if unit in unverified], {unit: identified_gaps[unit] for unit in units if unit in identified_gaps}, issues, sorted(unresolved_fields))
     return updated, checked_additions, citations
