@@ -16,7 +16,7 @@ export async function downloadArchive(path: string, filename: string): Promise<s
 }
 const button = 'px-3 py-2 text-sm rounded-lg bg-dark-hover border border-dark-border disabled:opacity-50'
 
-export function NoteRecovery({ id, version = '', warning = '', failed = false, local = false, onRestored }: { id: string; version?: string; warning?: string; failed?: boolean; local?: boolean; onRestored?: () => void }) {
+export function NoteRecovery({ id, version = '', warning = '', failed = false, local = false, expanded = false, onRestored }: { id: string; version?: string; warning?: string; failed?: boolean; local?: boolean; expanded?: boolean; onRestored?: () => void }) {
   const [message, setMessage] = useState(''); const [error, setError] = useState(''); const [busy, setBusy] = useState(false)
   const [repair, setRepair] = useState<Repair | null>(null)
   const base = `/api/maintenance/notes/${encodeURIComponent(id)}`
@@ -45,7 +45,7 @@ export function NoteRecovery({ id, version = '', warning = '', failed = false, l
   }
   return <section aria-label="Note recovery and backup" className="mb-3 text-sm space-y-2">
     {warning && <p role="status" className="text-amber-300">The summary is saved. {warning}</p>}
-    <details data-screenshot-recovery open={failed || !!warning || undefined}><summary className="cursor-pointer text-gray-400 py-1">Downloads & screenshot recovery</summary><div className="flex flex-wrap gap-2 pt-2">
+    <details data-screenshot-recovery open={expanded || failed || !!warning || undefined}><summary className="cursor-pointer text-gray-400 py-1">Downloads & screenshot recovery</summary><div className="flex flex-wrap gap-2 pt-2">
       <button className={button} disabled={busy} onClick={() => void run(async () => setMessage(await downloadArchive(base + '/bundle' + (version ? `?version=${encodeURIComponent(version)}` : ''), 'note-with-images.zip')))}>Download with images</button>
       <button className={button} disabled={busy || repair?.status === 'running'} onClick={() => void run(() => startRepair())}>{repair?.status === 'running' ? 'Restoring screenshots…' : 'Repair screenshots'}</button>
       {failed && <button className={button} disabled={busy} onClick={() => void run(async () => {
