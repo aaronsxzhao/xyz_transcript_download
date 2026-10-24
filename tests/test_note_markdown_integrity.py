@@ -1,6 +1,19 @@
 """Video postprocessing must preserve content that looks like Markdown syntax."""
 import pytest
-from note_summarizer import NoteSummarizer
+from note_summarizer import NoteSummarizer, _repair_numbered_heading_markers
+
+
+def test_repeated_heading_markers_are_repaired_without_rewriting_source_examples():
+    source = '## 8. 学习\n\n### 8.2 #### 优化模式识别的重要性\n\n### 8.3 ### 视频风格说明\n\n`### 8.2 #### Inline`\n\n```md\n### 8.2 #### Literal\n```\n\n> ### 8.2 #### Quoted original\n\n    ### 8.2 #### Indented code\n\n8.2 #### Plain text\n\n### C# and ## symbols\n'
+    expected = source.replace('### 8.2 #### 优化模式识别的重要性', '### 8.2 优化模式识别的重要性').replace('### 8.3 ### 视频风格说明', '### 8.3 视频风格说明')
+    assert _repair_numbered_heading_markers(source) == expected
+    assert _repair_numbered_heading_markers(expected) == expected
+    assert NoteSummarizer._clean_markdown(source) == expected.rstrip('\n')
+    document = NoteSummarizer(api_key='fixture')._merge_chunk_notes('Title', [source], True)
+    assert '### 1.1 优化模式识别的重要性' in document
+    assert '### 1.2 视频风格说明' in document
+    assert '```md\n### 8.2 #### Literal\n```' in document
+    assert '[1.1 优化模式识别的重要性](#11-优化模式识别的重要性)' in document
 
 
 def test_cleaning_preserves_the_last_real_code_fence():

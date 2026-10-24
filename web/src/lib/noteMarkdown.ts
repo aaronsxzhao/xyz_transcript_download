@@ -1,6 +1,22 @@
 import { Lexer, walkTokens, type Tokens } from 'marked'
 
+/** Repair duplicated ATX markers only in parsed, top-level numbered headings. */
+export function normalizeNoteHeadings(markdown: string): string {
+  const duplicate = /^( {0,3}#{1,6}[\t ]+\d+(?:[.．]\d+)*(?:[.．、])?[\t ]+)#{1,6}[\t ]+(?=\S)/m
+  if (!duplicate.test(markdown)) return markdown
+  // Lexer normalizes newlines. Edit original heading lines so code examples
+  // and reference definitions retain their exact bytes, including CRLF.
+  const lines = markdown.split(/(\r\n|\n|\r)/)
+  let line = 0
+  for (const token of Lexer.lex(markdown)) {
+    if (token.type === 'heading') lines[line * 2] = lines[line * 2].replace(duplicate, '$1')
+    line += (token.raw.match(/\n/g) || []).length
+  }
+  return lines.join('')
+}
+
 export function prepareNoteMarkdown(markdown: string) {
+  markdown = normalizeNoteHeadings(markdown)
   const tokens = Lexer.lex(markdown)
   const index = tokens.findIndex(token => token.type === 'heading' && token.depth === 2 && /^(目录|Table of Contents)$/i.test(token.text.trim()))
   if (index < 0) return markdown

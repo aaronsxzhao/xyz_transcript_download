@@ -23,6 +23,20 @@ logger = get_logger("note_summarizer")
 NOTE_CHUNK_CHARS = SOURCE_CHUNK_CHARS
 
 
+def _repair_numbered_heading_markers(markdown: str) -> str:
+    """Remove duplicate ATX markers in headings, preserving code and quotations."""
+    pattern = re.compile(r"^( {0,3}#{1,6}[\t ]+\d+(?:[.．]\d+)*(?:[.．、])?[\t ]+)#{1,6}[\t ]+(?=\S)", re.M)
+    if not pattern.search(markdown):
+        return markdown
+    from markdown_it import MarkdownIt
+    lines = markdown.splitlines(keepends=True)
+    for token in MarkdownIt('commonmark').parse(markdown):
+        if token.type == 'heading_open' and token.map:
+            index = token.map[0]
+            lines[index] = pattern.sub(r"\1", lines[index])
+    return ''.join(lines)
+
+
 def _markdown_lines(text):
     """Identify code lines before interpreting heading-like source content."""
     fence = None
@@ -146,6 +160,7 @@ Markdown 结构规范（严格遵守）:
 - 使用 `# 标题` 作为笔记主标题（仅一个）
 - 使用 `## 二级标题` 划分主要章节/话题
 - 使用 `### 三级标题` 划分子话题
+- 标题的 # 标记只放在行首；如有编号，写成 `### 8.2 子话题`，不要写成 `### 8.2 #### 子话题`
 - 每个章节之间用空行分隔，保证视觉层次
 - 关键观点用 **加粗** 强调
 - 使用 `>` 引用块来突出重要金句、核心论点或原话
@@ -317,7 +332,7 @@ class NoteSummarizer:
                         f"for {transcript_len} chars input (ratio={ratio:.3f})"
                     )
 
-            return result
+            return _repair_numbered_heading_markers(result) if result else result
         except Exception as e:
             if "cancel" in type(e).__name__.lower() or "cancel" in str(e).lower():
                 raise
@@ -529,6 +544,7 @@ class NoteSummarizer:
     @staticmethod
     def _renumber_headings(markdown: str) -> str:
         """Sequentially number ## headings and their ### sub-headings across the whole document."""
+        markdown = _repair_numbered_heading_markers(markdown)
         result = []
         h2_counter = 0
         h3_counter = 0
@@ -694,7 +710,7 @@ class NoteSummarizer:
             closing = re.search(r"\r?\n {0,3}" + re.escape(wrapper[1]) + r"[ \t]*$", stripped)
             if closing and closing.start() >= wrapper.end():
                 stripped = stripped[wrapper.end():closing.start()]
-        return stripped.strip("\r\n")
+        return _repair_numbered_heading_markers(stripped.strip("\r\n"))
 
 
 _note_summarizer: Optional[NoteSummarizer] = None
