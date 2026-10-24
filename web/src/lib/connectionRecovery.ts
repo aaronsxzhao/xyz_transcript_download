@@ -17,6 +17,10 @@ export function useConnectionRecovery(retry: () => void, enabled: boolean) {
       latest.current()
     }
     for (const event of ['online', 'focus', retryEvent]) window.addEventListener(event, recover)
-    return () => { for (const event of ['online', 'focus', retryEvent]) window.removeEventListener(event, recover) }
+    document.addEventListener('visibilitychange', recover)
+    return () => {
+      for (const event of ['online', 'focus', retryEvent]) window.removeEventListener(event, recover)
+      document.removeEventListener('visibilitychange', recover)
+    }
   }, [enabled])
 }

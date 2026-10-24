@@ -76,14 +76,23 @@ async def main():
    assert not await page.locator('.connection-notice,[role=alert]').count()
    assert list(connection_reads.values())==[3,3],connection_reads
    if width==390:
-    connection_offline=True
-    await page.goto(origin+'/library?q=reconnect',wait_until='networkidle')
-    await page.locator('.connection-notice').wait_for()
-    await page.get_by_role('button',name='Retry',exact=True).wait_for()
-    connection_offline=False
-    await page.evaluate("dispatchEvent(new Event('online'))")
-    await page.get_by_text('No matching notes',exact=True).wait_for()
-    assert not await page.locator('.connection-notice,[role=alert]').count()
+    for event in ['online','visibilitychange']:
+     connection_offline=True
+     await page.goto(origin+'/library?q='+event,wait_until='networkidle')
+     await page.locator('.connection-notice').wait_for()
+     await page.get_by_role('button',name='Retry',exact=True).wait_for()
+     connection_offline=False
+     if event=='visibilitychange':
+      before=dict(connection_reads)
+      await page.evaluate("Object.defineProperty(document,'visibilityState',{configurable:true,value:'hidden'});document.dispatchEvent(new Event('visibilitychange'))")
+      await page.wait_for_timeout(100)
+      assert connection_reads==before,connection_reads
+      await page.evaluate("Object.defineProperty(document,'visibilityState',{configurable:true,value:'visible'});document.dispatchEvent(new Event('visibilitychange'))")
+     else:
+      await page.evaluate("dispatchEvent(new Event('online'))")
+     await page.get_by_text('No matching notes',exact=True).wait_for()
+     assert not await page.locator('.connection-notice,[role=alert]').count()
+     if event=='visibilitychange':await page.evaluate("delete document.visibilityState")
    for path in ['/','/library','/podcasts','/videos','/settings','/viewer/bench','/videos/bench']:
     await page.goto(origin+path,wait_until='networkidle')
     await inspect(path)
