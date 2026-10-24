@@ -27,6 +27,7 @@ export default function CustomModelFields({
   const [testing, setTesting] = useState(false);
   const [result, setResult] = useState("");
   const [refresh, setRefresh] = useState(0);
+  const [manualEntry, setManualEntry] = useState(false);
   const version = useRef(0);
   const prefix = kind === "summary" ? "llm" : "whisper";
   const payload = () => ({
@@ -43,6 +44,7 @@ export default function CustomModelFields({
     (value.apiKey === undefined &&
       keySaved &&
       value.baseUrl.replace(/\/$/, "") === savedBase.replace(/\/$/, ""));
+  useEffect(() => setManualEntry(false), [value.baseUrl, kind]);
   useEffect(() => {
     version.current++;
     setModels([]);
@@ -180,28 +182,49 @@ export default function CustomModelFields({
       </label>
       {keySaved &&
         value.apiKey === undefined &&
-        value.baseUrl !== savedBase && (
+        !canUseKey && (
           <p role="status" className="text-sm text-amber-300">
             Base URL changed. Re-enter the key for this endpoint.
           </p>
         )}
       <label className="block text-sm">
         {label} model
-        <input
-          aria-label={`${label} custom model`}
-          list={`${kind}-provider-models`}
-          value={model}
+        <select
+          aria-label={`${label} model`}
+          value={manualEntry ? "manual" : model ? `model:${model}` : ""}
           disabled={disabled}
-          onChange={(e) => onModel(e.target.value)}
-          placeholder="Select or enter exact model ID"
-          className="mt-1 block w-full rounded-lg bg-dark-hover border border-dark-border px-3 py-2"
-        />
-        <datalist id={`${kind}-provider-models`}>
+          onChange={(e) => {
+            const manual = e.target.value === "manual";
+            setManualEntry(manual);
+            if (!manual) onModel(e.target.value.slice("model:".length));
+          }}
+          className="mt-1 block w-full min-w-0 rounded-lg bg-dark-hover border border-dark-border px-3 py-2 text-ellipsis"
+        >
+          <option value="" disabled>
+            {loading ? "Reading models…" : models.length ? "Choose a model" : "No models loaded · enter manually"}
+          </option>
+          {model && !models.includes(model) && (
+            <option value={`model:${model}`}>{model} · current, not in list</option>
+          )}
           {models.map((id) => (
-            <option key={id} value={id} />
+            <option key={id} value={`model:${id}`}>{id}</option>
           ))}
-        </datalist>
+          <option value="manual">Enter model ID manually…</option>
+        </select>
       </label>
+      {(manualEntry || (!loading && !models.length)) && (
+        <label className="block text-sm">
+          Model ID
+          <input
+            aria-label={`${label} custom model`}
+            value={model}
+            disabled={disabled}
+            onChange={(e) => onModel(e.target.value)}
+            placeholder="Enter the provider's exact model ID"
+            className="mt-1 block w-full min-w-0 rounded-lg bg-dark-hover border border-dark-border px-3 py-2"
+          />
+        </label>
+      )}
       <div className="flex flex-wrap gap-2 items-center">
         <button
           type="button"

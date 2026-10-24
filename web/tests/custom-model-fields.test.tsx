@@ -57,6 +57,40 @@ function input(label: string, value: string) {
 async function tick() {
   await act(async () => vi.advanceTimersByTimeAsync(650));
 }
+function selectModel(label: string, value: string) {
+  const el = node.querySelector<HTMLSelectElement>(`[aria-label="${label}"]`)!;
+  act(() => {
+    el.value = value;
+    el.dispatchEvent(new Event("change", { bubbles: true }));
+  });
+}
+it.each(["summary", "transcription"] as const)("shows %s models in a dropdown and tests the selected model", async (kind) => {
+  const fetch = vi.fn()
+    .mockResolvedValueOnce(Response.json({ models: ["first-model", "provider/second-model"] }))
+    .mockResolvedValueOnce(Response.json({ message: "Connection verified." }));
+  vi.stubGlobal("fetch", fetch);
+  await act(async () => root.render(<Host kind={kind} />));
+  await tick();
+  const label = kind === "summary" ? "Summary" : "Transcription";
+  expect(node.querySelector(`[aria-label="${label} custom model"]`)).toBeNull();
+  expect(node.textContent).toContain("provider/second-model");
+  selectModel(`${label} model`, "model:provider/second-model");
+  await act(async () => [...node.querySelectorAll("button")].find(b => b.textContent === `Test ${kind}`)!.click());
+  expect(JSON.parse(fetch.mock.calls[1][1].body)[kind === "summary" ? "llm_model" : "whisper_model"]).toBe("provider/second-model");
+});
+it("preserves a saved model missing from the listing and allows manual entry or returning to a listed model", async () => {
+  vi.stubGlobal("fetch", vi.fn().mockResolvedValue(Response.json({ models: ["listed-model"] })));
+  await act(async () => root.render(<Host saved />));
+  await tick();
+  const select = node.querySelector<HTMLSelectElement>('[aria-label="Summary model"]')!;
+  expect(select.selectedOptions[0].textContent).toBe("first-model · current, not in list");
+  selectModel("Summary model", "manual");
+  input("Summary custom model", "private/manual-model");
+  expect(node.querySelector<HTMLInputElement>('[aria-label="Summary custom model"]')!.value).toBe("private/manual-model");
+  selectModel("Summary model", "model:listed-model");
+  expect(select.value).toBe("model:listed-model");
+  expect(node.querySelector('[aria-label="Summary custom model"]')).toBeNull();
+});
 it("replaces the endpoint model list and ignores an older response", async () => {
   let finish!: (response: Response) => void;
   const fetch = vi
@@ -74,14 +108,14 @@ it("replaces the endpoint model list and ignores an older response", async () =>
   input("Summary Base URL", "https://second.example/v1");
   await tick();
   expect(
-    [...node.querySelectorAll("datalist option")].map((row) =>
+    [...node.querySelectorAll('option[value^="model:"]')].map((row) =>
       row.getAttribute("value"),
     ),
-  ).toEqual(["second-model"]);
+  ).toEqual(["model:second-model"]);
   await act(async () => finish(Response.json({ models: ["stale-model"] })));
   expect(node.textContent).not.toContain("stale-model");
   expect(
-    node.querySelector<HTMLInputElement>('[aria-label="Summary custom model"]')!
+    node.querySelector<HTMLSelectElement>('[aria-label="Summary model"]')!
       .value,
   ).toBe("");
   expect(JSON.parse(fetch.mock.calls[1][1].body).llm_base_url).toBe(
@@ -153,8 +187,8 @@ it("ends a stalled model-list request and permits a fresh retry without acceptin
   expect(refresh.disabled).toBe(false);
   await act(async()=>refresh.click());
   await tick();
-  expect(node.querySelector('option[value="recovered-model"]')).not.toBeNull();
+  expect(node.querySelector('option[value="model:recovered-model"]')).not.toBeNull();
   await act(async()=>finish(Response.json({models:['late-model']})));
-  expect(node.querySelector('option[value="late-model"]')).toBeNull();
+  expect(node.querySelector('option[value="model:late-model"]')).toBeNull();
   expect(node.textContent).not.toContain('timed out');
 });
