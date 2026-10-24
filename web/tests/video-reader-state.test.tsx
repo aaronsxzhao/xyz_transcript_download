@@ -94,9 +94,16 @@ it('does not clear an action error when an unrelated metadata refresh finishes',
   expect(node.querySelector('[role=alert] button')?.textContent).toBe('Dismiss')
 })
 
-it('shows a readable source failure instead of a raw status code', async () => {
-  vi.mocked(fetchVideoTask).mockResolvedValue({...note(),status:'failed',error:'RATE_LIMITED',message:'Failed',markdown:''})
+it.each(['Failed','RATE_LIMITED'])('shows a readable source failure when the provider message is %s', async message => {
+  vi.mocked(fetchVideoTask).mockResolvedValue({...note(),status:'failed',error:'RATE_LIMITED',message,markdown:''})
   await mount()
   expect(node.textContent).toContain('Too many requests')
   expect(node.textContent).not.toContain('RATE_LIMITED')
+})
+
+it('retains a descriptive server message for an unfamiliar classified failure', async () => {
+  vi.mocked(fetchVideoTask).mockResolvedValue({...note(),status:'failed',error:'FFMPEG_MISSING',message:'FFmpeg is missing on the server.',markdown:''})
+  await mount()
+  expect(node.textContent).toContain('FFmpeg is missing on the server.')
+  expect(node.textContent).not.toContain('FFMPEG_MISSING')
 })
