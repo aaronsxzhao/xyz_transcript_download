@@ -91,6 +91,16 @@ it("preserves a saved model missing from the listing and allows manual entry or 
   expect(select.value).toBe("model:listed-model");
   expect(node.querySelector('[aria-label="Summary custom model"]')).toBeNull();
 });
+it("keeps manual entry visible when a pending model listing arrives", async () => {
+  let finish!: (response: Response) => void;
+  vi.stubGlobal("fetch", vi.fn().mockImplementation(() => new Promise(resolve => { finish = resolve; })));
+  await act(async () => root.render(<Host />));
+  input("Summary custom model", "private/in-progress");
+  await tick();
+  await act(async () => finish(Response.json({ models: ["listed-model"] })));
+  expect(node.querySelector<HTMLInputElement>('[aria-label="Summary custom model"]')!.value).toBe("private/in-progress");
+  expect(node.querySelector<HTMLSelectElement>('[aria-label="Summary model"]')!.value).toBe("manual");
+});
 it("replaces the endpoint model list and ignores an older response", async () => {
   let finish!: (response: Response) => void;
   const fetch = vi
