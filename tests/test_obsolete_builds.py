@@ -26,7 +26,7 @@ const github={rest:{git:{getRef:async()=>({data:{object:{sha:MAIN_SHA}}})},actio
  listJobsForWorkflowRun:async()=>({data:{jobs:[{steps:STEPS}]}}),
  cancelWorkflowRun:async({run_id})=>cancelled.push(run_id)
 }}};
-(async()=>{SCRIPT
+(async()=>{await (async()=>{SCRIPT})();
  process.stdout.write(JSON.stringify(cancelled));
 })().catch(e=>{process.stderr.write(String(e));process.exit(1)});
 '''
