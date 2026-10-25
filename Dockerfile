@@ -3,13 +3,17 @@
 # Uses BuildKit cache mounts for fast rebuilds
 
 # --- Stage 1: Build frontend ---
-FROM node:22-slim AS frontend-build
+FROM --platform=$BUILDPLATFORM node:22-slim AS frontend-build
 WORKDIR /web
 COPY web/package.json web/package-lock.json* ./
 RUN --mount=type=cache,target=/root/.npm \
     npm ci
 COPY web/ .
 RUN npm run build
+
+# The frontend emits architecture-independent browser assets. Keep the Node
+# executable used by yt-dlp on the target architecture, not the build machine.
+FROM node:22-slim AS node-runtime
 
 # --- Stage 2: Python runtime ---
 FROM python:3.11-slim
@@ -23,7 +27,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     libstdc++6
 
 # Node.js binary (for yt-dlp YouTube JS challenge solving)
-COPY --from=frontend-build /usr/local/bin/node /usr/local/bin/node
+COPY --from=node-runtime /usr/local/bin/node /usr/local/bin/node
 RUN node --version
 
 WORKDIR /app
