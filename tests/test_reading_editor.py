@@ -153,6 +153,19 @@ def test_video_table_of_contents_with_real_prose_is_not_discarded():
     assert 'Real source discussion.' in final
 
 
+@pytest.mark.parametrize('add_toc', [False, True])
+def test_video_editor_preserves_indented_code_in_intro_and_chapter_on_provider_failure(add_toc):
+    from markdown_it import MarkdownIt
+    from note_summarizer import NoteSummarizer
+    engine = NoteSummarizer(api_key='synthetic')
+    source = "# Title\n\n    intro()\n    prepare()\n\n## First\n\n    first()\n    second()\n\n## Second\n\nAn independent explanation."
+    code_blocks = lambda value: [t.content for t in MarkdownIt().parse(value) if t.type == 'code_block']
+    with patch.object(engine, '_editorial_json', side_effect=TimeoutError('Synthetic outage')):
+        final = engine._edit_reading(source, 'Title', add_toc)
+    assert code_blocks(final) == code_blocks(source)
+    assert 'An independent explanation.' in final
+
+
 def test_groq_editor_has_the_same_output_room_as_the_paid_summary_path():
     client=Mock(base_url='https://api.groq.com/openai/v1/')
     client.with_options.return_value.chat.completions.create.return_value=NS(choices=[NS(finish_reason='stop',message=NS(content='{"groups":[]}'))])

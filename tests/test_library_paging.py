@@ -24,6 +24,47 @@ class Query:
 
 
 @pytest.mark.asyncio
+async def test_source_catalog_skips_large_duplicate_groups_and_is_account_scoped(monkeypatch):
+    rows = [dict(user_id='a', kind='video', source='A large channel', status='completed', markdown='Private body') for _ in range(2000)]
+    rows += [dict(user_id='a', kind='podcast', source='B older podcast', status='completed'),
+             dict(user_id='a', kind='video', source='C last channel', status='completed'),
+             dict(user_id='a', kind='video', source='Failed import', status='failed'),
+             dict(user_id='b', kind='video', source='Other account', status='completed'),
+             dict(user_id='a', kind='video', source='', status='completed')]
+    reads = []
+    def table(_):
+        query = Query(rows); reads.append(query); return query
+    monkeypatch.setattr(library, 'get_db', lambda _: SimpleNamespace(use_supabase=True, db=SimpleNamespace(client=SimpleNamespace(table=table))))
+    app = FastAPI(); app.include_router(library.router, prefix='/library')
+    app.dependency_overrides[get_current_user] = lambda: User('a', '')
+    async with AsyncClient(transport=ASGITransport(app), base_url='http://test') as http:
+        first = (await http.get('/library/sources')).json()
+        assert first == {'sources': ['A large channel'], 'next_cursor': 'A large channel'}
+        second = (await http.get('/library/sources', params={'cursor': first['next_cursor']})).json()
+        assert second == {'sources': ['B older podcast', 'C last channel'], 'next_cursor': None}
+        assert len(reads) == 2
+        assert all(query.fields == ['source'] and len(query.rows) <= 41 for query in reads)
+        podcasts = (await http.get('/library/sources', params={'kind': 'podcast'})).json()
+        assert podcasts == {'sources': ['B older podcast'], 'next_cursor': None}
+        assert (await http.get('/library/sources', params={'limit': 10000})).status_code == 422
+
+
+@pytest.mark.asyncio
+async def test_selected_source_is_exact_rather_than_a_substring(monkeypatch):
+    rows = [dict(user_id='a', id=str(i), kind='video', title='Lesson', source=source,
+                 date='2026-01-01', status='completed', search_text='Lesson', sort_key=str(i),
+                 thumbnail='', platform='youtube', duration=60, topics_count=0,
+                 published_at='', publication_sort_key=str(i))
+            for i, source in enumerate(['Course', 'Course extra', '100%_Course'])]
+    monkeypatch.setattr(library, 'get_db', lambda _: SimpleNamespace(use_supabase=True, db=SimpleNamespace(client=SimpleNamespace(table=lambda _: Query(rows)))))
+    app = FastAPI(); app.include_router(library.router, prefix='/library')
+    app.dependency_overrides[get_current_user] = lambda: User('a', '')
+    async with AsyncClient(transport=ASGITransport(app), base_url='http://test') as http:
+        assert [r['source'] for r in (await http.get('/library', params={'source': 'Course'})).json()['items']] == ['Course']
+        assert [r['source'] for r in (await http.get('/library', params={'source': '100%_Course'})).json()['items']] == ['100%_Course']
+
+
+@pytest.mark.asyncio
 async def test_cursor_traverses_large_library_with_tied_dates_and_account_isolation(monkeypatch):
     rows = [dict(user_id='a', id=str(i), kind='podcast' if i%2 else 'video', title=f'Lesson {i}', source='Source', date='2026-01-01', status='completed', search_text=f'Lesson {i} Source', sort_key=f'20260101:{i:05}', published_at='2024-01-01',publication_sort_key=f'20240101:{i:05}',thumbnail='https://image.xyzcdn.net/fixture.jpg', platform='xiaoyuzhou', duration=600, topics_count=4, markdown='Private full body') for i in range(2105)]
     rows.append({**rows[0], 'status':'failed', 'id':'failed-note', 'sort_key':'99999998'})

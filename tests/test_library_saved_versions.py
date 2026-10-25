@@ -3,6 +3,22 @@ import pytest
 
 
 @pytest.mark.asyncio
+async def test_local_source_catalog_keeps_saved_regenerations_and_filters_exactly(client, mock_database):
+    from video_task_db import VideoTaskDB
+    db = VideoTaskDB(mock_database.db_path)
+    for channel in ('Course', 'Course extra'):
+        task = db.create_task({'user_id': 'local', 'url': 'fixture://' + channel, 'channel': channel, 'platform': 'youtube'})
+        db.complete_task(task, '# Saved note', 'detailed', 'test-model', 'local')
+        db.update_task(task, {'status': 'failed'})
+    failed = db.create_task({'user_id': 'local', 'url': 'fixture://failed', 'channel': 'No saved note'})
+    db.update_task(failed, {'status': 'failed'})
+    catalog = await client.get('/api/library/sources', params={'kind': 'video', 'limit': 1})
+    assert catalog.json() == {'sources': ['Course'], 'next_cursor': 'Course'}
+    assert (await client.get('/api/library/sources', params={'kind': 'video', 'cursor': 'Course'})).json() == {'sources': ['Course extra'], 'next_cursor': None}
+    assert [r['source'] for r in (await client.get('/api/library', params={'source': 'Course'})).json()['items']] == ['Course']
+
+
+@pytest.mark.asyncio
 @pytest.mark.parametrize('status',['pending','summarizing','failed','cancelled'])
 async def test_library_keeps_saved_notes_during_or_after_regeneration(client, mock_database, status):
     from video_task_db import VideoTaskDB

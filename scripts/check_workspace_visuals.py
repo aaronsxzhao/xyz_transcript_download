@@ -31,6 +31,7 @@ async def main():
                     if path=='/api/auth/config':body={'supabase_enabled':True}
                     elif path=='/api/auth/me':body={'id':'bench','email':'','authenticated':True}
                     elif path=='/api/podcasts':body=[{'pid':f'channel-{i}','title':f'Channel {i}','author':'Author','description':'','cover_url':'','episode_count':35,'summarized_count':0,'platform':'xiaoyuzhou','feed_url':'','episode_preview':[{'eid':f'ep-{i}-{j}','pid':f'channel-{i}','title':f'Channel {i} episode {j}','description':'','duration':60,'pub_date':'2026-10-21','created_at':'','status':'pending','has_summary':False,'has_transcript':False} for j in range(12)]} for i in range(13)]
+                    elif path=='/api/library/sources':body={'sources':['Learning studio'],'next_cursor':None}
                     elif path.endswith('/episodes') or path=='/api/podcasts/content':
                         episode_reads+=1
                         return await route.abort('failed')

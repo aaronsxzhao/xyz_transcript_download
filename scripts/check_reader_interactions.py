@@ -50,6 +50,7 @@ async def check(browser, origin, width, output, label):
         elif path=='/api/video-notes/tasks':body={'tasks':[{**task,'markdown':'','transcript':None}]};delay=2.5
         elif path=='/api/summaries/bench':body=summary
         elif path=='/api/notion/pages':body={'pages':[]};delay=.6
+        elif path=='/api/library/sources':body={'sources':['Learning lab','Synthetic channel'],'next_cursor':None}
         elif path=='/api/library':
             rows=[{'id':f'episode-{i}','kind':'podcast','title':f'{"New account" if account_changed else "Podcast lesson"} {i}','source':'Learning lab','date':'2026-10-20','status':'completed'} for i in range(85)]
             rows.insert(0,{'id':'bench','kind':'video','title':'Synthetic video','source':'Synthetic channel','date':'2026-10-20','status':'completed'})

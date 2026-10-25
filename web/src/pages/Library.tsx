@@ -16,13 +16,13 @@ import LoadError from '../components/LoadError'
 import { platformLabel } from '../lib/platformLabels'
 
 import type { LibraryItem as Item, LibraryPage } from '../lib/api'
-import { fetchLibrary } from '../lib/api'
+import { fetchLibrary, fetchLibrarySources } from '../lib/api'
 export default function Library() {
   const history=useReadingHistory()
   const [params, setParams] = useSearchParams()
   const query = params.get('q') || ''; const kind = params.get('kind') || ''; const status = 'completed'; const source = params.get('source') || ''; const sort = params.get('sort') || 'newest'
   const filterKey = new URLSearchParams({q:query,kind,status,source,sort}).toString()
-  const cacheKey = 'library_page:v4:' + filterKey
+  const cacheKey = 'library_page:v5:' + filterKey
   const [loadedFilter, setLoadedFilter] = useState(filterKey)
   const [items, setItems] = useState<Item[]>(() => getCache<LibraryPage>(cacheKey)?.items || [])
   const [cursor, setCursor] = useState<string | null>(() => getCache<LibraryPage>(cacheKey)?.next_cursor || null)
@@ -34,6 +34,31 @@ export default function Library() {
   useWarmCache<LibraryPage>(cacheKey, value => {setItems(value.items);setCursor(value.next_cursor);setLoadedFilter(filterKey);setLoading(false)})
   const [filtersOpen, setFiltersOpen] = useState(false)
   const [error, setError] = useState('')
+  const [sources, setSources] = useState<string[]>([])
+  const [sourcesError, setSourcesError] = useState(false)
+  const [sourcesLoading, setSourcesLoading] = useState(false)
+  const [sourceAttempt, setSourceAttempt] = useState(0)
+  useEffect(() => {
+    if (loading) return
+    const abort = new AbortController(); const owner = getAccountId()
+    const catalog: string[] = []; const cursors = new Set<string>()
+    let active = true
+    setSourcesError(false); setSourcesLoading(true)
+    void (async () => {
+      let cursor = ''
+      do {
+        const page = await fetchLibrarySources(cursor, abort.signal)
+        if (!active || owner !== getAccountId()) return
+        catalog.push(...page.sources)
+        setSources([...new Set(catalog)])
+        if (!page.next_cursor) return
+        if (cursors.has(page.next_cursor)) throw new Error('Source cursor did not advance')
+        cursor = page.next_cursor; cursors.add(cursor)
+      } while (active)
+    })().catch(() => { if (active && owner === getAccountId()) setSourcesError(true) })
+      .finally(() => { if (active && owner === getAccountId()) setSourcesLoading(false) })
+    return () => { active = false; abort.abort() }
+  }, [loading, sourceAttempt])
   usePageTiming('library', !loading && loadedFilter === filterKey, cacheKey, !!error)
   useReadingPosition('library:' + filterKey, undefined, !loading && loadedFilter === filterKey)
   const update = (key: string, value: string) => { const next = new URLSearchParams(params); value ? next.set(key, value) : next.delete(key); setParams(next, { replace: true }) }
@@ -74,10 +99,12 @@ export default function Library() {
       <input aria-label="Search saved notes" placeholder="Search title, podcast or channel…" value={query} onChange={e => update('q', e.target.value)} className="min-w-0 flex-1 px-3 py-3 bg-dark-surface border border-dark-border rounded-lg" />
       <button className="library-filter-toggle border border-dark-border px-3" aria-expanded={filtersOpen} aria-controls="library-filter-options" onClick={() => setFiltersOpen(open => !open)}>Filters{kind || source ? ' · Active' : ''}</button>
       <div id="library-filter-options" className="library-filter-options" data-expanded={filtersOpen}>
-      <select aria-label="Podcast or channel" value={source} onChange={e=>update("source",e.target.value)} className="min-w-0 px-3 py-3 bg-dark-surface border border-dark-border rounded-lg"><option value="">All sources</option>{Array.from(new Set([source,...items.map(i=>i.source)])).filter(Boolean).sort().map(value=><option key={value} value={value}>{value}</option>)}</select>
+      <select aria-label="Podcast or channel" aria-describedby={sourcesLoading || sourcesError ? 'library-source-status' : undefined} value={source} onChange={e=>update("source",e.target.value)} className="min-w-0 px-3 py-3 bg-dark-surface border border-dark-border rounded-lg"><option value="">All sources</option>{Array.from(new Set([source,...sources,...items.map(i=>i.source)])).filter(Boolean).sort().map(value=><option key={value} value={value}>{value}</option>)}</select>
       <select aria-label="Media type" value={kind} onChange={e => update('kind', e.target.value)} className="px-3 py-3 bg-dark-surface rounded-lg"><option value="">All media</option><option value="podcast">Podcasts</option><option value="video">Videos & posts</option></select>
 
     </div></div>
+    {sourcesLoading && <p id="library-source-status" role="status" className="text-sm text-gray-400">Loading sources…</p>}
+    {!sourcesLoading && sourcesError && <p id="library-source-status" role="status" className="text-sm text-gray-400">Source list could not finish loading. <button className="text-indigo-300 underline" onClick={() => setSourceAttempt(value => value + 1)}>Retry sources</button></p>}
     <div className="library-results-bar"><p role="status" className="text-sm text-gray-400">{loading ? 'Loading your notes…' : `${shown.length} notes loaded${cursor ? " · More available" : ""}`}{refreshing && !loading ? loadedFilter !== filterKey ? ' · Searching…' : ' · Updating…' : ''}</p><select aria-label="Sort notes" value={sort} onChange={e => update('sort', e.target.value)} className="p-2 rounded bg-dark-surface"><option value="newest">Recently saved</option><option value="oldest">Earliest saved</option><option value="published">Recently published</option></select><div className="flex gap-1 rounded-lg border border-dark-border p-1">{(['grid', 'list'] as const).map(mode => <button key={mode} aria-label={`${mode} layout`} aria-pressed={layout === mode} onClick={() => { setLayout(mode); setPreference('library_layout', mode) }} className={`p-2 rounded ${layout === mode ? 'bg-indigo-600 text-white' : 'text-gray-400 hover:bg-dark-hover'}`}>{mode === 'grid' ? <LayoutGrid size={16} /> : <List size={16} />}</button>)}</div></div>
     {(query || kind || source || sort !== 'newest') && <button onClick={() => setParams({}, { replace: true })} className="text-sm text-indigo-300 underline">Clear filters</button>}
     {(loading || (refreshing && items.length === 0)) && <div aria-hidden className="collection-grid">{Array.from({length:8}, (_,i) => <div key={i} className="h-40 rounded-xl border border-dark-border bg-dark-surface animate-pulse" />)}</div>}

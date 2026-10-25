@@ -27,6 +27,7 @@ class NetworkPreview(Preview):
             time.sleep(.15)
             data = {'/api/auth/me':{'id':'bench','email':'bench@example.com','authenticated':True},
                     '/api/settings':{'whisper_mode':'api','whisper_model':'whisper-large-v3','llm_provider':'groq','llm_model':'openai/gpt-oss-120b','check_interval':3600},
+                    '/api/library/sources':{'sources':[],'next_cursor':None},
                     '/api/library':{'items':[],'next_cursor':None}, '/api/performance':{'pages':{'library':{'samples':12,'p50_ms':450,'p95_ms':1200,'slow_count':0,'error_count':0}}}, '/api/podcasts':[], '/api/summaries':[], '/api/video-notes/tasks':{'tasks':[]},
                     '/api/video-notes/progress':{'tasks':[]}, '/api/jobs':{'jobs':[]},
                     '/api/video-notes/channels':{'channels':[]}, '/api/cookies':{'cookies':[]}}

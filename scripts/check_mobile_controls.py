@@ -143,6 +143,7 @@ async def main():
     elif path=='/api/content-updates':body={'items':[]}
     elif path=='/api/video-notes/channels':body={'channels':[{'platform':platform,'channel':f'{platform}-{i}','total':total,'done':done,'channel_avatar':'','thumbnail':'','channel_url':'','last_updated':''} for platform,count,total,done in [('bilibili',12,17,2),('youtube',4,34,5),('local',1,2,2),('twitter',2,3,1),('substack',1,4,4)] for i in range(count)]}
     elif path=='/api/library':body={'items':[{'id':'saved-failed','kind':'video','title':'Saved complete note','source':'Synthetic channel','date':'2026-10-24','published_at':'2026-10-23','status':'completed','platform':'youtube','duration':600}] if social_state['saved_library'] else [{'id':'social','kind':'video','title':'Original public article','source':'Synthetic writer','date':'2026-10-24','published_at':'2026-10-23','status':'completed','platform':'substack','duration':0}] if social_state['library'] else [],'next_cursor':None}
+    elif path=='/api/library/sources':body={'sources':['Synthetic channel','Synthetic writer'],'next_cursor':None}
     elif path.startswith('/api/video-notes/'):body={'tasks':[]}
     await route.fulfill(content_type='application/json',body=json.dumps(body))
    await page.route('**/api/**',api)

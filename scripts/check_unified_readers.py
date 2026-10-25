@@ -37,6 +37,7 @@ async def check(browser,origin,width,output):
   elif path=='/api/jobs':body={'jobs':state['jobs']}
   elif path=='/api/content-updates':body={'items':[{'item_key':'podcast:one','kind':'podcast','source_id':'show','source_title':'My podcast','title':'New episode','created_at':'2026-10-22T00:00:00Z'}] if state['updates'] else [],'dismiss_before':'2026-10-22T00:00:00Z'}
   elif path=='/api/content-updates/dismiss':state['updates']=False;body={'ok':True}
+  elif path=='/api/library/sources':body={'sources':[],'next_cursor':None}
   elif path=='/api/library':body={'items':[],'next_cursor':None}
   await route.fulfill(body=json.dumps(body),content_type='application/json')
  await page.route('**/api/**',api)
