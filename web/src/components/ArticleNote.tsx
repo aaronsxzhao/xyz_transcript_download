@@ -1,5 +1,5 @@
 import {useEffect, useState} from 'react'
-import ReadableMarkdown from './ReadableMarkdown'
+import ReadableMarkdown, {hasImage} from './ReadableMarkdown'
 import {inlineNoteText} from '../lib/noteMarkdown'
 import './ArticleNote.css'
 
@@ -50,5 +50,5 @@ function ArticleLink({href,label}:{href:string;label:string}) {
 
 /** Keep original prose and inline citations; enhance only standalone links. */
 export default function ArticleNote({markdown}:{markdown:string}) {
-  return <article data-rendering="plain" aria-label="Readable note" className="note-prose prose prose-invert max-w-none"><ReadableMarkdown markdown={markdown} renderStandaloneLink={link=><ArticleLink key={link.href} href={link.href} label={inlineNoteText(link.tokens)}/>}/></article>
+  return <article data-rendering="plain" aria-label="Readable note" className="note-prose prose prose-invert max-w-none"><ReadableMarkdown markdown={markdown} renderParagraph={(paragraph,index)=>{const link=paragraph.tokens.length===1?paragraph.tokens[0]:null;return link?.type==='link'&&link.tokens&&/^https?:\/\//i.test(link.href)&&!hasImage(link.tokens)?<ArticleLink key={index+link.href} href={link.href} label={inlineNoteText(link.tokens)}/>:null}}/></article>
 }

@@ -1,4 +1,7 @@
-@import "tailwindcss";
+@import "tailwindcss" source(none);
+/* Scan authored UI only: old dist files and fixtures must not change output. */
+@source "./";
+@source "../index.html";
 @config "../tailwind.config.js";
 
 body {
