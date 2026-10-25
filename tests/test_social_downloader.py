@@ -76,3 +76,22 @@ def test_generic_media_is_fetched_once_with_pinning_and_ffmpeg_cannot_open_netwo
     assert downloader._public_source.exists()
     downloader.cleanup()
     assert not list((tmp_path/'audio').glob('*_source.media'))
+
+
+def test_cancel_during_public_download_removes_partial_file_without_transcoding(monkeypatch,tmp_path):
+    from api.routers.video_notes import VideoCancelledException
+    monkeypatch.setattr(downloader,'VIDEO_AUDIO_DIR',tmp_path)
+    source=SocialContent('web','https://cdn.example/audio.mp3','Recording','Original',
+        media=[{'url':'https://cdn.example/audio.mp3','kind':'audio'}])
+    def fetch(url,**kwargs):
+        kwargs['sink'].write(b'partial')
+        kwargs['progress_callback'](7,100)
+        raise AssertionError('Cancellation must stop the stream')
+    monkeypatch.setattr('public_content_fetch.fetch_public',fetch)
+    process=Mock();monkeypatch.setattr(downloader,'run_media_process',process)
+    def progress(value,message):
+        if value>0: raise VideoCancelledException('Cancelled')
+    with pytest.raises(VideoCancelledException):
+        downloader.SocialDownloader(source).download_audio(source.url,'cancelled',progress_callback=progress)
+    assert not list(tmp_path.iterdir())
+    process.assert_not_called()

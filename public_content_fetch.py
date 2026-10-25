@@ -88,7 +88,7 @@ class PublicResponse:
     headers: dict
 
 
-def fetch_public(url, *, deadline=None, max_bytes=8*1024*1024, media_headers_only=False, sink=None):
+def fetch_public(url, *, deadline=None, max_bytes=8*1024*1024, media_headers_only=False, sink=None, progress_callback=None):
     deadline = deadline or time.monotonic() + 30
     url = normalize_public_url(url)
     try:
@@ -111,11 +111,14 @@ def fetch_public(url, *, deadline=None, max_bytes=8*1024*1024, media_headers_onl
                 if media_headers_only and kind.startswith(('audio/', 'video/')):
                     return PublicResponse(url, kind, b'', dict(response.headers))
                 chunks, size = [], 0
+                try: total = int(response.headers.get('Content-Length', 0))
+                except (ValueError, TypeError): total = 0
                 for chunk in response.stream(65536, decode_content=True):
                     size += len(chunk)
                     if size > max_bytes:
                         raise SocialSourceError('The source is too large to read completely. Nothing was silently truncated.')
                     if time.monotonic() >= deadline: raise TimeoutError()
+                    if progress_callback: progress_callback(size, total)
                     if sink: sink.write(chunk)
                     else: chunks.append(chunk)
                 return PublicResponse(url, kind, b''.join(chunks), dict(response.headers))

@@ -29,8 +29,41 @@ class ContentDocument(SocialContent):
         return markdown
 
     def metadata(self):
-        return {'type': self.content_type, 'canonical_url': self.canonical_url or self.url,
+        result = {'type': self.content_type, 'canonical_url': self.canonical_url or self.url,
                 'attachments': self.attachments, 'access': 'complete', 'extractor': EXTRACTION_VERSION}
+        if self.media:
+            result.update(media=self.media, source_body=self.body)
+        return result
+
+
+def saved_web_media(task):
+    """Regenerate saved media transcripts without refetching an expired source.
+
+    Article refreshes still resolve the live page. Older direct-media imports
+    have a canonical URL but no snapshot; their original body was just a link.
+    Actual downloads continue through the public URL/DNS validation boundary.
+    """
+    if not task or task.get('platform') != 'web':
+        return None
+    transcript = task.get('transcript') or {}
+    text = transcript.get('text')
+    meta = task.get('source_metadata') or {}
+    if not isinstance(text, str) or len(text) <= 50 or meta.get('type') not in ('audio', 'video'):
+        return None
+    try:
+        url = normalize_public_url(task['url'])
+        media = meta.get('media') or [{'url': meta.get('canonical_url') or url,
+                                      'kind': meta['type'], 'duration': task.get('duration') or 0}]
+        if not isinstance(media, list) or not media or any(item.get('kind') not in ('audio', 'video') for item in media):
+            return None
+        media = [dict(item, url=normalize_public_url(item['url'])) for item in media]
+        return ContentDocument('web', url, task.get('title') or urlsplit(url).hostname,
+            meta.get('source_body') or f'[Original media]({_link(media[0]["url"], url)})',
+            author=task.get('channel') or '', published=task.get('published_at') or '',
+            thumbnail=task.get('thumbnail') or '', media=media, content_type=meta['type'],
+            canonical_url=meta.get('canonical_url') or url)
+    except (SocialSourceError, KeyError, TypeError, AttributeError):
+        return None
 
 
 def normalize_document_url(url):
