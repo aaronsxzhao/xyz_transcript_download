@@ -85,6 +85,20 @@ it('allows correcting a rejected destination before any page was created',async(
  expect(node.querySelector('input')!.disabled).toBe(false);
  expect(button('Export').disabled).toBe(false);
 });
+
+it('exports the selected historical style with its content rather than the latest style',async()=>{
+ vi.mocked(fetchNotionPages).mockResolvedValue({pages:[{id:'target',title:'Notebook'}]} as any);
+ vi.mocked(exportMarkdownToNotion).mockResolvedValue({title:'Saved',url:'https://notion.so/saved'});
+ const task={id:'note',title:'Saved source',platform:'youtube',style:'detailed',duration:120,
+  url:'https://youtu.be/abcdefghijk',versions:[{id:'old',style:'brief',model_name:'historical-model'}]} as VideoTask;
+ await act(async()=>root.render(<MemoryRouter><NotionExport task={task} selectedVersion="old" content="Historical content and conditions." onClose={()=>{}}/></MemoryRouter>));
+ await act(async()=>button('📄Notebook').click());
+ await act(async()=>button('Export').click());
+ const markdown=vi.mocked(exportMarkdownToNotion).mock.calls[0][0];
+ expect(markdown).toContain('- Style: brief');
+ expect(markdown).not.toContain('- Style: detailed');
+ expect(markdown).toContain('Historical content and conditions.');
+});
 it("ignores stale searches, including replies arriving during the next debounce", async () => {
   let finish!: (value: any) => void;
   vi.mocked(fetchNotionPages)

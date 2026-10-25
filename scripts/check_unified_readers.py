@@ -10,6 +10,7 @@ from playwright.async_api import async_playwright
 async def check(browser,origin,width,output):
  task,summary=fixtures()
  task.update(title='Bitcoin Daily / Trading review',channel='Trading course',published_at='2026-04-12',model='Test model',formats=['summary','screenshot'],error='')
+ task['versions'][0].update(style='brief',model_name='Historical model')
  task['markdown']='# Trading review\n\nA complete market review.\n\n'+ '\n\n'.join(f'## {i+1}. Market structure\n\nConditional argument {i}. '+('Detailed context. '*40)+f'\n\n- Confirm the signal\n- Manage risk\n\n![Chart](/data/screenshots/bench_{i}.jpg)' for i in range(14))
  summary.update(title='Podcast reading / 播客阅读',overview='### 核心结论\n- Conditional conclusions.\n\n### 节目概览\nA complete overview.',key_points=[{'topic':f'Chapter {i}','summary':'#### Explanation\n\nA complete argument with conditions.\n\n'+('Supporting detail. '*15),'original_quote':'Original transcript evidence.','timestamp':'12:00'} for i in range(7)],topics=[f'Chapter {i}' for i in range(7)])
  state={'jobs':[],'updates':True,'fail_version':False,'completed':False}
@@ -118,6 +119,15 @@ async def check(browser,origin,width,output):
  await page.get_by_role('button',name='Version history',exact=True).click()
  await page.get_by_label('Note version',exact=True).select_option('v0')
  await page.wait_for_function('document.querySelector("svg.markmap")?.textContent.includes("Saved version v0")')
+ assert await page.locator('.unified-header').get_by_text('brief',exact=True).is_visible()
+ assert not await page.locator('.unified-header').get_by_text('detailed',exact=True).count()
+ await page.get_by_role('button',name='More summary actions').click()
+ await page.get_by_role('button',name='Source details',exact=True).click()
+ assert await page.get_by_text('Historical model',exact=True).is_visible()
+ assert not await page.get_by_text('Test model',exact=True).count()
+ await page.get_by_role('button',name='Close details',exact=True).click()
+ await page.get_by_role('button',name='More summary actions').click()
+ await page.get_by_role('button',name='Version history',exact=True).click()
  assert await page.evaluate('window.workerCreates')==1
  await page.get_by_label('Note version',exact=True).select_option('')
  await page.wait_for_function('document.querySelector("svg.markmap")?.textContent.includes("Trading review")')
@@ -168,6 +178,8 @@ async def check(browser,origin,width,output):
  task.update(platform='web',style='original',title='Original article fixture',error='',source_metadata={'type':'article','attachments':[{'url':'https://www.youtube.com/embed/abcdefghijk','kind':'embedded','title':'Original demonstration'}]},markdown='# Original article fixture\n\n## Original chapter\n\nAll original conditions remain. 原文段落保持完整。\n\n![Original chart](/api/article-image?url=https%3A%2F%2Fblog.example%2Fchart.png&expires=1&signature=fixture&size=article)\n\n## Final reflection\n\nOriginal final reflection.')
  await page.goto(origin+'/videos/bench')
  await page.get_by_role('tab',name='Original text',exact=True).wait_for()
+ assert await page.locator('.unified-header').get_by_text('Original article',exact=True).is_visible()
+ assert not await page.locator('.unified-header').get_by_text('503:40',exact=True).count()
  await page.get_by_role('heading',name='Final reflection',exact=True).wait_for()
  assert not await page.get_by_role('tab',name='Transcript',exact=True).count()
  image=page.locator('article img').first

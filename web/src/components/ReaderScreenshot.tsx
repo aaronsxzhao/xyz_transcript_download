@@ -13,7 +13,11 @@ function GalleryPending({onClose,src,failed=false}:{onClose:()=>void;src?:string
 }
 
 /** Bounded preview; full-resolution viewing is an explicit action. */
-export default function ReaderScreenshot({src,originalSrc=src,alt='',ready=true,priority=false}:{src:string;originalSrc?:string;alt?:string;ready?:boolean;priority?:boolean}) {
+type ScreenshotProps={src:string;originalSrc?:string;alt?:string;ready?:boolean;priority?:boolean}
+export default function ReaderScreenshot(props:ScreenshotProps) {
+  return <ScreenshotContent key={JSON.stringify([props.src,props.originalSrc||props.src])} {...props}/>
+}
+function ScreenshotContent({src,originalSrc=src,alt='',ready=true,priority=false}:ScreenshotProps) {
   const recover = useContext(ScreenshotRecoveryContext)
   const imageStarted = useRef(performance.now())
   const [open,setOpen]=useState(false)
@@ -23,7 +27,6 @@ export default function ReaderScreenshot({src,originalSrc=src,alt='',ready=true,
   const [reason, setReason] = useState('')
   const [checking, setChecking] = useState(false)
   const preview = src.startsWith('/data/') ? `${src}${src.includes('?') ? '&' : '?'}preview=true` : src
-  useEffect(() => { setFailed(false); setReason(''); setOpen(false) }, [src])
   useEffect(() => {
     if (!failed || !(src.startsWith('/data/') || src.startsWith('/api/article-image?'))) return
     const controller = new AbortController()

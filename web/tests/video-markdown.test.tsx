@@ -39,3 +39,16 @@ it('labels text imports as original content rather than a missing model or zero-
  expect(node.textContent).not.toContain('Not recorded')
  expect(node.textContent).not.toContain('0:00')
 })
+
+it('shows the selected saved version model rather than the latest model',async()=>{
+ await act(async()=>root.render(<ReaderDetails kind="source" task={{id:'note',style:'detailed',platform:'youtube',model:'latest-model',duration:120,formats:['summary'],versions:[{id:'old',style:'brief',model_name:'historical-model'}]} as any} selectedVersion="old" onVersion={()=>{}} onClose={()=>{}} onRestored={()=>{}}/>))
+ expect(node.textContent).toContain('historical-model')
+ expect(node.textContent).not.toContain('latest-model')
+ expect(node.textContent).toContain('Not recorded for saved versions')
+})
+
+it('does not invent a saved version model when its metadata is unavailable',async()=>{
+ await act(async()=>root.render(<ReaderDetails kind="source" task={{id:'note',platform:'youtube',model:'latest-model',duration:120,formats:['summary'],versions:[]} as any} selectedVersion="old" onVersion={()=>{}} onClose={()=>{}} onRestored={()=>{}}/>))
+ expect(node.textContent).toContain('Not recorded')
+ expect(node.textContent).not.toContain('latest-model')
+})

@@ -153,7 +153,7 @@ export default function ReaderFrame({
   children,
 }: {
   title: string;
-  kind: "Podcast" | "Video" | "Original post";
+  kind: "Podcast" | "Video" | "Audio" | "Original post" | "Original article";
   metadata?: ReactNode;
   actions: ReactNode;
   tabs: ReactNode;
@@ -232,7 +232,7 @@ export default function ReaderFrame({
               <ArrowLeft size={14} /> Back
             </button>
             <span>/</span>
-            <span>{kind==='Original post'?kind:`${kind} summary`}</span>
+            <span>{kind.startsWith('Original ')?kind:`${kind} summary`}</span>
           </div>
           <h1>{title}</h1>
           <div className="reader-metadata-row">
