@@ -52,6 +52,15 @@ def test_declared_base_resolves_images_citations_and_attachments_without_changin
     assert result.attachments[0]['url']=='https://assets.example/edition/audio/lesson.mp3'
 
 
+@pytest.mark.parametrize('attribute', ['data-original', 'data-lazy-src'])
+def test_cover_uses_the_same_real_lazy_image_as_the_article_body(attribute):
+    result=sources.extract_public_article(page(f'<p>Original detail.</p><img src="/placeholder.gif" {attribute}="/chart.png" alt="Chart">'),
+                                          'https://blog.example/article')
+    assert result.thumbnail=='https://blog.example/chart.png'
+    assert '![Chart](https://blog.example/chart.png)' in result.body
+    assert 'placeholder.gif' not in result.body
+
+
 @pytest.mark.parametrize('raw', [page('<p>Preview.</p>', '<script type="application/ld+json">'+json.dumps({'@type':'BlogPosting','isAccessibleForFree':False})+'</script>'),page('<p>Preview.</p><div class="paywall">Purchase required</div>'),b'<html><body><div id="app"></div></body></html>'])
 def test_paywall_and_empty_dynamic_shell_are_not_completed_articles(raw):
     with pytest.raises(SocialSourceError): sources.extract_public_article(raw,'https://example.com/post')

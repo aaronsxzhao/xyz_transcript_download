@@ -148,6 +148,12 @@ def _link(url: str, base: str) -> str:
         return ''
 
 
+def _image_url(node, base):
+    """Use the real lazy-loaded image consistently for body and cover."""
+    return next((target for attr in ('data-src', 'data-original', 'data-lazy-src', 'src')
+                 if (target := _link(node.get(attr), base))), '')
+
+
 def html_markdown(html: str, base: str) -> str:
     """Render source structure, not nav/chrome or executable HTML."""
     def render(node):
@@ -192,8 +198,7 @@ def html_markdown(html: str, base: str) -> str:
                 return children + f'\n\n[Open linked source]({url})\n\n'
             return f'[{label}]({url})'
         if name == 'img':
-            url = next((target for attr in ('data-src','data-original','data-lazy-src','src')
-                        if (target := _link(node.get(attr), base))), '')
+            url = _image_url(node, base)
             return f'\n\n![{_escape(node.get("alt", ""))}]({url})\n\n' if url else ''
         if name in ('strong', 'b', 'em', 'i'):
             marker = '**' if name in ('strong', 'b') else '*'

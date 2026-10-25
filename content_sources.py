@@ -7,7 +7,7 @@ from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit, urljoin
 from bs4 import BeautifulSoup
 
 from public_content_fetch import fetch_public, normalize_public_url
-from social_content import SocialContent, SocialSourceError, html_markdown, _escape, _link, social_platform, resolve_social_content
+from social_content import SocialContent, SocialSourceError, html_markdown, _escape, _link, _image_url, social_platform, resolve_social_content
 
 DOCUMENT_PLATFORMS = ('twitter', 'substack', 'web')
 EXTRACTION_VERSION = 'public-article-v1'
@@ -161,7 +161,7 @@ def extract_public_article(raw, url, content_type='text/html'):
             paragraph.name = 'h2'
     if not cover:
         first_image = root.find('img')
-        if first_image: cover = _link(first_image.get('data-src') or first_image.get('src'), base)
+        if first_image: cover = _image_url(first_image, base)
     attachments, seen = [], set()
     for node in root.find_all(['audio', 'video', 'iframe']):
         source = node.find('source')
