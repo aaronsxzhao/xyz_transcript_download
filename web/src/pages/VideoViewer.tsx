@@ -40,6 +40,7 @@ import {
 import { useStore, mergeVideoTaskPair } from "../lib/store";
 import { deferView } from "../components/DeferredView";
 import PlainNote from "../components/PlainNote";
+const ArticleNote = deferView(() => import('../components/ArticleNote'));
 const MarkdownPreview = deferView(
   () => import("../components/video/MarkdownPreview"),
 );
@@ -706,7 +707,7 @@ export default function VideoViewer() {
                   Loading saved version…
                 </p>
               ) : (
-                isOriginal ? <PlainNote markdown={content} preserveSource/> : <MarkdownPreview
+                isOriginal ? <ArticleNote markdown={content} fallback={<PlainNote markdown={content} preserveSource/>}/> : <MarkdownPreview
                   markdown={content}
                   fallback={<PlainNote markdown={content} />}
                 />

@@ -1,0 +1,41 @@
+// @vitest-environment jsdom
+import React,{act} from 'react'
+import {createRoot} from 'react-dom/client'
+import {beforeEach,afterEach,it,expect,vi} from 'vitest'
+import ArticleNote,{articleEmbed} from '../src/components/ArticleNote'
+let node:HTMLDivElement,root:ReturnType<typeof createRoot>
+beforeEach(()=>{node=document.createElement('div');document.body.append(node);root=createRoot(node)})
+afterEach(()=>{act(()=>root.unmount());node.remove();vi.useRealTimers()})
+
+it('shows standalone source cards, keeps inline citations and does not request embeds before a click',async()=>{
+ await act(async()=>root.render(<ArticleNote markdown={'Before [inline citation](https://research.example/paper).\n\n[Full research](https://research.example/paper)\n\nhttps://www.youtube.com/watch?v=abcdefghijk\n\nFinal original condition.'}/>))
+ expect(node.querySelectorAll('.article-link-card')).toHaveLength(2)
+ expect(node.querySelector('p a')?.textContent).toBe('inline citation')
+ expect(node.querySelector('iframe')).toBeNull()
+ expect(node.textContent).toContain('Final original condition.')
+ const load=[...node.querySelectorAll('button')].find(b=>b.textContent==='Load YouTube player')!
+ await act(async()=>load.click())
+ expect(node.querySelector('iframe')?.src).toBe('https://www.youtube-nocookie.com/embed/abcdefghijk')
+ expect(node.querySelector('iframe')?.getAttribute('sandbox')).not.toContain('allow-top-navigation')
+ expect(node.querySelector('.article-link-card a')?.getAttribute('href')).toBe('https://research.example/paper')
+ await act(async()=>[...node.querySelectorAll('button')].find(b=>b.textContent==='Close player')!.click())
+ expect(node.querySelector('iframe')).toBeNull()
+})
+
+it('never nests screenshot controls in a navigation link',async()=>{
+ await act(async()=>root.render(<ArticleNote markdown={'[**![Original image](https://images.example/preview.jpg)**](https://images.example/full.jpg)\n\n*Image credit: Author*'}/>))
+ expect(node.querySelector('a button')).toBeNull()
+ expect(node.querySelector('button.reader-screenshot')).not.toBeNull()
+ expect(node.querySelector('a')?.getAttribute('href')).toBe('https://images.example/full.jpg')
+ expect(node.textContent).toContain('Image credit: Author')
+})
+
+it.each(['https://youtube.com.evil.example/watch?v=abcdefghijk','https://user:secret@youtube.com/watch?v=abcdefghijk','javascript:alert(1)','https://youtube.com:444/watch?v=abcdefghijk','https://example.com/embed/anything'])('does not turn %s into an iframe',href=>expect(articleEmbed(href)).toBeNull())
+it.each([
+ ['https://youtu.be/abcdefghijk','https://www.youtube-nocookie.com/embed/abcdefghijk'],
+ ['https://youtu.be/abcdefghijk?t=1m30s','https://www.youtube-nocookie.com/embed/abcdefghijk?start=90'],
+ ['https://www.youtube.com/watch?v=abcdefghijk&start=120','https://www.youtube-nocookie.com/embed/abcdefghijk?start=120'],
+ ['https://www.bilibili.com/video/BV1234567890','https://player.bilibili.com/player.html?bvid=BV1234567890&autoplay=0'],
+ ['https://www.bilibili.com/video/BV1234567890?p=2','https://player.bilibili.com/player.html?bvid=BV1234567890&autoplay=0&p=2'],
+ ['https://open.spotify.com/episode/08tccyLPpPurxtPPrezQGZ','https://open.spotify.com/embed/episode/08tccyLPpPurxtPPrezQGZ'],
+])('recognizes %s', (href,src)=>expect(articleEmbed(href)?.src).toBe(src))

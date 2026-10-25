@@ -134,7 +134,9 @@ def _escape(text) -> str:
 
 
 def _link(url: str, base: str) -> str:
-    url = urljoin(base, str(url or ''))
+    if not str(url or '').strip():
+        return ''
+    url = urljoin(base, str(url).strip())
     try:
         return url.replace(' ', '%20').replace('(', '%28').replace(')', '%29') if urlsplit(url).scheme in ('http', 'https') else ''
     except ValueError:
@@ -177,9 +179,15 @@ def html_markdown(html: str, base: str) -> str:
             return '  \n'
         if name == 'a':
             url = _link(node.get('href'), base)
-            return f'[{children}]({url})' if url else children
+            label = children.strip()
+            if not url: return children
+            if '\n\n' in label:
+                # Markdown links cannot contain block paragraphs. Keep the
+                # complete content and offer its destination separately.
+                return children + f'\n\n[Open linked source]({url})\n\n'
+            return f'[{label}]({url})'
         if name == 'img':
-            url = _link(node.get('src') or node.get('data-src'), base)
+            url = _link(node.get('src'), base) or _link(node.get('data-src'), base)
             return f'\n\n![{_escape(node.get("alt", ""))}]({url})\n\n' if url else ''
         if name in ('strong', 'b', 'em', 'i'):
             marker = '**' if name in ('strong', 'b') else '*'
@@ -189,9 +197,10 @@ def html_markdown(html: str, base: str) -> str:
         if name == 'blockquote':
             return '\n\n' + '\n'.join('> ' + line for line in children.strip().splitlines()) + '\n\n'
         if name in ('video', 'audio', 'iframe'):
-            url = _link(node.get('src'), base)
+            source = node.find('source') if name in ('video', 'audio') else None
+            url = _link(node.get('src'), base) or _link(source.get('src') if source else '', base)
             return f'\n\n[Embedded media]({url})\n\n' if url else children
-        if name in ('p', 'div', 'section', 'article', 'ul', 'ol', 'tr', 'table'):
+        if name in ('p', 'div', 'section', 'article', 'ul', 'ol', 'tr', 'table', 'figure', 'figcaption'):
             return '\n\n' + children.strip() + '\n\n'
         if name in ('td', 'th'):
             return children.strip() + ' | '

@@ -457,6 +457,9 @@ def process_video_note_sync(
         existing_task = db.get_task(task_id, user_id)
         if not existing_task:
             return
+        # Keep a readable previous result stable until complete_task atomically
+        # saves its replacement. First attempts may still expose partial output.
+        preserve_existing_note = bool((existing_task.get("markdown") or "").strip())
         existing_transcript = existing_task.get("transcript") if existing_task else None
         has_saved_transcript = (
             existing_transcript
@@ -821,15 +824,9 @@ def process_video_note_sync(
                     msg = f"Writing notes — section {chunk_num}/{total_chunks} ({chars:,} chars)"
                 else:
                     msg = f"Writing notes ({chars:,} chars)..."
-                updates = {
-                    "status": "summarizing",
-                    "progress": job_progress,
-                    "message": msg,
-                }
-                if partial_text:
-                    updates["markdown"] = partial_text
+                partial_update = {"markdown": partial_text} if partial_text and not preserve_existing_note else {}
                 _update_task_status(db, task_id, "summarizing", job_progress, msg, user_id,
-                                    **({"markdown": partial_text} if partial_text else {}))
+                                    **partial_update)
 
         markdown = note_summarizer.generate_note(
             title=title,
@@ -1281,6 +1278,9 @@ def get_task(task_id: str, view: str = Query("full", pattern="^(full|note)$"), u
     if not task:
         raise HTTPException(status_code=404, detail="Task not found")
     task["versions"] = db.get_versions(task_id, include_content=view == "full")
+    if task.get('style') == 'original' and task.get('platform') in ('twitter', 'substack'):
+        from article_markdown import repair_article_markdown
+        task['versions'] = [{**v, 'content': repair_article_markdown(v['content'])} if v.get('content') and v.get('style') == 'original' else v for v in task['versions']]
     from api.media import sign_media_urls
     return sign_media_urls(task, task_id)
 
@@ -1298,11 +1298,15 @@ def get_task_transcript(task_id: str, user: User = Depends(get_current_user)):
 def get_task_version(task_id: str, version_id: str, user: User = Depends(get_current_user)):
     from video_task_db import get_video_task_db
     db = get_video_task_db()
-    if not db.get_task(task_id, user.id, include_transcript=False):
+    task = db.get_task(task_id, user.id, include_transcript=False)
+    if not task:
         raise HTTPException(status_code=404, detail="Task not found")
     version = db.get_version(task_id, version_id)
     if not version:
         raise HTTPException(status_code=404, detail="Version not found")
+    if task.get('platform') in ('twitter', 'substack') and version.get('style') == 'original':
+        from article_markdown import repair_article_markdown
+        version = {**version, 'content': repair_article_markdown(version.get('content') or '')}
     return sign_media_urls(version, task_id)
 
 

@@ -91,7 +91,7 @@ export default function ProcessingProgress({
             {busy ? "Cancelling…" : "Cancel"}
           </Button>
         )}
-        {job.status === "failed" && (!restricted || failure.retryAfterSignIn) && onRetry && (
+        {["failed", "cancelled"].includes(job.status) && (!restricted || failure.retryAfterSignIn) && onRetry && (
           <Button disabled={busy} onClick={() => void action(onRetry)}>
             {busy ? "Retrying…" : "Retry"}
           </Button>

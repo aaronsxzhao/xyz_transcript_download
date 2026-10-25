@@ -17,6 +17,24 @@ afterEach(()=>{act(()=>root.unmount());node.remove();useStore.getState().reset()
 const job=(job_id:string,status:string,message='Working')=>({job_id,status,message,progress:status==='pending'?0:44,episode_id:'0123456789abcdef01234567',episode_title:job_id})
 async function render(){await act(async()=>root.render(<MemoryRouter><ProcessingPanel/></MemoryRouter>))}
 async function open(){await act(async()=>(node.querySelector('[aria-label="Open processing tasks"]') as HTMLButtonElement).click())}
+it.each(['podcast','video'] as const)('allows a cancelled %s to retry without exposing retry while stopping',async kind=>{
+ if(kind==='podcast'){
+  useStore.getState().setJobs([job('stopped','cancelled'),job('stopping','cancelling')]);
+  api.retryJob.mockResolvedValue({new_job_id:'retry',message:'Retry started'});
+  api.fetchJob.mockResolvedValue(job('retry','pending'));
+ }else{
+  useStore.getState().setVideoTasks([{id:'stopped',...job('stopped','cancelled')},{id:'stopping',...job('stopping','cancelling')}] as any);
+  api.retryVideoTask.mockResolvedValue({task_id:'stopped'});
+ }
+ await render();await open();
+ const row=document.querySelector('[data-task-id="stopped"]')!;
+ const retry=[...row.querySelectorAll('button')].find(b=>b.textContent==='Retry');
+ expect(retry).toBeDefined();
+ expect(document.querySelector('[data-task-id="stopping"]')?.textContent).not.toContain('Retry');
+ await act(async()=>retry!.click());
+ expect(kind==='podcast'?api.retryJob:api.retryVideoTask).toHaveBeenCalledWith('stopped');
+ expect((kind==='podcast'?useStore.getState().jobs.find(j=>j.job_id==='retry'):useStore.getState().videoTasks.find(t=>t.id==='stopped'))?.status).toBe('pending');
+});
 it('shows known podcast creation times without inventing dates for legacy jobs',async()=>{
  useStore.getState().setJobs([{...job('recent','failed'),created_at:1700000000},{...job('legacy','failed'),created_at:0}])
  await render();await open()

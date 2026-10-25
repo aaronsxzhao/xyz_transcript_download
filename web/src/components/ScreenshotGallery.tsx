@@ -3,16 +3,23 @@ import {createPortal} from 'react-dom'
 import {useDialog} from '../lib/reading'
 
 export default function ScreenshotGallery({images,initial,onClose}:{images:{src:string;alt:string}[];initial:number;onClose:()=>void}) {
-  const [index,setIndex]=useState(initial)
-  const [zoom,setZoom]=useState(1)
-  const [state,setState]=useState<'loading'|'ready'|'error'|'timeout'>('loading')
-  const [retry,setRetry]=useState(0)
+  type LoadState='loading'|'ready'|'error'|'timeout'
+  const [view,setView]=useState({index:initial,zoom:1,state:'loading' as LoadState,retry:0})
+  const {index,zoom,state,retry}=view
   const viewport=useRef<HTMLDivElement>(null)
   const pointers=useRef(new Map<number,{x:number;y:number}>())
   const gesture=useRef({distance:0,zoom:1})
   const current=images[index]
+  const setZoom=(value:number|((value:number)=>number))=>setView(v=>({...v,zoom:typeof value==='function'?value(v.zoom):value}))
+  const setState=(state:LoadState)=>setView(v=>v.index===index&&v.retry===retry?{...v,state}:v)
+  const setIndex=(value:number|((value:number)=>number))=>{
+    // Selection and its loading/fit state must change in the same commit.
+    // A cached image can finish before a later passive reset effect runs.
+    setView(v=>{const next=typeof value==='function'?value(v.index):value;return next===v.index?v:{index:next,zoom:1,state:'loading',retry:0}})
+    pointers.current.clear()
+    viewport.current?.scrollTo(0,0)
+  }
   useDialog(true,onClose)
-  useEffect(()=>{setZoom(1);setState('loading');pointers.current.clear();if(viewport.current) viewport.current.scrollTo(0,0)},[index])
   useEffect(()=>{
     if(state!=='loading') return
     const timer=setTimeout(()=>setState('timeout'),30000)
@@ -62,7 +69,7 @@ export default function ScreenshotGallery({images,initial,onClose}:{images:{src:
       }}
       onPointerUp={e=>{pointers.current.delete(e.pointerId)}} onPointerCancel={()=>pointers.current.clear()}>
       {state==='loading'&&<p role="status" className="text-center p-4">Loading original image…</p>}
-      {state==='error'||state==='timeout'?<div role="alert" className="text-center p-4">{state==='timeout'?'Original image loading timed out.':'Original image could not load.'} <button onClick={()=>{setState('loading');setRetry(n=>n+1)}}>Retry original</button></div>:
+      {state==='error'||state==='timeout'?<div role="alert" className="text-center p-4">{state==='timeout'?'Original image loading timed out.':'Original image could not load.'} <button onClick={()=>setView(v=>({...v,state:'loading',retry:v.retry+1}))}>Retry original</button></div>:
       <img key={`${index}:${retry}`} src={current.src} alt={current.alt||'Screenshot'} referrerPolicy="no-referrer" onLoad={()=>setState('ready')} onError={()=>setState('error')} draggable={false} style={{display:state==='ready'?'block':'none',width:zoom===1?'auto':`${zoom*100}%`,maxWidth:zoom===1?'100%':'none',maxHeight:zoom===1?'100%':'none',margin:'0 auto',objectFit:'contain'}}/>}
     </div>
     <p className="gallery-caption text-center text-sm text-gray-400 pt-2 shrink-0">{current.alt}</p>

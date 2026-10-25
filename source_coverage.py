@@ -159,6 +159,10 @@ Do not delete unique details to produce a nicer overview. For a
 Markdown video the existing field is 'body'. Omit edits/additions only if
 there is truly nothing to fix. Use non_content only for an ENTIRE unit that
 contains no substantive information; a mixed unit must be covered as content.
+For a mixed ad/content unit, retain its substantive reflection or explanation;
+do not reintroduce product lists, promotional prices, codes or sponsor messages
+as new knowledge points merely to acknowledge that mixed unit. Coverage means
+its substantive information is retained, not that its advertising is repeated.
 """
 
 

@@ -139,21 +139,51 @@ class Summarizer:
         logger.info(f"Transcript: {len(transcript_text):,} chars, {duration/60:.0f} min")
         
         use_chunking = len(transcript_text) > self.chunk_chars
+        last_chars = 0
+        original_progress = progress_callback
+        if original_progress:
+            def progress_callback(chars, *args):
+                nonlocal last_chars
+                last_chars = max(last_chars, chars)
+                original_progress(chars, *args)
         
         if use_chunking:
             logger.info(f"Using bounded source extraction for {duration_hours:.1f} hours")
-            return self._summarize_long_transcript(
+            result = self._summarize_long_transcript(
                 transcript, podcast_title, episode_title, progress_callback, existing_topics
             )
+        else:
+            result = self._summarize_single(
+                transcript.episode_id, transcript_text, podcast_title, episode_title,
+                progress_callback, existing_topics)
+        return self._edit_reading(result, (lambda:original_progress(last_chars)) if original_progress else None)
 
-        return self._summarize_single(
-            transcript.episode_id,
-            transcript_text,
-            podcast_title,
-            episode_title,
-            progress_callback,
-            existing_topics,
-        )
+    def _editorial_json(self, system, payload, timeout):
+        from reading_editor import call_editor
+        return call_editor(self.client, self.model, system, payload, timeout)
+
+    def _edit_reading(self, summary, checkpoint=None):
+        from reading_editor import edit_sections, has_unedited_source
+        if not summary or len(summary.key_points) < 2 or has_unedited_source(summary.overview):
+            return summary
+        items = [{'id':f'N{i+1}', 'topic':point.topic, 'text':point.summary,
+                  'evidence':point.original_quote} for i,point in enumerate(summary.key_points)]
+        lookup = {item['id']:point for item,point in zip(items,summary.key_points)}
+        try:
+            paragraphs = edit_sections(items, self._editorial_json, checkpoint)
+            points = []
+            for paragraph in paragraphs:
+                evidence = lookup[paragraph['evidence_id']]
+                if not evidence.original_quote:
+                    evidence = next((lookup[ident] for ident in paragraph['ids'] if lookup[ident].original_quote), evidence)
+                points.append(KeyPoint(paragraph['topic'], paragraph['text'], evidence.original_quote, evidence.timestamp))
+            return replace(summary, key_points=points, topics=list(dict.fromkeys(point.topic for point in points)))
+        except Exception as error:
+            from summary_errors import is_cancellation
+            if is_cancellation(error):
+                raise
+            logger.info('Keeping complete podcast notes after optional editing failure: %s', type(error).__name__)
+            return summary
 
     def _summarize_single(
         self,
