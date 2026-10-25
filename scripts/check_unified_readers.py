@@ -98,6 +98,11 @@ async def check(browser,origin,width,output):
  await page.get_by_role('button',name='Full text',exact=True).click()
  assert 'Final condition retained only in full text.' in await page.get_by_role('region',name='Full transcript text',exact=True).inner_text()
  assert not await page.evaluate('document.documentElement.scrollWidth>innerWidth')
+ assert await page.get_by_role('button',name='Full text',exact=True).get_attribute('aria-pressed')=='true'
+ await page.get_by_role('button',name='Full text',exact=True).hover()
+ await page.wait_for_function('getComputedStyle(document.querySelector("#video-transcript button[aria-pressed=true]")).backgroundColor==="rgb(81, 68, 110)"')
+ heading=page.locator('#video-transcript h3')
+ assert await heading.evaluate('el=>el.getBoundingClientRect().height<2*parseFloat(getComputedStyle(el).lineHeight)')
  await page.screenshot(path=str(output/f'transcript-full-{width}.png'))
  await page.get_by_role('tab',name='Summary',exact=True).click()
  await page.get_by_role('button',name='Export',exact=True).click()

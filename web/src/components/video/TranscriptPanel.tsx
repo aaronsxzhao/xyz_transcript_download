@@ -34,8 +34,8 @@ export default function TranscriptPanel({ transcript }: Props) {
 
   return (
     <div className="flex flex-col h-full">
-      <div className="flex items-center justify-between mb-3 flex-shrink-0">
-        <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider">
+      <div className="flex flex-wrap items-center justify-between gap-2 mb-3 flex-shrink-0">
+        <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider shrink-0">
           Transcript
         </h3>
         <span className="text-xs text-gray-500">
