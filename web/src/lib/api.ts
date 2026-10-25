@@ -66,7 +66,7 @@ function detailFromApiBody(body: unknown): string | undefined {
 
 /**
  * Read JSON from a fetch Response once. Proxies sometimes return 5xx plain text;
- * this surfaces that text instead of a cryptic JSON.parse error.
+ * preserve useful plain text errors without displaying proxy HTML documents.
  */
 export async function parseApiResponseAsJson<T>(res: Response, operation: string): Promise<T> {
   const text = await res.text()
@@ -74,6 +74,10 @@ export async function parseApiResponseAsJson<T>(res: Response, operation: string
   try {
     body = text.trim() ? JSON.parse(text) : null
   } catch {
+    if (/text\/html/i.test(res.headers.get('content-type') || '') || /<!doctype\s+html|<html\b/i.test(text.slice(0, 512))) {
+      const ray = res.headers.get('cf-ray') || ''
+      throw new ApiError(`${operation}: the website gateway returned an error page (HTTP ${res.status}). No API result was received; please retry.${/^[a-zA-Z0-9-]{1,80}$/.test(ray) ? ` Reference: ${ray}` : ''}`, res.status)
+    }
     const snippet = text.slice(0, 240).replace(/\s+/g, ' ').trim()
     if (!res.ok) {
       throw new ApiError(

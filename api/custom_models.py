@@ -1,6 +1,7 @@
 """Validation and bounded, redacted probes for OpenAI-compatible providers."""
 import io
 import ipaddress
+import logging
 import socket
 import wave
 from urllib.parse import urlsplit
@@ -75,7 +76,7 @@ def public_model_error(error: Exception, kind: str) -> str:
     if isinstance(status, int) and 300 <= status < 400:
         return "The endpoint redirects requests. Enter the final API root directly."
     if isinstance(status, int) and status >= 500:
-        return "The model provider is temporarily unavailable. Retry later."
+        return f"The model provider returned HTTP {status} and is temporarily unavailable. Retry later."
     if "timeout" in type(error).__name__.lower():
         return "The model provider timed out. Check the Base URL or retry later."
     if type(error).__name__ in {"APIConnectionError", "ConnectError"}:
@@ -84,6 +85,21 @@ def public_model_error(error: Exception, kind: str) -> str:
 
 
 def probe_provider(preferences: dict, kind: str, *, models_only=False) -> dict:
+    operation = "models" if models_only else "summary" if kind == "summary" else "transcription"
+    try:
+        return _probe_provider(preferences, kind, models_only=models_only)
+    except Exception as error:
+        status = getattr(error, "status_code", 0)
+        status = status if isinstance(status, int) and 100 <= status <= 599 else 0
+        # Provider bodies and exception messages may contain keys or private URLs.
+        logging.getLogger(__name__).warning(
+            "Custom model probe failed: operation=%s error_type=%s upstream_status=%s",
+            operation, type(error).__name__, status,
+        )
+        raise
+
+
+def _probe_provider(preferences: dict, kind: str, *, models_only=False) -> dict:
     config = resolve_custom({**preferences, ("llm_model" if kind == "summary" else "whisper_model"): preferences.get("llm_model" if kind == "summary" else "whisper_model") or "list-models"}, kind)
     with OpenAI(api_key=config["api_key"], base_url=config["base_url"], timeout=20, max_retries=0,
                 http_client=custom_http_client()) as client:

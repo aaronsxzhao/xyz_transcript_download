@@ -254,12 +254,12 @@ export default function CustomModelFields({
         </button>
       </div>
       {listingError && (
-        <p role="status" className="text-sm text-amber-300">
+        <p role="status" className="text-sm text-amber-300 break-words">
           {listingError}
         </p>
       )}
       {result && (
-        <p role="status" className="text-sm">
+        <p role="status" className="text-sm break-words">
           {result}
         </p>
       )}

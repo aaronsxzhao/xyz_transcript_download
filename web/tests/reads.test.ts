@@ -1,10 +1,26 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
-import { ApiError, fetchSettings, fetchSummary, fetchVideoTasksByChannel, removePodcast, deleteEpisode, fetchNotionPages, exportMarkdownToNotion, exportToNotion } from '../src/lib/api'
+import { ApiError, parseApiResponseAsJson, fetchSettings, fetchSummary, fetchVideoTasksByChannel, removePodcast, deleteEpisode, fetchNotionPages, exportMarkdownToNotion, exportToNotion } from '../src/lib/api'
 import { clearTokens } from '../src/lib/auth'
 
 beforeEach(() => { clearTokens(); localStorage.clear(); sessionStorage.clear() })
 afterEach(() => { vi.useRealTimers(); vi.unstubAllGlobals() })
+
+it.each([200,502,503,504])('explains an HTML gateway response (%s) without exposing its body', async status => {
+ const html='<!DOCTYPE html><!-- private upstream details --><html><body>private-key-and-address</body></html>'
+ const response=new Response(html,{status,headers:{'Content-Type':'text/html','CF-Ray':'123abc-IAD'}})
+ const failed=await parseApiResponseAsJson(response,'Connection test failed').catch(error=>error)
+ expect(failed).toBeInstanceOf(ApiError)
+ expect(failed.status).toBe(status)
+ expect(failed.message).toContain('website gateway')
+ expect(failed.message).toContain('123abc-IAD')
+ expect(failed.message).not.toContain('DOCTYPE')
+ expect(failed.message).not.toContain('private-')
+});
+it('recognizes HTML without a content type and preserves real provider JSON errors', async()=>{
+ await expect(parseApiResponseAsJson(new Response('<html>Bad gateway</html>',{status:502}),'Test')).rejects.toThrow('website gateway')
+ await expect(parseApiResponseAsJson(Response.json({detail:'Provider rejected model access'},{status:502}),'Test')).rejects.toMatchObject({status:502,message:'Provider rejected model access'})
+});
 
 it.each([removePodcast,deleteEpisode])('preserves a rejected deletion status and its recovery message',async remove=>{
  vi.stubGlobal('fetch',vi.fn().mockResolvedValue(Response.json({detail:'Could not confirm deletion. Refresh before retrying.'},{status:503})))

@@ -49,6 +49,11 @@ def safe_log_summary(text: str) -> dict:
             for issue in ("missing_units", "invalid_note_reference", "invalid_addition", "ungrounded_edit", "unknown_edit_field", "duplicate_edit_field", "invalid_lists", "invalid_receipt", "unknown_or_duplicate_unit", "invalid_kind", "SummaryOutputError", "JSONDecodeError", "RuntimeError")
         },
         "timeout_mentions": len(re.findall(r"ReadTimeout|ConnectTimeout|PoolTimeout|timed out", text)),
+        "custom_model_probe_failures": {
+            operation: len(re.findall(r"Custom model probe failed: operation=" + operation + r"\b", text))
+            for operation in ("models", "summary", "transcription")
+        },
+        "custom_model_upstream_5xx": len(re.findall(r"Custom model probe failed: [^\r\n]*\bupstream_status=5[0-9]{2}\b", text)),
     }
 
 
