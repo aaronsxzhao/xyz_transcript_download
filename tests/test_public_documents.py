@@ -128,3 +128,22 @@ def test_embedded_youtube_media_reuses_the_existing_watch_url_identity(url):
     from video_downloader import detect_platform,normalize_video_url
     assert detect_platform(url)=='youtube'
     assert normalize_video_url(url)=='https://www.youtube.com/watch?v=abcdefghijk'
+
+
+def test_domain_fallback_is_labelled_source_not_an_invented_author():
+    document=sources.extract_public_article(page('<p>Original article.</p>'),'https://blog.example/article')
+    assert 'Source: blog.example' in document.markdown()
+    assert 'Author: blog.example' not in document.markdown()
+    attributed=sources.ContentDocument('web','https://blog.example/article','Title','Original text','Actual Author')
+    assert 'Author: Actual Author' in attributed.markdown()
+
+
+def test_legacy_source_attribution_is_repaired_only_in_the_generated_wrapper():
+    from article_markdown import readable_article_task,repair_web_attribution
+    raw='# Title\n\nAuthor: blog.example\n\n[Original source](https://blog.example/article)\n\nThe author wrote: Author: blog.example.'
+    task={'platform':'web','style':'original','url':'https://blog.example/article','markdown':raw}
+    result=readable_article_task(task)
+    assert result['markdown'].startswith('# Title\n\nSource: blog.example')
+    assert result['markdown'].endswith('The author wrote: Author: blog.example.')
+    assert task['markdown']==raw
+    assert repair_web_attribution('# Title\n\nAuthor: Actual Author\n\n[Original source](https://blog.example/article)','https://blog.example/article').startswith('# Title\n\nAuthor: Actual Author')

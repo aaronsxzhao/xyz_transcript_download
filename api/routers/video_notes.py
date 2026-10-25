@@ -1324,8 +1324,9 @@ def get_task_version(task_id: str, version_id: str, user: User = Depends(get_cur
         from article_markdown import repair_article_markdown
         version = {**version, 'content': repair_article_markdown(version.get('content') or '')}
         if task.get('platform') == 'web':
+            from article_markdown import repair_web_attribution
             from api.article_images import sign_article_markdown
-            version['content'] = sign_article_markdown(version['content'])
+            version['content'] = sign_article_markdown(repair_web_attribution(version['content'], task.get('url') or ''))
     return sign_media_urls(version, task_id)
 
 

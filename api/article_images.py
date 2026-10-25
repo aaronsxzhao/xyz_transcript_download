@@ -50,13 +50,14 @@ def sign_article_markdown(markdown):
 
 
 def sign_web_task(task):
+    from article_markdown import repair_web_attribution
     result = dict(task)
     if result.get('thumbnail', '').startswith(('https://','http://')):
         result['thumbnail'] = signed_article_image(result['thumbnail'], 'cover')
     if result.get('style') == 'original':
-        if result.get('markdown'): result['markdown'] = sign_article_markdown(result['markdown'])
+        if result.get('markdown'): result['markdown'] = sign_article_markdown(repair_web_attribution(result['markdown'], result.get('url') or ''))
         if result.get('versions'):
-            result['versions'] = [{**v,'content':sign_article_markdown(v['content'])}
+            result['versions'] = [{**v,'content':sign_article_markdown(repair_web_attribution(v['content'], result.get('url') or ''))}
                                  if v.get('style') == 'original' and v.get('content') else v for v in result['versions']]
     return result
 
