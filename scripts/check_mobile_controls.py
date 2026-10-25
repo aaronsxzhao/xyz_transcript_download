@@ -34,6 +34,7 @@ async def main():
   for width in args.widths:
    settings.update(llm_model='openai/gpt-oss-120b',llm_provider='groq',whisper_model='whisper-large-v3')
    holds={'read':None,'save':None,'test':None,'notion':None}
+   probe_state={'gateway':False,'requests':0}
    notion={'failed':False,'submitted':0}
    episode_state={'metadata':None,'one':None,'two':None,'submitted':[],'uploads':0}
    social_state={'library':False,'submitted':[]}
@@ -80,6 +81,10 @@ async def main():
       body=dict(settings)
       if holds['read']:await holds['read'].wait()
     elif path=='/api/settings/test-llm':
+     probe_state['requests']+=1
+     if probe_state['gateway']:
+      await route.fulfill(status=502,content_type='text/html',headers={'CF-Ray':('0123456789abcdef'*3)+'-IAD'},body='<!DOCTYPE html><html>Synthetic gateway error</html>')
+      return
      body={'message':'Connected','model':route.request.post_data_json['llm_model']}
      if holds['test']:await holds['test'].wait()
     elif path=='/api/truncated':body={'truncated':[] if maintenance['empty'] else [{'episode_id':'reviewed','episode_title':'Synthetic incomplete transcript','episode_duration':100,'transcript_duration':20,'percentage':20}]}
@@ -310,6 +315,14 @@ async def main():
      await page.get_by_label('Summary custom model',exact=True).fill('private/manual-model')
      await inspect('custom-model-manual')
      await model_picker.select_option('model:fixture-model')
+     probe_state['gateway']=True
+     attempts_before=probe_state['requests']
+     await page.get_by_role('button',name='Test summary',exact=True).click()
+     await page.get_by_text('the website gateway returned an error page',exact=False).wait_for()
+     assert probe_state['requests']==attempts_before+1
+     assert await page.get_by_text('<!DOCTYPE html>',exact=False).count()==0
+     await inspect('model-gateway-error')
+     probe_state['gateway']=False
      async with page.expect_request('**/api/settings/test-llm') as model_test:
       await page.get_by_role('button',name='Test summary',exact=True).click()
      assert (await model_test.value).post_data_json['llm_model']=='fixture-model'

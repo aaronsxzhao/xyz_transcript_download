@@ -101,6 +101,27 @@ it("keeps manual entry visible when a pending model listing arrives", async () =
   expect(node.querySelector<HTMLInputElement>('[aria-label="Summary custom model"]')!.value).toBe("private/in-progress");
   expect(node.querySelector<HTMLSelectElement>('[aria-label="Summary model"]')!.value).toBe("manual");
 });
+it("distinguishes gateway HTML from a model rejection and allows an explicit retry", async () => {
+  const fetch = vi.fn()
+    .mockResolvedValueOnce(Response.json({models:['gpt-6.1-sol']}))
+    .mockResolvedValueOnce(new Response('<!DOCTYPE html><html>private edge detail</html>', {status:502, headers:{'Content-Type':'text/html','CF-Ray':'abc123-IAD'}}))
+    .mockResolvedValueOnce(Response.json({message:'Connection verified.'}));
+  vi.stubGlobal('fetch', fetch);
+  await act(async () => root.render(<Host/>));
+  await tick();
+  selectModel('Summary model','model:gpt-6.1-sol');
+  const test = [...node.querySelectorAll('button')].find(b => b.textContent === 'Test summary')!;
+  await act(async () => test.click());
+  expect(node.textContent).toContain('website gateway');
+  expect(node.textContent).toContain('abc123-IAD');
+  expect(node.textContent).not.toContain('private edge detail');
+  expect(node.textContent).not.toContain('DOCTYPE');
+  expect(fetch).toHaveBeenCalledTimes(2);
+  await act(async () => test.click());
+  expect(JSON.parse(fetch.mock.calls[2][1].body).llm_model).toBe('gpt-6.1-sol');
+  expect(node.textContent).toContain('Connection verified.');
+  expect(fetch).toHaveBeenCalledTimes(3);
+});
 it("replaces the endpoint model list and ignores an older response", async () => {
   let finish!: (response: Response) => void;
   const fetch = vi

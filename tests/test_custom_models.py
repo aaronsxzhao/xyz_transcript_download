@@ -87,6 +87,18 @@ def test_public_errors_have_actionable_labels_without_provider_body(status,word)
     message=public_model_error(error,'summary')
     assert word in message.lower()
     assert 'private-key' not in message
+    if status >= 500:
+        assert f'HTTP {status}' in message
+
+
+def test_custom_probe_logs_only_error_type_and_status(caplog):
+    error=RuntimeError('private-key https://private-provider.example/error-body');error.status_code=502
+    with patch('api.custom_models._probe_provider',side_effect=error):
+        with pytest.raises(RuntimeError):
+            from api.custom_models import probe_provider
+            probe_provider(PATCH,'summary')
+    assert 'operation=summary error_type=RuntimeError upstream_status=502' in caplog.text
+    assert 'private-key' not in caplog.text and 'private-provider' not in caplog.text
 
 
 @pytest.mark.asyncio

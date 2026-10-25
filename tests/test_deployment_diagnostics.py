@@ -2,6 +2,13 @@
 from scripts.diagnose_deployment import safe_health, safe_log_summary
 
 
+def test_custom_probe_failures_are_counted_without_returning_private_messages():
+    report=safe_log_summary('Custom model probe failed: operation=summary error_type=APIStatusError upstream_status=502\nCustom model probe failed: operation=models error_type=APIConnectionError upstream_status=0\nsecret-key private endpoint')
+    assert report['custom_model_probe_failures']=={'models':1,'summary':1,'transcription':0}
+    assert report['custom_model_upstream_5xx']==1
+    assert 'secret-key' not in str(report) and 'private endpoint' not in str(report)
+
+
 def test_diagnostics_whitelist_startup_failures():
     text = '''Authorization: Bearer super-secret-value
   File "/app/api/main.py", line 17, in <module>
