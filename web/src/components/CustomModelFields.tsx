@@ -8,6 +8,8 @@ export default function CustomModelFields({
   model,
   keySaved,
   savedBase,
+  keyError = "",
+  checkingSaved = false,
   onChange,
   onModel,
   disabled = false,
@@ -17,6 +19,8 @@ export default function CustomModelFields({
   model: string;
   keySaved: boolean;
   savedBase: string;
+  keyError?: string;
+  checkingSaved?: boolean;
   onChange: (value: ConnectionDraft) => void;
   onModel: (model: string) => void;
   disabled?: boolean;
@@ -176,10 +180,23 @@ export default function CustomModelFields({
               ? "Key saved · leave blank to keep"
               : "Enter provider API key"
           }
-          onChange={(e) => onChange({ ...value, apiKey: e.target.value })}
+          onChange={(e) => onChange({ ...value, apiKey: e.target.value || undefined })}
           className="mt-1 block w-full rounded-lg bg-dark-hover border border-dark-border px-3 py-2"
         />
       </label>
+      <p role="status" className="text-xs text-gray-400 break-words">
+        {value.apiKey
+          ? "New API key entered. Click Save Settings to store it; testing alone does not save it."
+          : checkingSaved
+            ? "Checking saved API key status…"
+            : keyError
+              ? "Saved API key needs attention. It could not be read; see the error below."
+              : keySaved
+                ? canUseKey
+                  ? "API key saved on server. Hidden here; leave empty to keep it."
+                  : "An API key is saved for the previous Base URL."
+                : "No API key saved for this service."}
+      </p>
       {keySaved &&
         value.apiKey === undefined &&
         !canUseKey && (

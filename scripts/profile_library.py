@@ -77,6 +77,15 @@ def profile_public_routes(owner: str, routes: list[tuple[str, str]], local_video
     return reports
 
 
+def settings_key_status(data: dict) -> dict:
+    """Only public presence/error flags leave the diagnostic process."""
+    result = {}
+    for prefix in ('llm', 'whisper'):
+        result[prefix + '_key_saved'] = int(data.get(prefix + '_key_saved') is True)
+        result[prefix + '_key_error'] = int(bool(data.get(prefix + '_key_error')))
+    return result
+
+
 async def profile() -> list[dict]:
     import httpx
     from api.main import app
@@ -151,6 +160,8 @@ async def profile() -> list[dict]:
                                 "milliseconds": round((time.perf_counter() - started) * 1000),
                                 "database_requests": len(calls) - before,
                                 "response_bytes": len(response.content), "gzip_bytes": len(gzip.compress(response.content))})
+                if label == 'settings' and response.status_code == 200:
+                    reports[-1].update(settings_key_status(response.json()))
     finally:
         httpx.Client.send = original
         app.dependency_overrides.clear()

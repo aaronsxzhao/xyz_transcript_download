@@ -1,12 +1,27 @@
 """Persist model preferences without changing another account's defaults."""
 import json
 import sqlite3
+import threading
+from contextlib import contextmanager
+from weakref import WeakValueDictionary
 from typing import Optional
 
 from config import DATABASE_PATH, USE_SUPABASE, WHISPER_MODE, WHISPER_LOCAL_MODEL, get_runtime_settings
 
 SETTING_KEYS = {"whisper_model", "llm_model", "llm_provider", "transcription_provider", "llm_base_url", "whisper_base_url"}
 SECRET_KEYS = {"llm_api_key", "whisper_api_key"}
+_settings_locks = WeakValueDictionary()
+_settings_locks_guard = threading.Lock()
+
+
+@contextmanager
+def account_settings_lock(user_id: str):
+    # The current server has one worker with concurrent request threads. Keep
+    # each account's validation and read/modify/write sequence together.
+    with _settings_locks_guard:
+        lock = _settings_locks.setdefault(user_id, threading.RLock())
+    with lock:
+        yield
 
 
 def _load_preferences(user_id: Optional[str]) -> dict:
@@ -52,7 +67,12 @@ def get_user_settings(user_id: Optional[str]) -> dict:
     return settings
 
 
-def save_user_settings(user_id: str, settings: dict) -> None:
+def save_user_settings(user_id: str, settings: dict) -> dict:
+    with account_settings_lock(user_id):
+        return _save_user_settings(user_id, settings)
+
+
+def _save_user_settings(user_id: str, settings: dict) -> dict:
     current = get_user_settings(user_id)
     saved = _load_preferences(user_id)
     preferences = {k: v for k, v in current.items() if k in SETTING_KEYS}
@@ -71,3 +91,5 @@ def save_user_settings(user_id: str, settings: dict) -> None:
             conn.execute("CREATE TABLE IF NOT EXISTS user_settings (user_id TEXT PRIMARY KEY, preferences TEXT NOT NULL)")
             conn.execute("INSERT INTO user_settings VALUES (?, ?) ON CONFLICT(user_id) DO UPDATE SET preferences = excluded.preferences",
                          (user_id, json.dumps(preferences)))
+    # A save acknowledgement describes the persisted row, not its pre-save draft.
+    return get_user_settings(user_id)

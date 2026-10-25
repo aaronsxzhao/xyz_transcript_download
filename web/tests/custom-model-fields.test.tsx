@@ -172,6 +172,27 @@ it("does not send a saved key to a changed endpoint and keeps credentials out of
   expect(fetch).toHaveBeenCalledTimes(2);
   expect(JSON.stringify(localStorage)).not.toContain("replacement-secret");
 });
+it("shows a saved key independently of the empty password field and keeps it when a replacement is cleared", async () => {
+  const fetch=vi.fn().mockResolvedValue(Response.json({models:['first-model']}));
+  vi.stubGlobal('fetch',fetch);
+  await act(async()=>root.render(<Host saved/>));
+  await tick();
+  const key=()=>node.querySelector<HTMLInputElement>('[aria-label="Summary API key"]')!;
+  expect(key().value).toBe('');
+  expect(node.textContent).toContain('API key saved on server');
+  input('Summary API key','unsaved-replacement');
+  expect(node.textContent).toContain('testing alone does not save it');
+  input('Summary API key','');
+  await tick();
+  expect(node.textContent).toContain('API key saved on server');
+  expect(JSON.parse(fetch.mock.calls.at(-1)![1].body)).not.toHaveProperty('llm_api_key');
+  expect(key().placeholder).toContain('Key saved');
+});
+it("distinguishes an unreadable saved key from one that was never saved", async () => {
+  await act(async()=>root.render(<CustomModelFields kind="summary" value={{baseUrl:'https://first.example/v1'}} model="first-model" keySaved={false} savedBase="https://first.example/v1" keyError="Saved key cannot be opened" onChange={()=>{}} onModel={()=>{}}/>));
+  expect(node.textContent).toContain('Saved API key needs attention');
+  expect(node.textContent).not.toContain('No API key saved');
+});
 it("explains a model listing failure, allows manual selection and tests the audio API separately", async () => {
   const fetch = vi
     .fn()

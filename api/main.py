@@ -648,22 +648,16 @@ def _public_settings(runtime: dict) -> dict:
 @app.post("/api/settings")
 async def update_settings(settings: dict, user: User = Depends(get_current_user)):
     """Update this account's model preferences."""
-    from api.user_settings import save_user_settings
-    from api.model_settings import prepared_settings
-    from api.custom_models import ModelConfigurationError, resolve_custom
+    from api.model_settings import update_user_settings
+    from api.custom_models import ModelConfigurationError
     try:
-        preferences, filtered = await asyncio.to_thread(prepared_settings, user.id, settings)
-        if preferences.get("llm_provider") == "custom":
-            resolve_custom(preferences, "summary")
-        if preferences.get("transcription_provider") == "custom":
-            resolve_custom(preferences, "transcription")
-        await asyncio.to_thread(save_user_settings, user.id, filtered)
+        persisted = await asyncio.to_thread(update_user_settings, user.id, settings)
     except ModelConfigurationError as error:
         raise HTTPException(422, detail=str(error))
     except Exception:
         raise HTTPException(status_code=503, detail="Could not save account settings. Check the user settings database migration.")
     
-    return {"message": "Settings updated successfully", "settings": _public_settings(preferences)}
+    return {"message": "Settings updated successfully", "settings": _public_settings(persisted)}
 
 
 @app.post("/api/settings/test-llm")
