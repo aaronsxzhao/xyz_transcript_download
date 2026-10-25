@@ -93,10 +93,18 @@ def child(output):
                     row.update(ok=True, generated=json.loads(artifact.read_text()))
                 else:
                     row['error_type'] = 'GenerationFailed'
-                    # The child only emits sanitized result records, but keep
-                    # even those private. Do not copy arbitrary subprocess logs.
+                    for line in result.stdout.splitlines():
+                        try:
+                            failure = json.loads(line)
+                        except ValueError:
+                            continue
+                        if isinstance(failure, dict) and failure.get('ok') is False and failure.get('sample') == 1:
+                            row['failure'] = {key:failure[key] for key in ('error','error_type') if isinstance(failure.get(key),str)}
             except subprocess.TimeoutExpired:
                 row['error_type'] = 'SampleDeadlineExceeded'
+            checkpoint = directory / 'progress.json'
+            if checkpoint.exists():
+                row['progress'] = json.loads(checkpoint.read_text())
             row['elapsed_seconds'] = round(time.monotonic()-started, 2)
             report['samples'].append(row)
     report['halted_after_connection_test'] = not ready

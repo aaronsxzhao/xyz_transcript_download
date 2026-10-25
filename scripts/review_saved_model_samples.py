@@ -18,11 +18,12 @@ import os
 from pathlib import Path
 import sys
 import time
+import tempfile
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 
-def generate_case(owner, kind, identifier):
+def generate_case(owner, kind, identifier, progress=None):
     from api.user_settings import get_user_settings
     from api.llm_settings import resolve_llm_settings
     preferences = get_user_settings(owner)
@@ -46,7 +47,8 @@ def generate_case(owner, kind, identifier):
         podcast = db.get_podcast(episode.pid)
         engine = Summarizer(**settings)
         try:
-            result = engine.summarize(transcript, podcast.title if podcast else '', episode.title)
+            result = engine.summarize(transcript, podcast.title if podcast else '', episode.title,
+                                      **({'progress_callback': progress} if progress else {}))
         finally:
             engine.client.close()
         if result is None:
@@ -63,7 +65,11 @@ def generate_case(owner, kind, identifier):
             raise ValueError('The selected account has no matching video.')
         if task.get('style') == 'original':
             raise ValueError('Original-text articles do not require summarization.')
-        saved = json.loads(task.get('transcript_json') or '{}')
+        # The application DB adapter returns a parsed `transcript` and removes
+        # transcript_json. Accept raw rows only for older/local integrations.
+        saved = task.get('transcript')
+        if not isinstance(saved, dict):
+            saved = json.loads(task.get('transcript_json') or '{}')
         source = saved.get('text') or ''
         if not source.strip():
             raise ValueError('This video has no saved source transcript.')
@@ -72,7 +78,8 @@ def generate_case(owner, kind, identifier):
         engine = NoteSummarizer(**settings)
         try:
             content = engine.generate_note(task['title'], text, style=style, formats=formats,
-                                           duration=task.get('duration') or 0)
+                                           duration=task.get('duration') or 0,
+                                           **({'progress_callback': progress} if progress else {}))
         finally:
             engine.client.close()
         if not content:
@@ -114,11 +121,26 @@ def main():
         if destination.exists():
             raise SystemExit('Review files already exist; choose a fresh output directory.')
         previous = logging.root.manager.disable
+        progress_state = {}
+        last_saved = 0
+        def progress(chars, *parts):
+            nonlocal last_saved
+            now = time.monotonic()
+            progress_state.update(generated_chars=chars)
+            if len(parts) >= 2 and all(type(value) is int for value in parts[-2:]):
+                progress_state.update(chunk=parts[-2], total_chunks=parts[-1])
+            if parts and isinstance(parts[0], str) and parts[0]:
+                progress_state['draft'] = parts[0]
+            if now - last_saved >= 2:
+                with tempfile.NamedTemporaryFile(mode='w', dir=args.output, delete=False) as temporary:
+                    json.dump(progress_state, temporary, ensure_ascii=False)
+                os.replace(temporary.name, args.output / 'progress.json')
+                last_saved = now
         try:
             # No provider messages, credentials, source or generated prose in logs.
             logging.disable(logging.CRITICAL)
             with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
-                data = generate_case(args.owner, kind, identifier)
+                data = generate_case(args.owner, kind, identifier, progress=progress)
             write_review(destination, data)
             print(json.dumps({'sample': index, 'ok': True, 'source_chars': data['source_chars'],
                               'elapsed_seconds': data['elapsed_seconds']}), flush=True)
@@ -126,6 +148,7 @@ def main():
             from api.custom_models import public_model_error
             failures += 1
             print(json.dumps({'sample': index, 'ok': False,
+                              'error_type': type(error).__name__,
                               'error': public_model_error(error, 'summary')}), flush=True)
         finally:
             logging.disable(previous)
