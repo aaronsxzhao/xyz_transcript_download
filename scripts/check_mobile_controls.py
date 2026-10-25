@@ -427,6 +427,11 @@ async def main():
    assert await gallery.locator('.gallery-caption').text_content()==long_caption
    assert await gallery.locator('.gallery-viewport').evaluate('(el)=>el.clientHeight>=100'),(width,'caption displaced image')
    await page.screenshot(path=str(args.output/f'gallery-long-caption-{width}.png'))
+   await gallery.locator('.gallery-viewport img').dispatch_event('error')
+   await gallery.get_by_role('alert').wait_for()
+   await inspect('gallery-download-error')
+   await gallery.get_by_role('button',name='Retry original',exact=True).click()
+   await gallery.locator('.gallery-viewport img').wait_for(state='visible')
    await page.keyboard.press('ArrowRight')
    await gallery.get_by_role('img',name='Portrait chart',exact=True).wait_for(state='visible')
    assert await gallery.locator('.gallery-viewport').evaluate('(el)=>{const v=el.getBoundingClientRect(),i=el.querySelector("img").getBoundingClientRect();return i.height>0&&i.bottom<=v.bottom+1&&i.right<=v.right+1}'),(width,'fit image exceeds available canvas')
