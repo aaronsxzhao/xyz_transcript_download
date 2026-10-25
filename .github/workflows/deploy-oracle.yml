@@ -14,6 +14,7 @@ on:
       - 'package.json'
       - 'package-lock.json'
       - '.github/workflows/deploy-oracle.yml'
+      - '.github/workflows/retire-obsolete-builds.yml'
   workflow_dispatch:
 
 concurrency:
@@ -73,6 +74,7 @@ jobs:
           test "$(git ls-remote origin refs/heads/main | cut -f1)" = "${{ github.sha }}"
 
       - name: Build and push ARM image
+        timeout-minutes: 25
         uses: docker/build-push-action@v6
         with:
           context: .

@@ -51,6 +51,9 @@ Related examples normally belong in the same explanatory passage rather than a
 separate one-sentence heading each. Use paragraphs; lists only for real parallel
 comparisons or steps. Preserve meaningful source headings. No fixed word count.
 Keep all media URLs and timestamp/screenshot markers exactly, by their discussion.
+Preserve existing block quotations and code blocks verbatim, including code
+language and indentation. Reorganize the explanation around them; do not
+paraphrase a quoted passage or rewrite code while improving the prose.
 Evidence is supplied separately: choose an evidence_id from that paragraph's ids;
 the application preserves its original quotation, never generate a quotation.
 Each input id must occur EXACTLY ONCE across the paragraphs. A paragraph's ids
@@ -119,6 +122,14 @@ def _partition(groups, expected):
 def _media(text):
     # Editorial rewriting must not remove a chart or its original playback link.
     return set(re.findall(r'https?://[^\s<>"\)]+|(?:Screenshot-|\*?Content-)\[\d+(?::\d+){1,2}\]|/data/(?:screenshots|thumbnails)/[^\s\)]+', text))
+
+
+def _verbatim_blocks(text):
+    from markdown_it import MarkdownIt
+    lines = text.splitlines(keepends=True)
+    return [''.join(lines[token.map[0]:token.map[1]]).strip('\r\n')
+            for token in MarkdownIt().parse(text)
+            if token.map and token.type in ('blockquote_open','fence','code_block')]
 
 
 def edit_sections(items, call, checkpoint=None, budget=120):
@@ -192,11 +203,13 @@ def edit_sections(items, call, checkpoint=None, budget=120):
                 edited = '\n\n'.join(p['text'] for p in paragraphs)
                 if not _media('\n\n'.join(row['text'] for row in batch)).issubset(_media(edited)):
                     raise ValueError('Editorial pass omitted source media')
+                if any(block not in edited for row in batch for block in _verbatim_blocks(row['text'])):
+                    raise ValueError('Editorial pass changed a source quotation or code block')
                 review = request(VERIFY, {'chapter':topic, 'notes':batch, 'rewrite':paragraphs})
                 if review.get('complete') is not True or review.get('grounded') is not True:
                     raise ValueError('Editorial rewrite did not retain source meaning')
                 for paragraph in sorted(paragraphs,key=lambda p:min(order[ident] for ident in p['ids'])):
-                    result.append({'topic':topic, 'text':'#### '+paragraph['heading'].lstrip('# ').strip()+'\n\n'+paragraph['text'].strip(),
+                    result.append({'topic':topic, 'text':'#### '+paragraph['heading'].lstrip('# ').strip()+'\n\n'+paragraph['text'].strip('\r\n'),
                                    'ids':paragraph['ids'], 'evidence_id':paragraph['evidence_id']})
             except Exception as error:
                 if is_cancellation(error):

@@ -57,6 +57,34 @@ def test_video_edit_cannot_discard_charts_or_playback_positions():
     assert call.call_count==2  # Do not spend a review call on missing media.
 
 
+@pytest.mark.parametrize('protected',[
+    '> If demand falls, reassess supply.\n> This is conditional, not guaranteed.',
+    '```python\nif demand_falls:\n    reassess_supply()\n```',
+    '    if demand_falls:\n        reassess_supply()',
+])
+def test_semantically_similar_rewrite_cannot_replace_verbatim_quotes_or_code(protected):
+    source=notes();source[1]['text']+='\n\n'+protected
+    result=edit_sections(source,Mock(side_effect=replies()))
+    assert protected in result[1]['text']
+    assert [row['text'] for row in result]==[row['text'] for row in source]
+
+
+def test_connected_prose_can_keep_exact_quote_and_code_blocks():
+    source=notes();quote='> If demand falls, reassess supply.';code='```python\nreassess_supply()\n```'
+    source[0]['text']+='\n\n'+quote;source[1]['text']+='\n\n'+code
+    response=replies('The reform protects buyers; falling demand changes the supply assessment.\n\n'+quote+'\n\n'+code)
+    result=edit_sections(source,Mock(side_effect=response))
+    assert len(result)==1 and quote in result[0]['text'] and code in result[0]['text']
+
+
+def test_composition_does_not_strip_indentation_from_an_opening_code_block():
+    source=notes();code='    if demand_falls:\n        reassess_supply()'
+    source[0]['text']=code
+    response=replies(code+'\n\nProtect buyers; if demand falls, reassess supply.')
+    result=edit_sections(source,Mock(side_effect=response))
+    assert len(result)==1 and '\n\n'+code in result[0]['text']
+
+
 def test_unavailable_provider_has_no_retry_cascade_and_preserves_readable_output():
     call=Mock(side_effect=RuntimeError('Synthetic provider outage'))
     source=notes();source[1]['topic']=source[0]['topic']
