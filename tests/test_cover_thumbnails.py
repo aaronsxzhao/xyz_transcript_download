@@ -33,6 +33,28 @@ def test_provider_hosts_and_resized_webp():
     assert len(content)<len(image())
 
 
+def test_article_and_full_resolution_images_do_not_share_small_cover_cache():
+    source=io.BytesIO();Image.new('RGB',(2400,1800),'navy').save(source,format='JPEG')
+    url='https://pbs.twimg.com/chart.jpg'
+    assert len({covers.cache_key(url,size) for size in ('cover','article','original')}) == 3
+    for size,expected in [('cover',480),('article',1600),('original',2400)]:
+        with Image.open(io.BytesIO(covers.make_thumbnail(source.getvalue(),size))) as output:
+            assert max(output.size)==expected
+    with pytest.raises(HTTPException): covers.cache_key(url,'unbounded')
+
+
+@pytest.mark.asyncio
+async def test_article_proxy_variants_persist_independently_and_reuse_cached_bytes(monkeypatch):
+    origin=AsyncMock(return_value=covers.make_thumbnail(image(),'article'))
+    monkeypatch.setattr(covers,'_origin',origin)
+    url='https://pbs.twimg.com/diagram.jpg'
+    assert (await covers.load_cover(url,variant='article'))[1]=='origin'
+    assert (await covers.load_cover(url,variant='article'))[1]=='disk'
+    assert origin.await_count==1 and origin.call_args.args==(url,'article')
+    await covers.load_cover(url,variant='original')
+    assert origin.await_count==2
+
+
 @pytest.mark.asyncio
 async def test_concurrent_reads_persist_once_and_survive_local_cache_loss(monkeypatch):
     content=covers.make_thumbnail(image())

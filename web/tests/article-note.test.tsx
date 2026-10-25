@@ -39,3 +39,11 @@ it.each([
  ['https://www.bilibili.com/video/BV1234567890?p=2','https://player.bilibili.com/player.html?bvid=BV1234567890&autoplay=0&p=2'],
  ['https://open.spotify.com/episode/08tccyLPpPurxtPPrezQGZ','https://open.spotify.com/embed/episode/08tccyLPpPurxtPPrezQGZ'],
 ])('recognizes %s', (href,src)=>expect(articleEmbed(href)?.src).toBe(src))
+
+it('serves social article images from separate readable and original caches',async()=>{
+ await act(async()=>root.render(<ArticleNote markdown={'Before.\n\n![Original chart](https://pbs.twimg.com/media/chart.jpg)\n\nFinal condition.'}/>))
+ const image=node.querySelector('img')!
+ expect(image.getAttribute('src')).toBe('/api/image-proxy?url=https%3A%2F%2Fpbs.twimg.com%2Fmedia%2Fchart.jpg&size=article')
+ expect(node.querySelector('button.reader-screenshot')?.getAttribute('data-original-src')).toBe('/api/image-proxy?url=https%3A%2F%2Fpbs.twimg.com%2Fmedia%2Fchart.jpg&size=original')
+ expect(node.textContent).toContain('Final condition.')
+})

@@ -67,7 +67,7 @@ class Summary:
     takeaways: List[str]    # Key takeaways for the listener
 
 
-from podcast_prompts import SYSTEM_PROMPT, USER_PROMPT_TEMPLATE, MERGE_PROMPT, MERGE_SYSTEM_PROMPT
+from podcast_prompts import SYSTEM_PROMPT, USER_PROMPT_TEMPLATE, MERGE_PROMPT, MERGE_SYSTEM_PROMPT, CHUNK_INSTRUCTION
 
 
 class Summarizer:
@@ -207,7 +207,10 @@ class Summarizer:
         try:
             logger.info(f"Generating summary for episode {episode_id}...")
             logger.info(f"Input length: {len(transcript_text):,} chars, prompt total: {len(user_prompt):,} chars")
-            response = self._call_llm_with_retry(user_prompt, progress_callback)
+            if source_context is not None:
+                response = self._call_llm_with_retry(user_prompt, progress_callback, system_prompt=SYSTEM_PROMPT + CHUNK_INSTRUCTION)
+            else:
+                response = self._call_llm_with_retry(user_prompt, progress_callback)
 
             content = response.choices[0].message.content
             try:

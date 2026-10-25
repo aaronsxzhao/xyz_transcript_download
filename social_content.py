@@ -276,6 +276,75 @@ def _media_url(url: str, platform: str, source: str = '') -> str:
     raise SocialSourceError('The post contains media on an unsupported host. Open the original media link directly; no attachment was silently skipped.')
 
 
+def _twitter_article_image(media, base):
+    return _link(((media or {}).get('media_info') or {}).get('original_img_url'), base)
+
+
+def _twitter_article_body(article, base):
+    """Restore Draft.js media at their referenced positions, not in a footer.
+
+    Draft.js offsets count UTF-16 code units, including surrogate pairs. Preserve
+    unrecognised entities as text; only replace a placeholder we can render.
+    """
+    content = article.get('content') or article.get('content_state') or {}
+    blocks = content.get('blocks') or []
+    if not blocks:
+        raise SocialSourceError('X returned an Article preview without the full body. The preview was not imported as complete content.')
+    entries = content.get('entityMap') or []
+    entities = entries if isinstance(entries, dict) else {str(item['key']): item.get('value', {}) for item in entries if 'key' in item}
+    media = {str(item.get('media_id')): item for item in article.get('media_entities', [])}
+    cover = _twitter_article_image(article.get('cover_media') or article.get('cover_media_results'), base)
+    parts = [f'![Article cover]({cover})'] if cover else []
+    placed = {cover} if cover else set()
+    for block in blocks:
+        raw = block.get('text') or ''
+        if block.get('type') == 'code-block':
+            # A source may itself contain backtick fences.
+            fence = '`' * max(3, max((len(m[0]) + 1 for m in re.finditer(r'`+', raw)), default=3))
+            parts.append(f'{fence}\n{raw}\n{fence}')
+            continue
+        encoded = raw.encode('utf-16-le')
+        spans = []
+        for ref in block.get('entityRanges', []):
+            entity = entities.get(str(ref.get('key')), {})
+            payload = entity.get('data') or {}
+            replacement, images = [], []
+            if entity.get('type') == 'MEDIA':
+                for item in payload.get('mediaItems') or []:
+                    target = _twitter_article_image(media.get(str(item.get('mediaId'))), base)
+                    if target:
+                        replacement.append(f'![Article image]({target})')
+                        images.append(target)
+            elif entity.get('type') == 'MARKDOWN' and payload.get('markdown'):
+                replacement.append(payload['markdown'])
+            elif entity.get('type') == 'TWEET' and re.fullmatch(r'\d+', str(payload.get('tweetId', ''))):
+                replacement.append(f'[Embedded X post](https://x.com/i/status/{payload["tweetId"]})')
+            start, length = ref.get('offset'), ref.get('length')
+            if replacement and isinstance(start, int) and isinstance(length, int) and start >= 0 and length >= 0 and (start + length) * 2 <= len(encoded):
+                spans.append((start * 2, (start + length) * 2, '\n\n'.join(replacement), images))
+        pieces, cursor = [], 0
+        for start, end, replacement, images in sorted(spans):
+            if start < cursor:
+                continue
+            try:
+                preceding = encoded[cursor:start].decode('utf-16-le')
+                encoded[end:].decode('utf-16-le')
+            except UnicodeDecodeError:
+                continue
+            pieces.extend([_escape(preceding), replacement])
+            placed.update(images)
+            cursor = end
+        pieces.append(_escape(encoded[cursor:].decode('utf-16-le')))
+        prefix = {'header-one':'## ', 'header-two':'### ', 'header-three':'#### ', 'unordered-list-item':'- ', 'ordered-list-item':'1. ', 'blockquote':'> '}.get(block.get('type'), '')
+        parts.append(prefix + ''.join(pieces))
+    for item in media.values():
+        target = _twitter_article_image(item, base)
+        if target and target not in placed:
+            parts.append(f'![Article image]({target})')
+            placed.add(target)
+    return '\n\n'.join(parts), cover
+
+
 def _twitter(url: str, deadline: float) -> SocialContent:
     if '/i/article/' in url:
         raw, final = _read(url, deadline)
@@ -285,7 +354,13 @@ def _twitter(url: str, deadline: float) -> SocialContent:
             except ValueError: continue
             for article in data if isinstance(data, list) else [data]:
                 if isinstance(article, dict) and article.get('articleBody'):
-                    return SocialContent('twitter', final, article.get('headline') or 'X Article', _escape(article['articleBody']))
+                    images = article.get('image') or []
+                    if not isinstance(images, list): images = [images]
+                    images = [_link(image.get('url') or image.get('contentUrl'), final) if isinstance(image, dict) else _link(image, final) for image in images]
+                    images = list(dict.fromkeys(image for image in images if image))
+                    body = '\n\n'.join([*(f'![Article image]({image})' for image in images), _escape(article['articleBody'])])
+                    return SocialContent('twitter', final, article.get('headline') or 'X Article', body,
+                                         published=article.get('datePublished') or '', thumbnail=images[0] if images else '')
         raise SocialSourceError('X did not expose this Article body publicly. Use the post linking to the Article or open it on X. A title/preview was not saved as a full Article.')
     ident = url.rsplit('/',1)[-1]
     # Public FxEmbed API v2 returns complete long-post text and Draft.js articles.
@@ -298,22 +373,8 @@ def _twitter(url: str, deadline: float) -> SocialContent:
     text = _escape(max([post.get('text') or '',raw_text],key=len))
     article = post.get('article') or {}
     if article:
-        content = article.get('content') or {}
-        blocks = content.get('blocks') or []
-        if not blocks:
-            raise SocialSourceError('X returned an Article preview without the full body. The preview was not imported as complete content.')
-        parts = []
-        entities = {str(item.get('key')): item.get('value', {}) for item in content.get('entityMap', [])}
-        for block in blocks:
-            value = _escape(block.get('text', '')); kind = block.get('type', '')
-            prefix = {'header-one':'## ', 'header-two':'### ', 'header-three':'#### ', 'unordered-list-item':'- ', 'ordered-list-item':'1. ', 'blockquote':'> '}.get(kind, '')
-            if kind == 'code-block': value = '```\n' + block.get('text', '') + '\n```'
-            parts.append(prefix + value)
-            for ref in block.get('entityRanges', []):
-                entity = entities.get(str(ref.get('key')), {}); payload = entity.get('data', {})
-                if entity.get('type') == 'MARKDOWN': parts.append(payload.get('markdown', ''))
-                if entity.get('type') == 'TWEET': parts.append(f'[Embedded X post](https://x.com/i/status/{payload.get("tweetId", "")})')
-        text += '\n\n# ' + _escape(article.get('title', 'Article')) + '\n\n' + '\n\n'.join(parts)
+        body, _ = _twitter_article_body(article, url)
+        text += '\n\n' + body
     media = post.get('media') or {}; attachments = []
     for photo in media.get('photos', []):
         target = _link(photo.get('url'), url)
@@ -325,12 +386,11 @@ def _twitter(url: str, deadline: float) -> SocialContent:
             attachments.append({'url':_media_url(video.get('url'), 'twitter'), 'kind':'video', 'duration':video.get('duration') or 0})
     for entry in article.get('media_entities', []):
         info = entry.get('media_info') or {}
-        if info.get('original_img_url'):
-            text += f'\n\n![Article image]({_link(info["original_img_url"],url)})'
-        variants = (info.get('video_info') or {}).get('variants') or []
+        variants = info.get('variants') or (info.get('video_info') or {}).get('variants') or []
+        variants = [row for row in variants if row.get('content_type', 'video/mp4') == 'video/mp4' and '.m3u8' not in row.get('url', '')]
         if variants:
-            variant=max(variants,key=lambda row:row.get('bitrate',0))
-            attachments.append({'url':_media_url(variant.get('url'),'twitter'),'kind':'video','duration':(info['video_info'].get('duration_millis') or 0)/1000})
+            variant=max(variants,key=lambda row:row.get('bitrate') or row.get('bit_rate') or 0)
+            attachments.append({'url':_media_url(variant.get('url'),'twitter'),'kind':'video','duration':((info.get('video_info') or info).get('duration_millis') or 0)/1000})
     quote = post.get('quote') or {}
     if quote.get('text'):
         text += '\n\n## Quoted post\n\n' + _escape(quote['text'])
@@ -340,7 +400,7 @@ def _twitter(url: str, deadline: float) -> SocialContent:
         raise SocialSourceError('X returned no readable text or media. Check source access and retry.')
     title = article.get('title') or (post.get('text') or 'X post').splitlines()[0][:120]
     return SocialContent('twitter', url, title, text.strip(), author.get('name') or author.get('display_name') or author.get('screen_name') or '', post.get('created_at') or '',
-                         (media.get('photos') or [{}])[0].get('url', '') or ((media.get('videos') or [{}])[0].get('thumbnail_url') or ''), attachments)
+                         _twitter_article_image(article.get('cover_media') or article.get('cover_media_results'), url) or (media.get('photos') or [{}])[0].get('url', '') or ((media.get('videos') or [{}])[0].get('thumbnail_url') or ''), attachments)
 
 
 def _substack(url: str, deadline: float) -> SocialContent:

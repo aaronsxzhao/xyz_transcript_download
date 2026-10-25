@@ -17,7 +17,9 @@ HOSTS = ('image.xyzcdn.net', 'bts-image.xyzcdn.net', 'jike.ruguoapp.com',
          'yt3.googleusercontent.com', 'i0.hdslb.com', 'i1.hdslb.com', 'i2.hdslb.com',
          'pbs.twimg.com', 'substackcdn.com', 'substack-post-media.s3.amazonaws.com')
 MAX_SOURCE = 8 * 1024 * 1024
+MAX_STORED = 32 * 1024 * 1024  # Full-resolution WebP may exceed its source JPEG.
 MAX_CACHE = 64 * 1024 * 1024
+VARIANTS = {'cover': 480, 'article': 1600, 'original': None}
 _pending = {}
 _failures = {}
 _slots = asyncio.Semaphore(6)
@@ -36,21 +38,29 @@ def validate_url(url):
     return host
 
 
-def cache_key(url):
+def cache_key(url, variant='cover'):
     validate_url(url)
-    return hashlib.sha256(('cover-v1:' + url).encode()).hexdigest()
+    if variant not in VARIANTS:
+        raise HTTPException(422, 'Unknown image size')
+    namespace = 'cover-v1:' if variant == 'cover' else f'article-v1:{variant}:'
+    return hashlib.sha256((namespace + url).encode()).hexdigest()
 
 
-def make_thumbnail(content):
+def make_thumbnail(content, variant='cover'):
     with Image.open(io.BytesIO(content)) as source:
         if source.width * source.height > 20_000_000:
             raise ValueError('Artwork dimensions exceed limit')
         source.seek(0)
         image = ImageOps.exif_transpose(source).convert('RGB')
-        image.thumbnail((480, 480), Image.Resampling.LANCZOS)
+        size = VARIANTS[variant]
+        if size:
+            image.thumbnail((size, size), Image.Resampling.LANCZOS)
         output = io.BytesIO()
-        image.save(output, format='WEBP', quality=74, method=4)
-        return output.getvalue()
+        image.save(output, format='WEBP', quality=74 if variant == 'cover' else 90, method=4)
+        result = output.getvalue()
+        if len(result) > MAX_STORED:
+            raise ValueError('Converted artwork exceeds size limit')
+        return result
 
 
 def _paths(key):
@@ -95,14 +105,14 @@ async def _storage(key, content=None):
             response = await client.get(endpoint, headers=headers)
             if response.status_code in {400, 404}: return None
             response.raise_for_status()
-            if len(response.content) > MAX_SOURCE or not response.content.startswith(b'RIFF'):
+            if len(response.content) > MAX_STORED or not response.content.startswith(b'RIFF'):
                 raise ValueError('Invalid stored artwork')
             return response.content
         response = await client.post(endpoint, content=content, headers={**headers, 'Content-Type': 'image/webp', 'x-upsert': 'true', 'Cache-Control': '31536000'})
         response.raise_for_status()
 
 
-async def _origin(url):
+async def _origin(url, variant='cover'):
     headers = {'User-Agent': 'Mozilla/5.0', 'Accept': 'image/webp,image/jpeg,image/png,image/*;q=0.8'}
     async with httpx.AsyncClient(timeout=httpx.Timeout(4, connect=3), follow_redirects=False) as client:
         for _ in range(4):
@@ -124,7 +134,7 @@ async def _origin(url):
                 async for block in response.aiter_bytes():
                     data.extend(block)
                     if len(data) > MAX_SOURCE: raise ValueError('Artwork exceeds size limit')
-                return await asyncio.to_thread(make_thumbnail, bytes(data))
+                return await asyncio.to_thread(make_thumbnail, bytes(data), variant)
     raise ValueError('Too many artwork redirects')
 
 
@@ -139,7 +149,7 @@ async def _persist(key, content):
         pass
 
 
-async def _load(url, key, persist=False):
+async def _load(url, key, persist=False, variant='cover'):
     target, marker = _paths(key)
     try:
         content = await asyncio.to_thread(target.read_bytes)
@@ -160,7 +170,8 @@ async def _load(url, key, persist=False):
             except Exception:
                 pass  # A storage outage can still use the public provider source.
         try:
-            async with asyncio.timeout(12): content = await _origin(url)
+            async with asyncio.timeout(12):
+                content = await _origin(url) if variant == 'cover' else await _origin(url, variant)
         except Exception as error:
             _failures[key] = time.monotonic()
             if len(_failures) > 2048: _failures.pop(next(iter(_failures)))
@@ -171,14 +182,14 @@ async def _load(url, key, persist=False):
         return content, 'origin'
 
 
-async def load_cover(url, persist=False):
-    key = cache_key(url)
+async def load_cover(url, persist=False, variant='cover'):
+    key = cache_key(url, variant)
     if time.monotonic() - _failures.get(key, -1000) < 3:
         raise HTTPException(503, 'Artwork retry is temporarily delayed')
     task = _pending.get(key)
     if task is None:
         if len(_pending) >= 128: raise HTTPException(503, 'Artwork queue is busy')
-        task = asyncio.create_task(_load(url, key, persist))
+        task = asyncio.create_task(_load(url, key, persist, variant))
         _pending[key] = task
         def done(completed):
             if _pending.get(key) is completed: _pending.pop(key, None)
