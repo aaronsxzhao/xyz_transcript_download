@@ -64,6 +64,12 @@ def test_language_only_correction_uses_original_language_and_preserves_source_bl
     assert 'Screenshot-[01:23]' in result and not language_mismatch(source,result)
 
 
+def test_language_correction_accepts_equivalent_chinese_numeric_spacing_and_magnitudes():
+    draft='## 处理条件\n\n保留2个条件，处理3万 tokens。软件 v1.2.3。\n'
+    translated='## Conditions\n\nRetain 2 conditions and process 30,000 tokens. Software v1.2.3.\n'
+    assert localize_note(draft,'The original English source.',lambda *args:{'text':translated})==translated
+
+
 @pytest.mark.parametrize('change',[lambda text:text.replace('2','3'),lambda text:text.replace('Screenshot-[01:23]',''),lambda text:text+'\n## New claim'])
 def test_invalid_language_repair_keeps_readable_original_instead_of_failing(change):
     draft='## 条件说明\n\n保留 2 个条件。\nScreenshot-[01:23]\n'

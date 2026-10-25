@@ -108,8 +108,20 @@ def language_mismatch(source,markdown):
 
 
 def _invariants(text):
+    from decimal import Decimal, InvalidOperation
     urls=Counter(re.findall(r'https?://[^\s<>"\)]+|/data/(?:screenshots|thumbnails)/[^\s\)]+|(?:Screenshot-|\*?Content-)\[\d+(?::\d+){1,2}\]',text))
-    numbers=Counter(re.findall(r'(?<!\w)\d+(?:[.,:]\d+)*(?:%|\b)',text))
+    numbers=Counter()
+    multipliers={'万':10000,'萬':10000,'亿':100000000,'億':100000000,'thousand':1000,'million':1000000,'billion':1000000000}
+    for match in re.finditer(r'(\d+(?:[.,:]\d+)*)(?:[ \t]*(万|萬|亿|億|thousand\b|million\b|billion\b))?(%)?',text,re.I):
+        value,scale,percent=match.groups()
+        # Translation may spell 3万 as 30,000; preserve the quantity rather
+        # than requiring Chinese typography in an English paragraph.
+        if ':' not in value:
+            try:
+                value=str((Decimal(value.replace(',',''))*multipliers.get((scale or '').lower(),1)).normalize())
+            except InvalidOperation:
+                pass  # Multi-part software versions remain literal source data.
+        numbers[(value,bool(percent))]+=1
     headings=[t.tag for t in MarkdownIt().parse(text) if t.type=='heading_open']
     return urls,numbers,headings
 
