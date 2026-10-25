@@ -21,6 +21,29 @@ def test_images_are_signed_without_rewriting_links_code_or_stored_original(monke
     media._signing_key.cache_clear()
 
 
+def test_inline_image_signing_preserves_code_escapes_titles_and_link_targets(monkeypatch):
+    monkeypatch.setenv('MEDIA_SIGNING_KEY','synthetic-article-key');media._signing_key.cache_clear()
+    image='![Chart](https://example.com/chart.png)'
+    source=f'Literal `{image}` and ``code with ` {image}``, escaped \\{image}, actual {image}.\n\n' \
+           '[![Nested [label]](<https://example.com/chart.png> "Source caption")](https://example.com/full.png)'
+    result=article_images.sign_article_markdown(source)
+    assert f'`{image}`' in result and f'``code with ` {image}``' in result
+    assert '\\'+image in result
+    assert result.count('/api/article-image?')==2
+    assert '"Source caption")](https://example.com/full.png)' in result
+    assert '![Nested [label]](</api/article-image?' in result
+    media._signing_key.cache_clear()
+
+
+@pytest.mark.parametrize('newline', ['\n','\r\n'])
+def test_image_destinations_use_raw_offsets_and_reference_links_stay_unchanged(newline,monkeypatch):
+    monkeypatch.setattr(article_images,'signed_article_image',lambda url,size='article':'/signed-chart' if url=='https://example.com/chart?x=1&y=2' else '')
+    source='> Citation [source][chart] and ![Reference][chart].\n\n> Actual ![Caption](<https://example.com/chart?x=1&amp;y=2> "Source title").\n\n[chart]: https://example.com/chart?x=1&y=2\n'
+    source=source.replace('\n',newline)
+    result=article_images.sign_article_markdown(source)
+    assert result==source.replace('<https://example.com/chart?x=1&amp;y=2>','</signed-chart>')
+
+
 @pytest.mark.asyncio
 async def test_signed_images_reuse_cache_but_tampered_unsigned_and_private_targets_never_fetch(client,monkeypatch,tmp_path):
     monkeypatch.setenv('MEDIA_SIGNING_KEY','synthetic-article-key');media._signing_key.cache_clear()

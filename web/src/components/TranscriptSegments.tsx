@@ -1,9 +1,21 @@
-import { useRef } from 'react'
+import { useRef, useState } from 'react'
 import { useVirtualizer } from '@tanstack/react-virtual'
 
 interface Segment { start: number; end: number; text: string }
 
-export default function TranscriptSegments({ segments }: { segments: Segment[] }) {
+export default function TranscriptSegments({segments,text=''}:{segments:Segment[];text?:string}) {
+  const [fullText,setFullText]=useState(false)
+  const hasText=!!text.trim()
+  return <>
+    {hasText&&segments.length>0&&<div role="group" aria-label="Transcript view" className="reader-segments flex-wrap mb-3 w-fit max-w-full">
+      <button type="button" className="reader-action" aria-pressed={!fullText} onClick={()=>setFullText(false)}>Timed segments</button>
+      <button type="button" className="reader-action" aria-pressed={fullText} onClick={()=>setFullText(true)}>Full text</button>
+    </div>}
+    {(fullText&&hasText)||!segments.length?<div role="region" aria-label="Full transcript text" tabIndex={0} className="overflow-y-auto custom-scrollbar" style={{maxHeight:'min(60vh, 600px)'}}><p className="text-sm text-gray-300 leading-7 whitespace-pre-wrap break-words">{text||'No transcript available'}</p></div>:<TimedSegments segments={segments}/>}
+  </>
+}
+
+function TimedSegments({ segments }: { segments: Segment[] }) {
   const scrollRef = useRef<HTMLDivElement>(null)
   const virtualizer = useVirtualizer({
     count: segments.length,

@@ -1,7 +1,6 @@
 """Signed public-article images; arbitrary callers cannot use an open proxy."""
 import asyncio
 import hashlib
-import re
 import time
 from urllib.parse import urlencode
 
@@ -28,7 +27,9 @@ def sign_article_markdown(markdown):
     # Leave source links, code examples and stored Markdown untouched. Only
     # image tokens from the authenticated read response receive capabilities.
     from markdown_it import MarkdownIt
+    from markdown_it.rules_inline.image import image
     parser = MarkdownIt()
+    inline_parser = MarkdownIt()
     lines = markdown.splitlines(keepends=True)
     for token in reversed(parser.parse(markdown)):
         if token.type != 'inline' or not token.map: continue
@@ -41,10 +42,30 @@ def sign_article_markdown(markdown):
         if not images: continue
         start,end = token.map
         block = ''.join(lines[start:end])
-        for url in images:
-            if not url or not url.startswith(('http://','https://')): continue
-            pattern = r'(!\[(?:\\.|[^\]\\\n])*\]\()' + re.escape(url) + r'(\))'
-            block = re.sub(pattern, lambda match:match[1] + signed_article_image(url) + match[2], block)
+        edits = []
+        def capture_image(state, silent):
+            opening = state.pos
+            matched = image(state, silent)
+            if not matched or silent or state.src is not block:
+                return matched
+            url = state.tokens[-1].attrGet('src') or ''
+            if not url.startswith(('http://', 'https://')): return matched
+            label_end = state.md.helpers.parseLinkLabel(state, opening + 1)
+            position = label_end + 2
+            if label_end < 0 or state.src[label_end + 1:position] != '(':
+                return matched  # Reference definitions may also serve normal links.
+            while position < state.pos and state.src[position] in ' \t\n': position += 1
+            destination = state.md.helpers.parseLinkDestination(state.src, position, state.pos)
+            if destination.ok and state.md.normalizeLink(destination.str) == url:
+                angle = state.src[position] == '<'
+                edits.append((position + int(angle), destination.pos - int(angle), signed_article_image(url)))
+            return matched
+        # The CommonMark rules skip escaped markup and code spans, including
+        # variable-length backtick delimiters. Replace destinations only.
+        inline_parser.inline.ruler.at('image', capture_image)
+        inline_parser.inline.parse(block, inline_parser, {}, [])
+        for left,right,replacement in sorted(edits, reverse=True):
+            block = block[:left] + replacement + block[right:]
         lines[start:end] = [block] + [''] * (end-start-1)
     return ''.join(lines)
 
