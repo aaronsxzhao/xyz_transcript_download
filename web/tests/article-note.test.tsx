@@ -23,7 +23,7 @@ it('shows standalone source cards, keeps inline citations and does not request e
 })
 
 it('never nests screenshot controls in a navigation link',async()=>{
- await act(async()=>root.render(<ArticleNote markdown={'[![Original image](https://images.example/preview.jpg)](https://images.example/full.jpg)\n\n*Image credit: Author*'}/>))
+ await act(async()=>root.render(<ArticleNote markdown={'[**![Original image](https://images.example/preview.jpg)**](https://images.example/full.jpg)\n\n*Image credit: Author*'}/>))
  expect(node.querySelector('a button')).toBeNull()
  expect(node.querySelector('button.reader-screenshot')).not.toBeNull()
  expect(node.querySelector('a')?.getAttribute('href')).toBe('https://images.example/full.jpg')

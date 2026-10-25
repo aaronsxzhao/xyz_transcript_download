@@ -3,6 +3,7 @@ import { Lexer, type Token, type Tokens } from 'marked'
 import ReaderScreenshot from './ReaderScreenshot'
 import { uniqueNoteHeadingSlug, prepareNoteMarkdown, inlineNoteText, decodeNoteText as text } from '../lib/noteMarkdown'
 
+const hasImage=(items:Token[]):boolean=>items.some(t=>t.type==='image'||('tokens'in t&&Array.isArray(t.tokens)&&hasImage(t.tokens)))
 const safeLink=(url:string)=>/^(https?:\/\/|mailto:|tel:|#|\/(?![\/\\]))/i.test(url)
 const safeImage=(url:string)=>/^https?:\/\//i.test(url)||/^\/data\/(screenshots|thumbnails)\//.test(url)
 /** Semantic Markdown is part of startup. No raw HTML or executable URLs. */
@@ -14,7 +15,7 @@ export default function ReadableMarkdown({markdown,imagesReady=true,omitToc=fals
     switch(token.type){
       case 'space':return null
       case 'heading':{const t=token as Tokens.Heading;return createElement(`h${t.depth}`,{key,id:uniqueNoteHeadingSlug(inlineNoteText(t.tokens),slugs)},render(t.tokens))}
-      case 'paragraph':{const t=token as Tokens.Paragraph;const only=t.tokens.length===1?t.tokens[0]:null;return only?.type==='link'&&renderStandaloneLink&&/^https?:\/\//i.test((only as Tokens.Link).href)&&!(only as Tokens.Link).tokens.some(child=>child.type==='image')?<div key={key}>{renderStandaloneLink(only as Tokens.Link)}</div>:<p key={key}>{render(t.tokens)}</p>}
+      case 'paragraph':{const t=token as Tokens.Paragraph;const only=t.tokens.length===1?t.tokens[0]:null;return only?.type==='link'&&renderStandaloneLink&&/^https?:\/\//i.test((only as Tokens.Link).href)&&!hasImage((only as Tokens.Link).tokens)?<div key={key}>{renderStandaloneLink(only as Tokens.Link)}</div>:<p key={key}>{render(t.tokens)}</p>}
       case 'text':{const t=token as Tokens.Text;return <span key={key}>{t.tokens?render(t.tokens):text(t.text)}</span>}
       case 'escape':return <span key={key}>{text((token as Tokens.Escape).text)}</span>
       case 'strong':return <strong key={key}>{render((token as Tokens.Strong).tokens)}</strong>
@@ -26,7 +27,7 @@ export default function ReadableMarkdown({markdown,imagesReady=true,omitToc=fals
       case 'hr':return <hr key={key}/>
       case 'blockquote':return <blockquote key={key}>{render((token as Tokens.Blockquote).tokens)}</blockquote>
       case 'html':return <span key={key}>{(token as Tokens.HTML).text}</span>
-      case 'link':{const t=token as Tokens.Link;const children=render(t.tokens);if(t.tokens.some(child=>child.type==='image'))return <span key={key}>{children}{safeLink(t.href)&&<a href={t.href} target="_blank" rel="noopener noreferrer">Open linked source</a>}</span>;return safeLink(t.href)?<a key={key} href={t.href} title={t.title||undefined} target={t.href.startsWith('#')?undefined:'_blank'} rel="noopener noreferrer" onClick={t.href.startsWith('#')?event=>{try{const target=document.getElementById(decodeURIComponent(t.href.slice(1)));if(target){event.preventDefault();target.scrollIntoView({block:'start'})}}catch{/* malformed anchor remains a normal link */}}:undefined}>{children}</a>:<span key={key}>{children}</span>}
+      case 'link':{const t=token as Tokens.Link;const children=render(t.tokens);if(hasImage(t.tokens))return <span key={key}>{children}{safeLink(t.href)&&<a href={t.href} target="_blank" rel="noopener noreferrer">Open linked source</a>}</span>;return safeLink(t.href)?<a key={key} href={t.href} title={t.title||undefined} target={t.href.startsWith('#')?undefined:'_blank'} rel="noopener noreferrer" onClick={t.href.startsWith('#')?event=>{try{const target=document.getElementById(decodeURIComponent(t.href.slice(1)));if(target){event.preventDefault();target.scrollIntoView({block:'start'})}}catch{/* malformed anchor remains a normal link */}}:undefined}>{children}</a>:<span key={key}>{children}</span>}
       case 'image':{const t=token as Tokens.Image;return safeImage(t.href)?<ReaderScreenshot key={key} src={t.href} alt={text(t.text)} ready={imagesReady} priority={imageIndex++<2}/>:<span key={key}>{text(t.text)}</span>}
       case 'list':{const t=token as Tokens.List;const children=t.items.map((item,i)=><li key={i}>{item.task&&<input type="checkbox" disabled checked={!!item.checked} aria-label="Task completed"/>}{render(item.tokens)}</li>);return t.ordered?<ol key={key} start={typeof t.start==='number'?t.start:1}>{children}</ol>:<ul key={key}>{children}</ul>}
       case 'table':{const t=token as Tokens.Table;return <div className="markdown-table" key={key} role="region" aria-label="Table" tabIndex={0}><table><thead><tr>{t.header.map((cell,i)=><th key={i} style={{textAlign:t.align[i]||undefined}}>{render(cell.tokens)}</th>)}</tr></thead><tbody>{t.rows.map((row,i)=><tr key={i}>{row.map((cell,j)=><td key={j} style={{textAlign:t.align[j]||undefined}}>{render(cell.tokens)}</td>)}</tr>)}</tbody></table></div>}

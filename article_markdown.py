@@ -4,7 +4,7 @@ import re
 _BROKEN_IMAGE = re.compile(
     r'^ {0,3}\[[ \t]*\r?\n(?:[ \t]*\r?\n)+'
     r'[ \t]*(!\[[^\r\n]*\]\([^\r\n]+\))[ \t]*\r?\n(?:[ \t]*\r?\n)+'
-    r'[ \t]*\]\((https?://[^\s]+)\)([^\r\n]*)$', re.MULTILINE)
+    r'[ \t]*\]\((https?://[^\s()]+)\)([^\r\n]*)$', re.MULTILINE)
 
 
 def repair_article_markdown(markdown: str) -> str:

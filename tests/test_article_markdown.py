@@ -39,6 +39,10 @@ def test_legacy_repair_leaves_code_examples_verbatim(fence):
     assert repair_article_markdown(original) == f'{fence}\n{BROKEN}\n{fence}\n\n{FIXED}'
 
 
+def test_legacy_caption_parentheses_are_not_part_of_the_link():
+    assert repair_article_markdown(BROKEN.replace('Image credit: Author','Credit (original author)')) == FIXED.replace('Image credit: Author','Credit (original author)')
+
+
 def test_legacy_repair_does_not_rewrite_prose_or_non_image_links():
     original = '[\n\nActual original prose.\n\n](https://source.example)\n\n[Normal](https://source.example)'
     assert repair_article_markdown(original) == original
