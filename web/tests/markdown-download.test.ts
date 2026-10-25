@@ -37,3 +37,9 @@ it('keeps multiline image destinations inside nested quotations and lists in the
  const source='> > ![Chart](\n> >   /data/screenshots/a.png?x=1&amp;y=2)\n\n> [cover]:\n>   </data/thumbnails/cover\\(1\\).webp?x=1&amp;y=2> "Cover"\n\n- ![List](\n    /data/screenshots/list.png)'
  expect(portableMarkdown(source,'https://aipodcastsummary.online')).toBe(source.replaceAll('/data/','https://aipodcastsummary.online/data/'))
 })
+
+it('exports stable article image sources while leaving literal code untouched',()=>{
+ const image='![Chart](/api/article-image?url=https%3A%2F%2Fblog.example%2Fchart.png&expires=1&signature=abc&size=article)'
+ const result=portableMarkdown(image+'\n\n```md\n'+image+'\n```','https://notes.example')
+ expect(result).toBe('![Chart](https://blog.example/chart.png)\n\n```md\n'+image+'\n```')
+})

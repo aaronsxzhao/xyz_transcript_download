@@ -22,7 +22,7 @@ export default function Library() {
   const [params, setParams] = useSearchParams()
   const query = params.get('q') || ''; const kind = params.get('kind') || ''; const status = 'completed'; const source = params.get('source') || ''; const sort = params.get('sort') || 'newest'
   const filterKey = new URLSearchParams({q:query,kind,status,source,sort}).toString()
-  const cacheKey = 'library_page:v5:' + filterKey
+  const cacheKey = 'library_page:v6:' + filterKey
   const [loadedFilter, setLoadedFilter] = useState(filterKey)
   const [items, setItems] = useState<Item[]>(() => getCache<LibraryPage>(cacheKey)?.items || [])
   const [cursor, setCursor] = useState<string | null>(() => getCache<LibraryPage>(cacheKey)?.next_cursor || null)
@@ -100,7 +100,7 @@ export default function Library() {
       <button className="library-filter-toggle border border-dark-border px-3" aria-expanded={filtersOpen} aria-controls="library-filter-options" onClick={() => setFiltersOpen(open => !open)}>Filters{kind || source ? ' · Active' : ''}</button>
       <div id="library-filter-options" className="library-filter-options" data-expanded={filtersOpen}>
       <select aria-label="Podcast or channel" aria-describedby={sourcesLoading || sourcesError ? 'library-source-status' : undefined} value={source} onChange={e=>update("source",e.target.value)} className="min-w-0 px-3 py-3 bg-dark-surface border border-dark-border rounded-lg"><option value="">All sources</option>{Array.from(new Set([source,...sources,...items.map(i=>i.source)])).filter(Boolean).sort().map(value=><option key={value} value={value}>{value}</option>)}</select>
-      <select aria-label="Media type" value={kind} onChange={e => update('kind', e.target.value)} className="px-3 py-3 bg-dark-surface rounded-lg"><option value="">All media</option><option value="podcast">Podcasts</option><option value="video">Videos & posts</option></select>
+      <select aria-label="Media type" value={kind} onChange={e => update('kind', e.target.value)} className="px-3 py-3 bg-dark-surface rounded-lg"><option value="">All media</option><option value="podcast">Podcasts</option><option value="video">Video & audio</option><option value="article">Articles & text</option></select>
 
     </div></div>
     {sourcesLoading && <p id="library-source-status" role="status" className="text-sm text-gray-400">Loading sources…</p>}
@@ -114,7 +114,7 @@ export default function Library() {
         <div className="library-card-meta"><span>{platformLabel(i.platform,i.kind === 'podcast' ? 'Podcast' : 'Video')}</span><time title={i.published_at ? `Published ${i.published_at.slice(0,10)}` : "Date this summary was saved, not its original publication date"} dateTime={i.published_at || i.date}>{i.published_at ? `Published ${i.published_at.slice(0,10)}` : i.date ? `Saved ${new Date(i.date).toLocaleDateString()}` : ''}</time></div>
         <h2 className="font-semibold leading-snug line-clamp-2 group-hover:text-indigo-200">{i.title}</h2>
         <p className="mt-2 text-sm text-gray-400 truncate">{i.source}</p>
-        <div className="library-card-footer"><span>{history.some(r=>r.kind===i.kind&&r.id===i.id) ? `${history.find(r=>r.kind===i.kind&&r.id===i.id)!.progress}% read` : i.topics_count ? `${i.topics_count} topics` : 'Ready to read'}</span><span className="flex items-center gap-1">{['twitter','substack'].includes(i.platform||'')?'Read post':'Read summary'} <ArrowUpRight size={14} /></span></div>
+        <div className="library-card-footer"><span>{history.some(r=>r.kind===i.kind&&r.id===i.id) ? `${history.find(r=>r.kind===i.kind&&r.id===i.id)!.progress}% read` : i.topics_count ? `${i.topics_count} topics` : 'Ready to read'}</span><span className="flex items-center gap-1">{i.content_type==='article'?'Read article':['twitter','substack'].includes(i.platform||'')?'Read post':'Read summary'} <ArrowUpRight size={14} /></span></div>
       </div>
     </Link>)}</div>
     {!loading && !refreshing && !error && shown.length === 0 && <EmptyState title="No matching notes"><Search size={28} className="mx-auto mb-3 text-indigo-300" /><p className="text-gray-400 mt-2">Try another search or add content from <Link className="underline" to="/podcasts">Podcasts</Link> or <Link className="underline" to="/videos">Videos</Link>.</p></EmptyState>}
@@ -123,11 +123,12 @@ export default function Library() {
 }
 
 function LibraryArtwork({item,priority}: {item: Item;priority:boolean}) {
-  const Icon = item.kind === 'podcast' ? Headphones : ['twitter','substack'].includes(item.platform||'') ? FileText : Video
+  const audio = item.kind === 'podcast' || item.content_type === 'audio'
+  const Icon = audio ? Headphones : item.content_type==='article' ? FileText : Video
   const minutes = Math.floor((item.duration || 0) / 60)
   return <div className="library-artwork" aria-hidden="true">
     <CachedImage priority={priority} src={item.thumbnail || ''} alt="" className="library-cover-image" fit={item.kind === 'podcast' ? 'contain' : 'cover'} fallback={<div className="library-artwork-fallback"><Icon size={36} strokeWidth={1.5}/><span>{item.source.slice(0, 24)}</span></div>} />
-    <span className="library-media-badge"><Icon size={13}/>{item.kind === 'podcast' ? 'Audio' : ['twitter','substack'].includes(item.platform||'') ? 'Post' : 'Video'}</span>
+    <span className="library-media-badge"><Icon size={13}/>{audio ? 'Audio' : item.content_type==='article' ? 'Article' : 'Video'}</span>
     {minutes > 0 && <span className="library-duration">{minutes} min</span>}
   </div>
 }

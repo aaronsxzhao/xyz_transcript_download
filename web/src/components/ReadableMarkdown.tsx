@@ -5,7 +5,7 @@ import { uniqueNoteHeadingSlug, prepareNoteMarkdown, inlineNoteText, decodeNoteT
 
 export const hasImage=(items:Token[]):boolean=>items.some(t=>t.type==='image'||('tokens'in t&&Array.isArray(t.tokens)&&hasImage(t.tokens)))
 const safeLink=(url:string)=>/^(https?:\/\/|mailto:|tel:|#|\/(?![\/\\]))/i.test(url)
-const safeImage=(url:string)=>/^https?:\/\//i.test(url)||/^\/data\/(screenshots|thumbnails)\//.test(url)
+const safeImage=(url:string)=>/^https?:\/\//i.test(url)||/^\/data\/(screenshots|thumbnails)\//.test(url)||url.startsWith('/api/article-image?')
 /** Semantic Markdown is part of startup. No raw HTML or executable URLs. */
 export default function ReadableMarkdown({markdown,imagesReady=true,omitToc=false,renderParagraph,imageSources}:{markdown:string;imagesReady?:boolean;omitToc?:boolean;imageSources?:(url:string)=>{preview:string;original:string};renderParagraph?:(paragraph:Tokens.Paragraph,key:number)=>ReactNode}) {
   const tokens=useMemo(()=>Lexer.lex(omitToc?prepareNoteMarkdown(markdown):markdown,{gfm:true}),[markdown,omitToc])

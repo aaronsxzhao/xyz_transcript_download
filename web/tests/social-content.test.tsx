@@ -17,7 +17,7 @@ afterEach(()=>{act(()=>root.unmount());node.remove()})
 it.each([
  ['https://x.com/writer/status/123','twitter'],['https://twitter.com/i/web/status/123','twitter'],['https://x.com/i/article/123','twitter'],
  ['https://writer.substack.com/p/post','substack'],['https://substack.com/@writer/note/c-123','substack'],['https://publication.example/p/post','substack'],
- ['https://x.com.evil.example/writer/status/123',''],['https://example.com/?next=https://youtube.com/watch?v=123',''],['javascript:alert(1)',''],
+ ['https://x.com.evil.example/writer/status/123','web'],['https://example.com/?next=https://youtube.com/watch?v=123','web'],['javascript:alert(1)',''],
  ['https://youtube.com/watch?v=abcdefghijk','youtube'],['https://b23.tv/share','bilibili']
 ])('detects %s by hostname', (url,platform)=>expect(detectContentPlatform(url)).toBe(platform))
 it.each(['https://x.com/writer/status/123','https://writer.substack.com/p/post'])('routes %s into the existing content queue',async url=>{

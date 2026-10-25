@@ -2,7 +2,7 @@ const hosts:Record<string,RegExp>={
   twitter:/^(?:(?:www|mobile)\.)?(?:x|twitter)\.com$|^t\.co$/,
   substack:/(^|\.)substack\.com$/,
   bilibili:/(^|\.)bilibili\.com$|^b23\.tv$/,
-  youtube:/(^|\.)youtube\.com$|^youtu\.be$/,
+  youtube:/(^|\.)(youtube|youtube-nocookie)\.com$|^youtu\.be$/,
   douyin:/(^|\.)(douyin|tiktok)\.com$/,
   kuaishou:/(^|\.)(kuaishou|kwai)\.com$/,
 }
@@ -18,10 +18,13 @@ export function detectPodcastPlatform(raw:string):string {
 export function detectContentPlatform(raw:string):string {
   try {
     const url=new URL(raw.match(/https?:\/\/[^\s]+/)?.[0]||raw)
-    if(!['http:','https:'].includes(url.protocol)||url.username||url.password)return ''
+    if(!['http:','https:'].includes(url.protocol)||url.username||url.password||!['','80','443'].includes(url.port))return ''
     const host=url.hostname.toLowerCase()
     for(const platform in hosts)if(hosts[platform].test(host))return platform
     if(/^\/(?:embed\/)?p\/[^/]+\/?$/.test(url.pathname))return 'substack'
+    if(detectPodcastPlatform(url.href))return ''
+    if(host==='localhost'||host.endsWith('.local')||host.endsWith('.localhost')||host.startsWith('[')||/^(127\.|10\.|192\.168\.|169\.254\.|0\.)/.test(host)||/^172\.(1[6-9]|2\d|3[01])\./.test(host))return ''
+    return 'web'
   }catch{}
   return ''
 }

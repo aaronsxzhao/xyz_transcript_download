@@ -49,3 +49,8 @@ def test_nested_rich_text_keeps_links_annotations_and_table_cells():
     assert [len(item["text"]["content"]) for item in cells] == [2000, 2000, 500]
     assert all(item["annotations"] == {"bold": True} and item["text"]["link"] == {"url": "https://notes.example/source"} for item in cells)
     assert text["text"]["link"]["url"] == "/source"
+
+
+def test_article_image_export_uses_stable_original_url_instead_of_expiring_reader_link():
+    blocks=_prepare_export_blocks('![Chart](/api/article-image?url=https%3A%2F%2Fblog.example%2Fchart.png&expires=1&signature=abc&size=article)',request())
+    assert blocks[0]['image']['external']['url']=='https://blog.example/chart.png'

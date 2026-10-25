@@ -24,6 +24,16 @@ export function portableMarkdown(source: string, origin: string): string {
   const edits: { start: number; end: number; text: string }[] = [];
   const visit = (node: any) => {
     if (
+      (node.type === 'image' || node.type === 'definition') &&
+      typeof node.url === 'string' && node.url.startsWith('/api/article-image?')
+    ) {
+      const original = new URL(node.url, origin).searchParams.get('url');
+      const start=node.position?.start.offset, end=node.position?.end.offset;
+      if(original && /^https?:\/\//i.test(original) && typeof start==='number' && typeof end==='number'){
+        const index=destinationOffset(source.slice(start,end),node.type==='image');
+        if(index>=0)edits.push({start:start+index,end:start+index+node.url.length,text:original});
+      }
+    } else if (
       (node.type === "image" || node.type === "definition") &&
       typeof node.url === "string" &&
       /^\/data\/(screenshots|thumbnails)\//.test(node.url)

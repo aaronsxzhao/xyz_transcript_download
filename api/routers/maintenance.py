@@ -167,6 +167,7 @@ def _repair(task, owner, key):
     from video_downloader import get_downloader
     from social_content import social_platform, SocialSourceError
     report = {'status': 'running', 'missing': 0, 'message': 'Restoring screenshots…', 'started_at': datetime.now(timezone.utc).isoformat()}
+    downloader = None
     try:
         _save_report(key, report)
         missing = {n: t for n, t in _frames(task, owner).items() if n not in _existing()}
@@ -175,11 +176,15 @@ def _repair(task, owner, key):
                 from api.local_media import get_local_video_dir
                 source = Path(task['url']).resolve()
                 if not source.is_relative_to(get_local_video_dir(owner).resolve()) or not source.is_file():
-                    raise ValueError('The original uploaded video is needed. Upload it again to recover these frames.')
+                    raise SocialSourceError('The original uploaded video is needed. Upload it again to recover these frames.')
             else:
                 host = (urlparse(task['url']).hostname or '').lower()
                 domains = {'youtube': ('youtube.com', 'youtu.be'), 'bilibili': ('bilibili.com', 'b23.tv'), 'douyin': ('douyin.com', 'tiktok.com'), 'kuaishou': ('kuaishou.com', 'kwai.com')}
                 social = task.get('platform') in {'twitter','substack'} and social_platform(task['url']) == task['platform']
+                if task.get('platform') == 'web':
+                    from public_content_fetch import normalize_public_url
+                    normalize_public_url(task['url'])
+                    social = True
                 if urlparse(task['url']).scheme != 'https' or not (social or any(host == d or host.endswith('.' + d) for d in domains.get(task.get('platform'), ()))):
                     raise ValueError('Unsupported source URL')
                 downloader = get_downloader(task['platform'], get_cookie_manager(owner).get_cookie(task['platform']))
@@ -202,6 +207,9 @@ def _repair(task, owner, key):
     except Exception:
         report.update(status='failed', message='Cannot restore these frames. Reconnect the platform account, or provide the original uploaded file.')
     finally:
+        if task.get('platform') == 'web' and downloader is not None:
+            try: downloader.cleanup()
+            except OSError: pass
         with _lock:
             _running.discard(key)
         try:

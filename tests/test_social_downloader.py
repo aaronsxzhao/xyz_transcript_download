@@ -49,3 +49,30 @@ def test_existing_screenshot_recovery_resolves_the_same_ordered_social_media(mon
     existing=get_downloader('twitter')
     assert existing.download_video(source.url,'task')==Path('/tmp/combined.mp4')
     resolve.assert_called_once_with(source.url);factory.assert_called_once_with(source)
+
+
+def test_generic_media_is_fetched_once_with_pinning_and_ffmpeg_cannot_open_network_protocols(monkeypatch,tmp_path):
+    from content_sources import ContentDocument
+    from public_content_fetch import PublicResponse
+    import social_downloader as module
+    from unittest.mock import Mock
+    monkeypatch.setattr(module,'VIDEO_AUDIO_DIR',tmp_path/'audio');monkeypatch.setattr(module,'VIDEO_DIR',tmp_path/'video')
+    source=ContentDocument('web','https://cdn.example/source.mp4','Original recording','Original recording',media=[{'url':'https://cdn.example/source.mp4','kind':'video','duration':0}],content_type='video')
+    calls=[]
+    def fetch(url,**kwargs):
+        calls.append(url);kwargs['sink'].write(b'Synthetic media bytes')
+        return PublicResponse(url,'video/mp4',b'',{})
+    monkeypatch.setattr('public_content_fetch.fetch_public',fetch)
+    process=Mock();monkeypatch.setattr(module,'run_media_process',process)
+    downloader=module.SocialDownloader(source)
+    downloader.download_audio(source.url,'owned')
+    downloader.download_video(source.url,'owned')
+    assert calls==['https://cdn.example/source.mp4']
+    for call in process.call_args_list:
+        args=call.args[0]
+        assert args[args.index('-protocol_whitelist')+1]=='file,pipe'
+        assert not args[args.index('-i')+1].startswith('https:')
+        assert 'hls' not in args[args.index('-format_whitelist')+1]
+    assert downloader._public_source.exists()
+    downloader.cleanup()
+    assert not list((tmp_path/'audio').glob('*_source.media'))

@@ -38,6 +38,7 @@ const PLATFORM_META: Record<string, { label: string }> = {
   local: { label: 'Local' },
   twitter: { label: 'X / Twitter' },
   substack: { label: 'Substack' },
+  web: { label: 'Web articles & media' },
 }
 
 type View = { type: 'platforms' } | { type: 'channels'; platform: string } | { type: 'videos'; platform: string; channel: string }
@@ -51,7 +52,7 @@ function isActiveVideoStatus(status: string) {
 
 export default function Videos() {
   const { videoTasks, mergeVideoTasks, removeVideoTask } = useStore()
-  const [formOpen, setFormOpen] = useState(()=>new URLSearchParams(location.search).get('add')==='local')
+  const [formOpen, setFormOpen] = useState(()=>new URLSearchParams(location.search).get('add')==='local'||new URLSearchParams(location.search).has('import'))
   const [favoritesOpen,setFavoritesOpen]=useState(false)
   const [search, setSearch] = useState('')
   const [channelQuery, setChannelQuery] = useState('')
@@ -413,7 +414,7 @@ export default function Videos() {
           )}
           <div>
             <h1 className="page-title text-xl md:text-2xl font-bold text-white">
-              {view.type === 'platforms' && 'Videos & social'}
+              {view.type === 'platforms' && 'Videos & articles'}
               {view.type === 'channels' && (PLATFORM_META[view.platform]?.label || view.platform)}
               {view.type === 'videos' && view.channel}
             </h1>
@@ -425,8 +426,8 @@ export default function Videos() {
           </div>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <button onClick={()=>setFavoritesOpen(value=>!value)} aria-expanded={favoritesOpen} className="rounded-lg border border-dark-border px-3 py-2 text-sm">Bilibili favorites</button>
-          <button
+          {(view.type==='platforms'||view.platform==='bilibili')&&<button onClick={()=>setFavoritesOpen(value=>!value)} aria-expanded={favoritesOpen} className="rounded-lg border border-dark-border px-3 py-2 text-sm">Bilibili favorites</button>}
+          {(view.type==='platforms'||['youtube','bilibili'].includes(view.platform))&&<button
             onClick={handleCheckUpdates}
             disabled={checking}
             className="flex items-center gap-2 px-3 py-2 bg-dark-surface border border-dark-border rounded-lg hover:bg-dark-hover transition-colors text-sm text-gray-300"
@@ -438,7 +439,7 @@ export default function Videos() {
           >
             <RefreshCw size={16} className={checking ? 'animate-spin' : ''} />
             <span className="hidden sm:inline">{checking ? 'Checking...' : 'Check Updates'}</span>
-          </button>
+          </button>}
           <button onPointerEnter={()=>void import('../components/video/VideoNoteForm').catch(()=>{})} onFocus={()=>void import('../components/video/VideoNoteForm').catch(()=>{})} onClick={() => setFormOpen(!formOpen)}
             className="flex items-center gap-2 px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-medium rounded-lg transition-colors">
             <Plus size={16} /> Add content
@@ -455,13 +456,13 @@ export default function Videos() {
       {formOpen && (
         <div className="bg-dark-surface rounded-xl border border-dark-border overflow-hidden">
           <div className="flex items-center justify-between px-4 pt-3 pb-0">
-            <h3 className="text-sm font-semibold text-white">Add video or social content</h3>
+            <h3 className="text-sm font-semibold text-white">Add video, article or social content</h3>
             <button aria-label="Close new video note form" onClick={() => setFormOpen(false)} className="p-1 text-gray-500 hover:text-white transition-colors">
               <ChevronUp size={16} />
             </button>
           </div>
           <div className="px-4 pb-4 pt-2 ">
-            <OptionalTool fallback={<p role="status">Loading video tools…</p>}><VideoNoteForm onTaskCreated={handleTaskCreated} hideTitle /></OptionalTool>
+            <OptionalTool fallback={<p role="status">Loading video tools…</p>}><VideoNoteForm initialUrl={searchParams.get('import') || ''} onTaskCreated={handleTaskCreated} hideTitle /></OptionalTool>
           </div>
         </div>
       )}
@@ -553,7 +554,7 @@ export default function Videos() {
           channels={platformChannels}
           onSelectChannel={(ch) => setView({ type: 'videos', platform: view.platform, channel: ch })}
           onDeleteChannel={handleDeleteChannel}
-          onCheckUpdates={handleCheckChannelUpdates}
+          onCheckUpdates={['youtube','bilibili'].includes(view.platform) ? handleCheckChannelUpdates : undefined}
         />
       ) : (
         /* Video list for selected channel */

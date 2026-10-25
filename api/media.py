@@ -58,13 +58,16 @@ def verify_media_signature(path: str, expires: int, signature: str) -> bool:
 
 def sign_media_urls(value, task_id: str = ""):
     """Sign only an owned task's generated files, never arbitrary Markdown paths."""
-    if not USE_SUPABASE:
-        return value
     if isinstance(value, dict):
+        if value.get('platform') == 'web':
+            from api.article_images import sign_web_task
+            value = sign_web_task(value)
         owner_task_id = task_id or value.get("id", "")
         return {key: sign_media_urls(item, owner_task_id) for key, item in value.items()}
     if isinstance(value, list):
         return [sign_media_urls(item, task_id) for item in value]
+    if not USE_SUPABASE:
+        return value
     if not isinstance(value, str) or not task_id:
         return value
     if SUPABASE_URL:

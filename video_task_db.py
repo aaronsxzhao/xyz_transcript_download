@@ -92,6 +92,7 @@ class _SQLiteVideoTaskDB:
                 ("channel_url TEXT", "''"),
                 ("channel_avatar TEXT", "''"),
                 ("published_at TEXT", "''"),
+                ("source_metadata TEXT", "'{}'"),
             ]:
                 try:
                     conn.execute(f"ALTER TABLE video_tasks ADD COLUMN {col} DEFAULT {default}")
@@ -253,12 +254,14 @@ class _SQLiteVideoTaskDB:
         allowed = {
             "status", "progress", "message", "markdown", "transcript_json",
             "title", "thumbnail", "duration", "error", "model", "platform",
-            "channel", "channel_url", "channel_avatar",
+            "source_metadata", "channel", "channel_url", "channel_avatar",
             "style", "formats", "quality", "video_quality", "published_at",
         }
         fields = {k: v for k, v in updates.items() if k in allowed}
         if not fields:
             return
+        if "source_metadata" in fields and isinstance(fields["source_metadata"], dict):
+            fields["source_metadata"] = json.dumps(fields["source_metadata"], ensure_ascii=False)
         if "formats" in fields and isinstance(fields["formats"], list):
             fields["formats"] = json.dumps(fields["formats"])
         fields["updated_at"] = datetime.now().isoformat()
@@ -273,7 +276,7 @@ class _SQLiteVideoTaskDB:
 
     def get_task(self, task_id: str, user_id: str = None, include_transcript: bool = True) -> Optional[dict]:
         with self._conn() as conn:
-            cols = "*" if include_transcript else "id,user_id,url,platform,title,thumbnail,status,progress,message,markdown,style,model,formats,quality,video_quality,video_understanding,video_interval,grid_cols,grid_rows,duration,error,channel,channel_url,channel_avatar,published_at,created_at,updated_at"
+            cols = "*" if include_transcript else "id,user_id,url,platform,title,thumbnail,status,progress,message,markdown,source_metadata,style,model,formats,quality,video_quality,video_understanding,video_interval,grid_cols,grid_rows,duration,error,channel,channel_url,channel_avatar,published_at,created_at,updated_at"
             if user_id:
                 row = conn.execute(
                     f"SELECT {cols} FROM video_tasks WHERE id = ? AND user_id = ?",
@@ -313,12 +316,12 @@ class _SQLiteVideoTaskDB:
         with self._conn() as conn:
             if user_id:
                 rows = conn.execute(
-                    f"SELECT id,url,platform,title,thumbnail,status,progress,message,style,duration,error,channel,channel_url,channel_avatar,published_at,created_at,updated_at,{saved_note} FROM video_tasks WHERE user_id = ? {order} LIMIT ?",
+                    f"SELECT id,url,platform,title,thumbnail,status,progress,message,style,duration,error,channel,channel_url,channel_avatar,published_at,created_at,updated_at,json_extract(source_metadata,'$.type') AS source_type,{saved_note} FROM video_tasks WHERE user_id = ? {order} LIMIT ?",
                     (user_id, limit),
                 ).fetchall()
             else:
                 rows = conn.execute(
-                    f"SELECT id,url,platform,title,thumbnail,status,progress,message,style,duration,error,channel,channel_url,channel_avatar,published_at,created_at,updated_at,{saved_note} FROM video_tasks WHERE user_id IS NULL {order} LIMIT ?",
+                    f"SELECT id,url,platform,title,thumbnail,status,progress,message,style,duration,error,channel,channel_url,channel_avatar,published_at,created_at,updated_at,json_extract(source_metadata,'$.type') AS source_type,{saved_note} FROM video_tasks WHERE user_id IS NULL {order} LIMIT ?",
                     (limit,),
                 ).fetchall()
             return [self._row_to_dict(r) for r in rows]
@@ -444,6 +447,9 @@ class _SQLiteVideoTaskDB:
 
     def _row_to_dict(self, row) -> dict:
         d = dict(row)
+        if isinstance(d.get('source_metadata'), str):
+            try: d['source_metadata'] = json.loads(d['source_metadata'])
+            except ValueError: d['source_metadata'] = {}
         try:
             d["formats"] = json.loads(d.get("formats", "[]"))
         except (json.JSONDecodeError, TypeError):

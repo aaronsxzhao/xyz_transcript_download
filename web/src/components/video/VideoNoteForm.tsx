@@ -17,6 +17,7 @@ const PLATFORM_LABELS: Record<string, string> = {
   local: 'Local File',
   twitter: 'X / Twitter',
   substack: 'Substack',
+  web: 'Web article or media',
 }
 
 
@@ -57,6 +58,7 @@ const VIDEO_QUALITIES = [
 interface Props {
   onTaskCreated?: (task: { taskId: string; title: string; url: string; platform: string; initialTask?: VideoTask | null }) => void
   hideTitle?: boolean
+  initialUrl?: string
 }
 
 function formatBytes(bytes: number): string {
@@ -71,11 +73,11 @@ function formatBytes(bytes: number): string {
   return `${value >= 100 ? value.toFixed(0) : value.toFixed(1)} ${units[unitIndex]}`
 }
 
-export default function VideoNoteForm({ onTaskCreated, hideTitle }: Props) {
+export default function VideoNoteForm({ onTaskCreated, hideTitle, initialUrl = '' }: Props) {
   const navigate = useNavigate()
   const savedDefaults = useMemo(() => getVideoProcessingDefaults(), [])
   const { uploadSessions, videoTasks, upsertUploadSession, removeUploadSession } = useStore()
-  const [url, setUrl] = useState('')
+  const [url, setUrl] = useState(initialUrl)
   const [isLocalFile, setIsLocalFile] = useState(false)
   const [style, setStyle] = useState(() => (savedDefaults.style as string) || 'detailed')
   const [formats, setFormats] = useState<string[]>(() => {
@@ -119,7 +121,7 @@ export default function VideoNoteForm({ onTaskCreated, hideTitle }: Props) {
     return isLocalFile ? 'local' : ''
   }, [url, isLocalFile])
 
-  const socialLink=['twitter','substack'].includes(detectedPlatform)
+  const socialLink=['twitter','substack','web'].includes(detectedPlatform)
   const [ytCookieWarning, setYtCookieWarning] = useState(false)
   const ytCheckRef = useRef(false)
 
@@ -364,7 +366,7 @@ export default function VideoNoteForm({ onTaskCreated, hideTitle }: Props) {
 
   return (
     <div className="space-y-3">
-      {!hideTitle && <h3 className="text-base font-semibold text-white">Generate Video Notes</h3>}
+      {!hideTitle && <h3 className="text-base font-semibold text-white">Import article or media</h3>}
 
       {/* URL input + auto-detected platform badge + local upload */}
       <div>
@@ -416,7 +418,7 @@ export default function VideoNoteForm({ onTaskCreated, hideTitle }: Props) {
             <div className="flex-1 relative">
               <input
                 type="text"
-                aria-label="Video URL"
+                aria-label="Content URL"
                 value={url}
                 onChange={e => {
                   const v = e.target.value
@@ -425,7 +427,7 @@ export default function VideoNoteForm({ onTaskCreated, hideTitle }: Props) {
                   setActiveUploadId(null)
                   useStore.getState().uploadSessions.map(s => s.id).forEach(id => removeUploadSession(id))
                 }}
-                placeholder="Paste video, X or Substack link…"
+                placeholder="Paste video, article, X or Substack link…"
                 className="w-full px-3 py-2.5 bg-dark-hover border border-dark-border rounded-lg text-white text-sm placeholder-gray-500 focus:outline-none focus:border-indigo-500 pr-24"
               />
               {detectedPlatform && (
@@ -669,7 +671,7 @@ export default function VideoNoteForm({ onTaskCreated, hideTitle }: Props) {
         ) : (
           <>
             <Play size={16} />
-            Generate Notes
+            {socialLink ? 'Import content' : 'Generate Notes'}
           </>
         )}
       </button>

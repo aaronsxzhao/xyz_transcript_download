@@ -365,7 +365,7 @@ export default function VideoViewer() {
   };
 
   const rawContent = !task ? "" : selectedVersion ? versionContents[selectedVersion] || "" : task.markdown || "";
-  const isOriginal = task?.style === 'original' && ['twitter','substack'].includes(task?.platform||'');
+  const isOriginal = (selectedVersion ? task?.versions?.find(version=>version.id===selectedVersion)?.style : task?.style) === 'original' && ['twitter','substack','web'].includes(task?.platform||'');
   const content = useMemo(() => isOriginal?rawContent:normalizeNoteHeadings(rawContent), [rawContent,isOriginal]);
   const getCurrentContent = () => content;
 
@@ -423,7 +423,7 @@ export default function VideoViewer() {
 
   const uiTask = displayTask ?? task;
   const versions = task.versions || [];
-  const publicSourceFailure = ['twitter','substack'].includes(uiTask.platform) && sourceAction(uiTask.error || uiTask.message);
+  const publicSourceFailure = ['twitter','substack','web'].includes(uiTask.platform) && sourceAction(uiTask.error || uiTask.message);
 
   const title =
     task.title ||
@@ -548,14 +548,14 @@ export default function VideoViewer() {
             )}
             {!isOriginal && ["success", "failed", "cancelled"].includes(uiTask.status) && (
               <>
-                <button onClick={() => setUtility("recovery")}>
+                {task.source_metadata?.type !== 'audio' && <button onClick={() => setUtility("recovery")}>
                   <RotateCcw size={16} />
                   Downloads & screenshot recovery
-                </button>
+                </button>}
                 <RegenerateAction
                   onConfirm={() => void handleRegenerate()}
                   busy={regenerating}
-                  description="Process this video again with your current settings. Saved versions remain available."
+                  description="Process this recording again with your current settings. Saved versions remain available."
                 />
               </>
             )}
@@ -707,7 +707,7 @@ export default function VideoViewer() {
                   Loading saved version…
                 </p>
               ) : (
-                isOriginal ? <ArticleNote markdown={content} fallback={<PlainNote markdown={content} preserveSource/>}/> : <MarkdownPreview
+                isOriginal ? <ArticleNote markdown={content} attachments={selectedVersion ? [] : task.source_metadata?.attachments} fallback={<PlainNote markdown={content} preserveSource/>}/> : <MarkdownPreview
                   markdown={content}
                   fallback={<PlainNote markdown={content} />}
                 />

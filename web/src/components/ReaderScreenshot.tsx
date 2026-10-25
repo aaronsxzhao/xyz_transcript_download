@@ -25,7 +25,7 @@ export default function ReaderScreenshot({src,originalSrc=src,alt='',ready=true,
   const preview = src.startsWith('/data/') ? `${src}${src.includes('?') ? '&' : '?'}preview=true` : src
   useEffect(() => { setFailed(false); setReason(''); setOpen(false) }, [src])
   useEffect(() => {
-    if (!failed || !src.startsWith('/data/')) return
+    if (!failed || !(src.startsWith('/data/') || src.startsWith('/api/article-image?'))) return
     const controller = new AbortController()
     const timer = setTimeout(() => controller.abort(), 5000)
     setChecking(true)

@@ -260,7 +260,7 @@ async def main():
       assert all(result.values()),(width,result)
      await page.screenshot(path=str(args.output/f'platforms-{width}.png'))
      await page.get_by_role('button',name='Add content',exact=True).click()
-     await page.get_by_label('Video URL',exact=True).fill('https://writer.substack.com/p/public')
+     await page.get_by_label('Content URL',exact=True).fill('https://writer.substack.com/p/public')
      await page.get_by_text('Public text is imported in its original language',exact=False).wait_for()
      await inspect('social-content-form')
      await page.get_by_role('button',name='Add content',exact=True).click()

@@ -16,7 +16,7 @@ def page_rows(rows, limit):
 
 
 @router.get('/sources')
-def library_sources(kind: Literal['', 'podcast', 'video'] = '',
+def library_sources(kind: Literal['', 'podcast', 'video', 'article'] = '',
                     cursor: str = Query('', max_length=400),
                     limit: int = Query(40, ge=1, le=60), user: User = Depends(get_current_user)):
     """Page source names independently of note/search pages, without note bodies.
@@ -29,19 +29,20 @@ def library_sources(kind: Literal['', 'podcast', 'video'] = '',
         query = (db.db.client.table('library_items').select('source')
                  .eq('user_id', user.id).eq('status', 'completed')
                  .gt('source', cursor).order('source', desc=False))
-        if kind:
-            query = query.eq('kind', kind)
+        if kind == 'article': query = query.eq('content_type', 'article')
+        elif kind == 'video': query = query.eq('kind', 'video').neq('content_type', 'article')
+        elif kind: query = query.eq('kind', kind)
         rows = query.limit(limit + 1).execute().data or []
         page = rows[:limit]
         return {'sources': list(dict.fromkeys(row['source'] for row in page)),
                 'next_cursor': page[-1]['source'] if len(rows) > limit else None}
     names = sorted({row['source'] for row in _local_library_rows(db, user.id)
-                    if row['source'] > cursor and (not kind or row['kind'] == kind)})
+                    if row['source'] > cursor and _matches_kind(row, kind)})
     return {'sources': names[:limit], 'next_cursor': names[limit - 1] if len(names) > limit else None}
 
 
 @router.get('')
-def library(q: str = Query('', max_length=200), kind: Literal['', 'podcast', 'video'] = '',
+def library(q: str = Query('', max_length=200), kind: Literal['', 'podcast', 'video', 'article'] = '',
             status: str = Query('', max_length=32), source: str = Query('', max_length=200),
             sort: Literal['newest', 'oldest', 'published'] = 'newest', cursor: str = Query('', max_length=400),
             limit: int = Query(40, ge=1, le=60), ids: str = Query('',max_length=4000), user: User = Depends(get_current_user)):
@@ -54,9 +55,11 @@ def library(q: str = Query('', max_length=200), kind: Literal['', 'podcast', 'vi
     descending = sort != 'oldest'
     db = get_db(user.id)
     if db.use_supabase:
-        query = db.db.client.table('library_items').select('id,kind,title,source,date,status,sort_key,thumbnail,platform,duration,topics_count,published_at,publication_sort_key').eq('user_id', user.id).eq('status', 'completed')
+        query = db.db.client.table('library_items').select('id,kind,title,source,date,status,sort_key,thumbnail,platform,duration,topics_count,published_at,publication_sort_key,content_type').eq('user_id', user.id).eq('status', 'completed')
         if requested: query = query.in_('id',[row.partition(':')[2] for row in requested])
-        if kind: query = query.eq('kind', kind)
+        if kind == 'article': query = query.eq('content_type', 'article')
+        elif kind == 'video': query = query.eq('kind', 'video').neq('content_type', 'article')
+        elif kind: query = query.eq('kind', kind)
         if status: query = query.eq('status', status)
         if source: query = query.eq('source', source)
         if q: query = query.ilike('search_text', '%' + q.replace('\\', '\\\\').replace('%', '\\%').replace('_', '\\_') + '%')
@@ -72,17 +75,23 @@ def library(q: str = Query('', max_length=200), kind: Literal['', 'podcast', 'vi
         try: date = datetime.fromisoformat(row['date'].replace('Z', '+00:00')).replace(tzinfo=timezone.utc).strftime('%Y%m%d%H%M%S%f')
         except (ValueError, TypeError): date = '00000000000000000000'
         row['sort_key'] = (''.join(c for c in (row.get('published_at') or '0000-00-00')[:10] if c.isdigit()) if sort == 'published' else date) + ':' + row['kind'] + ':' + row['id']
-    rows = [r for r in rows if (not kind or r['kind'] == kind) and (not status or r['status'] == status) and (not source or source == r['source']) and q.casefold() in (r['title'] + ' ' + r['source']).casefold() and (not cursor or (r['sort_key'] < cursor if descending else r['sort_key'] > cursor))]
+    rows = [r for r in rows if _matches_kind(r, kind) and (not status or r['status'] == status) and (not source or source == r['source']) and q.casefold() in (r['title'] + ' ' + r['source']).casefold() and (not cursor or (r['sort_key'] < cursor if descending else r['sort_key'] > cursor))]
     if requested: rows=[r for r in rows if r['kind']+':'+r['id'] in requested]
     rows.sort(key=lambda r: r['sort_key'], reverse=descending)
     return page_rows(rows, limit)
+
+
+def _matches_kind(row, kind):
+    if kind == 'article': return row.get('content_type') == 'article'
+    if kind == 'video': return row['kind'] == 'video' and row.get('content_type') != 'article'
+    return not kind or row['kind'] == kind
 
 
 def _local_library_rows(db, user_id):
     # Local summaries live as JSON files; cloud queries never take this path.
     summaries = db.get_all_summaries()
     metadata = db.get_summary_podcast_metadata([s.episode_id for s in summaries])
-    rows = [dict(id=s.episode_id, kind='podcast', title=s.title, source=metadata.get(s.episode_id, ('Podcast', ''))[0] or 'Podcast', date=s.created_at, status='completed', thumbnail=metadata.get(s.episode_id, ('', ''))[1] or '', platform='', duration=0, topics_count=len(s.topics or [])) for s in summaries]
+    rows = [dict(id=s.episode_id, kind='podcast', title=s.title, content_type='audio', source=metadata.get(s.episode_id, ('Podcast', ''))[0] or 'Podcast', date=s.created_at, status='completed', thumbnail=metadata.get(s.episode_id, ('', ''))[1] or '', platform='', duration=0, topics_count=len(s.topics or [])) for s in summaries]
     from api.summary_quality import needs_review
     for row,s in zip(rows,summaries):
         episode=db.get_episode(s.episode_id)
@@ -101,5 +110,5 @@ def _local_library_rows(db, user_id):
         # Regeneration can fail while the previous saved note remains readable.
         # Streaming text without a saved version must stay out of the library.
         return bool(task.get('has_saved_note'))
-    rows += [dict(id=t['id'], kind='video', title=t.get('title') or 'Untitled video', source=t.get('channel') or t.get('platform') or 'Video', date=t.get('updated_at') or t.get('created_at') or '', published_at=t.get('published_at') or '', status='completed', thumbnail=t.get('thumbnail') or '', platform=t.get('platform') or '', duration=t.get('duration') or 0, topics_count=0) for t in videos if readable_video(t)]
+    rows += [dict(id=t['id'], kind='video', content_type='article' if t.get('style') == 'original' else (t.get('source_type') or 'video'), title=t.get('title') or 'Untitled video', source=t.get('channel') or t.get('platform') or 'Video', date=t.get('updated_at') or t.get('created_at') or '', published_at=t.get('published_at') or '', status='completed', thumbnail=t.get('thumbnail') or '', platform=t.get('platform') or '', duration=t.get('duration') or 0, topics_count=0) for t in videos if readable_video(t)]
     return rows

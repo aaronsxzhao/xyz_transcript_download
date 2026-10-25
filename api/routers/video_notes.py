@@ -398,19 +398,29 @@ def process_video_note_sync(
     _video_worker.attempt_id = attempt_id
     from video_task_db import get_video_task_db
     db = get_video_task_db()
+    downloader = None
     try:
         from social_content import social_platform, resolve_social_content
+        from content_sources import resolve_content
         social_source = None
-        if social_platform(url):
+        if not platform and url.startswith(('http://','https://')):
+            from video_downloader import detect_platform
+            platform = detect_platform(url)
+        if platform == 'web' or social_platform(url):
             if is_video_task_cancelled(task_id):
                 raise VideoCancelledException('Cancelled')
             if not db.get_task(task_id, user_id):
                 return
-            _update_task_status(db, task_id, 'parsing', 5, 'Reading original social content…', user_id)
-            social_source = resolve_social_content(url)
+            _update_task_status(db, task_id, 'parsing', 5, 'Reading original article or media…', user_id)
+            from urllib.parse import urlsplit
+            host = urlsplit(url).hostname or ''
+            generic = platform == 'web' or (platform == 'substack' and host != 'substack.com' and not host.endswith('.substack.com'))
+            social_source = resolve_content(url) if generic else resolve_social_content(url)
             platform = social_source.platform
             db.update_task(task_id, {'platform':platform,'title':social_source.title,'thumbnail':social_source.thumbnail,
                 'channel':social_source.author or platform,'channel_url':social_source.url,'published_at':social_source.published})
+            if platform == 'web':
+                db.update_task(task_id, {'source_metadata':social_source.metadata()})
             if not social_source.media:
                 if is_video_task_cancelled(task_id):
                     raise VideoCancelledException('Cancelled')
@@ -740,7 +750,7 @@ def process_video_note_sync(
                     logger.info(f"[{task_id}] Attempting lightweight video download for thumbnail...")
                     try:
                         cookies = cookie_mgr.get_cookie(platform)
-                        thumb_downloader = get_downloader(platform, cookies)
+                        thumb_downloader = downloader if platform == 'web' and downloader is not None else get_downloader(platform, cookies)
                         thumb_video = thumb_downloader.download_video(url, task_id, video_quality="360")
                         if thumb_video:
                             thumb_url = extract_first_frame_thumbnail(str(thumb_video), task_id)
@@ -905,6 +915,12 @@ def process_video_note_sync(
             db.flush_task(task_id)
         except Exception:
             logger.error(f"[Video {task_id}] Failed during error handling: {e}")
+    finally:
+        if platform == 'web' and downloader is not None:
+            cleanup = getattr(downloader, 'cleanup', None)
+            if cleanup:
+                try: cleanup()
+                except OSError: logger.warning('Temporary public media cleanup will be retried later')
 
 
 async def process_video_note_async(task_id: str, **kwargs):
@@ -1278,7 +1294,7 @@ def get_task(task_id: str, view: str = Query("full", pattern="^(full|note)$"), u
     if not task:
         raise HTTPException(status_code=404, detail="Task not found")
     task["versions"] = db.get_versions(task_id, include_content=view == "full")
-    if task.get('style') == 'original' and task.get('platform') in ('twitter', 'substack'):
+    if task.get('style') == 'original' and task.get('platform') in ('twitter', 'substack', 'web'):
         from article_markdown import repair_article_markdown
         task['versions'] = [{**v, 'content': repair_article_markdown(v['content'])} if v.get('content') and v.get('style') == 'original' else v for v in task['versions']]
     from api.media import sign_media_urls
@@ -1304,9 +1320,12 @@ def get_task_version(task_id: str, version_id: str, user: User = Depends(get_cur
     version = db.get_version(task_id, version_id)
     if not version:
         raise HTTPException(status_code=404, detail="Version not found")
-    if task.get('platform') in ('twitter', 'substack') and version.get('style') == 'original':
+    if task.get('platform') in ('twitter', 'substack', 'web') and version.get('style') == 'original':
         from article_markdown import repair_article_markdown
         version = {**version, 'content': repair_article_markdown(version.get('content') or '')}
+        if task.get('platform') == 'web':
+            from api.article_images import sign_article_markdown
+            version['content'] = sign_article_markdown(version['content'])
     return sign_media_urls(version, task_id)
 
 
