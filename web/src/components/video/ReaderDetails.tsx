@@ -29,7 +29,8 @@ export default function ReaderDetails({
     panel.current?.scrollIntoView({block:'start'});
   }, [kind]);
   const versions = task.versions || [];
-  const original = (selectedVersion ? versions.find(version=>version.id===selectedVersion)?.style : task.style) === 'original' && ['twitter', 'substack', 'web'].includes(task.platform);
+  const version = versions.find(version=>version.id===selectedVersion);
+  const original = (selectedVersion ? version?.style : task.style) === 'original' && ['twitter', 'substack', 'web'].includes(task.platform);
   const duration = `${Math.floor(task.duration / 60)}:${String(Math.floor(task.duration % 60)).padStart(2, "0")}`;
   return (
     <section
@@ -57,11 +58,11 @@ export default function ReaderDetails({
           <dl>
             <dt>Platform</dt>
             <dd>{task.platform}</dd>
-            {task.duration > 0 && <><dt>Duration</dt><dd>{duration}</dd></>}
+            {!original && task.duration > 0 && <><dt>Duration</dt><dd>{duration}</dd></>}
             <dt>Model</dt>
-            <dd>{original ? "No AI used · original text" : task.model || "Not recorded"}</dd>
+            <dd>{original ? "No AI used · original text" : (selectedVersion ? version?.model_name : task.model) || "Not recorded"}</dd>
             <dt>Formats</dt>
-            <dd>{task.formats?.join(", ") || "Summary"}</dd>
+            <dd>{selectedVersion ? original ? 'Original text' : 'Not recorded for saved versions' : task.formats?.join(", ") || "Summary"}</dd>
           </dl>
           {task.platform !== "local" && /^https?:\/\//.test(task.url) && (
             <a

@@ -1,5 +1,5 @@
 import type {VideoTask} from './api'
-export function buildNotionExportMarkdown(task: VideoTask, content: string): string {
+export function buildNotionExportMarkdown(task: VideoTask, content: string, selectedVersion = ''): string {
   const lines: string[] = []
   const title = task.title?.trim() || 'Untitled Video Note'
 
@@ -9,7 +9,8 @@ export function buildNotionExportMarkdown(task: VideoTask, content: string): str
   const metadata: string[] = []
   if (task.platform) metadata.push(`- Platform: ${task.platform}`)
   if (task.channel) metadata.push(`- Channel: ${task.channel}`)
-  if (task.style) metadata.push(`- Style: ${task.style}`)
+  const style = selectedVersion ? task.versions?.find(version=>version.id===selectedVersion)?.style : task.style
+  if (style) metadata.push(`- Style: ${style}`)
   if (task.duration > 0) {
     const m = Math.floor(task.duration / 60)
     const s = Math.floor(task.duration % 60)

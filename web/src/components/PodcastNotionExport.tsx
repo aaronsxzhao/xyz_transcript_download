@@ -26,12 +26,14 @@ export default function PodcastNotionExport({
   duration,
   task,
   content,
+  selectedVersion = '',
   onClose,
 }: {
   summary?: Summary;
   duration?: number;
   task?: VideoTask;
   content?: string;
+  selectedVersion?: string;
   onClose: () => void;
 }) {
   useDialog(true, onClose);
@@ -114,7 +116,7 @@ export default function PodcastNotionExport({
     try {
       const md = summary
         ? summaryToMarkdown(summary, duration)
-        : buildNotionExportMarkdown(task!, content || "");
+        : buildNotionExportMarkdown(task!, content || "", selectedVersion);
       const result = await exportMarkdownToNotion(
         md,
         summary?.title || task?.title || "Untitled Video Note",
@@ -139,7 +141,7 @@ export default function PodcastNotionExport({
     } finally {
       if (attempt === request.current) setNotionExporting(false);
     }
-  }, [notionSelectedId, summary, duration, task, content]);
+  }, [notionSelectedId, summary, duration, task, content, selectedVersion]);
 
   useEffect(() => {
     if (hasNotionKey) void openNotionModal();

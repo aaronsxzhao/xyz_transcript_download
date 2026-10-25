@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import React, { act } from 'react'
+import React, { act, Profiler } from 'react'
 import { createRoot } from 'react-dom/client'
 import { afterEach, expect, it, vi } from 'vitest'
 import ReaderScreenshot from '../src/components/ReaderScreenshot'
@@ -114,5 +114,39 @@ it('opens the owning reader recovery action for a missing image without requirin
   await vi.waitFor(()=>expect(node.textContent).toContain('Open screenshot recovery'))
   await act(async()=>node.querySelector('button')!.click())
   expect(recover).toHaveBeenCalledOnce()
+ }finally{vi.unstubAllGlobals()}
+})
+
+it('renders a replacement image without carrying the previous failure into its first commit',async()=>{
+ const node=document.createElement('div');const root=createRoot(node)
+ cleanup=()=>act(()=>root.unmount())
+ vi.stubGlobal('fetch',vi.fn().mockResolvedValue(new Response('',{status:404})))
+ const commits:{image:string|null;text:string|null}[]=[]
+ const render=(src:string)=>root.render(<Profiler id="image" onRender={()=>commits.push({image:node.querySelector('img')?.getAttribute('src')||null,text:node.textContent})}><ReaderScreenshot src={src}/></Profiler>)
+ try{
+  await act(async()=>render('/data/screenshots/old.png'))
+  await act(async()=>node.querySelector('img')!.dispatchEvent(new Event('error')))
+  expect(node.textContent).toContain('Source image is missing')
+  commits.length=0
+  await act(async()=>render('/data/screenshots/new.png'))
+  expect(commits[0].image).toBe('/data/screenshots/new.png?preview=true')
+  expect(commits[0].text).not.toContain('Source image is missing')
+ }finally{vi.unstubAllGlobals()}
+})
+
+it('ignores an old image diagnostic that finishes after the next image fails',async()=>{
+ const node=document.createElement('div');const root=createRoot(node)
+ cleanup=()=>act(()=>root.unmount())
+ let old!:(response:Response)=>void,current!:(response:Response)=>void
+ vi.stubGlobal('fetch',vi.fn().mockImplementationOnce(()=>new Promise(resolve=>{old=resolve})).mockImplementationOnce(()=>new Promise(resolve=>{current=resolve})))
+ try{
+  await act(async()=>root.render(<ReaderScreenshot src="/data/screenshots/old.png"/>))
+  await act(async()=>node.querySelector('img')!.dispatchEvent(new Event('error')))
+  await act(async()=>root.render(<ReaderScreenshot src="/data/screenshots/new.png"/>))
+  await act(async()=>node.querySelector('img')!.dispatchEvent(new Event('error')))
+  await act(async()=>old(new Response('',{status:404})))
+  expect(node.textContent).toContain('Checking image')
+  await act(async()=>current(new Response('',{status:403})))
+  expect(node.textContent).toContain('Image link expired')
  }finally{vi.unstubAllGlobals()}
 })

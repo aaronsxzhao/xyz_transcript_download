@@ -365,7 +365,8 @@ export default function VideoViewer() {
   };
 
   const rawContent = !task ? "" : selectedVersion ? versionContents[selectedVersion] || "" : task.markdown || "";
-  const isOriginal = (selectedVersion ? task?.versions?.find(version=>version.id===selectedVersion)?.style : task?.style) === 'original' && ['twitter','substack','web'].includes(task?.platform||'');
+  const selectedStyle = selectedVersion ? task?.versions?.find(version=>version.id===selectedVersion)?.style : task?.style;
+  const isOriginal = selectedStyle === 'original' && ['twitter','substack','web'].includes(task?.platform||'');
   const content = useMemo(() => isOriginal?rawContent:normalizeNoteHeadings(rawContent), [rawContent,isOriginal]);
   const getCurrentContent = () => content;
 
@@ -437,7 +438,7 @@ export default function VideoViewer() {
   return (
     <ScreenshotRecoveryContext.Provider value={!isOriginal && ['success','failed','cancelled'].includes(uiTask.status) ? openRecovery : undefined}>
     <ReaderFrame
-      kind={isOriginal ? 'Original post' : 'Video'}
+      kind={isOriginal ? task.platform==='web'?'Original article':'Original post' : task.source_metadata?.type==='audio'?'Audio':'Video'}
       title={title}
       sections={
         viewMode === "markdown"
@@ -457,8 +458,8 @@ export default function VideoViewer() {
               Published {new Date(task.published_at).toLocaleDateString()}
             </span>
           )}
-          {task.duration > 0 && <span>{formatDuration(task.duration)}</span>}
-          {task.style && <span>{task.style}</span>}
+          {!isOriginal && task.duration > 0 && <span>{formatDuration(task.duration)}</span>}
+          {selectedStyle && <span>{selectedStyle}</span>}
           {selectedVersion && (
             <span>
               Saved version ·{" "}
@@ -757,6 +758,7 @@ export default function VideoViewer() {
         <NotionExport
           key={task.id}
           task={task}
+          selectedVersion={selectedVersion}
           content={content}
           onClose={() => setNotionOpen(false)}
           fallback={

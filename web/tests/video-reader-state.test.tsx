@@ -72,6 +72,17 @@ it('shows imported social text verbatim without a transcript tab or generated-no
  expect(fetchVideoTranscript).not.toHaveBeenCalled()
 })
 
+it.each([
+ ['article','original','Original article',false],
+ ['audio','detailed','Audio summary',true],
+])('labels generic %s content accurately',async(type,style,label,showDuration)=>{
+ vi.mocked(fetchVideoTask).mockResolvedValue({...note(),platform:'web',style,source_metadata:{type:type as 'article'|'audio'},model:style==='original'?'':'test'})
+ await mount()
+ expect(node.querySelector('.reader-breadcrumb')?.textContent||node.textContent).toContain(label)
+ const header=node.querySelector('.unified-header')!
+ expect(header.textContent?.includes('2:00')).toBe(showDuration)
+})
+
 it('reloads a completed note after a regeneration in another page, even when the final status is unchanged', async () => {
   await mount()
   expect(node.textContent).toContain('Saved first note')
