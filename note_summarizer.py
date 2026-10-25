@@ -217,7 +217,9 @@ Markdown 结构规范（严格遵守）:
         prompt = prompt.split('输出示例结构:', 1)[0]
         prompt = prompt.replace('`## AI 总结`', '`## AI Summary`')
         prompt += "\nUse the source transcript's language for every reader-facing heading and paragraph. Do not copy Chinese placeholder labels from these instructions.\n"
-    return prompt
+    from reading_language import source_language_lock
+    prompt += '\nVIDEO TIMELINE CONTRACT: Follow the original source sequence. Merge only adjacent related discussion. A later return to a topic, book or example remains later; never move it into an earlier chapter. Keep supplied media timestamps in order and attached to their own discussion. Do not invent a recording time from a historical date mentioned in speech.\n'
+    return prompt + (source_language_lock(source_text) if source_text else '')
 
 
 def _build_user_prompt(
@@ -344,7 +346,10 @@ class NoteSummarizer:
 
             if result:
                 checkpoint = (lambda:original_progress(last_chars, result)) if original_progress else None
-                result = self._edit_reading(result, title, 'toc' in formats, checkpoint)
+                from note_presentation import chronological_chapters
+                result = chronological_chapters(result)
+                result = self._edit_reading(result, title, 'toc' in formats, checkpoint, source_text=transcript_text)
+                result = self._finish_presentation(result, title, 'toc' in formats, transcript_text, checkpoint)
             return _repair_numbered_heading_markers(result) if result else result
         except Exception as e:
             if "cancel" in type(e).__name__.lower() or "cancel" in str(e).lower():
@@ -362,7 +367,7 @@ class NoteSummarizer:
         from reading_editor import call_editor
         return call_editor(self.client, self.model, system, payload, timeout)
 
-    def _edit_reading(self, draft, title, add_toc, checkpoint=None):
+    def _edit_reading(self, draft, title, add_toc, checkpoint=None, source_text=''):
         from markdown_it import MarkdownIt
         from reading_editor import edit_sections, has_unedited_source
         from summary_errors import strip_delivery_notices, merge_delivery_notices, is_cancellation
@@ -385,7 +390,7 @@ class NoteSummarizer:
             end = headings[i+1].map[0] if i+1 < len(headings) else len(lines)
             topic = re.sub(r'^##\s+(?:\d+[.．、]?\s+)?', '', lines[start]).strip()
             content = ''.join(lines[heading.map[1]:end]).strip('\r\n')
-            if topic.lower() in ('目录','table of contents'):
+            if topic.lower() in ('目录','table of contents','contents'):
                 tokens = MarkdownIt().parse(content)
                 if (all(t.type in ('bullet_list_open','bullet_list_close','ordered_list_open','ordered_list_close','list_item_open','list_item_close','paragraph_open','paragraph_close','inline','hr') for t in tokens)
                     and any(t.type.endswith('list_open') for t in tokens)
@@ -395,14 +400,17 @@ class NoteSummarizer:
         if len(items) < 2:
             return draft
         try:
-            paragraphs = edit_sections(items, self._editorial_json, checkpoint)
-            sections = {}
+            paragraphs = edit_sections(items, self._editorial_json, checkpoint, preserve_order=True, source_text=source_text)
+            sections = []
             for paragraph in paragraphs:
                 # Video arguments are chapter children, so keep them in the
                 # level-three Contents/mind-map hierarchy rather than h4.
                 text = re.sub(r'^#### ', '### ', paragraph['text'], count=1)
-                sections.setdefault(paragraph['topic'], []).append(text)
-            edited = '\n\n'.join('## '+topic+'\n\n'+'\n\n'.join(texts) for topic,texts in sections.items())
+                if sections and sections[-1][0]==paragraph['topic']:
+                    sections[-1][1].append(text)
+                else:
+                    sections.append((paragraph['topic'],[text]))
+            edited = '\n\n'.join('## '+topic+'\n\n'+'\n\n'.join(texts) for topic,texts in sections)
             edited = self._renumber_headings(edited)
             intro = prelude.strip('\r\n')
             # End generated list scaffolding before an indented source prelude;
@@ -415,6 +423,19 @@ class NoteSummarizer:
                 raise
             logger.info('Keeping complete video notes after optional editing failure: %s', type(error).__name__)
             return draft
+
+    def _finish_presentation(self, draft, title, add_toc, source_text, checkpoint=None, language_budget=120, language_report=None):
+        from note_presentation import chronological_chapters, localize_note, without_generated_toc
+        from summary_errors import strip_delivery_notices, merge_delivery_notices
+        body=without_generated_toc(strip_delivery_notices(draft))
+        body=chronological_chapters(body)
+        body=localize_note(body,source_text,self._editorial_json,checkpoint,language_budget,language_report)
+        body=self._renumber_headings(body)
+        if body.startswith('# '+title+'\n'):
+            body=body[len('# '+title+'\n'):].lstrip('\r\n')
+        toc=self._generate_toc(body,title)+'\n\n---' if add_toc else ''
+        result='\n\n'.join(part for part in ['# '+title,toc,body] if part)
+        return merge_delivery_notices(result,[draft])
 
     def _generate_single(
         self,
@@ -451,7 +472,8 @@ class NoteSummarizer:
             # Keep the draft visible during verification; never stream internal
             # JSON receipts into the Markdown preview or persist them as notes.
             audit_progress = (lambda chars, partial="": progress_callback(chars, draft)) if progress_callback else None
-            return extract_json_from_response(self._call_llm(system, payload, audit_progress, json_output=True))
+            from reading_language import source_language_lock
+            return extract_json_from_response(self._call_llm(system+source_language_lock(source), payload, audit_progress, json_output=True))
 
         review = audit_source(source, {"body": draft}, call, source_context, repair=False, best_effort=True)
         updated, additions, _ = review
@@ -459,7 +481,10 @@ class NoteSummarizer:
         for addition in additions:
             # Keep the reading document in Markdown; internal receipts never
             # become visible source IDs or a second copy of the transcript.
-            parts.append(f"### {addition['heading']}\n\n{addition['text']}")
+            from source_coverage import quote_timestamp
+            timestamp=quote_timestamp(source,addition.get('source_quote',''),addition.get('timestamp',''))
+            anchor=f'[{timestamp}]\n\n' if timestamp else ''
+            parts.append(f"### {addition['heading']}\n\n{anchor}{addition['text']}")
         gaps = getattr(review, 'identified_gaps', {})
         if gaps:
             from reading_language import chinese_source
@@ -508,7 +533,9 @@ class NoteSummarizer:
 
             system_prompt = _build_system_prompt(style, chunk_formats, duration=duration, source_text=transcript_text)
             if 'summary' in formats:
-                system_prompt += '\nFor this extraction chunk, append ## AI Summary containing only a concise index of this chunk\'s substantive arguments and conditions, in the source language. This is material for a later whole-video introduction, not a separate episode introduction. All distinct details must remain in the detailed chapters.\n'
+                from reading_language import chinese_source
+                summary_heading='AI 总结' if chinese_source(transcript_text) else 'AI Summary'
+                system_prompt += f'\nFor this extraction chunk, append ## {summary_heading} containing only a concise index of this chunk\'s substantive arguments and conditions, in the source language. This is material for a later whole-video introduction, not a separate episode introduction. All distinct details must remain in the detailed chapters.\n'
             source_context = {"before": chunks[i - 1][-500:] if i else "",
                               "after": chunks[i + 1][:500] if i + 1 < num_chunks else ""}
             user_prompt = _build_user_prompt(

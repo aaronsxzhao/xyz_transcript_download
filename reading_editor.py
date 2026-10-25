@@ -8,7 +8,7 @@ import json
 import re
 import time
 
-from reading_language import SOURCE_LANGUAGE
+from reading_language import SOURCE_LANGUAGE, source_language_lock
 from source_coverage import SOURCE_FIDELITY
 from summary_errors import is_cancellation
 from logger import get_logger
@@ -136,7 +136,7 @@ def _verbatim_blocks(text):
             if token.map and token.type in ('blockquote_open','fence','code_block')]
 
 
-def edit_sections(items, call, checkpoint=None, budget=120):
+def edit_sections(items, call, checkpoint=None, budget=120, *, preserve_order=False, source_text=''):
     """Return paragraphs with source IDs; failed batches retain original text.
 
     Each item has id, topic, text and optional evidence. The input is untouched.
@@ -150,6 +150,14 @@ def edit_sections(items, call, checkpoint=None, budget=120):
     lookup = {item['id']:item for item in items}
     order = {item['id']:i for i,item in enumerate(items)}
 
+    def ordered_partition(groups, expected):
+        if not preserve_order: return groups
+        normalized=[{**group,'ids':sorted(group['ids'],key=order.__getitem__)} for group in groups]
+        normalized.sort(key=lambda group:order[group['ids'][0]])
+        if [ident for group in normalized for ident in group['ids']] != list(expected):
+            raise ValueError('Nonadjacent video passages cannot be merged')
+        return normalized
+
     def request(system, payload):
         nonlocal unavailable
         if checkpoint:
@@ -158,6 +166,9 @@ def edit_sections(items, call, checkpoint=None, budget=120):
         if remaining < 1 or unavailable:
             raise TimeoutError('Optional editing budget exhausted')
         try:
+            if source_text: system += source_language_lock(source_text)
+            if preserve_order:
+                system += '\nVIDEO ORDER: Preserve the source sequence. Group only consecutive input ids; a recurring topic later in the video stays a separate chapter. Never move later books, steps or examples to an earlier chapter. Keep media anchors in their original sequence.'
             result = call(system, json.dumps(payload, ensure_ascii=False), min(45, remaining))
         except Exception:
             unavailable = True
@@ -175,8 +186,9 @@ def edit_sections(items, call, checkpoint=None, budget=120):
     chapters = {}
     for batch in _batches(index, 18000):
         try:
-            groups = request(ORGANIZE, {'canonical_chapters':list(chapters), 'index':batch})['groups']
+            groups = request(ORGANIZE, {'canonical_chapters':[entry['title'] for entry in chapters.values()], 'index':batch})['groups']
             _partition(groups, [row['id'] for row in batch])
+            groups=ordered_partition(groups,[row['id'] for row in batch])
             if any(not isinstance(g.get('title'),str) or not g['title'].strip() for g in groups):
                 raise ValueError('Missing chapter title')
         except Exception as error:
@@ -186,12 +198,14 @@ def edit_sections(items, call, checkpoint=None, budget=120):
             groups = [{'title':lookup[row['id']]['topic'], 'ids':[row['id']]} for row in batch]
         for group in groups:
             title = group['title'].strip()
-            entry = chapters.setdefault(title, {'rows':[], 'supplementary':False})
+            key=(len(chapters),title) if preserve_order else title
+            entry = chapters.setdefault(key, {'title':title,'rows':[], 'supplementary':False})
             entry['rows'].extend(lookup[ident] for ident in group['ids'])
             entry['supplementary'] = entry['supplementary'] or group.get('supplementary') is True
 
     result = []
-    for topic, chapter in sorted(chapters.items(), key=lambda pair:(pair[1]['supplementary'], min(order[row['id']] for row in pair[1]['rows']))):
+    for _, chapter in sorted(chapters.items(), key=lambda pair:(False if preserve_order else pair[1]['supplementary'], min(order[row['id']] for row in pair[1]['rows']))):
+        topic=chapter['title']
         rows = sorted(chapter['rows'], key=lambda row:order[row['id']])
         for batch in _batches(rows, 12000):
             if len(batch) < 2 or len(json.dumps(batch,ensure_ascii=False)) > 14000:
@@ -200,6 +214,7 @@ def edit_sections(items, call, checkpoint=None, budget=120):
             try:
                 paragraphs = request(COMPOSE, {'chapter':topic, 'notes':batch})['paragraphs']
                 _partition(paragraphs, [row['id'] for row in batch])
+                paragraphs=ordered_partition(paragraphs,[row['id'] for row in batch])
                 if any(not isinstance(p.get('text'),str) or not p['text'].strip()
                        or not isinstance(p.get('heading'),str) or not p['heading'].strip()
                        or p.get('evidence_id') not in p['ids'] for p in paragraphs):
@@ -207,6 +222,10 @@ def edit_sections(items, call, checkpoint=None, budget=120):
                 edited = '\n\n'.join(p['text'] for p in paragraphs)
                 if not _media('\n\n'.join(row['text'] for row in batch)).issubset(_media(edited)):
                     raise ValueError('Editorial pass omitted source media')
+                if preserve_order:
+                    from note_presentation import media_times
+                    if media_times(edited)!=media_times('\n\n'.join(row['text'] for row in batch)):
+                        raise ValueError('Editorial pass reordered video media')
                 if any(block not in edited for row in batch for block in _verbatim_blocks(row['text'])):
                     raise ValueError('Editorial pass changed a source quotation or code block')
                 review = request(VERIFY, {'chapter':topic, 'notes':batch, 'rewrite':paragraphs})
