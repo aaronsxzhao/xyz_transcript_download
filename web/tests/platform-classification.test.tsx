@@ -8,14 +8,14 @@ import Library from '../src/pages/Library'
 import {detectPodcastPlatform} from '../src/lib/contentLinks'
 import {clearCache} from '../src/lib/cache'
 
-const api=vi.hoisted(()=>({fetchPodcasts:vi.fn(),fetchLibrary:vi.fn()}))
+const api=vi.hoisted(()=>({fetchPodcasts:vi.fn(),fetchLibrary:vi.fn(),fetchLibrarySources:vi.fn()}))
 vi.mock('../src/lib/api',async load=>({...await load<object>(),...api}))
 vi.mock('../src/components/Toast',()=>({useToast:()=>({addToast:vi.fn(),removeToast:vi.fn()})}))
 vi.mock('../src/lib/pageTiming',()=>({usePageTiming:()=>{}}))
 vi.mock('../src/lib/reading',()=>({useReadingPosition:()=>{}}))
 vi.mock('../src/lib/readingHistory',()=>({useReadingHistory:()=>[]}))
 let node:HTMLDivElement,root:ReturnType<typeof createRoot>
-beforeEach(()=>{vi.resetAllMocks();localStorage.clear();clearCache();node=document.createElement('div');document.body.append(node);root=createRoot(node)})
+beforeEach(()=>{vi.resetAllMocks();api.fetchLibrarySources.mockResolvedValue({sources:[],next_cursor:null});localStorage.clear();clearCache();node=document.createElement('div');document.body.append(node);root=createRoot(node)})
 afterEach(()=>{act(()=>root.unmount());node.remove();clearCache()})
 
 it('keeps Spotify and Apple subscriptions in separate categories',async()=>{

@@ -1526,6 +1526,12 @@ export async function exportMarkdownToNotion(markdown: string, title: string, pa
 
 export interface LibraryItem { id:string; kind:'podcast'|'video'; title:string; source:string; date:string; published_at?:string; status:string; thumbnail?:string; platform?:string; duration?:number; topics_count?:number }
 export interface LibraryPage { items:LibraryItem[]; next_cursor:string|null }
+export interface LibrarySourcePage { sources:string[]; next_cursor:string|null }
+export function fetchLibrarySources(cursor = '', signal?: AbortSignal): Promise<LibrarySourcePage> {
+  const params = new URLSearchParams()
+  if (cursor) params.set('cursor', cursor)
+  return readJson(`${API_BASE}/library/sources?${params}`, 'Cannot load library sources', signal)
+}
 export function fetchLibrary(filters: string, cursor = '', signal?: AbortSignal): Promise<LibraryPage> {
   const params = new URLSearchParams(filters)
   if (cursor) params.set('cursor', cursor)

@@ -43,6 +43,7 @@ async def main():
     elif path=='/api/summaries/recent':body=[]
     elif path in ['/api/video-notes/tasks','/api/video-notes/progress','/api/video-notes/tasks/recent','/api/video-notes/recent','/api/video-notes/tasks/by-channel']:body={'tasks':tasks,'next_cursor':None}
     elif path=='/api/video-notes/channels':body={'channels':[{'channel':'Trading Course','platform':'youtube','total_count':4,'success_count':0,'processing_count':3,'failed_count':1,'channel_avatar':'','total':4,'done':0}]}
+    elif path=='/api/library/sources':body={'sources':[],'next_cursor':None}
     elif path=='/api/library':body={'items':[],'next_cursor':None}
     elif path=='/api/video-notes/tasks/v0':
      detail_reads+=1;body=tasks[0]

@@ -384,7 +384,7 @@ class NoteSummarizer:
             start = heading.map[0]
             end = headings[i+1].map[0] if i+1 < len(headings) else len(lines)
             topic = re.sub(r'^##\s+(?:\d+[.．、]?\s+)?', '', lines[start]).strip()
-            content = ''.join(lines[heading.map[1]:end]).strip()
+            content = ''.join(lines[heading.map[1]:end]).strip('\r\n')
             if topic.lower() in ('目录','table of contents'):
                 tokens = MarkdownIt().parse(content)
                 if (all(t.type in ('bullet_list_open','bullet_list_close','ordered_list_open','ordered_list_close','list_item_open','list_item_close','paragraph_open','paragraph_close','inline','hr') for t in tokens)
@@ -404,8 +404,10 @@ class NoteSummarizer:
                 sections.setdefault(paragraph['topic'], []).append(text)
             edited = '\n\n'.join('## '+topic+'\n\n'+'\n\n'.join(texts) for topic,texts in sections.items())
             edited = self._renumber_headings(edited)
-            intro = prelude.strip()
-            toc = self._generate_toc(edited, title) if add_toc else ''
+            intro = prelude.strip('\r\n')
+            # End generated list scaffolding before an indented source prelude;
+            # otherwise Markdown can absorb the code as another list paragraph.
+            toc = self._generate_toc(edited, title) + '\n\n---' if add_toc else ''
             result = '\n\n'.join(part for part in [f'# {title}',toc,intro,edited] if part)
             return merge_delivery_notices(result, [draft])
         except Exception as error:
