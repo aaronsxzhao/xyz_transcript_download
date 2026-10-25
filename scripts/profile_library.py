@@ -17,8 +17,8 @@ import time
 def restricted_summary_route(database, owner):
     """A historical fixture is optional; ordinary current routes remain required."""
     episode = '6ad08b370e4e410a05bd4fd0'
-    rows = (database.table('episodes').select('eid').eq('user_id', owner)
-            .eq('eid', episode).eq('source_status', 'purchase_required').limit(1).execute().data or [])
+    rows = (database.table('episode_source_access').select('eid').eq('user_id', owner)
+            .eq('eid', episode).eq('status', 'purchase_required').limit(1).execute().data or [])
     if not rows:
         return None
     saved = (database.table('summaries').select('episode_id').eq('user_id', owner)
