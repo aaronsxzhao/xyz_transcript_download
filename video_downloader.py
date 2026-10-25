@@ -218,10 +218,16 @@ def detect_platform(url: str) -> str:
         if parsed.scheme not in ('http','https') or parsed.username or parsed.password or parsed.port not in (None,80,443):
             return ''
         host = (parsed.hostname or '').lower()
-        for platform, domains in {'bilibili':('bilibili.com','b23.tv'),'youtube':('youtube.com','youtu.be'),
+        for platform, domains in {'bilibili':('bilibili.com','b23.tv'),'youtube':('youtube.com','youtu.be','youtube-nocookie.com'),
                                   'douyin':('douyin.com','tiktok.com'),'kuaishou':('kuaishou.com','kwai.com')}.items():
             if any(host == domain or host.endswith('.'+domain) for domain in domains):
                 return platform
+        # Podcasts retain their separate import flow. Other public HTTP links
+        # are resolved by the document/media adapter, not yt-dlp's website probe.
+        if host and host not in ('xiaoyuzhoufm.com','www.xiaoyuzhoufm.com','podcasts.apple.com','itunes.apple.com','open.spotify.com'):
+            from public_content_fetch import normalize_public_url
+            normalize_public_url(url)
+            return 'web'
     except ValueError:
         pass
     return ""
@@ -243,11 +249,17 @@ def normalize_video_url(url: str, platform: str = "") -> str:
     if not url:
         return url
     url = extract_first_url(url)
+    if url.startswith(('http://','https://')):
+        from public_content_fetch import normalize_public_url
+        normalize_public_url(url)
     from social_content import social_platform, normalize_social_url
     if social_platform(url):
         return normalize_social_url(url)
 
     platform = platform or detect_platform(url)
+    if platform == 'web':
+        from content_sources import normalize_document_url
+        return normalize_document_url(url)
     try:
         parsed = urlparse(url)
     except Exception:
@@ -258,8 +270,8 @@ def normalize_video_url(url: str, platform: str = "") -> str:
         host = (parsed.netloc or "").lower()
         if "youtu.be" in host:
             video_id = parsed.path.strip("/").split("/")[0]
-        elif "/shorts/" in parsed.path:
-            m = re.search(r"/shorts/([\w-]+)", parsed.path)
+        elif re.match(r'/(?:shorts|embed|live)/', parsed.path):
+            m = re.search(r"/(?:shorts|embed|live)/([\w-]+)", parsed.path)
             if m:
                 video_id = m.group(1)
         else:
@@ -1752,9 +1764,9 @@ class LocalVideoHandler(BaseDownloader):
 
 def get_downloader(platform: str, cookies: str = "") -> BaseDownloader:
     """Factory to get the appropriate downloader for a platform."""
-    if platform in ('twitter','substack'):
+    if platform in ('twitter','substack','web'):
         from social_downloader import SocialLinkDownloader
-        return SocialLinkDownloader()
+        return SocialLinkDownloader(platform)
     downloaders = {
         "bilibili": lambda: BilibiliDownloader(cookies),
         "youtube": lambda: YoutubeDownloader(cookies),

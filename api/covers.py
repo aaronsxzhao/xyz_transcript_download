@@ -149,7 +149,7 @@ async def _persist(key, content):
         pass
 
 
-async def _load(url, key, persist=False, variant='cover'):
+async def _load(url, key, persist=False, variant='cover', fetcher=None):
     target, marker = _paths(key)
     try:
         content = await asyncio.to_thread(target.read_bytes)
@@ -171,7 +171,7 @@ async def _load(url, key, persist=False, variant='cover'):
                 pass  # A storage outage can still use the public provider source.
         try:
             async with asyncio.timeout(12):
-                content = await _origin(url) if variant == 'cover' else await _origin(url, variant)
+                content = await fetcher() if fetcher else (await _origin(url) if variant == 'cover' else await _origin(url, variant))
         except Exception as error:
             _failures[key] = time.monotonic()
             if len(_failures) > 2048: _failures.pop(next(iter(_failures)))
@@ -184,12 +184,17 @@ async def _load(url, key, persist=False, variant='cover'):
 
 async def load_cover(url, persist=False, variant='cover'):
     key = cache_key(url, variant)
+    return await _cached_image(url, key, persist, variant)
+
+
+async def _cached_image(url, key, persist=False, variant='cover', fetcher=None):
+    """Shared bounded cache. Other fetchers enforce their own URL authorization."""
     if time.monotonic() - _failures.get(key, -1000) < 3:
         raise HTTPException(503, 'Artwork retry is temporarily delayed')
     task = _pending.get(key)
     if task is None:
         if len(_pending) >= 128: raise HTTPException(503, 'Artwork queue is busy')
-        task = asyncio.create_task(_load(url, key, persist, variant))
+        task = asyncio.create_task(_load(url, key, persist, variant, fetcher))
         _pending[key] = task
         def done(completed):
             if _pending.get(key) is completed: _pending.pop(key, None)

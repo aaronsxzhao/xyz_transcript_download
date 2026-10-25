@@ -728,7 +728,7 @@ export default function Dashboard() {
                 value={episodeUrl}
                 onChange={(e) => setEpisodeUrl(e.target.value)}
                 aria-label="Podcast episode or video URL"
-                placeholder="Paste podcast, video, X or Substack link…"
+                placeholder="Paste podcast, video, article or social link…"
                 className="flex-1 px-4 py-3 bg-dark-hover border border-dark-border rounded-lg text-white placeholder:text-gray-500 focus:outline-none focus:border-indigo-500 text-base"
               />
               <button

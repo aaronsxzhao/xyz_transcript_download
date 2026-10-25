@@ -39,6 +39,6 @@ def repair_article_markdown(markdown: str) -> str:
 
 
 def readable_article_task(task):
-    if task and task.get('style') == 'original' and task.get('platform') in ('twitter', 'substack'):
+    if task and task.get('style') == 'original' and task.get('platform') in ('twitter', 'substack', 'web'):
         return {**task, 'markdown': repair_article_markdown(task.get('markdown') or '')}
     return task

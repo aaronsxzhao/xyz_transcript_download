@@ -47,3 +47,21 @@ it('serves social article images from separate readable and original caches',asy
  expect(node.querySelector('button.reader-screenshot')?.getAttribute('data-original-src')).toBe('/api/image-proxy?url=https%3A%2F%2Fpbs.twimg.com%2Fmedia%2Fchart.jpg&size=original')
  expect(node.textContent).toContain('Final condition.')
 })
+
+it('keeps signed generic article images on the same origin and enlarges only on demand',async()=>{
+ const url='/api/article-image?url=https%3A%2F%2Fblog.example%2Fchart.png&expires=100&signature=abc&size=article'
+ await act(async()=>root.render(<ArticleNote markdown={'![Source chart]('+url+')'}/>))
+ expect(node.querySelector('img')?.getAttribute('src')).toBe(url)
+ expect(node.querySelector('button.reader-screenshot')?.getAttribute('data-original-src')).toContain('size=original')
+ expect(node.querySelectorAll('img')).toHaveLength(1)
+})
+
+it('offers a refresh for an expired article image capability instead of an endless retry',async()=>{
+ vi.stubGlobal('fetch',vi.fn().mockResolvedValue(new Response(null,{status:403})))
+ try{
+  await act(async()=>root.render(<ArticleNote markdown={'![Chart](/api/article-image?url=https%3A%2F%2Fblog.example%2Fchart.png&expires=1&signature=expired)'}/>))
+  await act(async()=>node.querySelector('img')!.dispatchEvent(new Event('error')))
+  expect(node.textContent).toContain('Image link expired')
+  expect([...node.querySelectorAll('button')].some(button=>button.textContent==='Refresh image links')).toBe(true)
+ }finally{vi.unstubAllGlobals()}
+})

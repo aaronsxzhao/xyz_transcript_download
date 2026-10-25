@@ -29,7 +29,7 @@ export default function ReaderDetails({
     panel.current?.scrollIntoView({block:'start'});
   }, [kind]);
   const versions = task.versions || [];
-  const original = task.style === 'original' && ['twitter', 'substack'].includes(task.platform);
+  const original = (selectedVersion ? versions.find(version=>version.id===selectedVersion)?.style : task.style) === 'original' && ['twitter', 'substack', 'web'].includes(task.platform);
   const duration = `${Math.floor(task.duration / 60)}:${String(Math.floor(task.duration % 60)).padStart(2, "0")}`;
   return (
     <section

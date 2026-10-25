@@ -64,6 +64,11 @@ def _validate_public_url(url: str):
 
 def _read(url: str, deadline: float) -> tuple[bytes, str]:
     for _ in range(6):
+        host = (urlsplit(url).hostname or '').lower()
+        if not any(host == domain or host.endswith('.' + domain) for domain in ('substack.com','fxtwitter.com','x.com','twitter.com','t.co')):
+            from public_content_fetch import fetch_public
+            response = fetch_public(url, deadline=deadline)
+            return response.content, response.url
         _validate_public_url(url)
         if time.monotonic() >= deadline:
             raise SocialSourceError('Social source lookup timed out. Please retry later.')
@@ -187,7 +192,8 @@ def html_markdown(html: str, base: str) -> str:
                 return children + f'\n\n[Open linked source]({url})\n\n'
             return f'[{label}]({url})'
         if name == 'img':
-            url = _link(node.get('src'), base) or _link(node.get('data-src'), base)
+            url = next((target for attr in ('data-src','data-original','data-lazy-src','src')
+                        if (target := _link(node.get(attr), base))), '')
             return f'\n\n![{_escape(node.get("alt", ""))}]({url})\n\n' if url else ''
         if name in ('strong', 'b', 'em', 'i'):
             marker = '**' if name in ('strong', 'b') else '*'

@@ -59,6 +59,8 @@ export default function PlatformIcon({ platform, size = 16, className = '' }: Pl
       return <span aria-hidden="true" className={cls} style={{fontSize:s,fontWeight:700,lineHeight:1}}>𝕏</span>
     case 'substack':
       return <svg viewBox="0 0 24 24" width={s} height={s} className={cls} fill="currentColor"><path d="M3 3h18v2H3zm0 4h18v2H3zm0 4h18v13l-9-5-9 5z"/></svg>
+    case 'web':
+      return <svg viewBox="0 0 24 24" width={s} height={s} className={cls} fill="none" stroke="currentColor" strokeWidth="1.8"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c5 5 5 13 0 18-5-5-5-13 0-18Z"/></svg>
     case 'local':
       return (
         <svg viewBox="0 0 24 24" width={s} height={s} className={cls} fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -83,6 +85,7 @@ export const PLATFORM_COLORS: Record<string, string> = {
   local: 'text-gray-400',
   twitter: 'text-white',
   substack: 'text-orange-400',
+  web: 'text-sky-300',
   xiaoyuzhou: 'text-[#EE6723]',
   apple: 'text-[#872EC4]',
   spotify: 'text-[#1DB954]',

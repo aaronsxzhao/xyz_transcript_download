@@ -1,7 +1,7 @@
 """Exercise dashboard states and versioned mind maps using synthetic API fixtures."""
 import argparse,asyncio,json,sys,time
 from pathlib import Path
-from urllib.parse import urlparse
+from urllib.parse import urlparse, parse_qs
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]))
 from scripts.check_library_browser import fixtures,serve
 from scripts.check_page_loading import token
@@ -20,7 +20,10 @@ async def check(browser,origin,width,output):
  page.on('pageerror',lambda error:(errors.append(str(error)),print('PAGE ERROR:',error,flush=True)))
  async def api(route):
   parsed=urlparse(route.request.url);path=parsed.path;requests.append(path);body={}
-  if path=='/api/auth/config':body={'supabase_enabled':True}
+  if path=='/api/article-image':
+   await route.fulfill(content_type='image/svg+xml',body='<svg xmlns="http://www.w3.org/2000/svg" width="1800" height="1200"><rect width="1800" height="1200" fill="#557a95"/></svg>');return
+  if path=='/api/video-notes/channels':body={'channels':[]}
+  elif path=='/api/auth/config':body={'supabase_enabled':True}
   elif path=='/api/auth/me':body={'id':'bench','email':'bench@example.com','authenticated':True}
   elif path=='/api/stats':body={'total_podcasts':13,'total_episodes':455,'total_transcripts':108,'total_summaries':96,'total_video_channels':8,'total_videos':216,'completed_videos':42}
   elif path in ['/api/summaries','/api/summaries/recent']:body=[{**summary,'podcast_title':'My podcast','created_at':'2026-10-21','podcast_cover':'','topics_count':7,'title':'Newly completed podcast' if state['completed'] else summary['title']}]
@@ -160,9 +163,25 @@ async def check(browser,origin,width,output):
   await page.get_by_role('tab',name='Mind map',exact=True).click()
   await page.get_by_role('heading',name='No summary to map yet',exact=True).wait_for()
   assert await page.evaluate('window.workerCreates')==0
+ # Generic articles retain original text, defer full-size images, and hand a
+ # selected attachment to the existing import form without processing the post.
+ task.update(platform='web',style='original',title='Original article fixture',error='',source_metadata={'type':'article','attachments':[{'url':'https://www.youtube.com/embed/abcdefghijk','kind':'embedded','title':'Original demonstration'}]},markdown='# Original article fixture\n\n## Original chapter\n\nAll original conditions remain. 原文段落保持完整。\n\n![Original chart](/api/article-image?url=https%3A%2F%2Fblog.example%2Fchart.png&expires=1&signature=fixture&size=article)\n\n## Final reflection\n\nOriginal final reflection.')
+ await page.goto(origin+'/videos/bench')
+ await page.get_by_role('tab',name='Original text',exact=True).wait_for()
+ await page.get_by_role('heading',name='Final reflection',exact=True).wait_for()
+ assert not await page.get_by_role('tab',name='Transcript',exact=True).count()
+ image=page.locator('article img').first
+ await image.wait_for()
+ await page.wait_for_function('document.querySelector("article img")?.naturalWidth>0')
+ assert 'size=article' in await image.get_attribute('src')
+ assert not await page.evaluate('document.documentElement.scrollWidth>innerWidth')
+ await page.screenshot(path=str(output/f'article-{width}.png'))
+ await page.get_by_role('link',name='Process video',exact=True).click()
+ await page.get_by_label('Content URL',exact=True).wait_for()
+ assert await page.get_by_label('Content URL',exact=True).input_value()=='https://www.youtube.com/embed/abcdefghijk'
  assert not await page.evaluate('document.documentElement.scrollWidth>innerWidth')
  assert not errors,errors
- print(json.dumps({'width':width,'first_mindmap_ms':first_ms,'dashboard_idle_active':'passed','reader_actions':'passed','map_zoom_export':'passed','map_revisit_and_disk_cache':'passed','map_version_switch':'passed','errors':errors}),flush=True)
+ print(json.dumps({'width':width,'first_mindmap_ms':first_ms,'dashboard_idle_active':'passed','reader_actions':'passed','map_zoom_export':'passed','map_revisit_and_disk_cache':'passed','map_version_switch':'passed','public_article_and_attachment_flow':'passed','errors':errors}),flush=True)
  await context.close()
 
 async def main():

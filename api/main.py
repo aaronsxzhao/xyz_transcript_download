@@ -21,6 +21,7 @@ from api.request_timing import RequestTimingMiddleware
 from api.routers import podcasts, episodes, transcripts, summaries, processing
 from api.routers import auth_router, video_notes, cookies, notion
 from api.routers import performance, maintenance, library, bilibili_favorites
+from api.article_images import router as article_images_router
 from api.auth import get_current_user, require_debug_access, User
 from logger import get_logger
 
@@ -347,6 +348,7 @@ app.include_router(notion.router, prefix="/api/notion", tags=["Notion"])
 app.include_router(library.router, prefix="/api/library", tags=["Library"])
 app.include_router(performance.router, prefix="/api/performance", tags=["Performance"])
 app.include_router(maintenance.router, prefix="/api/maintenance", tags=["Data recovery"])
+app.include_router(article_images_router, tags=['Article images'])
 
 # Private data is never exposed by a StaticFiles mount.
 from config import DATA_DIR as _data_dir

@@ -696,6 +696,7 @@ export interface VideoTask {
   id: string
   url: string
   platform: string
+  source_metadata?: {type?:'article'|'audio'|'video';canonical_url?:string;attachments?:{url:string;kind:string;title:string}[];access?:string}
   title: string
   thumbnail: string
   channel: string
@@ -1524,7 +1525,7 @@ export async function exportMarkdownToNotion(markdown: string, title: string, pa
   return submitNotionExport('export-markdown', {markdown,title,parent_page_id:parentPageId})
 }
 
-export interface LibraryItem { id:string; kind:'podcast'|'video'; title:string; source:string; date:string; published_at?:string; status:string; thumbnail?:string; platform?:string; duration?:number; topics_count?:number }
+export interface LibraryItem { id:string; kind:'podcast'|'video'; content_type?:'article'|'audio'|'video'; title:string; source:string; date:string; published_at?:string; status:string; thumbnail?:string; platform?:string; duration?:number; topics_count?:number }
 export interface LibraryPage { items:LibraryItem[]; next_cursor:string|null }
 export interface LibrarySourcePage { sources:string[]; next_cursor:string|null }
 export function fetchLibrarySources(cursor = '', signal?: AbortSignal): Promise<LibrarySourcePage> {

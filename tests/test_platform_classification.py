@@ -26,7 +26,8 @@ def test_podcast_and_video_families_have_distinct_sources(url,expected):
  'https://youtube.com.evil.example/watch?v=abcdefghijk',
 ])
 def test_other_hostnames_and_query_strings_do_not_claim_a_platform(url):
-    assert podcast_platform(url)==video_platform(url)==''
+    assert podcast_platform(url)==''
+    assert video_platform(url)=='web'
     assert normalize_video_url(url,'youtube')==url
 
 

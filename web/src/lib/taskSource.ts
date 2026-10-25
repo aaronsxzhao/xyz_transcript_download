@@ -18,12 +18,12 @@ export function taskSource(platform = '', url = '', episodeId = '', kind?: strin
       original=source.origin+source.pathname
       const episode=source.searchParams.get('i')
       if(episode && /^\d+$/.test(episode))original+='?i='+episode
-    } else if (platform === 'youtube' && ['youtube.com','www.youtube.com','m.youtube.com','youtu.be'].includes(host)) {
+    } else if (platform === 'youtube' && ['youtube.com','www.youtube.com','m.youtube.com','youtu.be','youtube-nocookie.com','www.youtube-nocookie.com'].includes(host)) {
       const candidate = host === 'youtu.be' ? source.pathname.slice(1) : source.searchParams.get('v') || source.pathname.match(/^\/(?:shorts|live|embed)\/([^/]+)/)?.[1] || ''
       if (/^[a-zA-Z0-9_-]{11}$/.test(candidate)) { id = candidate; original = `https://www.youtube.com/watch?v=${id}` }
     } else if (platform === 'twitter' && ['x.com','www.x.com','mobile.x.com','twitter.com','www.twitter.com','mobile.twitter.com','t.co'].includes(host)) {
       original=source.href
-    } else if (platform === 'substack' && /^https?:$/.test(source.protocol) && !source.username && !source.password) {
+    } else if (['substack','web'].includes(platform) && /^https?:$/.test(source.protocol) && !source.username && !source.password) {
       original=source.href
     } else if (platform === 'bilibili' && /(^|\.)bilibili\.com$/.test(host)) {
       id = source.pathname.match(/\/video\/(BV[a-zA-Z0-9]+|av\d+)/)?.[1] || ''
@@ -38,7 +38,7 @@ export function taskFailure(message = '', platform = '') {
   const login = /^(?:BILIBILI_)?LOGIN_REQUIRED$|^COOKIES_REQUIRED$|^AGE_RESTRICTED$/i.test(message.trim())
   if (!login) return { message, retryAfterSignIn: false }
   const name = taskSource(platform).name
-  if (platform === 'twitter' || platform === 'substack' || platform === 'spotify') return {
+  if (['twitter','substack','spotify','web'].includes(platform)) return {
     message: `${name} did not allow public access when this task ran. Open the original link to check access. Private or subscription-only content cannot be imported through the public link.`,
     retryAfterSignIn: false,
   }

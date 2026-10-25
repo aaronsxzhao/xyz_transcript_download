@@ -75,6 +75,11 @@ def _prepare_export_blocks(markdown: str, request: Request) -> list[dict]:
     base_origin = str(request.base_url).rstrip("/")
 
     def normalize_url(url: str) -> str:
+        if url.startswith('/api/article-image?'):
+            from urllib.parse import parse_qs, urlsplit
+            original = parse_qs(urlsplit(url).query).get('url', [''])[0]
+            if original.startswith(('https://', 'http://')):
+                return original
         if url.startswith("//"):
             return f"{request.url.scheme}:{url}"
         if url.startswith("/"):

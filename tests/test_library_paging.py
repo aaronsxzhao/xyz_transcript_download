@@ -7,9 +7,10 @@ from api.routers import library
 
 
 class Query:
-    def __init__(self, rows): self.rows = list(rows)
+    def __init__(self, rows): self.rows = [dict(r,content_type=r.get('content_type','audio' if r.get('kind')=='podcast' else 'video')) for r in rows]
     def select(self, fields): self.fields = fields.split(','); return self
     def eq(self, key, value): self.rows = [r for r in self.rows if r[key] == value]; return self
+    def neq(self,key,value): self.rows=[r for r in self.rows if r[key]!=value]; return self
     def in_(self,key,values): self.rows=[r for r in self.rows if r[key] in values]; return self
     def ilike(self, key, value):
         text = value.strip('%').casefold()
@@ -116,3 +117,15 @@ async def test_publication_order_has_its_own_stable_cursor_and_one_read(monkeypa
         assert second['items'][0]['id']=='1'
         saved=(await http.get('/library',params={'limit':1})).json()
         assert saved['items'][0]['id']=='2'
+
+
+@pytest.mark.asyncio
+async def test_articles_are_filtered_by_content_type_without_changing_reading_identity(monkeypatch):
+    base=dict(user_id='a',kind='video',title='Original',source='Blog',date='2026-01-01',status='completed',search_text='Original Blog',sort_key='20260101:video:one',published_at='',publication_sort_key='00000000:video:one',thumbnail='',platform='web',duration=0,topics_count=0)
+    rows=[dict(base,id='article',content_type='article'),dict(base,id='video',content_type='video'),dict(base,id='private',content_type='article',user_id='b')]
+    monkeypatch.setattr(library,'get_db',lambda _:SimpleNamespace(use_supabase=True,db=SimpleNamespace(client=SimpleNamespace(table=lambda _:Query(rows)))))
+    app=FastAPI();app.include_router(library.router,prefix='/library');app.dependency_overrides[get_current_user]=lambda:User('a','')
+    async with AsyncClient(transport=ASGITransport(app),base_url='http://test') as http:
+        articles=(await http.get('/library',params={'kind':'article'})).json()['items']
+        assert [row['id'] for row in articles]==['article'] and articles[0]['kind']=='video'
+        assert [row['id'] for row in (await http.get('/library',params={'kind':'video'})).json()['items']]==['video']
