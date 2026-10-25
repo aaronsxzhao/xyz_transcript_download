@@ -183,6 +183,9 @@ Markdown 结构规范（严格遵守）:
 - 确保内容准确，不要编造视频中没有的信息
 - 按照视频时间顺序组织内容
 - 每个要点要有实质内容，不要只写标题没有展开
+- 以完整论证组织正文：把原文的观点、推理、证据或案例、适用条件放在一起，使用连贯段落。
+- 同一论证的例子和补充条件不要逐句拆成新标题；重复表述合并，新增信息全部保留。不要在不同章节反复概述同一个结论。
+- 列表用于真正并列的比较和操作步骤；不能把每句话都改成列表。不得补充原文未说的因果关系来追求连贯。
 
 输出示例结构:
 ```
@@ -311,6 +314,13 @@ class NoteSummarizer:
         )
 
         try:
+            last_chars = 0
+            original_progress = progress_callback
+            if original_progress:
+                def progress_callback(chars, *args):
+                    nonlocal last_chars
+                    last_chars = max(last_chars, chars)
+                    original_progress(chars, *args)
             if transcript_len > self.chunk_chars:
                 result = self._generate_chunked(
                     title, transcript_text, style, formats,
@@ -332,6 +342,9 @@ class NoteSummarizer:
                         f"for {transcript_len} chars input (ratio={ratio:.3f})"
                     )
 
+            if result:
+                checkpoint = (lambda:original_progress(last_chars, result)) if original_progress else None
+                result = self._edit_reading(result, title, 'toc' in formats, checkpoint)
             return _repair_numbered_heading_markers(result) if result else result
         except Exception as e:
             if "cancel" in type(e).__name__.lower() or "cancel" in str(e).lower():
@@ -344,6 +357,59 @@ class NoteSummarizer:
                 from api.llm_settings import safe_provider_error
                 raise RuntimeError(safe_provider_error(e)) from None
             return None
+
+    def _editorial_json(self, system, payload, timeout):
+        from reading_editor import call_editor
+        return call_editor(self.client, self.model, system, payload, timeout)
+
+    def _edit_reading(self, draft, title, add_toc, checkpoint=None):
+        from markdown_it import MarkdownIt
+        from reading_editor import edit_sections, has_unedited_source
+        from summary_errors import strip_delivery_notices, merge_delivery_notices, is_cancellation
+        if has_unedited_source(draft):
+            return draft
+        body = strip_delivery_notices(draft)
+        lines = body.splitlines(keepends=True)
+        headings = [token for token in MarkdownIt().parse(body)
+                    if token.type == 'heading_open' and token.tag == 'h2' and token.level == 0]
+        if not headings:
+            return draft
+        # Keep any genuine introduction before the first section. Only the
+        # generated document title and generated navigation list are scaffolding.
+        prelude = ''.join(lines[:headings[0].map[0]])
+        if prelude.startswith('# '):
+            prelude = prelude.split('\n',1)[1] if '\n' in prelude else ''
+        items = []
+        for i,heading in enumerate(headings):
+            start = heading.map[0]
+            end = headings[i+1].map[0] if i+1 < len(headings) else len(lines)
+            topic = re.sub(r'^##\s+(?:\d+[.．、]?\s+)?', '', lines[start]).strip()
+            content = ''.join(lines[heading.map[1]:end]).strip()
+            if topic.lower() in ('目录','table of contents'):
+                tokens = MarkdownIt().parse(content)
+                if (all(t.type in ('bullet_list_open','bullet_list_close','ordered_list_open','ordered_list_close','list_item_open','list_item_close','paragraph_open','paragraph_close','inline','hr') for t in tokens)
+                    and any(t.type.endswith('list_open') for t in tokens)
+                    and not any(t.type == 'paragraph_open' and t.level == 0 for t in tokens)):
+                    continue
+            items.append({'id':f'N{i+1}', 'topic':topic, 'text':content})
+        if len(items) < 2:
+            return draft
+        try:
+            paragraphs = edit_sections(items, self._editorial_json, checkpoint)
+            sections = {}
+            for paragraph in paragraphs:
+                sections.setdefault(paragraph['topic'], []).append(paragraph['text'])
+            edited = '\n\n'.join('## '+topic+'\n\n'+'\n\n'.join(texts) for topic,texts in sections.items())
+            edited = self._renumber_headings(edited)
+            intro = prelude.strip()
+            toc = self._generate_toc(edited, title) if add_toc else ''
+            result = '\n\n'.join(part for part in [f'# {title}',toc,intro,edited] if part)
+            return merge_delivery_notices(result, [draft])
+        except Exception as error:
+            if is_cancellation(error):
+                raise
+            logger.info('Keeping complete video notes after optional editing failure: %s', type(error).__name__)
+            return draft
 
     def _generate_single(
         self,

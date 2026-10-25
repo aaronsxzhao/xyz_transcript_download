@@ -22,6 +22,16 @@ CONTENT AND COVERAGE
   independent discussions, failed experiments, alternative explanations,
   implementation constraints and speakers' differing assessments, even when
   they do not fit the main narrative. Preserve original meaningful headings.
+- Completeness does not require one heading per utterance. Build connected
+  explanations around arguments: stated claim, the source's reasoning,
+  evidence/examples and limits. Keep related examples with their argument.
+  Merge repeated formulations without losing added qualifications. Do not
+  repeat a chapter introduction as multiple synonymous key points. A production
+  chunk boundary is never a new editorial topic; reuse broad chapter names.
+  Never invent a connection to make the prose flow.
+- Pure sponsor lists, discount codes, subscription plugs and greetings are not
+  substantive chapters. Independent reflections or real explanations embedded
+  in an ad still belong under their relevant substantive chapter.
 - Preserve numbers WITH units, denominators, geographical scope, time horizons,
   conditions and attribution. Distinguish percentage points from percent changes.
   Separate historical observations, current-at-recording claims and forecasts.
