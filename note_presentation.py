@@ -158,7 +158,13 @@ def localize_note(markdown,source,call,checkpoint=None,budget=120,report=None):
             for key,original in protected.items():
                 if candidate.count(key)!=1: raise ValueError('Changed source block')
                 candidate=candidate.replace(key,original)
-            if _invariants(candidate)!=_invariants(piece) or media_times(candidate)!=media_times(piece) or language_mismatch(source,candidate):
+            before=_invariants(piece);after=_invariants(candidate)
+            changed=[name for name,left,right in zip(('media_urls','numeric_values','heading_levels'),before,after) if left!=right]
+            if media_times(candidate)!=media_times(piece): changed.append('media_order')
+            if language_mismatch(source,candidate): changed.append('language')
+            if changed:
+                rejected=report.setdefault('rejected_checks',{})
+                for name in changed: rejected[name]=rejected.get(name,0)+1
                 raise ValueError('Language correction changed source anchors')
             # Keep original block separators, including the boundary before a
             # following heading, independent of the model's whitespace choice.

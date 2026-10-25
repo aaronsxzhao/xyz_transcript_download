@@ -87,6 +87,14 @@ def test_language_cancellation_propagates_and_unavailable_provider_keeps_the_not
     assert call.call_count==1
 
 
+def test_rejected_translation_reports_only_check_names_without_source_or_provider_data():
+    report={}
+    draft='## 条件说明\n\n保留 2 个条件。\n'
+    translated='## Conditions\n\nRetain 3 conditions.\n'
+    assert localize_note(draft,'Original English source.',lambda *args:{'text':translated},report=report)==draft
+    assert report=={'attempted':1,'rejected_checks':{'numeric_values':1},'retained':1}
+
+
 def test_generated_contents_are_removed_without_removing_real_contents_discussions():
     source='# Title\n\n## 1. Contents\n- [Chapter](#chapter)\n\n---\n\n## Chapter\n\nOriginal body.\n'
     result=without_generated_toc(source)
