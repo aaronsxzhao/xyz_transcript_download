@@ -43,21 +43,28 @@ def test_podcast_review_uses_saved_provider_and_does_not_persist(monkeypatch):
     engine.client.close.assert_called_once()
 
 
-def test_video_review_is_owner_scoped_and_never_updates_the_task(monkeypatch):
+@pytest.mark.parametrize('normalized', [False, True])
+def test_video_review_is_owner_scoped_and_never_updates_the_task(monkeypatch, normalized):
     import video_task_db, note_summarizer
     saved_settings(monkeypatch)
     database = Mock()
     database.get_task.return_value = dict(title='Video',style='detailed',formats=['summary'],duration=60,
         transcript_json=json.dumps(dict(text='Actual source.',segments=[dict(start=0,end=60,text='Actual source.')],duration=60)))
+    if normalized:
+        from api.supabase_db import SupabaseDatabase
+        database.get_task.return_value = SupabaseDatabase._video_task_to_dict(database.get_task.return_value)
+        assert 'transcript_json' not in database.get_task.return_value
     monkeypatch.setattr(video_task_db,'get_video_task_db',lambda:database)
     engine=Mock();engine.generate_note.return_value='# Video\n\nGenerated review.'
     constructor=Mock(return_value=engine)
     monkeypatch.setattr(note_summarizer,'NoteSummarizer',constructor)
-    result=generate_case('owner','video','task')
+    progress=Mock()
+    result=generate_case('owner','video','task',progress=progress)
     database.get_task.assert_called_once_with('task','owner')
     assert [call[0] for call in database.method_calls]==['get_task']
     assert result['result'].startswith('# Video') and result['provider']=='saved_custom'
     assert constructor.call_args.kwargs['api_key']=='saved-private-key'
+    assert engine.generate_note.call_args.kwargs['progress_callback'] is progress
     engine.client.close.assert_called_once()
 
 
