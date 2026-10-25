@@ -1,5 +1,6 @@
 """Notion integration endpoints for exporting video notes."""
 import asyncio
+import json
 from typing import Optional
 
 import httpx
@@ -154,30 +155,58 @@ async def _create_notion_page(
     return page_data["id"], page_data.get("url", "")
 
 
+def _notion_json(value: dict) -> bytes:
+    return json.dumps(value, ensure_ascii=False, separators=(",", ":"), allow_nan=False).encode("utf-8")
+
+
+def _notion_block_batches(blocks: list[dict]) -> list[list[dict]]:
+    """Respect both Notion's 100-child and 500 KB JSON request limits."""
+    batches = []
+    batch = []
+    envelope_size = len(b'{"children":[]}')
+    size = envelope_size
+    for block in blocks:
+        block_size = len(_notion_json(block))
+        if envelope_size + block_size > 500_000:
+            raise HTTPException(400, "One section exceeds Notion's request size limit. Split that section or download Markdown instead. No Notion page has been created.")
+        separator = int(bool(batch))
+        if len(batch) == 100 or size + separator + block_size > 500_000:
+            batches.append(batch)
+            batch = []
+            size = envelope_size
+            separator = 0
+        batch.append(block)
+        size += separator + block_size
+    if batch:
+        batches.append(batch)
+    return batches
+
+
 async def _append_notion_blocks(
     client: httpx.AsyncClient,
     key: str,
     page_id: str,
-    blocks: list[dict],
+    batches: list[list[dict]],
 ) -> None:
-    for i in range(0, len(blocks), 100):
-        batch = blocks[i : i + 100]
+    for number, batch in enumerate(batches, 1):
         append_resp = await client.patch(
             f"{NOTION_API_BASE}/blocks/{page_id}/children",
             headers=_notion_headers(key),
-            json={"children": batch},
+            # Send the exact UTF-8 encoding used by the size calculation;
+            # httpx versions differ in their default Unicode JSON encoding.
+            content=_notion_json({"children": batch}),
         )
         if append_resp.status_code not in (200, 201):
             detail = _extract_notion_error(append_resp)
             logger.warning(
-                f"Notion append blocks batch {i // 100} failed: "
+                f"Notion append blocks batch {number} failed: "
                 f"{append_resp.status_code} {detail}"
             )
             raise HTTPException(
                 status_code=502,
                 detail=(
                     "Failed to append all content to Notion. "
-                    f"Batch {i // 100 + 1} was rejected: {detail}"
+                    f"Batch {number} was rejected: {detail}"
                 ),
             )
 
@@ -185,9 +214,12 @@ async def _append_notion_blocks(
 async def _export_note_content(
     client: httpx.AsyncClient, key: str, parent_page_id: str, title: str, blocks: list[dict]
 ) -> dict:
+    # Validate every batch before creating a page; an oversized later section
+    # must not leave behind an avoidable partial export.
+    batches = _notion_block_batches(blocks)
     page_id, page_url = await _create_notion_page(client, key, parent_page_id, title)
     try:
-        await _append_notion_blocks(client, key, page_id, blocks)
+        await _append_notion_blocks(client, key, page_id, batches)
     except Exception as error:
         reason = error.detail if isinstance(error, HTTPException) else (
             "Content upload timed out." if isinstance(error, httpx.TimeoutException)

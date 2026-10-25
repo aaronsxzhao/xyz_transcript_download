@@ -5,7 +5,7 @@ import {useDialog} from '../lib/reading'
 export default function ScreenshotGallery({images,initial,onClose}:{images:{src:string;alt:string}[];initial:number;onClose:()=>void}) {
   const [index,setIndex]=useState(initial)
   const [zoom,setZoom]=useState(1)
-  const [state,setState]=useState<'loading'|'ready'|'error'>('loading')
+  const [state,setState]=useState<'loading'|'ready'|'error'|'timeout'>('loading')
   const [retry,setRetry]=useState(0)
   const viewport=useRef<HTMLDivElement>(null)
   const pointers=useRef(new Map<number,{x:number;y:number}>())
@@ -13,6 +13,11 @@ export default function ScreenshotGallery({images,initial,onClose}:{images:{src:
   const current=images[index]
   useDialog(true,onClose)
   useEffect(()=>{setZoom(1);setState('loading');pointers.current.clear();if(viewport.current) viewport.current.scrollTo(0,0)},[index])
+  useEffect(()=>{
+    if(state!=='loading') return
+    const timer=setTimeout(()=>setState('timeout'),30000)
+    return()=>clearTimeout(timer)
+  },[index,retry,state])
   useEffect(()=>{
     if(state!=='ready'||(navigator as Navigator & {connection?:{saveData?:boolean}}).connection?.saveData) return
     // Bound speculative downloads to the neighboring originals only.
@@ -57,7 +62,7 @@ export default function ScreenshotGallery({images,initial,onClose}:{images:{src:
       }}
       onPointerUp={e=>{pointers.current.delete(e.pointerId)}} onPointerCancel={()=>pointers.current.clear()}>
       {state==='loading'&&<p role="status" className="text-center p-4">Loading original image…</p>}
-      {state==='error'?<div role="alert" className="text-center p-4">Original image could not load. <button onClick={()=>{setState('loading');setRetry(n=>n+1)}}>Retry original</button></div>:
+      {state==='error'||state==='timeout'?<div role="alert" className="text-center p-4">{state==='timeout'?'Original image loading timed out.':'Original image could not load.'} <button onClick={()=>{setState('loading');setRetry(n=>n+1)}}>Retry original</button></div>:
       <img key={`${index}:${retry}`} src={current.src} alt={current.alt||'Screenshot'} referrerPolicy="no-referrer" onLoad={()=>setState('ready')} onError={()=>setState('error')} draggable={false} style={{display:state==='ready'?'block':'none',width:zoom===1?'auto':`${zoom*100}%`,maxWidth:zoom===1?'100%':'none',maxHeight:zoom===1?'100%':'none',margin:'0 auto',objectFit:'contain'}}/>}
     </div>
     <p className="gallery-caption text-center text-sm text-gray-400 pt-2 shrink-0">{current.alt}</p>
