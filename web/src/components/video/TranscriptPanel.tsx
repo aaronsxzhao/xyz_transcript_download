@@ -39,19 +39,13 @@ export default function TranscriptPanel({ transcript }: Props) {
           Transcript
         </h3>
         <span className="text-xs text-gray-500">
-          {segments.length} segments
+          {segments.length ? `${segments.length} timed segments` : 'Full text'}
           {duration > 0 && ` | ${formatTime(duration)}`}
         </span>
       </div>
 
       <div className="flex-1 overflow-y-auto custom-scrollbar space-y-1">
-        {segments.length > 0 ? (
-          <TranscriptSegments segments={segments} />
-        ) : (
-          <div className="p-3 text-sm text-gray-300 leading-relaxed whitespace-pre-wrap">
-            {transcript.text}
-          </div>
-        )}
+        <TranscriptSegments segments={segments} text={transcript.text} />
       </div>
     </div>
   )

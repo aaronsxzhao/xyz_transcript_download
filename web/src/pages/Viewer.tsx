@@ -730,6 +730,7 @@ export default function Viewer() {
               <TranscriptSegments
                 key={eid}
                 segments={transcript.segments}
+                text={transcript.text}
                 fallback={
                   <p className="whitespace-pre-wrap">{transcript.text}</p>
                 }
