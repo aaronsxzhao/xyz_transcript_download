@@ -1278,6 +1278,9 @@ def get_task(task_id: str, view: str = Query("full", pattern="^(full|note)$"), u
     if not task:
         raise HTTPException(status_code=404, detail="Task not found")
     task["versions"] = db.get_versions(task_id, include_content=view == "full")
+    if task.get('style') == 'original' and task.get('platform') in ('twitter', 'substack'):
+        from article_markdown import repair_article_markdown
+        task['versions'] = [{**v, 'content': repair_article_markdown(v['content'])} if v.get('content') and v.get('style') == 'original' else v for v in task['versions']]
     from api.media import sign_media_urls
     return sign_media_urls(task, task_id)
 
@@ -1295,11 +1298,15 @@ def get_task_transcript(task_id: str, user: User = Depends(get_current_user)):
 def get_task_version(task_id: str, version_id: str, user: User = Depends(get_current_user)):
     from video_task_db import get_video_task_db
     db = get_video_task_db()
-    if not db.get_task(task_id, user.id, include_transcript=False):
+    task = db.get_task(task_id, user.id, include_transcript=False)
+    if not task:
         raise HTTPException(status_code=404, detail="Task not found")
     version = db.get_version(task_id, version_id)
     if not version:
         raise HTTPException(status_code=404, detail="Version not found")
+    if task.get('platform') in ('twitter', 'substack') and version.get('style') == 'original':
+        from article_markdown import repair_article_markdown
+        version = {**version, 'content': repair_article_markdown(version.get('content') or '')}
     return sign_media_urls(version, task_id)
 
 

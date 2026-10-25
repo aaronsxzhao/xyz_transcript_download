@@ -763,7 +763,8 @@ class VideoTaskDB:
         self._backend.update_task(task_id, updates)
 
     def get_task(self, task_id: str, user_id: str = None, include_transcript: bool = True) -> Optional[dict]:
-        return self._backend.get_task(task_id, user_id, include_transcript=include_transcript)
+        from article_markdown import readable_article_task
+        return readable_article_task(self._backend.get_task(task_id, user_id, include_transcript=include_transcript))
 
     def get_task_by_url(self, url: str, user_id: str = None) -> Optional[dict]:
         return self._backend.get_task_by_url(url, user_id)
