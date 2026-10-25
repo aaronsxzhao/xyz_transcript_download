@@ -39,6 +39,28 @@ def test_no_fixed_paragraph_or_word_cap_and_plain_text_does_not_call_a_model():
     assert sources.extract_public_article(b'Original English text.','https://example.com/note.txt','text/plain').body=='Original English text.'
 
 
+def test_declared_base_resolves_images_citations_and_attachments_without_changing_source_identity():
+    raw=page('<p>Complete source. <a href="papers/evidence">Original citation</a></p>'
+             '<img src="images/chart.png" alt="Chart"><audio src="audio/lesson.mp3"></audio>',
+             '<base href="https://assets.example/edition/"><link rel="canonical" href="article">')
+    result=sources.extract_public_article(raw,'https://blog.example/posts/lesson')
+    assert result.url=='https://blog.example/posts/lesson'
+    assert result.canonical_url=='https://assets.example/edition/article'
+    assert 'https://assets.example/edition/papers/evidence' in result.body
+    assert 'https://assets.example/edition/images/chart.png' in result.body
+    assert result.thumbnail=='https://assets.example/edition/images/chart.png'
+    assert result.attachments[0]['url']=='https://assets.example/edition/audio/lesson.mp3'
+
+
+@pytest.mark.parametrize('attribute', ['data-original', 'data-lazy-src'])
+def test_cover_uses_the_same_real_lazy_image_as_the_article_body(attribute):
+    result=sources.extract_public_article(page(f'<p>Original detail.</p><img src="/placeholder.gif" {attribute}="/chart.png" alt="Chart">'),
+                                          'https://blog.example/article')
+    assert result.thumbnail=='https://blog.example/chart.png'
+    assert '![Chart](https://blog.example/chart.png)' in result.body
+    assert 'placeholder.gif' not in result.body
+
+
 @pytest.mark.parametrize('raw', [page('<p>Preview.</p>', '<script type="application/ld+json">'+json.dumps({'@type':'BlogPosting','isAccessibleForFree':False})+'</script>'),page('<p>Preview.</p><div class="paywall">Purchase required</div>'),b'<html><body><div id="app"></div></body></html>'])
 def test_paywall_and_empty_dynamic_shell_are_not_completed_articles(raw):
     with pytest.raises(SocialSourceError): sources.extract_public_article(raw,'https://example.com/post')
@@ -74,7 +96,7 @@ def test_dns_is_pinned_while_original_host_and_tls_identity_are_preserved(monkey
 
 def test_mixed_public_and_private_dns_answers_are_rejected(monkeypatch):
     monkeypatch.setattr(fetch.socket,'getaddrinfo',lambda *a,**k:[(2,1,6,'',('1.1.1.1',443)),(2,1,6,'',('127.0.0.1',443))])
-    with pytest.raises(SocialSourceError): fetch.public_address('rebind.example',443)
+    with pytest.raises(SocialSourceError): fetch.public_addresses('rebind.example',443)
 
 
 def test_redirects_and_decoded_response_size_are_bounded(monkeypatch):

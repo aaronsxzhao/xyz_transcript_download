@@ -7,7 +7,7 @@ from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit, urljoin
 from bs4 import BeautifulSoup
 
 from public_content_fetch import fetch_public, normalize_public_url
-from social_content import SocialContent, SocialSourceError, html_markdown, _escape, _link, social_platform, resolve_social_content
+from social_content import SocialContent, SocialSourceError, html_markdown, _escape, _link, _image_url, social_platform, resolve_social_content
 
 DOCUMENT_PLATFORMS = ('twitter', 'substack', 'web')
 EXTRACTION_VERSION = 'public-article-v1'
@@ -101,6 +101,8 @@ def extract_public_article(raw, url, content_type='text/html'):
     if content_type not in ('text/html', 'application/xhtml+xml', ''):
         raise SocialSourceError('This file type is not supported yet. Use a public article page or a direct audio/video link.')
     soup = BeautifulSoup(raw, 'html.parser')
+    base_tag = soup.find('base', href=True)
+    base = (_link(base_tag['href'], url) if base_tag else '') or url
     records = list(_articles(soup))
     data = records[0] if records else {}
     if any(item.get('isAccessibleForFree') in (False, 'False', 'false') for item in records):
@@ -119,11 +121,11 @@ def extract_public_article(raw, url, content_type='text/html'):
     if not isinstance(author, list): author = [author]
     author = ', '.join(str(item.get('name') or '') if isinstance(item, dict) else str(item or '') for item in author).strip(', ')
     canonical = soup.find('link', rel='canonical')
-    canonical = _link(canonical.get('href'), url) if canonical else url
+    canonical = _link(canonical.get('href'), base) if canonical else url
     cover = data.get('image') or meta('og:image', 'twitter:image')
     if isinstance(cover, list): cover = cover[0] if cover else ''
     if isinstance(cover, dict): cover = cover.get('url') or cover.get('contentUrl')
-    cover = _link(cover, url)
+    cover = _link(cover, base)
     # Remove site chrome, not substantive headers/captions inside the article.
     for node in soup.select('script,style,noscript,nav,aside,form,button,dialog,[hidden],[aria-hidden="true"],.cookie-banner,.cookie-consent,.comments,#comments'):
         node.decompose()
@@ -159,15 +161,15 @@ def extract_public_article(raw, url, content_type='text/html'):
             paragraph.name = 'h2'
     if not cover:
         first_image = root.find('img')
-        if first_image: cover = _link(first_image.get('data-src') or first_image.get('src'), url)
+        if first_image: cover = _image_url(first_image, base)
     attachments, seen = [], set()
     for node in root.find_all(['audio', 'video', 'iframe']):
         source = node.find('source')
-        target = _link(node.get('src') or (source.get('src') if source else ''), url)
+        target = _link(node.get('src') or (source.get('src') if source else ''), base)
         if target and target not in seen:
             seen.add(target)
             attachments.append({'url': target, 'kind': node.name if node.name != 'iframe' else 'embedded', 'title': node.get('title') or 'Embedded media'})
-    body = html_markdown(str(root), url)
+    body = html_markdown(str(root), base)
     if cover and cover not in body:
         body = f'![Article cover]({cover})\n\n' + body
     if not body.strip(): raise SocialSourceError('The website did not expose readable original content.')

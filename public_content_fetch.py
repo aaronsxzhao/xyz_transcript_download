@@ -40,12 +40,12 @@ def normalize_public_url(raw):
         raise SocialSourceError('Use a public HTTP or HTTPS article or media link. Private addresses, credentials and unusual ports are not supported.') from None
 
 
-def public_address(host, port):
+def public_addresses(host, port):
     try:
         addresses = list(dict.fromkeys(row[4][0] for row in socket.getaddrinfo(host, port, type=socket.SOCK_STREAM)))
         if not addresses or any(not ipaddress.ip_address(address).is_global for address in addresses):
             raise OSError()
-        return addresses[0]
+        return addresses
     except (OSError, ValueError):
         raise SocialSourceError('The website does not resolve to a reachable public address. Check the link and retry.') from None
 
@@ -53,9 +53,7 @@ def public_address(host, port):
 def _open(url, deadline):
     p = urlsplit(url)
     port = p.port or (443 if p.scheme == 'https' else 80)
-    address = public_address(p.hostname, port)
-    authority = '[' + address + ']' if ':' in address else address
-    pinned = urlunsplit((p.scheme, authority + ':' + str(port), p.path or '/', p.query, ''))
+    addresses = public_addresses(p.hostname, port)
     ca = os.getenv('REQUESTS_CA_BUNDLE') or os.getenv('CURL_CA_BUNDLE') or os.getenv('SSL_CERT_FILE') or requests.certs.where()
     options = {'cert_reqs': 'CERT_REQUIRED', 'ca_certs': ca}
     proxy = requests.utils.select_proxy(url, requests.utils.get_environ_proxies(url))
@@ -66,15 +64,24 @@ def _open(url, deadline):
     else:
         manager = urllib3.PoolManager(**options)
     try:
-        kwargs = {'assert_hostname': p.hostname, 'server_hostname': p.hostname} if p.scheme == 'https' else {}
-        pool = manager.connection_from_url(pinned, pool_kwargs=kwargs)
-        remaining = max(.1, deadline - time.monotonic())
-        target = pinned if proxy and p.scheme == 'http' else urlunsplit(('', '', p.path or '/', p.query, ''))
-        response = pool.urlopen('GET', target, headers={'Host': p.netloc, 'User-Agent': 'Mozilla/5.0 ContentReader/1.0',
-            'Accept': 'text/html,text/plain,audio/*,video/*,image/*;q=0.8', 'Accept-Encoding': 'gzip,deflate'},
-            redirect=False, retries=False, preload_content=False, assert_same_host=False,
-            timeout=Timeout(connect=min(4, remaining), read=min(12, remaining), total=remaining))
-        return response, manager
+        # Resolve once, validate every answer, then use only those pinned IPs.
+        # An unreachable IPv6/CDN address must not hide a working alternative.
+        for index, address in enumerate(addresses):
+            remaining = deadline - time.monotonic()
+            if remaining <= 0: raise TimeoutError()
+            authority = '[' + address + ']' if ':' in address else address
+            pinned = urlunsplit((p.scheme, authority + ':' + str(port), p.path or '/', p.query, ''))
+            kwargs = {'assert_hostname': p.hostname, 'server_hostname': p.hostname} if p.scheme == 'https' else {}
+            pool = manager.connection_from_url(pinned, pool_kwargs=kwargs)
+            target = pinned if proxy and p.scheme == 'http' else urlunsplit(('', '', p.path or '/', p.query, ''))
+            try:
+                response = pool.urlopen('GET', target, headers={'Host': p.netloc, 'User-Agent': 'Mozilla/5.0 ContentReader/1.0',
+                    'Accept': 'text/html,text/plain,audio/*,video/*,image/*;q=0.8', 'Accept-Encoding': 'gzip,deflate'},
+                    redirect=False, retries=False, preload_content=False, assert_same_host=False,
+                    timeout=Timeout(connect=min(4, remaining), read=min(12, remaining), total=remaining))
+                return response, manager
+            except urllib3.exceptions.ConnectTimeoutError:
+                if index == len(addresses) - 1: raise
     except Exception:
         manager.clear()
         raise
