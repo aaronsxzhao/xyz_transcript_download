@@ -28,6 +28,7 @@ def test_related_points_become_one_coherent_passage_without_modifying_inputs():
     assert result[0]['evidence_id']=='N2'
     assert source==before
     assert 'reassess supply' in json.loads(call.call_args_list[1].args[1])['notes'][1]['text']
+    assert json.loads(call.call_args_list[2].args[1])['chapter']=='Reform goals and limits'
 
 
 @pytest.mark.parametrize('ids',[['N1'],['N1','N1'],['N1','invented'],[]])
@@ -36,6 +37,7 @@ def test_missing_duplicate_or_invented_point_ids_cannot_discard_input(ids):
     result=edit_sections(notes(),Mock(side_effect=data))
     assert [row['text'] for row in result]==[row['text'] for row in notes()]
     assert [row['ids'] for row in result]==[['N1'],['N2']]
+    assert [row['topic'] for row in result]==[row['topic'] for row in notes()]
 
 
 @pytest.mark.parametrize('review',[{'complete':False,'grounded':True},{'complete':True,'grounded':False},{}])
@@ -101,6 +103,8 @@ def test_video_composition_keeps_intro_media_and_regenerates_contents():
     assert final.count('# Original title')==1
     assert 'Original introduction.' in final and 'Screenshot-[02:30]' in final
     assert 'Reform goals and limits' in final and '[A](#a)' not in final
+    assert '### 1.1 Purpose and demand conditions' in final
+    assert '[1.1 Purpose and demand conditions]' in final
     assert 'N2' not in final and 'N3' not in final
 
 

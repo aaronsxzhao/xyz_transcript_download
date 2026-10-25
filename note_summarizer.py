@@ -195,9 +195,9 @@ Markdown 结构规范（严格遵守）:
 > 核心论点引用
 
 ### 1.1 子话题
-- 要点一：具体内容说明
-- 要点二：具体内容说明
-  - 补充细节
+用连贯段落说明原文的观点，再把原文提供的推理、证据或案例接在同一论证下。
+
+继续交代原文给出的适用条件、例外或分歧；没有说明的关系不自行补齐。
 
 ### 1.2 子话题
 **关键概念**：详细解释...
@@ -251,8 +251,8 @@ def _build_user_prompt(
     parts.append(
         "请根据以上内容生成结构清晰的笔记。"
         "直接输出 Markdown 格式内容（不要用代码块包裹）。"
-        "必须使用 # ## ### 标题层级、**加粗**、> 引用块、列表等 Markdown 元素来组织内容，"
-        "不要输出纯文本段落。确保笔记有清晰的视觉层次和段落间距。"
+        "使用 # ## ### 标题层级组织连贯的说明段落。按内容需要使用加粗、真实原话引用、表格或列表，"
+        "不要求每段都有列表或引用。相近论点和案例在同一论证下解释，保留所有独立信息、条件和分歧。"
     )
 
     return "\n".join(parts)
@@ -398,7 +398,10 @@ class NoteSummarizer:
             paragraphs = edit_sections(items, self._editorial_json, checkpoint)
             sections = {}
             for paragraph in paragraphs:
-                sections.setdefault(paragraph['topic'], []).append(paragraph['text'])
+                # Video arguments are chapter children, so keep them in the
+                # level-three Contents/mind-map hierarchy rather than h4.
+                text = re.sub(r'^#### ', '### ', paragraph['text'], count=1)
+                sections.setdefault(paragraph['topic'], []).append(text)
             edited = '\n\n'.join('## '+topic+'\n\n'+'\n\n'.join(texts) for topic,texts in sections.items())
             edited = self._renumber_headings(edited)
             intro = prelude.strip()

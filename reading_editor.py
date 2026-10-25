@@ -151,8 +151,9 @@ def edit_sections(items, call, checkpoint=None, budget=120):
             checkpoint()
         return result
 
-    def originals(rows, topic):
-        return [dict(row, topic=topic, ids=[row['id']], evidence_id=row['id']) for row in rows]
+    def originals(rows):
+        # A failed rewrite cannot introduce an unverified chapter claim either.
+        return [dict(row, ids=[row['id']], evidence_id=row['id']) for row in rows]
 
     index = [{'id':item['id'], 'topic':item['topic'], 'heading':item['text'].split('\n',1)[0],
               'preview':item['text'][:180]} for item in items]
@@ -179,7 +180,7 @@ def edit_sections(items, call, checkpoint=None, budget=120):
         rows = sorted(chapter['rows'], key=lambda row:order[row['id']])
         for batch in _batches(rows, 12000):
             if len(batch) < 2 or len(json.dumps(batch,ensure_ascii=False)) > 14000:
-                result.extend(originals(batch,topic))
+                result.extend(originals(batch))
                 continue
             try:
                 paragraphs = request(COMPOSE, {'chapter':topic, 'notes':batch})['paragraphs']
@@ -191,7 +192,7 @@ def edit_sections(items, call, checkpoint=None, budget=120):
                 edited = '\n\n'.join(p['text'] for p in paragraphs)
                 if not _media('\n\n'.join(row['text'] for row in batch)).issubset(_media(edited)):
                     raise ValueError('Editorial pass omitted source media')
-                review = request(VERIFY, {'notes':batch, 'rewrite':paragraphs})
+                review = request(VERIFY, {'chapter':topic, 'notes':batch, 'rewrite':paragraphs})
                 if review.get('complete') is not True or review.get('grounded') is not True:
                     raise ValueError('Editorial rewrite did not retain source meaning')
                 for paragraph in sorted(paragraphs,key=lambda p:min(order[ident] for ident in p['ids'])):
@@ -201,6 +202,6 @@ def edit_sections(items, call, checkpoint=None, budget=120):
                 if is_cancellation(error):
                     raise
                 logger.info('Keeping readable source notes after optional editing failure: %s', type(error).__name__)
-                result.extend(originals(batch,topic))
+                result.extend(originals(batch))
     _partition(result, lookup)
     return result
