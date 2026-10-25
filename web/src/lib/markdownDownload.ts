@@ -19,6 +19,23 @@ function destinationOffset(raw: string, image: boolean): number {
   return raw[index] === '<' ? index + 1 : index;
 }
 
+/** AST URLs are decoded; measure the original spelling before replacing it. */
+function destinationEnd(raw: string, start: number): number {
+  const angle = raw[start - 1] === '<';
+  let depth = 0;
+  for (let index = start; index < raw.length; index++) {
+    const char = raw[index];
+    if (char === '\\') { index++; continue; }
+    if (angle) { if (char === '>') return index; }
+    else {
+      if (/\s/.test(char) || (char === ')' && depth === 0)) return index;
+      if (char === '(') depth++;
+      if (char === ')') depth--;
+    }
+  }
+  return raw.length;
+}
+
 /** Preserve source formatting and code while making generated media portable. */
 export function portableMarkdown(source: string, origin: string): string {
   const edits: { start: number; end: number; text: string }[] = [];
@@ -30,8 +47,14 @@ export function portableMarkdown(source: string, origin: string): string {
       const original = new URL(node.url, origin).searchParams.get('url');
       const start=node.position?.start.offset, end=node.position?.end.offset;
       if(original && /^https?:\/\//i.test(original) && typeof start==='number' && typeof end==='number'){
-        const index=destinationOffset(source.slice(start,end),node.type==='image');
-        if(index>=0)edits.push({start:start+index,end:start+index+node.url.length,text:original});
+        const raw=source.slice(start,end), index=destinationOffset(raw,node.type==='image');
+        if(index>=0){
+          const angle=raw[index-1]==='<';
+          const destination=original.replace(/&(?=(?:#\d+|#x[\da-f]+|[a-z][\da-z]+);)/gi,'&amp;')
+            .replace(/[\s<>]/g,char=>encodeURIComponent(char))
+            .replace(angle?/\\/g:/[\\()]/g,char=>'\\'+char);
+          edits.push({start:start+index,end:start+destinationEnd(raw,index),text:destination});
+        }
       }
     } else if (
       (node.type === "image" || node.type === "definition") &&
