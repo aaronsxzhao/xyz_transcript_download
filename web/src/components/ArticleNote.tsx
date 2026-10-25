@@ -48,7 +48,20 @@ function ArticleLink({href,label}:{href:string;label:string}) {
   </section>
 }
 
+/** Reader images need readable charts, not the small Library cover variant. */
+export function articleImageSources(raw:string):{preview:string;original:string} {
+  try {
+    const url=new URL(raw)
+    const host=url.hostname.toLowerCase()
+    if(/^https?:$/.test(url.protocol)&&!url.username&&!url.password&&(!url.port||['80','443'].includes(url.port))&&['pbs.twimg.com','substackcdn.com','substack-post-media.s3.amazonaws.com'].some(domain=>host===domain||host.endsWith('.'+domain))){
+      const proxy='/api/image-proxy?url='+encodeURIComponent(raw)
+      return {preview:proxy+'&size=article',original:proxy+'&size=original'}
+    }
+  } catch { /* Signed private paths keep the existing image route. */ }
+  return {preview:raw,original:raw}
+}
+
 /** Keep original prose and inline citations; enhance only standalone links. */
 export default function ArticleNote({markdown}:{markdown:string}) {
-  return <article data-rendering="plain" aria-label="Readable note" className="note-prose prose prose-invert max-w-none"><ReadableMarkdown markdown={markdown} renderParagraph={(paragraph,index)=>{const link=paragraph.tokens.length===1?paragraph.tokens[0]:null;return link?.type==='link'&&link.tokens&&/^https?:\/\//i.test(link.href)&&!hasImage(link.tokens)?<ArticleLink key={index+link.href} href={link.href} label={inlineNoteText(link.tokens)}/>:null}}/></article>
+  return <article data-rendering="plain" aria-label="Readable note" className="note-prose prose prose-invert max-w-none"><ReadableMarkdown markdown={markdown} imageSources={articleImageSources} renderParagraph={(paragraph,index)=>{const link=paragraph.tokens.length===1?paragraph.tokens[0]:null;return link?.type==='link'&&link.tokens&&/^https?:\/\//i.test(link.href)&&!hasImage(link.tokens)?<ArticleLink key={index+link.href} href={link.href} label={inlineNoteText(link.tokens)}/>:null}}/></article>
 }

@@ -14,7 +14,7 @@ from summary_errors import SummaryOutputError
 
 SOURCE_CHUNK_CHARS = 4000
 SOURCE_UNIT_CHARS = 800
-EDITORIAL_VERSION = "source-audit-v8"
+EDITORIAL_VERSION = "source-audit-v9"
 
 # Shared by extraction and the independent review. A presentation style must
 # never turn a source editing task into an invitation to complete its arguments.
@@ -34,6 +34,16 @@ knowledge, the episode title, publication date or the model's training data.
 Keep numerical scenarios separate: historical fitted sensitivity, baseline and
 extreme forecasts are not interchangeable. Preserve each denominator, market,
 unit, horizon and prerequisite. A large response is not evidence of fidelity.
+Separate an original value, a change (with units), and the resulting value:
+3.05% minus 100 basis points yields 2.05%; 100 basis points is NOT 2.05%.
+Follow the source's argument and meaningful chapter structure. Related examples,
+qualifications and implementation constraints belong with their argument, not
+under a new heading for each sentence. Preserve all distinct information while
+merging restatements. After a comparison table, add only information not already
+in the table; do not paraphrase each row again. Do not append repeated chapter
+summaries, closing viewpoints or advice that adds no source information.
+Block quotations and evidence fields are ONLY continuous verbatim source
+excerpts. Paraphrases and synthesized viewpoints belong in ordinary prose.
 When ASR is ambiguous, retain the uncertainty; do not guess missing names,
 technical details or numerical values. Original source is the authority.
 """
@@ -130,6 +140,10 @@ and conditional branches. Do not invent a year, identity or resolve uncertain
 ASR by guessing. Reuse original meaningful headings. Presentation style never
 authorizes omission. Only greetings, advertisements and empty transitions may
 be excluded. Repetition is covered by the existing field, not excluded.
+If a unit mixes covered and missing facts, reference the existing fields for
+covered facts and add ONLY the missing delta plus context needed to understand
+it. Never retell the entire unit just to obtain a coverage receipt. Several
+related gaps may share one addition; avoid a new heading per source unit.
 
 Return JSON only:
 {"edits":[{"field":"point:1", "text":"complete corrected field, retaining ALL its accurate details",

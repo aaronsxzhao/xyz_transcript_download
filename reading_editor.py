@@ -50,6 +50,10 @@ speaker attribution, question and uncertainty. Never invent a causal connection.
 Related examples normally belong in the same explanatory passage rather than a
 separate one-sentence heading each. Use paragraphs; lists only for real parallel
 comparisons or steps. Preserve meaningful source headings. No fixed word count.
+When a comparison table already states a fact, do not repeat each row in prose.
+Keep the additional explanation, exceptions and examples beside that table.
+Do not add a second introduction or closing summary to a chapter with the same
+conclusion. Repetition may be merged; distinct qualifications must remain.
 Keep all media URLs and timestamp/screenshot markers exactly, by their discussion.
 Preserve existing block quotations and code blocks verbatim, including code
 language and indentation. Reorganize the explanation around them; do not

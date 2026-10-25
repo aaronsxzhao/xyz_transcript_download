@@ -566,13 +566,13 @@ async def trigger_podcast_check(user: Optional[User] = Depends(get_current_user)
 
 
 @app.get("/api/image-proxy")
-async def image_proxy(request: Request, url: str):
-    """Serve a persistent WebP cover, with a browser cache validator."""
+async def image_proxy(request: Request, url: str, size: str = 'cover'):
+    """Public covers and article images, with isolated size caches and validators."""
     from api.covers import load_cover
     from fastapi.responses import Response
     import hashlib
     try:
-        content, source = await load_cover(url)
+        content, source = await load_cover(url) if size == 'cover' else await load_cover(url, variant=size)
     except HTTPException as error:
         return Response(status_code=error.status_code, headers={'Cache-Control':'no-store', 'Retry-After':'3', **(error.headers or {})})
     etag = '"' + hashlib.sha256(content).hexdigest()[:24] + '"'

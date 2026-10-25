@@ -103,6 +103,18 @@ If this is one part of an episode, cover this part faithfully without pretending
 to have heard other parts. Keep all genuine details for the final synthesis.
 """
 
+# Keep the saved schema, but do not ask every extraction chunk to write another
+# episode introduction. The merge sees a source index, not repeated conclusions.
+CHUNK_INSTRUCTION = """
+This request extracts ONE source chunk for a later whole-episode introduction.
+Override the overview/takeaways presentation above: overview is a concise index
+of the substantive discussions in THIS chunk, with attribution and conditions,
+not episode-wide conclusions or an introduction. takeaways is an empty array.
+Detailed points must retain ALL distinct information from this chunk. Reuse
+supplied broad chapters; a chunk boundary does not create a new chapter. The
+final caller writes the episode introduction once from all chunk indexes.
+"""
+
 MERGE_SYSTEM_PROMPT = SYSTEM_PROMPT.split('Return only valid JSON')[0] + """
 For this request you are editing the whole-episode outline, not extracting
 points. Detailed point text and evidence are retained unchanged by the caller.

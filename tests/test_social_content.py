@@ -54,6 +54,43 @@ def test_an_article_preview_is_not_saved_as_a_complete_article(monkeypatch):
     with pytest.raises(social.SocialSourceError,match='preview'):social.resolve_social_content('https://x.com/i/status/123')
 
 
+@pytest.mark.parametrize('mapping', ['list', 'dict'])
+def test_article_cover_inline_media_and_utf16_offsets_preserve_source_order(monkeypatch, mapping):
+    entities = {'0': {'type':'MEDIA', 'data':{'mediaItems':[{'mediaId':'chart'}]}}}
+    content = {'blocks':[
+        {'type':'unstyled','text':'Before chart.'},
+        {'type':'atomic','text':'😀 chart after', 'entityRanges':[{'key':0,'offset':3,'length':5}]},
+        {'type':'unstyled','text':'Final condition.'}],
+        'entityMap':entities if mapping == 'dict' else [{'key':key,'value':value} for key,value in entities.items()]}
+    article = {'title':'Full article','content':content,
+        'cover_media':{'media_info':{'original_img_url':'https://pbs.twimg.com/cover.jpg'}},
+        'media_entities':[{'media_id':'chart','media_info':{'original_img_url':'https://pbs.twimg.com/chart.jpg'}}]}
+    monkeypatch.setattr(social, '_json', lambda *a: {'code':200,'status':{'text':'Introduction','article':article}})
+    source = social.resolve_social_content('https://x.com/i/status/123')
+    assert source.thumbnail == 'https://pbs.twimg.com/cover.jpg'
+    assert source.body.index('cover.jpg') < source.body.index('Before chart.') < source.body.index('chart.jpg') < source.body.index('Final condition.')
+    assert source.body.count('chart.jpg') == 1
+    assert '😀 ![Article image]' in source.body and ' after' in source.body
+    assert source.markdown().count('# Full article') == 1
+
+
+def test_article_unresolved_or_invalid_image_reference_never_loses_media():
+    article = {'content':{'blocks':[{'text':'Keep source.', 'entityRanges':[{'key':0,'offset':99,'length':1}]}],
+        'entityMap':[{'key':'0','value':{'type':'MEDIA','data':{'mediaItems':[{'mediaId':'photo'}]}}}]},
+        'media_entities':[{'media_id':'photo','media_info':{'original_img_url':'https://pbs.twimg.com/photo.jpg'}}]}
+    body, _ = social._twitter_article_body(article, 'https://x.com/i/status/123')
+    assert 'Keep source.' in body and body.count('photo.jpg') == 1
+
+
+def test_article_video_variants_at_media_info_level_are_processed(monkeypatch):
+    article = {'title':'Video article','content':{'blocks':[{'text':'Full explanation.'}]},'media_entities':[
+        {'media_id':'clip','media_info':{'variants':[{'url':'https://video.twimg.com/playlist.m3u8','bit_rate':9999},
+            {'url':'https://video.twimg.com/clip.mp4','bit_rate':900}], 'duration_millis':12000}}]}
+    monkeypatch.setattr(social, '_json', lambda *a: {'code':200,'status':{'article':article}})
+    source = social.resolve_social_content('https://x.com/i/status/123')
+    assert source.media == [{'url':'https://video.twimg.com/clip.mp4','kind':'video','duration':12}]
+
+
 def test_all_video_attachments_retain_source_order(monkeypatch):
     monkeypatch.setattr(social,'_json',lambda *a:{'code':200,'status':{'text':'Both clips matter','media':{'videos':[
         {'url':'https://video.twimg.com/first.mp4','duration':12},{'url':'https://video.twimg.com/second.mp4','duration':24}]}}})
@@ -219,3 +256,13 @@ def test_media_uses_existing_summary_pipeline_and_retains_original_post(worker,m
     assert summarizer.generate_note.call_args.kwargs['transcript_text'].startswith('Complete English transcript')
     assert task['transcript']['text'].startswith('Complete English transcript')
     assert task['duration']==120
+
+
+def test_direct_article_jsonld_keeps_exposed_cover_and_publication_date(monkeypatch):
+    body={'headline':'Article','articleBody':'Complete original article.', 'datePublished':'2026-10-24',
+          'image':{'url':'https://pbs.twimg.com/header.jpg'}}
+    monkeypatch.setattr(social,'_read',lambda *a:('<script type="application/ld+json">'+json.dumps(body)+'</script>', 'https://x.com/i/article/123'))
+    source=social.resolve_social_content('https://x.com/i/article/123')
+    assert source.thumbnail=='https://pbs.twimg.com/header.jpg'
+    assert 'Complete original article.' in source.body and '![Article image]' in source.body
+    assert source.published=='2026-10-24T00:00:00+00:00'

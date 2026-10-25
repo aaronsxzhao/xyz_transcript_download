@@ -14,6 +14,18 @@ import subprocess
 import time
 
 
+def restricted_summary_route(database, owner):
+    """A historical fixture is optional; ordinary current routes remain required."""
+    episode = '6ad08b370e4e410a05bd4fd0'
+    rows = (database.table('episodes').select('eid').eq('user_id', owner)
+            .eq('eid', episode).eq('source_status', 'purchase_required').limit(1).execute().data or [])
+    if not rows:
+        return None
+    saved = (database.table('summaries').select('episode_id').eq('user_id', owner)
+             .eq('episode_id', episode).limit(1).execute().data or [])
+    return '/api/summaries/' + episode if saved else None
+
+
 def profile_public_routes(owner: str, routes: list[tuple[str, str]], local_video: str | None = None) -> list[dict]:
     """Measure the deployed stack, including its auth and database connections.
 
@@ -106,8 +118,11 @@ async def profile() -> list[dict]:
     routes = [("stats", "/api/stats"), ("podcasts", "/api/podcasts"),
               ("podcast_index", "/api/podcasts?include_content=12"), ("content_updates", "/api/content-updates"), ("recent_summaries", "/api/summaries/recent"), ("channels", "/api/video-notes/channels"),
               ("queue", "/api/video-notes/tasks"), ("progress", "/api/video-notes/progress"), ("settings", "/api/settings")]
-    restricted=database.table('episodes').select('eid').eq('user_id',owner).eq('eid','6ad08b370e4e410a05bd4fd0').limit(1).execute().data or []
-    if restricted: routes.append(('restricted_summary','/api/summaries/'+restricted[0]['eid']))
+    # The original preview-only summary can legitimately have been deleted or
+    # regenerated. Probe its special reader only while that fixture still exists;
+    # an episode record alone is not evidence that /summaries/:id should be 200.
+    restricted = restricted_summary_route(database, owner)
+    if restricted: routes.append(('restricted_summary', restricted))
     if podcasts:
         pid = podcasts[0]["pid"]
         routes.extend([("podcast_detail", f"/api/podcasts/{pid}"), ("episodes", f"/api/podcasts/{pid}/episodes")])
