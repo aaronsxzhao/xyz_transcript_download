@@ -180,7 +180,7 @@ def main(operation=None):
         if not bindings.get("SUPABASE_SERVICE_KEY"):
             continue
         # Bindings are used only in memory; never print them or pass via argv.
-        os.environ.update({k: v for k, v in bindings.items() if k.startswith("SUPABASE_") or k in {"USE_SUPABASE", "GROQ_API_KEY", "LLM_API_KEY", "LLM_BASE_URL", "LLM_MODEL"}})
+        os.environ.update({k: v for k, v in bindings.items() if k.startswith("SUPABASE_") or k in {"USE_SUPABASE", "GROQ_API_KEY", "LLM_API_KEY", "LLM_BASE_URL", "LLM_MODEL", "MODEL_CREDENTIAL_KEY"}})
         import tempfile
         with tempfile.TemporaryDirectory() as directory:
             os.environ["XYZ_DATA_DIR"] = directory

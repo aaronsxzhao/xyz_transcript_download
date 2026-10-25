@@ -547,6 +547,11 @@ class _SupabaseVideoTaskDB:
         with self._lock:
             cached = dict(self._cache.get(task_id) or {})
         if cached.get("user_id") == user_id:
+            # Worker progress stays in memory, but a finished reading page must
+            # see versions saved by another worker or a backed-up repair job.
+            if (not include_transcript and cached.get('status') in self.TERMINAL_STATUSES
+                    and task_id not in self._dirty):
+                return self._sb.get_video_task(task_id,user_id,include_transcript=False)
             if not include_transcript:
                 cached.pop("transcript_json", None)
                 cached.pop("transcript", None)
