@@ -1,5 +1,15 @@
 """Read compatibility for the old HTML adapter's broken linked-image blocks."""
 import re
+from urllib.parse import urlsplit
+
+
+def repair_web_attribution(markdown, url):
+    """Correct the generated metadata wrapper, never an article's own prose."""
+    host = urlsplit(url).hostname or ''
+    if not host: return markdown
+    from social_content import _escape
+    pattern = r'\A(#[^\n]+\n\n)Author: ' + re.escape(_escape(host)) + r'(\n\n\[Original source\]\()'
+    return re.sub(pattern, lambda match:match[1] + 'Source: ' + _escape(host) + match[2], markdown, count=1)
 
 _BROKEN_IMAGE = re.compile(
     r'^ {0,3}\[[ \t]*\r?\n(?:[ \t]*\r?\n)+'
@@ -40,5 +50,7 @@ def repair_article_markdown(markdown: str) -> str:
 
 def readable_article_task(task):
     if task and task.get('style') == 'original' and task.get('platform') in ('twitter', 'substack', 'web'):
-        return {**task, 'markdown': repair_article_markdown(task.get('markdown') or '')}
+        markdown = repair_article_markdown(task.get('markdown') or '')
+        if task.get('platform') == 'web': markdown = repair_web_attribution(markdown, task.get('url') or '')
+        return {**task, 'markdown': markdown}
     return task

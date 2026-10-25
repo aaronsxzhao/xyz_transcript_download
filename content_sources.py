@@ -19,6 +19,15 @@ class ContentDocument(SocialContent):
     canonical_url: str = ''
     attachments: list[dict] = field(default_factory=list)
 
+    def markdown(self):
+        markdown = super().markdown()
+        # A domain is a source/channel fallback, not a discovered author name.
+        if self.author == urlsplit(self.url).hostname:
+            prefix = f'# {_escape(self.title)}\n\nAuthor: {_escape(self.author)}\n\n'
+            if markdown.startswith(prefix):
+                markdown = markdown.replace(prefix, prefix.replace('\n\nAuthor:', '\n\nSource:'), 1)
+        return markdown
+
     def metadata(self):
         return {'type': self.content_type, 'canonical_url': self.canonical_url or self.url,
                 'attachments': self.attachments, 'access': 'complete', 'extractor': EXTRACTION_VERSION}
