@@ -400,8 +400,8 @@ def process_video_note_sync(
     db = get_video_task_db()
     downloader = None
     try:
-        from social_content import social_platform, resolve_social_content
-        from content_sources import resolve_content
+        from social_content import social_platform, resolve_social_content, SocialSourceError
+        from content_sources import resolve_content, saved_web_media
         social_source = None
         if not platform and url.startswith(('http://','https://')):
             from video_downloader import detect_platform
@@ -409,13 +409,16 @@ def process_video_note_sync(
         if platform == 'web' or social_platform(url):
             if is_video_task_cancelled(task_id):
                 raise VideoCancelledException('Cancelled')
-            if not db.get_task(task_id, user_id):
+            saved_task = db.get_task(task_id, user_id)
+            if not saved_task:
                 return
             _update_task_status(db, task_id, 'parsing', 5, 'Reading original article or media…', user_id)
             from urllib.parse import urlsplit
             host = urlsplit(url).hostname or ''
             generic = platform == 'web' or (platform == 'substack' and host != 'substack.com' and not host.endswith('.substack.com'))
-            social_source = resolve_content(url) if generic else resolve_social_content(url)
+            social_source = saved_web_media(saved_task)
+            if social_source is None:
+                social_source = resolve_content(url) if generic else resolve_social_content(url)
             platform = social_source.platform
             db.update_task(task_id, {'platform':platform,'title':social_source.title,'thumbnail':social_source.thumbnail,
                 'channel':social_source.author or platform,'channel_url':social_source.url,'published_at':social_source.published})
@@ -593,9 +596,14 @@ def process_video_note_sync(
             else:
                 _update_task_status(db, task_id, "downloading", 14, "No subtitles found — downloading audio for transcription...", user_id)
 
+                last_audio_update = [0.0]
                 def audio_progress(pct: float, msg: str):
                     if is_video_task_cancelled(task_id):
                         raise VideoCancelledException("Cancelled during download")
+                    now = time.monotonic()
+                    if pct < 1 and now - last_audio_update[0] < 1:
+                        return
+                    last_audio_update[0] = now
                     job_pct = 14 + pct * 10
                     _update_task_status(db, task_id, "downloading", job_pct, msg, user_id)
 
@@ -706,12 +714,17 @@ def process_video_note_sync(
         if needs_video and not video_path:
             _update_task_status(db, task_id, "downloading", 26, "Downloading video for screenshots...", user_id)
 
+            last_video_update = [0.0]
             def video_progress(pct: float, msg: str):
                 if is_video_task_cancelled(task_id):
                     raise VideoCancelledException("Cancelled during video download")
                 # Accept either normalized 0..1 progress or legacy 0..100 values.
                 pct = pct / 100.0 if pct > 1 else pct
                 pct = max(0.0, min(pct, 1.0))
+                now = time.monotonic()
+                if pct < 1 and now - last_video_update[0] < 1:
+                    return
+                last_video_update[0] = now
                 job_pct = 26 + pct * 14
                 _update_task_status(db, task_id, "downloading", job_pct, msg, user_id)
 
@@ -728,9 +741,9 @@ def process_video_note_sync(
                         video_quality=video_quality,
                         progress_callback=video_progress,
                     )
-            except VideoDownloadError as e:
-                logger.warning(f"Video download failed ({e.error_code}), continuing without video: {e}")
-                media_warning = 'Screenshots could not be downloaded. Check your platform connection and retry screenshots.'
+            except (VideoDownloadError, SocialSourceError) as e:
+                logger.warning(f"Optional video download failed, continuing with transcript: {e}")
+                media_warning = 'Screenshots could not be downloaded. Check the original media link or platform connection and retry screenshots.'
                 video_path = None
 
         # Thumbnail fallback: extract first frame if no thumbnail was fetched
@@ -743,7 +756,7 @@ def process_video_note_sync(
                     db.update_task(task_id, {"thumbnail": thumbnail})
                     logger.info(f"[{task_id}] Thumbnail fallback from local file succeeded")
             # If still no thumbnail and we have a URL, try a quick video download just for thumbnail
-            if not thumbnail and url:
+            if not thumbnail and url and not has_saved_transcript and not media_warning:
                 if not platform:
                     platform = detect_platform(url)
                 if platform:
@@ -758,6 +771,8 @@ def process_video_note_sync(
                                 thumbnail = thumb_url
                                 db.update_task(task_id, {"thumbnail": thumbnail})
                                 logger.info(f"[{task_id}] Thumbnail fallback from downloaded video succeeded")
+                    except VideoCancelledException:
+                        raise
                     except Exception as e:
                         logger.warning(f"[{task_id}] Thumbnail video download fallback failed: {e}")
 
@@ -876,7 +891,7 @@ def process_video_note_sync(
                         media_warning = 'Some screenshots could not be extracted or uploaded. Retry screenshots to complete this note.'
                     markdown = replace_screenshot_markers(markdown, task_id, keep_missing=True)
             else:
-                media_warning = 'Screenshots are unavailable. Use Repair screenshots after reconnecting the platform account.'
+                media_warning = media_warning or 'Screenshots are unavailable. Check the original media link or platform connection, then use Repair screenshots.'
                 # Preserve deterministic image references so a screenshot-only
                 # retry can fill them later without changing the saved note.
                 markdown = replace_screenshot_markers(markdown, task_id, keep_missing=True)

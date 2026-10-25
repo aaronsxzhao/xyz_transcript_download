@@ -86,9 +86,15 @@ class SocialDownloader:
         self._public_source = original
         if not downloaded:
             temporary = original.with_suffix('.part')
+            def progress(size, total):
+                if callback:
+                    # Unknown sizes stay indeterminate; callbacks also check
+                    # cancellation on every streamed block.
+                    ratio = min(size / total, 1) if total > 0 else 0
+                    callback(.75 * ratio, f'Downloading original media — {size / 1048576:.1f} MB')
             try:
                 with temporary.open('wb') as stream:
-                    response = fetch_public(item['url'], deadline=time.monotonic()+180, max_bytes=1024*1024*1024, sink=stream)
+                    response = fetch_public(item['url'], deadline=time.monotonic()+180, max_bytes=1024*1024*1024, sink=stream, progress_callback=progress)
                 if response.content_type not in {'audio/mpeg','audio/mp3','audio/mp4','audio/x-m4a','audio/wav','audio/x-wav','audio/flac','audio/ogg','audio/aac','audio/webm','video/mp4','video/quicktime','video/webm','video/x-matroska','video/x-msvideo'}:
                     raise SocialSourceError('This media format requires a dedicated provider adapter. Use a direct MP4/MP3/WAV/WebM file or upload the recording.')
                 if not temporary.stat().st_size: raise SocialSourceError('The original media file was empty.')

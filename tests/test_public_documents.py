@@ -95,6 +95,22 @@ def test_direct_media_probe_does_not_download_the_recording(monkeypatch):
     assert result.content_type=='video/mp4' and not response.stream.called
 
 
+def test_streamed_download_cancellation_closes_connection_before_writing_more(monkeypatch):
+    from api.routers.video_notes import VideoCancelledException
+    response=Mock(status=200,headers={'Content-Type':'video/mp4','Content-Length':'8'})
+    response.stream.return_value=iter([b'1234',b'5678'])
+    manager=Mock()
+    monkeypatch.setattr(fetch,'_open',lambda *a:(response,manager))
+    sink=io.BytesIO()
+    progress=Mock(side_effect=VideoCancelledException('Cancelled'))
+    with pytest.raises(VideoCancelledException):
+        fetch.fetch_public('https://public.example/movie.mp4',sink=sink,progress_callback=progress)
+    progress.assert_called_once_with(4,8)
+    assert sink.getvalue()==b''
+    response.close.assert_called_once()
+    manager.clear.assert_called_once()
+
+
 def test_p_style_blog_url_can_fall_back_without_bypassing_a_real_paywall(monkeypatch):
     monkeypatch.setattr(sources,'resolve_social_content',Mock(side_effect=SocialSourceError('HTTP 404')))
     monkeypatch.setattr(sources,'fetch_public',lambda *a,**k:fetch.PublicResponse('https://blog.example/p/lesson','text/html',page('<p>Complete public blog article.</p>'),{}))
