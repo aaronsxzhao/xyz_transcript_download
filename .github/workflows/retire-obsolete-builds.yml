@@ -1,0 +1,56 @@
+name: Retire obsolete image builds
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '*.py'
+      - 'api/**'
+      - 'web/**'
+      - 'Dockerfile'
+      - 'requirements.txt'
+      - 'requirements-cloud.txt'
+      - 'scripts/verify_deployment.py'
+      - 'package.json'
+      - 'package-lock.json'
+      - '.github/workflows/deploy-oracle.yml'
+      - '.github/workflows/retire-obsolete-builds.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: retire-obsolete-image-builds
+  cancel-in-progress: true
+
+jobs:
+  retire-builds:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      actions: write
+    steps:
+      - name: Cancel only obsolete image builds before release
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const {owner, repo} = context.repo;
+            const main = await github.rest.git.getRef({owner, repo, ref: 'heads/main'});
+            if (main.data.object.sha !== context.sha) {
+              core.info('A newer main commit owns build cleanup.');
+              return;
+            }
+            const {data} = await github.rest.actions.listWorkflowRuns({
+              owner, repo, workflow_id: 'deploy-oracle.yml', status: 'in_progress', per_page: 30
+            });
+            for (const run of data.workflow_runs) {
+              if (run.id >= context.runId || run.head_sha === context.sha) continue;
+              const {data: jobs} = await github.rest.actions.listJobsForWorkflowRun({owner, repo, run_id: run.id});
+              const steps = jobs.jobs.flatMap(job => job.steps || []);
+              const releaseStarted = steps.some(step =>
+                ['Restart Container Instance', 'Verify health', 'Restore preserved image if release verification fails'].includes(step.name)
+                && ['in_progress', 'completed'].includes(step.status));
+              const building = steps.some(step => step.name === 'Build and push ARM image' && step.status === 'in_progress');
+              if (!building || releaseStarted) continue;
+              await github.rest.actions.cancelWorkflowRun({owner, repo, run_id: run.id});
+              core.info(`Cancelled obsolete image build ${run.id}; release steps had not started.`);
+            }
