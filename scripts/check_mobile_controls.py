@@ -32,7 +32,7 @@ async def main():
  async with async_playwright() as p:
   browser=await p.webkit.launch() if args.webkit else await p.chromium.launch(executable_path=args.browser_path,args=['--no-sandbox'])
   for width in args.widths:
-   settings.update(llm_model='openai/gpt-oss-120b',llm_provider='groq',whisper_model='whisper-large-v3')
+   settings.update(llm_model='openai/gpt-oss-120b',llm_provider='groq',whisper_model='whisper-large-v3',llm_key_saved=False,whisper_key_saved=False,llm_base_url='',whisper_base_url='')
    holds={'read':None,'save':None,'test':None,'notion':None}
    probe_state={'gateway':False,'requests':0}
    notion={'failed':False,'submitted':0}
@@ -74,7 +74,11 @@ async def main():
     elif path=='/api/auth/me':body={'id':'bench','email':'bench@example.com','authenticated':True}
     elif path=='/api/settings':
      if route.request.method=='POST':
-      settings.update(route.request.post_data_json)
+      patch=dict(route.request.post_data_json)
+      for prefix in ['llm','whisper']:
+       field=prefix+'_api_key'
+       if field in patch:settings[prefix+'_key_saved']=bool(patch.pop(field))
+      settings.update(patch)
       body={'message':'Saved','settings':dict(settings)}
       if holds['save']:await holds['save'].wait()
      else:
@@ -326,6 +330,23 @@ async def main():
      async with page.expect_request('**/api/settings/test-llm') as model_test:
       await page.get_by_role('button',name='Test summary',exact=True).click()
      assert (await model_test.value).post_data_json['llm_model']=='fixture-model'
+     await page.get_by_role('button',name='Save Settings',exact=True).click()
+     await page.get_by_text('API key saved on server.',exact=False).wait_for()
+     assert await page.get_by_label('Summary API key',exact=True).input_value()==''
+     await page.reload(wait_until='domcontentloaded')
+     await page.get_by_text('API key saved on server.',exact=False).wait_for()
+     assert await page.get_by_label('Summary API key',exact=True).input_value()==''
+     assert await page.get_by_role('combobox',name='Summary model',exact=True).input_value()=='model:fixture-model'
+     await page.get_by_label('Summary API key',exact=True).fill('unsaved-replacement')
+     await page.get_by_label('Summary API key',exact=True).fill('')
+     await page.get_by_label('Transcription model',exact=True).select_option('whisper-large-v3')
+     async with page.expect_request(lambda request:request.method=='POST' and urlparse(request.url).path=='/api/settings') as preserving_save:
+      await page.get_by_role('button',name='Save Settings',exact=True).click()
+     assert 'llm_api_key' not in (await preserving_save.value).post_data_json
+     await page.get_by_text('All changes saved',exact=True).wait_for()
+     assert settings['llm_key_saved']
+     assert 'synthetic-test-key' not in await page.evaluate('JSON.stringify(localStorage)')
+     await inspect('saved-model-key')
      await page.get_by_role('button',name='Platform Accounts',exact=True).click()
      await inspect('accounts')
      for platform in ['BiliBili','YouTube','Douyin','Kuaishou']:
@@ -447,6 +468,7 @@ async def main():
    await gallery.locator('.gallery-viewport img').wait_for(state='visible')
    await page.keyboard.press('ArrowRight')
    await gallery.get_by_role('img',name='Portrait chart',exact=True).wait_for(state='visible')
+   await page.wait_for_function("""()=>{const el=document.querySelector('.gallery-viewport'),img=el?.querySelector('img');if(!img?.complete||!img.naturalWidth)return false;const v=el.getBoundingClientRect(),i=img.getBoundingClientRect();return i.height>0&&i.bottom<=v.bottom+1&&i.right<=v.right+1}""")
    assert await gallery.locator('.gallery-viewport').evaluate('(el)=>{const v=el.getBoundingClientRect(),i=el.querySelector("img").getBoundingClientRect();return i.height>0&&i.bottom<=v.bottom+1&&i.right<=v.right+1}'),(width,'fit image exceeds available canvas')
    await page.screenshot(path=str(args.output/f'gallery-{width}.png'))
    await gallery.get_by_role('button',name='Close enlarged screenshot',exact=True).click()

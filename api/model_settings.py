@@ -2,9 +2,19 @@
 from fastapi import APIRouter, Depends, HTTPException
 from api.auth import User, get_current_user
 from api.custom_models import ModelConfigurationError, normalize_base_url, probe_provider, public_model_error, resolve_custom
-from api.user_settings import SETTING_KEYS, SECRET_KEYS, get_user_settings
+from api.user_settings import SETTING_KEYS, SECRET_KEYS, get_user_settings, save_user_settings, account_settings_lock
 
 router = APIRouter()
+
+
+def update_user_settings(owner: str, patch: dict) -> dict:
+    with account_settings_lock(owner):
+        preferences, filtered = prepared_settings(owner, patch)
+        if preferences.get("llm_provider") == "custom":
+            resolve_custom(preferences, "summary")
+        if preferences.get("transcription_provider") == "custom":
+            resolve_custom(preferences, "transcription")
+        return save_user_settings(owner, filtered)
 
 
 def prepared_settings(owner: str, patch: dict) -> tuple[dict, dict]:
@@ -23,7 +33,7 @@ def prepared_settings(owner: str, patch: dict) -> tuple[dict, dict]:
         url_key, key_field = prefix + "_base_url", prefix + "_api_key"
         if filtered.get(url_key):
             filtered[url_key] = normalize_base_url(filtered[url_key])
-            if filtered[url_key] != current.get(url_key) and current.get(key_field) and not filtered.get(key_field):
+            if filtered[url_key] != current.get(url_key) and (current.get(key_field) or current.get(key_field + "_error")) and not filtered.get(key_field):
                 raise ModelConfigurationError("Base URL changed. Re-enter the API key for this endpoint; the old key will not be sent to a different service.")
     merged = {**current, **filtered}
     for field in SECRET_KEYS & filtered.keys():

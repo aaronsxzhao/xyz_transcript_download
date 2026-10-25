@@ -230,6 +230,8 @@ def profile_library(settings: dict) -> None:
             safe = {"library_profile": label}
             safe.update({key: report[key] for key in ("language_matches", "audit_completed", "han_characters", "latin_characters", "source_access_visible", "invalid_summary_collapsed", "new_content_items", "channels_opened", "navigation_stage", "error_kind", "max_navigation_ms", "dashboard_order", "covers_checked", "covers_loaded", "covers_failed", "cover_disk_hits", "cover_storage_hits", "cover_origin_hits", "upstream_403", "upstream_404", "stat_colors", "artwork_items", "topic_columns", "largest_preview_width", "largest_preview_height", "document_wire_bytes", "document_decoded_bytes", "bootstrap", "program_embedded", "module_requests", "module_failures", "script_errors", "public_cache_files", "private_cache_files", "first_paint_ms", "asset_wire_bytes", "asset_decoded_bytes", "milliseconds", "first_byte_ms", "wire_bytes", "document_ms", "api_ms", "server_ms", "samples", "cached", "worst_ms", "error_count", "slow_count", "js_errors", "failed_requests", "loaded_images", "missing_images", "note_ready_ms", "mindmap_ms", "return_to_note_ms", "database_requests", "response_bytes", "gzip_bytes", "status")
                          if isinstance(report.get(key), int) and 0 <= report[key] <= 10**9})
+            safe.update({key: report[key] for key in ('llm_key_saved','llm_key_error','whisper_key_saved','whisper_key_error')
+                         if type(report.get(key)) is int and report[key] in (0, 1)})
             print(json.dumps(safe))
             valid = True
             failed = failed or label == "failed" or ("status" in safe and safe["status"] != 200)

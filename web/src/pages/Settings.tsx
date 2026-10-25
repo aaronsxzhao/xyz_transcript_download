@@ -569,7 +569,7 @@ export default function Settings() {
             </h2>
             <div className="space-y-3">
               <label className="flex flex-wrap items-center justify-between gap-2 text-sm">Transcription provider<select aria-label="Transcription provider" disabled={!settings||saving} value={transcriptionProvider} onChange={e=>{const provider=e.target.value as 'server'|'custom';setTranscriptionProvider(provider);setWhisperModel(provider==='custom'?'':whisperModels[0].value)}} className="bg-dark-hover border border-dark-border rounded-lg px-3 py-2"><option value="server">Server configured transcription</option><option value="custom">My OpenAI-compatible service</option></select></label>
-              {transcriptionProvider==='custom'?<OptionalTool fallback={<p role="status">Loading model settings…</p>}><CustomModelFields kind="transcription" value={transcriptionConnection} model={whisperModel} keySaved={!!settings?.whisper_key_saved} savedBase={settings?.whisper_base_url||''} onChange={setTranscriptionConnection} onModel={setWhisperModel} disabled={!settings||saving}/></OptionalTool>:<>
+              {transcriptionProvider==='custom'?<OptionalTool fallback={<p role="status">Loading model settings…</p>}><CustomModelFields kind="transcription" value={transcriptionConnection} model={whisperModel} keySaved={!!settings?.whisper_key_saved} savedBase={settings?.whisper_base_url||''} keyError={settings?.whisper_key_error} checkingSaved={loading} onChange={setTranscriptionConnection} onModel={setWhisperModel} disabled={!settings||saving}/></OptionalTool>:<>
               <SettingRow label="Server provider" value={!settings ? 'Loading…' : settings.whisper_mode === 'api' ? `${settings.whisper_provider || 'Configured'} API` : 'Local model'} />
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 py-2 border-b border-dark-border">
                 <span className="text-gray-400 text-sm">Model</span>
@@ -617,7 +617,7 @@ export default function Settings() {
                 : llmProvider === 'custom'
                   ? 'Summaries use your Base URL, API key, and selected model. Refresh models to see this endpoint’s model list.'
                   : 'Summaries use the provider configured on the server.'} Video frame analysis requires a vision-capable provider.</p>
-              {llmProvider==='custom'?<OptionalTool fallback={<p role="status">Loading model settings…</p>}><CustomModelFields kind="summary" value={summaryConnection} model={llmModel} keySaved={!!settings?.llm_key_saved} savedBase={settings?.llm_base_url||''} onChange={setSummaryConnection} onModel={setLlmModel} disabled={!settings||saving}/></OptionalTool>:<div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 py-2 border-b border-dark-border">
+              {llmProvider==='custom'?<OptionalTool fallback={<p role="status">Loading model settings…</p>}><CustomModelFields kind="summary" value={summaryConnection} model={llmModel} keySaved={!!settings?.llm_key_saved} savedBase={settings?.llm_base_url||''} keyError={settings?.llm_key_error} checkingSaved={loading} onChange={setSummaryConnection} onModel={setLlmModel} disabled={!settings||saving}/></OptionalTool>:<div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 py-2 border-b border-dark-border">
                 <span className="text-gray-400 text-sm">Model</span>
                 <select
                   aria-label="Summary model"
