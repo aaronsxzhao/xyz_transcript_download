@@ -55,8 +55,15 @@ def library(q: str = Query('', max_length=200), kind: Literal['', 'podcast', 'vi
         if needs_review(row['duration'],s.topics,s.key_points): row['status']='needs_review'
     rows=[row for row in rows if row['status']=='completed']
     from video_task_db import get_video_task_db
-    videos = get_video_task_db().list_tasks(user.id, limit=1000000)
-    rows += [dict(id=t['id'], kind='video', title=t.get('title') or 'Untitled video', source=t.get('channel') or t.get('platform') or 'Video', date=t.get('updated_at') or t.get('created_at') or '', published_at=t.get('published_at') or '', status='completed', thumbnail=t.get('thumbnail') or '', platform=t.get('platform') or '', duration=t.get('duration') or 0, topics_count=0) for t in videos if t['status'] == 'success']
+    video_db = get_video_task_db()
+    videos = video_db.list_tasks(user.id, limit=1000000)
+    def readable_video(task):
+        if task['status'] == 'success':
+            return True
+        # Regeneration can fail while the previous saved note remains readable.
+        # Streaming text without a saved version must stay out of the library.
+        return bool(task.get('has_saved_note'))
+    rows += [dict(id=t['id'], kind='video', title=t.get('title') or 'Untitled video', source=t.get('channel') or t.get('platform') or 'Video', date=t.get('updated_at') or t.get('created_at') or '', published_at=t.get('published_at') or '', status='completed', thumbnail=t.get('thumbnail') or '', platform=t.get('platform') or '', duration=t.get('duration') or 0, topics_count=0) for t in videos if readable_video(t)]
     from datetime import datetime, timezone
     for row in rows:
         try: date = datetime.fromisoformat(row['date'].replace('Z', '+00:00')).replace(tzinfo=timezone.utc).strftime('%Y%m%d%H%M%S%f')

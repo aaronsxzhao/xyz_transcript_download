@@ -37,7 +37,7 @@ async def main():
    probe_state={'gateway':False,'requests':0}
    notion={'failed':False,'submitted':0}
    episode_state={'metadata':None,'one':None,'two':None,'submitted':[],'uploads':0}
-   social_state={'library':False,'submitted':[]}
+   social_state={'library':False,'saved_library':False,'submitted':[]}
    social_markdown='# Original public article\n\nAuthor: Synthetic writer\n\n[Original source](https://writer.substack.com/p/public)\n\n## Table of Contents\n- [Original heading](#original-heading)\n\n## Original heading\n\nFirst original paragraph.\n\n### 2.1 #### Literal source heading\n\nFull final original paragraph. 原文末段完整保留。'
    long_caption='Synthetic chart explanation · '+('LongUnbrokenCaption'*80)
    screenshot_markdown='# Screenshot review\n\n![Missing chart](/data/screenshots/fixture-missing.jpg)\n\n!['+long_caption+'](https://images.example.test/landscape.svg)\n\n![Portrait chart](https://images.example.test/portrait.svg)'
@@ -141,7 +141,7 @@ async def main():
     elif path=='/api/jobs':body={'jobs':[{'job_id':'fixture-job','episode_title':'A long podcast title / 一期较长的播客标题','status':'failed','created_at':1700000000,'progress':0,'message':'Connection needs attention'}]}
     elif path=='/api/content-updates':body={'items':[]}
     elif path=='/api/video-notes/channels':body={'channels':[{'platform':platform,'channel':f'{platform}-{i}','total':total,'done':done,'channel_avatar':'','thumbnail':'','channel_url':'','last_updated':''} for platform,count,total,done in [('bilibili',12,17,2),('youtube',4,34,5),('local',1,2,2),('twitter',2,3,1),('substack',1,4,4)] for i in range(count)]}
-    elif path=='/api/library':body={'items':[{'id':'social','kind':'video','title':'Original public article','source':'Synthetic writer','date':'2026-10-24','published_at':'2026-10-23','status':'completed','platform':'substack','duration':0}] if social_state['library'] else [],'next_cursor':None}
+    elif path=='/api/library':body={'items':[{'id':'saved-failed','kind':'video','title':'Saved complete note','source':'Synthetic channel','date':'2026-10-24','published_at':'2026-10-23','status':'completed','platform':'youtube','duration':600}] if social_state['saved_library'] else [{'id':'social','kind':'video','title':'Original public article','source':'Synthetic writer','date':'2026-10-24','published_at':'2026-10-23','status':'completed','platform':'substack','duration':0}] if social_state['library'] else [],'next_cursor':None}
     elif path.startswith('/api/video-notes/'):body={'tasks':[]}
     await route.fulfill(content_type='application/json',body=json.dumps(body))
    await page.route('**/api/**',api)
@@ -486,6 +486,15 @@ async def main():
     await field.press('Enter')
     await page.wait_for_function("document.querySelector('[aria-label=\"Podcast episode or video URL\"]')?.value===''")
    assert [row['platform'] for row in social_state['submitted']]==['twitter','substack']
+   social_state['saved_library']=True
+   await page.goto(origin+'/library',wait_until='networkidle')
+   await page.get_by_role('button',name='Refresh library',exact=True).click()
+   await page.get_by_role('heading',name='Saved complete note',exact=True).wait_for()
+   await inspect('saved-library-note')
+   await page.locator('a[href="/videos/saved-failed"]').click()
+   await page.get_by_role('heading',name='Saved complete note',exact=True).wait_for()
+   await page.get_by_text('Original explanation remains readable.',exact=True).wait_for()
+   await inspect('saved-library-reader')
    assert not errors,errors
    print(json.dumps({'width':width,'engine':'webkit' if args.webkit else 'chromium','button_text_contained':True,'icons_centered':True,'settings_and_reader_menus':True,'navigation_closes_on_route_change':width<768,'errors':errors}),flush=True)
    await context.close()

@@ -306,15 +306,19 @@ class _SQLiteVideoTaskDB:
 
     def list_tasks(self, user_id: str = None, limit: int = 2000) -> List[dict]:
         order = "ORDER BY (CASE WHEN published_at IS NOT NULL AND published_at != '' THEN 0 ELSE 1 END), published_at DESC, created_at DESC"
+        saved_note = """CASE WHEN status NOT IN ('success','discovered')
+            AND length(trim(coalesce(markdown,''),char(9)||char(10)||char(13)||' ')) > 0
+            AND EXISTS (SELECT 1 FROM video_task_versions x WHERE x.task_id=video_tasks.id)
+            THEN 1 ELSE 0 END AS has_saved_note"""
         with self._conn() as conn:
             if user_id:
                 rows = conn.execute(
-                    f"SELECT id,url,platform,title,thumbnail,status,progress,message,style,duration,error,channel,channel_url,channel_avatar,published_at,created_at,updated_at FROM video_tasks WHERE user_id = ? {order} LIMIT ?",
+                    f"SELECT id,url,platform,title,thumbnail,status,progress,message,style,duration,error,channel,channel_url,channel_avatar,published_at,created_at,updated_at,{saved_note} FROM video_tasks WHERE user_id = ? {order} LIMIT ?",
                     (user_id, limit),
                 ).fetchall()
             else:
                 rows = conn.execute(
-                    f"SELECT id,url,platform,title,thumbnail,status,progress,message,style,duration,error,channel,channel_url,channel_avatar,published_at,created_at,updated_at FROM video_tasks WHERE user_id IS NULL {order} LIMIT ?",
+                    f"SELECT id,url,platform,title,thumbnail,status,progress,message,style,duration,error,channel,channel_url,channel_avatar,published_at,created_at,updated_at,{saved_note} FROM video_tasks WHERE user_id IS NULL {order} LIMIT ?",
                     (limit,),
                 ).fetchall()
             return [self._row_to_dict(r) for r in rows]

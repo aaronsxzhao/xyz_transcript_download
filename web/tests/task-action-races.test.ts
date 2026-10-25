@@ -6,6 +6,21 @@ import {cancelJob,cancelVideoTask,retryJob,retryVideoTask,fetchJob} from '../src
 vi.mock('../src/lib/api',()=>({cancelJob:vi.fn(),cancelVideoTask:vi.fn(),retryJob:vi.fn(),retryVideoTask:vi.fn(),fetchJob:vi.fn()}))
 beforeEach(()=>{vi.resetAllMocks();localStorage.clear();sessionStorage.clear();useStore.getState().reset()})
 
+it('does not apply an old cancel response to a video that was cancelled and retried while it was pending',async()=>{
+ const original={job_id:'one',status:'transcribing',progress:40,message:'Transcribing'};
+ useStore.getState().setVideoTasks([{id:'one',...original}] as any);
+ let finish!:(value:any)=>void;
+ vi.mocked(cancelVideoTask).mockImplementationOnce(()=>new Promise(resolve=>{finish=resolve}));
+ const pending=cancelTask(original,'video');
+ useStore.getState().updateVideoTask({id:'one',status:'cancelled',progress:0,message:'Cancelled'} as any);
+ vi.mocked(retryVideoTask).mockResolvedValueOnce({task_id:'one',message:'Retry started'} as any);
+ await retryTask({...original,status:'cancelled'},'video');
+ expect(useStore.getState().videoTasks[0].status).toBe('pending');
+ finish({status:'cancelled'});
+ await pending;
+ expect(useStore.getState().videoTasks[0].status).toBe('pending');
+});
+
 it.each(['podcast','video'] as const)('does not overwrite a completed %s with a late cancelling acknowledgement',async kind=>{
  const original={job_id:'one',status:'transcribing',progress:40,message:'Transcribing'}
  if(kind==='video')useStore.getState().setVideoTasks([{id:'one',...original} as any])

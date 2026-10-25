@@ -457,6 +457,9 @@ def process_video_note_sync(
         existing_task = db.get_task(task_id, user_id)
         if not existing_task:
             return
+        # Keep a readable previous result stable until complete_task atomically
+        # saves its replacement. First attempts may still expose partial output.
+        preserve_existing_note = bool((existing_task.get("markdown") or "").strip())
         existing_transcript = existing_task.get("transcript") if existing_task else None
         has_saved_transcript = (
             existing_transcript
@@ -821,15 +824,9 @@ def process_video_note_sync(
                     msg = f"Writing notes — section {chunk_num}/{total_chunks} ({chars:,} chars)"
                 else:
                     msg = f"Writing notes ({chars:,} chars)..."
-                updates = {
-                    "status": "summarizing",
-                    "progress": job_progress,
-                    "message": msg,
-                }
-                if partial_text:
-                    updates["markdown"] = partial_text
+                partial_update = {"markdown": partial_text} if partial_text and not preserve_existing_note else {}
                 _update_task_status(db, task_id, "summarizing", job_progress, msg, user_id,
-                                    **({"markdown": partial_text} if partial_text else {}))
+                                    **partial_update)
 
         markdown = note_summarizer.generate_note(
             title=title,
