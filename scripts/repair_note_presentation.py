@@ -69,6 +69,14 @@ def repair():
         PROGRESS.update(case='books' if ident==TARGETS[0] else 'twitter',phase='presentation',language=language_report)
         try:
             candidate=engine._finish_presentation(body,task['title'],'toc' in task.get('formats',[]),source,language_budget=900,language_report=language_report)
+            # Retain accepted units across bounded retries of only the units
+            # that failed language correction. Never restart completed work or
+            # retry an unavailable provider.
+            for retry in range(2):
+                if not language_mismatch(source,candidate) or language_report.get('provider_error_type'):
+                    break
+                verified_upload(storage,prefix+'/'+attempt+f'-partial-{retry}.json',{'markdown':candidate,'source_hash':source_hash,'checks':language_report})
+                candidate=engine._finish_presentation(candidate,task['title'],'toc' in task.get('formats',[]),source,language_budget=120,language_report=language_report)
         finally:
             engine.client.close()
         if language_mismatch(source,candidate): raise RuntimeError('Language correction did not finish; original retained')
