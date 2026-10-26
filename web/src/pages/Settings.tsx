@@ -10,6 +10,7 @@ import { getAccountId, getPreference, setPreference } from '../lib/preferences'
 import { CacheKeys, getCache, setCache } from '../lib/cache'
 import { usePageTiming } from '../lib/pageTiming'
 import LoadError from '../components/LoadError'
+import {useConnectionRecovery} from '../lib/connectionRecovery'
 import { lazy, useState, useEffect, useRef, useCallback } from 'react'
 import {
   Cpu, MessageSquare, Clock, Loader2, CheckCircle, AlertTriangle,
@@ -368,6 +369,7 @@ export default function Settings() {
   const [validatingAccount,setValidatingAccount] = useState(false)
   const [accountsLoading,setAccountsLoading] = useState(true)
   const [accountsError,setAccountsError] = useState('')
+  useConnectionRecovery(() => void loadAccounts(), !!accountsError)
   const accountsRequest = useRef(0)
   useEffect(()=>setAccountValidation(null),[cookies,activePlatform])
   const loadAccounts = useCallback(async () => {
@@ -867,7 +869,7 @@ export default function Settings() {
           </div>
 
           {accountsLoading && <p role="status">Loading platform accounts…</p>}
-          {accountsError && <div role="alert"><p>{accountsError}</p><button onClick={()=>void loadAccounts()}>Retry accounts</button></div>}
+          {accountsError && !loadError && <div role="alert"><p>{accountsError}</p><button onClick={()=>void loadAccounts()}>Retry accounts</button></div>}
           {!accountsLoading && !accountsError && activePlatform==='bilibili' && cookies.some(c=>c.platform==='bilibili'&&c.has_cookie) && <div className="space-y-2 text-sm"><button disabled={validatingAccount} onClick={async()=>{const owner=getAccountId();setValidatingAccount(true);try{const result=await validateBilibiliCookie();if(owner===getAccountId())setAccountValidation(result)}catch{setAccountValidation({valid:false,reason:'error',message:'Could not verify connection. Retry.'})}finally{setValidatingAccount(false)}}}>{validatingAccount?'Checking connection…':'Check connection'}</button>{accountValidation&&<p role="status">{accountValidation.valid?'Connection verified.':accountValidation.reason==='expired'?'Connection expired. Sign in again below.':accountValidation.message}</p>}</div>}
           {/* ── Platform login sections ── */}
           {(() => {

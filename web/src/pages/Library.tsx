@@ -13,6 +13,7 @@ import {useReadingHistory} from '../lib/readingHistory'
 import { Headphones, Video, FileText, ArrowUpRight, RefreshCw, Search, LayoutGrid, List } from 'lucide-react'
 import { useRef } from 'react'
 import LoadError from '../components/LoadError'
+import {useConnectionRecovery} from '../lib/connectionRecovery'
 import { platformLabel } from '../lib/platformLabels'
 
 import type { LibraryItem as Item, LibraryPage } from '../lib/api'
@@ -38,6 +39,7 @@ export default function Library() {
   const [sourcesError, setSourcesError] = useState(false)
   const [sourcesLoading, setSourcesLoading] = useState(false)
   const [sourceAttempt, setSourceAttempt] = useState(0)
+  useConnectionRecovery(() => setSourceAttempt(value => value + 1), sourcesError)
   useEffect(() => {
     if (loading) return
     const abort = new AbortController(); const owner = getAccountId()
@@ -104,7 +106,7 @@ export default function Library() {
 
     </div></div>
     {sourcesLoading && <p id="library-source-status" role="status" className="text-sm text-gray-400">Loading sources…</p>}
-    {!sourcesLoading && sourcesError && <p id="library-source-status" role="status" className="text-sm text-gray-400">Source list could not finish loading. <button className="text-indigo-300 underline" onClick={() => setSourceAttempt(value => value + 1)}>Retry sources</button></p>}
+    {!sourcesLoading && sourcesError && !error && <p id="library-source-status" role="status" className="text-sm text-gray-400">Source list could not finish loading. <button className="text-indigo-300 underline" onClick={() => setSourceAttempt(value => value + 1)}>Retry sources</button></p>}
     <div className="library-results-bar"><p role="status" className="text-sm text-gray-400">{loading ? 'Loading your notes…' : `${shown.length} notes loaded${cursor ? " · More available" : ""}`}{refreshing && !loading ? loadedFilter !== filterKey ? ' · Searching…' : ' · Updating…' : ''}</p><select aria-label="Sort notes" value={sort} onChange={e => update('sort', e.target.value)} className="p-2 rounded bg-dark-surface"><option value="newest">Recently saved</option><option value="oldest">Earliest saved</option><option value="published">Recently published</option></select><div className="flex gap-1 rounded-lg border border-dark-border p-1">{(['grid', 'list'] as const).map(mode => <button key={mode} aria-label={`${mode} layout`} aria-pressed={layout === mode} onClick={() => { setLayout(mode); setPreference('library_layout', mode) }} className={`p-2 rounded ${layout === mode ? 'bg-indigo-600 text-white' : 'text-gray-400 hover:bg-dark-hover'}`}>{mode === 'grid' ? <LayoutGrid size={16} /> : <List size={16} />}</button>)}</div></div>
     {(query || kind || source || sort !== 'newest') && <button onClick={() => setParams({}, { replace: true })} className="text-sm text-indigo-300 underline">Clear filters</button>}
     {(loading || (refreshing && items.length === 0)) && <div aria-hidden className="collection-grid">{Array.from({length:8}, (_,i) => <div key={i} className="h-40 rounded-xl border border-dark-border bg-dark-surface animate-pulse" />)}</div>}

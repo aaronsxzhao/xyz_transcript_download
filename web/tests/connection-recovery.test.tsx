@@ -6,6 +6,7 @@ import { AuthProvider, useAuth } from '../src/contexts/AuthContext'
 import LoadError from '../src/components/LoadError'
 import { fetchLibrary, fetchSettings, authFetch } from '../src/lib/api'
 import { clearTokens } from '../src/lib/auth'
+import {ConnectionNoticeContext,retryConnection} from '../src/lib/connectionRecovery'
 
 vi.mock('../src/lib/websocket', () => ({connectWebSocket: vi.fn(), disconnectWebSocket: vi.fn()}))
 let root: ReturnType<typeof createRoot> | undefined
@@ -16,6 +17,25 @@ afterEach(() => {
   node?.remove(); root = undefined; node = undefined
   document.getElementById('xyz-auth-config')?.remove()
   vi.useRealTimers(); vi.unstubAllGlobals()
+})
+
+it('shares connection feedback without dropping the hidden failed reads recovery subscriptions',async()=>{
+  const first=vi.fn(),second=vi.fn(),independent=vi.fn()
+  node=document.createElement('div');document.body.append(node);root=createRoot(node)
+  await act(async()=>root!.render(<ConnectionNoticeContext.Provider value={true}>
+    <div role="alert"><button onClick={retryConnection}>Retry connection</button></div>
+    <LoadError message="Failed to fetch" onRetry={first}/>
+    <LoadError message="Loading timed out" onRetry={second}/>
+    <LoadError message="Unsupported file format" onRetry={independent}/>
+  </ConnectionNoticeContext.Provider>))
+  expect(node.querySelectorAll('[role="alert"]')).toHaveLength(2)
+  expect(node.textContent).not.toContain('Failed to fetch')
+  expect(node.textContent).toContain('Unsupported file format')
+  await act(async()=>node!.querySelector('button')!.click())
+  expect(first).toHaveBeenCalledOnce();expect(second).toHaveBeenCalledOnce();expect(independent).not.toHaveBeenCalled()
+  await act(async()=>root!.render(<ConnectionNoticeContext.Provider value={false}><LoadError message="Failed to fetch" onRetry={first}/></ConnectionNoticeContext.Provider>))
+  expect(node.textContent).toContain('Failed to fetch')
+  expect(node.querySelector('button')?.textContent).toBe('Retry')
 })
 
 it('recovers a transient read failure without requiring a manual retry', async () => {

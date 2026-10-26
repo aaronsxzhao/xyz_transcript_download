@@ -162,7 +162,8 @@ async def main():
    connection_offline=True
    await page.goto(origin+'/library',wait_until='networkidle')
    await page.locator('.connection-notice').wait_for()
-   await page.get_by_role('button',name='Retry',exact=True).wait_for()
+   await page.get_by_role('button',name='Refresh library',exact=True).wait_for()
+   assert not await page.get_by_role('button',name='Retry',exact=True).count()
    await inspect('connection-failure')
    await page.screenshot(path=str(args.output/f'connection-{width}.png'))
    connection_offline=False
@@ -175,7 +176,8 @@ async def main():
      connection_offline=True
      await page.goto(origin+'/library?q='+event,wait_until='networkidle')
      await page.locator('.connection-notice').wait_for()
-     await page.get_by_role('button',name='Retry',exact=True).wait_for()
+     await page.get_by_role('button',name='Refresh library',exact=True).wait_for()
+     assert not await page.get_by_role('button',name='Retry',exact=True).count()
      connection_offline=False
      if event=='visibilitychange':
       before=dict(connection_reads)
