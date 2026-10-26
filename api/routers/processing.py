@@ -1557,6 +1557,8 @@ async def websocket_progress(websocket: WebSocket, token: Optional[str] = None):
             first_message = auth_data
     except asyncio.TimeoutError:
         logger.info("[WS] No auth message received (timeout)")
+    except WebSocketDisconnect:
+        return
     except Exception as e:
         pass
     

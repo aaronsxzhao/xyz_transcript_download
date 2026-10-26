@@ -15,3 +15,16 @@ it('accepts a genuinely newer retry after a terminal state',()=>{
  const current={id:'one',status:'success',progress:100,updated_at:'2026-10-22T10:00:10Z'} as any
  expect(mergeVideoTaskPair(current,{...current,status:'pending',progress:0,updated_at:'2026-10-22T10:00:11Z'})).toMatchObject({status:'pending',progress:0,updated_at:'2026-10-22T10:00:11Z'})
 })
+
+it('accepts authoritative completion over a later client-clock queued placeholder',()=>{
+ const placeholder={id:'fast',status:'pending',progress:0,updated_at:'2026-10-26T17:05:00Z',client_pending:true} as any
+ const complete={id:'fast',status:'success',progress:100,updated_at:'2026-10-26T17:00:00Z'} as any
+ expect(mergeVideoTaskPair(placeholder,complete)).toMatchObject(complete)
+})
+
+it('never replaces acknowledged processing or completion with a late queued placeholder',()=>{
+ for(const status of ['summarizing','success']){
+  const live={id:'fast',status,progress:status==='success'?100:80,updated_at:'2026-10-26T17:00:00Z'} as any
+  expect(mergeVideoTaskPair(live,{...live,status:'pending',progress:0,updated_at:'2026-10-26T17:05:00Z',client_pending:true})).toMatchObject(live)
+ }
+})

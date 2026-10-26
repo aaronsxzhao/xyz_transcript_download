@@ -14,7 +14,11 @@ class RequestTimingMiddleware:
         async def timed_send(message):
             if message['type'] == 'http.response.start':
                 duration = (time.perf_counter() - started) * 1000
-                message = {**message, 'headers': [*message.get('headers', []),
+                headers = list(message.get('headers', []))
+                if scope.get('path') in ('/api/jobs', '/api/video-notes/progress'):
+                    headers = [(key, value) for key, value in headers if key.lower() != b'cache-control']
+                    headers.append((b'cache-control', b'private, no-store'))
+                message = {**message, 'headers': [*headers,
                            (b'server-timing', f'app;dur={duration:.1f}'.encode())]}
             await send(message)
 

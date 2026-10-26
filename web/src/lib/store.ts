@@ -56,10 +56,12 @@ export function mergeVideoTaskPair(existing: VideoTask | undefined, incoming: Vi
 
   const existingUpdatedAt = Date.parse(existing.updated_at || existing.created_at || '') || 0
   const incomingUpdatedAt = Date.parse(normalizedIncoming.updated_at || normalizedIncoming.created_at || '') || 0
-  const keepExistingProgress = incomingUpdatedAt < existingUpdatedAt
+  if(normalizedIncoming.client_pending && !existing.client_pending && existing.status!=='discovered')return existing
+  const keepExistingProgress = !existing.client_pending && incomingUpdatedAt < existingUpdatedAt
+  const {client_pending:_,...confirmedExisting}=existing
 
   return {
-    ...existing,
+    ...confirmedExisting,
     ...normalizedIncoming,
     title: normalizedIncoming.title || existing.title,
     thumbnail: normalizedIncoming.thumbnail || existing.thumbnail,

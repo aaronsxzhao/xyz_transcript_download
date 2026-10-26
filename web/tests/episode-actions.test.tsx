@@ -55,6 +55,10 @@ it('retains a separate pending state for each concurrent episode submission',asy
  expect(process('two').disabled).toBe(true)
  await act(async()=>second({job_id:'second'}))
  expect(useStore.getState().jobs).toHaveLength(2)
+ await act(async()=>useStore.getState().mergeJobs([]))
+ expect(useStore.getState().jobs.map(job=>job.job_id)).toEqual(['second','first'])
+ expect(card('one').textContent).toContain('Queued')
+ expect(card('two').textContent).toContain('Queued')
 })
 it('preserves the actual submission failure reason',async()=>{
  vi.mocked(processEpisode).mockRejectedValueOnce(new Error('No confirmation received. Check Processing before submitting again.'))

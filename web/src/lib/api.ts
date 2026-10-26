@@ -30,7 +30,7 @@ function readJson<T>(url: string, operation: string, signal?: AbortSignal): Prom
   if (existing && !signal) return existing as Promise<T>
   const request = requestWithDeadline(async controllerSignal => {
     assertSessionGeneration(generation)
-    return authFetch(url, { signal: controllerSignal }).then(response => parseApiResponseAsJson<T>(response, operation)).then(data => {
+    return authFetch(url, { signal: controllerSignal, ...(/\/(?:progress|jobs)(?:\?|$)/.test(url)?{cache:'no-store' as const}:{}) }).then(response => parseApiResponseAsJson<T>(response, operation)).then(data => {
       assertSessionGeneration(generation)
       return data
     })
@@ -120,6 +120,12 @@ export async function authFetch(url: string, options: RequestInit = {}): Promise
   })
 }
 
+function acknowledgeMutation(url:string) {
+  invalidateForMutation(url)
+  if(/\/(?:generate(?:-json)?|process|batch|retry|cancel)$/.test(url.split('?')[0]))
+    window.dispatchEvent(new Event('xyz:processing-changed'))
+}
+
 async function performAuthFetch(url: string, options: RequestInit = {}): Promise<Response> {
   const ownerGeneration = getAuthGeneration()
   const headers = new Headers(options.headers)
@@ -137,7 +143,7 @@ async function performAuthFetch(url: string, options: RequestInit = {}): Promise
   assertSessionGeneration(ownerGeneration)
   const res = early || await fetch(url, { ...options, headers })
   assertSessionGeneration(ownerGeneration)
-  if (mutating && res.ok) invalidateForMutation(url)
+  if (mutating && res.ok) acknowledgeMutation(url)
 
   if (res.status === 401) {
     const tokens = await refreshToken()
@@ -146,7 +152,7 @@ async function performAuthFetch(url: string, options: RequestInit = {}): Promise
       headers.set('Authorization', `Bearer ${tokens.access_token}`)
       const retry = await fetch(url, { ...options, headers })
       assertSessionGeneration(ownerGeneration)
-      if (mutating && retry.ok) invalidateForMutation(url)
+      if (mutating && retry.ok) acknowledgeMutation(url)
       return retry
     }
   }
@@ -271,8 +277,8 @@ export async function fetchStats(): Promise<Stats> {
   return readJson(`${API_BASE}/stats`, 'Cannot load statistics')
 }
 
-export function fetchProgress(known: string[]): Promise<{tasks: VideoTask[]}> {
-  return readJson(`${API_BASE}/video-notes/progress?${new URLSearchParams({known:known.slice(0,100).join(',')})}`, 'Cannot refresh progress')
+export function fetchProgress(known: string[], signal?:AbortSignal): Promise<{tasks: VideoTask[]}> {
+  return readJson(`${API_BASE}/video-notes/progress?${new URLSearchParams({known:known.slice(0,100).join(',')})}`, 'Cannot refresh progress',signal)
 }
 
 export async function fetchPodcasts(): Promise<Podcast[]> {
@@ -542,6 +548,7 @@ export async function importUserSubscriptions(username: string): Promise<ImportS
 // ===== Video Notes API =====
 
 export interface VideoTask {
+  client_pending?:true
   started_at?: number
   id: string
   url: string

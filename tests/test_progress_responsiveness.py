@@ -112,3 +112,43 @@ def test_video_database_flush_preserves_the_progress_event_version():
     timestamp='2026-10-26T15:46:28.948908+00:00'
     db.update_video_task('video',{'status':'summarizing','updated_at':timestamp})
     assert db.client.table.return_value.update.call_args.args[0]['updated_at']==timestamp
+
+
+@pytest.mark.asyncio
+async def test_live_status_responses_are_never_cacheable(client):
+    for path in ('/api/jobs','/api/video-notes/progress'):
+        response=await client.get(path)
+        assert response.status_code==200
+        assert response.headers['cache-control']=='private, no-store'
+
+
+@pytest.mark.asyncio
+async def test_video_websocket_progress_excludes_reading_payloads(monkeypatch):
+    from api.routers import video_notes
+    from unittest.mock import AsyncMock
+    broadcast=AsyncMock();monkeypatch.setattr(video_notes.manager,'broadcast_to_user',broadcast)
+    await video_notes.broadcast_video_job('test',{'id':'test','status':'summarizing','progress':75,
+        'updated_at':'2026-10-26T10:00:00+00:00','markdown':'private body'*10000,
+        'transcript_json':'private transcript','versions':[{'content':'private version'}],'extras':'private options'},'owner')
+    sent,owner=broadcast.call_args.args
+    assert owner=='owner' and sent['task']['status']=='summarizing'
+    assert len(str(sent))<1000 and 'private' not in str(sent)
+
+
+def test_newer_database_progress_is_not_replaced_by_an_older_process_cache():
+    from video_task_db import _SupabaseVideoTaskDB
+    db=_SupabaseVideoTaskDB.__new__(_SupabaseVideoTaskDB)
+    db._lock=threading.Lock();db._dirty={}
+    db._cache={'task':{'id':'task','user_id':'owner','status':'pending','updated_at':'2026-10-26T10:00:00+00:00'}}
+    rows=db._merge_cached_task_list([{'id':'task','status':'success','progress':100,'updated_at':'2026-10-26T10:00:05+00:00'}],user_id='owner',limit=10)
+    assert rows[0]['status']=='success' and rows[0]['progress']==100
+
+
+@pytest.mark.asyncio
+async def test_socket_disconnect_during_auth_does_not_send_a_second_close():
+    from api.routers.processing import websocket_progress
+    from starlette.websockets import WebSocketDisconnect
+    from unittest.mock import AsyncMock
+    socket=SimpleNamespace(accept=AsyncMock(),receive_json=AsyncMock(side_effect=WebSocketDisconnect()),close=AsyncMock())
+    await websocket_progress(socket,token=None)
+    socket.close.assert_not_called()
