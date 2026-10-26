@@ -17,7 +17,14 @@ def source_language(source, hint=''):
     han = len(re.findall(r'[\u3400-\u9fff]', clean))
     latin = len(re.findall(r'[A-Za-z]', clean))
     if han and han * 2 >= latin: return 'zh'
-    if not re.search(r'[\u3040-\u30ff\uac00-\ud7af\u0400-\u04ff]', clean) and latin: return 'en'
+    words=re.findall(r'[A-Za-z]+',clean.lower())
+    english={'the','and','that','this','these','those','with','which','would','should',
+             'because','their','they','there','have','has','was','were','will',
+             'from','into','about','what','when','why','how','our','your','english'}
+    # Latin script alone is not English (Spanish/French/etc. must remain in
+    # their own language). Ambiguous material uses the original-language rule.
+    if latin and sum(word in english for word in words)>=max(1,min(6,len(words)//30)):
+        return 'en'
     return 'original'
 
 

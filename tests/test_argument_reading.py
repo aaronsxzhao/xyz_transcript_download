@@ -37,6 +37,7 @@ def test_fixed_language_survives_parallel_minority_chunks_and_resets():
 
 def test_explicit_other_original_language_is_not_reclassified_as_english():
     assert source_language('Una explicación del argumento.', 'es')=='es'
+    assert source_language('Una explicación del argumento y sus condiciones.')=='original'
 
 
 def test_localized_templates_share_schema_without_chinese_example_leakage():
