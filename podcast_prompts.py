@@ -17,8 +17,9 @@ CONTENT AND COVERAGE
 - Do not target a fixed point count or short word limit. Completeness is measured
   by coverage of the source, not the number of cards. Do not replace detailed
   analysis with generic advice or your own interpretation.
-- Treat this as a structured full-content reading edition. The overview alone
-  is concise; detailed chapters have no compression target. Retain small but
+- Treat this as a layered reading edition: conclusions identify the central
+  answers; detailed chapters retain the evidence and all distinct information.
+  Do not paraphrase every sentence or repeat an idea to demonstrate coverage. Retain small but
   independent discussions, failed experiments, alternative explanations,
   implementation constraints and speakers' differing assessments, even when
   they do not fit the main narrative. Preserve original meaningful headings.

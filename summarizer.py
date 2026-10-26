@@ -29,6 +29,7 @@ def extract_json_from_response(content: str) -> dict:
 from openai import OpenAI
 from summary_errors import SummaryOutputError, ProcessingCancelledError
 from reading_language import chinese_source
+from reading_generation import generation_session
 from source_coverage import SOURCE_CHUNK_CHARS, split_source, audit_source, spoken_source, quote_timestamp
 from processing_execution import model_checkpoint, ProcessingPaused
 from tenacity import (
@@ -112,6 +113,7 @@ class Summarizer:
         
         logger.info(f"Summarizer initialized with model: {self.model}")
 
+    @generation_session
     def summarize(
         self,
         transcript: Transcript,
@@ -136,6 +138,7 @@ class Summarizer:
         validate_transcript(transcript)
         # Prepare the transcript text
         transcript_text = self._transcript_text(transcript)
+        self._reading_source = transcript_text
         duration = transcript.duration or 0
         duration_hours = duration / 3600
         
@@ -159,11 +162,13 @@ class Summarizer:
             result = self._summarize_single(
                 transcript.episode_id, transcript_text, podcast_title, episode_title,
                 progress_callback, existing_topics)
-        return self._edit_reading(result, (lambda:original_progress(last_chars)) if original_progress else None)
+        result = self._edit_reading(result, (lambda:original_progress(last_chars)) if original_progress else None)
+        return self._localize_summary(result, transcript_text)
 
     def _editorial_json(self, system, payload, timeout):
         from reading_editor import call_editor
-        return call_editor(self.client, self.model, system, payload, timeout)
+        from reading_language import source_language_lock
+        return call_editor(self.client, self.model, system+source_language_lock(getattr(self,'_reading_source','')), payload, timeout)
 
     def _edit_reading(self, summary, checkpoint=None):
         from reading_editor import edit_sections, has_unedited_source
@@ -173,13 +178,22 @@ class Summarizer:
                   'evidence':point.original_quote} for i,point in enumerate(summary.key_points)]
         lookup = {item['id']:point for item,point in zip(items,summary.key_points)}
         try:
-            paragraphs = edit_sections(items, self._editorial_json, checkpoint)
+            paragraphs = edit_sections(items, self._editorial_json, checkpoint, budget=None, source_text=getattr(self,'_reading_source',''), report=getattr(self,'generation_report',{}).setdefault('editor',{}))
             points = []
             for paragraph in paragraphs:
                 evidence = lookup[paragraph['evidence_id']]
                 if not evidence.original_quote:
                     evidence = next((lookup[ident] for ident in paragraph['ids'] if lookup[ident].original_quote), evidence)
-                points.append(KeyPoint(paragraph['topic'], paragraph['text'], evidence.original_quote, evidence.timestamp))
+                # Merging arguments must not discard the other verified quotations.
+                text = paragraph['text']
+                seen = {evidence.original_quote}
+                for ident in paragraph['ids']:
+                    original = lookup[ident]
+                    if original.original_quote and original.original_quote not in seen:
+                        stamp = ('['+original.timestamp+']\n\n') if original.timestamp else ''
+                        text += '\n\n'+stamp+'\n'.join('> '+line for line in original.original_quote.splitlines())
+                        seen.add(original.original_quote)
+                points.append(KeyPoint(paragraph['topic'], text, evidence.original_quote, evidence.timestamp))
             return replace(summary, key_points=points, topics=list(dict.fromkeys(point.topic for point in points)))
         except Exception as error:
             from summary_errors import is_cancellation
@@ -187,6 +201,31 @@ class Summarizer:
                 raise
             logger.info('Keeping complete podcast notes after optional editing failure: %s', type(error).__name__)
             return summary
+
+    def _localize_summary(self, summary, source):
+        if not summary: return summary
+        from note_presentation import localize_note, language_mismatch
+        from reading_editor import has_unedited_source
+        if has_unedited_source(summary.overview):
+            getattr(self,'generation_report',{}).setdefault('language',{})['raw_source_retained']=True
+            return summary
+        if not any(language_mismatch(source,text) for text in [summary.overview,*summary.takeaways,*[p.topic+'\n'+p.summary for p in summary.key_points]]):
+            return summary
+        import time
+        deadline=time.monotonic()+180
+        report=getattr(self,'generation_report',{}).setdefault('language',{})
+        def fix(text):
+            return localize_note(text,source,self._editorial_json,budget=max(0,deadline-time.monotonic()),report=report)
+        # Quotes are independent source fields and never enter the translator.
+        overview=fix(summary.overview)
+        points=[]
+        for point in summary.key_points:
+            text=fix('## '+point.topic+'\n\n'+point.summary)
+            heading,separator,body=text.partition('\n\n')
+            points.append(replace(point,topic=heading.removeprefix('## '),summary=body) if separator else point)
+        takeaways=[fix(value) for value in summary.takeaways]
+        return replace(summary,overview=overview,key_points=points,
+                       topics=list(dict.fromkeys(p.topic for p in points)) if points else summary.topics,takeaways=takeaways)
 
     def _summarize_single(
         self,
@@ -210,10 +249,12 @@ class Summarizer:
         try:
             logger.info(f"Generating summary for episode {episode_id}...")
             logger.info(f"Input length: {len(transcript_text):,} chars, prompt total: {len(user_prompt):,} chars")
+            from reading_prompts import podcast_prompt
+            prompt = podcast_prompt(SYSTEM_PROMPT, transcript_text)
             if source_context is not None:
-                response = self._call_llm_with_retry(user_prompt, progress_callback, system_prompt=SYSTEM_PROMPT + CHUNK_INSTRUCTION)
+                response = self._call_llm_with_retry(user_prompt, progress_callback, system_prompt=prompt + CHUNK_INSTRUCTION)
             else:
-                response = self._call_llm_with_retry(user_prompt, progress_callback)
+                response = self._call_llm_with_retry(user_prompt, progress_callback, system_prompt=prompt)
 
             content = response.choices[0].message.content
             try:
@@ -235,6 +276,8 @@ class Summarizer:
             try:
                 result = self._audit_summary(result, transcript_text, progress_callback, source_context)
             except Exception as audit_error:
+                from reading_generation import record_review
+                record_review(self,False,'review_unavailable')
                 from summary_errors import delivery_notice, is_cancellation
                 if is_cancellation(audit_error):
                     raise
@@ -279,7 +322,8 @@ class Summarizer:
         fields.update({f"takeaway:{i+1}": value for i, value in enumerate(summary.takeaways)})
 
         def call(system, payload):
-            response = self._call_llm_with_retry(payload, progress_callback, system_prompt=system)
+            from reading_language import source_language_lock
+            response = self._call_llm_with_retry(payload, progress_callback, system_prompt=system+source_language_lock(source))
             return extract_json_from_response(response.choices[0].message.content)
 
         context = {**(source_context or {}), "chapter_titles": summary.topics}
@@ -306,6 +350,9 @@ class Summarizer:
             points.append(KeyPoint(addition["topic"], updated[addition["id"]],
                                    addition["source_quote"], quote_timestamp(source, addition["source_quote"], addition["timestamp"])))
         gaps = getattr(review, 'identified_gaps', {})
+        from reading_generation import record_review
+        record_review(self,not gaps and getattr(review,'complete',True) and not evidence_incomplete,
+                      'coverage_gap' if gaps else 'unresolved_checks')
         if gaps:
             gap_topic = '核对标出的原文' if chinese_source(source) else 'Source passages flagged by review'
             for passage in gaps.values():
@@ -596,9 +643,14 @@ class Summarizer:
                       for part in (summaries[:midpoint], summaries[midpoint:])]
             return self._merge_summaries(episode_id, episode_title, halves, progress_callback)
 
-        response = self._call_llm_with_retry(MERGE_PROMPT.format(
+        from reading_prompts import podcast_prompt
+        from reading_language import source_language
+        merge_prompt=MERGE_PROMPT
+        if source_language(getattr(self,'_reading_source',''))!='zh':
+            merge_prompt=merge_prompt.replace('核心结论','Key conclusions').replace('节目概览','Episode overview')
+        response = self._call_llm_with_retry(merge_prompt.format(
             episode_title=episode_title, outlines=payload), progress_callback,
-            system_prompt=MERGE_SYSTEM_PROMPT)
+            system_prompt=podcast_prompt(MERGE_SYSTEM_PROMPT,getattr(self,'_reading_source','')))
         try:
             data = extract_json_from_response(response.choices[0].message.content)
         except (json.JSONDecodeError, TypeError):

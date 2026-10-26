@@ -2,10 +2,11 @@ name: Review saved-model summary samples
 
 on:
   push:
-    branches: [main]
+    branches: [main, fix/argument-reading-20261026]
     paths:
       - '.github/workflows/review-saved-summary-samples.yml'
       - 'scripts/run_production_sample_review.py'
+      - 'scripts/review_argument_reading.py'
       - 'scripts/sample_review_public.pem'
   workflow_dispatch:
 
@@ -21,6 +22,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     env:
+      REVIEW_MODE: argument_edit
       CONTAINER_INSTANCE_ID: ocid1.computecontainerinstance.oc1.iad.anuwcljrram2hqqaueqbs2y4opn3tm2jfpmx4a7gdsscygwyjgnac5vrqgta
     steps:
       - uses: actions/checkout@v4

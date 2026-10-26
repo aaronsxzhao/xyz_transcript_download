@@ -56,7 +56,7 @@ class Execution:
         return value
 
     def snapshot(self):
-        with self.lock: return {'stages':{k:dict(v) for k,v in self.metrics.items()},'checkpoint_hits':self.hits,'wall_seconds':round(self.previous_wall+time.monotonic()-self.started,3)}
+        with self.lock: return {'stages':{k:dict(v) for k,v in self.metrics.items()},'checkpoint_hits':self.hits,'wall_seconds':round(self.previous_wall+time.monotonic()-self.started,3), **({'generation':self.generation} if hasattr(self,'generation') else {})}
 
 
 @contextmanager

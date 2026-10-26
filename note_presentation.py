@@ -65,12 +65,17 @@ def chronological_chapters(markdown):
         parent,separator,body=section.partition('\n')
         introduction,children=_sections(body,(3,))
         units=[introduction+children[0],*children[1:]] if children else [body]
+        prefix_parent_written=False
         for unit in units:
             times=media_times(unit)
             if times: groups.append([times[0],parent,unit])
             elif groups and groups[-1][1]==parent: groups[-1][2]+=unit
             elif groups: groups.append([groups[-1][0],parent,unit])
-            else: prefix+=parent+separator+unit
+            else:
+                # Unanchored subheadings share their existing parent. Repeating
+                # it for every child manufactures duplicate chapters.
+                prefix+=(parent+separator if not prefix_parent_written else '')+unit
+                prefix_parent_written=True
     output=[prefix];previous=None
     for _,parent,body in sorted(groups,key=lambda item:item[0]):
         if previous!=parent:
@@ -101,10 +106,12 @@ def language_mismatch(source,markdown):
     text=re.sub(r'(?m)^# [^\n]*\n?', '', text)
     text=re.sub(r'`[^`]*`|https?://[^\s)]+','',text)
     han=len(re.findall(r'[\u3400-\u9fff]',text))
-    if not re.search(r'[\u3400-\u9fff\u3040-\u30ff\uac00-\ud7af]',source):
+    from reading_language import source_language
+    language=source_language(source)
+    if language=='en':
         return han>=1
     words=len(re.findall(r'\b[A-Za-z]{2,}\b',text))
-    return chinese_source(source) and words>=40 and han<words/8
+    return language=='zh' and words>=40 and han<words/8
 
 
 def _invariants(text):
@@ -126,15 +133,41 @@ def _invariants(text):
     return urls,numbers,headings
 
 
+def _language_pieces(markdown):
+    """Split large sections at parsed block boundaries, never inside source code."""
+    prefix, sections=_sections(markdown,(2,3))
+    result=[]
+    from markdown_it import MarkdownIt
+    for piece in [prefix,*sections]:
+        if len(piece)<=12000:
+            result.append(piece);continue
+        lines=piece.splitlines(keepends=True)
+        starts=sorted({0,len(lines),*[t.map[0] for t in MarkdownIt().parse(piece) if t.map and t.level==0]})
+        batch=''
+        for left,right in zip(starts,starts[1:]):
+            block=''.join(lines[left:right])
+            if batch and len(batch)+len(block)>12000:
+                result.append(batch);batch=''
+            batch+=block
+        if batch: result.append(batch)
+    return result
+
+
 def localize_note(markdown,source,call,checkpoint=None,budget=120,report=None):
     """Optional correction; unavailable/invalid output retains every input byte."""
     import json
-    deadline=time.monotonic()+budget
-    prefix,sections=_sections(markdown,(2,3))
-    pieces=[prefix,*sections];result=[];unavailable=False
+    pieces=_language_pieces(markdown)
+    allowance=min(360,max(120,len(pieces)*10)) if budget is None else budget
+    deadline=time.monotonic()+allowance
+    result=[];unavailable=False
     report=report if report is not None else {}
     for piece in pieces:
-        if unavailable or not language_mismatch(source,piece) or len(piece)>14000 or time.monotonic()>=deadline:
+        if not language_mismatch(source,piece):
+            result.append(piece);continue
+        if unavailable or len(piece)>14000 or time.monotonic()>=deadline:
+            reasons=report.setdefault('unresolved',{})
+            reason='provider_unavailable' if unavailable else 'oversized_section' if len(piece)>14000 else 'budget_exhausted'
+            reasons[reason]=reasons.get(reason,0)+1
             result.append(piece);continue
         protected={};draft=piece
         for index,(left,right) in reversed(list(enumerate(_protected(piece)))):
