@@ -144,6 +144,8 @@ class ProcessingStatus(BaseModel):
     created_at: float = 0
     # Ordering survives checkpoints and does not depend on network arrival time.
     revision: int = 0
+    checkpoint_root: str = ""
+    force: bool = False
     source_url: str = ""
     transcribe_only: bool = False
     resummarize: bool = False

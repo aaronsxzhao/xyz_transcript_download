@@ -16,3 +16,12 @@ it('bounds bytes and invalidates only related content',()=>{
   expect(getCache('video_note_b')).toBeNull()
   expect(getCache('summary_a')).toBe('Podcast')
 })
+it('keeps saved settings during read-only provider probes and invalidates an actual save',()=>{
+  setCache('settings',{llm_model:'selected'})
+  for(const probe of ['models','model-options','test-llm','test-transcription']){
+    invalidateForMutation('/api/settings/'+probe)
+    expect(getCache('settings')).toEqual({llm_model:'selected'})
+  }
+  invalidateForMutation('/api/settings')
+  expect(getCache('settings')).toBeNull()
+})

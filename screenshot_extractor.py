@@ -303,6 +303,7 @@ def extract_screenshot(
     video_path: str,
     timestamp: float,
     task_id: str,
+    *, duration: Optional[float] = None,
 ) -> Optional[str]:
     """
     Extract a single screenshot from a video at a given timestamp.
@@ -324,7 +325,8 @@ def extract_screenshot(
         return filename
 
     try:
-        duration = get_video_duration(str(video_path))
+        if duration is None:
+            duration = get_video_duration(str(video_path))
         seek_ts = max(0.0, timestamp)
         if duration > 0:
             seek_ts = min(seek_ts, max(0.0, duration - 0.5))
@@ -375,12 +377,13 @@ def extract_screenshots_batch(
         List of (timestamp, filename_or_none) tuples.
     """
     results = []
+    duration = get_video_duration(video_path)
     seen = set()
     for ts in timestamps:
         if ts in seen:
             continue
         seen.add(ts)
-        filename = extract_screenshot(video_path, ts, task_id)
+        filename = extract_screenshot(video_path, ts, task_id, duration=duration)
         results.append((ts, filename))
     return results
 

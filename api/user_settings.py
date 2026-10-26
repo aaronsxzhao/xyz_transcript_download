@@ -8,7 +8,7 @@ from typing import Optional
 
 from config import DATABASE_PATH, USE_SUPABASE, WHISPER_MODE, WHISPER_LOCAL_MODEL, get_runtime_settings
 
-SETTING_KEYS = {"whisper_model", "llm_model", "llm_provider", "transcription_provider", "llm_base_url", "whisper_base_url"}
+SETTING_KEYS = {"llm_reasoning_effort", "llm_service_tier", "whisper_model", "llm_model", "llm_provider", "transcription_provider", "llm_base_url", "whisper_base_url"}
 SECRET_KEYS = {"llm_api_key", "whisper_api_key"}
 _settings_locks = WeakValueDictionary()
 _settings_locks_guard = threading.Lock()

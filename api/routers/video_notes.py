@@ -219,6 +219,9 @@ def _has_active_video_tasks(tasks: list[dict]) -> bool:
 
 
 def is_video_task_cancelled(task_id: str) -> bool:
+    from processing_execution import CURRENT
+    execution = CURRENT.get()
+    if execution and execution.cancelled: return True
     with _cancel_lock:
         return task_id in _cancelled_tasks or _attempt_superseded(task_id)
 
@@ -400,6 +403,8 @@ def process_video_note_sync(
     from video_task_db import get_video_task_db
     db = get_video_task_db()
     downloader = None
+    video_download_future = None
+    download_stop = threading.Event()
     try:
         from social_content import social_platform, resolve_social_content, SocialSourceError
         from content_sources import resolve_content, saved_web_media
@@ -541,9 +546,11 @@ def process_video_note_sync(
 
             metadata = None
             try:
-                with ThreadPoolExecutor(max_workers=1) as metadata_executor:
-                    metadata = metadata_executor.submit(downloader.get_metadata, url).result(timeout=45)
+                from resource_scheduler import NETWORK_EXECUTOR
+                metadata_future = NETWORK_EXECUTOR.submit(downloader.get_metadata, url)
+                metadata = metadata_future.result(timeout=45)
             except FutureTimeout:
+                metadata_future.cancel()
                 logger.warning(f"[{task_id}] Metadata fetch timed out for {url}; continuing without metadata")
             published_at = ""
             if metadata:
@@ -717,8 +724,10 @@ def process_video_note_sync(
 
             last_video_update = [0.0]
             def video_progress(pct: float, msg: str):
-                if is_video_task_cancelled(task_id):
+                if download_stop.is_set() or is_video_task_cancelled(task_id):
                     raise VideoCancelledException("Cancelled during video download")
+                if video_download_future is not None:
+                    return
                 # Accept either normalized 0..1 progress or legacy 0..100 values.
                 pct = pct / 100.0 if pct > 1 else pct
                 pct = max(0.0, min(pct, 1.0))
@@ -736,12 +745,15 @@ def process_video_note_sync(
                     cookies = cookie_mgr.get_cookie(platform)
                     downloader = get_downloader(platform, cookies)
                 if downloader:
-                    video_path = downloader.download_video(
-                        url,
-                        task_id,
-                        video_quality=video_quality,
-                        progress_callback=video_progress,
-                    )
+                    from processing_execution import CURRENT
+                    if CURRENT.get() is not None and not video_understanding:
+                        import contextvars
+                        from resource_scheduler import NETWORK_EXECUTOR
+                        context = contextvars.copy_context()
+                        video_download_future = NETWORK_EXECUTOR.submit(context.run,downloader.download_video,
+                            url,task_id,video_quality=video_quality,progress_callback=video_progress)
+                    else:
+                        video_path = downloader.download_video(url,task_id,video_quality=video_quality,progress_callback=video_progress)
             except (VideoDownloadError, SocialSourceError) as e:
                 logger.warning(f"Optional video download failed, continuing with transcript: {e}")
                 media_warning = 'Screenshots could not be downloaded. Check the original media link or platform connection and retry screenshots.'
@@ -756,27 +768,6 @@ def process_video_note_sync(
                     thumbnail = thumb_url
                     db.update_task(task_id, {"thumbnail": thumbnail})
                     logger.info(f"[{task_id}] Thumbnail fallback from local file succeeded")
-            # If still no thumbnail and we have a URL, try a quick video download just for thumbnail
-            if not thumbnail and url and not has_saved_transcript and not media_warning:
-                if not platform:
-                    platform = detect_platform(url)
-                if platform:
-                    logger.info(f"[{task_id}] Attempting lightweight video download for thumbnail...")
-                    try:
-                        cookies = cookie_mgr.get_cookie(platform)
-                        thumb_downloader = downloader if platform == 'web' and downloader is not None else get_downloader(platform, cookies)
-                        thumb_video = thumb_downloader.download_video(url, task_id, video_quality="360")
-                        if thumb_video:
-                            thumb_url = extract_first_frame_thumbnail(str(thumb_video), task_id)
-                            if thumb_url:
-                                thumbnail = thumb_url
-                                db.update_task(task_id, {"thumbnail": thumbnail})
-                                logger.info(f"[{task_id}] Thumbnail fallback from downloaded video succeeded")
-                    except VideoCancelledException:
-                        raise
-                    except Exception as e:
-                        logger.warning(f"[{task_id}] Thumbnail video download fallback failed: {e}")
-
         # Phase 3b: Video understanding (60-70%)
         visual_context = ""
         if video_understanding and video_path:
@@ -873,6 +864,17 @@ def process_video_note_sync(
                                 error="LLM failed")
             return
 
+        if video_download_future is not None:
+            _update_task_status(db, task_id, "saving", 94, "Notes generated — waiting for screenshot media...", user_id)
+            try:
+                video_path = video_download_future.result(timeout=300)
+                if video_path and not thumbnail:
+                    thumbnail = extract_first_frame_thumbnail(str(video_path),task_id)
+                    if thumbnail: db.update_task(task_id,{'thumbnail':thumbnail})
+            except (VideoDownloadError,SocialSourceError,FutureTimeout):
+                video_path = None
+                media_warning = 'Notes are ready. Screenshot media is unavailable; use Repair screenshots to retry it.'
+
         # Phase 5: Post-processing (94-100%)
         _update_task_status(db, task_id, "saving", 94, "Notes generated — adding links and screenshots...", user_id)
 
@@ -905,6 +907,8 @@ def process_video_note_sync(
 
         if _attempt_superseded(task_id) or is_video_task_cancelled(task_id):
             raise VideoCancelledException('Processing superseded or cancelled')
+        from processing_execution import assert_lease
+        assert_lease()
         try:
             db.complete_task(task_id, markdown, style, llm_model, user_id, media_warning)
         except Exception as save_error:
@@ -932,11 +936,19 @@ def process_video_note_sync(
         except Exception:
             logger.error(f"[Video {task_id}] Failed during error handling: {e}")
     finally:
+        download_stop.set()
+        if video_download_future is not None and not video_download_future.done():
+            video_download_future.cancel()
         if platform == 'web' and downloader is not None:
             cleanup = getattr(downloader, 'cleanup', None)
             if cleanup:
-                try: cleanup()
-                except OSError: logger.warning('Temporary public media cleanup will be retried later')
+                def clean_media(_=None):
+                    try: cleanup()
+                    except OSError: logger.warning('Temporary public media cleanup will be retried later')
+                if video_download_future is not None and not video_download_future.done():
+                    video_download_future.add_done_callback(clean_media)
+                else:
+                    clean_media()
 
 
 async def process_video_note_async(task_id: str, **kwargs):
@@ -961,6 +973,14 @@ async def enqueue_video_note(task_id: str, **kwargs):
     Keep strong references until completion. The existing bounded executor,
     per-task lock and attempt checks still control actual processing.
     """
+    from execution_store import enabled, get_store
+    if enabled():
+        store = get_store()
+        owner = kwargs.get('user_id')
+        previous = await asyncio.to_thread(store.latest, owner, 'video', task_id)
+        source = previous['source_id'] if previous and previous['state'] != 'completed' else 'video:' + task_id + ':' + str(uuid.uuid4())
+        await asyncio.to_thread(store.enqueue, owner, 'video', task_id, source, kwargs)
+        return
     worker = asyncio.create_task(process_video_note_async(task_id, **kwargs))
     _video_workers.add(worker)
     worker.add_done_callback(_video_workers.discard)
@@ -1355,6 +1375,8 @@ def delete_task(task_id: str, user: Optional[User] = Depends(get_current_user)):
     user_id = user.id if user else None
     if not db.get_task(task_id, user_id):
         raise HTTPException(status_code=404, detail="Task not found")
+    from execution_store import enabled, get_store
+    if enabled(): get_store().cancel(user_id, 'video', task_id, deleted=True)
     with _cancel_lock:
         _cancelled_tasks.add(task_id)
 
@@ -1378,6 +1400,9 @@ def delete_channel(channel_name: str, user: Optional[User] = Depends(get_current
         tasks = [task for task in db.list_tasks(user_id, limit=10000) if not task.get("channel")]
     else:
         tasks = [task for task in db.list_tasks(user_id, limit=10000) if task.get("channel") == channel_name]
+    from execution_store import enabled, get_store
+    if enabled():
+        for task in tasks: get_store().cancel(user_id,'video',task['id'],deleted=True)
     count = db.delete_channel(channel_name, user_id)
     if count == 0:
         raise HTTPException(status_code=404, detail="Channel not found or no tasks to delete")
@@ -1413,6 +1438,9 @@ async def retry_task(
     if task["status"] not in retryable:
         raise HTTPException(status_code=400, detail=f"Cannot retry task in '{task['status']}' status")
 
+    from execution_store import enabled
+    if enabled() and task['status'] in ('downloading','parsing','transcribing','summarizing','saving','pending','cancelling'):
+        raise HTTPException(status_code=409, detail='This task is still running or stopping. Wait for it to finish before retrying.')
     overrides: dict = {}
     try:
         body = await request.json()
@@ -1486,6 +1514,8 @@ def cancel_task(
     if task["status"] in terminal:
         return {"message": f"Task already {task['status']}", "status": task["status"]}
 
+    from execution_store import enabled, get_store
+    if enabled(): get_store().cancel(user_id, 'video', task_id)
     with _cancel_lock:
         _cancelled_tasks.add(task_id)
 

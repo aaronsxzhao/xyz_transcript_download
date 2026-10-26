@@ -87,7 +87,7 @@ MLX_MODEL_MAP = {
 def _detect_best_backend() -> str:
     """Detect the best backend for the current system."""
     import platform
-    
+
     # Check if on Apple Silicon
     if platform.system() == "Darwin" and platform.machine() == "arm64":
         try:
@@ -97,14 +97,14 @@ def _detect_best_backend() -> str:
         except ImportError:
             logger.info("Apple Silicon detected but mlx not installed - using faster-whisper")
             return "faster-whisper"
-    
+
     return "faster-whisper"
 
 
 class FastLocalTranscriber:
     """
     Fast transcription using faster-whisper with CTranslate2.
-    
+
     Features:
     - Up to 4x faster than openai-whisper
     - Batched inference for even faster processing
@@ -216,7 +216,7 @@ class FastLocalTranscriber:
             # Collect segments with progress tracking
             segments = []
             full_text_parts = []
-            
+
             for segment in segments_generator:
                 segments.append(TranscriptSegment(
                     start=segment.start,
@@ -224,7 +224,7 @@ class FastLocalTranscriber:
                     text=segment.text.strip(),
                 ))
                 full_text_parts.append(segment.text.strip())
-                
+
                 # Update progress based on segment end time
                 if progress_callback and info.duration > 0:
                     progress = min(segment.end / info.duration, 1.0)
@@ -262,25 +262,25 @@ def _mlx_transcribe_process(audio_path_str: str, model_id: str, language: str, r
     """
     import sys
     import re
-    
+
     try:
         import mlx_whisper
     except ImportError:
         result_dict["error"] = "mlx-whisper not installed"
         result_dict["done"] = True
         return
-    
+
     # Capture tqdm progress from stderr/stdout
     class ProgressCapture:
         def __init__(self, original):
             self.original = original
             self.progress_pattern = re.compile(r'\s*(\d+)%\|')
-        
+
         def write(self, text):
             if self.original:
                 self.original.write(text)
                 self.original.flush()
-            
+
             match = self.progress_pattern.search(text)
             if match:
                 try:
@@ -289,19 +289,19 @@ def _mlx_transcribe_process(audio_path_str: str, model_id: str, language: str, r
                         result_dict["progress"] = pct / 100.0
                 except ValueError:
                     pass
-        
+
         def flush(self):
             if self.original:
                 self.original.flush()
-        
+
         def isatty(self):
             return self.original.isatty() if self.original else False
-    
+
     original_stderr = sys.stderr
     original_stdout = sys.stdout
     sys.stderr = ProgressCapture(original_stderr)
     sys.stdout = ProgressCapture(original_stdout)
-    
+
     try:
         result = mlx_whisper.transcribe(
             audio_path_str,
@@ -324,7 +324,7 @@ def _mlx_transcribe_process(audio_path_str: str, model_id: str, language: str, r
 class MLXTranscriber:
     """
     Fast transcription using mlx-whisper on Apple Silicon.
-    
+
     Features:
     - Uses Apple Silicon GPU via MLX framework
     - Significantly faster than CPU on M1/M2/M3
@@ -371,7 +371,7 @@ class MLXTranscriber:
         """
         import threading
         import time
-        
+
         if not audio_path.exists():
             logger.error(f"Audio file not found: {audio_path}")
             return None
@@ -380,9 +380,9 @@ class MLXTranscriber:
             self._setup()
 
             logger.info(f"Transcribing with MLX-Whisper ({self.model_id})...")
-            
+
             import multiprocessing
-            
+
             # Use multiprocessing for killable transcription
             # Shared state via Manager for cross-process communication
             manager_mp = multiprocessing.Manager()
@@ -391,7 +391,7 @@ class MLXTranscriber:
             result_dict["error"] = None
             result_dict["done"] = False
             result_dict["progress"] = 0.0
-            
+
             # Start transcription in subprocess (can be killed!)
             # Uses module-level function for pickling compatibility
             process = multiprocessing.Process(
@@ -400,18 +400,18 @@ class MLXTranscriber:
                 daemon=True
             )
             process.start()
-            
+
             # Report progress
             audio_duration = self._get_audio_duration(audio_path)
             estimated_seconds = audio_duration * 2 if audio_duration > 0 else 600
-            
+
             start_time = time.time()
             last_progress = 0
             last_reported = 0
-            
+
             while process.is_alive() and not result_dict["done"]:
                 captured_progress = result_dict["progress"]
-                
+
                 if captured_progress > last_progress:
                     progress = captured_progress
                     last_progress = captured_progress
@@ -422,7 +422,7 @@ class MLXTranscriber:
                         progress = 0.95 * (1 - 1 / (1 + ratio * 1.2))
                     else:
                         progress = min(elapsed / 600, 0.90)
-                
+
                 # ALWAYS call progress_callback on every iteration
                 # This ensures cancellation is checked even if progress isn't advancing
                 # The callback itself handles rate-limiting status updates
@@ -430,20 +430,20 @@ class MLXTranscriber:
                     progress_callback(progress)
                     if progress >= last_reported + 0.02:
                         last_reported = progress
-                
+
                 time.sleep(0.5)
-            
+
             # Wait for process to finish
             process.join(timeout=5)
-            
+
             # If process still running (shouldn't happen normally), terminate it
             if process.is_alive():
                 process.terminate()
                 process.join(timeout=2)
-            
+
             if result_dict["error"]:
                 raise RuntimeError(result_dict["error"])
-            
+
             result = result_dict["result"]
             if not result:
                 raise ValueError("No result from MLX-Whisper")
@@ -483,7 +483,7 @@ class MLXTranscriber:
                 process.join(timeout=2)
                 if process.is_alive():
                     process.kill()  # Force kill if terminate didn't work
-            
+
             # Re-raise cancellation exceptions so they propagate to caller
             if "cancel" in str(e).lower() or "Cancel" in type(e).__name__:
                 raise
@@ -491,7 +491,7 @@ class MLXTranscriber:
             import traceback
             logger.debug(traceback.format_exc())
             return None
-    
+
     def _get_audio_duration(self, audio_path: Path) -> float:
         """Get audio duration using ffprobe."""
         try:
@@ -512,10 +512,10 @@ class MLXTranscriber:
 
 class APITranscriber:
     """Handles audio transcription using Whisper API (OpenAI or Groq)."""
-    
+
     # Rate limiting for free tier (Groq: ~20 requests/min)
     _last_api_call: float = 0
-    _min_interval: float = 3.0  # Minimum 3 seconds between API calls for safety
+    _min_interval: float = 0.0  # Paid endpoints use their actual 429 limits, not a free-tier delay
 
     def __init__(self, api_key: Optional[str] = None, base_url: Optional[str] = None, model: Optional[str] = None, custom_endpoint: bool = False):
         from openai import OpenAI
@@ -530,9 +530,9 @@ class APITranscriber:
 
         self.custom_endpoint = custom_endpoint
         from api.custom_models import custom_http_client
-        self.client = OpenAI(api_key=self.api_key, base_url=self.base_url, **({"http_client": custom_http_client()} if custom_endpoint else {}))
+        self.client = OpenAI(api_key=self.api_key, base_url=self.base_url, timeout=120, max_retries=0, **({"http_client": custom_http_client()} if custom_endpoint else {}))
         self.max_size = MAX_AUDIO_SIZE_MB * 1024 * 1024
-        
+
         logger.info(f"Using Whisper API: {self.base_url}, model: {self.model}")
 
     def _format_api_error(self, error: Exception) -> str:
@@ -552,7 +552,7 @@ class APITranscriber:
         if "401" in lower or "unauthorized" in lower:
             return "Whisper API authentication failed. Check your API key."
         return f"Transcription failed: {raw}"
-    
+
     def _wait_for_rate_limit(self):
         """Wait if needed to respect rate limits."""
         import time
@@ -586,7 +586,20 @@ class APITranscriber:
 
         return self._transcribe_large_file(audio_path, episode_id, language, progress_callback)
 
-    def _transcribe_file(
+    def _transcribe_file(self, audio_path, episode_id, language, progress_callback=None):
+        from processing_execution import CURRENT, checkpoint_call, file_fingerprint
+        from dataclasses import asdict
+        if CURRENT.get() is None:
+            return self._transcribe_file_uncached(audio_path, episode_id, language, progress_callback)
+        def decode(value):
+            return Transcript(episode_id, value['language'], value['duration'], value['text'],
+                [TranscriptSegment(**segment) for segment in value['segments']])
+        return checkpoint_call('transcription.segment', {'audio':file_fingerprint(audio_path),
+            'model':self.model,'endpoint':self.base_url,'language':language},
+            lambda:self._transcribe_file_uncached(audio_path,episode_id,language,progress_callback),
+            asdict, decode)
+
+    def _transcribe_file_uncached(
         self,
         audio_path: Path,
         episode_id: str,
@@ -596,31 +609,34 @@ class APITranscriber:
         """Transcribe a single audio file with simulated progress updates."""
         import threading
         import time
-        
+
         try:
             self.last_error = ""
             file_size_mb = audio_path.stat().st_size / 1024 / 1024
-            
+
             # Estimate processing time: Groq processes ~1 min audio in 2-5 sec
             # Assume ~10 sec per 25MB file as baseline, with minimum 5 sec
             estimated_seconds = max(5, file_size_mb * 0.4)
-            
+
             logger.info(f"Sending audio to Whisper API ({file_size_mb:.1f} MB, est. {estimated_seconds:.0f}s)...")
-            
+
             # Shared state for thread communication
             result_holder = {"response": None, "error": None, "done": False}
-            
+
             def api_call():
                 """Run API call in background thread with retry for rate limits."""
                 import time
                 import re
                 max_retries = 5
-                
+
                 for attempt in range(max_retries):
                     try:
+                        from processing_execution import CURRENT
+                        execution = CURRENT.get()
+                        if execution: execution.check()
                         # Rate limit before API call
                         self._wait_for_rate_limit()
-                        
+
                         with open(audio_path, "rb") as audio_file:
                             result_holder["response"] = self.client.audio.transcriptions.create(
                                 model=self.model,
@@ -636,7 +652,7 @@ class APITranscriber:
                         if "rate" in error_str or "limit" in error_str or "429" in error_str or "too many" in error_str:
                             # Try to extract retry-after from error message or use default backoff
                             wait_time = 10  # Default
-                            
+
                             # Look for retry-after value in error
                             retry_match = re.search(r'retry.?after[:\s]+(\d+)', error_str)
                             if retry_match:
@@ -644,28 +660,39 @@ class APITranscriber:
                             else:
                                 # Exponential backoff: 10s, 20s, 40s, 60s, 60s
                                 wait_time = min(60, 10 * (2 ** attempt))
-                            
+
                             logger.warning(f"Rate limited (429), waiting {wait_time}s before retry {attempt + 1}/{max_retries}")
-                            time.sleep(wait_time)
+                            for _ in range(max(1, int(wait_time))):
+                                if execution: execution.check()
+                                time.sleep(1)
                             continue
                         result_holder["error"] = e
                         break
                 else:
                     result_holder["error"] = Exception("Rate limit exceeded after retries")
                 result_holder["done"] = True
-            
+
             # Start API call in background
-            api_thread = threading.Thread(target=api_call, daemon=True)
+            import contextvars
+            request_context = contextvars.copy_context()
+            def run_request():
+                try:
+                    request_context.run(api_call)
+                except BaseException as error:
+                    result_holder['error'] = error
+                finally:
+                    result_holder['done'] = True
+            api_thread = threading.Thread(target=run_request, daemon=True)
             api_thread.start()
-            
+
             # Simulate smooth progress while waiting for API
             # Progress goes from 0% to 85% during estimated time
             start_time = time.time()
             last_progress = 0
-            
+
             while not result_holder["done"]:
                 elapsed = time.time() - start_time
-                
+
                 # Calculate progress: asymptotic curve that approaches 85%
                 # This ensures we never "complete" before the API returns
                 if estimated_seconds > 0:
@@ -675,26 +702,26 @@ class APITranscriber:
                     progress = 0.85 * (1 - 1 / (1 + ratio * 1.5))
                 else:
                     progress = 0.5
-                
+
                 # ALWAYS call progress_callback on every iteration for cancellation check
                 if progress_callback:
                     progress_callback(progress)
                     if progress >= last_progress + 0.005:  # Update every 0.5%
                         last_progress = progress
-                
+
                 time.sleep(0.3)  # Check more frequently (300ms)
-            
+
             # Wait for thread to finish
             api_thread.join(timeout=1)
-            
+
             # Check for errors
             if result_holder["error"]:
                 raise result_holder["error"]
-            
+
             response = result_holder["response"]
             if not response:
                 raise ValueError("No response from API")
-            
+
             # API call complete - jump to 90%
             if progress_callback:
                 progress_callback(0.90)
@@ -728,7 +755,7 @@ class APITranscriber:
             # Done
             if progress_callback:
                 progress_callback(1.0)
-            
+
             elapsed_total = time.time() - start_time
             logger.info(f"API transcription complete: {len(segments)} segments in {elapsed_total:.1f}s")
 
@@ -767,7 +794,7 @@ class APITranscriber:
 
         num_chunks = max(1, math.ceil(file_size / self.max_size), math.ceil(duration / 600))
         chunk_duration = duration / num_chunks
-        
+
         logger.info(f"Large file ({file_size / 1024 / 1024:.1f} MB) - splitting into {num_chunks} chunks")
 
         all_segments = []
@@ -783,25 +810,40 @@ class APITranscriber:
                 return True
             if progress_callback:
                 try:
-                    progress_callback(0)  # Dummy call to trigger cancellation check
+                    from processing_execution import CURRENT
+                    execution = CURRENT.get()
+                    if execution: execution.check()
+                    with progress_lock:
+                        progress_callback(sum(progresses)/num_chunks)
                 except Exception as e:
                     if "cancel" in str(e).lower() or "Cancel" in type(e).__name__:
                         cancelled[0] = True
                         return True
             return False
-        
+
         with tempfile.TemporaryDirectory() as temp_dir:
             # Use same extension as input for stream copy compatibility
             input_ext = audio_path.suffix.lower() or ".mp3"
-            
-            for i in range(num_chunks):
+
+            import threading
+            from processing_execution import CURRENT, parallel_map
+            progress_lock = threading.RLock()
+            progresses = [0.0] * num_chunks
+            def report(index, value):
+                if progress_callback:
+                    with progress_lock:
+                        progresses[index] = max(progresses[index],value)
+                        progress_callback(min(sum(progresses) / num_chunks,0.95))
+            def one_chunk(i):
+                import copy
+                worker = copy.copy(self)
+                worker.last_error = ""
                 start_time = i * chunk_duration
                 chunk_path = Path(temp_dir) / f"chunk_{i}{input_ext}"
-                
+
                 # Update progress and CHECK CANCELLATION before extraction
                 if progress_callback:
-                    chunk_base = i / num_chunks
-                    progress_callback(chunk_base + 0.02 / num_chunks)
+                    report(i,0.02)
 
                 # Retry chunk extraction up to 3 times
                 chunk_extracted = False
@@ -809,24 +851,24 @@ class APITranscriber:
                     # Check cancellation before each extraction attempt
                     if check_cancelled():
                         logger.info("Transcription cancelled during chunk extraction")
-                        return None
-                    
-                    if self._extract_chunk(audio_path, chunk_path, start_time, chunk_duration, cancel_check=check_cancelled):
+                        return None, worker.last_error
+
+                    if worker._extract_chunk(audio_path, chunk_path, start_time, chunk_duration, cancel_check=check_cancelled):
                         chunk_extracted = True
                         break
-                    
+
                     # Check if we were cancelled vs extraction failed
                     if check_cancelled():
                         logger.info("Transcription cancelled during chunk extraction")
-                        return None
-                        
+                        return None, worker.last_error
+
                     logger.warning(f"Chunk {i+1} extraction attempt {attempt+1} failed, retrying...")
                     import time
                     time.sleep(1)  # Wait before retry
-                
+
                 if not chunk_extracted:
                     logger.error(f"Failed to extract chunk {i+1}/{num_chunks} after 3 attempts - aborting transcription")
-                    return None  # Fail the whole transcription instead of skipping chunks
+                    return None, worker.last_error  # Fail the whole transcription instead of skipping chunks
 
                 # Find the actual chunk file (might be .mp3 if fallback was used)
                 actual_chunk_path = chunk_path
@@ -835,30 +877,35 @@ class APITranscriber:
                     if mp3_path.exists():
                         actual_chunk_path = mp3_path
 
-                extracted_duration = self._get_audio_duration(actual_chunk_path)
+                extracted_duration = worker._get_audio_duration(actual_chunk_path)
                 if extracted_duration < chunk_duration * .85:
-                    self.last_error = 'Audio chunk extraction was incomplete. Please retry transcription.'
-                    return None
+                    worker.last_error = 'Audio chunk extraction was incomplete. Please retry transcription.'
+                    return None, worker.last_error
 
                 # Create a sub-callback for this chunk's transcription
                 def chunk_progress(p: float, chunk_idx=i):
                     if progress_callback:
                         # Map chunk progress to overall progress
                         # Each chunk gets equal share: [chunk_idx/num_chunks, (chunk_idx+1)/num_chunks]
-                        chunk_start = chunk_idx / num_chunks
-                        chunk_range = 1.0 / num_chunks
-                        overall = chunk_start + (p * chunk_range * 0.9)  # Leave 10% for final processing
-                        progress_callback(min(overall, 0.95))
+                        report(chunk_idx, min(p * 0.9, 0.95))
 
-                chunk_transcript = self._transcribe_file(
+                chunk_transcript = worker._transcribe_file(
                     actual_chunk_path, f"{episode_id}_chunk_{i}", language, chunk_progress
                 )
 
                 if not chunk_transcript:
                     # Preserve the actionable error from the individual request.
                     logger.error(f"Failed to transcribe chunk {i+1}/{num_chunks} - aborting transcription")
-                    return None  # Fail the whole transcription instead of skipping chunks
+                    return None, worker.last_error  # Fail the whole transcription instead of skipping chunks
 
+                report(i,1.0)
+                return chunk_transcript, worker.last_error
+            results = parallel_map(one_chunk,list(range(num_chunks)),workers=2) if CURRENT.get() is not None else [one_chunk(i) for i in range(num_chunks)]
+            for i, (chunk_transcript, error) in enumerate(results):
+                if not chunk_transcript:
+                    self.last_error = error
+                    return None
+                time_offset = i * chunk_duration
                 for seg in chunk_transcript.segments:
                     adjusted_seg = TranscriptSegment(
                         start=seg.start + time_offset,
@@ -870,17 +917,17 @@ class APITranscriber:
                 all_text.append(chunk_transcript.text)
                 if chunk_transcript.language:
                     detected_languages[chunk_transcript.language] = detected_languages.get(chunk_transcript.language, 0) + len(chunk_transcript.text)
-                
+
                 logger.info(f"Chunk {i+1}/{num_chunks} complete")
 
                 time_offset += chunk_duration
 
         if not all_text:
             return None
-        
+
         if progress_callback:
             progress_callback(1.0)
-        
+
         logger.info(f"Large file transcription complete: {len(all_segments)} total segments")
 
         return Transcript(
@@ -917,15 +964,15 @@ class APITranscriber:
         cancel_check: Optional[Callable[[], bool]] = None,
     ) -> bool:
         """Extract a chunk from audio file using ffmpeg.
-        
+
         Tries stream copy first (fast), falls back to re-encoding if codec/container mismatch.
-        
+
         Args:
             cancel_check: Optional function that returns True if cancelled.
                           Called periodically during extraction.
         """
         import time
-        
+
         def run_extraction(args: list, method_name: str) -> bool:
             """Run ffmpeg with given args, return True on success."""
             cmd = [
@@ -934,20 +981,20 @@ class APITranscriber:
                 "-i", str(input_path),
                 "-t", str(duration),
             ] + args + [str(output_path)]
-            
+
             process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-            
+
             max_wait = 600
             elapsed = 0
             poll_interval = 0.5
-            
+
             while elapsed < max_wait:
                 if cancel_check and cancel_check():
                     logger.info("Chunk extraction cancelled by user")
                     process.kill()
                     process.wait()
                     return False
-                
+
                 ret = process.poll()
                 if ret is not None:
                     if ret == 0 and output_path.exists() and output_path.stat().st_size > 0:
@@ -958,54 +1005,54 @@ class APITranscriber:
                         err_msg = stderr.decode()[:200] if stderr else "no error output"
                         logger.debug(f"{method_name} failed with code {ret}: {err_msg}")
                         return False
-                
+
                 time.sleep(poll_interval)
                 elapsed += poll_interval
                 if elapsed > 1:
                     poll_interval = 2
-            
+
             logger.warning(f"Extraction timed out after 600s")
             process.kill()
             process.wait()
             return False
-        
+
         # Method 1: Stream copy (25-35x faster, but requires codec/container match)
         logger.info(f"✓ Extracting chunk at {start_time:.0f}s ({duration:.0f}s duration)...")
         if run_extraction(["-c:a", "copy"], "stream copy"):
             return True
-        
+
         # Method 2: Fast MP3 re-encode (works with any input format)
         # Delete failed output first
         if output_path.exists():
             output_path.unlink()
-        
+
         # Change extension to .mp3 for re-encoding
         mp3_output = output_path.with_suffix(".mp3")
         output_path = mp3_output  # Update for this attempt
-        
+
         logger.info(f"  Falling back to re-encode...")
         cmd_args = ["-ar", "16000", "-ac", "1", "-c:a", "libmp3lame", "-q:a", "5"]
-        
+
         cmd = [
             FFMPEG_PATH, "-y", "-v", "error",
             "-ss", str(start_time),
             "-i", str(input_path),
             "-t", str(duration),
         ] + cmd_args + [str(mp3_output)]
-        
+
         process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        
+
         max_wait = 600
         elapsed = 0
         poll_interval = 2
-        
+
         while elapsed < max_wait:
             if cancel_check and cancel_check():
                 logger.info("Chunk extraction cancelled by user")
                 process.kill()
                 process.wait()
                 return False
-            
+
             ret = process.poll()
             if ret is not None:
                 if ret == 0 and mp3_output.exists() and mp3_output.stat().st_size > 0:
@@ -1015,10 +1062,10 @@ class APITranscriber:
                     err_msg = stderr.decode()[:300] if stderr else "no error output"
                     logger.warning(f"Re-encode failed with code {ret}: {err_msg}")
                     return False
-            
+
             time.sleep(poll_interval)
             elapsed += poll_interval
-        
+
         logger.warning(f"Extraction timed out after 600s")
         process.kill()
         process.wait()
@@ -1122,11 +1169,11 @@ _transcriber: Optional[Transcriber] = None
 def get_transcriber(model: Optional[str] = None, *, preferences: Optional[dict] = None) -> Transcriber:
     """
     Get or create a Transcriber instance.
-    
+
     Args:
         model: Optional model name for API mode. If provided, creates a new instance
                with this model. If None, uses/creates the global instance.
-    
+
     Returns:
         Transcriber instance
     """
@@ -1134,11 +1181,11 @@ def get_transcriber(model: Optional[str] = None, *, preferences: Optional[dict] 
     if preferences and preferences.get("transcription_provider") == "custom":
         from api.custom_models import resolve_custom
         return Transcriber(**resolve_custom(preferences, "transcription"))
-    
+
     # If a specific model is requested, create a new instance
     if model is not None:
         return Transcriber(model=model)
-    
+
     # Otherwise use the global instance
     if _transcriber is None:
         _transcriber = Transcriber()

@@ -544,6 +544,9 @@ class _SupabaseVideoTaskDB:
     def get_task(self, task_id: str, user_id: str = None, include_transcript: bool = True) -> Optional[dict]:
         if not user_id:
             return None
+        from execution_store import role
+        if role() == 'api':
+            return self._sb.get_video_task(task_id,user_id,include_transcript=include_transcript)
         with self._lock:
             cached = dict(self._cache.get(task_id) or {})
         if cached.get("user_id") == user_id:
@@ -600,6 +603,8 @@ class _SupabaseVideoTaskDB:
         limit: int,
         predicate=None,
     ) -> List[dict]:
+        from execution_store import role
+        if role() == 'api': return server_tasks[:limit]
         with self._lock:
             cached_tasks = [
                 self._cached_to_dict({key: value for key, value in task.items() if key not in {"markdown", "transcript", "transcript_json", "versions", "extras"}})
@@ -887,7 +892,16 @@ class VideoTaskDB:
         backend = self._backend
         if isinstance(backend, _SupabaseVideoTaskDB):
             backend.flush_task(task_id, strict=True)
-            response = backend._sb.client.rpc('complete_user_video_note', {
+            from processing_execution import CURRENT
+            execution = CURRENT.get()
+            extra = {}
+            operation = 'complete_user_video_note'
+            if execution and execution.queue_id:
+                execution.check()
+                operation = 'complete_leased_video_note'
+                extra = {'p_work':execution.queue_id,'p_worker':execution.lease_owner}
+            response = backend._sb.client.rpc(operation, {
+                **extra,
                 'p_user_id': user_id, 'p_task_id': task_id, 'p_version_id': version_id,
                 'p_content': content, 'p_style': style, 'p_model': model, 'p_warning': warning,
             }).execute()

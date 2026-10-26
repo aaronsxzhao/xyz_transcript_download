@@ -71,6 +71,11 @@ def public_model_error(error: Exception, kind: str) -> str:
         return "The provider requires payment. Check the account balance and billing."
     if status == 429:
         return "Provider rate limit or quota reached. Check usage and balance, or wait before retrying."
+    body = getattr(error, 'body', None)
+    detail = body.get('error', body) if isinstance(body, dict) else {}
+    param = detail.get('param') if isinstance(detail, dict) else None
+    if status in (400,422) and param in ('reasoning_effort','service_tier'):
+        return f"The provider rejected {param}. Choose Provider default or a value documented for this model, then test again."
     if status in (400, 404, 405, 422):
         return f"The endpoint or model does not support the required {kind} API. Check the API root and model ID."
     if isinstance(status, int) and 300 <= status < 400:
@@ -109,7 +114,7 @@ def _probe_provider(preferences: dict, kind: str, *, models_only=False) -> dict:
             return {"models": ids, "message": "Model listing does not prove audio/JSON capability. Test the selected model before processing."}
         if kind == "summary":
             import json
-            response = client.chat.completions.create(model=config["model"], messages=[{"role": "user", "content": 'Reply with JSON: {"ok":true}'}], response_format={"type": "json_object"}, temperature=0)
+            response = client.chat.completions.create(model=config["model"], messages=[{"role": "user", "content": 'Reply with JSON: {"ok":true}'}], response_format={"type": "json_object"}, max_completion_tokens=2048, **__import__("model_execution").request_options(preferences, config["base_url"], config["model"]))
             try:
                 parsed = json.loads(response.choices[0].message.content or "")
             except (ValueError, IndexError, AttributeError):
@@ -125,4 +130,7 @@ def _probe_provider(preferences: dict, kind: str, *, models_only=False) -> dict:
             response = client.audio.transcriptions.create(model=config["model"], file=("connection-test.wav", audio.getvalue(), "audio/wav"), response_format="verbose_json", timestamp_granularities=["segment"])
             if not hasattr(response, "text"):
                 raise ModelConfigurationError("Transcription endpoint did not return text. This must be an audio transcription model.")
-        return {"model": config["model"], "message": "Connection verified. Save Settings to apply it to new tasks."}
+        message = "Connection verified. Save Settings to apply it to new tasks."
+        if kind == 'summary' and (preferences.get('llm_reasoning_effort') or preferences.get('llm_service_tier')):
+            message += " Selected parameters were accepted by the endpoint; gateways may not confirm whether they were applied."
+        return {"model": config["model"], "message": message}

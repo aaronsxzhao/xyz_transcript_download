@@ -11,6 +11,7 @@ on:
       - 'requirements.txt'
       - 'requirements-cloud.txt'
       - 'scripts/verify_deployment.py'
+      - 'scripts/drain_processing.py'
       - 'package.json'
       - 'package-lock.json'
       - '.github/workflows/deploy-oracle.yml'
@@ -47,7 +48,7 @@ jobs:
               const {data: jobs} = await github.rest.actions.listJobsForWorkflowRun({owner, repo, run_id: run.id});
               const steps = jobs.jobs.flatMap(job => job.steps || []);
               const releaseStarted = steps.some(step =>
-                ['Restart Container Instance', 'Verify health', 'Restore preserved image if release verification fails'].includes(step.name)
+                ['Save processing boundaries before restart', 'Restart Container Instance', 'Verify health', 'Restore preserved image if release verification fails'].includes(step.name)
                 && ['in_progress', 'completed'].includes(step.status));
               const building = steps.some(step => step.name === 'Build and push ARM image' && step.status === 'in_progress');
               if (!building || releaseStarted) continue;

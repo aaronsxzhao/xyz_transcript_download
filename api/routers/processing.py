@@ -70,7 +70,7 @@ def _load_jobs_from_file():
                 for job_id, job in jobs.items():
                     if not USE_SUPABASE and job.user_id is None:
                         job.user_id = "local"
-                    if job.status in ("pending", "fetching", "downloading", "transcribing", "summarizing", "cancelling"):
+                    if not __import__("execution_store").enabled() and job.status in ("pending", "fetching", "downloading", "transcribing", "summarizing", "cancelling"):
                         job.status = "failed"
                         job.advance_revision()
                         job.message = "Interrupted by server restart"
@@ -106,6 +106,13 @@ async def _persist_new_job(job):
     from api.job_persistence import save_job
     try:
         await asyncio.to_thread(save_job, job)
+        from execution_store import enabled, get_store
+        if enabled() and job.source_url:
+            from api.worker import podcast_payload
+            payload = podcast_payload(job)
+            payload['episode_url'] = payload.pop('source_url')
+            await asyncio.to_thread(get_store().enqueue,job.user_id,'podcast',job.job_id,
+                'podcast:'+(job.checkpoint_root or job.job_id),payload)
     except Exception:
         with _jobs_lock:
             job.status = 'failed'
@@ -164,6 +171,9 @@ def get_main_loop() -> Optional[asyncio.AbstractEventLoop]:
 
 def is_job_cancelled(job_id: str) -> bool:
     """Check if a job has been cancelled."""
+    from processing_execution import CURRENT
+    current = CURRENT.get()
+    if current and current.cancelled: return True
     with _jobs_lock:
         return job_id in cancelled_jobs
 
@@ -414,6 +424,8 @@ def _background_refinement(audio_path, episode, fast_summary, db_interface, tran
             text=accurate_transcript.text,
             segments=[{"start": s.start, "end": s.end, "text": s.text} for s in accurate_transcript.segments],
         )
+        from processing_execution import assert_lease
+        assert_lease()
         if not db_interface.save_transcript(transcript_data):
             raise RuntimeError("Could not save the generated transcript")
         
@@ -430,6 +442,8 @@ def _background_refinement(audio_path, episode, fast_summary, db_interface, tran
             takeaways=final_summary.takeaways,
             key_points=[{"topic": kp.topic, "summary": kp.summary, "original_quote": kp.original_quote, "timestamp": kp.timestamp} for kp in final_summary.key_points],
         )
+        from processing_execution import assert_lease
+        assert_lease()
         if not db_interface.save_summary(summary_data):
             raise RuntimeError("Could not save the generated summary")
         
@@ -826,6 +840,8 @@ def process_episode_sync(job_id: str, episode_url: str, transcribe_only: bool = 
                     takeaways=summary.takeaways,
                     key_points=[{"topic": kp.topic, "summary": kp.summary, "original_quote": kp.original_quote, "timestamp": kp.timestamp} for kp in summary.key_points],
                 )
+                from processing_execution import assert_lease
+                assert_lease()
                 if not db_interface.save_summary(summary_data):
                     raise RuntimeError("Could not save the generated summary")
                 update_job_status(job_id, "completed", 100, "Processing complete!")
@@ -894,6 +910,8 @@ def process_episode_sync(job_id: str, episode_url: str, transcribe_only: bool = 
             duration=transcript.duration, text=transcript.text,
             segments=[{"start": s.start, "end": s.end, "text": s.text} for s in transcript.segments],
         )
+        from processing_execution import assert_lease
+        assert_lease()
         if not db_interface.save_transcript(transcript_data):
             raise RuntimeError("Could not save the generated transcript")
         logger.info(f"Transcript saved for {episode.eid} ({len(transcript.segments)} segments)")
@@ -982,6 +1000,8 @@ def process_episode_sync(job_id: str, episode_url: str, transcribe_only: bool = 
             takeaways=summary.takeaways,
             key_points=[{"topic": kp.topic, "summary": kp.summary, "original_quote": kp.original_quote, "timestamp": kp.timestamp} for kp in summary.key_points],
         )
+        from processing_execution import assert_lease
+        assert_lease()
         if not db_interface.save_summary(summary_data):
             raise RuntimeError("Could not save the generated summary")
         
@@ -1029,6 +1049,14 @@ async def process_episode_async(job_id: str, episode_url: str, transcribe_only: 
     Uses PROCESSING_EXECUTOR with limited workers to prevent resource exhaustion.
     When all workers are busy, jobs queue automatically and wait for a slot.
     """
+    from execution_store import enabled, get_store
+    if enabled():
+        job = jobs[job_id]
+        source = 'podcast:' + (job.checkpoint_root or job_id)
+        payload = dict(episode_url=episode_url, transcribe_only=transcribe_only, force=force,
+            user_id=user_id, whisper_model=whisper_model, llm_model=llm_model, resummarize=resummarize)
+        await asyncio.to_thread(get_store().enqueue,user_id,'podcast',job_id,source,payload)
+        return
     loop = asyncio.get_event_loop()
     
     try:
@@ -1094,6 +1122,7 @@ async def process_episode(
                 progress=0,
                 message="Starting...",
                 source_url=data.episode_url,
+                force=data.force,
                 transcribe_only=data.transcribe_only,
                 whisper_model=data.whisper_model,
                 llm_model=data.llm_model,
@@ -1138,10 +1167,26 @@ async def process_episode(
         ) from e
 
 
+def _refresh_worker_jobs(user_id, job_id=None):
+    from execution_store import enabled, role
+    if not (USE_SUPABASE and enabled() and role() == 'api' and user_id): return
+    from api.job_persistence import client
+    query=client().table('processing_jobs').select('payload').eq('user_id',user_id)
+    query=query.eq('id',job_id) if job_id else query.order('updated_at',desc=True).limit(500)
+    rows=query.execute().data or []
+    with _jobs_lock:
+        for row in rows:
+            job=ProcessingStatus(**row['payload'])
+            if job.user_id==user_id: jobs[job.job_id]=job
+        if job_id and not rows: jobs.pop(job_id,None)
+        _jobs_cache.pop(user_id,None)
+
+
 @router.get("/jobs")
 def list_jobs(user: Optional[User] = Depends(get_current_user)):
     """List processing jobs for the current user (cached to reduce lock contention from polling)."""
     user_id = user.id if user else None
+    _refresh_worker_jobs(user_id)
     now = time.time()
     
     # Use user-specific cache key
@@ -1175,6 +1220,7 @@ def list_jobs(user: Optional[User] = Depends(get_current_user)):
 def get_job(job_id: str, user: Optional[User] = Depends(get_current_user)):
     """Get job status (only if user owns the job)."""
     user_id = user.id if user else None
+    _refresh_worker_jobs(user_id,job_id)
     with _jobs_lock:
         if job_id not in jobs:
             raise HTTPException(status_code=404, detail="Job not found")
@@ -1189,6 +1235,7 @@ def get_job(job_id: str, user: Optional[User] = Depends(get_current_user)):
 def delete_job(job_id: str, user: Optional[User] = Depends(get_current_user)):
     """Delete a job from history (only if user owns the job)."""
     user_id = user.id if user else None
+    _refresh_worker_jobs(user_id,job_id)
     with _jobs_lock:
         if job_id not in jobs:
             raise HTTPException(status_code=404, detail="Job not found")
@@ -1215,6 +1262,7 @@ def delete_job(job_id: str, user: Optional[User] = Depends(get_current_user)):
 async def cancel_job(job_id: str, user: Optional[User] = Depends(get_current_user)):
     """Cancel a processing job (only if user owns the job)."""
     user_id = user.id if user else None
+    _refresh_worker_jobs(user_id,job_id)
     with _jobs_lock:
         if job_id not in jobs:
             raise HTTPException(status_code=404, detail="Job not found")
@@ -1245,6 +1293,8 @@ async def cancel_job(job_id: str, user: Optional[User] = Depends(get_current_use
         if next_status == "cancelled": cancel_msg = "Cancelled while queued"
         job_progress = job.progress
     
+    from execution_store import enabled, get_store
+    if enabled(): await asyncio.to_thread(get_store().cancel,user_id,'podcast',job_id)
     # Update status (outside lock since it acquires its own lock)
     await asyncio.to_thread(update_job_status, job_id, next_status, job_progress, cancel_msg)
     
@@ -1285,6 +1335,7 @@ async def retry_job(
 async def _retry_job_once(job_id: str, background_tasks: BackgroundTasks, user: Optional[User]):
     """Retry a failed or cancelled job (only if user owns the job)."""
     user_id = user.id if user else None
+    _refresh_worker_jobs(user_id,job_id)
     
     with _jobs_lock:
         if job_id not in jobs:
@@ -1345,6 +1396,7 @@ async def _retry_job_once(job_id: str, background_tasks: BackgroundTasks, user: 
             message="Retrying...",
             source_url=episode_url,
             transcribe_only=old_job.transcribe_only,
+            checkpoint_root=old_job.checkpoint_root or old_job.job_id,
             resummarize=old_job.resummarize,
             whisper_model=old_job.whisper_model,
             llm_model=old_job.llm_model,

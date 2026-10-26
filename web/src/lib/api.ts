@@ -517,6 +517,8 @@ export async function fetchSettings(): Promise<{
   whisper_backend: string
   whisper_device: string
   llm_model: string
+  llm_reasoning_effort?: string
+  llm_service_tier?: string
   llm_provider: 'server' | 'groq' | 'custom'
   transcription_provider: 'server' | 'custom'
   llm_base_url: string
@@ -534,6 +536,8 @@ export async function fetchSettings(): Promise<{
 export async function updateSettings(settings: {
   whisper_model?: string
   llm_model?: string
+  llm_reasoning_effort?: string
+  llm_service_tier?: string
   llm_provider?: 'server' | 'groq' | 'custom'
   transcription_provider?: 'server' | 'custom'
   llm_base_url?: string
@@ -549,7 +553,7 @@ export async function updateSettings(settings: {
   return parseApiResponseAsJson(res, 'Failed to update settings')
 }
 
-export async function testLlmConnection(settings: { llm_provider: string; llm_model: string; llm_base_url?:string; llm_api_key?:string }): Promise<{ message: string; model: string }> {
+export async function testLlmConnection(settings: { llm_reasoning_effort?:string; llm_service_tier?:string; llm_provider: string; llm_model: string; llm_base_url?:string; llm_api_key?:string }): Promise<{ message: string; model: string }> {
   return parseApiResponseAsJson(await authFetch(`${API_BASE}/settings/test-llm`, {
     method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(settings),
   }), 'Summary connection failed')

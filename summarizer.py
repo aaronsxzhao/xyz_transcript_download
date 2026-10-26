@@ -30,6 +30,7 @@ from openai import OpenAI
 from summary_errors import SummaryOutputError, ProcessingCancelledError
 from reading_language import chinese_source
 from source_coverage import SOURCE_CHUNK_CHARS, split_source, audit_source, spoken_source, quote_timestamp
+from processing_execution import model_checkpoint, ProcessingPaused
 from tenacity import (
     retry,
     stop_after_attempt,
@@ -74,7 +75,7 @@ class Summarizer:
     """Handles transcript summarization using LLM with retry logic."""
 
     def __init__(self, api_key: Optional[str] = None, base_url: Optional[str] = None, 
-                 model: Optional[str] = None, custom_endpoint: bool = False):
+                 model: Optional[str] = None, custom_endpoint: bool = False, model_options: Optional[dict] = None):
         """
         Initialize summarizer.
         
@@ -87,6 +88,7 @@ class Summarizer:
         self.base_url = base_url or LLM_BASE_URL
         self.model = model or LLM_MODEL
         self.custom_endpoint = custom_endpoint
+        self.model_options = dict(model_options or {})
         self._groq = self.base_url.rstrip('/') == "https://api.groq.com/openai/v1"
         # Context capacity is not an editorial coverage budget. A long interview
         # fitting in one request still loses details when reduced in one pass.
@@ -99,13 +101,14 @@ class Summarizer:
             raise ValueError("LLM API key is required for summarization")
         
         from api.custom_models import custom_http_client
-        self.client = OpenAI(
+        from model_execution import configure,request_timeout
+        self.client = configure(OpenAI(
             api_key=self.api_key, 
             base_url=self.base_url,
-            timeout=600.0,
-            max_retries=MAX_RETRIES,
+            timeout=request_timeout(),
+            max_retries=0,
             **({"http_client": custom_http_client()} if custom_endpoint else {}),
-        )
+        ),self.model_options)
         
         logger.info(f"Summarizer initialized with model: {self.model}")
 
@@ -319,8 +322,9 @@ class Summarizer:
                        topics=list(dict.fromkeys([*summary.topics, *(p.topic for p in points)])),
                        takeaways=[updated[f"takeaway:{i+1}"] for i in range(len(summary.takeaways))])
 
+    @model_checkpoint('podcast.model')
     @retry(
-        retry=retry_if_not_exception_type(ProcessingCancelledError),
+        retry=retry_if_not_exception_type((ProcessingCancelledError, ProcessingPaused)),
         stop=stop_after_attempt(MAX_RETRIES),
         wait=wait_exponential(multiplier=2, min=1, max=60),
         reraise=True,
@@ -415,44 +419,73 @@ class Summarizer:
         total_chars_generated = 0
         
         chapter_titles = list(existing_topics or [])
-        for i, chunk in enumerate(chunks):
-            logger.info(f"Processing chunk {i+1}/{len(chunks)} ({len(chunk):,} chars)")
-            
-            # Create a wrapper callback that accumulates progress across chunks
-            def chunk_progress(chars):
-                nonlocal total_chars_generated
-                if progress_callback:
-                    progress_callback(total_chars_generated + chars, i + 1, len(chunks))
-            
-            try:
-                summary = self._summarize_single(
-                    f"{transcript.episode_id}_chunk_{i}",
-                    chunk,
-                    podcast_title,
-                    f"{episode_title} (Part {i+1})",
-                    chunk_progress if progress_callback else None,
-                    chapter_titles,
-                    source_context={"before": chunks[i - 1][-500:] if i else "",
-                                    "after": chunks[i + 1][:500] if i + 1 < len(chunks) else ""},
-                )
-            except Exception as error:
-                from summary_errors import is_cancellation
-                if is_cancellation(error):
-                    raise
-                logger.warning("Source chunk %s/%s unavailable: %s", i + 1, len(chunks), type(error).__name__)
-                summary = None
+        from processing_execution import CURRENT, parallel_map
+        if CURRENT.get() is not None:
+            import threading
+            progress_lock = threading.Lock()
+            completed = [0]
+            def one_chunk(item):
+                i, chunk = item
+                def chunk_progress(chars):
+                    if progress_callback:
+                        with progress_lock:
+                            progress_callback(completed[0] * 2000 + chars, completed[0] + 1, len(chunks))
+                try:
+                    summary = self._summarize_single(
+                        f"{transcript.episode_id}_chunk_{i}",
+                        chunk,
+                        podcast_title,
+                        f"{episode_title} (Part {i+1})",
+                        chunk_progress if progress_callback else None,
+                        chapter_titles,
+                        source_context={"before": chunks[i - 1][-500:] if i else "",
+                                        "after": chunks[i + 1][:500] if i + 1 < len(chunks) else ""},
+                    )
+                except Exception as error:
+                    from summary_errors import is_cancellation
+                    if is_cancellation(error):
+                        raise
+                    logger.warning("Source chunk %s/%s unavailable: %s", i + 1, len(chunks), type(error).__name__)
+                    summary = None
+                with progress_lock:
+                    completed[0] += 1
+                return summary
+            results = parallel_map(one_chunk,list(enumerate(chunks)),workers=2)
+        else:
+            results = []
+            for i, chunk in enumerate(chunks):
+                def chunk_progress(chars):
+                    if progress_callback: progress_callback(i * 2000 + chars, i + 1, len(chunks))
+                try:
+                    summary = self._summarize_single(
+                        f"{transcript.episode_id}_chunk_{i}",
+                        chunk,
+                        podcast_title,
+                        f"{episode_title} (Part {i+1})",
+                        chunk_progress if progress_callback else None,
+                        chapter_titles,
+                        source_context={"before": chunks[i - 1][-500:] if i else "",
+                                        "after": chunks[i + 1][:500] if i + 1 < len(chunks) else ""},
+                    )
+                except Exception as error:
+                    from summary_errors import is_cancellation
+                    if is_cancellation(error):
+                        raise
+                    logger.warning("Source chunk %s/%s unavailable: %s", i + 1, len(chunks), type(error).__name__)
+                    summary = None
+                results.append(summary)
+                if summary: chapter_titles = list(dict.fromkeys([*chapter_titles,*summary.topics]))
+        for i, summary in enumerate(results):
             if summary:
                 generated += 1
                 chunk_summaries.append(summary)
-                chapter_titles = list(dict.fromkeys([*chapter_titles, *summary.topics]))
-                # Estimate chars generated for this chunk
-                total_chars_generated += 2000  # rough estimate per chunk
+                total_chars_generated += 2000
             else:
                 from summary_errors import delivery_notice
                 topic = (f"第 {i + 1}/{len(chunks)} 部分：原始转写" if chinese_source(text) else f"Part {i + 1}/{len(chunks)}: Original transcript")
                 chunk_summaries.append(Summary(transcript.episode_id, episode_title,
                     delivery_notice(topic, source=text),
-                    [KeyPoint(topic, spoken_source(chunk), "", "")], [topic], []))
+                    [KeyPoint(topic, spoken_source(chunks[i]), "", "")], [topic], []))
 
         if not generated:
             return None
@@ -711,7 +744,7 @@ def merge_summaries(fast_summary: Summary, accurate_summary: Summary) -> Summary
 _summarizer: Optional[Summarizer] = None
 
 
-def get_summarizer(model: Optional[str] = None, *, api_key: str = "", base_url: str = "", custom_endpoint: bool = False) -> Summarizer:
+def get_summarizer(model: Optional[str] = None, *, api_key: str = "", base_url: str = "", custom_endpoint: bool = False, model_options: Optional[dict] = None) -> Summarizer:
     """
     Get or create a Summarizer instance.
     
@@ -724,8 +757,8 @@ def get_summarizer(model: Optional[str] = None, *, api_key: str = "", base_url: 
     """
     global _summarizer
     
-    if model is not None or api_key or base_url:
-        return Summarizer(model=model, api_key=api_key, base_url=base_url, custom_endpoint=custom_endpoint)
+    if model is not None or api_key or base_url or model_options:
+        return Summarizer(model=model, api_key=api_key, base_url=base_url, custom_endpoint=custom_endpoint,model_options=model_options)
     
     if _summarizer is None:
         _summarizer = Summarizer()

@@ -11,6 +11,7 @@ from typing import List, Optional
 from openai import OpenAI
 from summary_errors import SummaryOutputError, ProcessingCancelledError
 from source_coverage import SOURCE_CHUNK_CHARS, SOURCE_FIDELITY, split_source, audit_source
+from processing_execution import model_checkpoint, ProcessingPaused
 from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_not_exception_type
 
 from config import (
@@ -269,11 +270,13 @@ class NoteSummarizer:
         base_url: str = "",
         model: str = "",
         custom_endpoint: bool = False,
+        model_options: Optional[dict] = None,
     ):
         self.api_key = api_key or LLM_API_KEY
         self.base_url = base_url or LLM_BASE_URL
         self.model = model or LLM_MODEL
         self.custom_endpoint = custom_endpoint
+        self.model_options = dict(model_options or {})
         self._groq = self.base_url.rstrip('/') == "https://api.groq.com/openai/v1"
         self.chunk_chars = NOTE_CHUNK_CHARS
 
@@ -281,13 +284,14 @@ class NoteSummarizer:
             raise ValueError("LLM API key is required for note generation")
 
         from api.custom_models import custom_http_client
-        self.client = OpenAI(
+        from model_execution import configure,request_timeout
+        self.client = configure(OpenAI(
             api_key=self.api_key,
             base_url=self.base_url,
-            timeout=600.0,
-            max_retries=MAX_RETRIES,
+            timeout=request_timeout(),
+            max_retries=0,
             **({"http_client": custom_http_client()} if custom_endpoint else {}),
-        )
+        ),self.model_options)
         logger.info(f"NoteSummarizer initialized: model={self.model}")
 
     def generate_note(
@@ -525,7 +529,13 @@ class NoteSummarizer:
         total_chars = 0
         accumulated_text = f"# {title}\n\n"
 
-        for i, chunk_text in enumerate(chunks):
+        import threading
+        from processing_execution import CURRENT, parallel_map
+        progress_lock = threading.RLock()
+        completed = [0]
+        def one_chunk(item):
+            i, chunk_text = item
+            ok = False
             chunk_info = (
                 f"这是视频的第 {i + 1}/{num_chunks} 部分。请为本部分生成详细笔记，不要生成总标题（# 标题），直接从 ## 二级标题开始。"
                 "二级标题请使用描述性名称（如 ## 市场分析），不要自行编号（如 ## 第一部分：市场分析），编号会在后期统一处理。"
@@ -545,22 +555,24 @@ class NoteSummarizer:
 
             logger.info(f"Generating chunk {i + 1}/{num_chunks} ({len(chunk_text):,} chars)")
 
-            prefix = accumulated_text
+            prefix = ""
             chunk_idx = i
             def chunk_progress(chars, partial_text="", _ci=chunk_idx, _prefix=prefix):
                 if progress_callback:
                     full_text = _prefix + partial_text if partial_text else _prefix
-                    progress_callback(total_chars + chars, full_text, _ci + 1, num_chunks)
+                    with progress_lock:
+                        progress_callback(completed[0] * 2000 + chars, "", completed[0] + 1, num_chunks)
 
             if progress_callback:
-                progress_callback(total_chars, accumulated_text, i + 1, num_chunks)
+                with progress_lock:
+                    progress_callback(completed[0] * 2000, "", completed[0] + 1, num_chunks)
 
             try:
                 result = self._call_llm(system_prompt, user_prompt, chunk_progress)
                 if not result or not result.strip():
                     raise SummaryOutputError('empty')
                 result = self._audit_note(chunk_text, result, chunk_progress, source_context)
-                generated += 1
+                ok = True
             except Exception as e:
                 if "cancel" in type(e).__name__.lower() or "cancel" in str(e).lower():
                     raise
@@ -570,6 +582,13 @@ class NoteSummarizer:
                 heading = f"第 {i + 1}/{num_chunks} 部分：原始转写" if chinese_source(transcript_text) else f"Part {i + 1}/{num_chunks}: Original transcript"
                 result = delivery_notice(f"## {heading}\n\n{chunk_text}", source=transcript_text)
 
+            with progress_lock:
+                completed[0] += 1
+            return result, ok
+        work = list(enumerate(chunks))
+        results = parallel_map(one_chunk,work,workers=2) if CURRENT.get() is not None else [one_chunk(item) for item in work]
+        for result, ok in results:
+            generated += int(ok)
             if result:
                 chunk_results.append(result)
                 total_chars += len(result)
@@ -741,8 +760,9 @@ class NoteSummarizer:
         counts[slug] = 0
         return slug
 
+    @model_checkpoint('video.model')
     @retry(
-        retry=retry_if_not_exception_type(ProcessingCancelledError),
+        retry=retry_if_not_exception_type((ProcessingCancelledError, ProcessingPaused)),
         stop=stop_after_attempt(MAX_RETRIES),
         wait=wait_exponential(multiplier=2, min=1, max=60),
         reraise=True,
@@ -831,11 +851,11 @@ class NoteSummarizer:
 _note_summarizer: Optional[NoteSummarizer] = None
 
 
-def get_note_summarizer(model: str = "", *, api_key: str = "", base_url: str = "", custom_endpoint: bool = False) -> NoteSummarizer:
+def get_note_summarizer(model: str = "", *, api_key: str = "", base_url: str = "", custom_endpoint: bool = False, model_options: Optional[dict] = None) -> NoteSummarizer:
     """Get or create a NoteSummarizer instance, reusing the existing LLM config."""
     global _note_summarizer
-    if model or api_key or base_url:
-        return NoteSummarizer(model=model, api_key=api_key, base_url=base_url, custom_endpoint=custom_endpoint)
+    if model or api_key or base_url or model_options:
+        return NoteSummarizer(model=model, api_key=api_key, base_url=base_url, custom_endpoint=custom_endpoint,model_options=model_options)
     if _note_summarizer is None:
         _note_summarizer = NoteSummarizer()
     return _note_summarizer

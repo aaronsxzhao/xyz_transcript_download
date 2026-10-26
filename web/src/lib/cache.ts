@@ -373,7 +373,7 @@ export async function fetchWithCache<T>(
 export function invalidateForMutation(url: string): void {
   const path = new URL(url, location.origin).pathname.replace(/^\/api\//, "");
   let prefixes: string[];
-  if (/^settings/.test(path)) prefixes = ["settings"];
+  if (path === "settings") prefixes = ["settings"];
   else if (/^(cookies|notion)/.test(path)) prefixes = [];
   else if (/^video-notes/.test(path))
     prefixes = [
