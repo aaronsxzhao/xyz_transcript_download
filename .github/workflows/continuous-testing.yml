@@ -23,6 +23,7 @@ env:
 jobs:
   frontend:
     name: Frontend Checks
+    timeout-minutes: 30
     runs-on: ubuntu-latest
     if: github.event_name != 'schedule'
     steps:
@@ -41,7 +42,8 @@ jobs:
       - name: Build frontend
         run: npm run build
         working-directory: web
-      - name: Check large-library browser responsiveness
+      - name: Prepare browser validation dependencies
+        timeout-minutes: 8
         env:
           BASE_REVISION: ${{ github.event.pull_request.base.sha || github.event.before }}
         run: |
@@ -54,18 +56,37 @@ jobs:
           git archive "$BASE_REVISION" web/dist | tar -x -C /tmp/library-baseline
           pip install playwright
           python -m playwright install --with-deps chromium webkit
-          python scripts/check_mobile_controls.py
-          python scripts/check_mobile_controls.py --webkit --widths 320 390 430
+      - name: Check mobile controls in Chromium
+        timeout-minutes: 5
+        run: python scripts/check_mobile_controls.py
+      - name: Check mobile controls in WebKit
+        timeout-minutes: 5
+        run: python scripts/check_mobile_controls.py --webkit --widths 320 390 430
+      - name: Check WebKit reader and document startup
+        timeout-minutes: 5
+        run: |
           python scripts/check_reader_layout.py --webkit
           python scripts/check_document_startup.py --baseline-dist /tmp/library-baseline/web/dist --webkit
           python scripts/check_page_boundaries.py --baseline-dist /tmp/library-baseline/web/dist --webkit
+      - name: Check library navigation and loading
+        timeout-minutes: 5
+        run: |
           python scripts/check_library_browser.py --baseline-dist /tmp/library-baseline/web/dist
           python scripts/check_page_loading.py --baseline-dist /tmp/library-baseline/web/dist
+      - name: Check reader interactions and exports
+        timeout-minutes: 5
+        run: |
           python scripts/check_reader_interactions.py
           python scripts/check_unified_readers.py
+      - name: Check task workspace and performance
+        timeout-minutes: 5
+        run: |
           python scripts/check_workspace_visuals.py
           python scripts/check_task_workspace.py
           python scripts/check_performance_backlog.py
+      - name: Check first paint and connection recovery
+        timeout-minutes: 5
+        run: |
           python scripts/check_first_paint.py
           python scripts/check_network_resilience.py --baseline-dist /tmp/library-baseline/web/dist
 
