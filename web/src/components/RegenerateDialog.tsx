@@ -10,7 +10,7 @@ export default function RegenerateDialog({
 }) {
   const dialogRef = useDialog(true, onClose);
   return (
-    <div className="reader-confirm-backdrop" onClick={onClose}>
+    <div className="ui-scope reader-confirm-backdrop" onClick={onClose}>
       <section
         ref={dialogRef}
         role="dialog"

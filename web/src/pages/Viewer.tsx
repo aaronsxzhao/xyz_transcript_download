@@ -19,10 +19,10 @@ const PodcastNotionExport = deferView(
   () => import("../components/PodcastNotionExport"),
 );
 import { markdownToSafeHtml } from "../lib/safeHtml";
+import {readingIntersection} from '../lib/readingIntersection';
 import {
   summaryChapters,
   summaryIntroduction,
-  summaryToMarkdown,
 } from "../lib/summaryReading";
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useParams } from "react-router-dom";
@@ -265,32 +265,35 @@ export default function Viewer() {
     }
   }
 
-  const getMarkdown = (): string => {
+  const getMarkdown = async () => {
     if (!summary) return "";
+    const {summaryToMarkdown}=await import("../lib/podcastMarkdown");
     return summaryToMarkdown(summary, transcript?.duration);
   };
 
   const handleCopy = async () => {
+    if (!summary || copying) return;
     const md = getMarkdown();
-    if (!md || copying) return;
     setActionError("");
     setCopying(true);
     try {
       try {
         // Passing promised HTML keeps clipboard permission tied to the click
         // on Safari, even while the formatter module is still downloading.
-        const html = markdownToSafeHtml(md).then(
+        const html = md.then(markdownToSafeHtml).then(
           (value) => new Blob([value], { type: "text/html" }),
         );
         void html.catch(() => {});
+        const plain=md.then(value=>new Blob([value], {type:"text/plain"}));
+        void plain.catch(()=>{});
         await navigator.clipboard.write([
           new ClipboardItem({
             "text/html": html,
-            "text/plain": new Blob([md], { type: "text/plain" }),
+            "text/plain": plain,
           }),
         ]);
       } catch {
-        await navigator.clipboard.writeText(md);
+        await navigator.clipboard.writeText(await md);
       }
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
@@ -304,21 +307,21 @@ export default function Viewer() {
   };
 
   const handleDownloadMd = async () => {
-    const md = getMarkdown();
-    if (!md) return;
+    if (!summary) return;
     setActionError("");
     try {
+      const md = await getMarkdown();
       const {downloadMarkdown} = await import('../lib/markdownDownload');
       downloadMarkdown(md, summary?.title || "summary");
     } catch { setActionError("Could not prepare Markdown download. Please retry."); }
   };
 
   const handleDownloadPdf = async () => {
-    const md = getMarkdown();
-    if (!md || pdfLoading) return;
+    if (!summary || pdfLoading) return;
     setActionError("");
     setPdfLoading(true);
     try {
+      const md = await getMarkdown();
       const { printPodcast } = await import("../lib/podcastPrint");
       await printPodcast(md, summary?.title || "Summary");
     } catch (e) {
@@ -355,12 +358,7 @@ export default function Viewer() {
   useEffect(() => {
     if (loading || activeTab !== "summary") return;
     const observer = new IntersectionObserver(
-      (entries) => {
-        const visible = entries
-          .filter((entry) => entry.isIntersecting)
-          .sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top);
-        if (visible[0]) setActiveSection(visible[0].target.id);
-      },
+      readingIntersection(setActiveSection),
       { rootMargin: "-80px 0px -60% 0px" },
     );
     document

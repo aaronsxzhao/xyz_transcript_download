@@ -34,3 +34,11 @@ it('retains a source heading that differs from the task title',()=>{
  const task={title:'Imported title',duration:0} as VideoTask
  expect(buildNotionExportMarkdown(task,'# Original publication heading\n\nComplete source.')).toContain('# Original publication heading\n\nComplete source.')
 })
+it.each([true,false])('preserves an opening indented code block in Notion export (title=%s)',async title=>{
+ const task={title:'Source',duration:0} as VideoTask
+ const code='    first()\n    second()'
+ const markdown=buildNotionExportMarkdown(task,(title?'# Source\n\n':'')+code+'\n\nFollowing explanation.')
+ expect(markdown).toContain(code)
+ const html=await markdownToSafeHtml(markdown)
+ expect(html).toContain('<pre><code>first()\nsecond()')
+})

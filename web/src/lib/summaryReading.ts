@@ -11,8 +11,13 @@ export function normalizeSummaryMarkdown(markdown: string): string {
  */
 export function summaryIntroduction(overview: string) {
   const match = overview.match(/^\s*### (?:核心结论|Key conclusions)\s*\r?\n([\s\S]*?)^### (?:节目概览|Episode overview)\s*\r?\n([\s\S]*)$/m)
-  if (!match || overview.slice(0, match.index).trim()) return { conclusions: '', overview }
-  return { conclusions: match[1].trim(), overview: match[2].trim() }
+  if (!match) return { conclusions: '', overview }
+  const prefix=overview.slice(0,match.index).trim()
+  // Advisory blockquotes are generated before the labelled introduction.
+  // Preserve them in Overview while keeping the conclusions independently
+  // readable. Arbitrary prose/code before these labels remains legacy content.
+  if(prefix&&!prefix.split(/\r?\n/).every(line=>!line.trim()||/^\s*>/.test(line))) return { conclusions: '', overview }
+  return { conclusions: match[1].trim(), overview: [prefix,match[2].trim()].filter(Boolean).join('\n\n') }
 }
 
 export function summaryChapters(summary?: Summary | null): [string, KeyPoint[]][] {
@@ -24,24 +29,4 @@ export function summaryChapters(summary?: Summary | null): [string, KeyPoint[]][
     groups.get(point.topic)!.push(point)
   }
   return [...groups].filter(([, points]) => points.length > 0)
-}
-
-export function summaryToMarkdown(summary: Summary, duration?: number): string {
-  const lines = [`# ${summary.title}`, '']
-  if (duration) lines.push(`- Duration: ${Math.floor(duration / 60)}:${Math.floor(duration % 60).toString().padStart(2, '0')}`, '')
-  const intro = summaryIntroduction(summary.overview)
-  if (intro.conclusions) lines.push(/### Key conclusions/.test(summary.overview) ? '## Key conclusions' : '## 核心结论', '', normalizeSummaryMarkdown(intro.conclusions), '')
-  lines.push('## Overview', '', normalizeSummaryMarkdown(intro.overview), '', '## Key Points by Topic', '')
-  for (const [topic, points] of summaryChapters(summary)) {
-    lines.push(`### ${topic}`, '')
-    for (const point of points) {
-      lines.push(normalizeSummaryMarkdown(point.summary), '')
-      if (point.original_quote) {
-        if (point.timestamp) lines.push(`Source · ${point.timestamp}`, '')
-        lines.push(...point.original_quote.split('\n').map(line => `> ${line}`), '')
-      }
-    }
-  }
-  if (summary.takeaways.length) lines.push('## Takeaways', '', ...summary.takeaways.map(value => `- ${normalizeSummaryMarkdown(value)}`), '')
-  return lines.join('\n')
 }

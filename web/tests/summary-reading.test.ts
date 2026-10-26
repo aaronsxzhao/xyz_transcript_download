@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
+import {summaryToMarkdown} from '../src/lib/podcastMarkdown'
 import {expect,it} from 'vitest'
-import {summaryIntroduction,summaryChapters,summaryToMarkdown} from '../src/lib/summaryReading'
+import {summaryIntroduction,summaryChapters} from '../src/lib/summaryReading'
 const point=(topic:string,summary:string)=>({topic,summary,original_quote:'line one\nline two',timestamp:'28:29'})
 it('leaves legacy and ambiguous overviews intact',()=>{
  for(const overview of ['Legacy paragraphs.','### 核心结论\nOnly one section.','Earlier text\n### 核心结论\n- Claim\n### 节目概览\nBody']) expect(summaryIntroduction(overview)).toEqual({conclusions:'',overview})
@@ -37,4 +38,16 @@ it('recognizes English overview headings and preserves English in Markdown expor
  const markdown=summaryToMarkdown({episode_id:'e',title:'Title',overview,topics:[],key_points:[],takeaways:[]})
  expect(markdown).toContain('## Key conclusions')
  expect(markdown).not.toContain('核心结论')
+})
+it('keeps advisory notices while separating the core conclusions',()=>{
+ const warning='> ℹ️ Notes were generated, but the full-source coverage review did not complete.'
+ const overview=warning+'\n\n### Key conclusions\n- A conditional claim.\n\n### Episode overview\nFull overview.'
+ expect(summaryIntroduction(overview)).toEqual({conclusions:'- A conditional claim.',overview:warning+'\n\nFull overview.'})
+})
+it('keeps multiline takeaways inside their own list item in Markdown export',async()=>{
+ const {markdownToSafeHtml}=await import('../src/lib/safeHtml')
+ const markdown=summaryToMarkdown({episode_id:'e',title:'Title',overview:'Overview',topics:[],key_points:[],takeaways:['First conclusion.\n\nA necessary condition.','Second conclusion.']})
+ const div=document.createElement('div');div.innerHTML=await markdownToSafeHtml(markdown)
+ expect(div.querySelectorAll('ul>li')).toHaveLength(2)
+ expect(div.querySelector('li')?.textContent).toContain('A necessary condition.')
 })
