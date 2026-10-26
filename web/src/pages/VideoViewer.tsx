@@ -710,7 +710,8 @@ export default function VideoViewer() {
               ) : (
                 isOriginal ? <ArticleNote markdown={content} readerTitle={title} readerMeta={{author:task.channel,published:task.published_at}} attachments={selectedVersion ? [] : task.source_metadata?.attachments} fallback={<PlainNote markdown={content} preserveSource readerTitle={title} readerMeta={{author:task.channel,published:task.published_at}}/>}/> : <MarkdownPreview
                   markdown={content}
-                  fallback={<PlainNote markdown={content} />}
+                  readerTitle={title}
+                  fallback={<PlainNote markdown={content} readerTitle={title}/>}
                 />
               )}
             </div>
