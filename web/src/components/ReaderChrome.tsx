@@ -67,7 +67,10 @@ export function ReaderMenu({
       ref={ref}
       className="reader-menu"
       onBlur={(event) => {
-        if (!event.currentTarget.contains(event.relatedTarget as Node))
+        // Touch browsers may blur the trigger with relatedTarget=null before
+        // delivering click to a menu action. Outside pointerdown handles taps;
+        // close on an actual focus transfer outside, not an unknown target.
+        if (event.relatedTarget && !event.currentTarget.contains(event.relatedTarget as Node))
           setOpen(false);
       }}
     >

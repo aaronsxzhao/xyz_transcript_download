@@ -136,7 +136,9 @@ export const useStore = create<AppState>((set) => ({
         }
         // Keep local pending/active jobs that server doesn't know about yet
         const isActive = !['completed', 'failed', 'cancelled'].includes(localJob.status)
-        return isActive
+        const created=localJob.created_at || localJob.started_at || 0
+        const age=Date.now()-(typeof created==='number' ? created*1000 : Date.parse(created))
+        return isActive && age>=0 && age<LOCAL_VIDEO_TASK_GRACE_MS
       })
       
       const existingById = new Map(state.jobs.map(job => [job.job_id, job]))

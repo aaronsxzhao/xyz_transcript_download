@@ -4,6 +4,8 @@ import {createRoot} from 'react-dom/client'
 import {MemoryRouter, Routes, Route} from 'react-router-dom'
 import {afterEach, beforeEach, expect, it, vi} from 'vitest'
 import VideoViewer from '../src/pages/VideoViewer'
+import {downloadMarkdown} from '../src/lib/markdownDownload'
+vi.mock('../src/lib/markdownDownload',()=>({downloadMarkdown:vi.fn()}))
 import {fetchVideoTask, fetchVideoTranscript, type VideoTask} from '../src/lib/api'
 import {useStore} from '../src/lib/store'
 
@@ -197,4 +199,20 @@ it('clears a transcript read error when the user reopens the tab and it succeeds
   await act(async()=>tab('Transcript').click())
   expect(node.textContent).toContain('Original words')
   expect(node.querySelector('[role=alert]')).toBeNull()
+})
+
+it('shows an original article title once while retaining the exact Markdown for export',async()=>{
+ const markdown='# Trading lesson\n\nAuthor: Writer\n\nPublished: 2026-09-30T15:27:42+00:00\n\n## A different section\n\nComplete original paragraph.'
+ vi.mocked(fetchVideoTask).mockResolvedValue({...note(undefined,markdown),style:'original',platform:'substack',channel:'Writer',published_at:'2026-09-30T15:27:42Z'})
+ await mount()
+ expect(node.querySelector('h1')?.textContent).toBe('Trading lesson')
+ expect(node.querySelector('.reader-body h1')).toBeNull()
+ expect(node.querySelector('.reader-body')?.textContent).not.toContain('Author: Writer')
+ expect(node.querySelector('.reader-body')?.textContent).not.toContain('Published: 2026')
+ expect(node.querySelector('.reader-body h2')?.textContent).toBe('A different section')
+ expect(node.querySelector('.reader-body')?.textContent).toContain('Complete original paragraph.')
+ await act(async()=>[...node.querySelectorAll('button')].find(b=>b.textContent?.trim()==='Export')!.click())
+ await act(async()=>[...node.querySelectorAll('button')].find(b=>b.textContent?.trim()==='Markdown')!.click())
+ await act(async()=>vi.dynamicImportSettled())
+ expect(downloadMarkdown).toHaveBeenCalledWith(markdown,'Trading lesson')
 })

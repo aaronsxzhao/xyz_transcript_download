@@ -33,6 +33,7 @@ class Worker:
         self.pool=ThreadPoolExecutor(max_workers=slots,thread_name_prefix='durable_content')
         self.active={}
         self.thread=None
+        self.last_poll=time.monotonic()
 
     def start(self):
         self.thread=threading.Thread(target=self.loop,name='durable_dispatcher',daemon=True)
@@ -48,13 +49,24 @@ class Worker:
     def adopt(self):
         """Recover admission saved before a request died, including legacy jobs."""
         from api.routers import processing
-        from api.job_persistence import restore_jobs
+        from api.job_persistence import restore_jobs, save_job
         from api.schemas import ProcessingStatus
         from config import USE_SUPABASE
-        rows=restore_jobs() if USE_SUPABASE else [job.model_dump() for job in processing.jobs.values()]
+        # Legacy jobs.json is still loaded on startup. Cloud-only recovery used
+        # to leave these visible as Queued forever without ever admitting them.
+        with processing._jobs_lock:
+            retained={job.job_id:job.model_dump() for job in processing.jobs.values()}
+        if USE_SUPABASE:
+            retained.update({row['job_id']:row for row in restore_jobs()})
+        rows=list(retained.values())
         for data in rows:
             job=ProcessingStatus(**data)
-            if job.status in TERMINAL or not job.source_url: continue
+            if job.status in TERMINAL: continue
+            if USE_SUPABASE and not job.user_id:
+                processing.jobs[job.job_id]=job
+                processing.update_job_status(job.job_id,'failed',0,
+                    'This older task has no saved account. Open the original source and process it again.')
+                continue
             if job.status == 'cancelling':
                 processing.jobs[job.job_id]=job
                 processing.update_job_status(job.job_id,'cancelled',0,'Cancelled')
@@ -63,6 +75,12 @@ class Worker:
             # A terminal durable record must never be automatically re-enqueued.
             if existing: continue
             processing.jobs[job.job_id]=job
+            if not job.source_url:
+                processing.update_job_status(job.job_id,'failed',0,
+                    'This older task has no saved source link and cannot resume. Open the original episode and process it again.')
+                continue
+            if USE_SUPABASE:
+                save_job(job)
             payload=podcast_payload(job);payload['episode_url']=payload.pop('source_url')
             self.store.enqueue(job.user_id,'podcast',job.job_id,'podcast:'+(job.checkpoint_root or job.job_id),payload)
         if USE_SUPABASE:
@@ -102,7 +120,10 @@ class Worker:
                     except Exception as error: logger.warning('Admission recovery temporarily unavailable: %s',type(error).__name__)
                     last_adopt=now
                 if now-last_prune>86400:
-                    self.store.prune();last_prune=now
+                    # Checkpoint housekeeping must never stop queue dispatch.
+                    try: self.store.prune()
+                    except Exception as error: logger.warning('Checkpoint cleanup temporarily unavailable: %s',type(error).__name__)
+                    last_prune=now
                 control=self.store.control()
                 for key,(future,execution) in list(self.active.items()):
                     if future.done():
@@ -127,6 +148,7 @@ class Worker:
                     execution.previous_wall=previous.get('wall_seconds',0)
                     future=self.pool.submit(self.run,row,execution)
                     self.active[row['id']]=(future,execution)
+                self.last_poll=time.monotonic()
             except Exception as error:
                 logger.warning('Durable dispatcher temporarily unavailable: %s',type(error).__name__)
             self.stop_event.wait(3)

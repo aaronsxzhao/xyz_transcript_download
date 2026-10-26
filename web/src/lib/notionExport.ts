@@ -1,3 +1,8 @@
+import {authFetch,parseApiResponseAsJson} from './api'
+import {requestWithDeadline} from './requestDeadline'
+import {getAuthGeneration} from './auth'
+import {getPreference} from './preferences'
+function assertOwner(generation:number){if(generation!==getAuthGeneration())throw new DOMException('Account changed','AbortError')}
 import type {VideoTask} from './api'
 export function buildNotionExportMarkdown(task: VideoTask, content: string, selectedVersion = ''): string {
   const lines: string[] = []
@@ -38,3 +43,31 @@ export function buildNotionExportMarkdown(task: VideoTask, content: string, sele
   return lines.join('\n')
 }
 
+
+export async function submitNotionExport(path: string, body: object): Promise<{ url: string; page_id: string; title: string }> {
+  const generation=getAuthGeneration(),key=getPreference('notion_api_key') || ''
+  return requestWithDeadline(async signal => {
+    assertOwner(generation)
+    const res = await authFetch(`/api/notion/${path}`, {
+      method: 'POST',
+      signal,
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Notion-Key': key,
+      },
+      body: JSON.stringify(body),
+    })
+    const result = await parseApiResponseAsJson<{url:string;page_id:string;title:string}>(res, 'Export to Notion failed')
+    assertOwner(generation)
+    if (!result || typeof result.page_id !== 'string' || !result.page_id || typeof result.url !== 'string' || typeof result.title !== 'string')
+      throw new Error('Notion returned an incomplete export confirmation. Check Notion before exporting again.')
+    return result
+  }, {timeout:120000,message:'Notion did not confirm the export in time. It may still be running.'})
+}
+
+
+export async function fetchNotionPages(query?:string):Promise<{pages:import('./api').NotionPage[]}> {
+  const params=query ? `?query=${encodeURIComponent(query)}` : ''
+  const res=await authFetch(`/api/notion/pages${params}`,{headers:{'X-Notion-Key':getPreference('notion_api_key') || ''}})
+  return parseApiResponseAsJson(res,'Failed to fetch Notion pages')
+}

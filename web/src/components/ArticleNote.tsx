@@ -65,9 +65,9 @@ export function articleImageSources(raw:string):{preview:string;original:string}
 }
 
 /** Keep original prose and inline citations; enhance only standalone links. */
-export default function ArticleNote({markdown,attachments=[]}:{markdown:string;attachments?:{url:string;kind:string;title:string}[]}) {
+export default function ArticleNote({markdown,attachments=[],readerTitle,readerMeta}:{markdown:string;readerTitle?:string;readerMeta?:{author?:string;published?:string};attachments?:{url:string;kind:string;title:string}[]}) {
   return <>
     {attachments.length>0&&<section aria-label="Article media" className="reader-utility-panel mb-4"><h2>Media in this article</h2><p className="text-sm text-gray-400">The complete article is retained below. Process a recording separately when you want its transcript and notes.</p>{attachments.map((item,index)=><div key={item.url+index} className="flex flex-wrap items-center gap-3 mt-3"><a href={item.url} target="_blank" rel="noopener noreferrer">{item.title||'Open media'} ↗</a>{(item.kind==='audio'||item.kind==='video'||['youtube','bilibili','douyin','kuaishou'].includes(detectContentPlatform(item.url)))&&<Link className="reader-action" to={'/videos?import='+encodeURIComponent(item.url)}>Process {item.kind==='audio'?'audio':'video'}</Link>}</div>)}</section>}
-    <article data-rendering="plain" aria-label="Readable note" className="note-prose prose prose-invert max-w-none"><ReadableMarkdown markdown={markdown} imageSources={articleImageSources} renderParagraph={(paragraph,index)=>{const link=paragraph.tokens.length===1?paragraph.tokens[0]:null;return link?.type==='link'&&link.tokens&&/^https?:\/\//i.test(link.href)&&!hasImage(link.tokens)?<ArticleLink key={index+link.href} href={link.href} label={inlineNoteText(link.tokens)}/>:null}}/></article>
+    <article data-rendering="plain" aria-label="Readable note" className="note-prose prose prose-invert max-w-none"><ReadableMarkdown markdown={markdown} readerTitle={readerTitle} readerMeta={readerMeta} imageSources={articleImageSources} renderParagraph={(paragraph,index)=>{const link=paragraph.tokens.length===1?paragraph.tokens[0]:null;return link?.type==='link'&&link.tokens&&/^https?:\/\//i.test(link.href)&&!hasImage(link.tokens)?<ArticleLink key={index+link.href} href={link.href} label={inlineNoteText(link.tokens)}/>:null}}/></article>
   </>
 }

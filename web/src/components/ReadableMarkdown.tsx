@@ -7,14 +7,27 @@ export const hasImage=(items:Token[]):boolean=>items.some(t=>t.type==='image'||(
 const safeLink=(url:string)=>/^(https?:\/\/|mailto:|tel:|#|\/(?![\/\\]))/i.test(url)
 const safeImage=(url:string)=>/^https?:\/\//i.test(url)||/^\/data\/(screenshots|thumbnails)\//.test(url)||url.startsWith('/api/article-image?')
 /** Semantic Markdown is part of startup. No raw HTML or executable URLs. */
-export default function ReadableMarkdown({markdown,imagesReady=true,omitToc=false,renderParagraph,imageSources}:{markdown:string;imagesReady?:boolean;omitToc?:boolean;imageSources?:(url:string)=>{preview:string;original:string};renderParagraph?:(paragraph:Tokens.Paragraph,key:number)=>ReactNode}) {
+export default function ReadableMarkdown({markdown,imagesReady=true,omitToc=false,renderParagraph,imageSources,readerTitle,readerMeta}:{markdown:string;imagesReady?:boolean;omitToc?:boolean;readerTitle?:string;readerMeta?:{author?:string;published?:string};imageSources?:(url:string)=>{preview:string;original:string};renderParagraph?:(paragraph:Tokens.Paragraph,key:number)=>ReactNode}) {
   const tokens=useMemo(()=>Lexer.lex(omitToc?prepareNoteMarkdown(markdown):markdown,{gfm:true}),[markdown,omitToc])
   const slugs:Record<string,number>=Object.create(null);let imageIndex=0
+  const first=tokens.find(token=>token.type!=='space')
+  const redundant=new Set<Token>()
+  if(first?.type==='heading'&&first.depth===1&&readerTitle&&inlineNoteText((first as Tokens.Heading).tokens).trim()===readerTitle.trim()) {
+    for(const token of tokens.slice(tokens.indexOf(first)+1)) {
+      if(token.type==='space')continue
+      if(token.type!=='paragraph')break
+      const label=inlineNoteText((token as Tokens.Paragraph).tokens)
+      const published=label.match(/^Published: (.+)$/)?.[1]
+      if((readerMeta?.author&&label===`Author: ${readerMeta.author}`)||(published&&readerMeta?.published&&Number.isFinite(Date.parse(published))&&Date.parse(published)===Date.parse(readerMeta.published))) redundant.add(token)
+      else break
+    }
+  }
   const render=(items:Token[]):ReactNode[]=>items.map((token,index)=>{
     const key=index
+    if(redundant.has(token))return null
     switch(token.type){
       case 'space':return null
-      case 'heading':{const t=token as Tokens.Heading;return createElement(`h${t.depth}`,{key,id:uniqueNoteHeadingSlug(inlineNoteText(t.tokens),slugs)},render(t.tokens))}
+      case 'heading':{const t=token as Tokens.Heading;const label=inlineNoteText(t.tokens),id=uniqueNoteHeadingSlug(label,slugs);return token===first&&t.depth===1&&readerTitle&&label.trim()===readerTitle.trim()?<span key={key} id={id}/>:createElement(`h${t.depth}`,{key,id},render(t.tokens))}
       case 'paragraph':{const t=token as Tokens.Paragraph;return renderParagraph?.(t,key)??<p key={key}>{render(t.tokens)}</p>}
       case 'text':{const t=token as Tokens.Text;return <span key={key}>{t.tokens?render(t.tokens):text(t.text)}</span>}
       case 'escape':return <span key={key}>{text((token as Tokens.Escape).text)}</span>

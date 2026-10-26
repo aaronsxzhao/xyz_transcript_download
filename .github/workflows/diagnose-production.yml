@@ -2,7 +2,7 @@ name: Diagnose Production
 
 on:
   push:
-    branches: [main]
+    branches: [main, fix/queue-reader-interactions-20261026]
     paths:
       - '.github/workflows/diagnose-production.yml'
       - 'scripts/diagnose_deployment.py'

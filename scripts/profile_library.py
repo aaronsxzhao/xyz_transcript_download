@@ -43,6 +43,23 @@ def profile_public_routes(owner: str, routes: list[tuple[str, str]], local_video
     selected = [("auth", "/api/auth/me"), *[(label, path) for label, path in routes
                 if label in {"restricted_summary", "content_updates", "progress", "podcasts", "channels", "episodes", "summary", "transcript", "settings", "channel_videos", "podcast_index", "reported_episodes", "reported_episode_failure", "reported_summary", "reported_video_note", "reported_latest_summary", "completed_local_video"}]]
     reports = []
+    # Inspect the running app's inventory, rather than this isolated process.
+    # Source links, titles and credentials never enter diagnostic output.
+    inventory = subprocess.run([
+        'curl','--fail','--silent','--compressed','--max-time','20',
+        '--max-filesize','1048576','--header','@-',
+        'https://aipodcastsummary.online/api/jobs',
+    ],input='Authorization: Bearer '+token+'\n',capture_output=True,text=True,timeout=25)
+    try:
+        jobs=json.loads(inventory.stdout)['jobs']
+        if inventory.returncode or not isinstance(jobs,list): raise ValueError()
+        active=[job for job in jobs if job.get('status') not in ('completed','failed','cancelled')]
+        reports.append({'library_profile':'live_processing_admission','status':200,
+                        'waiting_jobs':sum(job.get('status')=='pending' for job in active),
+                        'active_jobs':len(active),
+                        'jobs_without_source':sum(not job.get('source_url') for job in active)})
+    except (ValueError,KeyError,TypeError):
+        reports.append({'library_profile':'live_processing_admission','status':0})
     for label, path in selected:
         result = subprocess.run([
             "curl", "--silent", "--compressed", "--max-time", "25", "--header", "@-",

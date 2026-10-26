@@ -21,7 +21,7 @@ async def check(browser, origin, width, output, label):
     task, summary = fixtures()
     task['markdown'] = '# Trading review / 交易复盘\n\nA practical summary with screenshots, a table, and key decisions.\n\n' + '\n\n'.join(
         f'## {i+1}. Review the trend / 趋势分析\n\n- Identify the context before entering.\n- Wait for confirmation and manage risk.\n\n![Chart at {i}:00](/data/screenshots/bench_{i}.jpg)\n\n| Signal | Action |\n| --- | --- |\n| Breakout | Review the follow-through |\n\n' for i in range(8))
-    context = await browser.new_context(viewport={'width':width,'height':960}, permissions=['clipboard-read','clipboard-write'], service_workers='block')
+    context = await browser.new_context(viewport={'width':width,'height':960}, has_touch=width<768, permissions=['clipboard-read','clipboard-write'], service_workers='block')
     await context.add_init_script('''
         if (location.protocol === 'http:' || location.protocol === 'https:') {
         localStorage.setItem('xyz_remember_me','true');
@@ -112,6 +112,14 @@ async def check(browser, origin, width, output, label):
     await page.get_by_role('button',name='Export',exact=True).click()
     bounds=await page.locator('.reader-menu-panel').bounding_box()
     assert bounds['x']>=0 and bounds['x']+bounds['width']<=width
+    if width<768:
+        await page.get_by_role('button',name='Export',exact=True).evaluate('(button)=>button.blur()')
+        assert await page.locator('.reader-menu-panel').count()==1
+        async with page.expect_download() as pending_download:
+            await page.get_by_title('Download .md',exact=True).tap()
+        assert (await pending_download.value).suggested_filename.endswith('.md')
+        result['touch_export_survives_null_blur']=True
+        await page.get_by_role('button',name='Export',exact=True).tap()
     await page.keyboard.press('Escape')
     assert not await page.locator('.reader-menu-panel').count()
     await page.get_by_role('button',name='Reading appearance',exact=True).click()

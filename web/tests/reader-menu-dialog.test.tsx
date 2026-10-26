@@ -45,3 +45,27 @@ it('keeps the current heading when another heading enters the observation area',
  second.remove();callback([entry(first)],{} as IntersectionObserver)
  expect(change).toHaveBeenLastCalledWith('first')
 })
+
+it('keeps a touch action mounted when the trigger blurs without a related target',async()=>{
+ const action=vi.fn()
+ await act(async()=>root.render(<MemoryRouter><MoreReaderActions><button onClick={action}>Download file</button></MoreReaderActions></MemoryRouter>))
+ const trigger=node.querySelector('button')!
+ act(()=>{trigger.focus();trigger.click()})
+ act(()=>trigger.dispatchEvent(new FocusEvent('focusout',{bubbles:true,relatedTarget:null})))
+ const item=[...node.querySelectorAll('button')].find(b=>b.textContent==='Download file')!
+ expect(item).toBeTruthy()
+ act(()=>item.click())
+ expect(action).toHaveBeenCalledOnce()
+ expect(trigger.getAttribute('aria-expanded')).toBe('false')
+})
+
+it('still closes when focus actually moves outside or an outside pointer is pressed',async()=>{
+ await act(async()=>root.render(<MemoryRouter><MoreReaderActions><button>Download file</button></MoreReaderActions><button id="outside">Outside</button></MemoryRouter>))
+ const trigger=node.querySelector('button')!,outside=node.querySelector('#outside')!
+ act(()=>{trigger.focus();trigger.click()})
+ act(()=>trigger.dispatchEvent(new FocusEvent('focusout',{bubbles:true,relatedTarget:outside})))
+ expect(trigger.getAttribute('aria-expanded')).toBe('false')
+ act(()=>trigger.click())
+ act(()=>outside.dispatchEvent(new Event('pointerdown',{bubbles:true})))
+ expect(trigger.getAttribute('aria-expanded')).toBe('false')
+})

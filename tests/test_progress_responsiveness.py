@@ -83,3 +83,32 @@ async def test_progress_never_returns_other_accounts_tasks_or_note_bodies(client
         assert (await client.get('/api/video-notes/progress?known='+mine)).json() == {'tasks':[]}
     finally:
         app.dependency_overrides.clear()
+
+
+def test_cached_video_progress_has_a_new_utc_version_before_database_flush(monkeypatch):
+    import threading
+    from datetime import datetime
+    from unittest.mock import Mock
+    from video_task_db import _SupabaseVideoTaskDB
+    db=_SupabaseVideoTaskDB.__new__(_SupabaseVideoTaskDB)
+    db._lock=threading.Lock();db._dirty={}
+    db._cache={'video':{'id':'video','user_id':'owner','status':'pending','updated_at':'2026-01-01T00:00:00+00:00'}}
+    db._should_flush=lambda *_:False
+    db.update_task('video',{'status':'summarizing','progress':55,'message':'Writing notes'})
+    task=db._cache['video']
+    assert task['status']=='summarizing'
+    assert datetime.fromisoformat(task['updated_at']).utcoffset().total_seconds()==0
+    assert datetime.fromisoformat(task['updated_at'])>datetime.fromisoformat('2026-01-01T00:00:00+00:00')
+    assert db._dirty['video']['updated_at']==task['updated_at']
+    db._sb=Mock();db._last_flush={}
+    db.flush_task('video')
+    assert db._sb.update_video_task.call_args.args[1]['updated_at']==task['updated_at']
+
+
+def test_video_database_flush_preserves_the_progress_event_version():
+    from api.supabase_db import SupabaseDatabase
+    from unittest.mock import Mock
+    db=SupabaseDatabase.__new__(SupabaseDatabase);db.client=Mock()
+    timestamp='2026-10-26T15:46:28.948908+00:00'
+    db.update_video_task('video',{'status':'summarizing','updated_at':timestamp})
+    assert db.client.table.return_value.update.call_args.args[0]['updated_at']==timestamp
