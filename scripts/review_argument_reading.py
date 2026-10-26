@@ -6,6 +6,7 @@ is logged and no production note, transcript or account setting is changed.
 import hashlib
 import json
 import time
+import os
 from dataclasses import asdict
 
 CASES = (
@@ -56,9 +57,11 @@ def child(output):
     if len(owners)!=1:raise ValueError('Requested source owner unavailable')
     owner=owners[0]['user_id']
     settings=resolve_llm_settings(get_user_settings(owner))
+    edit_only=os.environ.get('REVIEW_MODE')=='argument_edit'
     report={'prompt_version':VERSION,'scope':'contiguous_real_source_excerpts',
             'production_writes':False,'model':settings['model'],'samples':[]}
-    for kind,ident in CASES:
+    if edit_only: report['scope']='existing_reading_passages_editor_only'
+    for kind,ident in ((CASES[0],CASES[2]) if edit_only else CASES):
         row={'kind':kind,'id':ident,'ok':False};started=time.monotonic();engine=None
         try:
             if kind=='podcast':
@@ -70,6 +73,37 @@ def child(output):
                 saved=(task or {}).get('transcript') or {}
                 if not saved or not isinstance(saved,dict):raise ValueError('Owned source unavailable')
                 source=saved.get('text') or '';title=task['title']
+            if edit_only:
+                from reading_editor import edit_sections
+                from note_presentation import _sections,without_generated_toc
+                from reading_language import LANGUAGE
+                if kind=='podcast':
+                    note=db.get_summary(ident)
+                    if not note:raise ValueError('Owned note unavailable')
+                    items=[{'id':f'N{i+1}','topic':p['topic'],'text':p['summary'],'evidence':p.get('original_quote','')} for i,p in enumerate(note.key_points[:8])]
+                else:
+                    _,sections=_sections(without_generated_toc(task.get('markdown') or ''))
+                    items=[]
+                    for section in sections:
+                        heading,_,body=section.partition('\n')
+                        if heading.casefold().startswith('## ai '):continue
+                        items.append({'id':f'N{len(items)+1}','topic':heading.lstrip('# ').strip(),'text':body})
+                        if len(items)==6:break
+                engine=NoteSummarizer(**settings)
+                engine._reading_source=source
+                diagnostics={}
+                token=LANGUAGE.set(source_language(source))
+                try:
+                    content=edit_sections(items,engine._editorial_json,budget=None,
+                        preserve_order=kind=='video',source_text=source,report=diagnostics)
+                finally: LANGUAGE.reset(token)
+                row.update(ok=True,source=items,result=content,editor=diagnostics,
+                           model=settings['model'])
+                engine.client.close();engine=None
+                row['elapsed_seconds']=round(time.monotonic()-started,2)
+                report['samples'].append(row)
+                output.joinpath('report.json').write_text(json.dumps(report,ensure_ascii=False))
+                continue
             start,end,source=excerpt(source)
             if not source.strip():raise ValueError('Source excerpt unavailable')
             if kind=='podcast':
@@ -92,4 +126,5 @@ def child(output):
             if engine:engine.client.close()
         row['elapsed_seconds']=round(time.monotonic()-started,2)
         report['samples'].append(row)
+        output.joinpath('report.json').write_text(json.dumps(report,ensure_ascii=False))
     output.joinpath('report.json').write_text(json.dumps(report,ensure_ascii=False))

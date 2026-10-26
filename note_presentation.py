@@ -65,12 +65,17 @@ def chronological_chapters(markdown):
         parent,separator,body=section.partition('\n')
         introduction,children=_sections(body,(3,))
         units=[introduction+children[0],*children[1:]] if children else [body]
+        prefix_parent_written=False
         for unit in units:
             times=media_times(unit)
             if times: groups.append([times[0],parent,unit])
             elif groups and groups[-1][1]==parent: groups[-1][2]+=unit
             elif groups: groups.append([groups[-1][0],parent,unit])
-            else: prefix+=parent+separator+unit
+            else:
+                # Unanchored subheadings share their existing parent. Repeating
+                # it for every child manufactures duplicate chapters.
+                prefix+=(parent+separator if not prefix_parent_written else '')+unit
+                prefix_parent_written=True
     output=[prefix];previous=None
     for _,parent,body in sorted(groups,key=lambda item:item[0]):
         if previous!=parent:

@@ -142,6 +142,34 @@ def test_video_conclusions_are_an_entry_layer_without_reordering_source_chapters
     assert result.count('The central claim depends on that condition.')==1
 
 
+def test_unanchored_video_children_do_not_duplicate_their_parent_heading():
+    from note_presentation import chronological_chapters
+    source='# Title\n\n## Argument\n\n### Evidence\n\nFirst detail.\n\n### Limits\n\nSecond detail.\n'
+    result=chronological_chapters(source)
+    assert result.count('## Argument\n')==1
+    assert 'First detail.' in result and 'Second detail.' in result
+
+
+def test_review_can_restore_a_missing_condition_without_an_extra_model_call():
+    rows=[{'id':'N1','topic':'A','text':'A claim.'},{'id':'N2','topic':'A','text':'Only under this condition.'}]
+    replies=[{'groups':[{'title':'A','ids':['N1','N2']}]},
+             {'paragraphs':[{'heading':'Claim','text':'A claim.','ids':['N1','N2'],'evidence_id':'N1'}]},
+             {'complete':True,'grounded':True,'paragraphs':[{'heading':'Conditional claim','text':'A claim, only under this condition.','ids':['N1','N2'],'evidence_id':'N1'}]}]
+    call=Mock(side_effect=replies);report={}
+    result=edit_sections(rows,call,report=report)
+    assert 'only under this condition' in result[0]['text']
+    assert call.call_count==3 and report['review_repairs']==1
+
+
+def test_editor_reports_the_specific_failed_check_without_provider_or_source_text():
+    rows=[{'id':'N1','topic':'A','text':'Claim.'},{'id':'N2','topic':'A','text':'A qualification.'}]
+    call=Mock(side_effect=[{'groups':[{'title':'A','ids':['N1','N2']}]},
+                          {'paragraphs':[{'heading':'Claim','text':'Claim.','ids':['N1'],'evidence_id':'N1'}]}])
+    report={};result=edit_sections(rows,call,report=report)
+    assert len(result)==2
+    assert report['fallback_reasons']=={'source_references':1}
+
+
 def test_language_correction_never_translates_raw_transcript_fallbacks():
     from summarizer import Summarizer,Summary,KeyPoint
     from note_summarizer import NoteSummarizer

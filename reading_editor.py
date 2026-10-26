@@ -79,6 +79,13 @@ Judge information, not matching wording or length. Return only JSON:
 {"complete":true,"grounded":true}. Set complete false for any missing distinct
 detail, grounded false for any unsupported claim. A failed check keeps the
 original notes readable and does not fail the processing task.
+If a local omission or unsupported claim can be corrected from the supplied
+notes, return an additional "paragraphs" array containing the COMPLETE corrected
+rewrite under the same schema as the supplied rewrite (heading,text,ids,evidence_id).
+Then complete/grounded judge that corrected version. Preserve every input id
+exactly once and all quoted/code/media blocks. Do not reject a good synthesis
+merely because it merges repeated wording. If correction is not possible, leave
+paragraphs absent and state a specific issue in an optional "issues" array.
 """
 
 
@@ -160,7 +167,8 @@ def edit_sections(items, call, checkpoint=None, budget=120, *, preserve_order=Fa
     # caller budgets (including zero) remain authoritative. Calls are checkpointed
     # individually, so a restart reuses completed planning/composition/review.
     allowance = min(600, max(120, len(items)*8)) if budget is None else budget
-    deadline = time.monotonic() + allowance
+    started=time.monotonic()
+    deadline = started + allowance
     stage_deadline = min(deadline, time.monotonic()+60)
     unavailable = False
     lookup = {item['id']:item for item in items}
@@ -220,6 +228,12 @@ def edit_sections(items, call, checkpoint=None, budget=120, *, preserve_order=Fa
             entry['rows'].extend(lookup[ident] for ident in group['ids'])
             entry['supplementary'] = entry['supplementary'] or group.get('supplementary') is True
 
+    if budget is None:
+        # Budget by actual independent chapter waves, not input card count.
+        # Otherwise a small note with three chapters can lose its final chapter
+        # after two 45-second composition/review calls in an earlier wave.
+        deadline=started+min(600,max(120,60+((len(chapters)+1)//2)*90))
+
     def compose_chapter(chapter):
         # One difficult chapter cannot consume every later chapter's editing
         # allowance. Successful requests remain individually resumable.
@@ -236,24 +250,31 @@ def edit_sections(items, call, checkpoint=None, budget=120, *, preserve_order=Fa
                 continue
             try:
                 paragraphs = request(COMPOSE, {'chapter':topic, 'notes':batch}, until=chapter_deadline)['paragraphs']
-                _partition(paragraphs, [row['id'] for row in batch])
-                paragraphs=ordered_partition(paragraphs,[row['id'] for row in batch])
-                if any(not isinstance(p.get('text'),str) or not p['text'].strip()
-                       or not isinstance(p.get('heading'),str) or not p['heading'].strip()
-                       or p.get('evidence_id') not in p['ids'] for p in paragraphs):
-                    raise ValueError('Invalid reading paragraph')
-                edited = '\n\n'.join(p['text'] for p in paragraphs)
-                if not _media('\n\n'.join(row['text'] for row in batch)).issubset(_media(edited)):
-                    raise ValueError('Editorial pass omitted source media')
-                if preserve_order:
-                    from note_presentation import media_times
-                    if media_times(edited)!=media_times('\n\n'.join(row['text'] for row in batch)):
-                        raise ValueError('Editorial pass reordered video media')
-                if any(block not in edited for row in batch for block in _verbatim_blocks(row['text'])):
-                    raise ValueError('Editorial pass changed a source quotation or code block')
+                def validate(paragraphs):
+                    _partition(paragraphs, [row['id'] for row in batch])
+                    paragraphs=ordered_partition(paragraphs,[row['id'] for row in batch])
+                    if any(not isinstance(p.get('text'),str) or not p['text'].strip()
+                           or not isinstance(p.get('heading'),str) or not p['heading'].strip()
+                           or p.get('evidence_id') not in p['ids'] for p in paragraphs):
+                        raise ValueError('Invalid reading paragraph')
+                    edited='\n\n'.join(p['text'] for p in paragraphs)
+                    original='\n\n'.join(row['text'] for row in batch)
+                    if not _media(original).issubset(_media(edited)):
+                        raise ValueError('Editorial pass omitted source media')
+                    if preserve_order:
+                        from note_presentation import media_times
+                        if media_times(edited)!=media_times(original):
+                            raise ValueError('Editorial pass reordered video media')
+                    if any(block not in edited for row in batch for block in _verbatim_blocks(row['text'])):
+                        raise ValueError('Editorial pass changed a source quotation or code block')
+                    return paragraphs
+                paragraphs=validate(paragraphs)
                 review = request(VERIFY, {'chapter':topic, 'notes':batch, 'rewrite':paragraphs}, until=chapter_deadline)
                 if review.get('complete') is not True or review.get('grounded') is not True:
                     raise ValueError('Editorial rewrite did not retain source meaning')
+                if 'paragraphs' in review:
+                    paragraphs=validate(review['paragraphs'])
+                    chapter_report['review_repairs']=chapter_report.get('review_repairs',0)+1
                 for paragraph in sorted(paragraphs,key=lambda p:min(order[ident] for ident in p['ids'])):
                     result.append({'topic':topic, 'text':'#### '+paragraph['heading'].lstrip('# ').strip()+'\n\n'+paragraph['text'].strip('\r\n'),
                                    'ids':paragraph['ids'], 'evidence_id':paragraph['evidence_id']})
@@ -265,6 +286,16 @@ def edit_sections(items, call, checkpoint=None, budget=120, *, preserve_order=Fa
                 chapter_report['retained_batches'] += 1
                 reasons=chapter_report.setdefault('fallback_reasons',{})
                 reason = 'budget_exhausted' if time.monotonic()>=min(deadline,chapter_deadline) else type(error).__name__
+                checks={
+                    'Editorial references must preserve every input exactly once':'source_references',
+                    'Nonadjacent video passages cannot be merged':'source_order',
+                    'Invalid reading paragraph':'output_shape',
+                    'Editorial pass omitted source media':'source_media',
+                    'Editorial pass reordered video media':'media_order',
+                    'Editorial pass changed a source quotation or code block':'verbatim_source',
+                    'Editorial rewrite did not retain source meaning':'semantic_review',
+                }
+                if type(error) is ValueError: reason=checks.get(str(error),'output_shape')
                 reasons[reason]=reasons.get(reason,0)+1
                 result.extend(originals(batch))
         return result,chapter_report

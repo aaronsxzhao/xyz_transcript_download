@@ -116,7 +116,7 @@ def main():
         logging.disable(logging.CRITICAL)
         with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
             try:
-                if os.environ.get('REVIEW_MODE')=='argument':
+                if os.environ.get('REVIEW_MODE','').startswith('argument'):
                     from scripts.review_argument_reading import child as argument_review
                     argument_review(Path(sys.argv[2]))
                 else:
@@ -155,7 +155,7 @@ def main():
         for index, chunk in enumerate(chunks):
             print(f'XYZ_REVIEW_CHUNK {index+1}/{len(chunks)} {chunk}', flush=True)
     print(json.dumps({'review_finished': not report.get('infrastructure_failed', False),
-                      'provider_ready': (any(row['ok'] for row in report.get('samples', [])) if os.environ.get('REVIEW_MODE')=='argument' else not report.get('halted_after_connection_test', True)),
+                      'provider_ready': (any(row['ok'] for row in report.get('samples', [])) if os.environ.get('REVIEW_MODE','').startswith('argument') else not report.get('halted_after_connection_test', True)),
                       'samples_completed': sum(row['ok'] for row in report.get('samples', [])),
                       'encrypted_artifact': True, 'production_writes': False}))
     return int(bool(report.get('infrastructure_failed')))
