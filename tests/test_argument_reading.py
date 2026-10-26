@@ -101,6 +101,23 @@ def test_one_slow_chapter_does_not_exhaust_later_chapter_allowance():
     assert report['retained_batches']==1 and report['composed_batches']==1
 
 
+def test_independent_chapters_edit_in_parallel_but_return_in_source_order():
+    import threading
+    barrier=threading.Barrier(2)
+    rows=[{'id':f'N{i}','topic':'A' if i<3 else 'B','text':f'Detail {i}.'} for i in range(1,5)]
+    def call(system,payload,timeout):
+        data=json.loads(payload)
+        if 'index' in data:return {'groups':[{'title':'A','ids':['N1','N2']},{'title':'B','ids':['N3','N4']}]}
+        if 'rewrite' in data:return {'complete':True,'grounded':True}
+        barrier.wait(timeout=3)
+        ids=[r['id'] for r in data['notes']]
+        return {'paragraphs':[{'heading':'Argument','text':' '.join(r['text'] for r in data['notes']),'ids':ids,'evidence_id':ids[0]}]}
+    report={}
+    result=edit_sections(rows,call,budget=None,report=report)
+    assert [row['ids'] for row in result]==[['N1','N2'],['N3','N4']]
+    assert report['composed_batches']==2 and not report['retained_batches']
+
+
 def test_merged_podcast_keeps_every_verified_quote_and_its_anchor():
     from summarizer import Summarizer, Summary, KeyPoint
     engine=Summarizer(api_key='fixture')

@@ -174,11 +174,11 @@ def edit_sections(items, call, checkpoint=None, budget=120, *, preserve_order=Fa
             raise ValueError('Nonadjacent video passages cannot be merged')
         return normalized
 
-    def request(system, payload):
+    def request(system, payload, until=None):
         nonlocal unavailable
         if checkpoint:
             checkpoint()
-        remaining = min(deadline, stage_deadline) - time.monotonic()
+        remaining = min(deadline, stage_deadline if until is None else until) - time.monotonic()
         if remaining < 1 or unavailable:
             raise TimeoutError('Optional editing budget exhausted')
         try:
@@ -220,21 +220,22 @@ def edit_sections(items, call, checkpoint=None, budget=120, *, preserve_order=Fa
             entry['rows'].extend(lookup[ident] for ident in group['ids'])
             entry['supplementary'] = entry['supplementary'] or group.get('supplementary') is True
 
-    result = []
-    for _, chapter in sorted(chapters.items(), key=lambda pair:(False if preserve_order else pair[1]['supplementary'], min(order[row['id']] for row in pair[1]['rows']))):
+    def compose_chapter(chapter):
         # One difficult chapter cannot consume every later chapter's editing
         # allowance. Successful requests remain individually resumable.
-        stage_deadline = min(deadline, time.monotonic()+90)
+        chapter_deadline = min(deadline, time.monotonic()+90)
+        result=[]
+        chapter_report={'composed_batches':0,'retained_batches':0}
         topic=chapter['title']
         rows = sorted(chapter['rows'], key=lambda row:order[row['id']])
         for batch in _batches(rows, 12000):
             if len(batch) < 2 or len(json.dumps(batch,ensure_ascii=False)) > 14000:
                 if len(json.dumps(batch,ensure_ascii=False)) > 14000:
-                    report['oversized_sections']=report.get('oversized_sections',0)+len(batch)
+                    chapter_report['oversized_sections']=chapter_report.get('oversized_sections',0)+len(batch)
                 result.extend(originals(batch))
                 continue
             try:
-                paragraphs = request(COMPOSE, {'chapter':topic, 'notes':batch})['paragraphs']
+                paragraphs = request(COMPOSE, {'chapter':topic, 'notes':batch}, until=chapter_deadline)['paragraphs']
                 _partition(paragraphs, [row['id'] for row in batch])
                 paragraphs=ordered_partition(paragraphs,[row['id'] for row in batch])
                 if any(not isinstance(p.get('text'),str) or not p['text'].strip()
@@ -250,22 +251,38 @@ def edit_sections(items, call, checkpoint=None, budget=120, *, preserve_order=Fa
                         raise ValueError('Editorial pass reordered video media')
                 if any(block not in edited for row in batch for block in _verbatim_blocks(row['text'])):
                     raise ValueError('Editorial pass changed a source quotation or code block')
-                review = request(VERIFY, {'chapter':topic, 'notes':batch, 'rewrite':paragraphs})
+                review = request(VERIFY, {'chapter':topic, 'notes':batch, 'rewrite':paragraphs}, until=chapter_deadline)
                 if review.get('complete') is not True or review.get('grounded') is not True:
                     raise ValueError('Editorial rewrite did not retain source meaning')
                 for paragraph in sorted(paragraphs,key=lambda p:min(order[ident] for ident in p['ids'])):
                     result.append({'topic':topic, 'text':'#### '+paragraph['heading'].lstrip('# ').strip()+'\n\n'+paragraph['text'].strip('\r\n'),
                                    'ids':paragraph['ids'], 'evidence_id':paragraph['evidence_id']})
-                report['composed_batches'] += 1
+                chapter_report['composed_batches'] += 1
             except Exception as error:
                 if is_cancellation(error):
                     raise
                 logger.info('Keeping readable source notes after optional editing failure: %s', type(error).__name__)
-                report['retained_batches'] += 1
-                reasons=report.setdefault('fallback_reasons',{})
-                reason = 'budget_exhausted' if time.monotonic()>=min(deadline,stage_deadline) else type(error).__name__
+                chapter_report['retained_batches'] += 1
+                reasons=chapter_report.setdefault('fallback_reasons',{})
+                reason = 'budget_exhausted' if time.monotonic()>=min(deadline,chapter_deadline) else type(error).__name__
                 reasons[reason]=reasons.get(reason,0)+1
                 result.extend(originals(batch))
+        return result,chapter_report
+
+    ordered_chapters=[chapter for _,chapter in sorted(chapters.items(), key=lambda pair:(False if preserve_order else pair[1]['supplementary'], min(order[row['id']] for row in pair[1]['rows'])))]
+    if budget is None and len(ordered_chapters)>1:
+        from processing_execution import parallel_map
+        completed=parallel_map(compose_chapter,ordered_chapters,workers=2)
+    else:
+        completed=[compose_chapter(chapter) for chapter in ordered_chapters]
+    result=[]
+    for paragraphs,counts in completed:
+        result.extend(paragraphs)
+        for key,value in counts.items():
+            if key=='fallback_reasons':
+                reasons=report.setdefault(key,{})
+                for reason,count in value.items(): reasons[reason]=reasons.get(reason,0)+count
+            else: report[key]=report.get(key,0)+value
     _partition(result, lookup)
     report['output_sections']=len(result)
     return result
