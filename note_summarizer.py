@@ -431,6 +431,7 @@ class NoteSummarizer:
             chunk_info = f'Section {i+1}/{num_chunks}. Start at descriptive ## chapters, without a document title or heading numbers. This is source extraction; omit the entry-layer conclusions/overview and preserve all distinct details for later whole-video editing.'
 
             system_prompt = _build_system_prompt(style, chunk_formats, duration=duration, source_text=transcript_text)
+            system_prompt += '\nEXTRACTION CHUNK: Generate detailed source chapters only. Do not write an episode introduction, Key conclusions or Episode overview. The whole-video entry is synthesized once later.\n'
             if 'summary' in formats:
                 from reading_language import chinese_source
                 summary_heading='AI 总结' if chinese_source(transcript_text) else 'AI Summary'

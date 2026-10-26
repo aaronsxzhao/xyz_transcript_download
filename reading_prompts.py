@@ -95,4 +95,7 @@ discussion, in order; historical dates in speech are not playback timestamps.
         rules += '\nUse plain Screenshot-[MM:SS] at meaningful chart/demo/topic changes, selected ONLY from supplied source timestamps. No invented times, backticks or adjacent duplicate screenshots. If no timestamps exist, omit markers.\n'
     if 'summary' in formats:
         rules += '\nAppend `## '+('AI 总结' if chinese else 'AI Summary')+'` with distinct core insights and decisive conditions, not another list of chapter topics.\n'
-    return SOURCE_FIDELITY + intro + rules + editorial_prompt(source) + '\nThe entry-layer headings above describe the summary content; keep the requested video Markdown hierarchy.\n'
+    # Video has ONE optional entry layer (AI Summary), moved before the detailed
+    # chapters by the renderer. Do not also request the podcast introduction:
+    # extraction chunks would otherwise repeat conclusions before every chapter.
+    return SOURCE_FIDELITY + intro + rules + ARGUMENT_CONTRACT + source_language_lock(source)

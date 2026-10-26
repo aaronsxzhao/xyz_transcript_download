@@ -49,6 +49,7 @@ def test_localized_templates_share_schema_without_chinese_example_leakage():
     video=_build_system_prompt('business',['summary','screenshot'],source_text='English source.')
     assert not any('\u3400'<=c<='\u9fff' for c in video)
     assert 'Screenshot-[MM:SS]' in video and '## AI Summary' in video
+    assert '### Key conclusions' not in video and '### Episode overview' not in video
 
 
 def test_generation_identity_is_saved_with_work_without_keys_or_source():
