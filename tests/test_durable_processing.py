@@ -202,3 +202,12 @@ def test_summary_settings_resolve_options_without_changing_credentials(monkeypat
     result=llm_settings.resolve_llm_settings({'llm_provider':'groq','llm_model':'openai/gpt-oss-120b','llm_reasoning_effort':'low','llm_service_tier':'performance'})
     assert result['api_key']=='test-key'
     assert result['model_options']=={'reasoning_effort':'low','service_tier':'performance'}
+
+
+def test_official_reasoning_models_omit_unsupported_temperature_without_assuming_gateway_behavior():
+    raw=Mock();raw.base_url='https://api.openai.com/v1'
+    configure(raw,{}).chat.completions.create(model='gpt-5',temperature=0)
+    assert raw.chat.completions.create.call_args.kwargs=={'model':'gpt-5'}
+    raw.base_url='https://gateway.example/v1'
+    configure(raw,{'reasoning_effort':'high'}).chat.completions.create(model='gpt-5',temperature=0)
+    assert raw.chat.completions.create.call_args.kwargs['temperature']==0

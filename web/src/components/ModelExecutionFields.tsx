@@ -19,6 +19,7 @@ export default function ModelExecutionFields({provider,model,baseUrl,value,onCha
   },[provider,model,baseUrl])
   return <fieldset disabled={disabled} className="space-y-3 min-w-0">
     <legend className="text-sm font-medium mb-2">Model execution</legend>
+    <p className="text-xs text-gray-400">{provider==='groq'?'Groq summaries use your existing transcription key and API plan.':provider==='custom'?'Uses your endpoint, key and model. Refresh to list available models.':'Uses the server-configured provider.'} Video frame analysis requires a vision-capable provider.</p>
     {error&&<p role="status" className="text-sm text-amber-300">{error}</p>}
     {([['llm_reasoning_effort','Reasoning effort',caps?.reasoning],['llm_service_tier','Service tier',caps?.tiers]] as const).map(([field,label,options])=><label key={field} className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 text-sm text-gray-400">{label}
       <select aria-label={label} value={value[field]} disabled={disabled||!caps} onChange={event=>onChange({...value,[field]:event.target.value})} className="min-w-0 w-full sm:w-56 rounded-lg border border-dark-border bg-dark-hover px-3 py-2 text-white">

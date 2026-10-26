@@ -41,6 +41,11 @@ class ConfiguredClient:
         from processing_execution import CURRENT
         execution=CURRENT.get()
         if execution: execution.check()
+        # Official reasoning models do not accept the legacy temperature=0.
+        # Gateway aliases have their own contracts, so do not infer their behavior.
+        host=(urlsplit(str(self.base_url)).hostname or '').lower()
+        if host=='api.openai.com' and kwargs.get('model') in ('gpt-5','gpt-5-mini','gpt-5-nano','o3','o3-mini','o4-mini'):
+            kwargs.pop('temperature',None)
         # Explicit user values take priority over legacy per-pass defaults.
         return self.raw.chat.completions.create(**{**kwargs,**self.options})
 
@@ -48,7 +53,9 @@ class ConfiguredClient:
     def close(self): return self.raw.close()
 
 
-def configure(client,options): return ConfiguredClient(client,options) if options else client
+def configure(client,options):
+    official=(urlsplit(str(client.base_url)).hostname or '').lower()=='api.openai.com'
+    return ConfiguredClient(client,options or {}) if options or official else client
 
 
 def request_timeout():

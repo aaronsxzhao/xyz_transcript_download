@@ -623,11 +623,6 @@ export default function Settings() {
                   <option value="custom">My OpenAI-compatible service</option>
                 </select>
               </label>
-              <p className="text-xs text-gray-400">{llmProvider === 'groq'
-                ? 'Groq summaries use your existing transcription key and API plan.'
-                : llmProvider === 'custom'
-                  ? 'Uses your endpoint, key and model. Refresh to list available models.'
-                  : 'Summaries use the provider configured on the server.'} Video frame analysis requires a vision-capable provider.</p>
               {llmProvider==='custom'?<OptionalTool fallback={<p role="status">Loading model settings…</p>}><CustomModelFields kind="summary" executionOptions={executionOptions} value={summaryConnection} model={llmModel} keySaved={!!settings?.llm_key_saved} savedBase={settings?.llm_base_url||''} keyError={settings?.llm_key_error} checkingSaved={loading} onChange={setSummaryConnection} onModel={setLlmModel} disabled={!settings||saving}/></OptionalTool>:<div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 py-2 border-b border-dark-border">
                 <span className="text-gray-400 text-sm">Model</span>
                 <select
