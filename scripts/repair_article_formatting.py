@@ -30,6 +30,20 @@ def richness(markdown):
         for token in block.children or [])
 
 
+def source_anchors(markdown):
+    from collections import Counter
+    codes=Counter();destinations=Counter()
+    def visit(tokens):
+        for token in tokens:
+            if token.type in ('code_inline','code_block','fence'):
+                codes[(token.type,token.content)]+=1
+            if token.type in ('link_open','image'):
+                destinations[(token.type,token.attrGet('href') if token.type=='link_open' else token.attrGet('src'))]+=1
+            if token.children: visit(token.children)
+    visit(MarkdownIt().parse(markdown))
+    return codes,destinations
+
+
 def repair_one(db,task,resolve):
     if task.get('style')!='original' or task.get('status')!='success':return 'ineligible'
     from social_content import SocialSourceError
@@ -40,6 +54,7 @@ def repair_one(db,task,resolve):
     previous=task.get('markdown') or ''
     if candidate==previous or richness(candidate)<=richness(previous):return 'unchanged'
     if visible_text(candidate)!=visible_text(previous):return 'changed_source_kept'
+    if any(old-new for old,new in zip(source_anchors(previous),source_anchors(candidate))):return 'changed_source_kept'
     current=db.get_task(task['id'],task['user_id'])
     if not current or current.get('status')!='success' or current.get('markdown')!=previous:return 'concurrent_change_kept'
     db.complete_task(task['id'],candidate,'original','',task['user_id'])
