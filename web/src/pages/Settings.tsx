@@ -78,6 +78,7 @@ export default function Settings() {
   const localWhisperModels = ['tiny', 'base', 'small', 'medium', 'large-v3', 'turbo'].map(value => ({ value, label: value, description: 'Local Whisper model' }))
   const whisperModels = settings?.whisper_mode === 'local' ? localWhisperModels : WHISPER_MODELS
   const [whisperModel, setWhisperModel] = useState('')
+  const [modelExecutionOpen,setModelExecutionOpen]=useState(false)
   const [executionOptions,setExecutionOptions]=useState<ExecutionOptions>({llm_reasoning_effort:'',llm_service_tier:''})
   const [llmModel, setLlmModel] = useState('')
   const [llmProvider, setLlmProvider] = useState<'server' | 'groq' | 'custom'>('server')
@@ -639,7 +640,8 @@ export default function Settings() {
                   ))}
                 </select>
               </div>}
-              <OptionalTool fallback={<p role="status">Loading model options…</p>}><ModelExecutionFields provider={llmProvider} model={llmModel} baseUrl={summaryConnection.baseUrl} value={executionOptions} onChange={setExecutionOptions} disabled={!settings||saving||testingLlm}/></OptionalTool>
+              <button type="button" aria-expanded={modelExecutionOpen} onClick={()=>setModelExecutionOpen(value=>!value)} className="text-sm text-indigo-300 underline">Reasoning and speed</button>
+              {modelExecutionOpen&&<OptionalTool fallback={<p role="status">Loading…</p>}><ModelExecutionFields provider={llmProvider} model={llmModel} baseUrl={summaryConnection.baseUrl} value={executionOptions} onChange={setExecutionOptions} disabled={!settings||saving||testingLlm}/></OptionalTool>}
               {settings?.llm_key_saved&&<button type="button" disabled={saving} className="block text-sm text-gray-400 underline" onClick={()=>{setLlmProvider('server');setLlmModel('');setSummaryConnection(value=>({...value,apiKey:''}))}}>Remove saved summary key on save</button>}
               {settings?.llm_key_error&&<p role="alert" className="text-sm text-amber-300">{settings.llm_key_error}</p>}
               {llmProvider!=='custom'&&<button onClick={verifyAndSaveLlm} disabled={!settings || saving || testingLlm || (llmProvider === 'groq' && !settings?.groq_available)} className="px-4 py-2 bg-indigo-600 text-white rounded-lg disabled:opacity-50 flex items-center gap-2">
