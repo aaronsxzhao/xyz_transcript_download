@@ -88,3 +88,55 @@ it.each(['podcast','video'] as const)('does not restore a deleted %s from an in-
   await vi.advanceTimersByTimeAsync(0)
   expect(kind==='podcast'?useStore.getState().jobs:useStore.getState().videoTasks).toEqual([])
 })
+
+it('keeps reconciling videos while podcast websocket updates arrive continuously',async()=>{
+ connectWebSocket()
+ Socket.current.onmessage?.({data:JSON.stringify({type:'init',jobs:[],video_tasks:[{...completedVideo,status:'pending'}]})})
+ for(let i=0;i<6;i++){
+  Socket.current.onmessage?.({data:JSON.stringify({type:'job_update',job:{job_id:'other',status:'transcribing',revision:i,created_at:Date.now()/1000}})})
+  await vi.advanceTimersByTimeAsync(2000)
+ }
+ expect(api.fetchProgress).toHaveBeenCalled()
+ expect(useStore.getState().videoTasks[0].status).toBe('success')
+})
+
+it('keeps podcast reconciliation running while the video request never finishes',async()=>{
+ api.fetchProgress.mockImplementation(()=>new Promise(()=>{}))
+ useStore.getState().updateVideoTask({...completedVideo,status:'pending'} as any)
+ connectWebSocket()
+ await vi.advanceTimersByTimeAsync(18000)
+ expect(api.authFetch.mock.calls.length).toBeGreaterThan(1)
+ expect(api.fetchProgress).toHaveBeenCalledOnce()
+})
+
+it('discovers completed work even when an idle websocket only sends heartbeats',async()=>{
+ connectWebSocket()
+ Socket.current.onmessage?.({data:JSON.stringify({type:'init',jobs:[],video_tasks:[]})})
+ for(let i=0;i<4;i++){
+  Socket.current.onmessage?.({data:JSON.stringify({type:'heartbeat'})})
+  await vi.advanceTimersByTimeAsync(10000)
+ }
+ expect(useStore.getState().videoTasks).toContainEqual(completedVideo)
+})
+
+it('refreshes immediately after admission and ignores reads that began before it',async()=>{
+ let finish!:(value:any)=>void
+ api.fetchProgress.mockImplementationOnce(()=>new Promise(resolve=>{finish=resolve}))
+ useStore.getState().updateVideoTask({...completedVideo,status:'pending'} as any)
+ connectWebSocket();await vi.advanceTimersByTimeAsync(5000)
+ window.dispatchEvent(new Event('xyz:processing-changed'))
+ await vi.advanceTimersByTimeAsync(1)
+ expect(useStore.getState().videoTasks[0].status).toBe('success')
+ finish({tasks:[{...completedVideo,status:'pending'}]});await vi.advanceTimersByTimeAsync(0)
+ expect(useStore.getState().videoTasks[0].status).toBe('success')
+})
+
+it('bounds a stalled podcast JSON body and ignores its eventual stale response',async()=>{
+ let finish!:(value:any)=>void
+ api.authFetch.mockResolvedValueOnce({ok:true,json:()=>new Promise(resolve=>{finish=resolve})})
+ useStore.getState().updateJob({...completedJob,status:'pending',created_at:Date.now()/1000} as any)
+ connectWebSocket();await vi.advanceTimersByTimeAsync(21000)
+ expect(useStore.getState().jobs[0].status).toBe('completed')
+ finish({jobs:[{...completedJob,status:'pending'}]});await vi.advanceTimersByTimeAsync(0)
+ expect(useStore.getState().jobs[0].status).toBe('completed')
+})

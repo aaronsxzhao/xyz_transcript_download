@@ -630,11 +630,21 @@ class _SupabaseVideoTaskDB:
                 continue
             merged_by_id[task_id] = dict(server_task)
 
+        def version(row):
+            value = row.get('updated_at')
+            try:
+                parsed = datetime.fromisoformat(value.replace('Z', '+00:00'))
+                return parsed.replace(tzinfo=parsed.tzinfo or timezone.utc).timestamp()
+            except (ValueError, TypeError, AttributeError):
+                return 0
+
         for cached_task in cached_tasks:
             task_id = cached_task.get("id")
             if not task_id:
                 continue
             existing = merged_by_id.get(task_id, {})
+            if version(existing) > version(cached_task) > 0:
+                continue
             merged_by_id[task_id] = {**existing, **cached_task}
 
         for server_task in server_tasks:
@@ -917,7 +927,8 @@ class VideoTaskDB:
                 raise RuntimeError('Final save was not confirmed')
             with backend._lock:
                 backend._cache.setdefault(task_id, {}).update(markdown=content, status='success', progress=100,
-                    error=warning, message='Notes saved; screenshots need attention' if warning else 'Notes saved')
+                    error=warning, message='Notes saved; screenshots need attention' if warning else 'Notes saved',
+                    updated_at=datetime.now(timezone.utc).isoformat())
         else:
             with backend._conn() as conn:
                 conn.execute('BEGIN IMMEDIATE')
@@ -929,8 +940,8 @@ class VideoTaskDB:
                     raise ValueError('Version already belongs to another save')
                 conn.execute('INSERT OR IGNORE INTO video_task_versions (id,task_id,content,style,model_name) VALUES (?,?,?,?,?)',
                              (version_id,task_id,content,style,model))
-                conn.execute("UPDATE video_tasks SET markdown=?,status='success',progress=100,error=?,message=?,updated_at=CURRENT_TIMESTAMP WHERE id=?",
-                             (content,warning,'Notes saved; screenshots need attention' if warning else 'Notes saved',task_id))
+                conn.execute("UPDATE video_tasks SET markdown=?,status='success',progress=100,error=?,message=?,updated_at=? WHERE id=?",
+                             (content,warning,'Notes saved; screenshots need attention' if warning else 'Notes saved',datetime.now(timezone.utc).isoformat(),task_id))
                 conn.commit()
 
         clear(payload)

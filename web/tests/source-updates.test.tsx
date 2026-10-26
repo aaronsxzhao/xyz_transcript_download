@@ -80,3 +80,18 @@ it('shows completed source progress and preserves an interrupted report without 
  expect(api.notify).toHaveBeenCalledOnce()
  expect(api.notify).toHaveBeenCalledWith(expect.objectContaining({title:'New items found · check incomplete'}))
 })
+
+it('keeps live task progress visible while a channel refresh is waiting, and rejects its stale response',async()=>{
+ const pending={id:'live',title:'Live source',url:'https://x.com/i/status/1',platform:'twitter',channel:'Writer',status:'pending',progress:0,message:'Queued',created_at:'2026-10-26',updated_at:'2026-10-26T10:00:00Z'} as any
+ api.fetchVideoTasksByChannel.mockResolvedValue({tasks:[pending],next_cursor:null})
+ api.checkVideoChannelsForUpdates.mockResolvedValue({new_videos:1,channels_checked:1})
+ await act(async()=>root.render(<MemoryRouter initialEntries={['/videos?platform=twitter&channel=Writer']}><Videos/></MemoryRouter>))
+ expect(node.querySelector('.video-task-list')?.textContent).toContain('Queued')
+ let finish!:(value:any)=>void
+ api.fetchVideoTasksByChannel.mockImplementationOnce(()=>new Promise(resolve=>{finish=resolve}))
+ await act(async()=>node.querySelector<HTMLButtonElement>('[aria-label="Check source updates"]')!.click())
+ await act(async()=>useStore.getState().updateVideoTask({...pending,status:'summarizing',progress:78,message:'Writing',updated_at:'2026-10-26T10:00:05Z'}))
+ expect(node.querySelector('.video-task-list')?.textContent).toContain('Generating summary')
+ await act(async()=>finish({tasks:[pending],next_cursor:null}))
+ expect(node.querySelector('.video-task-list')?.textContent).toContain('Generating summary')
+})

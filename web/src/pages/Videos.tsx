@@ -264,6 +264,7 @@ export default function Videos() {
       const isOptimisticLocalTask = task.platform === 'local'
       useStore.getState().updateVideoTask({
         id: task.taskId,
+        client_pending:true,
         url: task.url || '',
         platform: task.platform || '',
         title: task.title || '',
@@ -292,8 +293,9 @@ export default function Videos() {
           : 'Your video is queued for processing',
     })
     setFormOpen(false)
-    // Refresh channel list so new channel/count appears
+    // A fast import may finish before any active event was observed.
     loadChannels()
+    if(view.type==='videos')void loadChannelTasks(view.platform,view.channel,{preserveExisting:true})
   }
 
   const handleDelete = async (taskId: string) => {
@@ -308,7 +310,7 @@ export default function Videos() {
     try {
       await retryVideoTask(taskId)
       const task = channelTasks.find(t => t.id === taskId)
-      addToast({ type: 'success', title: 'Queued for processing', message: task?.title || 'Waiting for an available processing slot.' })
+      addToast({ type: 'success', title: 'Request accepted', message: task?.title || 'Follow the current processing status below.' })
       if (view.type === 'videos') loadChannelTasks(view.platform, view.channel, { preserveExisting: true })
     } catch (e) {
       console.error('Retry failed:', e)
@@ -343,7 +345,7 @@ export default function Videos() {
   }, [channelTasks, currentViewStoreTasks, view, videoTasks])
 
   // Server controls filtering/order across the whole channel, not only loaded rows.
-  const sortedChannelTasks = useMemo(() => channelRefreshing || loadedChannelFilter !== channelFilter ? channelTasks : mergedChannelTasks.filter(t =>
+  const sortedChannelTasks = useMemo(() => channelRefreshing || loadedChannelFilter !== channelFilter ? mergedChannelTasks.filter(t=>channelTasks.some(row=>row.id===t.id)) : mergedChannelTasks.filter(t =>
     (!channelStatus || t.status === channelStatus) && (!channelQuery || t.title.toLowerCase().includes(channelQuery.toLowerCase()))
   ).sort((a,b) => (channelSort === 'oldest' ? 1 : -1) * ((a.created_at || '').localeCompare(b.created_at || '') || a.id.localeCompare(b.id))), [mergedChannelTasks,channelTasks,channelRefreshing,channelStatus,channelQuery,channelSort,loadedChannelFilter,channelFilter])
 

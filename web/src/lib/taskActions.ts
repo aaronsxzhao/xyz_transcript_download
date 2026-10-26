@@ -86,6 +86,8 @@ export async function retryTask(job: ProcessingJob, kind: Kind) {
       useStore.getState().updateJob({
         ...job,
         job_id: result.new_job_id,
+        created_at:Date.now()/1000,
+        started_at:0,
         revision: 0,
         status: "pending",
         progress: 0,

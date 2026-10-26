@@ -254,9 +254,10 @@ CHUNK_UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 async def broadcast_video_job(task_id: str, task_data: dict, user_id: Optional[str] = None):
     """Broadcast video task update to WebSocket clients."""
     from api.media import sign_media_urls
+    from api.progress_payload import video_progress_payload
     await manager.broadcast_to_user({
         "type": "video_job_update",
-        "task": sign_media_urls({**task_data,"started_at":task_started_at("video",task_id)}, task_id),
+        "task": sign_media_urls({**video_progress_payload(task_data),"started_at":task_started_at("video",task_id)}, task_id),
     }, user_id)
 
 
