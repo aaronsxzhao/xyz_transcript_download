@@ -211,3 +211,57 @@ def test_official_reasoning_models_omit_unsupported_temperature_without_assuming
     raw.base_url='https://gateway.example/v1'
     configure(raw,{'reasoning_effort':'high'}).chat.completions.create(model='gpt-5',temperature=0)
     assert raw.chat.completions.create.call_args.kwargs['temperature']==0
+
+
+def test_checkpoint_cleanup_failure_does_not_block_dispatch(store, monkeypatch):
+    from api.worker import Worker
+    worker=Worker(store=store)
+    monkeypatch.setattr(worker,'adopt',Mock())
+    monkeypatch.setattr(store,'prune',Mock(side_effect=RuntimeError('Maintenance unavailable')))
+    claim=Mock(return_value=None);monkeypatch.setattr(store,'claim',claim)
+    monkeypatch.setattr(worker.stop_event,'wait',lambda *_:worker.stop_event.set())
+    worker.loop()
+    claim.assert_called_once_with(worker.ident,worker.group,worker.revision)
+    worker.stop()
+
+
+def test_cloud_recovery_admits_legacy_file_jobs_and_explains_unrecoverable_sources(store,monkeypatch):
+    from api.worker import Worker
+    from api.routers import processing
+    from api import job_persistence, supabase_client
+    from api.schemas import ProcessingStatus
+    monkeypatch.setattr('config.USE_SUPABASE',True)
+    monkeypatch.setattr(job_persistence,'restore_jobs',lambda:[])
+    saved=Mock();monkeypatch.setattr(job_persistence,'save_job',saved)
+    client=Mock();client.table.return_value.select.return_value.in_.return_value.limit.return_value.execute.return_value=SimpleNamespace(data=[])
+    monkeypatch.setattr(supabase_client,'get_supabase_admin_client',lambda:client)
+    job=ProcessingStatus(job_id='legacy',user_id='alice',status='pending',source_url='https://example.org/episode')
+    broken=ProcessingStatus(job_id='no-source',user_id='alice',status='pending')
+    monkeypatch.setattr(processing,'jobs',{'legacy':job,'no-source':broken,'anonymous':ProcessingStatus(job_id='anonymous',status='pending',source_url='https://example.org/old')})
+    monkeypatch.setattr(processing,'_save_jobs_to_file',lambda:None)
+    worker=Worker(store=store)
+    worker.adopt()
+    row=store.latest('alice','podcast','legacy')
+    assert row['state']=='queued' and row['payload']['episode_url']==job.source_url
+    assert processing.jobs['no-source'].status=='failed'
+    assert processing.jobs['anonymous'].status=='failed'
+    assert 'no saved source link' in processing.jobs['no-source'].message
+    assert store.latest('alice','podcast','no-source') is None
+    worker.adopt()
+    assert store.claim(worker.ident)['task_id']=='legacy'
+    assert store.claim('second') is None
+    worker.stop()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize('alive,age,expected',[(False,0,503),(True,130,503),(True,0,200)])
+async def test_health_requires_a_live_dispatcher_in_embedded_mode(monkeypatch,alive,age,expected):
+    import time
+    from fastapi import Response
+    from api import main
+    monkeypatch.setattr('execution_store.enabled',lambda:True)
+    monkeypatch.setattr('execution_store.role',lambda:'embedded')
+    monkeypatch.setattr(main.app.state,'processing_worker',SimpleNamespace(thread=SimpleNamespace(is_alive=lambda:alive),last_poll=time.monotonic()-age),raising=False)
+    response=Response();body=await main.health_check(response)
+    assert response.status_code==expected
+    assert body['status']==('ok' if expected==200 else 'processing_unavailable')

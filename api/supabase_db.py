@@ -7,7 +7,7 @@ import json
 import re
 from typing import List, Optional, Dict, Any
 from dataclasses import dataclass, asdict
-from datetime import datetime
+from datetime import datetime, timezone
 
 from config import USE_SUPABASE
 from api.supabase_client import get_supabase_admin_client
@@ -1007,7 +1007,7 @@ class SupabaseDatabase:
                 fields["formats"] = json.loads(fields["formats"])
             except (json.JSONDecodeError, TypeError):
                 fields["formats"] = []
-        fields["updated_at"] = datetime.utcnow().isoformat()
+        fields["updated_at"] = updates.get('updated_at') or datetime.now(timezone.utc).isoformat()
         self.client.table("video_tasks").update(fields).eq("id", task_id).execute()
 
     def get_video_task(self, task_id: str, user_id: str = None, include_transcript: bool = True) -> Optional[dict]:

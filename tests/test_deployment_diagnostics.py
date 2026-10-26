@@ -51,12 +51,20 @@ def test_public_probes_only_get_and_keep_credentials_out_of_arguments(monkeypatc
     monkeypatch.setenv("SUPABASE_JWT_SECRET", "private-signing-secret-for-profiling-only")
     def run(command, **kwargs):
         calls.append((command, kwargs))
+        if command[-1].endswith('/api/jobs'):
+            return SimpleNamespace(returncode=0,stdout=json.dumps({'jobs':[
+                {'status':'pending','episode_title':'private-title','source_url':''},
+                {'status':'transcribing','source_url':'https://private.example/episode'},
+                {'status':'completed','source_url':''},
+            ]}))
         return SimpleNamespace(stdout=json.dumps({"http_code": 200, "time_total": .25,
                                                   "time_starttransfer": .2, "size_download": 123}))
     monkeypatch.setattr("scripts.profile_library.subprocess.run", run)
     reports = profile_public_routes("private-owner", [("podcasts", "/api/podcasts"), ("settings", "/api/settings")])
-    assert [r["library_profile"] for r in reports] == ["live_auth", "live_podcasts", "live_settings"]
-    assert all(r["status"] == 200 and r["milliseconds"] == 250 for r in reports)
+    assert [r["library_profile"] for r in reports] == ["live_processing_admission", "live_auth", "live_podcasts", "live_settings"]
+    assert reports[0]=={'library_profile':'live_processing_admission','status':200,'waiting_jobs':1,'active_jobs':2,'jobs_without_source':1}
+    assert all(r["status"] == 200 and r["milliseconds"] == 250 for r in reports[1:])
+    assert 'private-title' not in str(reports) and 'private.example' not in str(reports)
     for command, kwargs in calls:
         assert "--data" not in command and "--request" not in command
         assert command[-1].startswith("https://aipodcastsummary.online/api/")

@@ -1,8 +1,8 @@
 import ReadableMarkdown from './ReadableMarkdown'
 
 /** Fully formatted note even when optional rich enhancements cannot load. */
-export default function PlainNote({markdown,preserveSource=false}:{markdown:string;preserveSource?:boolean}) {
+export default function PlainNote({markdown,preserveSource=false,readerTitle,readerMeta}:{markdown:string;preserveSource?:boolean;readerTitle?:string;readerMeta?:{author?:string;published?:string}}) {
   // The first two previews load asynchronously; later images remain lazy.
   // An artificial timer delays screenshots without protecting text rendering.
-  return <article data-rendering="plain" aria-label="Readable note" className="note-prose prose prose-invert max-w-none"><ReadableMarkdown markdown={markdown} omitToc={!preserveSource}/></article>
+  return <article data-rendering="plain" aria-label="Readable note" className="note-prose prose prose-invert max-w-none"><ReadableMarkdown markdown={markdown} omitToc={!preserveSource} readerTitle={readerTitle} readerMeta={readerMeta}/></article>
 }

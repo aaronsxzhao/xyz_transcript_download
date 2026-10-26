@@ -1,6 +1,7 @@
 """FastAPI application for Podcast Transcript Tool."""
 import asyncio
 import os
+import time
 import sys
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -410,6 +411,12 @@ if frontend_dist.exists():
 async def health_check(response: Response):
     """Health check endpoint."""
     response.headers["Cache-Control"] = "no-store"
+    from execution_store import enabled, role
+    if enabled() and role() == 'embedded':
+        worker=getattr(app.state,'processing_worker',None)
+        if not worker or not worker.thread or not worker.thread.is_alive() or time.monotonic()-worker.last_poll>120:
+            response.status_code=503
+            return {"status":"processing_unavailable","revision":os.getenv("APP_REVISION","unknown")}
     return {"status": "ok", "revision": os.getenv("APP_REVISION", "unknown")}
 
 

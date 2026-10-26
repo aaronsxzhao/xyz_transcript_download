@@ -49,3 +49,14 @@ it.each(['podcast','video'] as const)('clears %s deletion markers when resetting
     expect(useStore.getState().videoTasks[0].id).toBe('deleted')
   }
 })
+
+it('expires only unconfirmed local jobs while preserving acknowledged and newly submitted work',()=>{
+ const now=Date.now()/1000,state=useStore.getState()
+ state.setJobs([
+  {...podcast,job_id:'stale',status:'pending',created_at:now-60},
+  {...podcast,job_id:'fresh',status:'pending',created_at:now-2},
+  {...podcast,job_id:'acknowledged',status:'pending',created_at:now-120},
+ ])
+ state.mergeJobs([{...podcast,job_id:'acknowledged',status:'pending',created_at:now-120}])
+ expect(useStore.getState().jobs.map(job=>job.job_id).sort()).toEqual(['acknowledged','fresh'])
+})

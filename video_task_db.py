@@ -9,7 +9,7 @@ import json
 import sqlite3
 import uuid
 from contextlib import contextmanager
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import List, Optional, Generator
 
@@ -264,7 +264,7 @@ class _SQLiteVideoTaskDB:
             fields["source_metadata"] = json.dumps(fields["source_metadata"], ensure_ascii=False)
         if "formats" in fields and isinstance(fields["formats"], list):
             fields["formats"] = json.dumps(fields["formats"])
-        fields["updated_at"] = datetime.now().isoformat()
+        fields["updated_at"] = datetime.now(timezone.utc).isoformat()
         set_clause = ", ".join(f"{k} = ?" for k in fields)
         values = list(fields.values()) + [task_id]
         with self._conn() as conn:
@@ -529,6 +529,10 @@ class _SupabaseVideoTaskDB:
         return result
 
     def update_task(self, task_id: str, updates: dict):
+        # Version every in-memory progress event, not only the later DB flush.
+        # Otherwise cached progress overwrites the DB's fresh timestamp and
+        # browsers correctly reject it as older than their queued snapshot.
+        updates = {**updates, 'updated_at': datetime.now(timezone.utc).isoformat()}
         with self._lock:
             if task_id in self._cache:
                 self._cache[task_id].update(updates)
