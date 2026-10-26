@@ -4,7 +4,7 @@ from config import GROQ_API_KEY, GROQ_WHISPER_URL, LLM_API_KEY, LLM_BASE_URL, LL
 GROQ_MODELS = ("openai/gpt-oss-120b", "openai/gpt-oss-20b")
 
 
-def resolve_llm_settings(preferences: dict, model: str = "") -> dict:
+def _resolve_llm_settings(preferences: dict, model: str = "") -> dict:
     provider = preferences.get("llm_provider", "server")
     if provider == "custom":
         from api.custom_models import resolve_custom
@@ -20,6 +20,15 @@ def resolve_llm_settings(preferences: dict, model: str = "") -> dict:
         raise ValueError("Summary provider is not configured. Open Settings and choose Groq summaries.")
     return {"api_key": LLM_API_KEY, "base_url": LLM_BASE_URL,
             "model": model or preferences.get("llm_model") or LLM_MODEL}
+
+
+def resolve_llm_settings(preferences: dict, model: str = "") -> dict:
+    from model_execution import request_options
+    settings = _resolve_llm_settings(preferences, model)
+    options = request_options(preferences, settings['base_url'], settings['model'])
+    if options:
+        settings['model_options'] = options
+    return settings
 
 
 def provider_status(preferences: dict) -> dict:
@@ -42,7 +51,7 @@ def test_summary_connection(preferences: dict) -> dict:
         result = client.chat.completions.create(
             model=settings["model"], messages=[{"role": "user", "content": 'Reply with JSON: {"ok":true}'}],
             response_format={"type": "json_object"}, max_completion_tokens=1024,
-            **({"reasoning_effort": "low"} if preferences.get("llm_provider") == "groq" else {}),
+            **settings.get("model_options", {}),
         )
         content = result.choices[0].message.content
         if not content or not isinstance(json.loads(content), dict):
@@ -69,6 +78,9 @@ def safe_provider_error(error: Exception) -> str:
         return "The summary provider rejected the API key or model access. Check provider permissions."
     if status == 429:
         return "The summary provider's rate limit or quota was reached. Wait and retry, or check your Groq limits."
-    if status in (400, 404):
+    if status in (400,422):
+        from api.custom_models import public_model_error
+        return public_model_error(error,'summary')
+    if status == 404:
         return "The summary model or API endpoint is unavailable. Choose a supported model in Settings."
     return "The summary request failed. Please retry or test the provider connection in Settings."

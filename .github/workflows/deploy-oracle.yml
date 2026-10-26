@@ -11,6 +11,7 @@ on:
       - 'requirements.txt'
       - 'requirements-cloud.txt'
       - 'scripts/verify_deployment.py'
+      - 'scripts/drain_processing.py'
       - 'package.json'
       - 'package-lock.json'
       - '.github/workflows/deploy-oracle.yml'
@@ -106,6 +107,11 @@ jobs:
             "${OCI_CLI_USER}" "${OCI_CLI_FINGERPRINT}" "${OCI_CLI_TENANCY}" "${OCI_CLI_REGION}" \
             > ~/.oci/config
 
+      - name: Save processing boundaries before restart
+        env:
+          EXPECTED_REVISION: ${{ github.sha }}
+        run: python scripts/drain_processing.py begin
+
       - name: Restart Container Instance
         run: |
           CURRENT_MAIN=$(git ls-remote origin refs/heads/main | cut -f1)
@@ -146,3 +152,9 @@ jobs:
           docker buildx imagetools create --tag "$OCIR_REGISTRY/$OCIR_NAMESPACE/$OCIR_REPO:latest" "$OCIR_REGISTRY/$OCIR_NAMESPACE/$OCIR_REPO:$EXPECTED_REVISION"
           oci container-instances container-instance restart --container-instance-id "$CONTAINER_INSTANCE_ID"
           python scripts/verify_deployment.py
+
+      - name: Release processing drain
+        if: always()
+        env:
+          EXPECTED_REVISION: ${{ github.sha }}
+        run: python scripts/drain_processing.py end

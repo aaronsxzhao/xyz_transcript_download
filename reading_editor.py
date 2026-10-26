@@ -81,6 +81,13 @@ original notes readable and does not fail the processing task.
 
 
 def call_editor(client, model, system, payload, timeout):
+    from processing_execution import checkpoint_call
+    return checkpoint_call('model.editor', {'model':model, 'endpoint':str(client.base_url),
+        'options':getattr(client,'options',{}),'system':system,'payload':payload},
+        lambda: _call_editor(client,model,system,payload,timeout))
+
+
+def _call_editor(client, model, system, payload, timeout):
     """Use the same configured provider; optional editing has no retry cascade."""
     from summary_format import extract_model_json
     options = {}

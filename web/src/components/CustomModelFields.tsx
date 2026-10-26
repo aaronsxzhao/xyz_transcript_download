@@ -4,6 +4,7 @@ import { authFetch, parseApiResponseAsJson } from "../lib/api";
 export type ConnectionDraft = { baseUrl: string; apiKey?: string };
 export default function CustomModelFields({
   kind,
+  executionOptions,
   value,
   model,
   keySaved,
@@ -15,6 +16,7 @@ export default function CustomModelFields({
   disabled = false,
 }: {
   kind: "summary" | "transcription";
+  executionOptions?: {llm_reasoning_effort:string;llm_service_tier:string};
   value: ConnectionDraft;
   model: string;
   keySaved: boolean;
@@ -36,6 +38,7 @@ export default function CustomModelFields({
   const prefix = kind === "summary" ? "llm" : "whisper";
   const payload = () => ({
     kind,
+    ...(kind==='summary'?executionOptions:{}),
     [prefix + "_base_url"]: value.baseUrl,
     [prefix + "_api_key"]: value.apiKey,
     [prefix + "_model"]: model,
@@ -111,7 +114,7 @@ export default function CustomModelFields({
     setResult("");
     setTesting(false);
     version.current++;
-  }, [model]);
+  }, [model,executionOptions]);
   async function test() {
     const attempt = ++version.current;
     setTesting(true);

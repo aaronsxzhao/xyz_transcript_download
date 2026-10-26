@@ -205,6 +205,7 @@ def analyze_grids(
     base_url: str = "",
     model: str = "",
     custom_endpoint: bool = False,
+    model_options: Optional[dict] = None,
 ) -> str:
     """
     Send grid images to a vision-capable LLM for analysis.
@@ -230,8 +231,9 @@ def analyze_grids(
         return ""
 
     from api.custom_models import custom_http_client
-    client = OpenAI(api_key=api_key, base_url=base_url, timeout=120.0,
-                    **({"http_client": custom_http_client()} if custom_endpoint else {}))
+    from model_execution import configure
+    client = configure(OpenAI(api_key=api_key, base_url=base_url, timeout=120.0,max_retries=0,
+                    **({"http_client": custom_http_client()} if custom_endpoint else {})),model_options)
 
     content_parts = [
         {

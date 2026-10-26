@@ -20,6 +20,9 @@ def client():
 
 
 def save_jobs(jobs):
+    from processing_execution import CURRENT
+    execution = CURRENT.get()
+    if execution and execution.deleted: return
     if not USE_SUPABASE:
         return
     with ExitStack() as stack:
@@ -61,6 +64,8 @@ def restore_jobs():
 
 
 def delete_job(job_id, user_id):
+    from execution_store import enabled, get_store
+    if enabled(): get_store().cancel(user_id,'podcast',job_id,deleted=True)
     if USE_SUPABASE and user_id:
         with _job_lock(job_id):
             client().table('processing_jobs').delete().eq('id', job_id).eq('user_id', user_id).execute()
@@ -69,6 +74,8 @@ def delete_job(job_id, user_id):
 
 
 def reconcile_video_jobs():
+    from execution_store import enabled
+    if enabled(): return
     if not USE_SUPABASE:
         return
     # Only startup invokes this, before this process accepts work. Retain notes

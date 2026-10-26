@@ -1,3 +1,5 @@
+import type { ExecutionOptions } from '../components/ModelExecutionFields'
+const ModelExecutionFields = lazy(() => import('../components/ModelExecutionFields'))
 import { OptionalTool } from '../components/DeferredView'
 const PerformancePanel = lazy(() => import('../components/PerformancePanel'))
 const CustomModelFields = lazy(() => import('../components/CustomModelFields'))
@@ -32,6 +34,8 @@ interface SettingsData {
   whisper_model: string
   whisper_backend: string
   whisper_device: string
+  llm_reasoning_effort?: string
+  llm_service_tier?: string
   llm_model: string
   llm_provider: 'server' | 'groq' | 'custom'
   transcription_provider: 'server' | 'custom'
@@ -74,6 +78,7 @@ export default function Settings() {
   const localWhisperModels = ['tiny', 'base', 'small', 'medium', 'large-v3', 'turbo'].map(value => ({ value, label: value, description: 'Local Whisper model' }))
   const whisperModels = settings?.whisper_mode === 'local' ? localWhisperModels : WHISPER_MODELS
   const [whisperModel, setWhisperModel] = useState('')
+  const [executionOptions,setExecutionOptions]=useState<ExecutionOptions>({llm_reasoning_effort:'',llm_service_tier:''})
   const [llmModel, setLlmModel] = useState('')
   const [llmProvider, setLlmProvider] = useState<'server' | 'groq' | 'custom'>('server')
   const [transcriptionProvider,setTranscriptionProvider]=useState<'server'|'custom'>('server')
@@ -178,7 +183,7 @@ export default function Settings() {
   const savedVideoDraft = useRef([vdStyle,vdFormats,vdQuality,vdVideoQuality])
   const settingsRequest = useRef(0)
   const settingsWrite = useRef(false)
-  const draft = JSON.stringify([whisperModel, llmModel, llmProvider, vdStyle, vdFormats, vdQuality, vdVideoQuality,transcriptionProvider,summaryConnection,transcriptionConnection])
+  const draft = JSON.stringify([whisperModel, llmModel, llmProvider, vdStyle, vdFormats, vdQuality, vdVideoQuality,transcriptionProvider,summaryConnection,transcriptionConnection,executionOptions])
   const dirty = !!savedDraft && draft !== savedDraft
   useUnsavedChanges(dirty)
 
@@ -399,10 +404,12 @@ export default function Settings() {
       setWhisperModel(savedWhisperModel)
       setLlmModel(savedLlmModel)
       setLlmProvider(settings.llm_provider)
+      const savedOptions={llm_reasoning_effort:settings.llm_reasoning_effort||'',llm_service_tier:settings.llm_service_tier||''}
+      setExecutionOptions(savedOptions)
       setTranscriptionProvider(settings.transcription_provider||'server')
       const summaryDraft={baseUrl:settings.llm_base_url||''},transcriptionDraft={baseUrl:settings.whisper_base_url||''}
       setSummaryConnection(summaryDraft);setTranscriptionConnection(transcriptionDraft)
-      setSavedDraft(JSON.stringify([savedWhisperModel, savedLlmModel, settings.llm_provider, ...savedVideoDraft.current,settings.transcription_provider||'server',summaryDraft,transcriptionDraft]))
+      setSavedDraft(JSON.stringify([savedWhisperModel, savedLlmModel, settings.llm_provider, ...savedVideoDraft.current,settings.transcription_provider||'server',summaryDraft,transcriptionDraft,savedOptions]))
     }
   }, [settings])
 
@@ -437,6 +444,7 @@ export default function Settings() {
         whisper_model: whisperModel,
         llm_model: llmModel,
         llm_provider: llmProvider,
+        ...executionOptions,
         transcription_provider:transcriptionProvider,
         llm_base_url:summaryConnection.baseUrl,
         whisper_base_url:transcriptionConnection.baseUrl,
@@ -475,12 +483,12 @@ export default function Settings() {
     setTestingLlm(true)
     setLlmTestResult('')
     try {
-      const result = await testLlmConnection({ llm_provider: llmProvider, llm_model: llmModel })
+      const result = await testLlmConnection({ llm_provider: llmProvider, llm_model: llmModel, ...executionOptions })
       if(owner!==getAccountId())return
-      const saved = await updateSettings({ llm_provider: llmProvider, llm_model: result.model })
+      const saved = await updateSettings({ llm_provider: llmProvider, llm_model: result.model, ...executionOptions })
       if(owner!==getAccountId())return
       setLlmModel(current => current === llmModel ? result.model : current)
-      setSavedDraft(previous => { if (!previous) return previous; const values = JSON.parse(previous); values[1] = result.model; values[2] = llmProvider; return JSON.stringify(values) })
+      setSavedDraft(previous => { if (!previous) return previous; const values = JSON.parse(previous); values[1] = result.model; values[2] = llmProvider; values[10]=executionOptions; return JSON.stringify(values) })
       setPreference('llm_model', result.model)
       const confirmed=saved.settings || {...settings,llm_provider:llmProvider,llm_model:result.model}
       setSettings(confirmed);setCache(CacheKeys.SETTINGS,confirmed,owner)
@@ -606,6 +614,7 @@ export default function Settings() {
                 <select aria-label="Summary provider" disabled={!settings || testingLlm || saving} value={llmProvider} onChange={e => {
                   const provider = e.target.value as 'server' | 'groq' | 'custom'
                   setLlmProvider(provider)
+                  setExecutionOptions({llm_reasoning_effort:'',llm_service_tier:''})
                   setLlmModel(provider === 'custom' ? '' : provider === 'groq' ? groqModels[0] : settings?.llm_provider==='server'?settings.llm_model:'')
                   setLlmTestResult('')
                 }} className="bg-dark-hover border border-dark-border text-white rounded-lg px-3 py-2">
@@ -615,11 +624,11 @@ export default function Settings() {
                 </select>
               </label>
               <p className="text-xs text-gray-400">{llmProvider === 'groq'
-                ? 'Groq generates summaries with the existing transcription key and your current Groq plan. No OpenAI API account is needed.'
+                ? 'Groq summaries use your existing transcription key and API plan.'
                 : llmProvider === 'custom'
-                  ? 'Summaries use your Base URL, API key, and selected model. Refresh models to see this endpoint’s model list.'
+                  ? 'Uses your endpoint, key and model. Refresh to list available models.'
                   : 'Summaries use the provider configured on the server.'} Video frame analysis requires a vision-capable provider.</p>
-              {llmProvider==='custom'?<OptionalTool fallback={<p role="status">Loading model settings…</p>}><CustomModelFields kind="summary" value={summaryConnection} model={llmModel} keySaved={!!settings?.llm_key_saved} savedBase={settings?.llm_base_url||''} keyError={settings?.llm_key_error} checkingSaved={loading} onChange={setSummaryConnection} onModel={setLlmModel} disabled={!settings||saving}/></OptionalTool>:<div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 py-2 border-b border-dark-border">
+              {llmProvider==='custom'?<OptionalTool fallback={<p role="status">Loading model settings…</p>}><CustomModelFields kind="summary" executionOptions={executionOptions} value={summaryConnection} model={llmModel} keySaved={!!settings?.llm_key_saved} savedBase={settings?.llm_base_url||''} keyError={settings?.llm_key_error} checkingSaved={loading} onChange={setSummaryConnection} onModel={setLlmModel} disabled={!settings||saving}/></OptionalTool>:<div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 py-2 border-b border-dark-border">
                 <span className="text-gray-400 text-sm">Model</span>
                 <select
                   aria-label="Summary model"
@@ -635,6 +644,7 @@ export default function Settings() {
                   ))}
                 </select>
               </div>}
+              <OptionalTool fallback={<p role="status">Loading model options…</p>}><ModelExecutionFields provider={llmProvider} model={llmModel} baseUrl={summaryConnection.baseUrl} value={executionOptions} onChange={setExecutionOptions} disabled={!settings||saving||testingLlm}/></OptionalTool>
               {settings?.llm_key_saved&&<button type="button" disabled={saving} className="block text-sm text-gray-400 underline" onClick={()=>{setLlmProvider('server');setLlmModel('');setSummaryConnection(value=>({...value,apiKey:''}))}}>Remove saved summary key on save</button>}
               {settings?.llm_key_error&&<p role="alert" className="text-sm text-amber-300">{settings.llm_key_error}</p>}
               {llmProvider!=='custom'&&<button onClick={verifyAndSaveLlm} disabled={!settings || saving || testingLlm || (llmProvider === 'groq' && !settings?.groq_available)} className="px-4 py-2 bg-indigo-600 text-white rounded-lg disabled:opacity-50 flex items-center gap-2">

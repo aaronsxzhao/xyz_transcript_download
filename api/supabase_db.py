@@ -387,6 +387,16 @@ class SupabaseDatabase:
         if not self.client:
             return False
         
+        from processing_execution import CURRENT
+        execution = CURRENT.get()
+        if execution and execution.queue_id:
+            execution.check()
+            result = self.client.rpc('save_processing_transcript', {
+                'p_work':execution.queue_id,'p_worker':execution.lease_owner,
+                'p_user_id':user_id,'p_episode_id':episode_id,'p_language':language,
+                'p_duration':duration,'p_text':text,'p_segments':segments}).execute()
+            return bool(result.data)
+
         # Upsert transcript
         result = self.client.table("transcripts").upsert({
             "user_id": user_id,
@@ -628,7 +638,16 @@ class SupabaseDatabase:
         if not self.client:
             return False
         
-        result = self.client.rpc("save_user_summary", {
+        from processing_execution import CURRENT
+        execution = CURRENT.get()
+        extra = {}
+        operation = 'save_user_summary'
+        if execution and execution.queue_id:
+            execution.check()
+            operation = 'save_leased_summary'
+            extra = {'p_work':execution.queue_id,'p_worker':execution.lease_owner}
+        result = self.client.rpc(operation, {
+            **extra,
             "p_user_id": user_id, "p_episode_id": episode_id, "p_title": title,
             "p_overview": overview, "p_topics": topics, "p_takeaways": takeaways,
             "p_key_points": key_points,

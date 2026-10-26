@@ -3,6 +3,7 @@ from concurrent.futures import ThreadPoolExecutor
 from threading import BoundedSemaphore
 from pathlib import Path
 import subprocess
+NETWORK_EXECUTOR = ThreadPoolExecutor(max_workers=4, thread_name_prefix='media_network')
 TASK_EXECUTOR = ThreadPoolExecutor(max_workers=2, thread_name_prefix='content_processor')
 _MEDIA = BoundedSemaphore(1)
 

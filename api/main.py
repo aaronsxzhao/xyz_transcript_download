@@ -220,13 +220,17 @@ async def startup_event():
     from api.schemas import ProcessingStatus
     for saved in await asyncio.to_thread(restore_jobs):
         job = ProcessingStatus(**saved)
-        if job.status not in {'completed', 'failed', 'cancelled'}:
+        if not __import__('execution_store').enabled() and job.status not in {'completed', 'failed', 'cancelled'}:
             job.status = 'failed'
             job.advance_revision()
             job.message = 'Interrupted by server restart. Retry to continue from saved data.'
             await asyncio.to_thread(save_job, job)
         processing.jobs[job.job_id] = job
     await asyncio.to_thread(reconcile_video_jobs)
+    from execution_store import enabled, role
+    if enabled() and role() == 'embedded':
+        from api.worker import Worker
+        app.state.processing_worker = await asyncio.to_thread(lambda:Worker().start())
     print(f"[WS] Main event loop captured: {loop}")
     
     # Log auth configuration
@@ -309,6 +313,8 @@ async def shutdown_event():
         try: await cover_task
         except asyncio.CancelledError: pass
 
+    durable_worker = getattr(app.state, 'processing_worker', None)
+    if durable_worker: await asyncio.to_thread(durable_worker.stop)
     # Shutdown the processing thread pool executors
     processing.PROCESSING_EXECUTOR.shutdown(wait=False, cancel_futures=True)
     video_notes.VIDEO_EXECUTOR.shutdown(wait=False, cancel_futures=True)
@@ -639,6 +645,8 @@ def _public_settings(runtime: dict) -> dict:
         "whisper_backend": WHISPER_BACKEND,
         "whisper_device": WHISPER_DEVICE,
         "whisper_provider": WHISPER_API_PROVIDER,
+        "llm_reasoning_effort": runtime.get("llm_reasoning_effort", ""),
+        "llm_service_tier": runtime.get("llm_service_tier", ""),
         "llm_model": runtime.get("llm_model", "openrouter/openai/gpt-4o"),
         "transcription_provider": runtime.get("transcription_provider", "server"),
         "llm_base_url": runtime.get("llm_base_url", ""),
@@ -649,6 +657,16 @@ def _public_settings(runtime: dict) -> dict:
         "whisper_key_error": runtime.get("whisper_api_key_error", ""),
         "check_interval": CHECK_INTERVAL,
     }
+
+
+@app.get('/api/processing/metrics/{kind}/{task_id}')
+def processing_metrics(kind: str, task_id: str, user: User = Depends(get_current_user)):
+    from execution_store import get_store, enabled
+    if kind not in ('podcast','video') or not enabled():
+        raise HTTPException(404,detail='Processing metrics unavailable')
+    row=get_store().latest(user.id,kind,task_id)
+    if row is None: raise HTTPException(404,detail='Task not found')
+    return {key:row[key] for key in ('state','attempts','metrics','created_at','updated_at')}
 
 
 @app.post("/api/settings")
