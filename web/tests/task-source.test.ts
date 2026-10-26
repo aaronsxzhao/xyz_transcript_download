@@ -31,3 +31,9 @@ it('keeps Spotify, Apple, local and RSS task sources separate from Xiaoyuzhou',(
  expect(taskSource('','apple://'+eid,eid,'podcast')).toMatchObject({name:'Public RSS',original:''})
  expect(taskSource('','local://'+eid,eid,'podcast')).toMatchObject({name:'Local upload',original:''})
 })
+
+it('opens the selected Bilibili part without retaining tracking or invalid part parameters',()=>{
+ expect(taskSource('bilibili','https://www.bilibili.com/video/BV1xx411c7mD?p=3&share_source=copy').original).toBe('https://www.bilibili.com/video/BV1xx411c7mD?p=3')
+ for(const page of ['0','-1','NaN','1%26tracking%3Dyes'])
+  expect(taskSource('bilibili',`https://www.bilibili.com/video/BV1xx411c7mD?p=${page}`).original).toBe('https://www.bilibili.com/video/BV1xx411c7mD')
+})

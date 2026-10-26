@@ -8,8 +8,8 @@ import { ScreenshotRecoveryContext } from '../lib/screenshotRecovery'
 const loadGallery=()=>import('./ScreenshotGallery')
 const ScreenshotGallery=lazy(loadGallery)
 function GalleryPending({onClose,src,failed=false}:{onClose:()=>void;src?:string;failed?:boolean}) {
-  useDialog(true,onClose)
-  return createPortal(<div role="dialog" aria-modal="true" aria-label="Enlarged screenshot" className="ui-scope fixed inset-0 z-50 bg-black/95 flex flex-col items-center justify-center gap-4"><p role="status">{failed?'Image controls unavailable. Original image:':'Loading image controls…'}</p>{src&&<img src={src} alt="Original screenshot" style={{maxWidth:'100%',maxHeight:'75dvh',objectFit:'contain'}}/>}<button onClick={onClose}>Close</button></div>,document.body)
+  const dialogRef=useDialog<HTMLDivElement>(true,onClose)
+  return createPortal(<div ref={dialogRef} role="dialog" aria-modal="true" aria-label="Enlarged screenshot" className="ui-scope fixed inset-0 z-50 bg-black/95 flex flex-col items-center justify-center gap-4"><p role="status">{failed?'Image controls unavailable. Original image:':'Loading image controls…'}</p>{src&&<img src={src} alt="Original screenshot" style={{maxWidth:'100%',maxHeight:'75dvh',objectFit:'contain'}}/>}<button onClick={onClose}>Close</button></div>,document.body)
 }
 
 /** Bounded preview; full-resolution viewing is an explicit action. */

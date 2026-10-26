@@ -19,7 +19,7 @@ export default function ScreenshotGallery({images,initial,onClose}:{images:{src:
     pointers.current.clear()
     viewport.current?.scrollTo(0,0)
   }
-  useDialog(true,onClose)
+  const dialogRef=useDialog<HTMLDivElement>(true,onClose)
   useEffect(()=>{
     if(state!=='loading') return
     const timer=setTimeout(()=>setState('timeout'),30000)
@@ -43,7 +43,7 @@ export default function ScreenshotGallery({images,initial,onClose}:{images:{src:
     window.addEventListener('keydown',handle)
     return()=>window.removeEventListener('keydown',handle)
   },[images.length])
-  return createPortal(<div role="dialog" aria-modal="true" aria-label="Enlarged screenshot" className="ui-scope screenshot-gallery fixed inset-0 z-50 bg-black/95 flex flex-col p-4" onClick={onClose}>
+  return createPortal(<div ref={dialogRef} role="dialog" aria-modal="true" aria-label="Enlarged screenshot" className="ui-scope screenshot-gallery fixed inset-0 z-50 bg-black/95 flex flex-col p-4" onClick={onClose}>
     <div className="flex items-center justify-center gap-3 flex-wrap shrink-0 pb-3" onClick={e=>e.stopPropagation()}>
       <button disabled={index===0} onClick={()=>setIndex(index-1)}>Previous</button>
       <span aria-live="polite">{index+1} / {images.length}</span>

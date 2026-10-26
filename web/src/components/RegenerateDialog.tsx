@@ -8,10 +8,11 @@ export default function RegenerateDialog({
   onClose: () => void;
   onConfirm: () => void;
 }) {
-  useDialog(true, onClose);
+  const dialogRef = useDialog(true, onClose);
   return (
     <div className="reader-confirm-backdrop" onClick={onClose}>
       <section
+        ref={dialogRef}
         role="dialog"
         aria-modal="true"
         aria-label="Regenerate summary"

@@ -36,7 +36,7 @@ export default function PodcastNotionExport({
   selectedVersion?: string;
   onClose: () => void;
 }) {
-  useDialog(true, onClose);
+  const dialogRef = useDialog<HTMLDivElement>(true, onClose);
   const [notionPages, setNotionPages] = useState<NotionPage[]>([]);
   const [notionSearch, setNotionSearch] = useState("");
   const [notionLoading, setNotionLoading] = useState(false);
@@ -153,6 +153,7 @@ export default function PodcastNotionExport({
   }, [openNotionModal, hasNotionKey]);
   return (
     <div
+      ref={dialogRef}
       role="dialog"
       aria-modal="true"
       aria-label="Export to Notion"

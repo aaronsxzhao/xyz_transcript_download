@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { getAccountId } from "./preferences";
 import { getCache, hydrateCache } from "./cache";
 
@@ -13,9 +13,9 @@ export function useReadingPosition(
       ? document.getElementById(elementId)
       : document.querySelector("main");
     if (!el) return;
-    const storageKey = `xyz_reading:${getAccountId()}:${key}`;
-    const owner = getAccountId(),
-      saved = (() => {
+    const owner = getAccountId();
+    const storageKey = `xyz_reading:${owner}:${key}`;
+    const saved = (() => {
         try {
           return sessionStorage.getItem(storageKey);
         } catch {
@@ -91,40 +91,49 @@ export function useReadingPosition(
   }, [key, elementId, ready]);
 }
 
-export function useDialog(open: boolean, close: () => void) {
+const dialogs: HTMLElement[] = [];
+
+export function useDialog<T extends HTMLElement = HTMLElement>(open: boolean, close: () => void) {
+  const ref = useRef<T>(null);
+  const closeRef = useRef(close);
+  closeRef.current = close;
   useEffect(() => {
-    if (!open) return;
+    const dialog = ref.current;
+    if (!open || !dialog) return;
     const previous = document.activeElement as HTMLElement | null;
-    const dialog = document.querySelector<HTMLElement>('[role="dialog"]');
+    dialogs.push(dialog);
+    const top = () => dialogs[dialogs.length - 1] === dialog;
     const focusable = () =>
-      Array.from(
-        dialog?.querySelectorAll<HTMLElement>(
-          'button:not(:disabled),a[href],input,select,textarea,[tabindex="0"]',
-        ) || [],
-      );
-    focusable()[0]?.focus();
+      [...dialog.querySelectorAll<HTMLElement>(
+          'button,a[href],input,select,textarea,[tabindex]',
+        )].filter((element) => element.tabIndex >= 0 && !element.matches(':disabled') && element.getClientRects().length > 0);
+    dialog.tabIndex = -1;
+    (focusable()[0] || dialog).focus();
     const keydown = (event: KeyboardEvent) => {
+      if (event.defaultPrevented || !top()) return;
       if (event.key === "Escape") {
         event.preventDefault();
-        close();
+        event.stopPropagation();
+        closeRef.current();
       }
       if (event.key === "Tab") {
         const items = focusable();
         const first = items[0];
         const last = items[items.length - 1];
-        if (event.shiftKey && document.activeElement === first) {
+        const focused = document.activeElement;
+        if (!first || !dialog.contains(focused) || focused === dialog || focused === (event.shiftKey ? first : last)) {
           event.preventDefault();
-          last?.focus();
-        } else if (!event.shiftKey && document.activeElement === last) {
-          event.preventDefault();
-          first?.focus();
+          ((event.shiftKey ? last : first) || dialog).focus();
         }
       }
     };
-    document.addEventListener("keydown", keydown);
+    document.addEventListener("keydown", keydown, true);
     return () => {
-      document.removeEventListener("keydown", keydown);
-      previous?.focus();
+      document.removeEventListener("keydown", keydown, true);
+      const restore = top();
+      dialogs.splice(dialogs.indexOf(dialog), 1);
+      if (restore && previous?.isConnected) previous.focus();
     };
   }, [open]);
+  return ref;
 }

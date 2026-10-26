@@ -14,10 +14,11 @@ export default function DashboardDialog({
   history: ReactNode;
   onClose: () => void;
 }) {
-  useDialog(true, onClose);
+  const dialogRef = useDialog(true, onClose);
   return (
     <div className="reader-confirm-backdrop" onClick={onClose}>
       <section
+        ref={dialogRef}
         role="dialog"
         aria-modal="true"
         aria-label={kind === "updates" ? "New content" : "Task history"}

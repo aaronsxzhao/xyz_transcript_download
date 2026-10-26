@@ -20,7 +20,7 @@ export function articleEmbed(href:string):{src:string;name:string;audio?:boolean
     }
     const bili=host==='bilibili.com'?url.pathname.match(/^\/video\/(BV[\w]{10})\/?$/)?.[1]:null
     if(bili){const page=url.searchParams.get('p')||'';return {src:`https://player.bilibili.com/player.html?bvid=${bili}&autoplay=0${/^[1-9]\d{0,3}$/.test(page)?`&p=${page}`:''}`,name:'Bilibili'}}
-    const spotify=host==='open.spotify.com'?url.pathname.match(/^\/(?:embed\/)?(episode|track|album|show)\/([a-zA-Z0-9]{22})\/?$/):null
+    const spotify=host==='open.spotify.com'?url.pathname.match(/^\/(?:intl-[a-zA-Z-]+\/)?(?:embed\/)?(episode|track|album|show)\/([a-zA-Z0-9]{22})\/?$/):null
     if(spotify)return {src:`https://open.spotify.com/embed/${spotify[1]}/${spotify[2]}`,name:'Spotify',audio:true}
   } catch { /* Malformed destinations remain ordinary links. */ }
   return null

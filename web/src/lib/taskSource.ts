@@ -27,7 +27,11 @@ export function taskSource(platform = '', url = '', episodeId = '', kind?: strin
       original=source.href
     } else if (platform === 'bilibili' && /(^|\.)bilibili\.com$/.test(host)) {
       id = source.pathname.match(/\/video\/(BV[a-zA-Z0-9]+|av\d+)/)?.[1] || ''
-      if (id) original = `https://www.bilibili.com/video/${id}`
+      if (id) {
+        original = `https://www.bilibili.com/video/${id}`
+        const page = source.searchParams.get('p') || ''
+        if (/^[1-9]\d{0,3}$/.test(page)) original += `?p=${page}`
+      }
     }
   } catch { /* A missing/malformed URL still retains platform and task identity. */ }
   if (kind === 'podcast' && (!url || platform === 'xiaoyuzhou') && !rss && !local && /^[a-f0-9]{24}$/i.test(episodeId)) original = `https://www.xiaoyuzhoufm.com/episode/${episodeId}`
