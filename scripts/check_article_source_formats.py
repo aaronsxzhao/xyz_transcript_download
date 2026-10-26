@@ -20,11 +20,15 @@ def check():
         blocks=(article.get('content') or article.get('content_state') or {}).get('blocks') or []
         marks=[mark for block in blocks for mark in block.get('inlineStyleRanges',[])]
         body,_=_twitter_article_body(article,'https://x.com/i/status/'+ident)
-        print(json.dumps({'source':'twitter','id':ident,'blocks':len(blocks),'bold_ranges':sum(mark.get('style')=='BOLD' for mark in marks),'italic_ranges':sum(mark.get('style')=='ITALIC' for mark in marks),'rendered_bold':inline_styles(body),'characters':len(body)}),flush=True)
-    post=_json('https://timdenning.substack.com/api/v1/posts/once-you-understand-neuroplasticity',time.monotonic()+25)
-    raw=post.get('body_html') or ''
-    body=html_markdown(raw,'https://timdenning.substack.com/p/once-you-understand-neuroplasticity')
-    print(json.dumps({'source':'substack','semantic_bold_tags':len(re.findall(r'<(?:strong|b)(?:\s|>)',raw,re.I)),'rendered_bold':inline_styles(body),'characters':len(body)}),flush=True)
+        print(json.dumps({'source':'twitter','id':ident,'blocks':len(blocks),'bold_ranges':sum(str(mark.get('style','')).upper()=='BOLD' for mark in marks),'italic_ranges':sum(str(mark.get('style','')).upper()=='ITALIC' for mark in marks),'rendered_bold':inline_styles(body),'characters':len(body)}),flush=True)
+    from social_content import SocialSourceError
+    try:
+        post=_json('https://timdenning.substack.com/api/v1/posts/once-you-understand-neuroplasticity',time.monotonic()+25)
+        raw=post.get('body_html') or ''
+        body=html_markdown(raw,'https://timdenning.substack.com/p/once-you-understand-neuroplasticity')
+        print(json.dumps({'source':'substack','semantic_bold_tags':len(re.findall(r'<(?:strong|b)(?:\s|>)',raw,re.I)),'rendered_bold':inline_styles(body),'characters':len(body)}),flush=True)
+    except SocialSourceError as error:
+        print(json.dumps({'source':'substack','access_unavailable':True,'reason':str(error)}),flush=True)
 
 
 if __name__=='__main__':

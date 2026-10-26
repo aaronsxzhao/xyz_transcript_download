@@ -101,3 +101,35 @@ def test_adjacent_equivalent_html_marks_are_not_literal_asterisk_runs():
 
 def test_source_soft_line_breaks_inside_draft_paragraph_remain_visible():
     assert '<br />' in rendered(draft_inline('First line\nSecond line'))
+
+
+def test_existing_original_repair_adds_version_without_changing_prose(tmp_path):
+    from video_task_db import VideoTaskDB
+    from social_content import SocialContent
+    from scripts.repair_article_formatting import repair_one
+    db=VideoTaskDB(tmp_path/'articles.sqlite')
+    ident=db.create_task({'url':'https://x.com/i/status/123','platform':'twitter','user_id':'owner','style':'original'})
+    old=SocialContent('twitter','https://x.com/i/status/123','Title','Important fact.')
+    new=SocialContent('twitter',old.url,old.title,'**Important** fact.')
+    db.complete_task(ident,old.markdown(),'original','','owner')
+    before=db.get_versions(ident)[0]['content']
+    assert repair_one(db,db.get_task(ident,'owner'),lambda _:new)=='repaired'
+    assert len(db.get_versions(ident))==2
+    assert any(version['content']==before for version in db.get_versions(ident))
+
+
+def test_changed_or_unavailable_original_does_not_replace_saved_article(tmp_path):
+    from video_task_db import VideoTaskDB
+    from social_content import SocialContent,SocialSourceError
+    from scripts.repair_article_formatting import repair_one
+    db=VideoTaskDB(tmp_path/'articles.sqlite')
+    ident=db.create_task({'url':'https://x.com/i/status/123','platform':'twitter','user_id':'owner','style':'original'})
+    old=SocialContent('twitter','https://x.com/i/status/123','Title','Old fact.')
+    new=SocialContent('twitter',old.url,old.title,'**Different** fact.')
+    db.complete_task(ident,old.markdown(),'original','','owner')
+    task=db.get_task(ident,'owner')
+    assert repair_one(db,task,lambda _:new)=='changed_source_kept'
+    def unavailable(_):raise SocialSourceError('Source access unavailable')
+    assert repair_one(db,task,unavailable)=='source_unavailable'
+    assert len(db.get_versions(ident))==1
+    assert db.get_task(ident,'owner')['markdown']==old.markdown()
