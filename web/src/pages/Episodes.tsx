@@ -219,7 +219,7 @@ export default function Episodes() {
         : `https://www.xiaoyuzhoufm.com/episode/${episode.eid}`
       const result=await (regenerate ? resummarizeEpisode(episode.eid) : processEpisode(episodeUrl))
       if(owner!==getAccountId())return
-      updateJob({job_id:result.job_id,status:'pending',progress:0,
+      updateJob({job_id:result.job_id,created_at:Date.now()/1000,revision:0,status:'pending',progress:0,
         message:regenerate?'Re-summarizing...':'Starting...',episode_id:episode.eid,episode_title:episode.title})
       addToast({type:'success',title:`${operation} started`,message:episode.title})
     } catch(error) {

@@ -211,6 +211,8 @@ export default function Viewer() {
 
       updateJob({
         job_id: result.job_id,
+        created_at: Date.now()/1000,
+        revision: 0,
         status: "pending",
         progress: 0,
         message: "Re-summarizing...",

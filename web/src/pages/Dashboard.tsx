@@ -491,6 +491,8 @@ export default function Dashboard() {
         const result = await processEpisode(url);
         updateJob({
           job_id: result.job_id,
+          created_at: Date.now()/1000,
+          revision: 0,
           status: "pending",
           progress: 0,
           message: "Starting...",
