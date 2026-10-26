@@ -28,8 +28,10 @@ def test_restricted_or_invalid_feed_is_not_a_successful_empty_check(monkeypatch,
     with pytest.raises(SocialSourceError): updates.list_author_updates('https://writer.substack.com','substack')
 
 
-def test_x_legacy_post_resolves_author_and_ignores_foreign_posts_and_pinned_order(monkeypatch):
-    monkeypatch.setattr(updates,'_json',Mock(return_value={'tweet':{'author':{'screen_name':'writer'}}}))
+@pytest.mark.parametrize('field', ['tweet', 'status'])
+def test_x_legacy_post_resolves_author_and_ignores_foreign_posts_and_pinned_order(monkeypatch, field):
+    metadata=Mock(return_value={field:{'author':{'screen_name':'writer'}}})
+    monkeypatch.setattr(updates,'_json',metadata)
     entries=[{'content':{'tweet':{'id_str':ident,'user':{'screen_name':author},'full_text':title}}} for ident,author,title in [('100','writer','Pinned'),('300','other','Other author'),('200','writer','New post')]]
     html='<script id="__NEXT_DATA__" type="application/json">'+json.dumps({'props':{'pageProps':{'timeline':{'entries':entries}}}})+'</script>'
     fetch=Mock(return_value=response(html,'https://syndication.twitter.com'))
@@ -37,6 +39,7 @@ def test_x_legacy_post_resolves_author_and_ignores_foreign_posts_and_pinned_orde
     rows=updates.list_author_updates('https://x.com/i/status/99','twitter')
     assert [r['url'] for r in rows]==['https://x.com/i/status/200','https://x.com/i/status/100']
     assert fetch.call_args.args[0].endswith('/screen-name/writer')
+    assert metadata.call_args.args[0]=='https://api.fxtwitter.com/2/status/99'
 
 
 def test_x_restricted_timeline_is_reported_and_not_replaced_with_an_empty_list(monkeypatch):

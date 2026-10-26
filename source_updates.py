@@ -96,7 +96,7 @@ def _twitter(source, deadline, limit):
     if '/status/' in source or '/article/' in source:
         ident = source.rstrip('/').split('/')[-1]
         data = _json('https://api.fxtwitter.com/2/status/' + ident, deadline)
-        post = data.get('tweet') or {}
+        post = data.get('status') or data.get('tweet') or {}
         handle = (post.get('author') or {}).get('screen_name') or ''
         if not re.fullmatch(r'[A-Za-z0-9_]{1,15}', handle):
             raise SocialSourceError('X did not return the original author. Reimport an original post link.')
