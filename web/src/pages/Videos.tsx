@@ -18,6 +18,7 @@ import {
 import {lazy} from 'react'
 import {OptionalTool} from '../components/DeferredView'
 const VideoNoteForm=lazy(()=>import('../components/video/VideoNoteForm'))
+const SourceUpdateStatus=lazy(()=>import('../components/SourceUpdateStatus'))
 const BilibiliFavorites=lazy(()=>import('../components/video/BilibiliFavorites'))
 import PlatformIcon, { PLATFORM_COLORS } from '../components/PlatformIcon'
 import { useStore, mergeVideoTaskPair, filterRemovedVideoTasks } from '../lib/store'
@@ -65,6 +66,7 @@ export default function Videos() {
   useEffect(() => { const t = setTimeout(() => setChannelQuery(search), 250); return () => clearTimeout(t) }, [search])
   const [error, setError] = useState('')
   const [checking, setChecking] = useState(false)
+  const [checkProgress, setCheckProgress] = useState<{scope:string;report:Awaited<ReturnType<typeof checkVideoChannelsForUpdates>>} | null>(null)
   const [updateResult, setUpdateResult] = useState<{scope:string;report:Awaited<ReturnType<typeof checkVideoChannelsForUpdates>>} | null>(null)
   const [searchParams, setSearchParams] = useSearchParams()
   const { addToast } = useToast()
@@ -216,35 +218,33 @@ export default function Videos() {
     }
   }, [channelTasks])
 
-  const handleCheckUpdates = async () => {
+  const runUpdateCheck = async (channelName?: string) => {
     if (checking) return
-    setChecking(true)
-    setUpdateResult(null)
+    setChecking(true);setUpdateResult(null);setCheckProgress(null)
+    const scope = JSON.stringify(view)
     try {
-      const opts: { channel?: string; platform?: string } = {}
-      if (view.type === 'videos') { opts.channel = view.channel; opts.platform = view.platform }
-      else if (view.type === 'channels') opts.platform = view.platform
-
-      const result = await checkVideoChannelsForUpdates(opts)
-      setUpdateResult({scope:JSON.stringify(view),report:result})
-      if (result.new_videos > 0) {
-        addToast({ type: result.channels_failed ? 'info' : 'success', title: result.channels_failed ? 'New items found · check incomplete' : 'New items found', message: `Found ${result.new_videos} new item(s) from ${result.channels_checked} checked source(s)` })
+      const opts = {platform:view.type !== 'platforms' ? view.platform : undefined,channel:channelName || (view.type === 'videos' ? view.channel : undefined)}
+      const result = await checkVideoChannelsForUpdates(opts, report=>setCheckProgress({scope,report}))
+      setUpdateResult({scope,report:result})
+      const incomplete = result.channels_failed || result.interrupted
+      addToast({
+        type:result.new_videos ? (incomplete ? 'info' : 'success') : incomplete ? 'error' : 'info',
+        title:result.new_videos ? (incomplete ? 'New items found · check incomplete' : 'New items found') : incomplete ? 'Update check incomplete' : result.channels_checked ? 'All caught up' : 'No update sources',
+        message:result.interrupted || (incomplete ? `${result.new_videos} new items saved; ${result.channels_failed} sources unavailable. See source details below.` : result.message),
+      })
+      if (result.new_videos || result.interrupted) {
         loadChannels()
-        if (view.type === 'videos') loadChannelTasks(view.platform, view.channel, { preserveExisting: true })
-      } else if (!result.channels_failed) {
-        const scope = view.type === 'videos' ? view.channel
-          : view.type === 'channels' ? (PLATFORM_META[view.platform]?.label || view.platform)
-          : 'all channels'
-        addToast({ type: 'info', title: result.channels_checked ? 'All caught up' : 'No update sources', message: result.channels_checked ? `No new items from ${scope}` : result.message })
+        if (view.type === 'videos') loadChannelTasks(view.platform,view.channel,{preserveExisting:true})
       }
-      if (result.channels_failed && !result.new_videos) addToast({type:'error',title:'Update check incomplete',message:`${result.channels_checked} sources checked; ${result.channels_failed} unavailable. See the source details below.`})
     } catch (err) {
-      console.error('Failed to check for updates:', err)
-      addToast({ type: 'error', title: 'Check failed', message: err instanceof Error ? err.message : 'Unknown error' })
+      if (err instanceof DOMException && err.name === 'AbortError') return
+      addToast({type:'error',title:'Check failed',message:err instanceof Error ? err.message : 'Unknown error'})
     } finally {
       setChecking(false)
     }
   }
+  const handleCheckUpdates = () => runUpdateCheck()
+  const handleCheckChannelUpdates = (name:string) => runUpdateCheck(name)
 
   const handleDeleteChannel = async (channelName: string) => {
     try {
@@ -256,26 +256,6 @@ export default function Videos() {
     }
   }
 
-  const handleCheckChannelUpdates = async (channelName: string) => {
-    if (checking) return
-    setChecking(true);setUpdateResult(null)
-    try {
-      const result = await checkVideoChannelsForUpdates({ channel: channelName, platform: view.type !== 'platforms' ? view.platform : undefined })
-      setUpdateResult({scope:JSON.stringify(view),report:result})
-      if (result.new_videos > 0) {
-        addToast({ type: result.channels_failed ? 'info' : 'success', title: result.channels_failed ? 'New items found · check incomplete' : 'New items found', message: `Found ${result.new_videos} new item(s) from ${channelName}` })
-        loadChannels()
-      if (view.type === 'videos' && view.channel === channelName) loadChannelTasks(view.platform, view.channel, { preserveExisting: true })
-      } else if (!result.channels_failed) {
-        addToast({ type: 'info', title: result.channels_checked ? 'All caught up' : 'No update sources', message: result.channels_checked ? `No new items from ${channelName}` : result.message })
-      }
-      if (result.channels_failed && !result.new_videos) addToast({type:'error',title:'Update check incomplete',message:result.failures?.[0]?.message || 'Open source details below.'})
-    } catch (err) {
-      addToast({ type: 'error', title: 'Check failed', message: err instanceof Error ? err.message : 'Unknown error' })
-    } finally {
-      setChecking(false)
-    }
-  }
 
   const handleTaskCreated = (task: { taskId: string; title: string; url: string; platform: string; initialTask?: VideoTask | null }) => {
     if (task.initialTask) {
@@ -408,7 +388,7 @@ export default function Videos() {
   return (
     <div className="workspace-page space-y-5">
       {error && <LoadError message={error} onRetry={() => { void loadChannels(); if (view.type === 'videos') void loadChannelTasks(view.platform, view.channel) }} />}
-      {!!updateReport?.failures?.length && <details open className="reader-utility-panel"><summary>Some sources could not be checked · {updateReport.failures.length}</summary><ul className="mt-2 space-y-2 text-sm [overflow-wrap:anywhere]">{updateReport.failures.map((item,index)=><li key={index}><strong>{item.channel}</strong>: {item.message}</li>)}</ul></details>}
+      {(checking || updateReport) && <OptionalTool fallback={null} errorFallback={<p role="status">{updateReport?.message}</p>}><SourceUpdateStatus progress={checking && checkProgress?.scope === JSON.stringify(view) ? checkProgress.report : null} report={updateReport}/></OptionalTool>}
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="flex items-center gap-2">

@@ -879,27 +879,30 @@ class SupabaseDatabase:
         """Return distinct channels with their metadata."""
         if not self.client or not user_id:
             return []
-        result = (
-            self.client.table("video_tasks")
-            .select("channel, channel_url, channel_avatar, platform")
-            .eq("user_id", user_id)
-            .neq("channel", "")
-            .execute()
-        )
         seen = set()
         channels = []
-        for r in (result.data or []):
-            key = r.get("channel", "")
-            if key and key not in seen:
-                seen.add(key)
-                channels.append(r)
-        return channels
+        offset = 0
+        while True:
+            rows = (self.client.table('video_tasks')
+                    .select('channel, channel_url, channel_avatar, platform')
+                    .eq('user_id', user_id).neq('channel', '')
+                    .order('id').range(offset, offset + 999).execute().data or [])
+            for row in rows:
+                # Keep original source variants for the route to canonicalize.
+                # A matching display name on X and YouTube is not one source.
+                key = (row.get('platform'), row.get('channel'), row.get('channel_url'))
+                if row.get('channel') and key not in seen:
+                    seen.add(key)
+                    channels.append(row)
+            if len(rows) < 1000:
+                return channels
+            offset += len(rows)
 
     def count_distinct_video_channels(self, user_id: str) -> int:
         """Return the number of distinct channels for a user."""
         if not self.client or not user_id:
             return 0
-        return len(self.get_distinct_video_channels(user_id))
+        return len({(row.get('platform'), row.get('channel')) for row in self.get_distinct_video_channels(user_id)})
 
     def list_video_channels_with_stats(self, user_id: str) -> list:
         """Return one row per channel with total/done counts and latest thumbnail."""

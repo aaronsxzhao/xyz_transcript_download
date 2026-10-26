@@ -1784,6 +1784,8 @@ def get_chunked_upload_status(
 async def check_channels_for_updates(
     channel: Optional[str] = Query(None, description="Filter to a specific channel name"),
     platform: Optional[str] = Query(None, description="Filter to a specific platform"),
+    paged: bool = Query(False, description="Check one source per request"),
+    cursor: Optional[str] = Query(None, max_length=100),
     request: Request = None,
     user: Optional[User] = Depends(get_current_user),
 ):
@@ -1808,7 +1810,12 @@ async def check_channels_for_updates(
         except Exception:
             pass
 
-    all_channels = await asyncio.to_thread(db.get_distinct_channels, user_id)
+    paged = paged is True  # Direct callers may receive FastAPI Query defaults.
+    cursor = cursor if isinstance(cursor, str) else None
+    try:
+        all_channels = await asyncio.wait_for(asyncio.to_thread(db.get_distinct_channels, user_id), timeout=10)
+    except TimeoutError:
+        raise HTTPException(status_code=504, detail='Loading saved sources timed out. No source check was started; retry.') from None
 
     if platform:
         all_channels = [c for c in all_channels if c.get("platform") == platform]
@@ -1829,15 +1836,36 @@ async def check_channels_for_updates(
             except (SocialSourceError, ValueError): key += ('unavailable',)
         if key not in grouped or (item.get('channel_url') and not any(part in item['channel_url'] for part in ('/status/','/article/','/p/','/note/'))):
             grouped[key] = item
-    all_channels = list(grouped.values())
+    keys = sorted(grouped, key=lambda key: tuple(str(value or '') for value in key))
+    all_channels = [grouped[key] for key in keys]
+    total = len(all_channels)
+    offset = 0
+    next_cursor = None
+    if paged:
+        import hashlib
+        fingerprint = hashlib.sha256(json.dumps([user_id, keys], ensure_ascii=False).encode()).hexdigest()[:24]
+        if cursor:
+            try:
+                token, position = cursor.split(':')
+                offset = int(position)
+                if token != fingerprint or not 0 < offset < total:
+                    raise ValueError()
+            except (ValueError, TypeError):
+                raise HTTPException(status_code=409, detail='The source list changed. Previously found items were saved; check updates again.')
+        all_channels = all_channels[offset:offset+1]
+        if offset + 1 < total:
+            next_cursor = f'{fingerprint}:{offset+1}'
+        if offset:
+            skipped = 0
 
     if not all_channels:
-        return {"message": "No sources with automatic updates found", "new_videos": 0, "channels_checked": 0,'channels_failed':0,'channels_skipped':skipped,'failures':[]}
+        return {"message": "No sources with automatic updates found", "new_videos": 0, "channels_checked": 0,'channels_failed':0,'channels_skipped':skipped,'failures':[], 'next_cursor':None, 'channels_total':0, 'channels_processed':0}
 
     loop = asyncio.get_event_loop()
     total_created = 0
     checked = 0
     failures = []
+    saving = []
     semaphore = asyncio.Semaphore(3)
     deadline = time.monotonic()+40
     owner_key = user_id or '__local__'
@@ -1864,6 +1892,27 @@ async def check_channels_for_updates(
             if remaining <= 0: raise TimeoutError()
             videos = await asyncio.wait_for(loop.run_in_executor(None,fetch),timeout=min(20,remaining))
             if not videos:
+                checked += 1
+                return
+            if paged:
+                rows = [{
+                    'url': v['url'], 'platform': ch_platform,
+                    'title': v.get('title', ''), 'thumbnail': v.get('thumbnail', ''),
+                    'duration': v.get('duration', 0), 'channel': ch_name,
+                    'channel_url': v.get('channel_url') or channel_url,
+                    'channel_avatar': channel_avatar,
+                    'style': defaults.get('style', 'detailed'),
+                    'formats': defaults.get('formats', ['toc', 'summary', 'screenshot']),
+                    'quality': defaults.get('quality', 'medium'),
+                    'video_quality': defaults.get('video_quality', '720'),
+                    'model': defaults.get('llm_model', ''), 'status': 'discovered',
+                    'published_at': v.get('published_at') or '',
+                } for v in videos[:15]]
+                save = asyncio.create_task(asyncio.to_thread(db.save_discoveries, rows, user_id))
+                saving.append(save)
+                # A timeout stops waiting, not an already submitted DB write.
+                # Keep the owner lock until acknowledgement actually arrives.
+                total_created += await asyncio.wait_for(asyncio.shield(save), timeout=25)
                 checked += 1
                 return
             urls = [v["url"] for v in videos]
@@ -1913,7 +1962,13 @@ async def check_channels_for_updates(
     try:
         await asyncio.gather(*(bounded(ch) for ch in all_channels))
     finally:
-        _channel_checks.discard(owner_key)
+        if any(not save.done() for save in saving):
+            def saved(_):
+                _invalidate_list_cache(user_id)
+                _channel_checks.discard(owner_key)
+            asyncio.gather(*saving, return_exceptions=True).add_done_callback(saved)
+        else:
+            _channel_checks.discard(owner_key)
 
     if total_created:
         _invalidate_list_cache(user_id)
@@ -1923,6 +1978,8 @@ async def check_channels_for_updates(
         "new_videos": total_created,
         "channels_checked": checked,
         'channels_failed':len(failures),'channels_skipped':skipped,'failures':failures,
+        'next_cursor':next_cursor, 'channels_total':total,
+        'channels_processed':offset+len(all_channels),
     }
 
 

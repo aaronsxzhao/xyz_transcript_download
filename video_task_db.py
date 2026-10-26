@@ -775,6 +775,10 @@ class VideoTaskDB:
     def create_task(self, task_data: dict) -> str:
         return self._backend.create_task(task_data)
 
+    def save_discoveries(self, rows: list[dict], user_id: str = None) -> int:
+        from api.source_discovery import save_discoveries
+        return save_discoveries(self._backend, rows, user_id)
+
     def update_task(self, task_id: str, updates: dict):
         self._backend.update_task(task_id, updates)
 
