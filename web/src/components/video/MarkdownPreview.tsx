@@ -13,7 +13,7 @@ function NoteImage({ src, alt, priority = false }: { src?: string; alt?: string;
 }
 
 /** The reader owns task status; saved content remains readable in every state. */
-export default function MarkdownPreview({ markdown }: { markdown: string }) {
+export default function MarkdownPreview({ markdown,readerTitle }: { markdown: string;readerTitle?:string }) {
   return (
           <article data-rendering="formatted" className="note-prose prose prose-invert max-w-none pb-4
             prose-headings:text-gray-100 prose-headings:font-bold
@@ -32,12 +32,12 @@ export default function MarkdownPreview({ markdown }: { markdown: string }) {
             prose-table:border-collapse prose-th:bg-dark-hover prose-th:border prose-th:border-dark-border prose-th:px-3 prose-th:py-2
             prose-td:border prose-td:border-dark-border prose-td:px-3 prose-td:py-2
           ">
-            <NoteMarkdown markdown={markdown} />
+            <NoteMarkdown markdown={markdown} readerTitle={readerTitle}/>
           </article>
   )
 }
 
-const NoteMarkdown = memo(function NoteMarkdown({ markdown }: { markdown: string }) {
+const NoteMarkdown = memo(function NoteMarkdown({ markdown,readerTitle }: { markdown: string;readerTitle?:string }) {
   const [math, setMath] = useState<{
     remark: typeof import('remark-math').default
     rehype: typeof import('rehype-katex').default
@@ -52,7 +52,7 @@ const NoteMarkdown = memo(function NoteMarkdown({ markdown }: { markdown: string
     return () => { active = false }
   }, [hasMath, math])
   const priorityImages = Array.from(markdown.matchAll(/!\[[^\]]*\]\(([^\s)]+)/g)).slice(0, 2).map(match => match[1])
-  const rehypePlugins: PluggableList = [rehypeNoteHeadings]
+  const rehypePlugins: PluggableList = [[rehypeNoteHeadings,{readerTitle}]]
   if (math) rehypePlugins.push([math.rehype, { throwOnError: false, errorColor: '#94a3b8' }])
   return (
             <ReactMarkdown

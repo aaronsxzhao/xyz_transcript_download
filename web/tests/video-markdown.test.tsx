@@ -52,3 +52,11 @@ it('does not invent a saved version model when its metadata is unavailable',asyn
  expect(node.textContent).toContain('Not recorded')
  expect(node.textContent).not.toContain('latest-model')
 })
+
+it('omits only the matching leading reader title and preserves later source headings and anchors',async()=>{
+ await act(async()=>root.render(<MarkdownPreview readerTitle="Saved lesson" markdown={'# **Saved lesson**\n\n## Actual chapter\n\nComplete source content.\n\n# Saved lesson'}/>))
+ expect(node.querySelectorAll('h1')).toHaveLength(1)
+ expect(node.querySelector('h1')?.id).toBe('saved-lesson-1')
+ expect(node.querySelector('h2')?.textContent).toBe('Actual chapter')
+ expect(node.textContent).toContain('Complete source content.')
+})
