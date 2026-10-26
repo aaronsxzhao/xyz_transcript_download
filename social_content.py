@@ -259,6 +259,7 @@ class SocialContent:
     published: str = ''
     thumbnail: str = ''
     media: list[dict] = field(default_factory=list)
+    author_url: str = ''
 
     def __post_init__(self):
         if self.published:
@@ -411,7 +412,8 @@ def _twitter(url: str, deadline: float) -> SocialContent:
         raise SocialSourceError('X returned no readable text or media. Check source access and retry.')
     title = article.get('title') or (post.get('text') or 'X post').splitlines()[0][:120]
     return SocialContent('twitter', url, title, text.strip(), author.get('name') or author.get('display_name') or author.get('screen_name') or '', post.get('created_at') or '',
-                         _twitter_article_image(article.get('cover_media') or article.get('cover_media_results'), url) or (media.get('photos') or [{}])[0].get('url', '') or ((media.get('videos') or [{}])[0].get('thumbnail_url') or ''), attachments)
+                         _twitter_article_image(article.get('cover_media') or article.get('cover_media_results'), url) or (media.get('photos') or [{}])[0].get('url', '') or ((media.get('videos') or [{}])[0].get('thumbnail_url') or ''), attachments,
+                         author_url='https://x.com/'+author['screen_name'] if re.fullmatch(r'[A-Za-z0-9_]{1,15}',author.get('screen_name') or '') else '')
 
 
 def _substack(url: str, deadline: float) -> SocialContent:
@@ -440,7 +442,8 @@ def _substack(url: str, deadline: float) -> SocialContent:
                 metadata=attachment.get('linkMetadata') or attachment.get('post') or {}
                 target=_link(metadata.get('url') or metadata.get('canonical_url'),url)
                 if target: body+=f'\n\n[{_escape(metadata.get("title") or "Attached source")}]({target})'
-        return SocialContent('substack', url, (item.get('body') or 'Substack Note').splitlines()[0][:120], body.strip(), name, item.get('date') or item.get('created_at') or '',media=media)
+        profile = re.match(r'^/(@[A-Za-z0-9_-]+)(?:/|$)',p.path)
+        return SocialContent('substack', url, (item.get('body') or 'Substack Note').splitlines()[0][:120], body.strip(), name, item.get('date') or item.get('created_at') or '',media=media,author_url='https://substack.com/'+profile[1] if profile else '')
     match = re.fullmatch(r'/(?:embed/)?p/([^/]+)', p.path)
     if not match:
         raw, final = _read(url, deadline)
@@ -470,7 +473,7 @@ def _substack(url: str, deadline: float) -> SocialContent:
         attachments.append({'url':_media_url(post['podcast_url'], 'substack'), 'kind':'audio','duration':post.get('podcast_duration') or 0})
     if not body.strip() and not attachments: raise SocialSourceError('Substack returned an empty article. Check access to the original post.')
     authors = post.get('publishedBylines') or []
-    return SocialContent('substack', url, post['title'], body, ', '.join(str(a.get('name','')) for a in authors), post.get('post_date') or '', post.get('cover_image') or '', attachments)
+    return SocialContent('substack', url, post['title'], body, ', '.join(str(a.get('name','')) for a in authors), post.get('post_date') or '', post.get('cover_image') or '', attachments,author_url='https://'+p.hostname)
 
 
 def resolve_social_content(url: str) -> SocialContent:

@@ -207,43 +207,51 @@ export default function Podcasts() {
       const result = await refreshPodcast(pid)
       addToast({ type: 'success', title: 'Podcast refreshed', message: result.message })
       loadPodcasts()
-    } catch {
-      addToast({ type: 'error', title: 'Failed to refresh podcast' })
+    } catch (error) {
+      addToast({ type: 'error', title: 'Failed to refresh podcast', message: error instanceof Error ? error.message : 'Source unavailable' })
     } finally {
       setRefreshing(null)
     }
   }
 
   async function handleCheckAllUpdates() {
-    if (view.type !== 'podcasts') return
-    if (view.platform === 'local') {
+    if (refreshingAll) return
+    if (view.type === 'podcasts' && view.platform === 'local') {
       addToast({ type: 'info', title: 'Local uploads', message: 'Local uploads do not have external updates to check.' })
       return
     }
-    const platformPodcasts = podcasts.filter(p => (p.platform || 'xiaoyuzhou') === view.platform)
-    if (platformPodcasts.length === 0) return
+    const platformPodcasts = podcasts.filter(p => p.platform !== 'local' && (view.type !== 'podcasts' || (p.platform || 'xiaoyuzhou') === view.platform))
+    if (platformPodcasts.length === 0) {
+      addToast({type:'info',title:'No update sources',message:'Add a public podcast subscription to check for new episodes.'})
+      return
+    }
 
     setRefreshingAll(true)
     let totalNew = 0
     let checked = 0
+    const failures: string[] = []
 
-    for (const podcast of platformPodcasts) {
+    const owner = getAccountId()
+    for (let offset=0;offset<platformPodcasts.length;offset+=3) {
+      if (owner !== getAccountId()) return
+      await Promise.all(platformPodcasts.slice(offset,offset+3).map(async podcast => {
       try {
         const result = await refreshPodcast(podcast.pid)
         const match = result.message?.match(/(\d+)/)
-        if (match) totalNew += parseInt(match[1], 10)
-      } catch {
-        // continue checking others
+        totalNew += result.new_episodes ?? (match ? parseInt(match[1],10) : 0)
+        checked++
+      } catch (error) {
+        failures.push(`${podcast.title}: ${error instanceof Error ? error.message : 'Source unavailable'}`)
       }
-      checked++
+      }))
     }
 
     setRefreshingAll(false)
     loadPodcasts()
     addToast({
-      type: 'success',
-      title: 'Check complete',
-      message: totalNew > 0
+      type: failures.length ? 'error' : 'success',
+      title: failures.length ? 'Update check incomplete' : 'Check complete',
+      message: failures.length ? `${checked} checked; ${failures.length} unavailable. ${totalNew} new episodes kept. ${failures[0]}` : totalNew > 0
         ? `Found ${totalNew} new episode${totalNew !== 1 ? 's' : ''} across ${checked} podcast${checked !== 1 ? 's' : ''}`
         : `No new episodes found (checked ${checked} podcast${checked !== 1 ? 's' : ''})`,
     })
@@ -310,15 +318,16 @@ export default function Podcasts() {
           </div>
         </div>
         <div className="podcast-source-actions flex items-center gap-2 w-full sm:w-auto">
-          {view.type === 'podcasts' && view.platform !== 'local' && (
+          {(view.type !== 'podcasts' || view.platform !== 'local') && (
             <button
               onClick={handleCheckAllUpdates}
+              aria-label="Check podcast updates"
               disabled={refreshingAll}
               className="flex items-center justify-center gap-2 px-4 py-2.5 bg-dark-surface border border-dark-border hover:bg-dark-hover text-white font-medium rounded-lg transition-colors disabled:opacity-50 flex-1 sm:flex-none"
               title="Check all podcasts for new episodes"
             >
               <RefreshCw size={18} className={refreshingAll ? 'animate-spin' : ''} />
-              <span className="hidden sm:inline">Check Updates</span>
+              <span>{refreshingAll ? 'Checking…' : 'Check Updates'}</span>
             </button>
           )}
           <button

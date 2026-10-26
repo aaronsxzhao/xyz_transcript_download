@@ -44,7 +44,8 @@ it('retains successful video discoveries when the podcast scan fails',async()=>{
  await openUpdates()
  expect(node.textContent).toContain('New video')
  await closeUpdates()
- expect(toast).toHaveBeenCalledWith(expect.objectContaining({title:'Some sources could not be checked'}))
+ expect(toast).toHaveBeenCalledOnce()
+ expect(toast).toHaveBeenCalledWith(expect.objectContaining({title:'New content found · check incomplete',message:expect.stringContaining('1 source(s) unavailable')}))
 })
 
 it('keeps dismissed updates hidden across stale polls and remount, but permits genuinely newer content',async()=>{

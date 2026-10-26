@@ -66,7 +66,7 @@ def _store_new_episodes_cache(user_id: str, episodes: list) -> None:
     _prune_new_episodes_cache()
 
 
-async def _scan_podcasts_for_new_episodes(db, inter_podcast_delay: Optional[float] = None) -> tuple[int, list]:
+async def _scan_podcasts_for_new_episodes(db, inter_podcast_delay: Optional[float] = None, report: Optional[list] = None) -> tuple[int, list]:
     """
     Fetch latest episodes for all podcasts in db, persist new ones, return counts and list for UI cache.
     """
@@ -87,10 +87,11 @@ async def _scan_podcasts_for_new_episodes(db, inter_podcast_delay: Optional[floa
             if platform in ("apple", "spotify"):
                 from apple_podcasts_client import get_episodes_from_feed
                 if not podcast.feed_url:
+                    if report is not None: report.append({'source':podcast.title,'message':'No saved public RSS feed. Reimport an original episode link.'})
                     continue
-                episodes = await asyncio.to_thread(get_episodes_from_feed, podcast.feed_url, podcast.pid, 50)
+                episodes = await asyncio.to_thread(get_episodes_from_feed, podcast.feed_url, podcast.pid, 50, strict=True)
             elif platform == 'xiaoyuzhou':
-                episodes = await asyncio.to_thread(get_client().get_episodes_from_page, podcast.pid, limit=50)
+                episodes = await asyncio.to_thread(get_client().get_episodes_from_page, podcast.pid, limit=50, strict=True)
             else:
                 continue
 
@@ -122,6 +123,7 @@ async def _scan_podcasts_for_new_episodes(db, inter_podcast_delay: Optional[floa
             await asyncio.to_thread(db.update_podcast_checked, podcast.pid)
 
         except Exception as e:
+            if report is not None: report.append({'source':podcast.title,'message':'Could not read or save updates from this source. Open its original link to check access.'})
             logger.warning(f"[PodcastChecker] Error checking '{podcast.title}': {e}")
 
         if inter_podcast_delay is not None:
@@ -555,7 +557,8 @@ async def trigger_podcast_check(user: Optional[User] = Depends(get_current_user)
     if not all_podcasts:
         return {"message": "No podcasts subscribed", "new_episodes": 0}
 
-    total_new, new_episodes_list = await _scan_podcasts_for_new_episodes(db, inter_podcast_delay=None)
+    failures = []
+    total_new, new_episodes_list = await _scan_podcasts_for_new_episodes(db, inter_podcast_delay=None, report=failures)
 
     user_id = user.id if user else "_anonymous"
     _store_new_episodes_cache(user_id, new_episodes_list)
@@ -564,6 +567,7 @@ async def trigger_podcast_check(user: Optional[User] = Depends(get_current_user)
         "message": f"Found {total_new} new episode(s)",
         "new_episodes": total_new,
         "episodes": new_episodes_list[:10],
+        'podcasts_failed':len(failures),'failures':failures,
     }
 
 

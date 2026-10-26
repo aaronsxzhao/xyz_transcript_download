@@ -16,7 +16,7 @@ class SocialDownloader:
     def get_metadata(self, url):
         return VideoMetadata(title=self.source.title, thumbnail=self.source.thumbnail,
             duration=sum(float(item.get('duration') or 0) for item in self.source.media),
-            channel=self.source.author or self.source.platform, channel_url=self.source.url,
+            channel=self.source.author or self.source.platform, channel_url=self.source.author_url or self.source.url,
             published_at=self.source.published, platform=self.source.platform, url=self.source.url)
 
     def get_last_download_info(self):

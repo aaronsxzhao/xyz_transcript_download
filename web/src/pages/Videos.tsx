@@ -65,6 +65,7 @@ export default function Videos() {
   useEffect(() => { const t = setTimeout(() => setChannelQuery(search), 250); return () => clearTimeout(t) }, [search])
   const [error, setError] = useState('')
   const [checking, setChecking] = useState(false)
+  const [updateResult, setUpdateResult] = useState<{scope:string;report:Awaited<ReturnType<typeof checkVideoChannelsForUpdates>>} | null>(null)
   const [searchParams, setSearchParams] = useSearchParams()
   const { addToast } = useToast()
 
@@ -85,7 +86,7 @@ export default function Videos() {
     if (platform) return { type: 'channels', platform }
     return { type: 'platforms' }
   }, [searchParams])
-
+  const updateReport = updateResult?.scope === JSON.stringify(view) ? updateResult.report : null
 
 
   const setView = useCallback((v: View) => {
@@ -216,23 +217,27 @@ export default function Videos() {
   }, [channelTasks])
 
   const handleCheckUpdates = async () => {
+    if (checking) return
     setChecking(true)
+    setUpdateResult(null)
     try {
       const opts: { channel?: string; platform?: string } = {}
-      if (view.type === 'videos') opts.channel = view.channel
+      if (view.type === 'videos') { opts.channel = view.channel; opts.platform = view.platform }
       else if (view.type === 'channels') opts.platform = view.platform
 
       const result = await checkVideoChannelsForUpdates(opts)
+      setUpdateResult({scope:JSON.stringify(view),report:result})
       if (result.new_videos > 0) {
-        addToast({ type: 'success', title: 'New videos found', message: `Found ${result.new_videos} new video(s) from ${result.channels_checked} channel(s)` })
+        addToast({ type: result.channels_failed ? 'info' : 'success', title: result.channels_failed ? 'New items found · check incomplete' : 'New items found', message: `Found ${result.new_videos} new item(s) from ${result.channels_checked} checked source(s)` })
         loadChannels()
         if (view.type === 'videos') loadChannelTasks(view.platform, view.channel, { preserveExisting: true })
-      } else {
+      } else if (!result.channels_failed) {
         const scope = view.type === 'videos' ? view.channel
           : view.type === 'channels' ? (PLATFORM_META[view.platform]?.label || view.platform)
           : 'all channels'
-        addToast({ type: 'info', title: 'All caught up', message: `No new videos from ${scope}` })
+        addToast({ type: 'info', title: result.channels_checked ? 'All caught up' : 'No update sources', message: result.channels_checked ? `No new items from ${scope}` : result.message })
       }
+      if (result.channels_failed && !result.new_videos) addToast({type:'error',title:'Update check incomplete',message:`${result.channels_checked} sources checked; ${result.channels_failed} unavailable. See the source details below.`})
     } catch (err) {
       console.error('Failed to check for updates:', err)
       addToast({ type: 'error', title: 'Check failed', message: err instanceof Error ? err.message : 'Unknown error' })
@@ -252,17 +257,23 @@ export default function Videos() {
   }
 
   const handleCheckChannelUpdates = async (channelName: string) => {
+    if (checking) return
+    setChecking(true);setUpdateResult(null)
     try {
-      const result = await checkVideoChannelsForUpdates({ channel: channelName })
+      const result = await checkVideoChannelsForUpdates({ channel: channelName, platform: view.type !== 'platforms' ? view.platform : undefined })
+      setUpdateResult({scope:JSON.stringify(view),report:result})
       if (result.new_videos > 0) {
-        addToast({ type: 'success', title: 'New videos found', message: `Found ${result.new_videos} new video(s) from ${channelName}` })
+        addToast({ type: result.channels_failed ? 'info' : 'success', title: result.channels_failed ? 'New items found · check incomplete' : 'New items found', message: `Found ${result.new_videos} new item(s) from ${channelName}` })
         loadChannels()
       if (view.type === 'videos' && view.channel === channelName) loadChannelTasks(view.platform, view.channel, { preserveExisting: true })
-      } else {
-        addToast({ type: 'info', title: 'All caught up', message: `No new videos from ${channelName}` })
+      } else if (!result.channels_failed) {
+        addToast({ type: 'info', title: result.channels_checked ? 'All caught up' : 'No update sources', message: result.channels_checked ? `No new items from ${channelName}` : result.message })
       }
+      if (result.channels_failed && !result.new_videos) addToast({type:'error',title:'Update check incomplete',message:result.failures?.[0]?.message || 'Open source details below.'})
     } catch (err) {
       addToast({ type: 'error', title: 'Check failed', message: err instanceof Error ? err.message : 'Unknown error' })
+    } finally {
+      setChecking(false)
     }
   }
 
@@ -397,6 +408,7 @@ export default function Videos() {
   return (
     <div className="workspace-page space-y-5">
       {error && <LoadError message={error} onRetry={() => { void loadChannels(); if (view.type === 'videos') void loadChannelTasks(view.platform, view.channel) }} />}
+      {!!updateReport?.failures?.length && <details open className="reader-utility-panel"><summary>Some sources could not be checked · {updateReport.failures.length}</summary><ul className="mt-2 space-y-2 text-sm [overflow-wrap:anywhere]">{updateReport.failures.map((item,index)=><li key={index}><strong>{item.channel}</strong>: {item.message}</li>)}</ul></details>}
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="flex items-center gap-2">
@@ -427,18 +439,19 @@ export default function Videos() {
         </div>
         <div className="flex flex-wrap items-center gap-2">
           {(view.type==='platforms'||view.platform==='bilibili')&&<button onClick={()=>setFavoritesOpen(value=>!value)} aria-expanded={favoritesOpen} className="rounded-lg border border-dark-border px-3 py-2 text-sm">Bilibili favorites</button>}
-          {(view.type==='platforms'||['youtube','bilibili'].includes(view.platform))&&<button
+          {(view.type==='platforms'||['youtube','bilibili','douyin','twitter','substack'].includes(view.platform))&&<button
             onClick={handleCheckUpdates}
             disabled={checking}
+            aria-label="Check source updates"
             className="flex items-center gap-2 px-3 py-2 bg-dark-surface border border-dark-border rounded-lg hover:bg-dark-hover transition-colors text-sm text-gray-300"
             title={
-              view.type === 'videos' ? `Check ${view.channel} for new videos`
-                : view.type === 'channels' ? `Check ${PLATFORM_META[view.platform]?.label || view.platform} channels for new videos`
-                : 'Check all channels for new videos'
+              view.type === 'videos' ? `Check ${view.channel} for new content`
+                : view.type === 'channels' ? `Check ${PLATFORM_META[view.platform]?.label || view.platform} sources for new content`
+                : 'Check all sources for new content'
             }
           >
             <RefreshCw size={16} className={checking ? 'animate-spin' : ''} />
-            <span className="hidden sm:inline">{checking ? 'Checking...' : 'Check Updates'}</span>
+            <span>{checking ? 'Checking...' : 'Check Updates'}</span>
           </button>}
           <button onPointerEnter={()=>void import('../components/video/VideoNoteForm').catch(()=>{})} onFocus={()=>void import('../components/video/VideoNoteForm').catch(()=>{})} onClick={() => setFormOpen(!formOpen)}
             className="flex items-center gap-2 px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-medium rounded-lg transition-colors">
@@ -554,7 +567,7 @@ export default function Videos() {
           channels={platformChannels}
           onSelectChannel={(ch) => setView({ type: 'videos', platform: view.platform, channel: ch })}
           onDeleteChannel={handleDeleteChannel}
-          onCheckUpdates={['youtube','bilibili'].includes(view.platform) ? handleCheckChannelUpdates : undefined}
+          onCheckUpdates={['youtube','bilibili','douyin','twitter','substack'].includes(view.platform) ? handleCheckChannelUpdates : undefined}
         />
       ) : (
         /* Video list for selected channel */
@@ -655,7 +668,8 @@ function ChannelList({ channels, onSelectChannel, onDeleteChannel, onCheckUpdate
                     }}
                     disabled={refreshing === ch.channel}
                     className="p-2 bg-dark-hover hover:bg-dark-border text-white rounded-lg transition-colors disabled:opacity-50"
-                    title="Check for new videos"
+                    title="Check for new content"
+                    aria-label={`Check updates for ${ch.channel}`}
                   >
                     <RefreshCw size={16} className={refreshing === ch.channel ? 'animate-spin' : ''} />
                   </button>

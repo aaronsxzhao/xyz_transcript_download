@@ -93,7 +93,7 @@ async def test_global_updates_use_apple_feed_and_skip_local_uploads(platform):
     ]
     with patch("apple_podcasts_client.get_episodes_from_feed", return_value=[]) as feed, patch("xyz_client.get_client") as xyz:
         assert await _scan_podcasts_for_new_episodes(db) == (0, [])
-    feed.assert_called_once_with("https://example.com/feed.xml", "apple-show", 50)
+    feed.assert_called_once_with("https://example.com/feed.xml", "apple-show", 50, strict=True)
     xyz.assert_not_called()
 
 

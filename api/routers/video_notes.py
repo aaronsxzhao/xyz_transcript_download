@@ -39,6 +39,7 @@ VIDEO_EXECUTOR = TASK_EXECUTOR
 
 _list_cache: dict = {}
 _LIST_TTL = 5.0
+_channel_checks: set[str] = set()
 
 
 def _invalidate_list_cache(user_id: str = None):
@@ -421,7 +422,7 @@ def process_video_note_sync(
                 social_source = resolve_content(url) if generic else resolve_social_content(url)
             platform = social_source.platform
             db.update_task(task_id, {'platform':platform,'title':social_source.title,'thumbnail':social_source.thumbnail,
-                'channel':social_source.author or platform,'channel_url':social_source.url,'published_at':social_source.published})
+                'channel':social_source.author or platform,'channel_url':social_source.author_url or social_source.url,'published_at':social_source.published})
             if platform == 'web':
                 db.update_task(task_id, {'source_metadata':social_source.metadata()})
             if not social_source.media:
@@ -1779,30 +1780,62 @@ async def check_channels_for_updates(
 
     all_channels = await asyncio.to_thread(db.get_distinct_channels, user_id)
 
+    if platform:
+        all_channels = [c for c in all_channels if c.get("platform") == platform]
     if channel:
         all_channels = [c for c in all_channels if c.get("channel") == channel]
-    elif platform:
-        all_channels = [c for c in all_channels if c.get("platform") == platform]
+    supported = {'youtube','bilibili','douyin','twitter','substack'}
+    skipped = sum(c.get('platform') not in supported for c in all_channels)
+    # Legacy social imports saved a post URL on every item. Scan each displayed
+    # source once, preferring an already saved author/publication URL.
+    grouped = {}
+    for item in all_channels:
+        if item.get('platform') not in supported: continue
+        key = (item.get('platform'), item.get('channel'))
+        if item.get('platform') == 'substack' and item.get('channel_url'):
+            from source_updates import author_url
+            from social_content import SocialSourceError
+            try: key += (author_url('substack',item['channel_url']),)
+            except (SocialSourceError, ValueError): key += ('unavailable',)
+        if key not in grouped or (item.get('channel_url') and not any(part in item['channel_url'] for part in ('/status/','/article/','/p/','/note/'))):
+            grouped[key] = item
+    all_channels = list(grouped.values())
 
     if not all_channels:
-        return {"message": "No video channels found", "new_videos": 0, "channels_checked": 0}
+        return {"message": "No sources with automatic updates found", "new_videos": 0, "channels_checked": 0,'channels_failed':0,'channels_skipped':skipped,'failures':[]}
 
     loop = asyncio.get_event_loop()
     total_created = 0
+    checked = 0
+    failures = []
+    semaphore = asyncio.Semaphore(3)
+    deadline = time.monotonic()+40
+    owner_key = user_id or '__local__'
+    if owner_key in _channel_checks:
+        raise HTTPException(status_code=409,detail='An update check is already running. Wait for its result before checking again.')
+    _channel_checks.add(owner_key)
 
-    for ch in all_channels:
+    async def scan(ch):
+        nonlocal total_created, checked
         ch_name = ch.get("channel", "")
         channel_url = ch.get("channel_url", "")
         channel_avatar = ch.get("channel_avatar", "")
         ch_platform = ch.get("platform", "")
         if not channel_url:
-            continue
+            failures.append({'channel':ch_name,'platform':ch_platform,'message':'No original source URL is saved. Import an original link again.'})
+            return
         try:
-            videos = await loop.run_in_executor(
-                None, lambda cu=channel_url, p=ch_platform: list_channel_videos(cu, p, cookies=get_cookie_manager(user_id).get_cookie(p), limit=15)
-            )
+            if ch_platform in ('twitter','substack'):
+                from source_updates import list_author_updates
+                fetch = lambda: list_author_updates(channel_url,ch_platform,limit=15)
+            else:
+                fetch = lambda: list_channel_videos(channel_url,ch_platform,cookies=get_cookie_manager(user_id).get_cookie(ch_platform),limit=15,strict=True)
+            remaining = deadline-time.monotonic()
+            if remaining <= 0: raise TimeoutError()
+            videos = await asyncio.wait_for(loop.run_in_executor(None,fetch),timeout=min(20,remaining))
             if not videos:
-                continue
+                checked += 1
+                return
             urls = [v["url"] for v in videos]
             existing_urls = await asyncio.to_thread(db.get_existing_urls, urls, user_id)
             # Backfill published_at on existing tasks that are missing it
@@ -1822,7 +1855,7 @@ async def check_channels_for_updates(
                         "thumbnail": v.get("thumbnail", ""),
                         "duration": v.get("duration", 0),
                         "channel": ch_name,
-                        "channel_url": channel_url,
+                        "channel_url": v.get('channel_url') or channel_url,
                         "channel_avatar": channel_avatar,
                         "style": defaults.get("style", "detailed"),
                         "formats": defaults.get("formats", ["toc", "summary", "screenshot"]),
@@ -1834,18 +1867,32 @@ async def check_channels_for_updates(
                         "published_at": v.get("published_at", ""),
                     })
                     total_created += 1
+                    existing_urls.add(v['url'])
                 except Exception as e:
-                    logger.warning(f"Failed to create discovered task for {v['url']}: {e}")
+                    raise RuntimeError('Could not save a discovered item') from e
+            checked += 1
         except Exception as e:
-            logger.warning(f"Failed to check channel '{ch_name}': {e}")
+            from social_content import SocialSourceError
+            message = str(e) if isinstance(e,SocialSourceError) else 'This source could not be checked or saved. Previously discovered items were kept; retry this source.'
+            failures.append({'channel':ch_name,'platform':ch_platform,'message':message})
+            logger.warning('Source update check failed: platform=%s error=%s',ch_platform,type(e).__name__)
+
+    async def bounded(ch):
+        async with semaphore:
+            await scan(ch)
+    try:
+        await asyncio.gather(*(bounded(ch) for ch in all_channels))
+    finally:
+        _channel_checks.discard(owner_key)
 
     if total_created:
         _invalidate_list_cache(user_id)
 
     return {
-        "message": f"Found {total_created} new video(s)" if total_created else "No new videos found",
+        "message": f"Found {total_created} new item(s); {len(failures)} source(s) could not be checked" if failures else f"Found {total_created} new item(s)" if total_created else "No new items found",
         "new_videos": total_created,
-        "channels_checked": len(all_channels),
+        "channels_checked": checked,
+        'channels_failed':len(failures),'channels_skipped':skipped,'failures':failures,
     }
 
 

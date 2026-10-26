@@ -429,13 +429,13 @@ export default function Dashboard() {
         results[1].status === "fulfilled" ? results[1].value.new_videos : 0;
       const failed = results.filter(
         (result) => result.status === "rejected",
-      ).length;
+      ).length + (results[1].status === 'fulfilled' ? results[1].value.channels_failed || 0 : 0) + (results[0].status === 'fulfilled' ? results[0].value.podcasts_failed || 0 : 0);
       await loadContentUpdates();
       if (episodes || videos) {
         addToast({
-          type: "success",
-          title: "New content found",
-          message: `${episodes} episode(s) + ${videos} video(s)`,
+          type: failed ? "info" : "success",
+          title: failed ? "New content found · check incomplete" : "New content found",
+          message: `${episodes} episode(s) + ${videos} item(s)${failed ? ` · ${failed} source(s) unavailable` : ''}`,
         });
         void loadData();
       } else if (!failed)
@@ -444,7 +444,7 @@ export default function Dashboard() {
           title: "All caught up",
           message: "No new episodes or videos found",
         });
-      if (failed)
+      if (failed && !(episodes || videos))
         addToast({
           type: "error",
           title: "Some sources could not be checked",
