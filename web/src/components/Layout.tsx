@@ -7,13 +7,14 @@ import {lazy} from 'react'
 import {useStore} from '../lib/store'
 const ProcessingPanel=lazy(()=>import('./ProcessingPanel'))
 import { useAuth } from '../contexts/AuthContext'
+import { ConnectionNoticeContext } from '../lib/connectionRecovery'
 
 export default function Layout() {
   const { user, connectionError, retryConnection } = useAuth()
   const hasTasks=useStore(s=>s.jobs.length+s.videoTasks.filter(t=>t.status!=="discovered").length+s.uploadSessions.length>0)
   const {pathname}=useLocation()
   return (
-    <div className="app-shell flex flex-col bg-dark-bg overflow-hidden">
+    <ConnectionNoticeContext.Provider value={!!connectionError}><div className="app-shell flex flex-col bg-dark-bg overflow-hidden">
       {connectionError && <div role="alert" className="connection-notice shrink-0 flex flex-wrap items-center justify-center gap-x-3 gap-y-1 px-4 py-1 text-sm bg-dark-surface border-b border-dark-border text-gray-300">
         <span>{connectionError}</span><button className="underline px-2 py-1" onClick={retryConnection}>Retry connection</button>
       </div>}
@@ -28,6 +29,6 @@ export default function Layout() {
       </main>
 
       {hasTasks&&<PageErrorBoundary inline><Suspense fallback={null}><ProcessingPanel key={user?.id}/></Suspense></PageErrorBoundary>}
-    </div>
+    </div></ConnectionNoticeContext.Provider>
   )
 }

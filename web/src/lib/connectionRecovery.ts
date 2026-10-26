@@ -1,4 +1,6 @@
-import { useEffect, useRef } from 'react'
+import { createContext, useEffect, useRef } from 'react'
+
+export const ConnectionNoticeContext = createContext(false)
 
 const retryEvent = 'xyz:retry-connection'
 export const retryConnection = () => window.dispatchEvent(new Event(retryEvent))

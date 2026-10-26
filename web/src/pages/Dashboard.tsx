@@ -10,6 +10,7 @@ const DashboardDialog = deferView(
   () => import("../components/DashboardDialog"),
 );
 import LoadError from "../components/LoadError";
+import {useConnectionRecovery} from '../lib/connectionRecovery';
 import { getAccountId, getPreference, setPreference } from "../lib/preferences";
 import { useState, useEffect, useMemo, useRef } from "react";
 import { Link } from "react-router-dom";
@@ -129,6 +130,8 @@ export default function Dashboard() {
     setUpdatesSnapshot(unreadSnapshot(value)),
   );
   const [updatesError, setUpdatesError] = useState("");
+  useConnectionRecovery(() => void loadContentUpdates(), !!updatesError);
+  useConnectionRecovery(retryReading, readingStatus === 'error');
   const [dismissingUpdates, setDismissingUpdates] = useState(false);
   const updatesReadVersion = useRef(0);
   const dismissingRef = useRef(false);
@@ -592,7 +595,7 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {updatesError && (
+      {updatesError && !error && (
         <div role="status" className="text-sm text-amber-300">
           {updatesError}{" "}
           <button
@@ -785,7 +788,7 @@ export default function Dashboard() {
                   />
                 ))}
               </div>
-            ) : readingStatus === "error" ? (
+            ) : readingStatus === "error" ? (error ? null :
               <LoadError
                 message="Reading history could not be verified. Your saved notes are still in Library."
                 onRetry={retryReading}
