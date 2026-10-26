@@ -1,0 +1,32 @@
+name: Restore original article formatting
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: ['social_content.py', 'source_rich_text.py', 'scripts/repair_article_formatting.py', '.github/workflows/repair-article-formatting.yml']
+permissions:
+  contents: read
+jobs:
+  repair:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    env:
+      CONTAINER_INSTANCE_ID: ocid1.computecontainerinstance.oc1.iad.anuwcljrram2hqqaueqbs2y4opn3tm2jfpmx4a7gdsscygwyjgnac5vrqgta
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Load application bindings privately
+        env:
+          OCI_CLI_USER: ${{ secrets.OCI_USER_OCID }}
+          OCI_CLI_FINGERPRINT: ${{ secrets.OCI_FINGERPRINT }}
+          OCI_CLI_TENANCY: ${{ secrets.OCI_TENANCY_OCID }}
+          OCI_PRIVATE_KEY: ${{ secrets.OCI_PRIVATE_KEY }}
+        run: |
+          pip install oci-cli supabase==2.33.0 cryptography python-dotenv requests beautifulsoup4 markdown-it-py python-jose
+          mkdir -p ~/.oci
+          printf '%s\n' "$OCI_PRIVATE_KEY" > ~/.oci/key.pem
+          chmod 600 ~/.oci/key.pem
+          printf '[DEFAULT]\nuser=%s\nfingerprint=%s\ntenancy=%s\nregion=us-ashburn-1\nkey_file=~/.oci/key.pem\n' "$OCI_CLI_USER" "$OCI_CLI_FINGERPRINT" "$OCI_CLI_TENANCY" > ~/.oci/config
+      - run: python scripts/repair_article_formatting.py

@@ -135,7 +135,8 @@ def public_media_target(url: str) -> str:
 
 
 def _escape(text) -> str:
-    return re.sub(r'([\\`*{}\[\]<>])', r'\\\1', str(text or ''))
+    from source_rich_text import escape_text
+    return escape_text(text)
 
 
 def _link(url: str, base: str) -> str:
@@ -168,9 +169,8 @@ def html_markdown(html: str, base: str) -> str:
             fence = '`' * max(3, max((len(m[0]) for m in re.finditer(r'`+', text)), default=0) + 1)
             return f'\n\n{fence}\n{text}\n{fence}\n\n'
         if name == 'code':
-            text=node.get_text()
-            fence='`'*max(1,max((len(m[0]) for m in re.finditer(r'`+',text)),default=0)+1)
-            return fence+' '+text+' '+fence
+            from source_rich_text import inline_code
+            return inline_code(node.get_text())
         if name == 'table':
             rows = [[ ''.join(render(child) for child in cell.children).strip().replace('|', '\\|').replace('\n',' ') for cell in row.find_all(['td','th'],recursive=False)] for row in node.find_all('tr')]
             rows = [row for row in rows if row]
@@ -200,9 +200,17 @@ def html_markdown(html: str, base: str) -> str:
         if name == 'img':
             url = _image_url(node, base)
             return f'\n\n![{_escape(node.get("alt", ""))}]({url})\n\n' if url else ''
-        if name in ('strong', 'b', 'em', 'i'):
-            marker = '**' if name in ('strong', 'b') else '*'
-            return marker + children + marker
+        from source_rich_text import emphasis
+        css = dict((key.strip().lower(),value.strip().lower()) for declaration in str(node.get('style','')).split(';') if ':' in declaration for key,value in [declaration.split(':',1)])
+        weight=css.get('font-weight','')
+        bold=name in ('strong','b') or weight in ('bold','bolder') or (weight.isdigit() and int(weight)>=600)
+        italic=name in ('em','i') or css.get('font-style','') in ('italic','oblique')
+        strike=name in ('s','del','strike') or 'line-through' in css.get('text-decoration',css.get('text-decoration-line',''))
+        if name in ('strong','b','em','i','s','del','strike','span') or bold or italic or strike:
+            if strike: children=emphasis(children,'~~')
+            if italic: children=emphasis(children,'*')
+            if bold: children=emphasis(children,'**')
+            if name in ('strong','b','em','i','s','del','strike','span'): return children
         if name == 'li':
             return '\n- ' + children.strip().replace('\n', '\n  ') + '\n'
         if name == 'blockquote':
@@ -217,6 +225,14 @@ def html_markdown(html: str, base: str) -> str:
             return children.strip() + ' | '
         return children
     soup = BeautifulSoup(html or '', 'html.parser')
+    # Editors often split one marked phrase into adjacent equivalent spans.
+    # Coalesce DOM marks before Markdown conversion, avoiding literal **** runs.
+    aliases={'b':'strong','i':'em','s':'del','strike':'del'}
+    for tag in list(soup.find_all(['strong','b','em','i','s','del','strike','span'])):
+        if not tag.name: continue
+        while (other:=tag.next_sibling) is not None and getattr(other,'name',None) and aliases.get(other.name,other.name)==aliases.get(tag.name,tag.name) and other.attrs==tag.attrs:
+            for child in list(other.children): tag.append(child.extract())
+            other.decompose()
     return ''.join(render(node) for node in soup.children).strip()
 
 
@@ -226,23 +242,29 @@ def _body_json(node) -> str:
         except ValueError: return _escape(node)
     if not isinstance(node, dict):
         return ''
-    text = _escape(node.get('text', ''))
-    for mark in node.get('marks', []):
-        kind = mark.get('type')
-        if kind in ('bold', 'strong', 'italic', 'em', 'code'):
-            symbol = '**' if kind in ('bold', 'strong') else '`' if kind == 'code' else '*'
-            text = symbol + text + symbol
-        if kind == 'link':
-            url = _link(mark.get('attrs', {}).get('href'), 'https://substack.com')
-            if url: text = f'[{text}]({url})'
+    raw_text=node.get('text','')
+    marks=node.get('marks',[])
+    from source_rich_text import emphasis, inline_code
+    text=inline_code(raw_text) if any(mark.get('type')=='code' for mark in marks) else _escape(raw_text)
+    for mark in marks:
+        kind=mark.get('type')
+        if kind in ('bold','strong','italic','em','strike','strikethrough'):
+            text=emphasis(text,'**' if kind in ('bold','strong') else '~~' if kind in ('strike','strikethrough') else '*')
+        if kind=='link':
+            url=_link(mark.get('attrs',{}).get('href'),'https://substack.com')
+            if url: text=f'[{text}]({url})'
     children = text + ''.join(_body_json(child) for child in node.get('content', []))
     kind = node.get('type')
     if kind in ('bullet_list','ordered_list'):
-        start=node.get('attrs',{}).get('order',1)
+        try: start=int(node.get('attrs',{}).get('order',1))
+        except (ValueError,TypeError): start=1
         return '\n\n'+'\n'.join((str(start+i)+'. ' if kind=='ordered_list' else '- ')+''.join(_body_json(part) for part in child.get('content',[])).strip().replace('\n','\n  ') for i,child in enumerate(node.get('content',[])))+'\n\n'
     if kind == 'blockquote': return '\n\n'+'\n'.join('> '+line for line in children.strip().splitlines())+'\n\n'
     if kind == 'hard_break': return '  \n'
-    if kind == 'heading': return '\n\n' + '#' * min(6, max(1, int(node.get('attrs', {}).get('level', 2)))) + ' ' + children + '\n\n'
+    if kind == 'heading':
+        try: level=min(6,max(1,int(node.get('attrs',{}).get('level',2))))
+        except (ValueError,TypeError): level=2
+        return '\n\n'+'#'*level+' '+children+'\n\n'
     if kind == 'image':
         attrs = node.get('attrs', {}); url = _link(attrs.get('src'), 'https://substack.com')
         return f'\n\n![{_escape(attrs.get("alt"))}]({url})\n\n' if url else ''
@@ -317,10 +339,14 @@ def _twitter_article_body(article, base):
             continue
         encoded = raw.encode('utf-16-le')
         spans = []
+        links = []
         for ref in block.get('entityRanges', []):
             entity = entities.get(str(ref.get('key')), {})
             payload = entity.get('data') or {}
             replacement, images = [], []
+            if entity.get('type') == 'LINK':
+                target=_link(payload.get('url') or payload.get('href'),base)
+                if target: links.append({**ref,'url':target})
             if entity.get('type') == 'MEDIA':
                 for item in payload.get('mediaItems') or []:
                     target = _twitter_article_image(media.get(str(item.get('mediaId'))), base)
@@ -334,6 +360,8 @@ def _twitter_article_body(article, base):
             start, length = ref.get('offset'), ref.get('length')
             if replacement and isinstance(start, int) and isinstance(length, int) and start >= 0 and length >= 0 and (start + length) * 2 <= len(encoded):
                 spans.append((start * 2, (start + length) * 2, '\n\n'.join(replacement), images))
+        from source_rich_text import draft_inline
+        styles=block.get('inlineStyleRanges') or []
         pieces, cursor = [], 0
         for start, end, replacement, images in sorted(spans):
             if start < cursor:
@@ -343,12 +371,14 @@ def _twitter_article_body(article, base):
                 encoded[end:].decode('utf-16-le')
             except UnicodeDecodeError:
                 continue
-            pieces.extend([_escape(preceding), replacement])
+            pieces.extend([draft_inline(raw,styles,links,cursor//2,start//2), replacement])
             placed.update(images)
             cursor = end
-        pieces.append(_escape(encoded[cursor:].decode('utf-16-le')))
+        pieces.append(draft_inline(raw,styles,links,cursor//2))
         prefix = {'header-one':'## ', 'header-two':'### ', 'header-three':'#### ', 'unordered-list-item':'- ', 'ordered-list-item':'1. ', 'blockquote':'> '}.get(block.get('type'), '')
-        parts.append(prefix + ''.join(pieces))
+        depth=block.get('depth',0)
+        indent='    '*min(8,max(0,depth)) if isinstance(depth,int) and block.get('type') in ('unordered-list-item','ordered-list-item') else ''
+        parts.append(indent + prefix + ''.join(pieces))
     for item in media.values():
         target = _twitter_article_image(item, base)
         if target and target not in placed:
