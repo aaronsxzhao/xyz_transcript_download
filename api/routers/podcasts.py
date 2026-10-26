@@ -799,7 +799,7 @@ async def refresh_podcast_episodes(pid: str, user: Optional[User] = Depends(get_
     
     new_count = await run_sync(save_new_episodes)
     
-    return {"message": f"Found {new_count} new episodes", "total": len(episodes)}
+    return {"message": f"Found {new_count} new episodes", "total": len(episodes), 'new_episodes':new_count}
 
 
 @router.post("/import-subscriptions", response_model=ImportSubscriptionsResponse)

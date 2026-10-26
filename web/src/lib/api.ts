@@ -504,12 +504,11 @@ export async function processEpisode(
   )
 }
 
-export async function refreshPodcast(pid: string): Promise<{ message: string; total: number }> {
+export async function refreshPodcast(pid: string): Promise<{ message: string; total: number; new_episodes?: number }> {
   const res = await authFetch(`${API_BASE}/podcasts/${pid}/refresh`, {
     method: 'POST',
   })
-  if (!res.ok) throw new Error('Failed to refresh podcast')
-  return res.json()
+  return parseApiResponseAsJson(res,'Failed to refresh podcast')
 }
 
 export async function fetchSettings(): Promise<{
@@ -636,6 +635,7 @@ export async function checkPodcastsForUpdates(): Promise<{
   message: string
   new_episodes: number
   episodes: NewEpisode[]
+  podcasts_failed?: number
 }> {
   const res = await authFetch(`${API_BASE}/check-podcasts`, {
     method: 'POST',
@@ -651,6 +651,9 @@ export async function checkVideoChannelsForUpdates(opts?: {
   message: string
   new_videos: number
   channels_checked: number
+  channels_failed?: number
+  channels_skipped?: number
+  failures?: {channel:string;platform:string;message:string}[]
 }> {
   const params = new URLSearchParams()
   if (opts?.channel) params.set('channel', opts.channel)
@@ -663,8 +666,7 @@ export async function checkVideoChannelsForUpdates(opts?: {
     headers: hasBody ? { 'Content-Type': 'application/json' } : undefined,
     body: hasBody ? JSON.stringify(defaults) : undefined,
   })
-  if (!res.ok) throw new Error('Failed to check video channels')
-  return res.json()
+  return parseApiResponseAsJson(res,'Failed to check source updates')
 }
 
 export interface ImportSubscriptionsResult {

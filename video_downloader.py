@@ -419,6 +419,7 @@ def list_channel_videos(
     platform: str,
     cookies: str = "",
     limit: int = 15,
+    *, strict: bool = False,
 ) -> List[dict]:
     """List recent videos from a channel URL using yt-dlp flat extraction.
 
@@ -426,6 +427,7 @@ def list_channel_videos(
     """
     listing_url = _channel_videos_url(channel_url, platform)
     if not listing_url:
+        if strict: raise ValueError('Missing channel URL')
         return []
 
     if not cookies:
@@ -440,6 +442,7 @@ def list_channel_videos(
             return _list_douyin_channel_videos(channel_url, cookies=cookies, limit=limit)
         except Exception as e:
             logger.error(f"Failed to list Douyin channel videos for {channel_url}: {e}")
+            if strict: raise
             return []
 
     fetch_limit = limit * 3 if platform == "bilibili" else limit
@@ -466,6 +469,7 @@ def list_channel_videos(
         with yt_dlp.YoutubeDL(opts) as ydl:
             info = ydl.extract_info(listing_url, download=False)
         if not info:
+            if strict: raise ValueError('The source returned no channel listing')
             return []
         entries = info.get("entries") or []
         videos = []
@@ -501,6 +505,7 @@ def list_channel_videos(
         return videos
     except Exception as e:
         logger.error(f"Failed to list channel videos for {channel_url}: {e}")
+        if strict: raise
         return []
 
 
