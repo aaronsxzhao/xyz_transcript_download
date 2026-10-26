@@ -29,7 +29,7 @@ export default function ProcessingPanel() {
       window.removeEventListener("storage", sync);
     };
   }, []);
-  useDialog(open, () => setOpen(false));
+  const dialogRef = useDialog(open, () => setOpen(false));
   const rows = [
     ...state.jobs.map((job) => ({ ...job, kind: "podcast" as const, platform: '', sourceUrl: '', createdAt: '' })),
     ...state.videoTasks
@@ -98,6 +98,7 @@ export default function ProcessingPanel() {
             onClick={() => setOpen(false)}
           >
             <section
+              ref={dialogRef}
               className="task-drawer"
               role="dialog"
               aria-modal="true"

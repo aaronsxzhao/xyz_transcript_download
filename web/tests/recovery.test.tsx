@@ -35,9 +35,10 @@ it('shows a clear recovery option when a reset token is missing', () => {
 })
 
 it('traps keyboard focus and restores the previous control when a dialog closes', () => {
+  const geometry=vi.spyOn(HTMLElement.prototype,'getClientRects').mockReturnValue([{}] as unknown as DOMRectList)
   const opener = document.createElement('button'); document.body.append(opener); opener.focus()
   const close = vi.fn()
-  function Dialog() { useDialog(true, close); return <div role="dialog"><button>First</button><button>Last</button></div> }
+  function Dialog() { const ref=useDialog<HTMLDivElement>(true, close); return <div ref={ref} role="dialog"><button>First</button><button>Last</button></div> }
   const node = mount(<Dialog />)
   const buttons = node.querySelectorAll('button')
   expect(document.activeElement).toBe(buttons[0])
@@ -47,4 +48,5 @@ it('traps keyboard focus and restores the previous control when a dialog closes'
   expect(close).toHaveBeenCalledOnce()
   cleanup?.(); cleanup=undefined
   expect(document.activeElement).toBe(opener); opener.remove()
+  geometry.mockRestore()
 })

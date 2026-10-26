@@ -3,6 +3,10 @@ import React,{act} from 'react'
 import {createRoot} from 'react-dom/client'
 import {beforeEach,afterEach,it,expect,vi} from 'vitest'
 import ArticleNote,{articleEmbed} from '../src/components/ArticleNote'
+
+it('embeds localized Spotify links using the canonical player URL',()=>{
+ expect(articleEmbed('https://open.spotify.com/intl-zh/episode/08tccyLPpPurxtPPrezQGZ?si=tracking')?.src).toBe('https://open.spotify.com/embed/episode/08tccyLPpPurxtPPrezQGZ')
+})
 let node:HTMLDivElement,root:ReturnType<typeof createRoot>
 beforeEach(()=>{node=document.createElement('div');document.body.append(node);root=createRoot(node)})
 afterEach(()=>{act(()=>root.unmount());node.remove();vi.useRealTimers()})
