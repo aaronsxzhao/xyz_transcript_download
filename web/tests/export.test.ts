@@ -42,3 +42,8 @@ it.each([true,false])('preserves an opening indented code block in Notion export
  const html=await markdownToSafeHtml(markdown)
  expect(html).toContain('<pre><code>first()\nsecond()')
 })
+it('does not remove a code comment that resembles the document title',async()=>{
+ const task={title:'Source',duration:0} as VideoTask
+ const markdown=buildNotionExportMarkdown(task,'    # Source\n    first()')
+ expect(await markdownToSafeHtml(markdown)).toContain('<pre><code># Source\nfirst()')
+})

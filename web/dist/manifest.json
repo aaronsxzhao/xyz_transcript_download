@@ -1,10 +1,10 @@
 {
-  "_MarkdownPreview-DzT0t8PW.js": {
-    "file": "assets/MarkdownPreview-DzT0t8PW.js",
+  "_MarkdownPreview-DRGv49Dz.js": {
+    "file": "assets/MarkdownPreview-DRGv49Dz.js",
     "name": "MarkdownPreview",
     "imports": [
       "_rolldown-runtime-CNOWq4Kh.js",
-      "_workspace-Cxab5bDI.js",
+      "_workspace-CMTO5yQh.js",
       "_preload-helper-DzCYNvzR.js",
       "_lib-_55bG7xm.js"
     ],
@@ -14,36 +14,36 @@
       "node_modules/rehype-katex/index.js"
     ]
   },
-  "_TranscriptSegments-Cru0WmX8.js": {
-    "file": "assets/TranscriptSegments-Cru0WmX8.js",
+  "_TranscriptSegments-D4YhPONa.js": {
+    "file": "assets/TranscriptSegments-D4YhPONa.js",
     "name": "TranscriptSegments",
     "imports": [
       "_rolldown-runtime-CNOWq4Kh.js",
-      "_workspace-Cxab5bDI.js"
+      "_workspace-CMTO5yQh.js"
     ]
   },
-  "_VideoCreation-CMzNWz0I.js": {
-    "file": "assets/VideoCreation-CMzNWz0I.js",
+  "_VideoCreation-DcBOQbUL.js": {
+    "file": "assets/VideoCreation-DcBOQbUL.js",
     "name": "VideoCreation",
     "imports": [
       "_rolldown-runtime-CNOWq4Kh.js",
-      "_workspace-Cxab5bDI.js"
+      "_workspace-CMTO5yQh.js"
     ]
   },
-  "_esm-CBgP4aTS.js": {
-    "file": "assets/esm-CBgP4aTS.js",
+  "_esm-Dk03P_-H.js": {
+    "file": "assets/esm-Dk03P_-H.js",
     "name": "esm",
     "imports": [
       "_rolldown-runtime-CNOWq4Kh.js",
-      "_workspace-Cxab5bDI.js"
+      "_workspace-CMTO5yQh.js"
     ]
   },
-  "_lib-C3iy6AOD.js": {
-    "file": "assets/lib-C3iy6AOD.js",
+  "_lib-BBsuRIqF.js": {
+    "file": "assets/lib-BBsuRIqF.js",
     "name": "lib",
     "imports": [
       "_rolldown-runtime-CNOWq4Kh.js",
-      "_MarkdownPreview-DzT0t8PW.js"
+      "_MarkdownPreview-DRGv49Dz.js"
     ]
   },
   "_lib-_55bG7xm.js": {
@@ -60,12 +60,12 @@
       "_rolldown-runtime-CNOWq4Kh.js"
     ]
   },
-  "_podcastMarkdown-ChQiYG2o.js": {
-    "file": "assets/podcastMarkdown-ChQiYG2o.js",
+  "_podcastMarkdown-1Z6Wsf6z.js": {
+    "file": "assets/podcastMarkdown-1Z6Wsf6z.js",
     "name": "podcastMarkdown",
     "imports": [
       "_rolldown-runtime-CNOWq4Kh.js",
-      "_workspace-Cxab5bDI.js"
+      "_workspace-CMTO5yQh.js"
     ]
   },
   "_preload-helper-DzCYNvzR.js": {
@@ -79,30 +79,30 @@
     "file": "assets/rolldown-runtime-CNOWq4Kh.js",
     "name": "rolldown-runtime"
   },
-  "_taskActions-hh_AUejk.js": {
-    "file": "assets/taskActions-hh_AUejk.js",
+  "_taskActions-BxLUJPov.js": {
+    "file": "assets/taskActions-BxLUJPov.js",
     "name": "taskActions",
     "imports": [
       "_rolldown-runtime-CNOWq4Kh.js",
-      "_workspace-Cxab5bDI.js"
+      "_workspace-CMTO5yQh.js"
     ]
   },
-  "_workspace-Cxab5bDI.js": {
-    "file": "assets/workspace-Cxab5bDI.js",
+  "_workspace-CMTO5yQh.js": {
+    "file": "assets/workspace-CMTO5yQh.js",
     "name": "workspace",
     "imports": [
       "_rolldown-runtime-CNOWq4Kh.js",
       "_preload-helper-DzCYNvzR.js",
-      "_esm-CBgP4aTS.js",
+      "_esm-Dk03P_-H.js",
       "_marked.esm-BiA0SdJP.js"
     ],
     "dynamicImports": [
-      "_workspace-Cxab5bDI.js",
+      "_workspace-CMTO5yQh.js",
       "src/components/ProcessingPanel.tsx",
       "src/components/ScreenshotGallery.tsx",
       "node_modules/dompurify/dist/purify.es.mjs",
       "_marked.esm-BiA0SdJP.js",
-      "_taskActions-hh_AUejk.js",
+      "_taskActions-BxLUJPov.js",
       "src/components/DashboardDialog.tsx",
       "src/components/LocalPodcastUpload.tsx",
       "src/components/PodcastUploadForm.tsx",
@@ -116,17 +116,17 @@
       "src/components/ReaderAppearance.tsx",
       "src/components/RegenerateDialog.tsx",
       "src/components/ArticleNote.tsx",
-      "_MarkdownPreview-DzT0t8PW.js",
+      "_MarkdownPreview-DRGv49Dz.js",
       "src/components/video/ReaderDetails.tsx",
       "src/components/video/TranscriptPanel.tsx",
       "src/components/PodcastNotionExport.tsx",
       "src/components/video/MindMapView.tsx",
       "src/lib/markdownDownload.ts",
       "src/lib/videoPrint.ts",
-      "_VideoCreation-CMzNWz0I.js",
+      "_VideoCreation-DcBOQbUL.js",
       "src/components/video/BilibiliFavorites.tsx",
-      "_TranscriptSegments-Cru0WmX8.js",
-      "_podcastMarkdown-ChQiYG2o.js",
+      "_TranscriptSegments-D4YhPONa.js",
+      "_podcastMarkdown-1Z6Wsf6z.js",
       "src/lib/podcastPrint.ts"
     ],
     "css": [
@@ -138,13 +138,13 @@
     "src": "_workspace-WtJXaznj.css"
   },
   "index.html": {
-    "file": "assets/index-Dj7vFkqH.js",
+    "file": "assets/index-nUl1U-xQ.js",
     "name": "index",
     "src": "index.html",
     "isEntry": true,
     "imports": [
       "_rolldown-runtime-CNOWq4Kh.js",
-      "_workspace-Cxab5bDI.js"
+      "_workspace-CMTO5yQh.js"
     ]
   },
   "node_modules/dompurify/dist/purify.es.mjs": {
@@ -397,222 +397,222 @@
     "src": "node_modules/katex/dist/katex.min.css"
   },
   "node_modules/markmap-view/dist/index.js": {
-    "file": "assets/dist-wNkbRQLw.js",
+    "file": "assets/dist-DWBbPWrt.js",
     "name": "dist",
     "src": "node_modules/markmap-view/dist/index.js",
     "isDynamicEntry": true,
     "imports": [
       "_rolldown-runtime-CNOWq4Kh.js",
-      "_workspace-Cxab5bDI.js"
+      "_workspace-CMTO5yQh.js"
     ]
   },
   "node_modules/qrcode.react/lib/esm/index.js": {
-    "file": "assets/esm-jp-tl4m3.js",
+    "file": "assets/esm-cGqIrlWV.js",
     "name": "esm",
     "src": "node_modules/qrcode.react/lib/esm/index.js",
     "isDynamicEntry": true,
     "imports": [
       "_rolldown-runtime-CNOWq4Kh.js",
-      "_workspace-Cxab5bDI.js"
+      "_workspace-CMTO5yQh.js"
     ]
   },
   "node_modules/rehype-katex/index.js": {
-    "file": "assets/rehype-katex-BzDyREgk.js",
+    "file": "assets/rehype-katex-Ue3GyAyJ.js",
     "name": "rehype-katex",
     "src": "node_modules/rehype-katex/index.js",
     "isDynamicEntry": true,
     "imports": [
       "_rolldown-runtime-CNOWq4Kh.js",
-      "_lib-C3iy6AOD.js",
-      "_MarkdownPreview-DzT0t8PW.js"
+      "_lib-BBsuRIqF.js",
+      "_MarkdownPreview-DRGv49Dz.js"
     ]
   },
   "node_modules/remark-math/index.js": {
-    "file": "assets/remark-math-Dv_OVv6l.js",
+    "file": "assets/remark-math-DnqnAVJa.js",
     "name": "remark-math",
     "src": "node_modules/remark-math/index.js",
     "isDynamicEntry": true,
     "imports": [
       "_rolldown-runtime-CNOWq4Kh.js",
       "_lib-_55bG7xm.js",
-      "_MarkdownPreview-DzT0t8PW.js"
+      "_MarkdownPreview-DRGv49Dz.js"
     ]
   },
   "src/components/ArticleNote.tsx": {
-    "file": "assets/ArticleNote-Ur0aC8pS.js",
+    "file": "assets/ArticleNote-DLLilULa.js",
     "name": "ArticleNote",
     "src": "src/components/ArticleNote.tsx",
     "isDynamicEntry": true,
     "imports": [
       "_rolldown-runtime-CNOWq4Kh.js",
-      "_workspace-Cxab5bDI.js"
+      "_workspace-CMTO5yQh.js"
     ],
     "css": [
       "assets/ArticleNote-XtAolex-.css"
     ]
   },
   "src/components/CustomModelFields.tsx": {
-    "file": "assets/CustomModelFields-CLJ9U1Jp.js",
+    "file": "assets/CustomModelFields-CRBEppJY.js",
     "name": "CustomModelFields",
     "src": "src/components/CustomModelFields.tsx",
     "isDynamicEntry": true,
     "imports": [
       "_rolldown-runtime-CNOWq4Kh.js",
-      "_workspace-Cxab5bDI.js"
+      "_workspace-CMTO5yQh.js"
     ]
   },
   "src/components/DashboardDialog.tsx": {
-    "file": "assets/DashboardDialog-CtedNfa2.js",
+    "file": "assets/DashboardDialog-CTPBGRmm.js",
     "name": "DashboardDialog",
     "src": "src/components/DashboardDialog.tsx",
     "isDynamicEntry": true,
     "imports": [
       "_rolldown-runtime-CNOWq4Kh.js",
-      "_workspace-Cxab5bDI.js"
+      "_workspace-CMTO5yQh.js"
     ]
   },
   "src/components/DataRecovery.tsx": {
-    "file": "assets/DataRecovery-CkxQTjqg.js",
+    "file": "assets/DataRecovery-DU3WXL6o.js",
     "name": "DataRecovery",
     "src": "src/components/DataRecovery.tsx",
     "isDynamicEntry": true,
     "imports": [
       "_rolldown-runtime-CNOWq4Kh.js",
-      "_workspace-Cxab5bDI.js"
+      "_workspace-CMTO5yQh.js"
     ]
   },
   "src/components/LocalPodcastUpload.tsx": {
-    "file": "assets/LocalPodcastUpload-DNBbbw80.js",
+    "file": "assets/LocalPodcastUpload-Cz9ZnUpj.js",
     "name": "LocalPodcastUpload",
     "src": "src/components/LocalPodcastUpload.tsx",
     "isDynamicEntry": true,
     "imports": [
       "_rolldown-runtime-CNOWq4Kh.js",
-      "_workspace-Cxab5bDI.js"
+      "_workspace-CMTO5yQh.js"
     ]
   },
   "src/components/ModelExecutionFields.tsx": {
-    "file": "assets/ModelExecutionFields-8y60uhh1.js",
+    "file": "assets/ModelExecutionFields-x7p4zwwv.js",
     "name": "ModelExecutionFields",
     "src": "src/components/ModelExecutionFields.tsx",
     "isDynamicEntry": true,
     "imports": [
       "_rolldown-runtime-CNOWq4Kh.js",
-      "_workspace-Cxab5bDI.js"
+      "_workspace-CMTO5yQh.js"
     ]
   },
   "src/components/PerformancePanel.tsx": {
-    "file": "assets/PerformancePanel-DKyRepTZ.js",
+    "file": "assets/PerformancePanel-BVwtV9At.js",
     "name": "PerformancePanel",
     "src": "src/components/PerformancePanel.tsx",
     "isDynamicEntry": true,
     "imports": [
       "_rolldown-runtime-CNOWq4Kh.js",
-      "_workspace-Cxab5bDI.js"
+      "_workspace-CMTO5yQh.js"
     ]
   },
   "src/components/PodcastNotionExport.tsx": {
-    "file": "assets/PodcastNotionExport-BeOlgrHX.js",
+    "file": "assets/PodcastNotionExport-ByjYdaCu.js",
     "name": "PodcastNotionExport",
     "src": "src/components/PodcastNotionExport.tsx",
     "isDynamicEntry": true,
     "imports": [
       "_rolldown-runtime-CNOWq4Kh.js",
-      "_workspace-Cxab5bDI.js",
-      "_podcastMarkdown-ChQiYG2o.js"
+      "_workspace-CMTO5yQh.js",
+      "_podcastMarkdown-1Z6Wsf6z.js"
     ]
   },
   "src/components/PodcastUploadForm.tsx": {
-    "file": "assets/PodcastUploadForm-CumUm5z8.js",
+    "file": "assets/PodcastUploadForm-h730O-Ox.js",
     "name": "PodcastUploadForm",
     "src": "src/components/PodcastUploadForm.tsx",
     "isDynamicEntry": true,
     "imports": [
       "_rolldown-runtime-CNOWq4Kh.js",
-      "_workspace-Cxab5bDI.js"
+      "_workspace-CMTO5yQh.js"
     ]
   },
   "src/components/ProcessingPanel.tsx": {
-    "file": "assets/ProcessingPanel-C-ItrzRk.js",
+    "file": "assets/ProcessingPanel-Cektsq_j.js",
     "name": "ProcessingPanel",
     "src": "src/components/ProcessingPanel.tsx",
     "isDynamicEntry": true,
     "imports": [
       "_rolldown-runtime-CNOWq4Kh.js",
-      "_workspace-Cxab5bDI.js",
-      "_taskActions-hh_AUejk.js"
+      "_workspace-CMTO5yQh.js",
+      "_taskActions-BxLUJPov.js"
     ]
   },
   "src/components/ReaderAppearance.tsx": {
-    "file": "assets/ReaderAppearance-BQltAqo0.js",
+    "file": "assets/ReaderAppearance-BVKkhybu.js",
     "name": "ReaderAppearance",
     "src": "src/components/ReaderAppearance.tsx",
     "isDynamicEntry": true,
     "imports": [
       "_rolldown-runtime-CNOWq4Kh.js",
-      "_workspace-Cxab5bDI.js"
+      "_workspace-CMTO5yQh.js"
     ]
   },
   "src/components/RegenerateDialog.tsx": {
-    "file": "assets/RegenerateDialog-T8n2GvOW.js",
+    "file": "assets/RegenerateDialog-BIexYEDM.js",
     "name": "RegenerateDialog",
     "src": "src/components/RegenerateDialog.tsx",
     "isDynamicEntry": true,
     "imports": [
       "_rolldown-runtime-CNOWq4Kh.js",
-      "_workspace-Cxab5bDI.js"
+      "_workspace-CMTO5yQh.js"
     ]
   },
   "src/components/ScreenshotGallery.tsx": {
-    "file": "assets/ScreenshotGallery-BiXlAdYq.js",
+    "file": "assets/ScreenshotGallery-CMwtW_RK.js",
     "name": "ScreenshotGallery",
     "src": "src/components/ScreenshotGallery.tsx",
     "isDynamicEntry": true,
     "imports": [
       "_rolldown-runtime-CNOWq4Kh.js",
-      "_workspace-Cxab5bDI.js"
+      "_workspace-CMTO5yQh.js"
     ]
   },
   "src/components/TranscriptMaintenance.tsx": {
-    "file": "assets/TranscriptMaintenance-CVUDf_Lz.js",
+    "file": "assets/TranscriptMaintenance-DoMNzEGu.js",
     "name": "TranscriptMaintenance",
     "src": "src/components/TranscriptMaintenance.tsx",
     "isDynamicEntry": true,
     "imports": [
       "_rolldown-runtime-CNOWq4Kh.js",
-      "_workspace-Cxab5bDI.js"
+      "_workspace-CMTO5yQh.js"
     ]
   },
   "src/components/video/BilibiliFavorites.tsx": {
-    "file": "assets/BilibiliFavorites-8mp7XDHT.js",
+    "file": "assets/BilibiliFavorites-BeaFLahs.js",
     "name": "BilibiliFavorites",
     "src": "src/components/video/BilibiliFavorites.tsx",
     "isDynamicEntry": true,
     "imports": [
       "_rolldown-runtime-CNOWq4Kh.js",
-      "_workspace-Cxab5bDI.js"
+      "_workspace-CMTO5yQh.js"
     ]
   },
   "src/components/video/HighlightedCode.tsx": {
-    "file": "assets/HighlightedCode-CDZF5vI5.js",
+    "file": "assets/HighlightedCode-D8EdyXVI.js",
     "name": "HighlightedCode",
     "src": "src/components/video/HighlightedCode.tsx",
     "isDynamicEntry": true,
     "imports": [
       "_rolldown-runtime-CNOWq4Kh.js",
-      "_workspace-Cxab5bDI.js",
-      "_lib-C3iy6AOD.js",
+      "_workspace-CMTO5yQh.js",
+      "_lib-BBsuRIqF.js",
       "_lib-_55bG7xm.js"
     ]
   },
   "src/components/video/MindMapView.tsx": {
-    "file": "assets/MindMapView-C3JAEmDW.js",
+    "file": "assets/MindMapView-CSFRx-6Q.js",
     "name": "MindMapView",
     "src": "src/components/video/MindMapView.tsx",
     "isDynamicEntry": true,
     "imports": [
       "_rolldown-runtime-CNOWq4Kh.js",
-      "_workspace-Cxab5bDI.js",
+      "_workspace-CMTO5yQh.js",
       "_preload-helper-DzCYNvzR.js",
       "_marked.esm-BiA0SdJP.js"
     ],
@@ -624,13 +624,13 @@
     ]
   },
   "src/components/video/ReaderDetails.tsx": {
-    "file": "assets/ReaderDetails-CoxyI0Zd.js",
+    "file": "assets/ReaderDetails-VM_MukYB.js",
     "name": "ReaderDetails",
     "src": "src/components/video/ReaderDetails.tsx",
     "isDynamicEntry": true,
     "imports": [
       "_rolldown-runtime-CNOWq4Kh.js",
-      "_workspace-Cxab5bDI.js",
+      "_workspace-CMTO5yQh.js",
       "_preload-helper-DzCYNvzR.js"
     ],
     "dynamicImports": [
@@ -638,14 +638,14 @@
     ]
   },
   "src/components/video/TranscriptPanel.tsx": {
-    "file": "assets/TranscriptPanel-DYJCFt0H.js",
+    "file": "assets/TranscriptPanel-C7NHD8EP.js",
     "name": "TranscriptPanel",
     "src": "src/components/video/TranscriptPanel.tsx",
     "isDynamicEntry": true,
     "imports": [
       "_rolldown-runtime-CNOWq4Kh.js",
-      "_workspace-Cxab5bDI.js",
-      "_TranscriptSegments-Cru0WmX8.js"
+      "_workspace-CMTO5yQh.js",
+      "_TranscriptSegments-D4YhPONa.js"
     ]
   },
   "src/lib/legacyModelOptions.ts": {
@@ -668,23 +668,23 @@
     ]
   },
   "src/lib/podcastPrint.ts": {
-    "file": "assets/podcastPrint-BsqAqiGD.js",
+    "file": "assets/podcastPrint-CoKSevRC.js",
     "name": "podcastPrint",
     "src": "src/lib/podcastPrint.ts",
     "isDynamicEntry": true,
     "imports": [
       "_rolldown-runtime-CNOWq4Kh.js",
-      "_workspace-Cxab5bDI.js"
+      "_workspace-CMTO5yQh.js"
     ]
   },
   "src/lib/videoPrint.ts": {
-    "file": "assets/videoPrint-D0ZjLOjQ.js",
+    "file": "assets/videoPrint-GVOrEPLG.js",
     "name": "videoPrint",
     "src": "src/lib/videoPrint.ts",
     "isDynamicEntry": true,
     "imports": [
       "_rolldown-runtime-CNOWq4Kh.js",
-      "_workspace-Cxab5bDI.js"
+      "_workspace-CMTO5yQh.js"
     ]
   }
 }
