@@ -24,7 +24,7 @@ jobs:
           OCI_CLI_TENANCY: ${{ secrets.OCI_TENANCY_OCID }}
           OCI_PRIVATE_KEY: ${{ secrets.OCI_PRIVATE_KEY }}
         run: |
-          pip install oci-cli supabase cryptography python-dotenv requests beautifulsoup4 markdown-it-py python-jose
+          pip install oci-cli supabase==2.33.0 cryptography python-dotenv requests beautifulsoup4 markdown-it-py python-jose
           mkdir -p ~/.oci
           printf '%s\n' "$OCI_PRIVATE_KEY" > ~/.oci/key.pem
           chmod 600 ~/.oci/key.pem
