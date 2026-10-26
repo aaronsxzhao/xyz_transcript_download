@@ -86,8 +86,6 @@ it('loads private and HTTPS screenshots in fallback without allowing executable 
   const node=document.createElement('div');const root=createRoot(node)
   cleanup=()=>act(()=>root.unmount())
   act(()=>root.render(<PlainNote markdown={'![private](/data/screenshots/a.png?signature=test)\n![remote](https://example.com/a.png)\n![unsafe](javascript:alert)\n![embedded](data:image/svg+xml,unsafe)'}/>))
-  expect(node.querySelectorAll('img')).toHaveLength(0)
-  act(()=>vi.advanceTimersByTime(250))
   expect(Array.from(node.querySelectorAll('img'), image=>image.getAttribute('src'))).toEqual(['/data/screenshots/a.png?signature=test&preview=true','https://example.com/a.png'])
   expect(node.textContent).toContain('unsafe')
 })

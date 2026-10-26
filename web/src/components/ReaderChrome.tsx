@@ -1,4 +1,6 @@
-import { useEffect, useId, useRef, useState, type ReactNode } from "react";
+import { createContext, useContext, useEffect, useId, useRef, useState, type ReactNode } from "react";
+import {createPortal} from 'react-dom';
+import {readingIntersection} from '../lib/readingIntersection';
 import {
   ArrowLeft,
   ChevronDown,
@@ -6,11 +8,17 @@ import {
   RefreshCw,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import { deferView } from "./DeferredView";
-const RegenerateDialog = deferView(() => import("./RegenerateDialog"));
+import {deferView} from './DeferredView';
+import {useDialog} from '../lib/reading';
+const RegenerateDialog=deferView(()=>import('./RegenerateDialog'));
 import ReaderControls from "./ReaderControls";
 
 export type ReaderSection = { id: string; title: string; level?: number };
+const ReaderOverlay=createContext<((content:ReactNode)=>void)|null>(null);
+function ConfirmationPending({close}:{close:()=>void}){
+  const ref=useDialog<HTMLElement>(true,close);
+  return <div className="ui-scope reader-confirm-backdrop"><section ref={ref} role="dialog" aria-modal="true" aria-label="Loading confirmation" className="reader-confirm"><p role="status">Loading confirmation…</p><button className="reader-action" onClick={close}>Cancel</button></section></div>;
+}
 
 /** A non-modal disclosure: Tab follows the page; Escape returns to its trigger. */
 export function ReaderMenu({
@@ -29,8 +37,12 @@ export function ReaderMenu({
   busy?: boolean;
 }) {
   const [open, setOpen] = useState(false);
+  const [overlay,setOverlay]=useState<ReactNode>(null);
   const ref = useRef<HTMLDivElement>(null);
   const trigger = useRef<HTMLButtonElement>(null);
+  useEffect(()=>{
+    if(overlay)return()=>trigger.current?.focus();
+  },[overlay]);
   const id = useId();
   useEffect(() => {
     if (!open) return;
@@ -51,7 +63,7 @@ export function ReaderMenu({
     };
   }, [open]);
   return (
-    <div
+    <ReaderOverlay.Provider value={content=>{setOpen(false);setOverlay(content)}}><div
       ref={ref}
       className="reader-menu"
       onBlur={(event) => {
@@ -89,7 +101,7 @@ export function ReaderMenu({
           {children}
         </div>
       )}
-    </div>
+    </div>{overlay&&createPortal(overlay,document.body)}</ReaderOverlay.Provider>
   );
 }
 
@@ -105,26 +117,22 @@ export function RegenerateAction({
   description?: string;
 }) {
   const [open, setOpen] = useState(false);
+  const overlay=useContext(ReaderOverlay);
+  const dialog=(close:()=>void)=><RegenerateDialog description={description} onClose={close} onConfirm={onConfirm} fallback={<ConfirmationPending close={close}/>}/>;
   return (
     <>
       <button
         disabled={disabled || busy}
         onClick={(event) => {
           event.stopPropagation();
-          setOpen(true);
+          if(overlay)overlay(dialog(()=>overlay(null)));
+          else setOpen(true);
         }}
       >
         <RefreshCw size={16} className={busy ? "animate-spin" : ""} />
         {busy ? "Regenerating…" : "Regenerate summary"}
       </button>
-      {open && (
-        <RegenerateDialog
-          description={description}
-          onClose={() => setOpen(false)}
-          onConfirm={onConfirm}
-          fallback={<p role="status">Loading confirmation…</p>}
-        />
-      )}
+      {open && dialog(()=>setOpen(false))}
     </>
   );
 }
@@ -169,12 +177,7 @@ export default function ReaderFrame({
     if (!ids) return;
     const observed = new WeakSet<Element>();
     const observer = new IntersectionObserver(
-      (entries) => {
-        const visible = entries
-          .filter((entry) => entry.isIntersecting)
-          .sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top);
-        if (visible[0]) setVisibleSection(visible[0].target.id);
-      },
+      readingIntersection(setVisibleSection),
       {
         root: document.querySelector("main"),
         rootMargin: "-64px 0px -60% 0px",

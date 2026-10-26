@@ -19,7 +19,7 @@ import {
   type NotionPage,
 } from "../lib/api";
 import { buildNotionExportMarkdown } from "../lib/notionExport";
-import { summaryToMarkdown } from "../lib/summaryReading";
+import { summaryToMarkdown } from "../lib/podcastMarkdown";
 
 export default function PodcastNotionExport({
   summary,

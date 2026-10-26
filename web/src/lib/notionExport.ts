@@ -26,11 +26,11 @@ export function buildNotionExportMarkdown(task: VideoTask, content: string, sele
   }
 
   if (content.trim()) {
-    const body = content.trim()
+    const body = content.replace(/^[\r\n]+|[\r\n]+$/g, '')
     const firstLine = body.split(/\r?\n/, 1)[0]
     // The saved note usually already carries the task title. Keep one page
     // title while retaining any different source heading and all body bytes.
-    const text = firstLine.trim() === `# ${title}` ? body.slice(firstLine.length).trimStart() : body
+    const text = /^ {0,3}# /.test(firstLine) && firstLine.trim() === `# ${title}` ? body.slice(firstLine.length).replace(/^(?:[ \t]*\r?\n)+/, '') : body
     if (text) lines.push(text)
     lines.push('')
   }
