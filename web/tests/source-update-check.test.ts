@@ -1,0 +1,38 @@
+import {beforeEach,expect,it,vi} from 'vitest'
+const api=vi.hoisted(()=>({authFetch:vi.fn(),getVideoProcessingDefaults:vi.fn(()=>({style:'detailed'})),parseApiResponseAsJson:vi.fn(async res=>res.json())}))
+const auth=vi.hoisted(()=>({generation:1}))
+vi.mock('../src/lib/api',()=>api)
+vi.mock('../src/lib/auth',()=>({getAuthGeneration:()=>auth.generation}))
+import {checkSources} from '../src/lib/sourceUpdateCheck'
+const response=(body:object)=>new Response(JSON.stringify(body),{headers:{'content-type':'application/json'}})
+beforeEach(()=>{vi.clearAllMocks();auth.generation=1})
+it('checks sequential pages, reports progress and aggregates saved items and failures',async()=>{
+ api.authFetch.mockResolvedValueOnce(response({new_videos:3,channels_checked:1,channels_total:2,channels_processed:1,next_cursor:'next:1'}))
+ api.authFetch.mockResolvedValueOnce(response({new_videos:0,channels_checked:0,channels_failed:1,channels_total:2,channels_processed:2,failures:[{channel:'Restricted',platform:'twitter',message:'No public timeline'}],next_cursor:null}))
+ const progress=vi.fn()
+ const result=await checkSources({platform:'twitter',channel:undefined},progress)
+ expect(result.new_videos).toBe(3);expect(result.channels_checked).toBe(1);expect(result.channels_failed).toBe(1)
+ expect(progress.mock.calls.map(call=>call[0].channels_processed)).toEqual([1,2])
+ expect(progress.mock.calls[0][0].failures).toEqual([])
+ const urls=api.authFetch.mock.calls.map(call=>new URL(call[0],'https://example.com'))
+ expect(urls[0].searchParams.get('paged')).toBe('true');expect(urls[0].searchParams.has('channel')).toBe(false)
+ expect(urls[1].searchParams.get('cursor')).toBe('next:1')
+})
+it('keeps confirmed results and stops without replaying an unacknowledged mutation',async()=>{
+ api.authFetch.mockResolvedValueOnce(response({new_videos:2,channels_checked:1,channels_total:3,channels_processed:1,next_cursor:'next:1'}))
+ api.authFetch.mockRejectedValueOnce(new Error('No confirmation received'))
+ const result=await checkSources({platform:'twitter'})
+ expect(result.new_videos).toBe(2);expect(result.interrupted).toContain('Remaining sources were not checked')
+ expect(api.authFetch).toHaveBeenCalledTimes(2)
+})
+it('never continues checking or publishes progress into another account',async()=>{
+ api.authFetch.mockImplementationOnce(async()=>{auth.generation=2;return response({new_videos:1,channels_checked:1,next_cursor:'next:1'})})
+ const progress=vi.fn()
+ await expect(checkSources({platform:'twitter'},progress)).rejects.toMatchObject({name:'AbortError'})
+ expect(api.authFetch).toHaveBeenCalledOnce();expect(progress).not.toHaveBeenCalled()
+})
+it('stops a repeated cursor instead of checking indefinitely',async()=>{
+ api.authFetch.mockImplementation(async()=>response({new_videos:0,channels_checked:1,channels_total:3,channels_processed:1,next_cursor:'loop:1'}))
+ const result=await checkSources()
+ expect(result.interrupted).toContain('repeated continuation');expect(api.authFetch).toHaveBeenCalledTimes(2)
+})

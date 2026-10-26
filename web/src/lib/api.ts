@@ -648,29 +648,12 @@ export async function checkPodcastsForUpdates(): Promise<{
   return res.json()
 }
 
-export async function checkVideoChannelsForUpdates(opts?: {
-  channel?: string
-  platform?: string
-}): Promise<{
-  message: string
-  new_videos: number
-  channels_checked: number
-  channels_failed?: number
-  channels_skipped?: number
-  failures?: {channel:string;platform:string;message:string}[]
-}> {
-  const params = new URLSearchParams()
-  if (opts?.channel) params.set('channel', opts.channel)
-  if (opts?.platform) params.set('platform', opts.platform)
-  const qs = params.toString()
-  const defaults = getVideoProcessingDefaults()
-  const hasBody = Object.keys(defaults).length > 0
-  const res = await authFetch(`${API_BASE}/video-notes/check-channels${qs ? `?${qs}` : ''}`, {
-    method: 'POST',
-    headers: hasBody ? { 'Content-Type': 'application/json' } : undefined,
-    body: hasBody ? JSON.stringify(defaults) : undefined,
-  })
-  return parseApiResponseAsJson(res,'Failed to check source updates')
+export async function checkVideoChannelsForUpdates(
+  opts?: {channel?:string;platform?:string},
+  onProgress?: (report:import('./sourceUpdateCheck').SourceUpdateReport)=>void,
+): Promise<import('./sourceUpdateCheck').SourceUpdateReport> {
+  const tool = await requestWithDeadline(()=>import('./sourceUpdateCheck'))
+  return tool.checkSources(opts,onProgress)
 }
 
 export interface ImportSubscriptionsResult {

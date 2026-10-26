@@ -27,7 +27,8 @@ it.each(['twitter','substack'])('offers %s source checks with the platform and c
  const button=node.querySelector<HTMLButtonElement>('[aria-label="Check source updates"]')!
  expect(button).not.toBeNull();expect(button.textContent).toContain('Check Updates')
  await act(async()=>button.click())
- expect(api.checkVideoChannelsForUpdates).toHaveBeenCalledWith({channel:'Writer',platform})
+ await act(async()=>{await vi.dynamicImportSettled()})
+ expect(api.checkVideoChannelsForUpdates).toHaveBeenCalledWith({channel:'Writer',platform},expect.any(Function))
  expect(node.textContent).toContain('Public source is restricted')
  expect(api.notify).toHaveBeenCalledOnce()
  expect(api.notify).toHaveBeenCalledWith(expect.objectContaining({title:'Update check incomplete'}))
@@ -47,6 +48,7 @@ it('shows the Spotify update action and never reports a failed RSS refresh as no
  expect(button.textContent).toContain('Check Updates')
  expect(button.querySelector('span')?.className).not.toContain('hidden')
  await act(async()=>button.click())
+ await act(async()=>{await vi.dynamicImportSettled()})
  expect(api.refreshPodcast).toHaveBeenCalledWith('show')
  expect(api.notify).toHaveBeenCalledWith(expect.objectContaining({title:'Update check incomplete',message:expect.stringContaining('Public RSS feed unavailable')}))
 })
@@ -60,4 +62,21 @@ it('does not show a late failed scan under a different platform after navigation
  await act(async()=>[...node.querySelectorAll('button')].find(b=>b.textContent==='Switch source')!.click())
  await act(async()=>finish({new_videos:0,channels_checked:0,channels_failed:1,failures:[{channel:'Old X source',platform:'twitter',message:'Old timeline restricted'}]}))
  expect(node.textContent).not.toContain('Old timeline restricted')
+})
+
+it('shows completed source progress and preserves an interrupted report without a false all-caught-up toast',async()=>{
+ let finish!:(result:any)=>void
+ api.checkVideoChannelsForUpdates.mockImplementationOnce((_opts,progress)=>{
+  progress({new_videos:2,channels_checked:1,channels_processed:1,channels_total:3})
+  return new Promise(resolve=>{finish=resolve})
+ })
+ await act(async()=>root.render(<MemoryRouter initialEntries={['/videos?platform=twitter']}><Videos/></MemoryRouter>))
+ await act(async()=>node.querySelector<HTMLButtonElement>('[aria-label="Check source updates"]')!.click())
+ await act(async()=>{await vi.dynamicImportSettled()})
+ expect(node.textContent).toContain('Checked 1 / 3 sources · 2 new items saved')
+ expect(node.querySelector<HTMLButtonElement>('[aria-label="Check source updates"]')!.disabled).toBe(true)
+ await act(async()=>finish({new_videos:2,channels_checked:1,channels_failed:0,interrupted:'Remaining sources were not checked'}))
+ expect(node.textContent).toContain('Remaining sources were not checked')
+ expect(api.notify).toHaveBeenCalledOnce()
+ expect(api.notify).toHaveBeenCalledWith(expect.objectContaining({title:'New items found · check incomplete'}))
 })
