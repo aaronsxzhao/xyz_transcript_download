@@ -111,9 +111,10 @@ def test_video_empty_chunk_keeps_earlier_notes_and_labels_the_raw_source_fallbac
 def test_every_style_keeps_substantive_information_and_source_headings():
     from note_summarizer import NOTE_STYLES
     for style in NOTE_STYLES:
-        prompt = _build_system_prompt(style, [])
-        assert "风格仅影响表达" in prompt and "不允许删掉独立信息" in prompt
-        assert "原有有意义的章节标题尽量沿用" in prompt
+        for source in ('English source discussion.', '中文原文讨论。'):
+            prompt = _build_system_prompt(style, [], source_text=source)
+            assert 'retains all' in prompt and 'distinct source information' in prompt
+            assert 'Preserve meaningful source headings' in prompt
 
 
 def test_incomplete_video_segments_never_replace_full_source_when_adding_screenshots():

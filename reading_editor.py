@@ -12,6 +12,7 @@ from reading_language import SOURCE_LANGUAGE, source_language_lock
 from source_coverage import SOURCE_FIDELITY
 from summary_errors import is_cancellation
 from logger import get_logger
+from reading_prompts import ARGUMENT_CONTRACT
 
 logger = get_logger('reading_editor')
 
@@ -66,6 +67,7 @@ If integration would obscure a distinct discussion, keep it as a separate passag
 Return JSON: {"paragraphs":[{"heading":"specific heading", "text":"connected Markdown paragraphs",
 "ids":["N1","N2"], "evidence_id":"N1"}]}.
 """
+COMPOSE += ARGUMENT_CONTRACT
 
 
 VERIFY = SOURCE_FIDELITY + """
@@ -143,7 +145,7 @@ def _verbatim_blocks(text):
             if token.map and token.type in ('blockquote_open','fence','code_block')]
 
 
-def edit_sections(items, call, checkpoint=None, budget=120, *, preserve_order=False, source_text=''):
+def edit_sections(items, call, checkpoint=None, budget=120, *, preserve_order=False, source_text='', report=None):
     """Return paragraphs with source IDs; failed batches retain original text.
 
     Each item has id, topic, text and optional evidence. The input is untouched.
@@ -152,7 +154,14 @@ def edit_sections(items, call, checkpoint=None, budget=120, *, preserve_order=Fa
     """
     if len(items) < 2:
         return [dict(item, ids=[item['id']], evidence_id=item['id']) for item in items]
-    deadline = time.monotonic() + budget
+    report = report if report is not None else {}
+    report.update(input_sections=len(items), composed_batches=0, retained_batches=0)
+    # Production uses chapter-proportional room, capped at ten minutes. Explicit
+    # caller budgets (including zero) remain authoritative. Calls are checkpointed
+    # individually, so a restart reuses completed planning/composition/review.
+    allowance = min(600, max(120, len(items)*8)) if budget is None else budget
+    deadline = time.monotonic() + allowance
+    stage_deadline = min(deadline, time.monotonic()+60)
     unavailable = False
     lookup = {item['id']:item for item in items}
     order = {item['id']:i for i,item in enumerate(items)}
@@ -169,7 +178,7 @@ def edit_sections(items, call, checkpoint=None, budget=120, *, preserve_order=Fa
         nonlocal unavailable
         if checkpoint:
             checkpoint()
-        remaining = deadline - time.monotonic()
+        remaining = min(deadline, stage_deadline) - time.monotonic()
         if remaining < 1 or unavailable:
             raise TimeoutError('Optional editing budget exhausted')
         try:
@@ -189,7 +198,7 @@ def edit_sections(items, call, checkpoint=None, budget=120, *, preserve_order=Fa
         return [dict(row, ids=[row['id']], evidence_id=row['id']) for row in rows]
 
     index = [{'id':item['id'], 'topic':item['topic'], 'heading':item['text'].split('\n',1)[0],
-              'preview':item['text'][:180]} for item in items]
+              'preview':item['text'][:360]} for item in items]
     chapters = {}
     for batch in _batches(index, 18000):
         try:
@@ -202,6 +211,7 @@ def edit_sections(items, call, checkpoint=None, budget=120, *, preserve_order=Fa
             if is_cancellation(error):
                 raise
             logger.info('Keeping chapter index after optional editing failure: %s', type(error).__name__)
+            report['planning_fallback'] = type(error).__name__
             groups = [{'title':lookup[row['id']]['topic'], 'ids':[row['id']]} for row in batch]
         for group in groups:
             title = group['title'].strip()
@@ -212,10 +222,15 @@ def edit_sections(items, call, checkpoint=None, budget=120, *, preserve_order=Fa
 
     result = []
     for _, chapter in sorted(chapters.items(), key=lambda pair:(False if preserve_order else pair[1]['supplementary'], min(order[row['id']] for row in pair[1]['rows']))):
+        # One difficult chapter cannot consume every later chapter's editing
+        # allowance. Successful requests remain individually resumable.
+        stage_deadline = min(deadline, time.monotonic()+90)
         topic=chapter['title']
         rows = sorted(chapter['rows'], key=lambda row:order[row['id']])
         for batch in _batches(rows, 12000):
             if len(batch) < 2 or len(json.dumps(batch,ensure_ascii=False)) > 14000:
+                if len(json.dumps(batch,ensure_ascii=False)) > 14000:
+                    report['oversized_sections']=report.get('oversized_sections',0)+len(batch)
                 result.extend(originals(batch))
                 continue
             try:
@@ -241,10 +256,16 @@ def edit_sections(items, call, checkpoint=None, budget=120, *, preserve_order=Fa
                 for paragraph in sorted(paragraphs,key=lambda p:min(order[ident] for ident in p['ids'])):
                     result.append({'topic':topic, 'text':'#### '+paragraph['heading'].lstrip('# ').strip()+'\n\n'+paragraph['text'].strip('\r\n'),
                                    'ids':paragraph['ids'], 'evidence_id':paragraph['evidence_id']})
+                report['composed_batches'] += 1
             except Exception as error:
                 if is_cancellation(error):
                     raise
                 logger.info('Keeping readable source notes after optional editing failure: %s', type(error).__name__)
+                report['retained_batches'] += 1
+                reasons=report.setdefault('fallback_reasons',{})
+                reason = 'budget_exhausted' if time.monotonic()>=min(deadline,stage_deadline) else type(error).__name__
+                reasons[reason]=reasons.get(reason,0)+1
                 result.extend(originals(batch))
     _partition(result, lookup)
+    report['output_sections']=len(result)
     return result
