@@ -1,6 +1,8 @@
 // @vitest-environment jsdom
 import { expect, it } from 'vitest'
 import { escapeHtml, markdownToSafeHtml } from '../src/lib/safeHtml'
+import {buildNotionExportMarkdown} from '../src/lib/notionExport'
+import type {VideoTask} from '../src/lib/api'
 
 it('removes executable content from copied and printed Markdown', async () => {
   const html = await markdownToSafeHtml('# Notes\n\n<script>window.compromised=1</script><img src="x" onerror="window.compromised=1"><a href="javascript:alert(1)">link</a>')
@@ -18,4 +20,17 @@ it('preserves ordinary formatting and signed image links', async () => {
 
 it('escapes titles embedded in print documents', () => {
   expect(escapeHtml('</title><script>bad()</script>')).toBe('&lt;/title&gt;&lt;script&gt;bad()&lt;/script&gt;')
+})
+
+it.each(['\n','\r\n'])('exports one title while preserving the complete saved body with %j newlines',newline=>{
+ const body=['## Original chapter','','All conditions remain.','','> Exact original quotation.','','![Evidence](/data/screenshots/note.jpg)'].join(newline)
+ const task={title:'Source [title]',platform:'youtube',duration:65,style:'detailed',url:'https://example.com/source'} as VideoTask
+ const result=buildNotionExportMarkdown(task,'# Source [title]'+newline+newline+body)
+ expect(result.match(/^# Source \[title\]$/gm)).toHaveLength(1)
+ expect(result).toContain(body)
+ expect(result).toContain('- Duration: 1:05')
+})
+it('retains a source heading that differs from the task title',()=>{
+ const task={title:'Imported title',duration:0} as VideoTask
+ expect(buildNotionExportMarkdown(task,'# Original publication heading\n\nComplete source.')).toContain('# Original publication heading\n\nComplete source.')
 })

@@ -1,0 +1,42 @@
+// @vitest-environment jsdom
+import React,{act} from 'react'
+import {createRoot} from 'react-dom/client'
+import {afterEach,beforeEach,expect,it,vi} from 'vitest'
+import {ToastProvider,useToast} from '../src/components/Toast'
+
+let generation=0,api:ReturnType<typeof useToast>,node:HTMLDivElement,root:ReturnType<typeof createRoot>
+vi.mock('../src/lib/auth',()=>({getAuthGeneration:()=>generation}))
+function Probe(){api=useToast();return null}
+beforeEach(()=>{
+  generation=0;vi.useFakeTimers();vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT',true)
+  node=document.createElement('div');document.body.append(node);root=createRoot(node)
+  act(()=>root.render(<ToastProvider><Probe/></ToastProvider>))
+})
+afterEach(()=>{act(()=>root.unmount());node.remove();vi.useRealTimers();vi.unstubAllGlobals()})
+it('clears notifications and their timers on session changes and rejects callbacks from the previous session',()=>{
+  const old=api.addToast
+  act(()=>{api.addToast({type:'loading',title:'Private old task'});api.addToast({type:'error',title:'Old failure'})})
+  expect(node.textContent).toContain('Private old task');expect(vi.getTimerCount()).toBe(1)
+  act(()=>{generation++;window.dispatchEvent(new Event('xyz:session-changed'))})
+  expect(node.querySelector('[role="alert"],[role="status"]')).toBeNull()
+  expect(vi.getTimerCount()).toBe(0)
+  act(()=>{expect(old({type:'error',title:'Late private response'})).toBe('')})
+  expect(node.textContent).not.toContain('Late private response')
+  act(()=>{api.addToast({type:'success',title:'Current task'})})
+  expect(node.textContent).toContain('Current task')
+})
+it('releases a manually dismissed notification timer without expiring other notifications',()=>{
+  let first='',second=''
+  act(()=>{first=api.addToast({type:'info',title:'First',duration:500});second=api.addToast({type:'info',title:'Second',duration:2000})})
+  expect(first).not.toBe(second)
+  act(()=>api.removeToast(first));expect(vi.getTimerCount()).toBe(1)
+  act(()=>vi.advanceTimersByTime(500));expect(node.textContent).toContain('Second')
+  act(()=>vi.advanceTimersByTime(1500));expect(node.querySelector('[role="status"]')).toBeNull()
+})
+it('cancels outstanding timers when the notification container unmounts',()=>{
+  const add=api.addToast
+  act(()=>api.addToast({type:'info',title:'Temporary'}))
+  expect(vi.getTimerCount()).toBe(1)
+  act(()=>root.render(null));expect(vi.getTimerCount()).toBe(0)
+  expect(add({type:'info',title:'Late response'})).toBe('')
+})

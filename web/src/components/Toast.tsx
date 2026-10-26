@@ -1,7 +1,8 @@
 /**
  * Toast notification system
  */
-import { useState, createContext, useContext, ReactNode, useCallback } from 'react'
+import { useState, useEffect, useRef, createContext, useContext, ReactNode, useCallback } from 'react'
+import {getAuthGeneration} from '../lib/auth'
 import { X, CheckCircle, AlertCircle, Info, Loader2 } from 'lucide-react'
 
 export type ToastType = 'success' | 'error' | 'info' | 'loading'
@@ -25,8 +26,28 @@ const ToastContext = createContext<ToastContextType | null>(null)
 
 export function ToastProvider({ children }: { children: ReactNode }) {
   const [toasts, setToasts] = useState<Toast[]>([])
+  const timers = useRef(new Map<string, ReturnType<typeof setTimeout>>())
+  const active = useRef(true)
+  const generation = getAuthGeneration()
+  useEffect(() => {
+    active.current = true
+    const clear = () => {
+      timers.current.forEach(clearTimeout)
+      timers.current.clear()
+      setToasts([])
+    }
+    window.addEventListener('xyz:session-changed', clear)
+    if (generation !== getAuthGeneration()) clear()
+    return () => {
+      active.current = false
+      window.removeEventListener('xyz:session-changed', clear)
+      timers.current.forEach(clearTimeout)
+      timers.current.clear()
+    }
+  }, [])
 
   const addToast = useCallback((toast: Omit<Toast, 'id'>) => {
+    if (!active.current || generation !== getAuthGeneration()) return ''
     const id = Math.random().toString(36).substring(7)
     const newToast: Toast = { ...toast, id }
     setToasts((prev) => [...prev, newToast])
@@ -34,15 +55,18 @@ export function ToastProvider({ children }: { children: ReactNode }) {
     // Auto-remove after duration (default 5s, 0 = persistent)
     const duration = toast.duration ?? (toast.type === 'loading' ? 0 : 5000)
     if (duration > 0) {
-      setTimeout(() => {
+      timers.current.set(id, setTimeout(() => {
+        timers.current.delete(id)
         setToasts((prev) => prev.filter((t) => t.id !== id))
-      }, duration)
+      }, duration))
     }
 
     return id
-  }, [])
+  }, [generation])
 
   const removeToast = useCallback((id: string) => {
+    clearTimeout(timers.current.get(id))
+    timers.current.delete(id)
     setToasts((prev) => prev.filter((t) => t.id !== id))
   }, [])
 

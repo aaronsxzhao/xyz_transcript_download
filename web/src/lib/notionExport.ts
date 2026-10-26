@@ -26,7 +26,12 @@ export function buildNotionExportMarkdown(task: VideoTask, content: string, sele
   }
 
   if (content.trim()) {
-    lines.push(content.trim())
+    const body = content.trim()
+    const firstLine = body.split(/\r?\n/, 1)[0]
+    // The saved note usually already carries the task title. Keep one page
+    // title while retaining any different source heading and all body bytes.
+    const text = firstLine.trim() === `# ${title}` ? body.slice(firstLine.length).trimStart() : body
+    if (text) lines.push(text)
     lines.push('')
   }
 
