@@ -485,6 +485,7 @@ html[data-reader-contents="hidden"] .unified-reader{grid-template-columns:minmax
 /* Collection links, buttons and disclosures share one control geometry. */
 .collection-actions{display:flex;flex-wrap:wrap;align-items:center;justify-content:flex-start;gap:8px;min-width:0}
 .collection-actions :is(.ui-button,.task-more>summary){box-sizing:border-box;height:var(--ui-control-height);min-height:var(--ui-control-height);display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:0 12px;font-size:14px;line-height:20px;white-space:nowrap;flex-shrink:0}
+.collection-actions .ui-button:disabled{opacity:.5}
 .collection-actions .ui-button-icon{width:var(--ui-control-height);min-width:var(--ui-control-height);padding:0}
 .collection-actions .ui-button svg{width:16px;height:16px;flex-shrink:0}
 .collection-actions>.task-more{flex-shrink:0}

@@ -36,6 +36,7 @@ async def check(browser, origin, width):
               'title':f'Synthetic saved content {i:02d} · 一个完整且较长的内容标题，用于验证手机换行和阅读入口',
               'source':'Synthetic source','date':f'2026-10-{27-i:02d}T03:00:00Z','published_at':'2026-09-01',
               'status':'completed','thumbnail':'','platform':'youtube' if i%3==2 else 'substack'} for i in range(18)]
+    check_started,check_release=asyncio.Event(),asyncio.Event()
     state={'phase':'discovered','submissions':0,'library_calls':[],'paths':[],'collection':False,'checks':0}
     def task():
         return {'id':'discovered','title':'Synthetic discovered video','channel':'Synthetic channel','platform':'youtube',
@@ -69,7 +70,7 @@ async def check(browser, origin, width):
             {**task(),'id':'new','title':'Synthetic new video','status':'discovered'},
         ] if state['collection'] else [task()],'next_cursor':None}
         elif path=='/api/video-notes/check-channels':
-            state['checks']+=1;await asyncio.sleep(.3)
+            state['checks']+=1;check_started.set();await check_release.wait()
             body={'message':'No new items found','new_videos':0,'channels_checked':1,'channels_failed':0,'channels_total':1,'channels_processed':1,'next_cursor':None}
         elif path=='/api/podcasts/show':body={'pid':'show','title':'Synthetic podcast','platform':'apple','episode_count':2,'summarized_count':1}
         elif path=='/api/podcasts/content':body=[{'eid':eid,'pid':'show','title':f'Synthetic episode {eid}','duration':5100,'pub_date':'2026-10-23','has_summary':eid=='ready','has_transcript':eid=='ready','topics_count':4,'key_points_count':8} for eid in ['ready','new']]
@@ -125,6 +126,11 @@ async def check(browser, origin, width):
     await check_actions(page,width)
     await page.get_by_role('button',name='Cancel',exact=True).click()
     await page.get_by_role('button',name='Check source updates',exact=True).evaluate('(el)=>{el.click();el.click()}')
+    await asyncio.wait_for(check_started.wait(),10)
+    refresh=page.get_by_label('Check updates for Synthetic channel',exact=True)
+    assert await refresh.is_disabled()
+    assert await refresh.evaluate('(el)=>Number(getComputedStyle(el).opacity)') <= .5
+    check_release.set()
     await page.get_by_role('button',name='Check source updates',exact=True).wait_for()
     await page.wait_for_function("()=>!document.querySelector('button[aria-label^=\"Check updates for\"]')?.disabled")
     assert state['checks']==1,state['checks']

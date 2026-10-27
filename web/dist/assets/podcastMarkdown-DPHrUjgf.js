@@ -1,4 +1,0 @@
-import{n as e,r as t}from"./rolldown-runtime-CNOWq4Kh.js";import{b as n,v as r,y as i}from"./workspace-BTkpDDOh.js";var a=t({summaryToMarkdown:()=>o});function o(e,t){let a=[`# ${e.title}`,``];t&&Number.isFinite(t)&&t>0&&a.push(`- Duration: ${Math.floor(t/60)}:${Math.floor(t%60).toString().padStart(2,`0`)}`,``);let o=n(e.overview);o.conclusions&&a.push(/### Key conclusions/.test(e.overview)?`## Key conclusions`:`## 核心结论`,``,r(o.conclusions),``),a.push(`## Overview`,``,r(o.overview),``,`## Key Points by Topic`,``);for(let[t,n]of i(e)){a.push(`### ${t}`,``);for(let e of n)a.push(r(e.summary),``),e.original_quote&&(e.timestamp&&a.push(`Source · ${e.timestamp}`,``),a.push(...e.original_quote.split(`
-`).map(e=>`> ${e}`),``))}return e.takeaways.length&&a.push(`## Takeaways`,``,...e.takeaways.map(e=>`- ${r(e).replace(/\r?\n/g,`
-  `)}`),``),a.join(`
-`)}function s(){return(s=e((()=>{})))()}export{a as n,o as r,s as t};
