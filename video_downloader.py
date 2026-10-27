@@ -699,6 +699,10 @@ class YtdlpDownloader(BaseDownloader):
             "http_chunk_size": 10485760,
             "throttled_rate": 100_000,
             "buffersize": 1024 * 1024,
+            # Keep transport, source headers/cookies and resumption inside yt-dlp.
+            # Installing aria2c must not silently opt every source into 16-way
+            # range requests or turn its opaque exit status into a source error.
+            "external_downloader": {"default": "native"},
             "js_runtimes": {"deno": {}, "node": {}, "bun": {}},
             "remote_components": {"ejs:github"},
         }
@@ -721,11 +725,6 @@ class YtdlpDownloader(BaseDownloader):
                     "YouTube downloads may fail. Install Node.js or Deno."
                 )
 
-        if shutil.which("aria2c"):
-            opts["external_downloader"] = "aria2c"
-            opts["external_downloader_args"] = {
-                "default": ["-x", "16", "-s", "16", "-k", "1M", "--min-split-size=1M"],
-            }
         cookie_str = self.cookies
         if not cookie_str and self.use_saved_cookies:
             try:
@@ -822,6 +821,15 @@ class YtdlpDownloader(BaseDownloader):
 
         return [hook]
 
+    @staticmethod
+    def _discard_aria2_partials(directory: Path, task_id: str):
+        # aria2 parts may contain out-of-order ranges. The native downloader
+        # cannot resume them as a contiguous prefix; keep native parts and
+        # completed files, but discard parts identified by aria2 control files.
+        for control in directory.glob(f"{task_id}.*.part.aria2"):
+            control.with_suffix("").unlink(missing_ok=True)
+            control.unlink(missing_ok=True)
+
     def download_audio(self, url: str, task_id: str, quality: str = "medium",
                        progress_callback: ProgressCallback = None) -> Optional[Path]:
         url = normalize_video_url(url, self.platform)
@@ -829,6 +837,7 @@ class YtdlpDownloader(BaseDownloader):
         if output_path.exists():
             return output_path
 
+        self._discard_aria2_partials(VIDEO_AUDIO_DIR, task_id)
         bitrate = QUALITY_MAP.get(quality, "64")
         try:
             opts = self._get_base_opts()
@@ -897,6 +906,7 @@ class YtdlpDownloader(BaseDownloader):
         if output_path.exists():
             return output_path
 
+        self._discard_aria2_partials(VIDEO_DIR, task_id)
         try:
             opts = self._get_base_opts()
             if video_quality == "best":
