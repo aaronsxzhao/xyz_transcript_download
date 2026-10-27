@@ -9,6 +9,7 @@ import re
 import shutil
 import subprocess
 from resource_scheduler import run_media_process
+from summary_errors import ProcessingCancelledError
 import uuid
 from urllib.parse import parse_qs, urlparse
 from abc import ABC, abstractmethod
@@ -683,6 +684,7 @@ class YtdlpDownloader(BaseDownloader):
         self.platform = platform
         self.cookies = cookies
         self.use_saved_cookies = use_saved_cookies
+        self._aria2_failed = False
 
     def _get_base_opts(self) -> dict:
         """Build base yt-dlp options with cookie support from QR login or manual input."""
@@ -699,9 +701,8 @@ class YtdlpDownloader(BaseDownloader):
             "http_chunk_size": 10485760,
             "throttled_rate": 100_000,
             "buffersize": 1024 * 1024,
-            # Keep transport, source headers/cookies and resumption inside yt-dlp.
-            # Installing aria2c must not silently opt every source into 16-way
-            # range requests or turn its opaque exit status into a source error.
+            # Metadata/subtitles stay native. Media may opt into bounded aria2
+            # acceleration through _download_media, with automatic fallback.
             "external_downloader": {"default": "native"},
             "js_runtimes": {"deno": {}, "node": {}, "bun": {}},
             "remote_components": {"ejs:github"},
@@ -830,6 +831,69 @@ class YtdlpDownloader(BaseDownloader):
             control.with_suffix("").unlink(missing_ok=True)
             control.unlink(missing_ok=True)
 
+    def _download_media(self, url: str, opts: dict, directory: Path, task_id: str,
+                        audio: bool, progress_callback: ProgressCallback):
+        """Try at most two transports; never mix their partial byte ranges."""
+        available = bool(shutil.which('aria2c')) and not self._aria2_failed
+        first = 'aria2c' if available and self.platform != 'bilibili' else 'native'
+        transports = [first, 'native' if first == 'aria2c' else 'aria2c'] if available else ['native']
+        attempt_dir = directory / f'.{task_id}.aria2'
+        first_error = None
+        for index, transport in enumerate(transports):
+            attempt_opts = dict(opts)
+            if len(transports) > 1:
+                # Reach the alternate transport before exhausting a long retry
+                # budget on the same broken connection strategy.
+                attempt_opts['retries'] = min(opts.get('retries', 10), 1 if index == 0 else 3)
+                attempt_opts['socket_timeout'] = min(opts.get('socket_timeout', 30), 20)
+            if transport == 'aria2c':
+                attempt_dir.mkdir(parents=True, exist_ok=True)
+                attempt_opts.update({
+                    # HLS/DASH remain native; aria2 accelerates direct HTTP only.
+                    'external_downloader': {'http': 'aria2c', 'default': 'native'},
+                    'external_downloader_args': {'aria2c': ['-x', '4', '-s', '4', '-k', '1M',
+                        '--max-tries=1', '--connect-timeout=10', '--timeout=15']},
+                    'outtmpl': str(attempt_dir / Path(opts['outtmpl']).name),
+                })
+            try:
+                with yt_dlp.YoutubeDL(attempt_opts) as ydl:
+                    info = ydl.extract_info(url, download=True) if audio else ydl.download([url])
+                if transport == 'aria2c':
+                    # Publish only completed media; control/part files stay isolated.
+                    for path in attempt_dir.glob(f'{task_id}.*'):
+                        if path.suffix in ('.mp3', '.m4a', '.wav', '.ogg', '.mp4', '.mkv', '.webm'):
+                            path.replace(directory / path.name)
+                return info
+            except yt_dlp.utils.DownloadError as error:
+                original = (error.exc_info or (None, None, None))[1] or error.__cause__
+                if isinstance(original, ProcessingCancelledError):
+                    raise original
+                message = str(error).lower()
+                aria_failure = bool(re.search(r'aria2c\s+exited\s+with\s+code\s+\d+', message))
+                if aria_failure:
+                    self._aria2_failed = True
+                native_failure = (bool(re.search(r'unable to download (?:video data|audio|media)', message))
+                    and bool(re.search(r'timeout|timed? out|connection reset|connection refused|remote end closed|incomplete read|network is unreachable|temporary failure in name resolution', message)))
+                # Restriction/cancellation/postprocessing errors cannot be repaired
+                # by a second transport. Only an actual transfer failure switches.
+                restricted = bool(re.search(r'\b(?:401|403|404|412|429)\b|cancel|sign in|private video|copyright|geo.restrict|ffmpeg|postprocess', message))
+                retryable = aria_failure if transport == 'aria2c' else native_failure
+                if index + 1 == len(transports) or restricted or not retryable:
+                    if first_error is not None and aria_failure:
+                        raise VideoDownloadError(f'Native download failed: {first_error}. '
+                            'The aria2c fallback also failed. Retry later or check the original source.') from error
+                    raise
+                first_error = error
+                logger.warning('Download transport %s failed on %s; switching to %s',
+                               transport, self.platform, transports[index + 1])
+                if progress_callback:
+                    progress_callback(0, f'{transport} download interrupted; switching to {transports[index + 1]}…')
+            finally:
+                # Failed/cancelled attempts must not leave hidden media behind
+                # outside the task's ordinary cache/deletion paths.
+                if transport == 'aria2c':
+                    shutil.rmtree(attempt_dir, ignore_errors=True)
+
     def download_audio(self, url: str, task_id: str, quality: str = "medium",
                        progress_callback: ProgressCallback = None) -> Optional[Path]:
         url = normalize_video_url(url, self.platform)
@@ -858,10 +922,9 @@ class YtdlpDownloader(BaseDownloader):
                 }],
                 "progress_hooks": self._make_progress_hook(progress_callback, "Downloading audio"),
             })
-            with yt_dlp.YoutubeDL(opts) as ydl:
-                info = ydl.extract_info(url, download=True)
-                if info:
-                    self._last_info = info
+            info = self._download_media(url, opts, VIDEO_AUDIO_DIR, task_id, True, progress_callback)
+            if info:
+                self._last_info = info
 
             if output_path.exists():
                 return output_path
@@ -869,7 +932,7 @@ class YtdlpDownloader(BaseDownloader):
                 if f.suffix in (".mp3", ".m4a", ".wav", ".ogg"):
                     return f
             return None
-        except VideoDownloadError:
+        except (VideoDownloadError, ProcessingCancelledError):
             raise
         except Exception as e:
             logger.error(f"Audio download failed: {e}")
@@ -920,8 +983,7 @@ class YtdlpDownloader(BaseDownloader):
                 "merge_output_format": "mp4",
                 "progress_hooks": self._make_progress_hook(progress_callback, "Downloading video"),
             })
-            with yt_dlp.YoutubeDL(opts) as ydl:
-                ydl.download([url])
+            self._download_media(url, opts, VIDEO_DIR, task_id, False, progress_callback)
 
             if output_path.exists():
                 return output_path
@@ -929,7 +991,7 @@ class YtdlpDownloader(BaseDownloader):
                 if f.suffix in (".mp4", ".mkv", ".webm"):
                     return f
             return None
-        except VideoDownloadError:
+        except (VideoDownloadError, ProcessingCancelledError):
             raise
         except Exception as e:
             logger.error(f"Video download failed: {e}")
