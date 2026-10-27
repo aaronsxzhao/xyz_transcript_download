@@ -29,27 +29,24 @@ import {
 } from "lucide-react";
 import {
   fetchStats,
-  fetchRecentSummaries,
   processEpisode,
   fetchContentUpdates,
   dismissContentUpdates,
   type ContentUpdates,
   checkPodcastsForUpdates,
   checkVideoChannelsForUpdates,
-  fetchRecentVideoTasks,
   generateVideoNote,
   getVideoProcessingDefaults,
   getUserModelSettings,
   type Stats,
-  type SummaryListItem,
   type ProcessingJob,
-  type VideoTask,
 } from "../lib/api";
 import { useStore } from "../lib/store";
 import { useWarmCache, getCache, setCache, CacheKeys } from "../lib/cache";
 import { useToast } from "../components/Toast";
 import { markSeen, shouldDismissCompleted } from "../lib/seen";
 import NoteCard from "../components/NoteCard";
+import DashboardRecent from "../components/DashboardRecent";
 import { useVerifiedReading } from "../lib/readingHistory";
 import ProcessingProgress from "../components/ProcessingProgress";
 import { usePageTiming } from "../lib/pageTiming";
@@ -96,25 +93,12 @@ export default function Dashboard() {
     status: readingStatus,
     retry: retryReading,
   } = useVerifiedReading();
-  const [recentReady, setRecentReady] = useState({
-    podcasts: !!getCache(CacheKeys.RECENT_SUMMARIES),
-    videos: !!getCache(CacheKeys.RECENT_VIDEOS),
-  });
   const [stats, setStats] = useState<Stats | null>(null);
-  const [summaries, setSummaries] = useState<SummaryListItem[]>([]);
-  const [recentVideos, setRecentVideos] = useState<VideoTask[]>([]);
+  const [recentRevision, setRecentRevision] = useState(0);
+  const dataVersion = useRef(0);
+  const mounted = useRef(true);
   useWarmCache<Stats>(CacheKeys.STATS, (value) => {
     setStats(value);
-    setLoading(false);
-  });
-  useWarmCache<SummaryListItem[]>(CacheKeys.RECENT_SUMMARIES, (value) => {
-    setSummaries(value);
-    setRecentReady((previous) => ({ ...previous, podcasts: true }));
-    setLoading(false);
-  });
-  useWarmCache<VideoTask[]>(CacheKeys.RECENT_VIDEOS, (value) => {
-    setRecentVideos(value);
-    setRecentReady((previous) => ({ ...previous, videos: true }));
     setLoading(false);
   });
   const [loading, setLoading] = useState(true);
@@ -122,6 +106,7 @@ export default function Dashboard() {
   const [error, setError] = useState("");
   const [episodeUrl, setEpisodeUrl] = useState("");
   const [processing, setProcessing] = useState(false);
+  const processingRef = useRef(false);
   const [updatesSnapshot, setUpdatesSnapshot] = useState<ContentUpdates>(() =>
     unreadSnapshot(getCache<ContentUpdates>(UPDATES_CACHE) || { items: [] }),
   );
@@ -136,15 +121,13 @@ export default function Dashboard() {
   const updatesReadVersion = useRef(0);
   const dismissingRef = useRef(false);
   const [checkingUpdates, setCheckingUpdates] = useState(false);
+  const checkingRef = useRef(false);
   const [overlay, setOverlay] = useState<"updates" | "history" | "">("");
-  const [recentFilter, setRecentFilter] = useState<"all" | "podcast" | "video">(
-    "all",
-  );
-
   const { jobs, updateJob, videoTasks } = useStore();
   const { addToast } = useToast();
 
   const previousActive = useRef(new Set<string>());
+  const previousCompleted = useRef<Set<string> | null>(null);
   const completionRefresh = useRef<ReturnType<typeof setTimeout>>();
   useEffect(() => {
     const rows = [
@@ -160,8 +143,9 @@ export default function Dashboard() {
     const finished = rows.some(
       (row) =>
         ["completed", "success"].includes(row.status) &&
-        previousActive.current.has(row.id),
+        (previousActive.current.has(row.id) || (previousCompleted.current !== null && !previousCompleted.current.has(row.id))),
     );
+    previousCompleted.current = new Set(rows.filter(row => ["completed", "success"].includes(row.status)).map(row => row.id));
     previousActive.current = new Set(
       rows
         .filter(
@@ -294,6 +278,7 @@ export default function Dashboard() {
   }, [jobs, videoTasks]);
 
   useEffect(() => {
+    mounted.current = true;
     loadData();
     void loadContentUpdates();
     const refresh = () => {
@@ -304,60 +289,32 @@ export default function Dashboard() {
     return () => {
       window.clearInterval(timer);
       window.removeEventListener("focus", refresh);
+      dataVersion.current++;
+      updatesReadVersion.current++;
+      mounted.current = false;
     };
   }, []);
 
   async function loadData() {
-    const owner = getAccountId();
+    if (!mounted.current) return;
+    const owner = getAccountId(), version = ++dataVersion.current;
+    const current = () => mounted.current && owner === getAccountId() && version === dataVersion.current;
+    if (version > 1) setRecentRevision(value => value + 1);
     setError("");
-    const cachedStats = getCache<Stats>(CacheKeys.STATS);
-    const cachedSummaries = getCache<SummaryListItem[]>(
-      CacheKeys.RECENT_SUMMARIES,
-    );
-    const cachedRecentVideos = getCache<VideoTask[]>(CacheKeys.RECENT_VIDEOS);
-
-    if (cachedStats) setStats(cachedStats);
-    if (cachedSummaries) setSummaries(cachedSummaries);
-    if (cachedRecentVideos) setRecentVideos(cachedRecentVideos);
-    if (cachedStats || cachedSummaries || cachedRecentVideos) setLoading(false);
-
+    const cached = getCache<Stats>(CacheKeys.STATS);
+    if (cached) { setStats(cached); setLoading(false); }
     try {
-      const results = await Promise.allSettled([
-        fetchStats().then((data) => {
-          setStats(data);
-          setCache(CacheKeys.STATS, data, owner);
-          setLoading(false);
-        }),
-        fetchRecentSummaries().then((data) => {
-          setSummaries(data);
-          setRecentReady((previous) => ({ ...previous, podcasts: true }));
-          setCache(CacheKeys.RECENT_SUMMARIES, data, owner);
-          setLoading(false);
-        }),
-        fetchRecentVideoTasks().then((data) => {
-          setRecentVideos(data.tasks);
-          setRecentReady((previous) => ({ ...previous, videos: true }));
-          setCache(CacheKeys.RECENT_VIDEOS, data.tasks, owner);
-          setLoading(false);
-        }),
-      ]);
-      if (results.some((result) => result.status === "rejected"))
-        setError(
-          "Cannot refresh the dashboard. Any saved content may be out of date.",
-        );
-    } catch (err) {
-      console.error("Failed to load data:", err);
-      setError(
-        "Cannot refresh the dashboard. Any saved content may be out of date.",
-      );
-    } finally {
-      setLoading(false);
-      setRecentReady({ podcasts: true, videos: true });
-    }
+      const data = await fetchStats();
+      if (!current()) return;
+      setStats(data);
+      setCache(CacheKeys.STATS, data, owner);
+    } catch (reason) {
+      if (current()) setError(reason instanceof Error ? reason.message : "Cannot refresh dashboard statistics. Saved numbers may be out of date.");
+    } finally { if (current()) setLoading(false); }
   }
 
   async function loadContentUpdates() {
-    if (dismissingRef.current) return;
+    if (!mounted.current || dismissingRef.current) return;
     const version = ++updatesReadVersion.current;
     const owner = getAccountId();
     try {
@@ -417,12 +374,16 @@ export default function Dashboard() {
   }
 
   async function handleCheckUpdates() {
+    if (checkingRef.current) return;
+    const owner = getAccountId();
+    checkingRef.current = true;
     setCheckingUpdates(true);
     try {
       const results = await Promise.allSettled([
         checkPodcastsForUpdates(),
         checkVideoChannelsForUpdates(),
       ]);
+      if (owner !== getAccountId()) return;
       const episodes =
         results[0].status === "fulfilled" ? results[0].value.new_episodes : 0;
       const videos =
@@ -431,6 +392,7 @@ export default function Dashboard() {
         (result) => result.status === "rejected",
       ).length + (results[1].status === 'fulfilled' ? results[1].value.channels_failed || 0 : 0) + (results[0].status === 'fulfilled' ? results[0].value.podcasts_failed || 0 : 0);
       await loadContentUpdates();
+      if (owner !== getAccountId()) return;
       if (episodes || videos) {
         addToast({
           type: failed ? "info" : "success",
@@ -452,14 +414,17 @@ export default function Dashboard() {
             "Successful discoveries have been kept. Please retry the unavailable sources.",
         });
     } finally {
-      setCheckingUpdates(false);
+      checkingRef.current = false;
+      if (owner === getAccountId()) setCheckingUpdates(false);
     }
   }
 
   async function handleProcess(e: React.FormEvent) {
     e.preventDefault();
     const url = episodeUrl.trim();
-    if (!url) return;
+    if (!url || processingRef.current) return;
+    const owner = getAccountId();
+    processingRef.current = true;
 
     setProcessing(true);
     try {
@@ -480,6 +445,7 @@ export default function Dashboard() {
           video_quality: (defaults.video_quality as string) || "720",
           llm_model: modelSettings.llm_model,
         });
+        if (owner !== getAccountId()) return;
         setEpisodeUrl("");
         addToast({
           type: "success",
@@ -489,6 +455,7 @@ export default function Dashboard() {
         loadData();
       } else {
         const result = await processEpisode(url);
+        if (owner !== getAccountId()) return;
         updateJob({
           job_id: result.job_id,
           created_at: Date.now()/1000,
@@ -507,6 +474,7 @@ export default function Dashboard() {
         });
       }
     } catch (err) {
+      if (owner !== getAccountId()) return;
       console.error("Failed to start processing:", err);
       addToast({
         type: "error",
@@ -514,7 +482,8 @@ export default function Dashboard() {
         message: err instanceof Error ? err.message : "Unknown error",
       });
     } finally {
-      setProcessing(false);
+      processingRef.current = false;
+      if (owner === getAccountId()) setProcessing(false);
     }
   }
 
@@ -570,7 +539,7 @@ export default function Dashboard() {
           }}
         />
       )}
-      <div className="flex items-start justify-between">
+      <div className="dashboard-header flex items-start justify-between">
         <div>
           <h1 className="page-title text-2xl font-bold text-white mb-2">
             Dashboard
@@ -582,8 +551,9 @@ export default function Dashboard() {
         <div className="flex flex-wrap items-center justify-end gap-2">
           <button
             onClick={handleCheckUpdates}
+            aria-label={checkingUpdates ? "Checking for new content" : "Check Updates"}
             disabled={checkingUpdates}
-            className="flex items-center gap-2 px-3 py-2 bg-dark-surface border border-dark-border rounded-lg hover:bg-dark-hover transition-colors text-sm text-gray-300"
+            className="dashboard-check-updates flex items-center gap-2 px-3 py-2 bg-dark-surface border border-dark-border rounded-lg hover:bg-dark-hover transition-colors text-sm text-gray-300"
             title="Check podcasts and video channels for new content"
           >
             <RefreshCw
@@ -829,80 +799,7 @@ export default function Dashboard() {
           </aside>
         )}
       </div>
-      <section className="dashboard-recent" aria-label="Recently added">
-        <div className="dashboard-section-heading">
-          <div className="dashboard-recent-title">
-            <h2>Recently added</h2>
-            <div
-              className="dashboard-recent-filters"
-              role="group"
-              aria-label="Recent content type"
-            >
-              {(["all", "podcast", "video"] as const).map((kind) => (
-                <button
-                  key={kind}
-                  aria-pressed={recentFilter === kind}
-                  onClick={() => setRecentFilter(kind)}
-                >
-                  {kind === "all"
-                    ? "All"
-                    : kind === "podcast"
-                      ? "Podcasts"
-                      : "Videos"}
-                </button>
-              ))}
-            </div>
-          </div>
-          <Link to="/library" className="reader-action">
-            View Library →
-          </Link>
-        </div>
-        <div className="dashboard-recent-notes">
-          {recentFilter !== "video" &&
-            summaries.slice(0, 2).map((summary, index) => (
-              <NoteCard
-                key={summary.episode_id}
-                priority={index === 0}
-                item={{
-                  id: summary.episode_id,
-                  kind: "podcast",
-                  title: summary.title,
-                  source: summary.podcast_title,
-                  thumbnail: summary.podcast_cover,
-                  topics_count: summary.topics_count,
-                }}
-              />
-            ))}
-          {recentFilter !== "podcast" &&
-            recentVideos.slice(0, 2).map((task, index) => (
-              <NoteCard
-                key={task.id}
-                priority={index === 0}
-                item={{
-                  id: task.id,
-                  kind: "video",
-                  title: task.title || "Untitled video",
-                  source: task.channel || task.platform,
-                  thumbnail: task.thumbnail,
-                }}
-              />
-            ))}
-        </div>
-        {recentFilter !== "video" && !summaries.length && (
-          <p role="status" className="text-sm text-gray-400">
-            {recentReady.podcasts
-              ? "No podcast summaries yet"
-              : "Loading saved summaries…"}
-          </p>
-        )}
-        {recentFilter !== "podcast" && !recentVideos.length && (
-          <p role="status" className="text-sm text-gray-400">
-            {recentReady.videos
-              ? "No video notes yet"
-              : "Loading saved video notes…"}
-          </p>
-        )}
-      </section>
+      <DashboardRecent revision={recentRevision}/>
       {overlay && (
         <DashboardDialog
           kind={overlay}

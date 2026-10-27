@@ -43,7 +43,7 @@ export default function DashboardDialog({
                   to={
                     item.kind === "podcast"
                       ? `/podcasts/${encodeURIComponent(item.source_id)}/episodes`
-                      : "/videos"
+                      : `/videos/${encodeURIComponent(item.source_id)}`
                   }
                 >
                   <span>{item.source_title}</span>

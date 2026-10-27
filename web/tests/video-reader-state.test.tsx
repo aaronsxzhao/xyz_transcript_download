@@ -6,10 +6,10 @@ import {afterEach, beforeEach, expect, it, vi} from 'vitest'
 import VideoViewer from '../src/pages/VideoViewer'
 import {downloadMarkdown} from '../src/lib/markdownDownload'
 vi.mock('../src/lib/markdownDownload',()=>({downloadMarkdown:vi.fn()}))
-import {fetchVideoTask, fetchVideoTranscript, type VideoTask} from '../src/lib/api'
+import {fetchVideoTask, fetchVideoTranscript, retryVideoTask, type VideoTask} from '../src/lib/api'
 import {useStore} from '../src/lib/store'
 
-vi.mock('../src/lib/api', async load => ({...await load<object>(), fetchVideoTask:vi.fn(), fetchVideoTranscript:vi.fn()}))
+vi.mock('../src/lib/api', async load => ({...await load<object>(), fetchVideoTask:vi.fn(), fetchVideoTranscript:vi.fn(), retryVideoTask:vi.fn()}))
 vi.mock('../src/lib/cache', () => ({getCache:()=>null, setCache:vi.fn(), removeCache:vi.fn(), useWarmCache:()=>{}, CacheKeys:{VIDEO_NOTE:(id:string)=>id}}))
 vi.mock('../src/lib/pageTiming', () => ({usePageTiming:()=>{}}))
 vi.mock('../src/lib/readingHistory', () => ({useRecordReading:()=>{}}))
@@ -215,4 +215,21 @@ it('shows an original article title once while retaining the exact Markdown for 
  await act(async()=>[...node.querySelectorAll('button')].find(b=>b.textContent?.trim()==='Markdown')!.click())
  await act(async()=>vi.dynamicImportSettled())
  expect(downloadMarkdown).toHaveBeenCalledWith(markdown,'Trading lesson')
+})
+
+it('offers an explicit start action for discovered content instead of a processing spinner',async()=>{
+ let accepted!:(value:any)=>void
+ vi.mocked(fetchVideoTask).mockResolvedValue({...note(),status:'discovered',progress:0,markdown:'',message:''})
+ vi.mocked(retryVideoTask).mockImplementationOnce(()=>new Promise(resolve=>{accepted=resolve}))
+ await mount()
+ const section=node.querySelector('[aria-label="Unprocessed content"]')!
+ expect(section.textContent).toContain('Not processed yet')
+ expect(section.querySelector('progress')).toBeNull()
+ const start=[...section.querySelectorAll('button')].find(b=>b.textContent==='Start processing')!
+ await act(async()=>{start.click();start.click()})
+ expect(retryVideoTask).toHaveBeenCalledOnce()
+ expect(start.disabled).toBe(true)
+ await act(async()=>accepted({task_id:'one'}))
+ expect(node.querySelector('[aria-label="Unprocessed content"]')).toBeNull()
+ expect(useStore.getState().videoTasks.find(t=>t.id==='one')?.status).toBe('pending')
 })

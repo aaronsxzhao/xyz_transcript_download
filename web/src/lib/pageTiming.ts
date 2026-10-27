@@ -22,7 +22,7 @@ function isPageRead(page: Page, path: string) {
   if (page === 'podcasts') return path === '/api/podcasts'
   if (page === 'channel') return path === '/api/video-notes/tasks/by-channel'
   if (page === 'videos') return path === '/api/video-notes/channels'
-  return path === '/api/stats' || path === '/api/summaries/recent' || path === '/api/video-notes/recent'
+  return path === '/api/stats' || path === '/api/library'
 }
 
 export function usePageTiming(page: Page, ready: boolean, cacheKey: string, failed = false) {
