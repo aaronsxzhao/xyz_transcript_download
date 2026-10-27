@@ -26,8 +26,9 @@ def test_metadata_and_subtitle_options_stay_native(monkeypatch, platform, protoc
     assert opts['concurrent_fragment_downloads'] == 8
 
 
-@pytest.mark.parametrize('platform,aria_success', [('bilibili', False), ('youtube', False), ('youtube', True)])
-def test_real_transfer_prefers_native_on_bilibili_and_recovers_from_broken_aria2(monkeypatch, tmp_path, platform, aria_success):
+@pytest.mark.parametrize('platform,aria_success,native_interrupted', [
+    ('bilibili', False, False), ('youtube', False, False), ('youtube', True, False), ('bilibili', True, True)])
+def test_real_transfer_prefers_native_on_bilibili_and_recovers_from_broken_aria2(monkeypatch, tmp_path, platform, aria_success, native_interrupted):
     # This is a byte transport fixture, not a model/media decoding test.
     content = b'\x00\x00\x00\x18ftypmp42' + bytes(range(256)) * 1024
     requests = []
@@ -39,7 +40,9 @@ def test_real_transfer_prefers_native_on_bilibili_and_recovers_from_broken_aria2
             self.send_header('Content-Type', 'video/mp4')
             self.send_header('Content-Length', str(len(content)))
             self.end_headers()
-            self.wfile.write(content)
+            # The extraction request succeeds. Subsequent native reads end
+            # prematurely until the alternate transport starts its own request.
+            self.wfile.write(content[:1024] if native_interrupted and len(requests) > 1 and not marker.exists() else content)
 
         def log_message(self, *_):
             pass
@@ -87,8 +90,10 @@ sys.exit(22)
         assert not (tmp_path / 'native.mp4.part.aria2').exists()
         assert requests and all(path == '/source.mp4' for path in requests)
         assert progress and progress[-1][0] == 1
-        assert marker.exists() == (platform == 'youtube')
+        assert marker.exists() == (platform == 'youtube' or native_interrupted)
         assert not (tmp_path / '.native.aria2').exists()
+        if native_interrupted:
+            assert any('switching to aria2c' in message for _, message in progress)
         if platform == 'youtube':
             assert downloader._aria2_failed == (not aria_success)
             assert any('switching to native' in message for _, message in progress) == (not aria_success)
@@ -175,6 +180,7 @@ def test_native_transfer_failure_can_use_aria2_without_reusing_native_partial(mo
     'Private video', 'Video unavailable', 'Requested format is not available',
     'Postprocessing: ffmpeg failed', 'Unable to download webpage: Connection reset',
     'Unable to download fragment: Connection reset',
+    'ERROR: [download] Got error: Connection reset. Giving up after 2 fragment retries',
 ])
 @pytest.mark.parametrize('platform', ['bilibili', 'youtube'])
 def test_source_extraction_and_postprocessing_errors_do_not_switch(monkeypatch, tmp_path, message, platform):

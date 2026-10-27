@@ -872,8 +872,9 @@ class YtdlpDownloader(BaseDownloader):
                 aria_failure = bool(re.search(r'aria2c\s+exited\s+with\s+code\s+\d+', message))
                 if aria_failure:
                     self._aria2_failed = True
-                native_failure = (bool(re.search(r'unable to download (?:video data|audio|media)', message))
-                    and bool(re.search(r'timeout|timed? out|connection reset|connection refused|remote end closed|incomplete read|network is unreachable|temporary failure in name resolution', message)))
+                native_failure = (bool(re.search(r'unable to download (?:video data|audio|media)|\[download\]\s+got error:', message))
+                    and 'fragment' not in message
+                    and bool(re.search(r'timeout|timed? out|connection reset|connection refused|remote end closed|incomplete\s*read|bytes read|content too short|network is unreachable|temporary failure in name resolution|http error 5\d\d', message)))
                 # Restriction/cancellation/postprocessing errors cannot be repaired
                 # by a second transport. Only an actual transfer failure switches.
                 restricted = bool(re.search(r'\b(?:401|403|404|412|429)\b|cancel|sign in|private video|copyright|geo.restrict|ffmpeg|postprocess', message))
