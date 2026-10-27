@@ -40,3 +40,40 @@ it('cancels outstanding timers when the notification container unmounts',()=>{
   act(()=>root.render(null));expect(vi.getTimerCount()).toBe(0)
   expect(add({type:'info',title:'Late response'})).toBe('')
 })
+
+it('expires a completed loading notification from the time of its status change',()=>{
+  let id=''
+  act(()=>{id=api.addToast({type:'loading',title:'Working',duration:0})})
+  act(()=>vi.advanceTimersByTime(60000))
+  act(()=>api.updateToast(id,{type:'success',title:'Done'}))
+  expect(node.textContent).toContain('Done');expect(vi.getTimerCount()).toBe(1)
+  act(()=>vi.advanceTimersByTime(4999));expect(node.textContent).toContain('Done')
+  act(()=>vi.advanceTimersByTime(1));expect(node.textContent).not.toContain('Done')
+})
+it('does not expire a notification while it changes back to loading',()=>{
+  let id=''
+  act(()=>{id=api.addToast({type:'info',title:'Waiting',duration:100})})
+  act(()=>api.updateToast(id,{type:'loading',title:'Working'}))
+  expect(vi.getTimerCount()).toBe(0)
+  act(()=>vi.advanceTimersByTime(1000));expect(node.textContent).toContain('Working')
+  act(()=>node.querySelector<HTMLButtonElement>('button')!.click())
+  expect(node.textContent).not.toContain('Working')
+})
+it('preserves an existing deadline for text updates and supports an explicit new duration',()=>{
+  let id=''
+  act(()=>{id=api.addToast({type:'info',title:'First',duration:1000})})
+  act(()=>vi.advanceTimersByTime(900))
+  act(()=>api.updateToast(id,{title:'Updated'}))
+  act(()=>vi.advanceTimersByTime(100));expect(node.textContent).not.toContain('Updated')
+  act(()=>{id=api.addToast({type:'loading',title:'Working'})})
+  act(()=>api.updateToast(id,{type:'error',title:'Failed',duration:2000}))
+  act(()=>vi.advanceTimersByTime(1999));expect(node.textContent).toContain('Failed')
+  act(()=>vi.advanceTimersByTime(1));expect(node.textContent).not.toContain('Failed')
+})
+it('does not recreate a dismissed toast or its timer when a late update arrives',()=>{
+  let id=''
+  act(()=>{id=api.addToast({type:'loading',title:'Working'})})
+  act(()=>api.removeToast(id))
+  act(()=>api.updateToast(id,{type:'success',title:'Done'}))
+  expect(vi.getTimerCount()).toBe(0);expect(node.textContent).not.toContain('Done')
+})

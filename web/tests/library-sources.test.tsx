@@ -4,7 +4,7 @@ import {createRoot} from 'react-dom/client'
 import {MemoryRouter} from 'react-router-dom'
 import {afterEach,beforeEach,expect,it,vi} from 'vitest'
 import Library from '../src/pages/Library'
-import {clearCache} from '../src/lib/cache'
+import {clearCache,setCache} from '../src/lib/cache'
 
 const api=vi.hoisted(()=>({fetchLibrary:vi.fn(),fetchLibrarySources:vi.fn()}))
 vi.mock('../src/lib/api',async load=>({...await load<object>(),...api}))
@@ -44,4 +44,33 @@ it('allows retrying a partial catalog without hiding readable notes',async()=>{
  await act(async()=>[...node.querySelectorAll('button')].find(b=>b.textContent==='Retry sources')!.click())
  await vi.waitFor(()=>expect(options()).toContain('Older show'))
  expect(node.textContent).not.toContain('Retry sources')
+})
+
+const click = async (label:string) => act(async()=>[...node.querySelectorAll('button')].find(b=>b.textContent===label)!.click())
+it('retries the failed page without discarding notes already opened',async()=>{
+ api.fetchLibrarySources.mockResolvedValue({sources:[],next_cursor:null})
+ await render()
+ await vi.waitFor(()=>expect(node.textContent).toContain('Visible note'))
+ api.fetchLibrary.mockRejectedValueOnce(new Error('Page unavailable'))
+ await click('Show more notes')
+ await vi.waitFor(()=>expect(node.textContent).toContain('Page unavailable'))
+ expect(node.textContent).toContain('Visible note')
+ api.fetchLibrary.mockResolvedValueOnce({items:[{id:'two',kind:'video',title:'Older note',source:'Channel',status:'completed',date:'2026-10-24'}],next_cursor:null})
+ await click('Retry')
+ await vi.waitFor(()=>expect(node.textContent).toContain('Older note'))
+ expect(api.fetchLibrary).toHaveBeenLastCalledWith(expect.any(String),'older-page',expect.any(AbortSignal))
+ expect(node.textContent).toContain('Visible note')
+ expect(node.querySelectorAll('.library-card')).toHaveLength(2)
+})
+it('does not let a late cache notification replace confirmed paginated results',async()=>{
+ api.fetchLibrarySources.mockResolvedValue({sources:[],next_cursor:null})
+ await render()
+ await vi.waitFor(()=>expect(node.textContent).toContain('Visible note'))
+ api.fetchLibrary.mockResolvedValueOnce({items:[{id:'two',kind:'video',title:'Older note',source:'Channel',status:'completed',date:'2026-10-24'}],next_cursor:null})
+ await click('Show more notes')
+ await vi.waitFor(()=>expect(node.textContent).toContain('Older note'))
+ await act(async()=>setCache('library_page:v6:'+new URLSearchParams({q:'',kind:'',status:'completed',source:'',sort:'newest'}),{items:[],next_cursor:null}))
+ expect(node.textContent).toContain('Older note')
+ expect(node.textContent).toContain('Visible note')
+ expect(node.textContent).not.toContain('No matching notes')
 })

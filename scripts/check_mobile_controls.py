@@ -52,6 +52,14 @@ async def main():
     await page.evaluate("async()=>{await Promise.all(document.querySelector('.toast-stack')?.getAnimations({subtree:true}).map(animation=>animation.finished.catch(()=>{}))||[])}")
     result=await page.evaluate(AUDIT)
     assert not result['problems'],(width,label,result['problems'])
+    assert await page.evaluate("""()=>{
+     const launcher=document.querySelector('.task-launcher');if(!launcher)return true;
+     const a=launcher.getBoundingClientRect();
+     return [...document.querySelectorAll('.reader-menu-panel')].every(panel=>{
+      const b=panel.getBoundingClientRect(),left=Math.max(a.left,b.left),right=Math.min(a.right,b.right),top=Math.max(a.top,b.top),bottom=Math.min(a.bottom,b.bottom);
+      return right<=left||bottom<=top||panel.contains(document.elementFromPoint((left+right)/2,(top+bottom)/2));
+     });
+    }"""),(width,label,'task launcher obscures reader menu')
     assert not result['overflow'],(width,label,'horizontal overflow')
     assert result['shellFits'],(width,label,'viewport height mismatch')
     assert await page.evaluate("()=>[...document.querySelectorAll('.toast-stack p')].every(el=>el.scrollWidth<=el.clientWidth+1)"),(width,label,'notification text overflow')
