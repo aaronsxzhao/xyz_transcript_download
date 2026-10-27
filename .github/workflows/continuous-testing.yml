@@ -86,6 +86,8 @@ jobs:
           python scripts/check_processing_progress.py
           python scripts/check_processing_progress.py --webkit --widths 390
           python scripts/check_performance_backlog.py
+          python scripts/check_dashboard_recent.py
+          python scripts/check_dashboard_recent.py --webkit --widths 390
       - name: Check first paint and connection recovery
         timeout-minutes: 5
         run: |

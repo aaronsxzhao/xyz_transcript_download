@@ -125,6 +125,7 @@ export default function VideoViewer() {
   const [copying, setCopying] = useState(false);
   const [pdfLoading, setPdfLoading] = useState(false);
   const [regenerating, setRegenerating] = useState(false);
+  const regenerateLock = useRef(false);
 
   const [notionOpen, setNotionOpen] = useState(false);
   useEffect(() => {
@@ -338,12 +339,15 @@ export default function VideoViewer() {
   };
 
   const handleRegenerate = async () => {
-    if (!task || regenerating) return;
+    if (!task || regenerateLock.current) return;
+    regenerateLock.current = true;
+    const owner = getAccountId(), id = task.id;
     setRegenerating(true);
     setReadFailure(null);
     setActionError("");
     try {
       await retryVideoTask(task.id);
+      if (owner !== getAccountId() || taskRef.current?.id !== id) return;
       completedRead.current = "";
       const pending = {
         ...task,
@@ -357,9 +361,11 @@ export default function VideoViewer() {
       useStore.getState().updateVideoTask(pending);
       setSelectedVersion("");
     } catch (e) {
+      if (owner !== getAccountId() || taskRef.current?.id !== id) return;
       console.error("Regenerate failed:", e);
       setActionError(e instanceof Error ? e.message : "Could not regenerate notes");
     } finally {
+      regenerateLock.current = false;
       setRegenerating(false);
     }
   };
@@ -680,7 +686,13 @@ export default function VideoViewer() {
         </div>
       )}
 
-      {!["success", "failed", "cancelled"].includes(uiTask.status) &&
+      {uiTask.status === 'discovered' && !content ? (
+        <section className="reader-processing space-y-3" aria-label="Unprocessed content">
+          <h2 className="text-lg font-semibold">Not processed yet</h2>
+          <p className="text-sm text-gray-400">This source has been added. Start processing to create its saved note.</p>
+          <button className="ui-button ui-button-primary" disabled={regenerating} onClick={handleRegenerate}>{regenerating?'Submitting…':'Start processing'}</button>
+        </section>
+      ) : !["success", "failed", "cancelled"].includes(uiTask.status) &&
       !content ? (
         <div className="reader-processing">
           <TaskProgress

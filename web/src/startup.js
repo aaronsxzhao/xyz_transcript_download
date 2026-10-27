@@ -69,7 +69,7 @@ window.__xyzVisit = crypto.randomUUID();
     else if (path === '/videos') {
       const params = new URLSearchParams(location.search);
       urls = [params.has('channel') ? '/api/video-notes/tasks/by-channel?' + new URLSearchParams({platform:params.get('platform') || 'youtube',channel:params.get('channel') || ''}) : '/api/video-notes/channels'];
-    } else if (path === '/') urls = ['/api/summaries/recent?limit=6', '/api/video-notes/recent?limit=6'];
+    } else if (path === '/') urls = ['/api/stats', '/api/library?limit=12&sort=newest&status=completed'];
     const reads = new Map();
     window.__xyzStartupReads = reads;
     for (const url of urls) {
