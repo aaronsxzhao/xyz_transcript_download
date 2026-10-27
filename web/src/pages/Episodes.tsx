@@ -341,7 +341,7 @@ export default function Episodes() {
                 <SourceAccessNotice compact status={episode.source_status} message={episode.source_message} episodeId={episode.eid}/>
               </div>
               
-              <div className="flex items-center gap-2 justify-end sm:justify-start" onClick={e => e.stopPropagation()}>
+              <div className="collection-actions" onClick={e => e.stopPropagation()}>
                 {(() => {
                   const activeJob = getActiveJob(episode.eid)
                   
@@ -349,9 +349,10 @@ export default function Episodes() {
                     return (
                       <>
                         <button
+                          aria-label={`Re-process ${episode.title}`}
                           onClick={() => handleSubmit(episode,true)}
                           disabled={!!pendingActions[episode.eid] || !!activeJob || sourceBlocked(episode.source_status) && episode.key_points_count===0}
-                          className="flex items-center gap-2 px-3 py-2 bg-dark-hover hover:bg-dark-border text-gray-300 rounded-lg transition-colors disabled:opacity-50"
+                          className="ui-button ui-button-icon-mobile"
                           title={sourceBlocked(episode.source_status) && episode.key_points_count===0 ? episode.source_message : "Re-process episode"}
                         >
                           {pendingActions[episode.eid] === 'regenerate' ? (
@@ -364,7 +365,7 @@ export default function Episodes() {
                         <Link
                           to={`/viewer/${episode.eid}`}
                           onFocus={() => prefetchSummary(episode.eid)}
-                          className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-colors"
+                          className="ui-button ui-button-primary"
                         >
                           <CheckCircle size={16} />
                           View
@@ -384,7 +385,7 @@ export default function Episodes() {
                     <button
                       onClick={() => handleSubmit(episode)}
                       disabled={!podcast || !!pendingActions[episode.eid] || sourceBlocked(episode.source_status) && !episode.has_transcript}
-                      className="flex items-center gap-2 px-4 py-2 bg-dark-hover hover:bg-dark-border text-white rounded-lg transition-colors disabled:opacity-50"
+                      className="ui-button"
                     >
                       {pendingActions[episode.eid] === 'process' ? (
                         <Loader2 size={16} className="animate-spin" />
@@ -400,7 +401,7 @@ export default function Episodes() {
                 <button
                   onClick={() => handleDelete(episode)}
                   disabled={!!pendingActions[episode.eid]}
-                  className="p-2 bg-dark-hover hover:bg-red-600/20 text-red-400 rounded-lg transition-colors disabled:opacity-50"
+                  className="ui-button ui-button-icon ui-button-danger"
                   title="Delete episode"
                 >
                   {pendingActions[episode.eid] === 'delete' ? (

@@ -66,6 +66,7 @@ export default function Videos() {
   useEffect(() => { const t = setTimeout(() => setChannelQuery(search), 250); return () => clearTimeout(t) }, [search])
   const [error, setError] = useState('')
   const [checking, setChecking] = useState(false)
+  const checkingRef = useRef(false)
   const [checkProgress, setCheckProgress] = useState<{scope:string;report:Awaited<ReturnType<typeof checkVideoChannelsForUpdates>>} | null>(null)
   const [updateResult, setUpdateResult] = useState<{scope:string;report:Awaited<ReturnType<typeof checkVideoChannelsForUpdates>>} | null>(null)
   const [searchParams, setSearchParams] = useSearchParams()
@@ -219,7 +220,8 @@ export default function Videos() {
   }, [channelTasks])
 
   const runUpdateCheck = async (channelName?: string) => {
-    if (checking) return
+    if (checkingRef.current) return
+    checkingRef.current = true
     setChecking(true);setUpdateResult(null);setCheckProgress(null)
     const scope = JSON.stringify(view)
     try {
@@ -240,6 +242,7 @@ export default function Videos() {
       if (err instanceof DOMException && err.name === 'AbortError') return
       addToast({type:'error',title:'Check failed',message:err instanceof Error ? err.message : 'Unknown error'})
     } finally {
+      checkingRef.current = false
       setChecking(false)
     }
   }
@@ -547,6 +550,7 @@ export default function Videos() {
         /* Channel list for selected platform */
         <ChannelList
           channels={platformChannels}
+          checkingUpdates={checking}
           onSelectChannel={(ch) => setView({ type: 'videos', platform: view.platform, channel: ch })}
           onDeleteChannel={handleDeleteChannel}
           onCheckUpdates={['youtube','bilibili','douyin','twitter','substack'].includes(view.platform) ? handleCheckChannelUpdates : undefined}
@@ -571,11 +575,12 @@ export default function Videos() {
 }
 
 
-function ChannelList({ channels, onSelectChannel, onDeleteChannel, onCheckUpdates }: {
+function ChannelList({ channels, onSelectChannel, onDeleteChannel, onCheckUpdates, checkingUpdates = false }: {
   channels: VideoChannelStat[]
   onSelectChannel: (ch: string) => void
   onDeleteChannel?: (ch: string) => Promise<void> | void
   onCheckUpdates?: (ch: string) => Promise<void>
+  checkingUpdates?: boolean
 }) {
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null)
   const [deleting, setDeleting] = useState(false)
@@ -623,13 +628,13 @@ function ChannelList({ channels, onSelectChannel, onDeleteChannel, onCheckUpdate
                 </div>
               </Link>
 
-              <div className="channel-actions flex flex-wrap items-center gap-2 justify-end sm:justify-start">
+              <div className="channel-actions collection-actions">
                 <button
                   onClick={() => onSelectChannel(ch.channel)}
                   aria-label={`Open videos from ${ch.channel}`}
-                  className="flex items-center gap-1 px-3 py-2 bg-dark-hover hover:bg-dark-border text-white rounded-lg transition-colors text-sm"
+                  className="ui-button ui-button-icon-mobile"
                 >
-                  <ExternalLink size={16} />
+                  <Video size={16} />
                   <span className="hidden sm:inline">Videos</span>
                 </button>
                 {ch.channel_url && (
@@ -637,7 +642,7 @@ function ChannelList({ channels, onSelectChannel, onDeleteChannel, onCheckUpdate
                     href={ch.channel_url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="p-2 bg-dark-hover hover:bg-dark-border text-white rounded-lg transition-colors"
+                    className="ui-button ui-button-icon"
                     title="Open channel page"
                   >
                     <ExternalLink size={16} />
@@ -649,8 +654,8 @@ function ChannelList({ channels, onSelectChannel, onDeleteChannel, onCheckUpdate
                       setRefreshing(ch.channel)
                       try { await onCheckUpdates(ch.channel) } finally { setRefreshing(null) }
                     }}
-                    disabled={refreshing === ch.channel}
-                    className="p-2 bg-dark-hover hover:bg-dark-border text-white rounded-lg transition-colors disabled:opacity-50"
+                    disabled={checkingUpdates || refreshing !== null} aria-busy={refreshing === ch.channel}
+                    className="ui-button ui-button-icon disabled:opacity-50"
                     title="Check for new content"
                     aria-label={`Check updates for ${ch.channel}`}
                   >
@@ -665,22 +670,24 @@ function ChannelList({ channels, onSelectChannel, onDeleteChannel, onCheckUpdate
                           setDeleting(true)
                           try { await onDeleteChannel(ch.channel) } finally { setDeleting(false); setConfirmDelete(null) }
                         }}
-                        disabled={deleting}
-                        className="px-2 py-1.5 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors text-xs disabled:opacity-50"
+                        disabled={deleting} aria-busy={deleting}
+                        className="ui-button ui-button-danger"
                       >
                         {deleting ? 'Deleting...' : 'Confirm'}
                       </button>
                       <button
+                        disabled={deleting}
                         onClick={() => setConfirmDelete(null)}
-                        className="px-2 py-1.5 bg-dark-hover hover:bg-dark-border text-gray-400 rounded-lg transition-colors text-xs"
+                        className="ui-button"
                       >
                         Cancel
                       </button>
                     </div>
                   ) : (
                     <button
+                      disabled={deleting}
                       onClick={() => setConfirmDelete(ch.channel)}
-                      className="p-2 bg-dark-hover hover:bg-red-600/20 text-red-400 rounded-lg transition-colors disabled:opacity-50"
+                      className="ui-button ui-button-icon ui-button-danger"
                       title="Delete channel and all its videos"
                     >
                       <Trash2 size={16} />
@@ -862,7 +869,7 @@ function VideoList({ videos, onDelete, onRetry, onCancel }: {
               )}
             </div>
 
-            <div className="flex items-center gap-2 justify-end sm:justify-start" onClick={e => e.stopPropagation()}>
+            <div className="collection-actions" onClick={e => e.stopPropagation()}>
               {pending.has(task.id) && <span role="status" className="text-xs text-indigo-300">Submitting…</span>}
               {(() => {
                 if (task.status === 'success') {
@@ -870,8 +877,8 @@ function VideoList({ videos, onDelete, onRetry, onCancel }: {
                     <>
                       <button
                         disabled={pending.has(task.id)} aria-busy={pending.has(task.id)} onClick={() => void runAction(task.id, onRetry)}
-                        className="flex items-center gap-2 px-3 py-2 bg-dark-hover hover:bg-dark-border text-gray-300 rounded-lg transition-colors"
-                        title="Re-process video"
+                        className="ui-button ui-button-icon-mobile"
+                        title="Re-process video" aria-label={`Re-process ${displayTitle}`}
                       >
                         <RefreshCw size={16} />
                         <span className="hidden sm:inline">Re-Process</span>
@@ -879,7 +886,7 @@ function VideoList({ videos, onDelete, onRetry, onCancel }: {
                       <Link
                         to={`/videos/${task.id}`}
                         onFocus={() => prefetchVideoNote(task.id)}
-                        className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-colors"
+                        className="ui-button ui-button-primary"
                       >
                         <CheckCircle size={16} />
                         View
@@ -892,7 +899,7 @@ function VideoList({ videos, onDelete, onRetry, onCancel }: {
                   return (
                     <button
                       disabled={pending.has(task.id)} aria-busy={pending.has(task.id)} onClick={() => void runAction(task.id, onRetry)}
-                      className="flex items-center gap-2 px-4 py-2 bg-dark-hover hover:bg-dark-border text-white rounded-lg transition-colors"
+                      className="ui-button"
                       title="Start processing this video"
                     >
                       <Play size={16} />
@@ -909,7 +916,7 @@ function VideoList({ videos, onDelete, onRetry, onCancel }: {
                 return (
                   <button
                     disabled={pending.has(task.id)} aria-busy={pending.has(task.id)} onClick={() => void runAction(task.id, onRetry)}
-                    className="flex items-center gap-2 px-4 py-2 bg-dark-hover hover:bg-dark-border text-white rounded-lg transition-colors"
+                    className="ui-button"
                   >
                     <RotateCcw size={16} />
                     Retry
@@ -922,17 +929,17 @@ function VideoList({ videos, onDelete, onRetry, onCancel }: {
                   href={task.url}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="p-2 bg-dark-hover hover:bg-dark-border text-white rounded-lg transition-colors"
-                  title="Open original video"
+                  className="ui-button ui-button-icon"
+                  title="Open original source" aria-label={`Open original source for ${displayTitle}`}
                 >
                   <ExternalLink size={16} />
                 </a>
               )}
 
               {!isProcessing(task.status) && (
-                <details className="task-more"><summary aria-label={`More actions for ${displayTitle}`}>More</summary><div><button
+                <details className="task-more" onKeyDown={event=>{if(event.key==='Escape'){event.currentTarget.open=false;event.currentTarget.querySelector('summary')?.focus()}}}><summary className="ui-button" aria-label={`More actions for ${displayTitle}`}>More</summary><div><button
                   disabled={pending.has(task.id)} aria-busy={pending.has(task.id)} onClick={() => void runAction(task.id, onDelete)}
-                  className="p-2 bg-dark-hover hover:bg-red-600/20 text-red-400 rounded-lg transition-colors"
+                  className="ui-button ui-button-danger"
                   title="Delete video"
                 >
                   <Trash2 size={16} /><span>Delete video</span>
@@ -942,7 +949,7 @@ function VideoList({ videos, onDelete, onRetry, onCancel }: {
               {isProcessing(task.status) && task.status !== 'cancelling' && (
                 <button
                   disabled={pending.has(task.id)} aria-busy={pending.has(task.id)} onClick={() => void runAction(task.id, onCancel)}
-                  className="p-2 bg-dark-hover hover:bg-orange-600/20 text-orange-400 rounded-lg transition-colors"
+                  className="ui-button ui-button-icon"
                   title="Cancel processing"
                 >
                   <Square size={16} className="fill-current" />
