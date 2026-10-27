@@ -28,12 +28,24 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   const [toasts, setToasts] = useState<Toast[]>([])
   const timers = useRef(new Map<string, ReturnType<typeof setTimeout>>())
   const active = useRef(true)
+  const records = useRef(new Map<string, Toast>())
+  const schedule = (toast: Toast) => {
+    clearTimeout(timers.current.get(toast.id))
+    timers.current.delete(toast.id)
+    const duration = toast.duration ?? (toast.type === 'loading' ? 0 : 5000)
+    if (duration > 0) timers.current.set(toast.id, setTimeout(() => {
+      timers.current.delete(toast.id)
+      records.current.delete(toast.id)
+      setToasts(prev => prev.filter(t => t.id !== toast.id))
+    }, duration))
+  }
   const generation = getAuthGeneration()
   useEffect(() => {
     active.current = true
     const clear = () => {
       timers.current.forEach(clearTimeout)
       timers.current.clear()
+      records.current.clear()
       setToasts([])
     }
     window.addEventListener('xyz:session-changed', clear)
@@ -43,6 +55,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
       window.removeEventListener('xyz:session-changed', clear)
       timers.current.forEach(clearTimeout)
       timers.current.clear()
+      records.current.clear()
     }
   }, [])
 
@@ -52,29 +65,33 @@ export function ToastProvider({ children }: { children: ReactNode }) {
     const newToast: Toast = { ...toast, id }
     setToasts((prev) => [...prev, newToast])
 
-    // Auto-remove after duration (default 5s, 0 = persistent)
-    const duration = toast.duration ?? (toast.type === 'loading' ? 0 : 5000)
-    if (duration > 0) {
-      timers.current.set(id, setTimeout(() => {
-        timers.current.delete(id)
-        setToasts((prev) => prev.filter((t) => t.id !== id))
-      }, duration))
-    }
+    records.current.set(id, newToast)
+    schedule(newToast)
 
     return id
   }, [generation])
 
   const removeToast = useCallback((id: string) => {
+    if (!active.current || generation !== getAuthGeneration()) return
     clearTimeout(timers.current.get(id))
     timers.current.delete(id)
+    records.current.delete(id)
     setToasts((prev) => prev.filter((t) => t.id !== id))
-  }, [])
+  }, [generation])
 
   const updateToast = useCallback((id: string, updates: Partial<Omit<Toast, 'id'>>) => {
-    setToasts((prev) =>
-      prev.map((t) => (t.id === id ? { ...t, ...updates } : t))
-    )
-  }, [])
+    if (!active.current || generation !== getAuthGeneration()) return
+    const current = records.current.get(id)
+    if (!current) return
+    const changedType = updates.type !== undefined && updates.type !== current.type
+    const next = { ...current, ...updates }
+    // Each new status gets its own lifetime; a loading toast's duration=0
+    // must not make its later success/failure permanent. Text updates keep it.
+    if (changedType && updates.duration === undefined) delete next.duration
+    records.current.set(id, next)
+    if (changedType || updates.duration !== undefined) schedule(next)
+    setToasts(prev => prev.map(t => t.id === id ? next : t))
+  }, [generation])
 
   return (
     <ToastContext.Provider value={{ toasts, addToast, removeToast, updateToast }}>
@@ -129,15 +146,13 @@ function ToastItem({ toast, onClose }: { toast: Toast; onClose: () => void }) {
           <p className="text-sm text-gray-400 mt-0.5">{toast.message}</p>
         )}
       </div>
-      {toast.type !== 'loading' && (
-        <button
-          onClick={onClose}
-          aria-label={`Dismiss notification: ${toast.title}`}
-          className="text-gray-500 hover:text-white transition-colors"
-        >
-          <X className="w-4 h-4" />
-        </button>
-      )}
+      <button
+        onClick={onClose}
+        aria-label={`Dismiss notification: ${toast.title}`}
+        className="text-gray-500 hover:text-white transition-colors"
+      >
+        <X className="w-4 h-4" />
+      </button>
     </div>
   )
 }

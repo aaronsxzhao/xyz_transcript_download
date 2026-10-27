@@ -29,10 +29,12 @@ export default function Library() {
   const [cursor, setCursor] = useState<string | null>(() => getCache<LibraryPage>(cacheKey)?.next_cursor || null)
   const [loading, setLoading] = useState(() => !getCache(cacheKey))
   const request = useRef(0)
+  const failedCursor = useRef('')
+  const confirmedFilter = useRef<string | null>(null)
   const controller = useRef<AbortController | null>(null)
   const [layout, setLayout] = useState<'grid' | 'list'>(() => getPreference('library_layout') === 'list' ? 'list' : 'grid')
   const [refreshing, setRefreshing] = useState(false)
-  useWarmCache<LibraryPage>(cacheKey, value => {setItems(value.items);setCursor(value.next_cursor);setLoadedFilter(filterKey);setLoading(false)})
+  useWarmCache<LibraryPage>(cacheKey, value => {if(confirmedFilter.current === filterKey)return;setItems(value.items);setCursor(value.next_cursor);setLoadedFilter(filterKey);setLoading(false)})
   const [filtersOpen, setFiltersOpen] = useState(false)
   const [error, setError] = useState('')
   const [sources, setSources] = useState<string[]>([])
@@ -71,15 +73,15 @@ export default function Library() {
     try {
       const result = await fetchLibrary(filterKey, nextCursor, controller.current.signal)
       if (owner !== getAccountId() || attempt !== request.current) return
-      setItems(previous => {
-        const next = nextCursor ? [...previous, ...result.items.filter(row => !previous.some(old => old.kind === row.kind && old.id === row.id))] : result.items
-        setCache(cacheKey, {...result,items:next,cachedAt:Date.now()}, owner)
-        return next
-      })
+      // Network results take precedence over later cache subscription updates.
+      confirmedFilter.current = filterKey
+      const next = nextCursor ? [...items, ...result.items.filter(row => !items.some(old => old.kind === row.kind && old.id === row.id))] : result.items
+      setItems(next)
+      setCache(cacheKey, {...result,items:next,cachedAt:Date.now()}, owner)
       setLoadedFilter(filterKey)
       setCursor(result.next_cursor)
     } catch (e) {
-      if (owner === getAccountId() && attempt === request.current) setError(e instanceof Error ? e.message : 'Could not load notes')
+      if (owner === getAccountId() && attempt === request.current) {failedCursor.current = nextCursor;setError(e instanceof Error ? e.message : 'Could not load notes')}
     } finally {
       if (owner === getAccountId() && attempt === request.current) { setLoading(false); setRefreshing(false) }
     }
@@ -96,7 +98,7 @@ export default function Library() {
   return <div className="workspace-page space-y-5 w-full library-workspace">
     <header className="flex flex-wrap gap-4 items-center justify-between"><div className="min-w-0 flex-1"><h1 className="page-title text-3xl font-semibold tracking-tight">Library</h1><p className="text-gray-400 mt-1">Your summaries, ready to pick up where you left off.</p></div><Button aria-label={refreshing ? "Refreshing library" : "Refresh library"} disabled={refreshing} onClick={() => void load()} className="inline-flex items-center gap-2 px-4 py-2.5 bg-dark-surface border border-dark-border rounded-lg disabled:opacity-60"><RefreshCw size={16} className={refreshing ? 'animate-spin' : ''} /><span className="hidden sm:inline">{refreshing ? 'Refreshing…' : 'Refresh library'}</span></Button></header>
     {loadedFilter!==filterKey && !refreshing && <p role="status" className="text-sm text-gray-400">Showing previous results. Retry to apply your new filters.</p>}
-    {error && <LoadError message={error} onRetry={() => void load()} />}
+    {error && <LoadError message={error} onRetry={() => void load(failedCursor.current)} />}
     <div className="library-filters">
       <input aria-label="Search saved notes" placeholder="Search title, podcast or channel…" value={query} onChange={e => update('q', e.target.value)} className="min-w-0 flex-1 px-3 py-3 bg-dark-surface border border-dark-border rounded-lg" />
       <button className="library-filter-toggle border border-dark-border px-3" aria-expanded={filtersOpen} aria-controls="library-filter-options" onClick={() => setFiltersOpen(open => !open)}>Filters{kind || source ? ' · Active' : ''}</button>
