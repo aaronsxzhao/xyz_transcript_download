@@ -1,5 +1,5 @@
 /* Public application files only. Auth, APIs, uploads and images always use the network. */
-const VERSION = '83b7924fd402f7d5';
+const VERSION = 'c7fa990f86883971';
 const CACHE = 'xyz-public-' + VERSION;
 const SHELL = '/__xyz_public_shell__';
 let refresh;
