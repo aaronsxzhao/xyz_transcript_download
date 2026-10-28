@@ -107,6 +107,16 @@ def visible_prose(markdown):
     return '\n'.join(chunks)
 
 
+def estimated_minutes(prose, *, han_per_minute=350, words_per_minute=200):
+    """Explicit reading rates; never use a reader's speed as an editing budget."""
+    rates = (han_per_minute, words_per_minute)
+    if any(not isinstance(rate, (int, float)) or isinstance(rate, bool)
+           or not math.isfinite(rate) or rate <= 0 for rate in rates):
+        raise ValueError('Reading rates must be positive finite numbers')
+    han, words = counts(prose)
+    return round(han / han_per_minute + words / words_per_minute, 2)
+
+
 def diagnostics(result, source, plan):
     if isinstance(result, str):
         text = result
@@ -116,12 +126,13 @@ def diagnostics(result, source, plan):
             *getattr(result,'takeaways',[])])
     prose = visible_prose(text)
     han, words = counts(prose)
-    reading = round(han/350 + words/200, 2)
+    reading = estimated_minutes(prose)
     amount = units(prose, plan['language'])
     low, high = plan.get('target_low'), plan.get('target_high')
     paragraphs = [re.sub(r'\s+', ' ', p).strip().casefold() for p in prose.split('\n') if len(p.strip()) >= 60]
     return {**plan, 'output_han':han, 'output_words':words,
             'estimated_reading_minutes':reading,
+            'reading_rate_basis':{'han_per_minute':350,'words_per_minute':200,'personalized':False},
             'exact_duplicate_paragraphs':len(paragraphs)-len(set(paragraphs)),
             'budget_status': ('not_applicable' if low is None else
                 'below' if amount < low else 'above' if amount > high else 'within'),

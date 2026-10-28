@@ -6,6 +6,7 @@ ability to check every argument without requiring a paragraph for every note.
 import json
 import re
 import time
+import threading
 
 from reading_budget import PLAN, units, visible_prose
 from reading_language import source_language_lock
@@ -157,6 +158,10 @@ Use content-specific topic headings, never schema labels such as "chapters".
         value = section['heading']+'\n'+section['text']
         if preserve_order:value = section['topic']+'\n'+value
         return units(visible_prose(value),language)
+    provider_unavailable = threading.Event()
+    class ProviderUnavailable(Exception):
+        pass
+
     def work(batch):
         stats = {'model_calls':0,'composed_sections':0,'retained_sections':0}
         if (sum(len(json.dumps(row,ensure_ascii=False)) for row in batch)>24000
@@ -176,10 +181,18 @@ Use content-specific topic headings, never schema labels such as "chapters".
         deadline = time.monotonic()+240
         def request(system,payload):
             if checkpoint:checkpoint()
+            if provider_unavailable.is_set():
+                raise ProviderUnavailable()
             remaining = deadline-time.monotonic()
             if remaining<1:raise TimeoutError('Reading section deadline exhausted')
             stats['model_calls']+=1
-            response = call(common+system,json.dumps(payload,ensure_ascii=False),min(120,remaining))
+            try:
+                response = call(common+system,json.dumps(payload,ensure_ascii=False),min(120,remaining))
+            except Exception as error:
+                from model_execution import terminal_provider_failure
+                if terminal_provider_failure(error):
+                    provider_unavailable.set()
+                raise
             if checkpoint:checkpoint()
             return response if isinstance(response,dict) else {}
         def indexed(values):
