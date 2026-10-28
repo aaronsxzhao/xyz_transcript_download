@@ -4,6 +4,7 @@ This edits audited notes, not raw transcripts. Stable references retain the
 ability to check every argument without requiring a paragraph for every note.
 """
 import json
+import re
 import time
 
 from reading_budget import PLAN, guidance, units, visible_prose
@@ -11,6 +12,27 @@ from reading_language import source_language_lock
 from summary_errors import is_cancellation
 
 MAX_INPUT_CHARS = 160000
+
+
+def _separate_media(text):
+    """Keep generated media as application-owned data, outside model prose.
+
+    Never extract markers inside source quotations/code or ordinary text links.
+    IDs later attach these exact markers to the same merged discussion.
+    """
+    from markdown_it import MarkdownIt
+    lines = text.splitlines(keepends=True)
+    protected = set()
+    for token in MarkdownIt().parse(text):
+        if token.map and token.type in ('blockquote_open', 'fence', 'code_block'):
+            protected.update(range(*token.map))
+    pattern = re.compile(r'!\[Screenshot at \d+(?::\d+){1,2}\]\([^\n)]+\)|(?:Screenshot-|\*?Content-)\[\d+(?::\d+){1,2}\]|(?m:^\[\d+(?::\d+){1,2}\][ \t]*$)')
+    media = []
+    def take(match):
+        media.append(match[0])
+        return ''
+    prose = ''.join(line if i in protected else pattern.sub(take, line) for i, line in enumerate(lines))
+    return prose, media
 
 
 def edit_whole_note(items, call, checkpoint=None, *, preserve_order=False,
@@ -46,7 +68,7 @@ def edit_whole_note(items, call, checkpoint=None, *, preserve_order=False,
         total = sum(weights)
         # Allocate exactly the remaining document budget, without multiplying it.
         boundaries = [round(target * sum(weights[:i]) / total) for i in range(len(weights)+1)]
-        outline = [{'id':r['id'], 'topic':r['topic']} for r in rows]
+        outline = list(dict.fromkeys(r['topic'] for r in rows))
         def edit_batch(index):
             child = {}
             result = edit_whole_note(batches[index], call, checkpoint,
@@ -65,10 +87,21 @@ def edit_whole_note(items, call, checkpoint=None, *, preserve_order=False,
         return output
     order = {row['id']: i for i, row in enumerate(rows)}
     lookup = {row['id']: row for row in rows}
+    model_rows = []
+    media_by_id = {}
+    for row in rows:
+        prose, media = _separate_media(row['text'])
+        media_by_id[row['id']] = media
+        model_rows.append({**row, 'text': prose})
     deadline = time.monotonic() + 240
     common = source_language_lock(source_text) + guidance(share=share)
     common += '''
 WHOLE DOCUMENT SYNTHESIS, not a rewrite of each input card:
+Only IDs in notes belong to this request. document_outline is context only.
+The application retains media markers and screenshots by input ID. Do not
+generate media markers or invent timestamps; concentrate on the reading prose.
+Credentials, scene setting and conversation setup are not central arguments.
+Omit them unless they are necessary to interpret the claim or its evidence.
 First identify the central answers and rank their supporting arguments. Group
 related evidence under those answers. Merge restatements across the complete
 note. Select the strongest explanatory example; include another only when it
@@ -85,8 +118,7 @@ an additional "topic" field naming its broad chapter. No process commentary.
 VIDEO: Paragraphs follow source order and cover consecutive input IDs. Combine
 adjacent discussions generously. When a topic returns later, explain only its
 NEW evidence or qualification rather than repeating the earlier explanation.
-Keep media anchors with their discussion in original order. Repeated anchors at
-the same instant may be consolidated, but never drop a distinct media link. Do not move a later
+The application attaches original media to each paragraph using its IDs. Do not move a later
 example, book, step or objection into an earlier paragraph.
 '''
 
@@ -103,7 +135,10 @@ example, book, step or objection into an earlier paragraph.
         return response
 
     def validate(paragraphs):
-        _partition(paragraphs, lookup)
+        try:
+            _partition(paragraphs, lookup)
+        except ValueError as error:
+            raise ValueError('source_references') from error
         output = []
         flattened = []
         for p in paragraphs:
@@ -115,6 +150,12 @@ example, book, step or objection into an earlier paragraph.
             ids = sorted(p['ids'], key=order.__getitem__)
             flattened.extend(ids)
             text = normalize_media_markers(p['text'])
+            _, invented_media = _separate_media(text)
+            if invented_media:
+                raise ValueError('unexpected_media')
+            media = [marker for ident in ids for marker in media_by_id[ident]]
+            if media:
+                text += '\n\n' + '\n\n'.join(media)
             original = '\n\n'.join(lookup[i]['text'] for i in ids)
             # Compare canonical anchors, not optional Markdown asterisks. Do not
             # move all charts to the end or silently reattach them to new claims.
@@ -138,26 +179,42 @@ example, book, step or objection into an earlier paragraph.
         return sum(units(visible_prose(p['heading']+'\n'+p['text']), language) for p in paragraphs)
 
     try:
-        draft = request(COMPOSE, {'notes': rows, 'body_budget': target, 'document_outline': _outline or []})
-        paragraphs = validate(draft.get('paragraphs'))
-        report['draft_units'] = length(paragraphs)
+        aim = max(1, round(target * plan.get('target_low', target) / max(1, plan.get('target_high', target))))
+        draft = request(COMPOSE + '\nAim for writing_target; body_budget is room for indispensable qualifications, not a length to fill.\n',
+                        {'notes': model_rows, 'writing_target': aim, 'body_budget': target, 'document_outline': _outline or []})
+        draft_error = None
+        try:
+            paragraphs = validate(draft.get('paragraphs'))
+            report['draft_units'] = length(paragraphs)
+        except ValueError as error:
+            # The second, already-budgeted review can repair a reference typo
+            # while checking semantics; do not discard all prose after one typo.
+            paragraphs = None
+            draft_error = str(error)
+            report['draft_validation'] = draft_error
         # One independent review, with local factual and length repairs in the
         # same response. No separate planning call or per-chapter review cascade.
         review = request(VERIFY + '''
 This is the final whole-note review. Preserve the topic field in any repair.
+If validation_feedback is present, correct the structural problem and return
+a COMPLETE paragraphs array. Only notes IDs are valid and each must occur once.
+Media is restored by the application; return prose without generated media markers.
+Check completeness and grounding of your corrected prose in this same response.
 If draft_units exceeds body_budget, return a COMPLETE corrected paragraphs array
 that removes repetition and lower-value retelling while retaining the important
 claims, decisive evidence, disagreements and meaning-changing conditions.
 Aim within body_budget; do not truncate or manufacture claims. Review the
 corrected version when setting complete/grounded. Do not expand merely to give
 each input id its own paragraph. Quotes are separate evidence, not reading prose.
-''', {'notes': rows, 'rewrite': paragraphs, 'draft_units': length(paragraphs),
-       'body_budget': target})
+''', {'notes': model_rows, 'rewrite': draft.get('paragraphs'), 'draft_units': report.get('draft_units'),
+       'validation_feedback': draft_error, 'body_budget': target})
         if review.get('complete') is not True or review.get('grounded') is not True:
             raise ValueError('semantic_review')
         if 'paragraphs' in review:
             paragraphs = validate(review['paragraphs'])
             report['review_repairs'] = 1
+        if paragraphs is None:
+            raise ValueError(draft_error or 'output_shape')
         measured = length(paragraphs)
         report.update(composed_batches=1, output_sections=len(paragraphs), output_units=measured,
                       body_budget=target, target_met=measured <= target)
@@ -170,7 +227,7 @@ each input id its own paragraph. Quotes are separate evidence, not reading prose
         if is_cancellation(error):
             raise
         reason = str(error) if type(error) is ValueError and str(error) in {
-            'source_media','media_order','verbatim_source','source_order','semantic_review','output_shape'
+            'source_media','media_order','verbatim_source','source_order','semantic_review','output_shape','unexpected_media','source_references'
         } else type(error).__name__
         report.update(fallback_reason=reason, retained_batches=1, output_sections=len(items), target_met=False)
         return originals

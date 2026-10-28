@@ -77,9 +77,9 @@ def test_invalid_rewrite_retains_readable_originals(plan,change):
     assert [r['text'] for r in result]==[r['text'] for r in source]
 
 
-def test_marker_spelling_does_not_discard_compression(plan):
+def test_application_preserves_markers_without_model_copying(plan):
     source=rows();source[0]['text']+='\n*Content-[01:00]';source[1]['text']+='\nScreenshot-[02:00]'
-    p=paragraph('Costs fall for large orders; durability remains untested.\n[Content-01:00]\nScreenshot-[02:00]')
+    p=paragraph()
     result=edit_whole_note(source,Mock(side_effect=[{'paragraphs':[p]},{'complete':True,'grounded':True}]),preserve_order=True)
     assert len(result)==1 and '*Content-[01:00]' in result[0]['text']
 
@@ -146,11 +146,11 @@ def test_actual_intro_reserve_excludes_quotes(plan):
     assert json.loads(call.call_args_list[0].args[1])['body_budget'] == report['body_budget']
 
 
-def test_adjacent_duplicate_instants_can_be_consolidated(plan):
+def test_repeated_original_media_is_restored_exactly(plan):
     source = rows()
     source[0]['text'] += '\n*Content-[01:00]\n*Content-[01:00]'
     source[1]['text'] += '\nScreenshot-[02:00]'
-    p = paragraph('Costs fall for large orders; durability remains untested.\n*Content-[01:00]\nScreenshot-[02:00]')
+    p = paragraph()
     result = edit_whole_note(source, Mock(side_effect=[{'paragraphs':[p]}, {'complete':True,'grounded':True}]), preserve_order=True)
     assert len(result) == 1
 
@@ -175,3 +175,38 @@ def test_large_note_uses_bounded_batches_with_one_shared_budget(plan):
     assert [i for p in result for i in p['ids']] == [r['id'] for r in source]
     assert report['model_calls'] == len(compositions)*2
     assert report['target_met']
+
+
+def test_review_repairs_cannot_drop_or_reassign_media(plan):
+    source = rows()
+    source[0]['text'] += '\n![Screenshot at 01:00](/data/screenshots/example_01-00.jpg)'
+    source[1]['text'] += '\n*Content-[02:00]'
+    call = Mock(side_effect=[{'paragraphs':[paragraph()]},
+        {'complete':True,'grounded':True,'paragraphs':[paragraph('Lower costs require large orders; durability has not been tested.')]}])
+    result = edit_whole_note(source,call,preserve_order=True)
+    assert '/data/screenshots/example_01-00.jpg' in result[0]['text']
+    assert result[0]['text'].index('01:00') < result[0]['text'].index('02:00')
+    for args in call.call_args_list:
+        assert '/data/screenshots/' not in args.args[1]
+        assert '*Content-' not in args.args[1]
+
+
+def test_media_extraction_preserves_quoted_markers_and_prose_links():
+    from focused_editor import _separate_media
+    original = '> Content-[01:00]\n\n```text\nScreenshot-[02:00]\n```\n\n[Evidence](https://example.com)\n\n*Content-[03:00]'
+    prose, media = _separate_media(original)
+    assert media == ['*Content-[03:00]']
+    assert '> Content-[01:00]' in prose and 'Screenshot-[02:00]' in prose
+    assert '[Evidence](https://example.com)' in prose
+
+
+def test_reference_typo_repaired_in_existing_review_budget(plan):
+    invalid = paragraph(); invalid['ids'] = ['N1','N3']
+    call = Mock(side_effect=[{'paragraphs':[invalid]},
+        {'complete':True,'grounded':True,'paragraphs':[paragraph()]}])
+    report = {}
+    result = edit_whole_note(rows(),call,report=report)
+    assert len(result) == 1 and result[0]['ids'] == ['N1','N2']
+    assert report['draft_validation'] == 'source_references'
+    assert call.call_count == 2
+    assert json.loads(call.call_args_list[1].args[1])['validation_feedback'] == 'source_references'
