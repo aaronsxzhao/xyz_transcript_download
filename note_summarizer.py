@@ -276,7 +276,7 @@ class NoteSummarizer:
         if not items:
             return draft
         try:
-            paragraphs = edit_sections(items, self._editorial_json, checkpoint, preserve_order=True, source_text=source_text, budget=None, report=getattr(self,'generation_report',{}).setdefault('editor',{}))
+            paragraphs = edit_sections(items, self._editorial_json, checkpoint, preserve_order=True, source_text=source_text, budget=None, reserved_text='\n'.join([prelude, *entry_sections]), report=getattr(self,'generation_report',{}).setdefault('editor',{}))
             sections = []
             for paragraph in paragraphs:
                 # Video arguments are chapter children, so keep them in the

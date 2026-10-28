@@ -134,3 +134,44 @@ def test_single_long_chapter_reaches_whole_editor(plan,video):
             assert 'untested' in result.key_points[0].summary
             assert result.key_points[0].original_quote=='Quote.'
     assert call.call_count==2
+
+
+def test_actual_intro_reserve_excludes_quotes(plan):
+    report = {}
+    call = Mock(side_effect=[{'paragraphs':[paragraph()]}, {'complete':True,'grounded':True}])
+    edit_whole_note(rows(), call, report=report,
+                    reserved_text=('Overview '*250)+'\n\n> '+('quote '*1000))
+    assert report['reserved_units'] == 250
+    assert report['body_budget'] == PLAN.get()['target_high'] - 250
+    assert json.loads(call.call_args_list[0].args[1])['body_budget'] == report['body_budget']
+
+
+def test_adjacent_duplicate_instants_can_be_consolidated(plan):
+    source = rows()
+    source[0]['text'] += '\n*Content-[01:00]\n*Content-[01:00]'
+    source[1]['text'] += '\nScreenshot-[02:00]'
+    p = paragraph('Costs fall for large orders; durability remains untested.\n*Content-[01:00]\nScreenshot-[02:00]')
+    result = edit_whole_note(source, Mock(side_effect=[{'paragraphs':[p]}, {'complete':True,'grounded':True}]), preserve_order=True)
+    assert len(result) == 1
+
+
+def test_large_note_uses_bounded_batches_with_one_shared_budget(plan):
+    source = [{'id':f'N{i}', 'topic':f'Topic {i}', 'text':'Evidence and condition. '*160} for i in range(24)]
+    calls = []
+    def call(system, payload, timeout):
+        body = json.loads(payload)
+        calls.append(body)
+        if 'rewrite' in body:
+            return {'complete':True,'grounded':True}
+        batch = body['notes']
+        return {'paragraphs':[{'topic':'Evidence','heading':'Conditions','text':'Evidence under conditions.',
+            'ids':[r['id'] for r in batch], 'evidence_id':batch[0]['id']}]}
+    report = {}
+    result = edit_whole_note(source, call, preserve_order=True, report=report, reserved_text='Overview '*200)
+    compositions = [body for body in calls if 'rewrite' not in body]
+    assert 2 <= len(compositions) <= 4
+    assert sum(body['body_budget'] for body in compositions) == PLAN.get()['target_high'] - 200
+    assert all(len(body['document_outline']) == 24 for body in compositions)
+    assert [i for p in result for i in p['ids']] == [r['id'] for r in source]
+    assert report['model_calls'] == len(compositions)*2
+    assert report['target_met']

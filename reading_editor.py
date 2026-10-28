@@ -162,7 +162,7 @@ def _verbatim_blocks(text):
             if token.map and token.type in ('blockquote_open','fence','code_block')]
 
 
-def edit_sections(items, call, checkpoint=None, budget=120, *, preserve_order=False, source_text='', report=None):
+def edit_sections(items, call, checkpoint=None, budget=120, *, preserve_order=False, source_text='', report=None, reserved_text=''):
     """Return paragraphs with source IDs; failed batches retain original text.
 
     Each item has id, topic, text and optional evidence. The input is untouched.
@@ -173,7 +173,7 @@ def edit_sections(items, call, checkpoint=None, budget=120, *, preserve_order=Fa
     if budget is None and PLAN.get() and PLAN.get().get('target_high'):
         from focused_editor import edit_whole_note
         return edit_whole_note(items, call, checkpoint, preserve_order=preserve_order,
-                               source_text=source_text, report=report)
+                               source_text=source_text, report=report, reserved_text=reserved_text)
     if len(items) < 2:
         return [dict(item, ids=[item['id']], evidence_id=item['id']) for item in items]
     report = report if report is not None else {}

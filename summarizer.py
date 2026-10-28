@@ -178,7 +178,7 @@ class Summarizer:
                   'evidence':point.original_quote} for i,point in enumerate(summary.key_points)]
         lookup = {item['id']:point for item,point in zip(items,summary.key_points)}
         try:
-            paragraphs = edit_sections(items, self._editorial_json, checkpoint, budget=None, source_text=getattr(self,'_reading_source',''), report=getattr(self,'generation_report',{}).setdefault('editor',{}))
+            paragraphs = edit_sections(items, self._editorial_json, checkpoint, budget=None, reserved_text='\n'.join([summary.overview, *summary.takeaways]), source_text=getattr(self,'_reading_source',''), report=getattr(self,'generation_report',{}).setdefault('editor',{}))
             points = []
             for paragraph in paragraphs:
                 evidence = lookup[paragraph['evidence_id']]
