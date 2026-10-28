@@ -97,7 +97,8 @@ def test_video_keeps_all_chunk_conclusions_and_does_not_call_last_one_whole_epis
     s = NoteSummarizer(api_key="fixture")
     final = s._merge_chunk_notes("Title", ["## A\nA details\n## AI 总结\nFirst condition", "## B\nB details\n## AI 总结\nLast condition"], False)
     assert "First condition" in final and "Last condition" in final
-    assert "## Section conclusions" in final and "## AI 总结" not in final
+    assert final.count("Section conclusions")==2 and "## AI 总结" not in final
+    assert final.index("First condition")<final.index("B details")
 
 
 def test_video_empty_chunk_keeps_earlier_notes_and_labels_the_raw_source_fallback():

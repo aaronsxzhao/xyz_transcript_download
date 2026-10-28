@@ -21,6 +21,9 @@ and setup. Keep an example when it adds a different mechanism, exception or evid
 The complete transcript remains available for wording and lower-value detail.
 Never remove a condition that changes a claim merely to meet a length target. Exclude pure promotions and greetings
 from core conclusions. Source quotations remain verbatim, separate from synthesis.
+Do not narrate the extraction process or chunk boundaries ("this excerpt ends",
+"this portion covers", "excluded from this summary"). State the supported claim
+and its limitation directly. Adjacent chunks are parts of one complete source.
 """
 
 PRESENTATION = {

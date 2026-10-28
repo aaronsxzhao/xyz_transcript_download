@@ -184,15 +184,10 @@ class Summarizer:
                 evidence = lookup[paragraph['evidence_id']]
                 if not evidence.original_quote:
                     evidence = next((lookup[ident] for ident in paragraph['ids'] if lookup[ident].original_quote), evidence)
-                # Merging arguments must not discard the other verified quotations.
+                # Keep representative verbatim evidence in the existing folded
+                # quote field. Other source wording remains in Transcript;
+                # appending every merged quote duplicates the reading body.
                 text = paragraph['text']
-                seen = {evidence.original_quote}
-                for ident in paragraph['ids']:
-                    original = lookup[ident]
-                    if original.original_quote and original.original_quote not in seen:
-                        stamp = ('['+original.timestamp+']\n\n') if original.timestamp else ''
-                        text += '\n\n'+stamp+'\n'.join('> '+line for line in original.original_quote.splitlines())
-                        seen.add(original.original_quote)
                 points.append(KeyPoint(paragraph['topic'], text, evidence.original_quote, evidence.timestamp))
             return replace(summary, key_points=points, topics=list(dict.fromkeys(point.topic for point in points)))
         except Exception as error:

@@ -120,7 +120,7 @@ def test_independent_chapters_edit_in_parallel_but_return_in_source_order():
     assert report['composed_batches']==2 and not report['retained_batches']
 
 
-def test_merged_podcast_keeps_every_verified_quote_and_its_anchor():
+def test_merged_podcast_keeps_representative_quote_without_duplicating_body():
     from summarizer import Summarizer, Summary, KeyPoint
     engine=Summarizer(api_key='fixture')
     note=Summary('ep','Title','Overview',[KeyPoint('A','Claim one.','First exact quote.','01:00'),KeyPoint('B','Same claim with a condition.','Second exact quote.','02:00')],['A','B'],[])
@@ -130,7 +130,7 @@ def test_merged_podcast_keeps_every_verified_quote_and_its_anchor():
     with patch.object(engine,'_editorial_json',side_effect=replies):result=engine._edit_reading(note)
     point=result.key_points[0]
     assert point.original_quote=='Second exact quote.' and point.timestamp=='02:00'
-    assert '> First exact quote.' in point.summary and '[01:00]' in point.summary
+    assert 'First exact quote.' not in point.summary and 'Second exact quote.' not in point.summary
 
 
 def test_video_conclusions_are_an_entry_layer_without_reordering_source_chapters():

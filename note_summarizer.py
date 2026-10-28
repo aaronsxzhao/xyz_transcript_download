@@ -242,7 +242,8 @@ class NoteSummarizer:
         from summary_errors import strip_delivery_notices, merge_delivery_notices, is_cancellation
         if has_unedited_source(draft):
             return draft
-        body = strip_delivery_notices(draft)
+        from note_presentation import normalize_media_markers
+        body = normalize_media_markers(strip_delivery_notices(draft))
         lines = body.splitlines(keepends=True)
         headings = [token for token in MarkdownIt().parse(body)
                     if token.type == 'heading_open' and token.tag == 'h2' and token.level == 0]
@@ -302,7 +303,8 @@ class NoteSummarizer:
     def _finish_presentation(self, draft, title, add_toc, source_text, checkpoint=None, language_budget=None, language_report=None):
         from note_presentation import chronological_chapters, localize_note, without_generated_toc
         from summary_errors import strip_delivery_notices, merge_delivery_notices
-        body=without_generated_toc(strip_delivery_notices(draft))
+        from note_presentation import normalize_media_markers
+        body=normalize_media_markers(without_generated_toc(strip_delivery_notices(draft)))
         body=chronological_chapters(body)
         from reading_editor import has_unedited_source
         report=language_report if language_report is not None else getattr(self,'generation_report',{}).setdefault('language',{})
@@ -378,7 +380,7 @@ class NoteSummarizer:
             from source_coverage import quote_timestamp
             timestamp=quote_timestamp(source,addition.get('source_quote',''),addition.get('timestamp',''))
             anchor=f'[{timestamp}]\n\n' if timestamp else ''
-            parts.append(f"### {addition['heading']}\n\n{anchor}{addition['text']}")
+            parts.append(f"## {addition['heading']}\n\n{anchor}{addition['text']}")
         gaps = getattr(review, 'identified_gaps', {})
         from reading_generation import record_review
         record_review(self,not gaps and getattr(review,'complete',True),
@@ -386,7 +388,7 @@ class NoteSummarizer:
         if gaps:
             from reading_language import chinese_source
             heading = '核对标出的原文' if chinese_source(source) else 'Source passages flagged by review'
-            parts.append(f'### {heading}')
+            parts.append(f'## {heading}')
             for passage in gaps.values():
                 parts.append('\n'.join('> ' + line for line in passage.splitlines()))
         result = "\n\n".join(parts)
@@ -503,6 +505,7 @@ class NoteSummarizer:
         chunk_results = [strip_delivery_notices(result) for result in chunk_results]
         merged_sections = []
         section_summaries = []
+        local_sections = []
 
         for result in chunk_results:
             filtered = []
@@ -529,8 +532,14 @@ class NoteSummarizer:
                 filtered.append(line)
 
             merged_sections.append("\n".join(filtered).strip("\r\n"))
+            local = merged_sections[-1]
             if summary_lines:
-                section_summaries.append("\n".join(summary_lines).strip("\r\n"))
+                summary_text = "\n".join(summary_lines).strip("\r\n")
+                section_summaries.append(summary_text)
+                from reading_language import chinese_source
+                label = '分段小结' if chinese_source(result) else 'Section conclusions'
+                local += '\n\n### ' + label + '\n\n' + summary_text
+            local_sections.append(local)
 
         body = "\n\n---\n\n".join(merged_sections)
 
@@ -563,7 +572,15 @@ class NoteSummarizer:
                     from summary_errors import is_cancellation
                     if is_cancellation(error): raise
                     logger.warning('Whole-video introduction unavailable; retaining source indexes: %s', type(error).__name__)
-            final += f"\n\n---\n\n## {heading}\n\n" + conclusions
+            if heading in ('AI 总结', 'AI Summary'):
+                final += f"\n\n---\n\n## {heading}\n\n" + conclusions
+            else:
+                # Failed synthesis is not a reason to append all chunk indexes
+                # at the end. Keep each next to its own source discussion, so
+                # the editorial pass can merge repetition without losing facts.
+                body = self._renumber_headings("\n\n---\n\n".join(local_sections))
+                toc = self._generate_toc(body, title) + '\n\n---\n\n' if add_toc else ''
+                final = f'# {title}\n\n' + toc + body
 
         return merge_delivery_notices(final, notices)
 
