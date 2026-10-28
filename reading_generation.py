@@ -50,7 +50,7 @@ def generation_session(method):
     return wrapped
 
 
-def record_review(engine, complete, reason=''):
+def record_review(engine, complete, reason='', review=None):
     """Only bounded check names/counts, never transcript, key or provider text."""
     if not hasattr(engine,'_generation_lock'): return
     with engine._generation_lock:
@@ -60,3 +60,11 @@ def record_review(engine, complete, reason=''):
             report['retained']+=1
             reasons=report.setdefault('reasons',{})
             reasons[reason or 'unresolved_checks']=reasons.get(reason or 'unresolved_checks',0)+1
+        if review is not None:
+            from source_coverage import AUDIT_ISSUES
+            issues=report.setdefault('issues',{})
+            for issue in set(getattr(review,'issues',[])):
+                if issue in AUDIT_ISSUES:
+                    issues[issue]=issues.get(issue,0)+1
+            report['unverified_units']=report.get('unverified_units',0)+len(getattr(review,'unverified_units',[]))
+            report['identified_gap_units']=report.get('identified_gap_units',0)+len(getattr(review,'identified_gaps',{}))

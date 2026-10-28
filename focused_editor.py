@@ -51,6 +51,15 @@ def _source_groups(items, count, language):
         while end < len(remaining)-(left-1) and (size < aim or not end):
             size += weights[end]
             end += 1
+        # Avoid splitting an existing argument merely to balance character
+        # counts. Only prefer nearby boundaries; large chapters can still split.
+        candidates=[];prefix=0
+        for stop in range(1,len(remaining)-(left-1)+1):
+            prefix+=weights[stop-1]
+            if prefix>aim*1.5:break
+            if (prefix>=aim*.5 and remaining[stop-1]['topic']!=remaining[stop]['topic']):
+                candidates.append((abs(prefix-aim),stop))
+        if candidates:end=min(candidates)[1]
         groups.append(remaining[:end])
         remaining = remaining[end:]
         weights = weights[end:]
@@ -221,6 +230,11 @@ body_budget, compress toward writing_target, removing repetition and setup first
 Return JSON with "checks" (one object per supplied group.id, complete and grounded
 booleans) and "sections" (only corrected sections in the original schema).
 A check judges the corrected section when one is supplied. Check every group;
+Do not mark complete=false because the ORIGINAL draft had a gap that your
+returned correction fixes. complete and grounded always describe the FINAL
+returned section. If still false, include reason_code: missing_argument,
+missing_condition, unsupported_claim, or uncertain_attribution. Exceeding the
+soft word budget alone is never an incomplete-content verdict.
 do not discard good sections because a different group needs repair. Check
 cross-group repetition, question/answer transitions and speaker attribution too.
 Do not turn an ambiguous speaker into a named person's biography. If a
@@ -238,9 +252,16 @@ Do not add prose unrelated to a repair. Do not restate the input in full.
                               if isinstance(value,dict) and
                               ('id' not in value or str(value['id']).strip().upper()==str(key).strip().upper())]
             checks = indexed(raw_checks)
+            stats['failed_groups']=[]
             for key in expected:
                 check = checks.get(key,{})
                 if check.get('complete') is not True or check.get('grounded') is not True:
+                    reason=check.get('reason_code')
+                    allowed={'missing_argument','missing_condition','unsupported_claim','uncertain_attribution'}
+                    stats['failed_groups'].append({'id':key,
+                        'complete':check.get('complete') is True,
+                        'grounded':check.get('grounded') is True,
+                        'reason_code':reason if reason in allowed else 'unspecified'})
                     retained('semantic_review' if check else 'missing_review')
                     continue
                 value = repairs.get(key,sections.get(key))

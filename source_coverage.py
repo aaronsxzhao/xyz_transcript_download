@@ -413,7 +413,21 @@ def _apply_audit_data(source, fields, data, context=None, *, best_effort=False):
             if values is None and section != 'coverage':
                 return []
             if isinstance(values, dict):
-                return [values] if values else []
+                identity = {'edits':'field','additions':'id','coverage':'unit'}[section]
+                if identity in values or not values:
+                    return [values] if values else []
+                # A map keyed by stable IDs is equivalent to the list form.
+                # Conflicting embedded identities must remain invalid, never
+                # silently bind a patch/receipt to another source passage.
+                if all(isinstance(value,dict) for value in values.values()):
+                    normalized=[]
+                    for key,value in values.items():
+                        if identity in value and value[identity] != key:
+                            rejected(_audit_error('invalid_lists',data),broad=True)
+                            continue
+                        normalized.append({**value,identity:key})
+                    return normalized
+                return [values]
         if not isinstance(values, list):
             rejected(_audit_error('invalid_lists', data), broad=True)
             return []

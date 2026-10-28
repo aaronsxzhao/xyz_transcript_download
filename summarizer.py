@@ -32,11 +32,12 @@ from reading_language import chinese_source
 from reading_generation import generation_session
 from source_coverage import SOURCE_CHUNK_CHARS, split_source, audit_source, spoken_source, quote_timestamp
 from processing_execution import model_checkpoint, ProcessingPaused
+from model_execution import retryable_model_failure
 from tenacity import (
     retry,
     stop_after_attempt,
     wait_exponential,
-    retry_if_not_exception_type,
+    retry_if_exception,
 )
 
 from config import (
@@ -348,7 +349,7 @@ class Summarizer:
         gaps = getattr(review, 'identified_gaps', {})
         from reading_generation import record_review
         record_review(self,not gaps and getattr(review,'complete',True) and not evidence_incomplete,
-                      'coverage_gap' if gaps else 'unresolved_checks')
+                      'coverage_gap' if gaps else 'unresolved_checks',review=review)
         if gaps:
             gap_topic = '核对标出的原文' if chinese_source(source) else 'Source passages flagged by review'
             for passage in gaps.values():
@@ -367,7 +368,7 @@ class Summarizer:
 
     @model_checkpoint('podcast.model')
     @retry(
-        retry=retry_if_not_exception_type((ProcessingCancelledError, ProcessingPaused)),
+        retry=retry_if_exception(retryable_model_failure),
         stop=stop_after_attempt(MAX_RETRIES),
         wait=wait_exponential(multiplier=2, min=1, max=60),
         reraise=True,
