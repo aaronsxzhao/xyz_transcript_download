@@ -6,6 +6,12 @@ EFFORTS=('none','minimal','low','medium','high','xhigh','max','default')
 TIERS=('auto','default','priority','fast','flex','on_demand','performance')
 
 
+def terminal_provider_failure(error):
+    """A shared configuration failure cannot be repaired by another batch."""
+    return (getattr(error, 'status_code', None) in (401, 403, 404)
+            or getattr(error, 'code', None) in ('insufficient_quota', 'billing_hard_limit_reached'))
+
+
 def retryable_model_failure(error):
     """Retry transient transport/provider failures, not unchanged bad requests."""
     from openai import APIConnectionError, APIStatusError

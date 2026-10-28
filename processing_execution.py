@@ -43,15 +43,24 @@ class Execution:
                 with self.lock: self.hits+=1
                 self.check(boundary=True)
                 return value
-        value=call()
+        failed = False
+        try:
+            value=call()
+        except BaseException:
+            failed = True
+            raise
+        finally:
+            # Failed requests still cost time. Count provider work separately
+            # from checkpoint persistence and never save incomplete responses.
+            with self.lock:
+                row=self.metrics.setdefault(stage,{'seconds':0,'calls':0})
+                row['seconds']+=round(time.monotonic()-started,3);row['calls']+=1
+                if failed:row['failed_calls']=row.get('failed_calls',0)+1
         self.check()
         if value is not None:
             try: payload=encode(value)
             except (ValueError,TypeError,KeyError): payload=None
             if payload is not None: self.store.put_checkpoint(self.owner,self.source,stage,key,payload)
-        with self.lock:
-            row=self.metrics.setdefault(stage,{'seconds':0,'calls':0})
-            row['seconds']+=round(time.monotonic()-started,3);row['calls']+=1
         self.check(boundary=True)
         return value
 
