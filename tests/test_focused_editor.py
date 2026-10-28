@@ -234,3 +234,21 @@ def test_order_repair_still_receives_actual_over_budget_length(plan):
     assert feedback['draft_units']>feedback['body_budget']
     assert feedback['writing_target']<feedback['body_budget']
     assert result[0]['ids']==['N1','N2','N3']
+
+
+def test_video_orders_audit_additions_before_compacting(plan):
+    from unittest.mock import patch
+    from note_summarizer import NoteSummarizer
+    from note_presentation import media_times
+    engine = NoteSummarizer(api_key='synthetic')
+    original = '# Title\n\n## Later\n\nThe later claim.\n*Content-[02:00]\n\n## Early\n\nThe opening premise.\n*Content-[00:10]'
+    def call(system,payload,timeout):
+        body = json.loads(payload)
+        if 'rewrite' in body:
+            return {'complete':True,'grounded':True}
+        assert [n['topic'] for n in body['notes']] == ['Early','Later']
+        return {'paragraphs':[{'topic':n['topic'], 'heading':n['topic'], 'text':n['text'],
+            'ids':[n['id']], 'evidence_id':n['id']} for n in body['notes']]}
+    with patch.object(engine,'_editorial_json',side_effect=call):
+        result = engine._edit_reading(original,'Title',False)
+    assert media_times(result) == [10,120]
