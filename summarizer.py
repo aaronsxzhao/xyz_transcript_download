@@ -250,7 +250,8 @@ class Summarizer:
             logger.info(f"Generating summary for episode {episode_id}...")
             logger.info(f"Input length: {len(transcript_text):,} chars, prompt total: {len(user_prompt):,} chars")
             from reading_prompts import podcast_prompt
-            prompt = podcast_prompt(SYSTEM_PROMPT, transcript_text)
+            from reading_budget import guidance
+            prompt = podcast_prompt(SYSTEM_PROMPT, transcript_text) + guidance(transcript_text)
             if source_context is not None:
                 response = self._call_llm_with_retry(user_prompt, progress_callback, system_prompt=prompt + CHUNK_INSTRUCTION)
             else:

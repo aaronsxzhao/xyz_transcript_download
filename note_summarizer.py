@@ -57,11 +57,11 @@ def _markdown_lines(text):
 NOTE_STYLES = {
     "minimal": {
         "name": "精简",
-        "prompt": "使用紧凑的排版和简洁的表达，但保留全部实质信息，不能因风格而删掉案例、论据或条件。",
+        "prompt": "使用紧凑的排版和简洁的表达，但保留重要观点、关键论据和条件，合并重复并精选有解释力的案例。",
     },
     "detailed": {
         "name": "详细",
-        "prompt": "请生成详细笔记，全面覆盖视频中的每个知识点、案例和讨论。保留重要细节和上下文。",
+        "prompt": "请生成详细笔记，覆盖视频中的重要主题、独立观点和关键论据。保留重要细节和上下文。",
     },
     "academic": {
         "name": "学术",
@@ -341,7 +341,8 @@ class NoteSummarizer:
         duration: float = 0,
     ) -> Optional[str]:
         """Generate notes from a single (short) transcript."""
-        system_prompt = _build_system_prompt(style, formats, duration=duration, source_text=transcript_text)
+        from reading_budget import guidance
+        system_prompt = _build_system_prompt(style, formats, duration=duration, source_text=transcript_text) + guidance(transcript_text)
         user_prompt = _build_user_prompt(title, transcript_text, visual_context, tags, extras)
         result = self._call_llm(system_prompt, user_prompt, progress_callback)
         return self._audit_note(transcript_text, result, progress_callback)
@@ -428,14 +429,15 @@ class NoteSummarizer:
         def one_chunk(item):
             i, chunk_text = item
             ok = False
-            chunk_info = f'Section {i+1}/{num_chunks}. Start at descriptive ## chapters, without a document title or heading numbers. This is source extraction; omit the entry-layer conclusions/overview and preserve all distinct details for later whole-video editing.'
+            chunk_info = f'Section {i+1}/{num_chunks}. Start at descriptive ## chapters, without a document title or heading numbers. This is source extraction; omit the entry-layer conclusions/overview and retain important arguments, decisive evidence and qualifications for later whole-video editing.'
 
-            system_prompt = _build_system_prompt(style, chunk_formats, duration=duration, source_text=transcript_text)
+            from reading_budget import guidance
+            system_prompt = _build_system_prompt(style, chunk_formats, duration=duration, source_text=transcript_text) + guidance(chunk_text)
             system_prompt += '\nEXTRACTION CHUNK: Generate detailed source chapters only. Do not write an episode introduction, Key conclusions or Episode overview. The whole-video entry is synthesized once later.\n'
             if 'summary' in formats:
                 from reading_language import chinese_source
                 summary_heading='AI 总结' if chinese_source(transcript_text) else 'AI Summary'
-                system_prompt += f'\nFor this extraction chunk, append ## {summary_heading} containing only a concise index of this chunk\'s substantive arguments and conditions, in the source language. This is material for a later whole-video introduction, not a separate episode introduction. All distinct details must remain in the detailed chapters.\n'
+                system_prompt += f'\nFor this extraction chunk, append ## {summary_heading} containing only a concise index of this chunk\'s substantive arguments and conditions, in the source language. This is material for a later whole-video introduction, not a separate episode introduction. Important arguments, decisive evidence and qualifications belong in the detailed chapters.\n'
             source_context = {"before": chunks[i - 1][-500:] if i else "",
                               "after": chunks[i + 1][:500] if i + 1 < num_chunks else ""}
             user_prompt = _build_user_prompt(
