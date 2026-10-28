@@ -78,7 +78,7 @@ def _source_groups(items, count, language):
 
 
 def edit_whole_note(items, call, checkpoint=None, *, preserve_order=False,
-                    source_text='', report=None, reserved_text=''):
+                    source_text='', report=None, reserved_text='', additional_reserved_units=0):
     from math import ceil
     from reading_editor import _media, _verbatim_blocks
     from note_presentation import normalize_media_markers, media_times
@@ -94,7 +94,7 @@ def edit_whole_note(items, call, checkpoint=None, *, preserve_order=False,
         return []
     plan = PLAN.get() or {}
     language = plan.get('language', 'en')
-    reserved = units(visible_prose(reserved_text), language)
+    reserved = units(visible_prose(reserved_text), language) + additional_reserved_units
     target = max(1, round(plan.get('target_high', 0))-reserved)
     rows = [{**row, 'text':normalize_media_markers(row['text'])} for row in items]
     report.update(reserved_units=reserved, body_budget=target)
