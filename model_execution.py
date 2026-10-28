@@ -6,6 +6,21 @@ EFFORTS=('none','minimal','low','medium','high','xhigh','max','default')
 TIERS=('auto','default','priority','fast','flex','on_demand','performance')
 
 
+def retryable_model_failure(error):
+    """Retry transient transport/provider failures, not unchanged bad requests."""
+    from openai import APIConnectionError, APIStatusError
+    from summary_errors import SummaryOutputError, is_cancellation
+    if is_cancellation(error):
+        return False
+    if isinstance(error,SummaryOutputError):
+        return error.code in ('empty','invalid')
+    if isinstance(error,APIStatusError):
+        if getattr(error,'code',None) in ('insufficient_quota','billing_hard_limit_reached'):
+            return False
+        return error.status_code in (408,409,429) or error.status_code>=500
+    return isinstance(error,(APIConnectionError,TimeoutError,ConnectionError))
+
+
 def capabilities(base_url,model):
     host=(urlsplit(base_url).hostname or '').lower()
     if host=='api.groq.com' and model in ('openai/gpt-oss-120b','openai/gpt-oss-20b'):
