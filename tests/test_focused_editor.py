@@ -62,6 +62,26 @@ def test_media_and_order_are_owned_by_application(plan):
         assert '/data/screenshots/' not in args.args[1] and '*Content-' not in args.args[1]
 
 
+def test_repeated_earlier_anchor_stays_with_group_in_time_order(plan):
+    source=rows()
+    source[0]['text']+='\n*Content-[00:00]\nScreenshot-[02:41]'
+    source[1]['text']+='\n[00:00]'
+    result=edit_whole_note(source,provider,preserve_order=True)
+    from note_presentation import media_times
+    assert media_times(result[0]['text'])==[0,0,161]
+
+
+def test_final_presentation_does_not_split_editor_owned_chapters():
+    from note_summarizer import NoteSummarizer
+    engine=NoteSummarizer(api_key='synthetic')
+    engine.generation_report={'editor':{'source_order_preserved':True}}
+    draft='# Title\n\n## Learning\n\n### Short-term changes\n\nFirst explanation.\n\n### Structural changes\n\nSecond explanation.\n*Content-[00:00]\n\n## Practice\n\n### Individual differences\n\nThird explanation.\n\n### Recovery\n\nFourth explanation.\n*Content-[03:00]'
+    result=engine._finish_presentation(draft,'Title',False,'English source')
+    import re
+    assert re.findall(r'(?m)^## (.*)$',result)==['1. Learning','2. Practice']
+    assert result.index('Second explanation.')<result.index('Third explanation.')
+
+
 def test_source_blocks_and_prose_links_are_not_media():
     text='> Content-[01:00]\n\n```text\nScreenshot-[02:00]\n```\n\n[Evidence](https://example.com)\n\n*Content-[03:00]'
     prose,media=_separate_media(text)
@@ -133,6 +153,23 @@ def test_duplicate_group_is_not_arbitrarily_selected(plan):
         return response
     result=edit_whole_note(rows(),call)
     assert [p['text'] for p in result]==[p['text'] for p in rows()]
+
+
+@pytest.mark.parametrize('verdict,accepted',[
+    ({'complete':True,'grounded':True},True),
+    ({'complete':False,'grounded':True},False),
+    ({'complete':'true','grounded':True},False),
+    ({'complete':True},False),
+    ({'id':'G2','complete':True,'grounded':True},False),
+])
+def test_keyed_review_verdicts_preserve_semantics(plan,verdict,accepted):
+    def call(system,payload,timeout):
+        response=provider(system,payload,timeout)
+        if 'checks' in response:response['checks']={'G1':verdict}
+        return response
+    report={};result=edit_whole_note(rows(),call,report=report)
+    assert bool(report['batches'][0]['composed_sections']) is accepted
+    assert len(result)==(1 if accepted else 2)
 
 
 @pytest.mark.parametrize('change',['media','quote','url'])

@@ -305,7 +305,11 @@ class NoteSummarizer:
         from summary_errors import strip_delivery_notices, merge_delivery_notices
         from note_presentation import normalize_media_markers
         body=normalize_media_markers(without_generated_toc(strip_delivery_notices(draft)))
-        body=chronological_chapters(body)
+        # The reading editor has already arranged source groups and their
+        # anchors. Sorting its prose children again can detach unanchored
+        # explanations from the group that owns them.
+        if not getattr(self,'generation_report',{}).get('editor',{}).get('source_order_preserved'):
+            body=chronological_chapters(body)
         from reading_editor import has_unedited_source
         report=language_report if language_report is not None else getattr(self,'generation_report',{}).setdefault('language',{})
         if has_unedited_source(draft):

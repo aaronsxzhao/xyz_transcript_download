@@ -1,4 +1,4 @@
-"""Bounded reading synthesis with two calls per section and lossless fallback.
+"""Bounded reading synthesis with two calls per batch and lossless fallback.
 
 This edits audited notes, not raw transcripts. Stable references retain the
 ability to check every argument without requiring a paragraph for every note.
@@ -61,7 +61,7 @@ def edit_whole_note(items, call, checkpoint=None, *, preserve_order=False,
                     source_text='', report=None, reserved_text=''):
     from math import ceil
     from reading_editor import _media, _verbatim_blocks
-    from note_presentation import normalize_media_markers
+    from note_presentation import normalize_media_markers, media_times
     from processing_execution import parallel_map
     from source_coverage import SOURCE_FIDELITY
     from reading_prompts import ARGUMENT_CONTRACT
@@ -134,6 +134,15 @@ markers and screenshots are restored by the application; do not generate them.
 Do not carry forward extraction commentary declaring a question unanswered just
 because earlier notes lacked its answer. Preserve uncertainty explicitly stated
 by speakers, and connect questions to answers in the supplied notes when present.
+Read the neighboring groups before writing. A question answered in another group
+is a transition, not an unresolved question. Do not repeat a preceding group's
+explanation: keep only this group's additional reasoning, evidence or conditions.
+Boundary context describes adjacent notes outside this batch; do not summarize
+it again. It is supplied to resolve transitions and avoid duplicated explanations.
+Preserve speaker attribution only when the notes establish it consistently.
+When speaker turns are uncertain, say "the discussion" or "one speaker" rather
+than assigning personal experiences, sobriety or biographical claims to a name.
+Use content-specific topic headings, never schema labels such as "chapters".
 """
     def measured(section):
         value = section['heading']+'\n'+section['text']
@@ -142,6 +151,13 @@ by speakers, and connect questions to answers in the supplied notes when present
     def work(batch):
         stats = {'model_calls':0,'composed_sections':0,'retained_sections':0}
         expected = {row['id']:row for row in batch}
+        start=requests.index(batch[0]);end=start+len(batch)
+        boundary={}
+        for label,index in (('previous',start-1),('next',end)):
+            if 0<=index<len(requests):
+                neighbor=requests[index]['notes']
+                note=neighbor[-1] if label=='previous' else neighbor[0]
+                boundary[label]={'topic':note['topic'],'text':note['text'][:4000]}
         deadline = time.monotonic()+240
         def request(system,payload):
             if checkpoint:checkpoint()
@@ -167,6 +183,9 @@ by speakers, and connect questions to answers in the supplied notes when present
             if _separate_media(text)[1]:raise ValueError('unexpected_media')
             source = '\n\n'.join(row['text'] for row in lookup[key])
             media = [marker for row in lookup[key] for marker in _separate_media(row['text'])[1]]
+            # Several source notes can reference an earlier moment within the
+            # same discussion. Keep their exact anchors/assets, in time order.
+            if preserve_order:media.sort(key=lambda marker:media_times(marker)[0])
             rendered = text+('\n\n'+'\n\n'.join(media) if media else '')
             if _media(source) != _media(rendered):raise ValueError('source_media')
             blocks = _verbatim_blocks(source)
@@ -182,7 +201,7 @@ by speakers, and connect questions to answers in the supplied notes when present
                 'heading':'specific claim','text':'concise connected Markdown explanation',
                 'evidence_id':'a note.id from this group'}]}
             draft = request('Return JSON in this shape, with one section per supplied group: '+json.dumps(schema),
-                            {'groups':batch})
+                            {'groups':batch,'boundary_context':boundary})
             sections = indexed(draft.get('sections'))
             feedback = {}
             sizes = {}
@@ -202,13 +221,23 @@ body_budget, compress toward writing_target, removing repetition and setup first
 Return JSON with "checks" (one object per supplied group.id, complete and grounded
 booleans) and "sections" (only corrected sections in the original schema).
 A check judges the corrected section when one is supplied. Check every group;
-do not discard good sections because a different group needs repair. If a
+do not discard good sections because a different group needs repair. Check
+cross-group repetition, question/answer transitions and speaker attribution too.
+Do not turn an ambiguous speaker into a named person's biography. If a
 section is missing, reconstruct it from that group's notes within its budget.
 Do not add prose unrelated to a repair. Do not restate the input in full.
-""",{'groups':batch,'rewrite':draft.get('sections'),
+""",{'groups':batch,'boundary_context':boundary,'rewrite':draft.get('sections'),
       'validation_feedback':feedback,'draft_units':sizes})
             repairs = indexed(review.get('sections'))
-            checks = indexed(review.get('checks'))
+            raw_checks = review.get('checks')
+            # Providers can express the same per-group verdict as a JSON
+            # object keyed by ID. Normalize that representation only; missing
+            # or non-boolean verdicts must still retain the source section.
+            if isinstance(raw_checks,dict):
+                raw_checks = [dict(value,id=key) for key,value in raw_checks.items()
+                              if isinstance(value,dict) and
+                              ('id' not in value or str(value['id']).strip().upper()==str(key).strip().upper())]
+            checks = indexed(raw_checks)
             for key in expected:
                 check = checks.get(key,{})
                 if check.get('complete') is not True or check.get('grounded') is not True:
@@ -251,6 +280,7 @@ Do not add prose unrelated to a repair. Do not restate the input in full.
             if row['topic']!=previous:measured_output+=units(visible_prose(row['topic']),language)
             previous=row['topic']
     report.update(batches=stats,source_groups=len(grouped),
+        source_order_preserved=preserve_order,
         model_calls=sum(s['model_calls'] for s in stats),
         composed_batches=sum(bool(s['composed_sections']) for s in stats),
         retained_batches=sum(bool(s['retained_sections']) for s in stats),
