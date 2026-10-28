@@ -43,6 +43,22 @@ def test_group_boundary_prefers_existing_topic_without_losing_notes():
     assert [r for group in groups for r in group]==rows
 
 
+@pytest.mark.parametrize('duration,repeat',[(14*60,6000),(133*60,800)])
+def test_indivisible_oversized_editor_group_never_issues_an_unbounded_request(duration,repeat):
+    from unittest.mock import Mock
+    from focused_editor import edit_whole_note
+    from reading_budget import PLAN,make_plan
+    token=PLAN.set(make_plan('Source '*20000,duration,'en'))
+    source=[{'id':'N1','topic':'One chapter','text':'evidence '*repeat}]
+    call=Mock();report={}
+    try:
+        result=edit_whole_note(source,call,report=report)
+        call.assert_not_called()
+        assert result[0]['text']==source[0]['text']
+        assert report['batches'][0]['fallback_reason']=='section_capacity'
+    finally:PLAN.reset(token)
+
+
 @pytest.mark.parametrize('video',[True,False])
 @pytest.mark.parametrize('status,retries',[(401,False),(403,False),(400,False),(404,False),(429,True),(502,True)])
 def test_model_retry_only_repeats_transient_provider_failures(video,status,retries):

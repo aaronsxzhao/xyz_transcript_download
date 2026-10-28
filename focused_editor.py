@@ -159,6 +159,12 @@ Use content-specific topic headings, never schema labels such as "chapters".
         return units(visible_prose(value),language)
     def work(batch):
         stats = {'model_calls':0,'composed_sections':0,'retained_sections':0}
+        if (sum(len(json.dumps(row,ensure_ascii=False)) for row in batch)>24000
+                or sum(row['body_budget'] for row in batch)>1200):
+            # An indivisible source chapter can itself exceed batching limits.
+            # Do not send an inevitably oversized request and wait for timeout.
+            stats.update(retained_sections=len(batch),fallback_reason='section_capacity')
+            return [item for row in batch for item in original(lookup[row['id']])],stats
         expected = {row['id']:row for row in batch}
         start=requests.index(batch[0]);end=start+len(batch)
         boundary={}
