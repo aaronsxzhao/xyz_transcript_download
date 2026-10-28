@@ -15,6 +15,16 @@ from summary_errors import is_cancellation
 MAX_INPUT_CHARS = 160000
 
 
+def _document_context(rows, limit=12000):
+    """Bounded whole-document signposts, never a replacement for full notes."""
+    for preview in (160, 80, 0):
+        entries = [{'id':row['id'], 'topic':row['topic'][:100],
+                    'preview':visible_prose(_separate_media(row['text'])[0])[:preview]} for row in rows]
+        if len(json.dumps(entries,ensure_ascii=False)) <= limit:
+            return {'complete_source':False, 'entries':entries}
+    return {'complete_source':False, 'entries':[]}
+
+
 def _separate_media(text):
     """Keep generated media as application-owned data, outside model prose.
 
@@ -123,6 +133,7 @@ def edit_whole_note(items, call, checkpoint=None, *, preserve_order=False,
             batches.append(batch);batch=[];characters=output_budget=0
         batch.append(request);characters+=size;output_budget+=request['body_budget']
     if batch:batches.append(batch)
+    document_context = _document_context(rows)
     common = SOURCE_FIDELITY + ARGUMENT_CONTRACT + source_language_lock(source_text) + """
 READING EDITION, not a catalogue or sentence-by-sentence retelling.
 The application has fixed consecutive source groups. Return exactly ONE section
@@ -149,6 +160,13 @@ is a transition, not an unresolved question. Do not repeat a preceding group's
 explanation: keep only this group's additional reasoning, evidence or conditions.
 Boundary context describes adjacent notes outside this batch; do not summarize
 it again. It is supplied to resolve transitions and avoid duplicated explanations.
+Document context gives signposts to ALL chapters, but its previews are incomplete.
+Use it to recognize later answers and transitions; do not copy outside arguments
+into this group's body. Neither a local chunk nor an incomplete preview proves
+that the whole conversation leaves a question unanswered. Only state that a
+question was left unanswered when a speaker explicitly says so in source notes;
+otherwise describe the question or transition without an absence claim. Remove
+chunk-extraction commentary claiming an answer is absent when its scope is unknown.
 Preserve speaker attribution only when the notes establish it consistently.
 When speaker turns are uncertain, say "the discussion" or "one speaker" rather
 than assigning personal experiences, sobriety or biographical claims to a name.
@@ -229,7 +247,7 @@ Use content-specific topic headings, never schema labels such as "chapters".
                 'heading':'specific claim','text':'concise connected Markdown explanation',
                 'evidence_id':'a note.id from this group'}]}
             draft = request('Return JSON in this shape, with one section per supplied group: '+json.dumps(schema),
-                            {'groups':batch,'boundary_context':boundary})
+                            {'groups':batch,'boundary_context':boundary,'document_context':document_context})
             sections = indexed(draft.get('sections'))
             feedback = {}
             sizes = {}
@@ -259,7 +277,7 @@ cross-group repetition, question/answer transitions and speaker attribution too.
 Do not turn an ambiguous speaker into a named person's biography. If a
 section is missing, reconstruct it from that group's notes within its budget.
 Do not add prose unrelated to a repair. Do not restate the input in full.
-""",{'groups':batch,'boundary_context':boundary,'rewrite':draft.get('sections'),
+""",{'groups':batch,'boundary_context':boundary,'document_context':document_context,'rewrite':draft.get('sections'),
       'validation_feedback':feedback,'draft_units':sizes})
             repairs = indexed(review.get('sections'))
             raw_checks = review.get('checks')

@@ -4,7 +4,7 @@ import re
 from contextvars import ContextVar
 
 PLAN = ContextVar('reading_budget_plan', default=None)
-VERSION = 'focused-reading-v10'
+VERSION = 'focused-reading-v11'
 
 
 def counts(text):
