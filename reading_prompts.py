@@ -5,8 +5,8 @@ ARGUMENT_CONTRACT = """
 INFORMATION ARCHITECTURE:
 The entry layer extracts the source's central answers, not a list of things the
 speaker mentioned. Each conclusion states a claim and its decisive reason or
-condition. No generic advice or invented thesis. The detailed layer retains all
-distinct source information, organized around arguments rather than utterances.
+condition. No generic advice or invented thesis. The detailed layer covers all important independent arguments with their reasoning,
+decisive evidence and limits, rather than paraphrasing each utterance.
 For each argument connect the claim, stated mechanism, evidence/examples and
 limits/disagreements WHERE PRESENT. An example supports its argument; it is not
 automatically another main point. Merge synonymous claims and keep every added
@@ -15,8 +15,11 @@ Do not repeat the introduction, table rows or the same conclusion in every secti
 Preserve meaningful source headings. Adapt to the material: preserve steps in a
 tutorial, opposing positions in a debate, uncertainty in a forecast, and chronology
 in a story/video. Do not force an argumentative template onto unrelated material.
-Full coverage means every distinct substantive detail remains accessible, NOT
-that every sentence must be paraphrased. Exclude pure promotions and greetings
+Full coverage means important topics, arguments, conditions and disagreements survive.
+Select the most explanatory examples; compress repeated anecdotes, acknowledgments
+and setup. Keep an example when it adds a different mechanism, exception or evidence.
+The complete transcript remains available for wording and lower-value detail.
+Never remove a condition that changes a claim merely to meet a length target. Exclude pure promotions and greetings
 from core conclusions. Source quotations remain verbatim, separate from synthesis.
 """
 
@@ -25,8 +28,8 @@ PRESENTATION = {
 Start the introduction with ### Key conclusions: focused, source-grounded answers
 to the central question, including the decisive limitation when stated.
 Then ### Episode overview: a brief map of the questions and how they connect.
-Detailed chapters carry the evidence, examples, numbers and all other distinct
-details. Use specific claim headings, connected paragraphs and sparse **bold**.
+Detailed chapters carry the important reasoning, decisive evidence, informative
+examples, numbers with their conditions, and meaningful differences of opinion. Use specific claim headings, connected paragraphs and sparse **bold**.
 Use tables only for real comparisons and lists for parallel items or steps.
 Keep metadata JSON keys in English; every generated value/heading is English.
 Example point: #### Lower cost depends on order size\n\nThe second prototype
@@ -35,7 +38,8 @@ costs less only at the stated order size. Its durability remains untested.
     'zh': """阅读模板（中文）：
 开篇用 ### 核心结论，提炼原文对核心问题的回答，并交代决定性条件；
 随后用 ### 节目概览，简要说明问题及论证关系，不逐项复述正文。
-详细章节完整保留论据、案例、数字及其单位和条件，以及其他独立信息。
+详细章节覆盖重要主题和独立观点，讲清推理、关键论据、数字及其单位和条件；
+精选有解释力的案例，合并重复和相似例子，保留分歧、例外与有实质信息的结尾。
 小标题表达具体观点，段落组织论证，少量加粗突出重点；比较用表格，步骤和并列项用列表。
 JSON 字段名保持英文，生成的字段值、标题、说明统一中文，原话及专有名词保留原样。
 要点示例：#### 成本下降取决于订购数量\n\n第二版原型只在指定订购量下更便宜，
@@ -62,8 +66,8 @@ def podcast_prompt(base, source):
 
 
 STYLE_EN = {
-    'minimal': 'Compact layout and direct prose; retain every distinct detail.',
-    'detailed': 'Explain the central arguments with their evidence and conditions; retain full detail.',
+    'minimal': 'Compact expression; retain important arguments, decisive evidence and qualifications.',
+    'detailed': 'Explain the central arguments with their evidence and conditions; compress repetition while retaining important independent discussions.',
     'academic': 'Formal register; distinguish claims, evidence and limitations.',
     'tutorial': 'Preserve genuine steps, prerequisites and cautions; invent no instructions.',
     'xiaohongshu': 'Conversational and shareable; use emojis sparingly without adding claims.',

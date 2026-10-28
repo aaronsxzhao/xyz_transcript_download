@@ -70,3 +70,31 @@ credentials. The leased-write source migration is idempotent; production applied
 its functions in smaller migrations after the connector timed out on the combined
 request. Preserve the preceding main/image before release. The old code can run
 with these additive migrations; rollback must not drop queue/checkpoint data.
+
+
+## Focused reading diagnostics
+
+`focused-reading-v2` retains the existing reader schema and layout while giving
+generation and editorial passes a shared soft reading budget. Reference targets
+are 600–800 English words for 14 minutes, 3,000–3,500 Chinese characters for
+67 minutes, and 3,000–4,000 English words for 133 minutes. Intermediate lengths
+are interpolated. Detailed is the baseline; minimal uses 65% of its lower bound
+and 70% of its upper bound, with the same fidelity constraints. Other style names
+control presentation rather than reducing coverage. Missing duration uses a marked speech-length estimate. A sparse
+transcript never requires padding. Other languages retain their original language
+without an English word budget. No length result rejects or truncates output.
+
+Durable `processing_work.metrics.generation.reading` records numeric word/character
+counts, estimated reading minutes, target bounds, `budget_status`, and exact repeated
+paragraph counts. Quotes, image URLs and generated TOC links are excluded from
+reading estimates. These diagnostics contain no source text or credentials.
+The existing generation `editor`, `coverage`, and `language` reports identify
+fallbacks separately. Missing diagnostics on older work are unknown, not success.
+
+Inspect newly completed work by owner and prompt version; compare like-language
+and like-duration samples. Review source grounding and important topic coverage
+manually alongside length: a short note is not necessarily a good note, exact
+paragraph matches do not detect all semantic repetition, and model coverage
+receipts do not prove completeness. Monitor provider timeouts and retained editing
+batches before attributing unchanged length to the new prompt. Reverting the
+release restores prior generation behavior without changing saved notes or schema.

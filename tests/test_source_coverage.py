@@ -113,7 +113,7 @@ def test_every_style_keeps_substantive_information_and_source_headings():
     for style in NOTE_STYLES:
         for source in ('English source discussion.', '中文原文讨论。'):
             prompt = _build_system_prompt(style, [], source_text=source)
-            assert 'retains all' in prompt and 'distinct source information' in prompt
+            assert 'important independent arguments' in prompt and 'Select the most explanatory examples' in prompt
             assert 'Preserve meaningful source headings' in prompt
 
 
