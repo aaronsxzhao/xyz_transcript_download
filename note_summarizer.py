@@ -242,8 +242,8 @@ class NoteSummarizer:
         from summary_errors import strip_delivery_notices, merge_delivery_notices, is_cancellation
         if has_unedited_source(draft):
             return draft
-        from note_presentation import normalize_media_markers
-        body = normalize_media_markers(strip_delivery_notices(draft))
+        from note_presentation import normalize_media_markers, chronological_chapters
+        body = chronological_chapters(normalize_media_markers(strip_delivery_notices(draft)))
         lines = body.splitlines(keepends=True)
         headings = [token for token in MarkdownIt().parse(body)
                     if token.type == 'heading_open' and token.tag == 'h2' and token.level == 0]
@@ -276,7 +276,7 @@ class NoteSummarizer:
         if not items:
             return draft
         try:
-            paragraphs = edit_sections(items, self._editorial_json, checkpoint, preserve_order=True, source_text=source_text, budget=None, reserved_text='\n'.join([prelude, *entry_sections]), report=getattr(self,'generation_report',{}).setdefault('editor',{}))
+            paragraphs = edit_sections(items, self._editorial_json, checkpoint, preserve_order=True, source_text=source_text, budget=None, reserved_text='\n'.join([title, prelude, *entry_sections]), report=getattr(self,'generation_report',{}).setdefault('editor',{}))
             sections = []
             for paragraph in paragraphs:
                 # Video arguments are chapter children, so keep them in the

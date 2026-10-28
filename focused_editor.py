@@ -140,7 +140,6 @@ example, book, step or objection into an earlier paragraph.
         except ValueError as error:
             raise ValueError('source_references') from error
         output = []
-        flattened = []
         for p in paragraphs:
             if (not isinstance(p.get('text'), str) or not p['text'].strip()
                     or not isinstance(p.get('heading'), str) or not p['heading'].strip()
@@ -148,7 +147,8 @@ example, book, step or objection into an earlier paragraph.
                     or p.get('evidence_id') not in p['ids']):
                 raise ValueError('output_shape')
             ids = sorted(p['ids'], key=order.__getitem__)
-            flattened.extend(ids)
+            if preserve_order and [order[i] for i in ids] != list(range(order[ids[0]], order[ids[-1]]+1)):
+                raise ValueError('source_order')
             text = normalize_media_markers(p['text'])
             _, invented_media = _separate_media(text)
             if invented_media:
@@ -171,18 +171,32 @@ example, book, step or objection into an earlier paragraph.
             if any(block not in text for i in ids for block in _verbatim_blocks(lookup[i]['text'])):
                 raise ValueError('verbatim_source')
             output.append({**p, 'ids': ids, 'text': text})
-        if preserve_order and flattened != list(lookup):
-            raise ValueError('source_order')
+        if preserve_order:
+            # Whole paragraphs can be restored to chronology without rewriting
+            # their meaning. Interleaved source groups above still need repair.
+            output.sort(key=lambda p: order[p['ids'][0]])
         return output
 
     def length(paragraphs):
-        return sum(units(visible_prose(p['heading']+'\n'+p['text']), language) for p in paragraphs)
+        total = 0
+        topic = None
+        for p in paragraphs:
+            total += units(visible_prose(p['heading']+'\n'+p['text']), language)
+            if preserve_order and p.get('topic') != topic:
+                topic = p.get('topic')
+                total += units(visible_prose(topic or ''), language)
+        return total
 
     try:
         aim = max(1, round(target * plan.get('target_low', target) / max(1, plan.get('target_high', target))))
         draft = request(COMPOSE + '\nAim for writing_target; body_budget is room for indispensable qualifications, not a length to fill.\n',
                         {'notes': model_rows, 'writing_target': aim, 'body_budget': target, 'document_outline': _outline or []})
         draft_error = None
+        raw = draft.get('paragraphs')
+        # Count readable prose even when IDs/order need repair. Previously a
+        # reference error hid over-budget length from the final reviewer.
+        if isinstance(raw, list) and all(isinstance(p, dict) and isinstance(p.get('heading'),str) and isinstance(p.get('text'),str) for p in raw):
+            report['draft_units'] = length(raw)
         try:
             paragraphs = validate(draft.get('paragraphs'))
             report['draft_units'] = length(paragraphs)
@@ -200,6 +214,11 @@ If validation_feedback is present, correct the structural problem and return
 a COMPLETE paragraphs array. Only notes IDs are valid and each must occur once.
 Media is restored by the application; return prose without generated media markers.
 Check completeness and grounding of your corrected prose in this same response.
+Correct source references without expanding otherwise correct passages. For video,
+N1,N3 cannot form a group while N2 is elsewhere: use consecutive source ranges.
+When draft_units exceeds body_budget, compress toward writing_target, not merely
+a few words below the draft. Remove scene-setting and repeated explanations
+first; keep important evidence, disagreements and meaning-changing conditions.
 If draft_units exceeds body_budget, return a COMPLETE corrected paragraphs array
 that removes repetition and lower-value retelling while retaining the important
 claims, decisive evidence, disagreements and meaning-changing conditions.
@@ -207,7 +226,7 @@ Aim within body_budget; do not truncate or manufacture claims. Review the
 corrected version when setting complete/grounded. Do not expand merely to give
 each input id its own paragraph. Quotes are separate evidence, not reading prose.
 ''', {'notes': model_rows, 'rewrite': draft.get('paragraphs'), 'draft_units': report.get('draft_units'),
-       'validation_feedback': draft_error, 'body_budget': target})
+       'validation_feedback': draft_error, 'body_budget': target, 'writing_target': aim})
         if review.get('complete') is not True or review.get('grounded') is not True:
             raise ValueError('semantic_review')
         if 'paragraphs' in review:

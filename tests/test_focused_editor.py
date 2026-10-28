@@ -210,3 +210,27 @@ def test_reference_typo_repaired_in_existing_review_budget(plan):
     assert report['draft_validation'] == 'source_references'
     assert call.call_count == 2
     assert json.loads(call.call_args_list[1].args[1])['validation_feedback'] == 'source_references'
+
+
+def test_chronology_restored_for_whole_paragraphs_without_another_model_call(plan):
+    source = rows()
+    p1 = dict(paragraph(), ids=['N1'], evidence_id='N1')
+    p2 = dict(paragraph(), ids=['N2'], evidence_id='N2')
+    call = Mock(side_effect=[{'paragraphs':[p2,p1]}, {'complete':True,'grounded':True}])
+    result = edit_whole_note(source,call,preserve_order=True)
+    assert [p['ids'] for p in result] == [['N1'],['N2']]
+    assert call.call_count == 2
+
+
+def test_order_repair_still_receives_actual_over_budget_length(plan):
+    source = rows()+[{'id':'N3','topic':'Further limit','text':'Evidence remains preliminary.'}]
+    p1 = dict(paragraph('Long explanation. '*700), ids=['N1','N3'], evidence_id='N1')
+    p2 = dict(paragraph(), ids=['N2'], evidence_id='N2')
+    fixed = dict(paragraph(), ids=['N1','N2','N3'], evidence_id='N1')
+    call = Mock(side_effect=[{'paragraphs':[p1,p2]}, {'complete':True,'grounded':True,'paragraphs':[fixed]}])
+    result = edit_whole_note(source,call,preserve_order=True)
+    feedback = json.loads(call.call_args_list[1].args[1])
+    assert feedback['validation_feedback']=='source_order'
+    assert feedback['draft_units']>feedback['body_budget']
+    assert feedback['writing_target']<feedback['body_budget']
+    assert result[0]['ids']==['N1','N2','N3']
