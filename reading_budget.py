@@ -4,7 +4,7 @@ import re
 from contextvars import ContextVar
 
 PLAN = ContextVar('reading_budget_plan', default=None)
-VERSION = 'focused-reading-v2'
+VERSION = 'focused-reading-v9'
 
 
 def counts(text):
@@ -66,7 +66,27 @@ def guidance(source=None, *, share=None):
             'reasoning, decisive evidence, disagreements, qualifications and meaningful closing reflections. '
             'Select informative examples; compress repetitive anecdotes and empty transitions. '
             'Do not pad a sparse source, truncate output, drop an essential condition, or invent claims to meet this soft range. '
-            'Original quotes are separate evidence, not a way to duplicate the prose. Preserve the existing output schema and headings.\n')
+            'Original quotes are separate evidence, not a way to duplicate the prose. Preserve the existing output schema and headings. '
+            'Plan the available space BEFORE writing. Rank the central answers, decisive evidence and exceptions; '
+            'use one explanation per argument, not one paragraph per source unit. '
+            'Reserve at most 15 percent for overview and takeaways; spend the remainder on the arguments. '
+            'Review your length before returning: remove repeated explanations and equivalent anecdotes first.\n')
+
+
+def _is_navigation(children):
+    """A standalone fragment link is navigation, not prose containing a link."""
+    inside = False
+    linked = False
+    for token in children:
+        if token.type == 'link_open':
+            if not (token.attrGet('href') or '').startswith('#'):
+                return False
+            inside = linked = True
+        elif token.type == 'link_close':
+            inside = False
+        elif token.type in ('text', 'code_inline') and token.content.strip() and not inside:
+            return False
+    return linked
 
 
 def visible_prose(markdown):
@@ -79,7 +99,7 @@ def visible_prose(markdown):
         elif token.type == 'inline' and not quote_depth:
             children=token.children or []
             # Standalone fragment links in a generated TOC repeat headings.
-            if any(t.type=='link_open' and (t.attrGet('href') or '').startswith('#') for t in children):
+            if _is_navigation(children):
                 continue
             chunks.extend(t.content for t in children if t.type in ('text','code_inline'))
         elif token.type in ('fence','code_block') and not quote_depth:

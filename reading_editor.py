@@ -58,6 +58,9 @@ Keep the additional explanation, exceptions and examples beside that table.
 Do not add a second introduction or closing summary to a chapter with the same
 conclusion. Repetition may be merged; distinct qualifications must remain.
 Keep all media URLs and timestamp/screenshot markers exactly, by their discussion.
+Do not write processing commentary such as "this excerpt ends", "this portion",
+"not included in this summary", or references to extraction chunks. Present only
+what the source supports; do not describe missing chunk context as a source fact.
 Preserve existing block quotations and code blocks verbatim, including code
 language and indentation. Reorganize the explanation around them; do not
 paraphrase a quoted passage or rewrite code while improving the prose.
@@ -145,8 +148,10 @@ def _partition(groups, expected):
 
 
 def _media(text):
+    from note_presentation import normalize_media_markers
+    text = normalize_media_markers(text)
     # Editorial rewriting must not remove a chart or its original playback link.
-    return set(re.findall(r'https?://[^\s<>"\)]+|(?:Screenshot-|\*?Content-)\[\d+(?::\d+){1,2}\]|/data/(?:screenshots|thumbnails)/[^\s\)]+', text))
+    return {value.lstrip("*") if value.startswith(("*Content-", "Content-")) else value for value in re.findall(r'https?://[^\s<>"\)]+|(?:Screenshot-|\*?Content-)\[\d+(?::\d+){1,2}\]|/data/(?:screenshots|thumbnails)/[^\s\)]+', text)}
 
 
 def _verbatim_blocks(text):
@@ -157,13 +162,18 @@ def _verbatim_blocks(text):
             if token.map and token.type in ('blockquote_open','fence','code_block')]
 
 
-def edit_sections(items, call, checkpoint=None, budget=120, *, preserve_order=False, source_text='', report=None):
+def edit_sections(items, call, checkpoint=None, budget=120, *, preserve_order=False, source_text='', report=None, reserved_text=''):
     """Return paragraphs with source IDs; failed batches retain original text.
 
     Each item has id, topic, text and optional evidence. The input is untouched.
     Only metadata is abbreviated for the chapter index; composition sees the
     complete note bodies. Oversized individual notes are retained verbatim.
     """
+    from reading_budget import PLAN
+    if budget is None and PLAN.get() and PLAN.get().get('target_high'):
+        from focused_editor import edit_whole_note
+        return edit_whole_note(items, call, checkpoint, preserve_order=preserve_order,
+                               source_text=source_text, report=report, reserved_text=reserved_text)
     if len(items) < 2:
         return [dict(item, ids=[item['id']], evidence_id=item['id']) for item in items]
     report = report if report is not None else {}
@@ -176,6 +186,7 @@ def edit_sections(items, call, checkpoint=None, budget=120, *, preserve_order=Fa
     deadline = started + allowance
     stage_deadline = min(deadline, time.monotonic()+60)
     unavailable = False
+    consecutive_failures = 0
     lookup = {item['id']:item for item in items}
     order = {item['id']:i for i,item in enumerate(items)}
 
@@ -188,7 +199,7 @@ def edit_sections(items, call, checkpoint=None, budget=120, *, preserve_order=Fa
         return normalized
 
     def request(system, payload, until=None):
-        nonlocal unavailable
+        nonlocal unavailable, consecutive_failures
         if checkpoint:
             checkpoint()
         remaining = min(deadline, stage_deadline if until is None else until) - time.monotonic()
@@ -199,9 +210,14 @@ def edit_sections(items, call, checkpoint=None, budget=120, *, preserve_order=Fa
             if preserve_order:
                 system += '\nVIDEO ORDER: Preserve the source sequence. Group only consecutive input ids; a recurring topic later in the video stays a separate chapter. Never move later books, steps or examples to an earlier chapter. Keep media anchors in their original sequence.'
             result = call(system, json.dumps(payload, ensure_ascii=False), min(45, remaining))
-        except Exception:
-            unavailable = True
+        except Exception as error:
+            # A slow chapter must not disable unrelated chapters. Stop only for
+            # configuration failures or a sustained outage; the global deadline
+            # still bounds independent attempts and no request is retried here.
+            consecutive_failures += 1
+            unavailable = getattr(error, 'status_code', None) in (401, 403, 404) or consecutive_failures >= 3
             raise
+        consecutive_failures = 0
         if checkpoint:
             checkpoint()
         return result
@@ -226,6 +242,11 @@ def edit_sections(items, call, checkpoint=None, budget=120, *, preserve_order=Fa
             logger.info('Keeping chapter index after optional editing failure: %s', type(error).__name__)
             report['planning_fallback'] = type(error).__name__
             groups = [{'title':lookup[row['id']]['topic'], 'ids':[row['id']]} for row in batch]
+            if not isinstance(error, ValueError):
+                # Keep adjacent source order when planning is unavailable, but
+                # still allow composition to consolidate neighbouring notes.
+                groups = [{'title':rows[0]['topic'], 'ids':[row['id'] for row in rows]}
+                          for rows in _batches([lookup[row['id']] for row in batch], 10000)]
         for group in groups:
             title = group['title'].strip()
             key=(len(chapters),title) if preserve_order else title
@@ -248,17 +269,22 @@ def edit_sections(items, call, checkpoint=None, budget=120, *, preserve_order=Fa
         topic=chapter['title']
         rows = sorted(chapter['rows'], key=lambda row:order[row['id']])
         for batch in _batches(rows, 12000):
-            if len(batch) < 2 or len(json.dumps(batch,ensure_ascii=False)) > 14000:
-                if len(json.dumps(batch,ensure_ascii=False)) > 14000:
-                    chapter_report['oversized_sections']=chapter_report.get('oversized_sections',0)+len(batch)
+            from reading_budget import guidance, units, PLAN
+            plan = PLAN.get() or {}
+            language = plan.get('language', 'en')
+            total = sum(units(row['text'], language) for row in items)
+            share = .85 * sum(units(row['text'], language) for row in batch) / max(1, total)
+            # Singleton chapters need a rewrite only when their allocated soft
+            # budget is exceeded, not an extra model call for every short point.
+            if len(batch) == 1 and (not plan.get('target_high') or
+                    units(batch[0]['text'], language) <= plan['target_high'] * share * 1.15):
+                result.extend(originals(batch))
+                continue
+            if len(json.dumps(batch,ensure_ascii=False)) > 14000:
+                chapter_report['oversized_sections']=chapter_report.get('oversized_sections',0)+len(batch)
                 result.extend(originals(batch))
                 continue
             try:
-                from reading_budget import guidance, units, PLAN
-                plan = PLAN.get() or {}
-                language = plan.get('language', 'en')
-                total = sum(units(row['text'], language) for row in items)
-                share = .85 * sum(units(row['text'], language) for row in batch) / max(1, total)
                 paragraphs = request(COMPOSE + guidance(share=share), {'chapter':topic, 'notes':batch}, until=chapter_deadline)['paragraphs']
                 def validate(paragraphs):
                     _partition(paragraphs, [row['id'] for row in batch])

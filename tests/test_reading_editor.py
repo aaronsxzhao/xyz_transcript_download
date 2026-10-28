@@ -85,12 +85,12 @@ def test_composition_does_not_strip_indentation_from_an_opening_code_block():
     assert len(result)==1 and '\n\n'+code in result[0]['text']
 
 
-def test_unavailable_provider_has_no_retry_cascade_and_preserves_readable_output():
+def test_transient_failure_allows_independent_composition_without_retrying_planning():
     call=Mock(side_effect=RuntimeError('Synthetic provider outage'))
     source=notes();source[1]['topic']=source[0]['topic']
     result=edit_sections(source,call)
     assert [row['text'] for row in result]==[row['text'] for row in source]
-    assert call.call_count==1
+    assert call.call_count==2
 
 
 def test_budget_exhaustion_does_not_lose_remaining_notes():

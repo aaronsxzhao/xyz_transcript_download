@@ -29,6 +29,23 @@ def without_generated_toc(markdown):
     return ''.join(result)
 
 
+def normalize_media_markers(markdown):
+    """Repair only generated line-leading markers; never change source times."""
+    lines = markdown.splitlines(keepends=True)
+    protected = set()
+    for token in MarkdownIt().parse(markdown):
+        if token.map and token.type in ('fence', 'code_block', 'blockquote_open'):
+            protected.update(range(*token.map))
+    pattern = re.compile(r'^( {0,3})(?:\*?)(?:\[)?(Content|Screenshot)-\[?(\d+(?::\d{2}){1,2})\]?\*?(?=\s|$)')
+    def repair(match):
+        indent, kind, stamp = match.groups()
+        if any(int(value) >= 60 for value in stamp.split(':')[1:]):
+            return match.group(0)
+        return indent + ('*' if kind == 'Content' else '') + kind + '-[' + stamp + ']'
+    return ''.join(line if i in protected else pattern.sub(repair, line, count=1)
+                   for i, line in enumerate(lines))
+
+
 def media_times(markdown):
     # Read generated media anchors only, never numbers in prose, quoted examples
     # or URLs' expiry/signature parameters. Keep the first anchor as chapter start.
@@ -156,10 +173,18 @@ def _language_pieces(markdown):
 def localize_note(markdown,source,call,checkpoint=None,budget=120,report=None):
     """Optional correction; unavailable/invalid output retains every input byte."""
     import json
-    pieces=_language_pieces(markdown)
+    pieces=[]
+    for piece in _language_pieces(markdown):
+        # A foreign-language heading does not require retranslating the entire
+        # otherwise-correct chapter. Preserve its surrounding prose byte-for-byte.
+        heading, separator, rest = piece.partition('\n')
+        if separator and re.match(r'^#{2,6} ', heading) and language_mismatch(source, heading) and not language_mismatch(source, rest):
+            pieces.extend((heading + separator, rest))
+        else:
+            pieces.append(piece)
     allowance=min(360,max(120,len(pieces)*10)) if budget is None else budget
     deadline=time.monotonic()+allowance
-    result=[];unavailable=False
+    result=[];unavailable=False;consecutive_failures=0
     report=report if report is not None else {}
     for piece in pieces:
         if not language_mismatch(source,piece):
@@ -180,11 +205,13 @@ def localize_note(markdown,source,call,checkpoint=None,budget=120,report=None):
             try:
                 value=call(system,json.dumps({'markdown':draft},ensure_ascii=False),min(45,max(1,deadline-time.monotonic())))
             except Exception as error:
-                unavailable=True
+                consecutive_failures += 1
                 status=getattr(error,'status_code',None)
+                unavailable=status in (401,403,404) or consecutive_failures>=3
                 if isinstance(status,int) and 100<=status<=599: report['provider_http_status']=status
                 report['provider_error_type']=type(error).__name__
                 raise
+            consecutive_failures=0
             if checkpoint: checkpoint()
             candidate=value.get('text') if isinstance(value,dict) else None
             if not isinstance(candidate,str) or not candidate.strip(): raise ValueError('Missing corrected text')

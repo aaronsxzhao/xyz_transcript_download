@@ -172,27 +172,22 @@ class Summarizer:
 
     def _edit_reading(self, summary, checkpoint=None):
         from reading_editor import edit_sections, has_unedited_source
-        if not summary or len(summary.key_points) < 2 or has_unedited_source(summary.overview):
+        if not summary or not summary.key_points or has_unedited_source(summary.overview):
             return summary
         items = [{'id':f'N{i+1}', 'topic':point.topic, 'text':point.summary,
                   'evidence':point.original_quote} for i,point in enumerate(summary.key_points)]
         lookup = {item['id']:point for item,point in zip(items,summary.key_points)}
         try:
-            paragraphs = edit_sections(items, self._editorial_json, checkpoint, budget=None, source_text=getattr(self,'_reading_source',''), report=getattr(self,'generation_report',{}).setdefault('editor',{}))
+            paragraphs = edit_sections(items, self._editorial_json, checkpoint, budget=None, reserved_text='\n'.join([summary.overview, *summary.takeaways]), source_text=getattr(self,'_reading_source',''), report=getattr(self,'generation_report',{}).setdefault('editor',{}))
             points = []
             for paragraph in paragraphs:
                 evidence = lookup[paragraph['evidence_id']]
                 if not evidence.original_quote:
                     evidence = next((lookup[ident] for ident in paragraph['ids'] if lookup[ident].original_quote), evidence)
-                # Merging arguments must not discard the other verified quotations.
+                # Keep representative verbatim evidence in the existing folded
+                # quote field. Other source wording remains in Transcript;
+                # appending every merged quote duplicates the reading body.
                 text = paragraph['text']
-                seen = {evidence.original_quote}
-                for ident in paragraph['ids']:
-                    original = lookup[ident]
-                    if original.original_quote and original.original_quote not in seen:
-                        stamp = ('['+original.timestamp+']\n\n') if original.timestamp else ''
-                        text += '\n\n'+stamp+'\n'.join('> '+line for line in original.original_quote.splitlines())
-                        seen.add(original.original_quote)
                 points.append(KeyPoint(paragraph['topic'], text, evidence.original_quote, evidence.timestamp))
             return replace(summary, key_points=points, topics=list(dict.fromkeys(point.topic for point in points)))
         except Exception as error:

@@ -84,7 +84,7 @@ def test_language_cancellation_propagates_and_unavailable_provider_keeps_the_not
         localize_note(draft,'English original speech.',Mock(side_effect=ProcessingCancelledError()))
     call=Mock(side_effect=RuntimeError())
     assert localize_note(draft+'\n## 另一个章节\n\n完整条件。','English original speech.',call).startswith(draft)
-    assert call.call_count==1
+    assert call.call_count==2  # Independent sections get their own bounded attempt.
 
 
 def test_rejected_translation_reports_only_check_names_without_source_or_provider_data():
