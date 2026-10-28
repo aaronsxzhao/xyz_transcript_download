@@ -273,7 +273,7 @@ class NoteSummarizer:
                     and not any(t.type == 'paragraph_open' and t.level == 0 for t in tokens)):
                     continue
             items.append({'id':f'N{i+1}', 'topic':topic, 'text':content})
-        if len(items) < 2:
+        if not items:
             return draft
         try:
             paragraphs = edit_sections(items, self._editorial_json, checkpoint, preserve_order=True, source_text=source_text, budget=None, report=getattr(self,'generation_report',{}).setdefault('editor',{}))

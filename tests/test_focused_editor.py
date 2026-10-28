@@ -96,3 +96,41 @@ def test_folded_evidence_never_inflates_podcast_reading_time(plan):
 def test_markdown_quotations_and_toc_excluded(plan):
     text='# Title\n\n[Title](#title)\n\nActual explanation.\n\n> '+('quote '*10000)
     assert diagnostics(text,'source',PLAN.get())['output_words']==3
+
+
+def test_prose_containing_internal_link_is_still_reading_content(plan):
+    text='See [conditions](#conditions) before drawing a conclusion.\n\n[Conditions](#conditions)'
+    assert diagnostics(text,'source',PLAN.get())['output_words']==6
+
+
+def test_oversized_input_keeps_every_note_without_provider_calls(plan):
+    from focused_editor import MAX_INPUT_CHARS
+    source=rows();source[0]['text']='Evidence. '*MAX_INPUT_CHARS
+    call=Mock();report={}
+    result=edit_whole_note(source,call,report=report)
+    call.assert_not_called()
+    assert [p['text'] for p in result]==[p['text'] for p in source]
+    assert report['fallback_reason']=='input_capacity' and not report['target_met']
+
+
+@pytest.mark.parametrize('video',[False,True])
+def test_single_long_chapter_reaches_whole_editor(plan,video):
+    from unittest.mock import patch
+    if video:
+        from note_summarizer import NoteSummarizer
+        engine=NoteSummarizer(api_key='synthetic')
+        draft='# Title\n\n## Only chapter\n\n'+'Repetitive explanation. '*1000
+        response=paragraph();response.update(ids=['N1'],evidence_id='N1')
+        with patch.object(engine,'_editorial_json',side_effect=[{'paragraphs':[response]},{'complete':True,'grounded':True}]) as call:
+            result=engine._edit_reading(draft,'Title',False)
+            assert 'untested' in result and len(result)<len(draft)
+    else:
+        from summarizer import Summarizer, Summary, KeyPoint
+        engine=Summarizer(api_key='synthetic')
+        draft=Summary('id','Title','Overview',[KeyPoint('Topic','Repetition. '*1000,'Quote.','01:00')],['Topic'],[])
+        response=paragraph();response.update(ids=['N1'],evidence_id='N1')
+        with patch.object(engine,'_editorial_json',side_effect=[{'paragraphs':[response]},{'complete':True,'grounded':True}]) as call:
+            result=engine._edit_reading(draft)
+            assert 'untested' in result.key_points[0].summary
+            assert result.key_points[0].original_quote=='Quote.'
+    assert call.call_count==2

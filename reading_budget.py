@@ -73,6 +73,22 @@ def guidance(source=None, *, share=None):
             'Review your length before returning: remove repeated explanations and equivalent anecdotes first.\n')
 
 
+def _is_navigation(children):
+    """A standalone fragment link is navigation, not prose containing a link."""
+    inside = False
+    linked = False
+    for token in children:
+        if token.type == 'link_open':
+            if not (token.attrGet('href') or '').startswith('#'):
+                return False
+            inside = linked = True
+        elif token.type == 'link_close':
+            inside = False
+        elif token.type in ('text', 'code_inline') and token.content.strip() and not inside:
+            return False
+    return linked
+
+
 def visible_prose(markdown):
     """Count rendered prose, not link URLs, images, TOC or quoted evidence."""
     from markdown_it import MarkdownIt
@@ -83,7 +99,7 @@ def visible_prose(markdown):
         elif token.type == 'inline' and not quote_depth:
             children=token.children or []
             # Standalone fragment links in a generated TOC repeat headings.
-            if any(t.type=='link_open' and (t.attrGet('href') or '').startswith('#') for t in children):
+            if _is_navigation(children):
                 continue
             chunks.extend(t.content for t in children if t.type in ('text','code_inline'))
         elif token.type in ('fence','code_block') and not quote_depth:

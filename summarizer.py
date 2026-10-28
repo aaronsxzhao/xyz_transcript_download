@@ -172,7 +172,7 @@ class Summarizer:
 
     def _edit_reading(self, summary, checkpoint=None):
         from reading_editor import edit_sections, has_unedited_source
-        if not summary or len(summary.key_points) < 2 or has_unedited_source(summary.overview):
+        if not summary or not summary.key_points or has_unedited_source(summary.overview):
             return summary
         items = [{'id':f'N{i+1}', 'topic':point.topic, 'text':point.summary,
                   'evidence':point.original_quote} for i,point in enumerate(summary.key_points)]
