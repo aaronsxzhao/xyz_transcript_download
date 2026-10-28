@@ -528,6 +528,10 @@ class NoteSummarizer:
         allowance,language=self._overview_allowance()
         report=self.generation_report.setdefault('overview',{})
         report.update(status='requested',target_units=allowance)
+        from reading_editor import has_unedited_source
+        if has_unedited_source(body):
+            report.update(status='retained_source_indexes',reason='raw_source_retained',wall_seconds=0)
+            return body
         started=time.monotonic()
         try:
             if checkpoint:checkpoint()

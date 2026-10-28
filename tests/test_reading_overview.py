@@ -40,3 +40,14 @@ def test_chunk_merge_defers_one_overview_until_complete_reading_draft():
     engine._editorial_json.side_effect=TimeoutError()
     assert engine._complete_overview(body,'Title')==body
     assert engine.generation_report['overview']['reason']=='timeout'
+
+
+def test_partial_raw_transcript_never_receives_a_misleading_whole_video_intro():
+    from summary_errors import delivery_notice
+    engine=NoteSummarizer(api_key='fixture');engine.generation_report={}
+    engine._pending_overview=['Only the successful section.']
+    engine._editorial_json=Mock()
+    body=delivery_notice('## Original transcript\n\nThis section was not summarized.',source='English source')
+    assert engine._complete_overview(body,'Title')==body
+    engine._editorial_json.assert_not_called()
+    assert engine.generation_report['overview']['reason']=='raw_source_retained'
