@@ -1,0 +1,98 @@
+import copy
+import json
+from unittest.mock import Mock
+
+import pytest
+
+from focused_editor import edit_whole_note
+from reading_budget import PLAN, make_plan, diagnostics
+from summary_errors import ProcessingCancelledError
+
+
+@pytest.fixture
+def plan():
+    token = PLAN.set(make_plan('English evidence. '*2000, 840, 'en'))
+    yield
+    PLAN.reset(token)
+
+
+def rows():
+    return [{'id':'N1','topic':'Costs','text':'Costs fall only for large orders.', 'evidence':'large orders'},
+            {'id':'N2','topic':'Limit','text':'Durability is untested.', 'evidence':'untested'}]
+
+
+def paragraph(text='Costs fall for large orders; durability remains untested.'):
+    return {'heading':'Lower cost is conditional','topic':'Costs and limits','text':text,
+            'ids':['N1','N2'],'evidence_id':'N2'}
+
+
+def test_whole_document_two_calls_and_preserves_input(plan):
+    source=rows();before=copy.deepcopy(source);report={}
+    call=Mock(side_effect=[{'paragraphs':[paragraph()]},{'complete':True,'grounded':True}])
+    result=edit_whole_note(source,call,report=report)
+    assert len(result)==1 and 'untested' in result[0]['text'] and source==before
+    assert call.call_count==2 and report['target_met']
+    assert len(json.loads(call.call_args_list[0].args[1])['notes'])==2
+
+
+def test_length_repair_uses_same_review_call(plan):
+    call=Mock(side_effect=[{'paragraphs':[paragraph('A long repetitive sentence. '*300)]},
+        {'complete':True,'grounded':True,'paragraphs':[paragraph()]}])
+    report={};result=edit_whole_note(rows(),call,report=report)
+    assert call.call_count==2 and report['review_repairs']==1 and report['target_met']
+    assert 'untested' in result[0]['text']
+    assert json.loads(call.call_args_list[1].args[1])['draft_units']>680
+
+
+def test_unresolved_length_is_not_recorded_as_success(plan):
+    call=Mock(side_effect=[{'paragraphs':[paragraph('Repetition. '*900)]},
+                          {'complete':True,'grounded':True}])
+    report={};edit_whole_note(rows(),call,report=report)
+    assert report['budget_unresolved'] and not report['target_met']
+    assert call.call_count==2
+
+
+def test_failure_does_not_start_per_chapter_retry_cascade(plan):
+    call=Mock(side_effect=TimeoutError());report={}
+    result=edit_whole_note(rows(),call,report=report)
+    assert [p['text'] for p in result]==[p['text'] for p in rows()]
+    assert call.call_count==1 and not report['target_met']
+
+
+def test_cancel_propagates(plan):
+    with pytest.raises(ProcessingCancelledError):
+        edit_whole_note(rows(),Mock(),checkpoint=Mock(side_effect=ProcessingCancelledError('stop')))
+
+
+@pytest.mark.parametrize('change',['missing_id','missing_condition','missing_media','reordered'])
+def test_invalid_rewrite_retains_readable_originals(plan,change):
+    source=rows();source[0]['text']+='\n*Content-[01:00]';source[1]['text']+='\nScreenshot-[02:00]'
+    p=paragraph('Costs fall for large orders; durability remains untested.\n*Content-[01:00]\nScreenshot-[02:00]')
+    review={'complete':True,'grounded':True}
+    if change=='missing_id':p['ids']=['N2']
+    if change=='missing_condition':review['complete']=False
+    if change=='missing_media':p['text']=p['text'].replace('Screenshot-[02:00]','')
+    if change=='reordered':p['text']=p['text'].replace('*Content-[01:00]\nScreenshot-[02:00]','Screenshot-[02:00]\n*Content-[01:00]')
+    result=edit_whole_note(source,Mock(side_effect=[{'paragraphs':[p]},review]),preserve_order=True)
+    assert [r['text'] for r in result]==[r['text'] for r in source]
+
+
+def test_marker_spelling_does_not_discard_compression(plan):
+    source=rows();source[0]['text']+='\n*Content-[01:00]';source[1]['text']+='\nScreenshot-[02:00]'
+    p=paragraph('Costs fall for large orders; durability remains untested.\n[Content-01:00]\nScreenshot-[02:00]')
+    result=edit_whole_note(source,Mock(side_effect=[{'paragraphs':[p]},{'complete':True,'grounded':True}]),preserve_order=True)
+    assert len(result)==1 and '*Content-[01:00]' in result[0]['text']
+
+
+def test_folded_evidence_never_inflates_podcast_reading_time(plan):
+    from summarizer import Summary, KeyPoint
+    summary=Summary('id','Title','Overview',[KeyPoint('Topic','Explanation.','quote '*10000,'01:00')],['Topic'],['Takeaway'])
+    before=diagnostics(summary,'source',PLAN.get())
+    summary.key_points[0].original_quote=''
+    assert diagnostics(summary,'source',PLAN.get())==before
+    assert before['output_words']==3
+
+
+def test_markdown_quotations_and_toc_excluded(plan):
+    text='# Title\n\n[Title](#title)\n\nActual explanation.\n\n> '+('quote '*10000)
+    assert diagnostics(text,'source',PLAN.get())['output_words']==3

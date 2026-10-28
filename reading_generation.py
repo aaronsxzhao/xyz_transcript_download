@@ -2,6 +2,7 @@
 import hashlib
 import inspect
 import threading
+import time
 from functools import wraps
 
 from reading_budget import VERSION
@@ -26,6 +27,7 @@ def generation_session(method):
             'editor': {}, 'language': {},
         }
         self._generation_lock = threading.RLock()
+        started = time.monotonic()
         try:
             result=method(self, *args, **kwargs)
             self.generation_report['generated']=bool(result)
@@ -37,6 +39,7 @@ def generation_session(method):
                     self.generation_report['reading'] = {'measurement_failed': True}
             return result
         finally:
+            self.generation_report['wall_seconds'] = round(time.monotonic() - started, 3)
             from processing_execution import CURRENT
             execution = CURRENT.get()
             if execution:

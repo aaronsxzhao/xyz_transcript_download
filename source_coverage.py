@@ -12,7 +12,7 @@ from dataclasses import dataclass, field
 
 from summary_errors import SummaryOutputError
 
-SOURCE_CHUNK_CHARS = 4000
+SOURCE_CHUNK_CHARS = 8000
 SOURCE_UNIT_CHARS = 800
 EDITORIAL_VERSION = "source-audit-v10"
 

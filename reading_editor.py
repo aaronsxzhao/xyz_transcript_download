@@ -148,8 +148,10 @@ def _partition(groups, expected):
 
 
 def _media(text):
+    from note_presentation import normalize_media_markers
+    text = normalize_media_markers(text)
     # Editorial rewriting must not remove a chart or its original playback link.
-    return set(re.findall(r'https?://[^\s<>"\)]+|(?:Screenshot-|\*?Content-)\[\d+(?::\d+){1,2}\]|/data/(?:screenshots|thumbnails)/[^\s\)]+', text))
+    return {value.lstrip("*") if value.startswith(("*Content-", "Content-")) else value for value in re.findall(r'https?://[^\s<>"\)]+|(?:Screenshot-|\*?Content-)\[\d+(?::\d+){1,2}\]|/data/(?:screenshots|thumbnails)/[^\s\)]+', text)}
 
 
 def _verbatim_blocks(text):
@@ -167,6 +169,11 @@ def edit_sections(items, call, checkpoint=None, budget=120, *, preserve_order=Fa
     Only metadata is abbreviated for the chapter index; composition sees the
     complete note bodies. Oversized individual notes are retained verbatim.
     """
+    from reading_budget import PLAN
+    if budget is None and PLAN.get() and PLAN.get().get('target_high'):
+        from focused_editor import edit_whole_note
+        return edit_whole_note(items, call, checkpoint, preserve_order=preserve_order,
+                               source_text=source_text, report=report)
     if len(items) < 2:
         return [dict(item, ids=[item['id']], evidence_id=item['id']) for item in items]
     report = report if report is not None else {}

@@ -4,7 +4,7 @@ import re
 from contextvars import ContextVar
 
 PLAN = ContextVar('reading_budget_plan', default=None)
-VERSION = 'focused-reading-v3'
+VERSION = 'focused-reading-v4'
 
 
 def counts(text):
@@ -66,7 +66,11 @@ def guidance(source=None, *, share=None):
             'reasoning, decisive evidence, disagreements, qualifications and meaningful closing reflections. '
             'Select informative examples; compress repetitive anecdotes and empty transitions. '
             'Do not pad a sparse source, truncate output, drop an essential condition, or invent claims to meet this soft range. '
-            'Original quotes are separate evidence, not a way to duplicate the prose. Preserve the existing output schema and headings.\n')
+            'Original quotes are separate evidence, not a way to duplicate the prose. Preserve the existing output schema and headings. '
+            'Plan the available space BEFORE writing. Rank the central answers, decisive evidence and exceptions; '
+            'use one explanation per argument, not one paragraph per source unit. '
+            'Reserve at most 15 percent for overview and takeaways; spend the remainder on the arguments. '
+            'Review your length before returning: remove repeated explanations and equivalent anecdotes first.\n')
 
 
 def visible_prose(markdown):

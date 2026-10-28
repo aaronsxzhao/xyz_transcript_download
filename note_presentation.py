@@ -36,7 +36,7 @@ def normalize_media_markers(markdown):
     for token in MarkdownIt().parse(markdown):
         if token.map and token.type in ('fence', 'code_block', 'blockquote_open'):
             protected.update(range(*token.map))
-    pattern = re.compile(r'^( {0,3})\*?(Content|Screenshot)-\[?(\d+(?::\d{2}){1,2})\]?\*?(?=\s|$)')
+    pattern = re.compile(r'^( {0,3})(?:\*?)(?:\[)?(Content|Screenshot)-\[?(\d+(?::\d{2}){1,2})\]?\*?(?=\s|$)')
     def repair(match):
         indent, kind, stamp = match.groups()
         if any(int(value) >= 60 for value in stamp.split(':')[1:]):
