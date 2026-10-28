@@ -228,15 +228,26 @@ Use content-specific topic headings, never schema labels such as "chapters".
             text = normalize_media_markers(value['text'])
             if _separate_media(text)[1]:raise ValueError('unexpected_media')
             source = '\n\n'.join(row['text'] for row in lookup[key])
+            blocks = _verbatim_blocks(source)
+            if any(block not in blocks for block in _verbatim_blocks(text)):
+                raise ValueError('verbatim_source')
+            for block in blocks:
+                if block in text:
+                    continue
+                if not block.lstrip().startswith('>'):
+                    # Code placement is semantic; keep the source section if
+                    # the model omits code rather than moving it arbitrarily.
+                    raise ValueError('verbatim_source')
+                # Quotations are owned by the application, just like media.
+                # Restore an omitted original exactly; never ask the model to
+                # recreate it or discard the entire otherwise verified edit.
+                text += '\n\n' + block
             media = [marker for row in lookup[key] for marker in _separate_media(row['text'])[1]]
             # Several source notes can reference an earlier moment within the
             # same discussion. Keep their exact anchors/assets, in time order.
             if preserve_order:media.sort(key=lambda marker:media_times(marker)[0])
             rendered = text+('\n\n'+'\n\n'.join(media) if media else '')
             if _media(source) != _media(rendered):raise ValueError('source_media')
-            blocks = _verbatim_blocks(source)
-            if any(block not in text for block in blocks) or any(block not in blocks for block in _verbatim_blocks(text)):
-                raise ValueError('verbatim_source')
             return {**value,'text':rendered}
         accepted = {}
         reasons = {}
