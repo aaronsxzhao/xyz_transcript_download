@@ -229,12 +229,13 @@ Use content-specific topic headings, never schema labels such as "chapters".
             if _separate_media(text)[1]:raise ValueError('unexpected_media')
             source = '\n\n'.join(row['text'] for row in lookup[key])
             blocks = _verbatim_blocks(source)
+            quotes = set(_verbatim_blocks(source, ('blockquote_open',)))
             if any(block not in blocks for block in _verbatim_blocks(text)):
                 raise ValueError('verbatim_source')
             for block in blocks:
                 if block in text:
                     continue
-                if not block.lstrip().startswith('>'):
+                if block not in quotes:
                     # Code placement is semantic; keep the source section if
                     # the model omits code rather than moving it arbitrarily.
                     raise ValueError('verbatim_source')

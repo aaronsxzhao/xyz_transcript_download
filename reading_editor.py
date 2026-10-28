@@ -154,12 +154,12 @@ def _media(text):
     return {value.lstrip("*") if value.startswith(("*Content-", "Content-")) else value for value in re.findall(r'https?://[^\s<>"\)]+|(?:Screenshot-|\*?Content-)\[\d+(?::\d+){1,2}\]|/data/(?:screenshots|thumbnails)/[^\s\)]+', text)}
 
 
-def _verbatim_blocks(text):
+def _verbatim_blocks(text, types=('blockquote_open','fence','code_block')):
     from markdown_it import MarkdownIt
     lines = text.splitlines(keepends=True)
     return [''.join(lines[token.map[0]:token.map[1]]).strip('\r\n')
             for token in MarkdownIt().parse(text)
-            if token.map and token.type in ('blockquote_open','fence','code_block')]
+            if token.map and token.type in types]
 
 
 def edit_sections(items, call, checkpoint=None, budget=120, *, preserve_order=False, source_text='', report=None, reserved_text='', additional_reserved_units=0):

@@ -69,6 +69,12 @@ def test_invented_quote_still_retains_original_notes(plan):
     assert [row['text'] for row in result]==[row['text'] for row in rows()]
 
 
+def test_indented_code_starting_with_quote_marker_is_not_moved_as_evidence(plan):
+    source=rows();source[0]['text']+='\n\n    > example code, not a quotation\n'
+    result=edit_whole_note(source,provider)
+    assert [row['text'] for row in result]==[row['text'] for row in source]
+
+
 def test_media_and_order_are_owned_by_application(plan):
     source=rows()
     source[0]['text']+='\n*Content-[01:00]\n![Screenshot at 01:00](/data/screenshots/example.jpg)'
