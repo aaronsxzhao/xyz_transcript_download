@@ -117,7 +117,8 @@ def edit_whole_note(items, call, checkpoint=None, *, preserve_order=False,
 READING EDITION, not a catalogue or sentence-by-sentence retelling.
 The application has fixed consecutive source groups. Return exactly ONE section
 per group id, in any order; the application restores source order and media.
-Never merge groups, invent group IDs, or return lists of source IDs. Each section
+Never merge groups, invent group IDs, or return lists of source IDs.
+section.id must copy group.id; evidence_id copies a note.id inside that group. Each section
 may contain several connected paragraphs, a comparison table or genuine steps.
 Keep the meaningful source headings and original language. Use the same broad
 topic for adjacent sections of the same discussion. Select central claims,
@@ -177,11 +178,11 @@ by speakers, and connect questions to answers in the supplied notes when present
         def retained(reason):
             reasons[reason] = reasons.get(reason,0)+1
         try:
-            draft = request("""
-Return JSON {"sections":[{"id":"G1","topic":"broad source chapter",
-"heading":"specific claim","text":"concise connected Markdown explanation",
-"evidence_id":"an original note id from this group"}]}.
-""",{'groups':batch})
+            schema = {'sections':[{'id':batch[0]['id'], 'topic':'broad source chapter',
+                'heading':'specific claim','text':'concise connected Markdown explanation',
+                'evidence_id':'a note.id from this group'}]}
+            draft = request('Return JSON in this shape, with one section per supplied group: '+json.dumps(schema),
+                            {'groups':batch})
             sections = indexed(draft.get('sections'))
             feedback = {}
             sizes = {}
@@ -198,8 +199,8 @@ Independently compare each rewrite with ALL notes in its own group. Judge
 important meaning, not copying every anecdote. Correct factual errors, missing
 qualifications and structural errors. If draft_units exceeds that group's
 body_budget, compress toward writing_target, removing repetition and setup first.
-Return JSON {"checks":[{"id":"G1","complete":true,"grounded":true}],
-"sections":[only corrected sections, with id,topic,heading,text,evidence_id]}.
+Return JSON with "checks" (one object per supplied group.id, complete and grounded
+booleans) and "sections" (only corrected sections in the original schema).
 A check judges the corrected section when one is supplied. Check every group;
 do not discard good sections because a different group needs repair. If a
 section is missing, reconstruct it from that group's notes within its budget.
