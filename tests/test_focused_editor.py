@@ -1,254 +1,242 @@
+"""Reading edits keep source ownership in application code, not model grouping."""
 import copy
 import json
-from unittest.mock import Mock
+from unittest.mock import Mock, patch
 
 import pytest
 
-from focused_editor import edit_whole_note
+from focused_editor import edit_whole_note, _separate_media
 from reading_budget import PLAN, make_plan, diagnostics
 from summary_errors import ProcessingCancelledError
 
 
 @pytest.fixture
 def plan():
-    token = PLAN.set(make_plan('English evidence. '*2000, 840, 'en'))
+    token=PLAN.set(make_plan('English evidence. '*2000,840,'en'))
     yield
     PLAN.reset(token)
 
 
 def rows():
-    return [{'id':'N1','topic':'Costs','text':'Costs fall only for large orders.', 'evidence':'large orders'},
-            {'id':'N2','topic':'Limit','text':'Durability is untested.', 'evidence':'untested'}]
+    return [{'id':'N1','topic':'Costs','text':'Costs fall only for large orders.','evidence':'large orders'},
+            {'id':'N2','topic':'Limit','text':'Durability is untested.','evidence':'untested'}]
 
 
-def paragraph(text='Costs fall for large orders; durability remains untested.'):
-    return {'heading':'Lower cost is conditional','topic':'Costs and limits','text':text,
-            'ids':['N1','N2'],'evidence_id':'N2'}
+def provider(system,payload,timeout):
+    data=json.loads(payload)
+    if 'rewrite' in data:
+        return {'checks':[{'id':g['id'],'complete':True,'grounded':True} for g in data['groups']]}
+    return {'sections':[{'id':g['id'],'topic':'Costs and limits','heading':'Conditional cost reduction',
+        'text':'Costs fall for large orders; durability remains untested.',
+        'evidence_id':g['notes'][-1]['id']} for g in data['groups']]}
 
 
-def test_whole_document_two_calls_and_preserves_input(plan):
+def test_two_calls_preserve_sources_and_choose_original_evidence(plan):
     source=rows();before=copy.deepcopy(source);report={}
-    call=Mock(side_effect=[{'paragraphs':[paragraph()]},{'complete':True,'grounded':True}])
+    call=Mock(side_effect=provider)
     result=edit_whole_note(source,call,report=report)
-    assert len(result)==1 and 'untested' in result[0]['text'] and source==before
-    assert call.call_count==2 and report['target_met']
-    assert len(json.loads(call.call_args_list[0].args[1])['notes'])==2
-
-
-def test_length_repair_uses_same_review_call(plan):
-    call=Mock(side_effect=[{'paragraphs':[paragraph('A long repetitive sentence. '*300)]},
-        {'complete':True,'grounded':True,'paragraphs':[paragraph()]}])
-    report={};result=edit_whole_note(rows(),call,report=report)
-    assert call.call_count==2 and report['review_repairs']==1 and report['target_met']
-    assert 'untested' in result[0]['text']
-    assert json.loads(call.call_args_list[1].args[1])['draft_units']>680
-
-
-def test_unresolved_length_is_not_recorded_as_success(plan):
-    call=Mock(side_effect=[{'paragraphs':[paragraph('Repetition. '*900)]},
-                          {'complete':True,'grounded':True}])
-    report={};edit_whole_note(rows(),call,report=report)
-    assert report['budget_unresolved'] and not report['target_met']
+    assert source==before and result[0]['ids']==['N1','N2']
+    assert result[0]['evidence_id']=='N2' and report['target_met']
     assert call.call_count==2
+    payload=json.loads(call.call_args_list[0].args[1])
+    assert 'evidence' not in payload['groups'][0]['notes'][0]
+    assert payload['groups'][0]['notes'][0]['has_original_quote']
 
 
-def test_failure_does_not_start_per_chapter_retry_cascade(plan):
-    call=Mock(side_effect=TimeoutError());report={}
-    result=edit_whole_note(rows(),call,report=report)
+def test_actual_reserve_excludes_folded_quotes(plan):
+    report={};call=Mock(side_effect=provider)
+    edit_whole_note(rows(),call,report=report,reserved_text='Overview '*250+'\n\n> '+'quote '*1000)
+    assert report['reserved_units']==250
+    assert report['body_budget']==PLAN.get()['target_high']-250
+
+
+def test_media_and_order_are_owned_by_application(plan):
+    source=rows()
+    source[0]['text']+='\n*Content-[01:00]\n![Screenshot at 01:00](/data/screenshots/example.jpg)'
+    source[1]['text']+='\nScreenshot-[02:00]'
+    call=Mock(side_effect=provider)
+    result=edit_whole_note(source,call,preserve_order=True)
+    from note_presentation import media_times
+    assert media_times(result[0]['text'])==[60,60,120]
+    for args in call.call_args_list:
+        assert '/data/screenshots/' not in args.args[1] and '*Content-' not in args.args[1]
+
+
+def test_source_blocks_and_prose_links_are_not_media():
+    text='> Content-[01:00]\n\n```text\nScreenshot-[02:00]\n```\n\n[Evidence](https://example.com)\n\n*Content-[03:00]'
+    prose,media=_separate_media(text)
+    assert media==['*Content-[03:00]']
+    assert '> Content-[01:00]' in prose and 'Screenshot-[02:00]' in prose
+    assert '[Evidence](https://example.com)' in prose
+
+
+@pytest.mark.parametrize('phase',['compose','review'])
+def test_timeout_retains_readable_originals_without_retry_cascade(plan,phase):
+    def call(system,payload,timeout):
+        if phase=='compose' or 'rewrite' in json.loads(payload):raise TimeoutError()
+        return provider(system,payload,timeout)
+    request=Mock(side_effect=call);report={}
+    result=edit_whole_note(rows(),request,report=report)
     assert [p['text'] for p in result]==[p['text'] for p in rows()]
-    assert call.call_count==1 and not report['target_met']
+    assert request.call_count==(1 if phase=='compose' else 2)
+    assert report['retained_batches']==1
 
 
-def test_cancel_propagates(plan):
+def test_cancellation_propagates(plan):
     with pytest.raises(ProcessingCancelledError):
         edit_whole_note(rows(),Mock(),checkpoint=Mock(side_effect=ProcessingCancelledError('stop')))
 
 
-@pytest.mark.parametrize('change',['missing_id','missing_condition','missing_media','reordered'])
-def test_invalid_rewrite_retains_readable_originals(plan,change):
-    source=rows();source[0]['text']+='\n*Content-[01:00]';source[1]['text']+='\nScreenshot-[02:00]'
-    p=paragraph('Costs fall for large orders; durability remains untested.\n*Content-[01:00]\nScreenshot-[02:00]')
-    review={'complete':True,'grounded':True}
-    if change=='missing_id':p['ids']=['N2']
-    if change=='missing_condition':review['complete']=False
-    if change=='missing_media':p['text']=p['text'].replace('Screenshot-[02:00]','')
-    if change=='reordered':p['text']=p['text'].replace('*Content-[01:00]\nScreenshot-[02:00]','Screenshot-[02:00]\n*Content-[01:00]')
-    result=edit_whole_note(source,Mock(side_effect=[{'paragraphs':[p]},review]),preserve_order=True)
-    assert [r['text'] for r in result]==[r['text'] for r in source]
+def test_review_can_repair_a_missing_group_in_second_call(plan):
+    def call(system,payload,timeout):
+        data=json.loads(payload)
+        if 'rewrite' not in data:return {'sections':[]}
+        assert data['validation_feedback']=={'G1':'missing_or_duplicate_section'}
+        fixed=provider(system,json.dumps({'groups':data['groups']}),timeout)
+        return {**provider(system,payload,timeout),**fixed}
+    request=Mock(side_effect=call)
+    result=edit_whole_note(rows(),request)
+    assert len(result)==1 and request.call_count==2
 
 
-def test_application_preserves_markers_without_model_copying(plan):
-    source=rows();source[0]['text']+='\n*Content-[01:00]';source[1]['text']+='\nScreenshot-[02:00]'
-    p=paragraph()
-    result=edit_whole_note(source,Mock(side_effect=[{'paragraphs':[p]},{'complete':True,'grounded':True}]),preserve_order=True)
-    assert len(result)==1 and '*Content-[01:00]' in result[0]['text']
+def long_source():
+    return [{'id':f'N{i}','topic':f'Topic {i}','text':('Important evidence and condition. '*60)} for i in range(30)]
 
 
-def test_folded_evidence_never_inflates_podcast_reading_time(plan):
-    from summarizer import Summary, KeyPoint
+def test_one_failed_group_does_not_discard_other_sections(plan):
+    def call(system,payload,timeout):
+        response=provider(system,payload,timeout)
+        if 'checks' in response:response['checks'][0]['complete']=False
+        return response
+    source=[dict(row,text=row['text'][:200]) for row in long_source()];report={}
+    result=edit_whole_note(source,call,report=report)
+    assert [i for p in result for i in p['ids']]==[p['id'] for p in source]
+    assert report['batches'][0]['retained_sections']==1
+    assert report['batches'][0]['composed_sections']>=1
+    assert any('untested' in p['text'] for p in result)
+
+
+def test_model_reordering_cannot_change_source_order(plan):
+    def call(system,payload,timeout):
+        response=provider(system,payload,timeout)
+        if 'sections' in response:response['sections'].reverse()
+        return response
+    source=long_source()
+    result=edit_whole_note(source,call,preserve_order=True)
+    assert [i for p in result for i in p['ids']]==[p['id'] for p in source]
+
+
+def test_duplicate_group_is_not_arbitrarily_selected(plan):
+    def call(system,payload,timeout):
+        response=provider(system,payload,timeout)
+        if 'sections' in response:response['sections']*=2
+        return response
+    result=edit_whole_note(rows(),call)
+    assert [p['text'] for p in result]==[p['text'] for p in rows()]
+
+
+@pytest.mark.parametrize('change',['media','quote','url'])
+def test_unverified_changes_to_source_artifacts_retain_originals(plan,change):
+    source=rows()
+    if change=='quote':source[0]['text']+='\n\n> Exact original quotation.'
+    if change=='url':source[0]['text']+='\nhttps://example.com/evidence'
+    def call(system,payload,timeout):
+        response=provider(system,payload,timeout)
+        if change=='media' and 'sections' in response:
+            response['sections'][0]['text']+='\nScreenshot-[09:00]'
+        return response
+    result=edit_whole_note(source,call)
+    assert [p['text'] for p in result]==[p['text'] for p in source]
+
+
+def test_over_budget_draft_is_measured_and_sent_for_review(plan):
+    def call(system,payload,timeout):
+        response=provider(system,payload,timeout)
+        if 'sections' in response:response['sections'][0]['text']='Repetition. '*1000
+        else:
+            data=json.loads(payload)
+            assert data['draft_units']['G1']>data['groups'][0]['body_budget']
+            response.update(provider(system,json.dumps({'groups':data['groups']}),timeout))
+        return response
+    report={};result=edit_whole_note(rows(),call,report=report)
+    assert report['target_met'] and 'untested' in result[0]['text']
+
+
+def test_verified_over_budget_prose_is_not_truncated_or_claimed_within_budget(plan):
+    def call(system,payload,timeout):
+        response=provider(system,payload,timeout)
+        if 'sections' in response:response['sections'][0]['text']='Evidence. '*1000
+        return response
+    report={};result=edit_whole_note(rows(),call,report=report)
+    assert not report['target_met'] and result[0]['text'].count('Evidence.')==1000
+
+
+def test_long_chinese_output_is_split_even_if_request_is_small():
+    token=PLAN.set(make_plan('原文内容。'*6000,67*60,'zh'))
+    try:
+        source=[{'id':f'N{i}','topic':'条件','text':'原文论据与条件。'*60} for i in range(20)]
+        calls=[]
+        def call(system,payload,timeout):
+            data=json.loads(payload);calls.append(data)
+            return provider(system,payload,timeout)
+        report={};edit_whole_note(source,call,report=report,reserved_text='概览'*300)
+        initial=[d for d in calls if 'rewrite' not in d]
+        assert len(initial)>1
+        assert all(sum(g['body_budget'] for g in d['groups'])<=1200 for d in initial)
+        assert sum(g['body_budget'] for d in initial for g in d['groups'])==report['body_budget']
+        assert report['model_calls']==len(initial)*2
+    finally:PLAN.reset(token)
+
+
+def test_capacity_limit_never_discards_source(plan):
+    from focused_editor import MAX_INPUT_CHARS
+    source=rows();source[0]['text']='Evidence. '*MAX_INPUT_CHARS
+    call=Mock();report={};result=edit_whole_note(source,call,report=report)
+    call.assert_not_called()
+    assert [p['text'] for p in result]==[p['text'] for p in source]
+    assert report['fallback_reason']=='input_capacity'
+
+
+def test_original_quotes_never_count_as_reading_prose(plan):
+    from summarizer import Summary,KeyPoint
     summary=Summary('id','Title','Overview',[KeyPoint('Topic','Explanation.','quote '*10000,'01:00')],['Topic'],['Takeaway'])
     before=diagnostics(summary,'source',PLAN.get())
     summary.key_points[0].original_quote=''
     assert diagnostics(summary,'source',PLAN.get())==before
     assert before['output_words']==3
-
-
-def test_markdown_quotations_and_toc_excluded(plan):
-    text='# Title\n\n[Title](#title)\n\nActual explanation.\n\n> '+('quote '*10000)
+    text='# Title\n\n[Title](#title)\n\nActual explanation.\n\n> '+'quote '*10000
     assert diagnostics(text,'source',PLAN.get())['output_words']==3
 
 
-def test_prose_containing_internal_link_is_still_reading_content(plan):
-    text='See [conditions](#conditions) before drawing a conclusion.\n\n[Conditions](#conditions)'
-    assert diagnostics(text,'source',PLAN.get())['output_words']==6
-
-
-def test_oversized_input_keeps_every_note_without_provider_calls(plan):
-    from focused_editor import MAX_INPUT_CHARS
-    source=rows();source[0]['text']='Evidence. '*MAX_INPUT_CHARS
-    call=Mock();report={}
-    result=edit_whole_note(source,call,report=report)
-    call.assert_not_called()
-    assert [p['text'] for p in result]==[p['text'] for p in source]
-    assert report['fallback_reason']=='input_capacity' and not report['target_met']
-
-
 @pytest.mark.parametrize('video',[False,True])
-def test_single_long_chapter_reaches_whole_editor(plan,video):
-    from unittest.mock import patch
+def test_single_chapter_reaches_editor_and_retains_evidence(plan,video):
     if video:
         from note_summarizer import NoteSummarizer
         engine=NoteSummarizer(api_key='synthetic')
-        draft='# Title\n\n## Only chapter\n\n'+'Repetitive explanation. '*1000
-        response=paragraph();response.update(ids=['N1'],evidence_id='N1')
-        with patch.object(engine,'_editorial_json',side_effect=[{'paragraphs':[response]},{'complete':True,'grounded':True}]) as call:
+        draft='# Title\n\n## Only chapter\n\n'+'Repetition. '*1000
+        with patch.object(engine,'_editorial_json',side_effect=provider) as call:
             result=engine._edit_reading(draft,'Title',False)
             assert 'untested' in result and len(result)<len(draft)
     else:
-        from summarizer import Summarizer, Summary, KeyPoint
+        from summarizer import Summarizer,Summary,KeyPoint
         engine=Summarizer(api_key='synthetic')
         draft=Summary('id','Title','Overview',[KeyPoint('Topic','Repetition. '*1000,'Quote.','01:00')],['Topic'],[])
-        response=paragraph();response.update(ids=['N1'],evidence_id='N1')
-        with patch.object(engine,'_editorial_json',side_effect=[{'paragraphs':[response]},{'complete':True,'grounded':True}]) as call:
+        with patch.object(engine,'_editorial_json',side_effect=provider) as call:
             result=engine._edit_reading(draft)
             assert 'untested' in result.key_points[0].summary
             assert result.key_points[0].original_quote=='Quote.'
     assert call.call_count==2
 
 
-def test_actual_intro_reserve_excludes_quotes(plan):
-    report = {}
-    call = Mock(side_effect=[{'paragraphs':[paragraph()]}, {'complete':True,'grounded':True}])
-    edit_whole_note(rows(), call, report=report,
-                    reserved_text=('Overview '*250)+'\n\n> '+('quote '*1000))
-    assert report['reserved_units'] == 250
-    assert report['body_budget'] == PLAN.get()['target_high'] - 250
-    assert json.loads(call.call_args_list[0].args[1])['body_budget'] == report['body_budget']
-
-
-def test_repeated_original_media_is_restored_exactly(plan):
-    source = rows()
-    source[0]['text'] += '\n*Content-[01:00]\n*Content-[01:00]'
-    source[1]['text'] += '\nScreenshot-[02:00]'
-    p = paragraph()
-    result = edit_whole_note(source, Mock(side_effect=[{'paragraphs':[p]}, {'complete':True,'grounded':True}]), preserve_order=True)
-    assert len(result) == 1
-
-
-def test_large_note_uses_bounded_batches_with_one_shared_budget(plan):
-    source = [{'id':f'N{i}', 'topic':f'Topic {i}', 'text':'Evidence and condition. '*160} for i in range(24)]
-    calls = []
-    def call(system, payload, timeout):
-        body = json.loads(payload)
-        calls.append(body)
-        if 'rewrite' in body:
-            return {'complete':True,'grounded':True}
-        batch = body['notes']
-        return {'paragraphs':[{'topic':'Evidence','heading':'Conditions','text':'Evidence under conditions.',
-            'ids':[r['id'] for r in batch], 'evidence_id':batch[0]['id']}]}
-    report = {}
-    result = edit_whole_note(source, call, preserve_order=True, report=report, reserved_text='Overview '*200)
-    compositions = [body for body in calls if 'rewrite' not in body]
-    assert 2 <= len(compositions) <= 4
-    assert sum(body['body_budget'] for body in compositions) == PLAN.get()['target_high'] - 200
-    assert all(len(body['document_outline']) == 24 for body in compositions)
-    assert [i for p in result for i in p['ids']] == [r['id'] for r in source]
-    assert report['model_calls'] == len(compositions)*2
-    assert report['target_met']
-
-
-def test_review_repairs_cannot_drop_or_reassign_media(plan):
-    source = rows()
-    source[0]['text'] += '\n![Screenshot at 01:00](/data/screenshots/example_01-00.jpg)'
-    source[1]['text'] += '\n*Content-[02:00]'
-    call = Mock(side_effect=[{'paragraphs':[paragraph()]},
-        {'complete':True,'grounded':True,'paragraphs':[paragraph('Lower costs require large orders; durability has not been tested.')]}])
-    result = edit_whole_note(source,call,preserve_order=True)
-    assert '/data/screenshots/example_01-00.jpg' in result[0]['text']
-    assert result[0]['text'].index('01:00') < result[0]['text'].index('02:00')
-    for args in call.call_args_list:
-        assert '/data/screenshots/' not in args.args[1]
-        assert '*Content-' not in args.args[1]
-
-
-def test_media_extraction_preserves_quoted_markers_and_prose_links():
-    from focused_editor import _separate_media
-    original = '> Content-[01:00]\n\n```text\nScreenshot-[02:00]\n```\n\n[Evidence](https://example.com)\n\n*Content-[03:00]'
-    prose, media = _separate_media(original)
-    assert media == ['*Content-[03:00]']
-    assert '> Content-[01:00]' in prose and 'Screenshot-[02:00]' in prose
-    assert '[Evidence](https://example.com)' in prose
-
-
-def test_reference_typo_repaired_in_existing_review_budget(plan):
-    invalid = paragraph(); invalid['ids'] = ['N1','N3']
-    call = Mock(side_effect=[{'paragraphs':[invalid]},
-        {'complete':True,'grounded':True,'paragraphs':[paragraph()]}])
-    report = {}
-    result = edit_whole_note(rows(),call,report=report)
-    assert len(result) == 1 and result[0]['ids'] == ['N1','N2']
-    assert report['draft_validation'] == 'source_references'
-    assert call.call_count == 2
-    assert json.loads(call.call_args_list[1].args[1])['validation_feedback'] == 'source_references'
-
-
-def test_chronology_restored_for_whole_paragraphs_without_another_model_call(plan):
-    source = rows()
-    p1 = dict(paragraph(), ids=['N1'], evidence_id='N1')
-    p2 = dict(paragraph(), ids=['N2'], evidence_id='N2')
-    call = Mock(side_effect=[{'paragraphs':[p2,p1]}, {'complete':True,'grounded':True}])
-    result = edit_whole_note(source,call,preserve_order=True)
-    assert [p['ids'] for p in result] == [['N1'],['N2']]
-    assert call.call_count == 2
-
-
-def test_order_repair_still_receives_actual_over_budget_length(plan):
-    source = rows()+[{'id':'N3','topic':'Further limit','text':'Evidence remains preliminary.'}]
-    p1 = dict(paragraph('Long explanation. '*700), ids=['N1','N3'], evidence_id='N1')
-    p2 = dict(paragraph(), ids=['N2'], evidence_id='N2')
-    fixed = dict(paragraph(), ids=['N1','N2','N3'], evidence_id='N1')
-    call = Mock(side_effect=[{'paragraphs':[p1,p2]}, {'complete':True,'grounded':True,'paragraphs':[fixed]}])
-    result = edit_whole_note(source,call,preserve_order=True)
-    feedback = json.loads(call.call_args_list[1].args[1])
-    assert feedback['validation_feedback']=='source_order'
-    assert feedback['draft_units']>feedback['body_budget']
-    assert feedback['writing_target']<feedback['body_budget']
-    assert result[0]['ids']==['N1','N2','N3']
-
-
-def test_video_orders_audit_additions_before_compacting(plan):
-    from unittest.mock import patch
+def test_audit_additions_are_ordered_before_grouping(plan):
     from note_summarizer import NoteSummarizer
     from note_presentation import media_times
-    engine = NoteSummarizer(api_key='synthetic')
-    original = '# Title\n\n## Later\n\nThe later claim.\n*Content-[02:00]\n\n## Early\n\nThe opening premise.\n*Content-[00:10]'
+    engine=NoteSummarizer(api_key='synthetic')
+    original='# Title\n\n## Later\n\nLater claim.\n*Content-[02:00]\n\n## Early\n\nOpening premise.\n*Content-[00:10]'
     def call(system,payload,timeout):
-        body = json.loads(payload)
-        if 'rewrite' in body:
-            return {'complete':True,'grounded':True}
-        assert [n['topic'] for n in body['notes']] == ['Early','Later']
-        return {'paragraphs':[{'topic':n['topic'], 'heading':n['topic'], 'text':n['text'],
-            'ids':[n['id']], 'evidence_id':n['id']} for n in body['notes']]}
+        data=json.loads(payload)
+        assert [n['topic'] for g in data['groups'] for n in g['notes']]==['Early','Later']
+        return provider(system,payload,timeout)
     with patch.object(engine,'_editorial_json',side_effect=call):
-        result = engine._edit_reading(original,'Title',False)
-    assert media_times(result) == [10,120]
+        result=engine._edit_reading(original,'Title',False)
+    assert media_times(result)==[10,120]
