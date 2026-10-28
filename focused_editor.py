@@ -15,6 +15,16 @@ from summary_errors import is_cancellation
 MAX_INPUT_CHARS = 160000
 
 
+def _document_context(rows, limit=12000):
+    """Bounded whole-document signposts, never a replacement for full notes."""
+    for preview in (160, 80, 0):
+        entries = [{'id':row['id'], 'topic':row['topic'][:100],
+                    'preview':visible_prose(_separate_media(row['text'])[0])[:preview]} for row in rows]
+        if len(json.dumps(entries,ensure_ascii=False)) <= limit:
+            return {'complete_source':False, 'entries':entries}
+    return {'complete_source':False, 'entries':[]}
+
+
 def _separate_media(text):
     """Keep generated media as application-owned data, outside model prose.
 
@@ -68,7 +78,7 @@ def _source_groups(items, count, language):
 
 
 def edit_whole_note(items, call, checkpoint=None, *, preserve_order=False,
-                    source_text='', report=None, reserved_text=''):
+                    source_text='', report=None, reserved_text='', additional_reserved_units=0):
     from math import ceil
     from reading_editor import _media, _verbatim_blocks
     from note_presentation import normalize_media_markers, media_times
@@ -84,7 +94,7 @@ def edit_whole_note(items, call, checkpoint=None, *, preserve_order=False,
         return []
     plan = PLAN.get() or {}
     language = plan.get('language', 'en')
-    reserved = units(visible_prose(reserved_text), language)
+    reserved = units(visible_prose(reserved_text), language) + additional_reserved_units
     target = max(1, round(plan.get('target_high', 0))-reserved)
     rows = [{**row, 'text':normalize_media_markers(row['text'])} for row in items]
     report.update(reserved_units=reserved, body_budget=target)
@@ -123,6 +133,7 @@ def edit_whole_note(items, call, checkpoint=None, *, preserve_order=False,
             batches.append(batch);batch=[];characters=output_budget=0
         batch.append(request);characters+=size;output_budget+=request['body_budget']
     if batch:batches.append(batch)
+    document_context = _document_context(rows)
     common = SOURCE_FIDELITY + ARGUMENT_CONTRACT + source_language_lock(source_text) + """
 READING EDITION, not a catalogue or sentence-by-sentence retelling.
 The application has fixed consecutive source groups. Return exactly ONE section
@@ -149,6 +160,13 @@ is a transition, not an unresolved question. Do not repeat a preceding group's
 explanation: keep only this group's additional reasoning, evidence or conditions.
 Boundary context describes adjacent notes outside this batch; do not summarize
 it again. It is supplied to resolve transitions and avoid duplicated explanations.
+Document context gives signposts to ALL chapters, but its previews are incomplete.
+Use it to recognize later answers and transitions; do not copy outside arguments
+into this group's body. Neither a local chunk nor an incomplete preview proves
+that the whole conversation leaves a question unanswered. Only state that a
+question was left unanswered when a speaker explicitly says so in source notes;
+otherwise describe the question or transition without an absence claim. Remove
+chunk-extraction commentary claiming an answer is absent when its scope is unknown.
 Preserve speaker attribution only when the notes establish it consistently.
 When speaker turns are uncertain, say "the discussion" or "one speaker" rather
 than assigning personal experiences, sobriety or biographical claims to a name.
@@ -210,15 +228,27 @@ Use content-specific topic headings, never schema labels such as "chapters".
             text = normalize_media_markers(value['text'])
             if _separate_media(text)[1]:raise ValueError('unexpected_media')
             source = '\n\n'.join(row['text'] for row in lookup[key])
+            blocks = _verbatim_blocks(source)
+            quotes = set(_verbatim_blocks(source, ('blockquote_open',)))
+            if any(block not in blocks for block in _verbatim_blocks(text)):
+                raise ValueError('verbatim_source')
+            for block in blocks:
+                if block in text:
+                    continue
+                if block not in quotes:
+                    # Code placement is semantic; keep the source section if
+                    # the model omits code rather than moving it arbitrarily.
+                    raise ValueError('verbatim_source')
+                # Quotations are owned by the application, just like media.
+                # Restore an omitted original exactly; never ask the model to
+                # recreate it or discard the entire otherwise verified edit.
+                text += '\n\n' + block
             media = [marker for row in lookup[key] for marker in _separate_media(row['text'])[1]]
             # Several source notes can reference an earlier moment within the
             # same discussion. Keep their exact anchors/assets, in time order.
             if preserve_order:media.sort(key=lambda marker:media_times(marker)[0])
             rendered = text+('\n\n'+'\n\n'.join(media) if media else '')
             if _media(source) != _media(rendered):raise ValueError('source_media')
-            blocks = _verbatim_blocks(source)
-            if any(block not in text for block in blocks) or any(block not in blocks for block in _verbatim_blocks(text)):
-                raise ValueError('verbatim_source')
             return {**value,'text':rendered}
         accepted = {}
         reasons = {}
@@ -229,7 +259,7 @@ Use content-specific topic headings, never schema labels such as "chapters".
                 'heading':'specific claim','text':'concise connected Markdown explanation',
                 'evidence_id':'a note.id from this group'}]}
             draft = request('Return JSON in this shape, with one section per supplied group: '+json.dumps(schema),
-                            {'groups':batch,'boundary_context':boundary})
+                            {'groups':batch,'boundary_context':boundary,'document_context':document_context})
             sections = indexed(draft.get('sections'))
             feedback = {}
             sizes = {}
@@ -259,7 +289,7 @@ cross-group repetition, question/answer transitions and speaker attribution too.
 Do not turn an ambiguous speaker into a named person's biography. If a
 section is missing, reconstruct it from that group's notes within its budget.
 Do not add prose unrelated to a repair. Do not restate the input in full.
-""",{'groups':batch,'boundary_context':boundary,'rewrite':draft.get('sections'),
+""",{'groups':batch,'boundary_context':boundary,'document_context':document_context,'rewrite':draft.get('sections'),
       'validation_feedback':feedback,'draft_units':sizes})
             repairs = indexed(review.get('sections'))
             raw_checks = review.get('checks')

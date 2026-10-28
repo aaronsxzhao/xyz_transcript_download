@@ -50,6 +50,31 @@ def test_actual_reserve_excludes_folded_quotes(plan):
     assert report['body_budget']==PLAN.get()['target_high']-250
 
 
+def test_omitted_quote_is_restored_exactly_without_discarding_verified_edit(plan):
+    source=rows();quote='> Costs fall only for large orders.'
+    source[0]['text']+='\n\n'+quote
+    report={};call=Mock(side_effect=provider)
+    result=edit_whole_note(source,call,report=report)
+    assert len(result)==1 and quote in result[0]['text']
+    assert report['retained_batches']==0 and call.call_count==2
+
+
+def test_invented_quote_still_retains_original_notes(plan):
+    def invented(system,payload,timeout):
+        response=provider(system,payload,timeout)
+        for section in response.get('sections',[]):
+            section['text']+='\n\n> Invented quotation.'
+        return response
+    result=edit_whole_note(rows(),invented)
+    assert [row['text'] for row in result]==[row['text'] for row in rows()]
+
+
+def test_indented_code_starting_with_quote_marker_is_not_moved_as_evidence(plan):
+    source=rows();source[0]['text']+='\n\n    > example code, not a quotation\n'
+    result=edit_whole_note(source,provider)
+    assert [row['text'] for row in result]==[row['text'] for row in source]
+
+
 def test_media_and_order_are_owned_by_application(plan):
     source=rows()
     source[0]['text']+='\n*Content-[01:00]\n![Screenshot at 01:00](/data/screenshots/example.jpg)'
@@ -172,10 +197,10 @@ def test_keyed_review_verdicts_preserve_semantics(plan,verdict,accepted):
     assert len(result)==(1 if accepted else 2)
 
 
-@pytest.mark.parametrize('change',['media','quote','url'])
+@pytest.mark.parametrize('change',['media','code','url'])
 def test_unverified_changes_to_source_artifacts_retain_originals(plan,change):
     source=rows()
-    if change=='quote':source[0]['text']+='\n\n> Exact original quotation.'
+    if change=='code':source[0]['text']+='\n\n```python\nvalue = 42\n```'
     if change=='url':source[0]['text']+='\nhttps://example.com/evidence'
     def call(system,payload,timeout):
         response=provider(system,payload,timeout)

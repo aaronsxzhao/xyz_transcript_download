@@ -101,7 +101,7 @@ def test_video_overview_has_its_own_budget_and_failure_measurement(fails):
     token=PLAN.set(make_plan('English source '*20000,133*60,'en'))
     def respond(system,payload,timeout):
         assert 'approximately 250 words' in system
-        assert timeout==30
+        assert timeout==60
         if fails:raise TimeoutError('private provider details')
         return {'overview':'Central claim with its condition.'}
     try:

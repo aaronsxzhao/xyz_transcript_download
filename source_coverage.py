@@ -16,6 +16,18 @@ SOURCE_CHUNK_CHARS = 8000
 SOURCE_UNIT_CHARS = 800
 EDITORIAL_VERSION = "source-audit-v10"
 
+
+def extraction_limit(text, configured=SOURCE_CHUNK_CHARS):
+    """Use comparable bounded context for English and denser CJK text.
+
+    Explicit smaller/larger engine limits remain authoritative. This is a
+    character heuristic, not a provider context-window guarantee.
+    """
+    from reading_language import source_language
+    if configured == SOURCE_CHUNK_CHARS and source_language(text) == 'en':
+        return 12000
+    return configured
+
 # Shared by extraction and the independent review. A presentation style must
 # never turn a source editing task into an invitation to complete its arguments.
 from reading_language import SOURCE_LANGUAGE

@@ -145,7 +145,8 @@ class Summarizer:
         
         logger.info(f"Transcript: {len(transcript_text):,} chars, {duration/60:.0f} min")
         
-        use_chunking = len(transcript_text) > self.chunk_chars
+        from source_coverage import extraction_limit
+        use_chunking = len(transcript_text) > extraction_limit(transcript_text, self.chunk_chars)
         last_chars = 0
         original_progress = progress_callback
         if original_progress:
@@ -454,7 +455,10 @@ class Summarizer:
     ) -> Optional[Summary]:
         """Process bounded source chunks, then synthesize a complete outline."""
         text = self._transcript_text(transcript)
-        chunks = split_source(text, self.chunk_chars)
+        from source_coverage import extraction_limit
+        limit = extraction_limit(text, self.chunk_chars)
+        chunks = split_source(text, limit)
+        getattr(self, 'generation_report', {}).update(extraction={'chunks':len(chunks), 'character_limit':limit})
         logger.info(f"Split transcript ({(transcript.duration or 0)/60:.0f} min) into {len(chunks)} bounded chunks")
 
         # Summarize each chunk
