@@ -155,3 +155,17 @@ def test_substantive_categories_cannot_be_normalized_into_exclusions(reason):
         Mock(return_value={'coverage':[{'unit':'S1','kind':'non_content','reason':reason}]}),
         best_effort=True)
     assert not review.complete and review.unverified_units==['S1']
+
+
+def test_paraphrased_morning_routine_is_a_review_candidate():
+    earlier='For the morning, she suggests movement, mindset, and mindfulness in any order, for 15 minutes to two hours depending on the day.'
+    later='Her proposed morning foundation combines movement, mindfulness, and mindset, in any order and for 15 minutes to two hours.'
+    found=repetition_candidates([{'text':earlier},{'text':later}])
+    assert found and found[0]['later']['text']==later
+
+
+def test_inline_quote_is_never_deleted_by_duplicate_review():
+    quoted=CLAIM+' She calls this "reinforcement".'
+    rows=[{'text':quoted},{'text':LIMIT+' '+quoted}]
+    output,_=remove_repeated_examples(rows,approve)
+    assert '"reinforcement"' in output[1]['text']

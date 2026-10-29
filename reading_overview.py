@@ -2,7 +2,11 @@
 import json
 import re
 
-ABSENCE = re.compile(r'\b(?:unanswered|no answer|not answered|open question|unresolved question)\b|(?:尚未|没有|未能).{0,12}(?:回答|解答)|悬而未决', re.I)
+ABSENCE = re.compile(
+    r'\b(?:unanswered|no answer|not answered|open question|unresolved question)\b'
+    r'|\b(?:does not|did not|doesn[’\x27]t|didn[’\x27]t|not|never)\s+'
+    r'(?:fully\s+)?(?:complete|explain|address|include|cover|resolve|finish)\b'
+    r'|(?:尚未|没有|未能|未).{0,12}(?:回答|解答|解释|展开|讲完|完成)|悬而未决', re.I)
 
 
 def compose_overview(title, indexes, body, call, allowance, language):
