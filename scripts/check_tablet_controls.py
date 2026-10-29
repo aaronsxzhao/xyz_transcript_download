@@ -26,10 +26,15 @@ async def check(browser, origin, width, output):
         for design in ['classic','editorial']:
             for theme in ['dark','light']:
                 await choose(page, design, theme)
+                await page.wait_for_timeout(200)  # Compare settled colors after the 150ms transition.
                 metrics = await page.evaluate('''() => {
                   const box=e=>{const r=e.getBoundingClientRect();return {x:r.x,y:r.y,width:r.width,height:r.height,bottom:r.bottom}};
                   const card=document.querySelector('.video-task-content'),nav=document.querySelector('.navigation-toggle');
                   return {select:box(document.querySelector('.appearance-controls select')),button:box(document.querySelector('.appearance-controls button')),
+                    radius:getComputedStyle(document.documentElement).getPropertyValue('--ui-radius').trim(),
+                    controls:[...document.querySelectorAll('.appearance-controls select,.appearance-controls button,.video-task-list .collection-actions>.ui-button,.video-task-list .task-more>summary')].map(e=>({radius:getComputedStyle(e).borderTopLeftRadius,border:getComputedStyle(e).borderTopWidth})),
+                    secondary:[...card.querySelectorAll('.collection-actions>.ui-button:not(.ui-button-primary),.task-more>summary')].map(e=>{const c=getComputedStyle(e);return [c.backgroundColor,c.borderColor,c.fontSize,c.lineHeight]}),
+                    artwork:box(card.querySelector('.video-thumbnail')),fit:getComputedStyle(card.querySelector('.video-thumbnail img')).objectFit,
                     menu:box(nav),card:box(card),title:box(card.querySelector('h3')),actions:box(card.querySelector('.collection-actions')),
                     container:document.querySelector('.video-task-list').clientWidth,
                     overflow:document.documentElement.scrollWidth>innerWidth+1||document.querySelector('main').scrollWidth>document.querySelector('main').clientWidth+1,
@@ -40,8 +45,12 @@ async def check(browser, origin, width, output):
                 assert metrics['select']['height'] == metrics['button']['height'] == 44, (width,design,theme,metrics)
                 if metrics['menu']['width']:
                     assert metrics['menu']['height'] == metrics['button']['height']
+                assert all(c['radius'] == metrics['radius'] and c['border'] == '1px' for c in metrics['controls']), (width,design,theme,'inconsistent controls',metrics)
+                assert all(c == metrics['secondary'][0] for c in metrics['secondary']), (width,design,theme,'inconsistent secondary button styles',metrics)
+                assert metrics['fit'] == 'contain', (width,design,theme,'cropped artwork')
                 assert not metrics['overflow'] and not metrics['obscured'], (width,design,theme,metrics)
                 if 600 <= metrics['container'] <= 1000:
+                    assert abs(metrics['artwork']['y']+metrics['artwork']['height']/2-metrics['card']['y']-metrics['card']['height']/2) < 1, (width,design,theme,'artwork not centered across rows',metrics)
                     assert metrics['title']['width'] >= metrics['card']['width']*.6, (width,design,theme,'squeezed title',metrics)
                     assert metrics['actions']['y'] >= metrics['title']['bottom'], (width,design,theme,'actions beside title',metrics)
                 if width == 820 and design == 'editorial' and theme == 'light':

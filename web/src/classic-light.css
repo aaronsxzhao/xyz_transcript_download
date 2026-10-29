@@ -182,9 +182,6 @@ html[data-design='classic'][data-theme='light'] {
     background: #edf1f7;
     border-color: #dbe2ec
 }
-:where(html[data-design='classic'][data-theme='light']) .task-more>summary {
-    background: #f0f3f8
-}
 :where(html[data-design='classic'][data-theme='light']) .task-more>div {
     background: #ffffff;
     box-shadow: 0 4px 16px #0005
