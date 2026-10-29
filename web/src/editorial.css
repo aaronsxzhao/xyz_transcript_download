@@ -211,3 +211,15 @@ html[data-design='editorial'] .settings-page .bg-pink-600 { background:#b71964; 
 
 html[data-design='editorial'] .note-prose :is(strong,b) { color:var(--ui-text); }
 html[data-design='editorial'] .note-prose h1 { border-color:var(--ui-border); }
+/* Reader routes can load after the skin. Color contrast must not depend on
+   stylesheet arrival order; typography and layout retain their existing rules. */
+html[data-design='editorial'] .unified-header h1,
+html[data-design='editorial'] .unified-reader .reader-body :is(p,li,h2,h3,h4),
+html[data-design='editorial'] .mindmap-canvas .markmap { color:var(--ui-text); }
+html[data-design='editorial'] :is(.unified-toolbar,.reader-segments,.mindmap-canvas,.mindmap-overlay,.reader-menu-panel,.reader-utility-panel,.reader-confirm) { background:var(--ui-surface); color:var(--ui-text); border-color:var(--ui-border); }
+html[data-design='editorial'] .app-shell .reader-action-outlined { background:var(--ui-surface); border-color:var(--ui-border); }
+html[data-design='editorial'] .app-shell .reader-segments button[aria-pressed='true'] { background:var(--ui-tint); color:var(--ui-text); }
+html[data-design='editorial'] .app-shell .unified-tabs>button[aria-selected='true'] { color:var(--ui-text); border-color:var(--ui-accent); }
+html[data-design='editorial'] .mindmap-canvas .markmap-foreign a { color:var(--ui-accent); }
+
+html[data-design='editorial'] :is(.task-launcher,.task-drawer,.task-more>div) { background:var(--ui-surface); color:var(--ui-text); border-color:var(--ui-border); }
