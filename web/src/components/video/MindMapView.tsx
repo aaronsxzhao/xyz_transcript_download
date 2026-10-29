@@ -140,10 +140,12 @@ export default function MindMapView({
       "http://www.w3.org/2000/svg",
       "style",
     );
+    const foreground = getComputedStyle(svgRef.current).color;
+    const background = containerRef.current ? getComputedStyle(containerRef.current).backgroundColor : "#0f172a";
     style.textContent =
-      ".markmap-foreign{font:14px/1.5 sans-serif;color:#e2e8f0}.markmap-foreign div{white-space:normal}.markmap-link{fill:none}.markmap-node{cursor:pointer}";
+      `.markmap-foreign{font:14px/1.5 sans-serif;color:${foreground}}.markmap-foreign a{color:inherit}.markmap-foreign div{white-space:normal}.markmap-link{fill:none}.markmap-node{cursor:pointer}`;
     clone.prepend(style);
-    clone.style.background = "#0f172a";
+    clone.style.background = background;
     const url = URL.createObjectURL(
       new Blob([new XMLSerializer().serializeToString(clone)], {
         type: "image/svg+xml",

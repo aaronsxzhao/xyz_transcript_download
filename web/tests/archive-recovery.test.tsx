@@ -99,3 +99,17 @@ it('ignores a previous account screenshot result instead of refreshing the next 
  await act(async()=>vi.advanceTimersByTimeAsync(20000))
  expect(mocks.fetch).toHaveBeenCalledTimes(2)
 })
+
+it('reconciles a lost repair submission response without submitting twice',async()=>{
+ mocks.fetch.mockImplementationOnce(()=>new Promise(()=>{}))
+   .mockResolvedValueOnce(Response.json({status:'completed',message:'Screenshots restored.'}))
+ const restored=vi.fn();node=document.createElement('div');document.body.append(node);root=createRoot(node)
+ await act(async()=>root!.render(<MemoryRouter><NoteRecovery id="note" expanded onRestored={restored}/></MemoryRouter>))
+ await act(async()=>[...node!.querySelectorAll('button')].find(b=>b.textContent==='Repair screenshots')!.click())
+ await act(async()=>vi.advanceTimersByTimeAsync(20000))
+ expect(node.textContent).toContain('Checking whether screenshot repair started')
+ await act(async()=>vi.advanceTimersByTimeAsync(4000))
+ expect(restored).toHaveBeenCalledOnce()
+ expect(mocks.fetch.mock.calls.filter(c=>c[1]?.method==='POST')).toHaveLength(1)
+ expect(node.textContent).toContain('Screenshots restored')
+})

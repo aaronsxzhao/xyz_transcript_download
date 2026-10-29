@@ -1,6 +1,7 @@
 """Account-owned integrity checks, portable exports and save/media recovery."""
 import hashlib
 import json
+import logging
 import re
 import tempfile
 import threading
@@ -158,7 +159,10 @@ def _save_report(key, report):
                     del _reports[old]
                     break
     if USE_SUPABASE:
-        _client().storage.from_('application-backups').upload(key, json.dumps(report).encode(), file_options={'content-type': 'application/json', 'upsert': 'true'})
+        try:
+            _client().storage.from_('application-backups').upload(key, json.dumps(report).encode(), file_options={'content-type': 'application/json', 'upsert': 'true'})
+        except Exception:
+            logging.getLogger(__name__).warning('Screenshot repair status persistence unavailable; in-process status remains available')
 
 
 def _repair(task, owner, key):
@@ -166,12 +170,16 @@ def _repair(task, owner, key):
     from cookie_manager import get_cookie_manager
     from video_downloader import get_downloader
     from social_content import social_platform, SocialSourceError
-    report = {'status': 'running', 'missing': 0, 'message': 'Restoring screenshots…', 'started_at': datetime.now(timezone.utc).isoformat()}
+    report = {'status': 'running', 'missing': 0, 'message': 'Checking saved screenshots…', 'started_at': datetime.now(timezone.utc).isoformat()}
     downloader = None
     try:
         _save_report(key, report)
-        missing = {n: t for n, t in _frames(task, owner).items() if n not in _existing()}
+        frames = _frames(task, owner)
+        existing = _existing()
+        missing = {n: t for n, t in frames.items() if n not in existing}
         if missing:
+            report.update(missing=len(missing), message=f'Retrieving original video for {len(missing)} missing screenshots…')
+            _save_report(key, report)
             if task.get('platform') == 'local':
                 from api.local_media import get_local_video_dir
                 source = Path(task['url']).resolve()
@@ -191,8 +199,10 @@ def _repair(task, owner, key):
                 source = downloader.download_video(task['url'], task['id'], video_quality='360')
             if not source:
                 raise ValueError('Original video is unavailable. Check your platform connection.')
+            report.update(message=f'Rebuilding {len(missing)} screenshots…')
+            _save_report(key, report)
             extract_screenshots_batch(str(source), list(missing.values()), task['id'])
-        remaining = len(set(_frames(task, owner)) - _existing())
+        remaining = len(set(frames) - (_existing() if missing else existing))
         if not remaining:
             from video_task_db import get_video_task_db
             db = get_video_task_db()
@@ -239,7 +249,7 @@ def repair_media(task_id: str, background: BackgroundTasks, data: RepairRequest 
     key = f'media-repair/{user.id}/{task_id}.json'
     with _lock:
         if key in _running:
-            return {'status': 'running'}
+            return {**_reports.get(key, {}), 'status': 'running'}
         # A small per-process limit protects the media tools; this is unrelated
         # to the account's paid Groq plan and never changes provider settings.
         if len(_running) >= 2:
@@ -257,7 +267,7 @@ def repair_status(task_id: str, user: User = Depends(get_current_user)):
     key = f'media-repair/{user.id}/{task_id}.json'
     with _lock:
         if key in _running:
-            return {'status': 'running'}
+            return {**_reports.get(key, {}), 'status': 'running'}
         if key in _reports:
             return _reports[key]
     if USE_SUPABASE:
