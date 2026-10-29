@@ -381,7 +381,8 @@ class NoteSummarizer:
             from reading_language import source_language_lock
             return extract_json_from_response(self._call_llm(system+source_language_lock(source), payload, audit_progress, json_output=True))
 
-        review = audit_source(source, {"body": draft}, call, source_context, repair=False, best_effort=True)
+        review = audit_source(source, {"body": draft}, call, source_context, repair=False, best_effort=True,
+                              recheck=self._editorial_json)
         updated, additions, _ = review
         parts = [updated["body"]]
         for addition in additions:

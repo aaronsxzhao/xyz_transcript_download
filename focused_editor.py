@@ -343,6 +343,10 @@ Do not add prose unrelated to a repair. Do not restate the input in full.
     results = parallel_map(work,batches,workers=2) if len(batches)>1 else [work(batches[0])]
     output = [row for result,_ in results for row in result]
     stats = [stat for _,stat in results]
+    if not any(stat['retained_sections'] for stat in stats):
+        from reading_repetition import remove_repeated_examples
+        output, repetition = remove_repeated_examples(output, call, checkpoint)
+        report['repetition'] = repetition
     measured_output = sum(units(visible_prose(row['text']),language) for row in output)
     if preserve_order:
         previous=None
@@ -351,7 +355,7 @@ Do not add prose unrelated to a repair. Do not restate the input in full.
             previous=row['topic']
     report.update(batches=stats,source_groups=len(grouped),
         source_order_preserved=preserve_order,
-        model_calls=sum(s['model_calls'] for s in stats),
+        model_calls=sum(s['model_calls'] for s in stats)+report.get('repetition',{}).get('model_calls',0),
         composed_batches=sum(bool(s['composed_sections']) for s in stats),
         retained_batches=sum(bool(s['retained_sections']) for s in stats),
         output_sections=len(output),output_units=measured_output,

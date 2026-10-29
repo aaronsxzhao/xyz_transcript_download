@@ -248,6 +248,7 @@ class SourceReview:
     identified_gaps: dict[str, str] = field(default_factory=dict)
     issues: list[str] = field(default_factory=list)
     unresolved_fields: list[str] = field(default_factory=list)
+    receipt_recheck: dict = field(default_factory=dict)
 
     @property
     def complete(self):
@@ -259,11 +260,16 @@ class SourceReview:
         return iter((self.fields, self.additions, self.citations))
 
 
-def audit_source(source, fields, call_json, context=None, *, repair=True, best_effort=False):
+def audit_source(source, fields, call_json, context=None, *, repair=True, best_effort=False, recheck=None):
     """Review once for readers; strict tools may request one bounded repair."""
     if best_effort:
-        # One provider call; validate/apply each independent item separately.
-        return _audit_source_once(source, fields, call_json, context, best_effort=True)
+        captured = []
+        def capture(system, payload):
+            data = call_json(system, payload)
+            captured.append(data)
+            return data
+        review = _audit_source_once(source, fields, capture, context, best_effort=True)
+        return _recheck_exclusions(source, fields, captured[0], review, recheck, context)
     if not repair:
         # Reader delivery is best effort: one editorial pass, then the caller
         # returns its existing draft with a notice instead of repairing receipts.
@@ -297,6 +303,56 @@ def audit_source(source, fields, call_json, context=None, *, repair=True, best_e
                     repair_error = _audit_error("missing_units", response, missing_units=missing)
                     return _repair_missing_units(source, fields, call_json, repair_error, context)
             raise
+
+
+def _recheck_exclusions(source, fields, data, review, call, context):
+    """One bounded receipt-only second opinion; never infer covered meaning.
+
+    A repeated argument is content mapped to an existing field, not excluded
+    source. Invalid exclusion labels cannot establish that distinction. Recheck
+    only those units, retaining valid patches and every unresolved finding.
+    """
+    if not call or 'invalid_exclusion' not in review.issues or review.unresolved_fields:
+        return review
+    receipts = data.get('coverage') if isinstance(data, dict) else None
+    if not isinstance(receipts, list):
+        return review
+    pending = {row.get('unit') for row in receipts if isinstance(row, dict)
+               and isinstance(row.get('unit'), str) and row.get('kind') == 'non_content'
+               and row.get('unit') in review.unverified_units}
+    if not pending or len(pending) > 2:
+        return review
+    units = source_units(source)
+    payload = json.dumps({'source_units':{key:units[key] for key in units if key in pending},
+                          'draft_fields':review.fields, 'boundary_context':context or {}}, ensure_ascii=False)
+    if len(payload) > 24000:
+        return review
+    review.receipt_recheck = {'attempted':len(pending), 'resolved':0}
+    try:
+        response = call(AUDIT_SYSTEM + '''
+For this bounded second opinion return ONLY {"coverage":[...]} for the supplied
+units, using the FINAL draft_fields. Do not edit prose or add facts. Repeated
+arguments and equivalent examples are content: reference the existing detailed
+field if it preserves the important meaning. They are NOT non_content. Use
+non_content only for a whole greeting, advertisement, or empty_transition.
+If important meaning is absent, use kind=missing; if uncertain, omit the receipt.
+Never mark a unit covered merely to clear a warning.''', payload, 60)
+        rows = response.get('coverage') if isinstance(response, dict) else None
+        if not isinstance(rows, list):
+            return review
+        rows = [row for row in rows if isinstance(row, dict)
+                and isinstance(row.get('unit'), str) and row['unit'] in pending]
+        merged = _merge_audit_response(data, {'coverage':rows})
+        revised = _apply_audit_data(source, fields, merged, context, best_effort=True)
+        revised.receipt_recheck = {'attempted':len(pending),
+                                  'resolved':len(pending - set(revised.unverified_units))}
+        return revised
+    except Exception as error:
+        from summary_errors import is_cancellation
+        if is_cancellation(error):
+            raise
+        review.receipt_recheck['failed'] = True
+        return review
 
 
 def _repair_missing_units(source, fields, call_json, error, context=None):
