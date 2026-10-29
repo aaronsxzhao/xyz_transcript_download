@@ -99,6 +99,11 @@ call sees the original evidence and candidate draft. Each accepted paragraph mus
 grounding and nonduplication judgments. Unrelated unresolved items do not block
 a valid local repair. Unchecked or failed candidates are discarded; support
 depending on a rejected paragraph cannot certify a surviving half-repair.
+Each proposed paragraph is also presented separately, with the full draft still
+available for context and duplicate checks. The matcher must acknowledge every
+proposed paragraph ID before its receipts can be accepted. This prevents a check
+that silently ignores appended candidates from certifying the repair; the
+acknowledgment alone is never sufficient without grounded, nonduplicate support.
 Previously covered items may not regress. The original prose is retained. A contradiction remains explicit;
 appending its opposite is not treated as a repair. Later batches see accepted
 repairs, so they can recognize already restored meaning. After this pass, only

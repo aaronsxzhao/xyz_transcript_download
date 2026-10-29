@@ -37,7 +37,8 @@ def scripted(case, calls, *, bad_repair=False):
                 'text':case['complete_draft'],'source_ranges':ranges}]}]}
         paragraphs=[p for s in payload['global_draft'] for p in s['paragraphs']]
         support=next((p for p in paragraphs if case['complete_draft'] in p['text']),None)
-        return {'matches':[{'item_id':item['id'],'status':'covered' if support else 'partial',
+        return {'checked_proposed_paragraph_ids':payload.get('proposed_paragraph_ids',[]),
+                'matches':[{'item_id':item['id'],'status':'covered' if support else 'partial',
             'support':[{'paragraph_id':support['id'],'quote':case['complete_draft']}] if support else [],
             'grounded':not bad_repair,'duplicate':False} for item in payload['items']]}
     return request
@@ -123,7 +124,7 @@ def test_later_accepted_addition_resolves_earlier_item_without_another_repair():
             rows.append({'item_id':item['id'],'status':'covered' if p else 'missing',
                          'grounded':True,'duplicate':False,
                          'support':[{'paragraph_id':p['id'],'quote':item['statement']}] if p else []})
-        return {'matches':rows}
+        return {'checked_proposed_paragraph_ids':payload.get('proposed_paragraph_ids',[]),'matches':rows}
     with patch('coverage_ledger.ITEM_LIMIT',1),patch('coverage_ledger.request',side_effect=respond):
         report=audit(SimpleNamespace(),lines,sections)
     assert report['status']=='model_reviewed' and report['initial_unresolved_items']==1
@@ -324,6 +325,21 @@ def test_terminal_period_is_recovered_to_an_exact_draft_fragment():
                      'support':[{'paragraph_id':'P1','quote':'He returned to school.'}]}]}
     matching_response(data,[{'id':'C1'}],draft)
     assert data['matches'][0]['support'][0]['quote']=='He returned to school'
+
+
+@pytest.mark.parametrize('checked',[None,[],['unknown'],['L1','L1']])
+def test_repair_matching_requires_every_proposed_paragraph_to_be_inspected(checked):
+    draft=[{'paragraphs':[{'id':'L1','text':'A supported experimental result.'}]}]
+    data={'checked_proposed_paragraph_ids':checked,'matches':[{
+        'item_id':'C1','status':'covered','grounded':True,'duplicate':False,
+        'support':[{'paragraph_id':'L1','quote':'A supported experimental result.'}]}]}
+    with pytest.raises(ValueError,match='proposed-paragraph'):
+        matching_response(data,[{'id':'C1'}],draft,['L1'])
+    data['checked_proposed_paragraph_ids']=['L1']
+    assert matching_response(data,[{'id':'C1'}],draft,['L1'])[0]['status']=='covered'
+    data['matches'][0]['support'][0]['quote']='An invented result.'
+    with pytest.raises(ValueError,match='Fabricated'):
+        matching_response(data,[{'id':'C1'}],draft,['L1'])
 
 
 def test_invalid_check_retries_once_with_feedback_without_regenerating_body():
