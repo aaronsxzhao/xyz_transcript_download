@@ -30,7 +30,7 @@ def repetition_candidates(rows):
                 continue
             start, end = token.map
             paragraph = ''.join(lines[start:end])
-            for match in re.finditer(r'[^.!?。！？\n]+(?:[.!?。！？]+(?=\s|$)|$)', paragraph):
+            for match in re.finditer(r'[^.!?。！？\n]+(?:[。！？]+|[.!?]+(?=\s|$)|$)', paragraph):
                 sentence = match[0].strip()
                 if not 70 <= len(sentence) <= 900 or any(c in sentence for c in '[]<>`"“”'):
                     continue

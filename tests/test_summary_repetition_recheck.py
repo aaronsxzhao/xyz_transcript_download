@@ -61,6 +61,14 @@ def test_last_substantive_sentence_not_removed_leaving_empty_section():
     assert remove_repeated_examples(rows,approve)[0]==rows
 
 
+def test_chinese_sentences_without_spaces_keep_new_qualification():
+    claim='实验观察发现，参与者反复选择伴随轻微愤怒与挫折感的刺激，讲述者认为这说明奖赏机制不一定只强化令人愉快的感受，也可能让不愉快的情绪状态反复出现，但并没有把这种解释视为已经普遍证实的结论。'
+    condition='后文进一步强调，个人情绪调节不能替代公共机构承担责任以及信息平台进行制度层面的改变。'
+    rows=[{'text':claim},{'text':claim+condition}]
+    result,report=remove_repeated_examples(rows,approve)
+    assert report['removed']==1 and result[1]['text']==condition
+
+
 def test_invalid_exclusion_rechecked_as_content_without_rewriting():
     fields={'body':'Repeated experiments suggest a conditional mechanism.'}
     first={'coverage':[{'unit':'S1','kind':'non_content','reason':'repetition'}]}
