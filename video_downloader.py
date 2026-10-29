@@ -282,13 +282,15 @@ def normalize_video_url(url: str, platform: str = "") -> str:
             return f"https://www.youtube.com/watch?v={video_id}"
 
     if platform == "bilibili" and detect_platform(url) == 'bilibili':
+        from bilibili_parts import selected_part
+        selected_part(url)  # Do not turn malformed explicit selections into collections.
         m = re.search(r"/video/(BV[\w]+)", url, re.IGNORECASE)
         page = ""
         try:
             qs = parse_qs(parsed.query or "")
             page_num = (qs.get("p") or [""])[0]
-            if page_num and page_num.isdigit() and int(page_num) > 1:
-                page = f"?p={page_num}"
+            if page_num and page_num.isdigit() and int(page_num) >= 1:
+                page = f"?p={int(page_num)}"
         except Exception:
             page = ""
         if m:
@@ -1085,6 +1087,36 @@ class BilibiliDownloader(YtdlpDownloader):
         super().__init__("bilibili", cookies)
 
     @staticmethod
+    def _media_id(url, task_id):
+        from bilibili_parts import selected_part
+        return f'{task_id}-bp{selected_part(url) or 1}'
+
+    def download_audio(self, url, task_id, quality='medium', progress_callback=None):
+        return super().download_audio(url, self._media_id(url, task_id), quality, progress_callback)
+
+    def download_video(self, url, task_id, video_quality='720', progress_callback=None):
+        return super().download_video(url, self._media_id(url, task_id), video_quality, progress_callback)
+
+    def get_subtitles(self, url, task_id):
+        return super().get_subtitles(url, self._media_id(url, task_id))
+
+    def resolve_parts(self, url: str) -> list:
+        """Resolve the complete manifest before admitting any part of a collection.
+
+        A failed API read is not evidence that the video contains only one part.
+        Never silently fall back to yt-dlp's first-part metadata here.
+        """
+        self._parts = None
+        metadata = self.get_metadata(url)
+        if self._parts is None and metadata and metadata.url != url:
+            canonical = normalize_video_url(metadata.url, 'bilibili')
+            if self._extract_bvid(canonical) or self._extract_aid(canonical):
+                self.get_metadata(canonical)
+        if not self._parts:
+            raise VideoDownloadError('Could not read the complete Bilibili part list. Retry when source access is available; no first-part-only result was accepted.', 'PARTS_UNAVAILABLE')
+        return self._parts
+
+    @staticmethod
     def _extract_bvid(url: str) -> Optional[str]:
         m = re.search(r'(BV[\w]+)', url)
         return m.group(1) if m else None
@@ -1151,6 +1183,8 @@ class BilibiliDownloader(YtdlpDownloader):
             owner = d.get("owner", {})
             mid = owner.get("mid", "")
             pages = d.get("pages") or []
+            from bilibili_parts import part_manifest
+            self._parts = part_manifest(d, normalized_url)
             current_page = pages[page_num - 1] if 1 <= page_num <= len(pages) else {}
 
             thumbnail = d.get("pic", "")
@@ -1159,8 +1193,8 @@ class BilibiliDownloader(YtdlpDownloader):
 
             title = d.get("title", "")
             part_title = current_page.get("part") or ""
-            if page_num > 1 and part_title and part_title != title:
-                title = f"{title} - {part_title}"
+            if len(pages) > 1:
+                title = f"{title} · P{page_num}/{len(pages)} {part_title}".strip()
 
             published_at = ""
             pub_ts = d.get("pubdate")

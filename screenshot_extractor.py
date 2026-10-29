@@ -458,7 +458,7 @@ _PLATFORM_URL_TEMPLATES = {
 def _extract_video_id(url: str, platform: str) -> str:
     """Best-effort extraction of video ID from URL."""
     if platform == "bilibili":
-        m = re.search(r'/(BV[\w]+)', url)
+        m = re.search(r'/(BV[\w]+|av\d+)', url)
         return m.group(1) if m else ""
     elif platform == "youtube":
         m = re.search(r'(?:v=|youtu\.be/)([\w-]+)', url)
@@ -489,6 +489,11 @@ def replace_content_markers(
 
         if url_template and video_id:
             link = url_template.format(video_id=video_id, seconds=total_seconds)
+            if platform == 'bilibili':
+                from bilibili_parts import selected_part
+                page = selected_part(video_url)
+                if page is not None:
+                    link += f'&p={page}'
             return f"[▶ 原片 @ {display}]({link})"
         return f"[▶ {display}]"
 

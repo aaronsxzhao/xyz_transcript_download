@@ -40,6 +40,7 @@ import {
 import { useStore, mergeVideoTaskPair } from "../lib/store";
 import { deferView } from "../components/DeferredView";
 import PlainNote from "../components/PlainNote";
+const BilibiliParts = deferView(() => import("../components/video/BilibiliParts"));
 const ArticleNote = deferView(() => import('../components/ArticleNote'));
 const MarkdownPreview = deferView(
   () => import("../components/video/MarkdownPreview"),
@@ -601,6 +602,8 @@ export default function VideoViewer() {
       }
     >
       {readError && <LoadError message={readError} onRetry={retryRead} />}
+      {task.source_metadata?.bilibili_parts &&
+        <BilibiliParts metadata={task.source_metadata} fallback={null} />}
       {actionError && <div role="alert" className="text-sm text-red-300 mb-3">
         {actionError}{" "}<button className="underline" onClick={() => setActionError("")}>Dismiss</button>
       </div>}

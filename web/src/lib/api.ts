@@ -553,7 +553,9 @@ export interface VideoTask {
   id: string
   url: string
   platform: string
-  source_metadata?: {type?:'article'|'audio'|'video';canonical_url?:string;attachments?:{url:string;kind:string;title:string}[];access?:string}
+  source_metadata?: {type?:'article'|'audio'|'video';canonical_url?:string;attachments?:{url:string;kind:string;title:string}[];access?:string;
+    bilibili_part?:{page:number;cid:string;duration:number;title:string;url:string};
+    bilibili_parts?:{page:number;title:string;url:string;task_id?:string|null}[];collection_requested?:boolean}
   title: string
   thumbnail: string
   channel: string
