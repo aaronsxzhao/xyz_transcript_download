@@ -62,6 +62,8 @@ jobs:
           mkdir -p appearance-checks
           python scripts/check_appearance.py | tee appearance-checks/chromium.log
           python scripts/check_appearance.py --webkit --widths 390 | tee appearance-checks/webkit.log
+          python scripts/check_tablet_controls.py | tee appearance-checks/tablet-chromium.log
+          python scripts/check_tablet_controls.py --webkit --widths 744 820 1024 | tee appearance-checks/tablet-webkit.log
       - name: Upload appearance failure evidence
         if: failure()
         uses: actions/upload-artifact@v4
@@ -139,6 +141,8 @@ jobs:
           mkdir -p appearance-checks
           python scripts/check_appearance.py | tee appearance-checks/chromium.log
           python scripts/check_appearance.py --webkit --widths 390 | tee appearance-checks/webkit.log
+          python scripts/check_tablet_controls.py | tee appearance-checks/tablet-chromium.log
+          python scripts/check_tablet_controls.py --webkit --widths 744 820 1024 | tee appearance-checks/tablet-webkit.log
       - name: Upload failure evidence
         if: failure()
         uses: actions/upload-artifact@v4

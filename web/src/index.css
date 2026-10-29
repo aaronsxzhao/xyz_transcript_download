@@ -492,3 +492,10 @@ html[data-reader-contents="hidden"] .unified-reader{grid-template-columns:minmax
 .collection-actions summary::-webkit-details-marker{display:none}
 @media(max-width:767px){.collection-actions{justify-content:flex-end}}
 @media(max-width:639px){.collection-actions .ui-button-icon-mobile{width:var(--ui-control-height);min-width:var(--ui-control-height);padding:0}}
+
+/* Keep the original artwork size; narrow cards give actions their own row. */
+.video-task-list { container-type:inline-size; }
+@container (min-width:600px) and (max-width:1000px) {
+ .video-task-content { display:grid; grid-template-columns:auto minmax(0,1fr); }
+ .video-task-content>.collection-actions { grid-column:2; }
+}
