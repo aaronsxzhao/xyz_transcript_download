@@ -32,3 +32,17 @@ Install the web dependencies, plus Playwright and Chromium for the browser harne
 Run Vite dev on port 5180 for `visual-check.cjs` and `subscription-check.cjs`; run the production preview on port 5181 for `production-check.cjs` and `failure-check.cjs`. Execute these scripts with Node from the repository. All API calls are intercepted by `fixtures.cjs`; no production credentials are required.
 
 The fixture artwork was taken from the MIT-licensed Start Bootstrap Clean Blog example (`StartBootstrap/startbootstrap-clean-blog`, `dist/assets/img/{post,home,about}-bg.jpg`). Product code always uses the existing source thumbnails; these assets are only for local review.
+
+## Follow-up interaction audit (2026-10-29)
+
+Rebased the isolated branch onto the newer `origin/main` commit `7c6a8a6` before this review. Fixed defects discovered beyond the initial overflow checks:
+
+- Editorial mobile/tablet readers incorrectly retained a desktop outline column, squeezing a 390px viewport's reading content to 150px. The core 1170px breakpoint now gives the content the full 350px available width. Regression checks assert actual reading width, not just absence of horizontal overflow.
+- Stalled optional stylesheet requests could keep startup, switching or reader navigation waiting indefinitely. All are bounded to eight seconds; failed skins retain the working appearance and reader typography falls back to core styles. The control reports loading to assistive technology.
+- Escape closes mobile navigation and now restores focus to its trigger.
+- Muted light text, dark platform-account status labels and the QR action needed additional contrast. Changes are scoped to the affected skin/components.
+- Broad substring selectors incorrectly treated disabled background variants as active tint classes, affecting the editorial login submit button and formatted reader container. Exact class-token matching now distinguishes selected options from primary buttons and prose variants.
+
+Validation: **438 tests / 70 files passed**, production build **191.6 KiB**. **56** actual reader-width checks (two reader routes, four appearances, seven widths) plus font-size/width and transcript switching passed. **22** header layouts and hit targets passed, together with Escape focus, mobile navigation, cross-tab sync and retained login drafts. Production smoke and failed/stalled asset tests passed. Two accessibility passes cover **60** mobile pages and expanded desktop states, with no WCAG 2 A/AA or 2.1 AA violations reported by axe after fixes. This is scoped automated evidence, not a claim of universal accessibility or real-account end-to-end correctness.
+
+Additional reproducible scripts: `interaction-check.cjs`, `reader-layout-check.cjs`, `stalled-style-check.cjs`, `accessibility-check.cjs`, `accessibility-states.cjs`. Accessibility scripts additionally require `axe-core` (or an absolute package path via `AXE_CORE`). The production preview is required for the stalled-style check. Reports are in `accessibility-results.json` and `accessibility-states.json`. Existing screenshot/fixture limitations still apply; production account mutations were not performed.

@@ -40,5 +40,10 @@ html[data-theme='light'] :where(button,a,input,select,textarea,summary):focus-vi
 
 html[data-design='classic'][data-theme='light'] .bg-dark-hover\/50 { background:#edf1f7; }
 html[data-design='editorial'] .bg-dark-hover\/50 { background:var(--ui-hover); }
-html[data-design='editorial'] [class*="bg-indigo-"][class*="/"] { background:var(--ui-tint); }
-html[data-design='editorial'] [class*="border-indigo-"][class*="/"] { border-color:var(--ui-accent); }
+html[data-design='editorial'] :is([class~="bg-indigo-600/20"],[class~="bg-indigo-600/10"],[class~="bg-indigo-500/10"],[class~="bg-indigo-950/30"]) { background:var(--ui-tint); }
+html[data-design='editorial'] :is([class~="border-indigo-500/30"],[class~="border-indigo-500/40"],[class~="border-indigo-500/50"]) { border-color:var(--ui-accent); }
+
+html[data-theme='light'] .text-cyan-400 { color:#236b80; }
+html[data-design='classic'][data-theme='dark'] .settings-page :is(.text-gray-600,[data-account-status] .text-gray-500) { color:#a4b0c3; }
+.settings-page .bg-pink-600 { background:#b71964; color:#fff; }
+html[data-design='editorial'] .settings-page .bg-pink-600 { color:#fff; }

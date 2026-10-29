@@ -1,0 +1,170 @@
+[
+  {
+    "design": "classic",
+    "theme": "light",
+    "path": "/",
+    "violations": []
+  },
+  {
+    "design": "classic",
+    "theme": "light",
+    "path": "/library",
+    "violations": []
+  },
+  {
+    "design": "classic",
+    "theme": "light",
+    "path": "/settings",
+    "violations": []
+  },
+  {
+    "design": "classic",
+    "theme": "light",
+    "path": "/podcasts?platform=xiaoyuzhou",
+    "violations": []
+  },
+  {
+    "design": "classic",
+    "theme": "light",
+    "path": "/videos?add=local",
+    "violations": []
+  },
+  {
+    "design": "classic",
+    "theme": "light",
+    "path": "/videos/v1",
+    "violations": []
+  },
+  {
+    "design": "classic",
+    "theme": "light",
+    "path": "/viewer/p1",
+    "violations": []
+  },
+  {
+    "design": "classic",
+    "theme": "dark",
+    "path": "/",
+    "violations": []
+  },
+  {
+    "design": "classic",
+    "theme": "dark",
+    "path": "/library",
+    "violations": []
+  },
+  {
+    "design": "classic",
+    "theme": "dark",
+    "path": "/settings",
+    "violations": []
+  },
+  {
+    "design": "classic",
+    "theme": "dark",
+    "path": "/podcasts?platform=xiaoyuzhou",
+    "violations": []
+  },
+  {
+    "design": "classic",
+    "theme": "dark",
+    "path": "/videos?add=local",
+    "violations": []
+  },
+  {
+    "design": "classic",
+    "theme": "dark",
+    "path": "/videos/v1",
+    "violations": []
+  },
+  {
+    "design": "classic",
+    "theme": "dark",
+    "path": "/viewer/p1",
+    "violations": []
+  },
+  {
+    "design": "editorial",
+    "theme": "light",
+    "path": "/",
+    "violations": []
+  },
+  {
+    "design": "editorial",
+    "theme": "light",
+    "path": "/library",
+    "violations": []
+  },
+  {
+    "design": "editorial",
+    "theme": "light",
+    "path": "/settings",
+    "violations": []
+  },
+  {
+    "design": "editorial",
+    "theme": "light",
+    "path": "/podcasts?platform=xiaoyuzhou",
+    "violations": []
+  },
+  {
+    "design": "editorial",
+    "theme": "light",
+    "path": "/videos?add=local",
+    "violations": []
+  },
+  {
+    "design": "editorial",
+    "theme": "light",
+    "path": "/videos/v1",
+    "violations": []
+  },
+  {
+    "design": "editorial",
+    "theme": "light",
+    "path": "/viewer/p1",
+    "violations": []
+  },
+  {
+    "design": "editorial",
+    "theme": "dark",
+    "path": "/",
+    "violations": []
+  },
+  {
+    "design": "editorial",
+    "theme": "dark",
+    "path": "/library",
+    "violations": []
+  },
+  {
+    "design": "editorial",
+    "theme": "dark",
+    "path": "/settings",
+    "violations": []
+  },
+  {
+    "design": "editorial",
+    "theme": "dark",
+    "path": "/podcasts?platform=xiaoyuzhou",
+    "violations": []
+  },
+  {
+    "design": "editorial",
+    "theme": "dark",
+    "path": "/videos?add=local",
+    "violations": []
+  },
+  {
+    "design": "editorial",
+    "theme": "dark",
+    "path": "/videos/v1",
+    "violations": []
+  },
+  {
+    "design": "editorial",
+    "theme": "dark",
+    "path": "/viewer/p1",
+    "violations": []
+  }
+]

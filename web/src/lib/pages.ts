@@ -1,3 +1,4 @@
+import {withStyleTimeout} from './styleLoading'
 // Notes remain readable with the core styles if optional rich typography cannot load.
 const pages = {
   resetPassword: () => import('../pages/ResetPassword'),
@@ -5,9 +6,9 @@ const pages = {
   dashboard: () => import('../pages/Dashboard'),
   podcasts: () => import('../pages/Podcasts'),
   episodes: () => import('../pages/Episodes'),
-  viewer: () => Promise.all([import('../reader-typography.css').catch(() => {}), import('../pages/Viewer')]).then(([, page]) => page),
+  viewer: () => Promise.all([withStyleTimeout(import('../reader-typography.css')).catch(() => {}), import('../pages/Viewer')]).then(([, page]) => page),
   videos: () => import('../pages/Videos'),
-  videoViewer: () => Promise.all([import('../reader-typography.css').catch(() => {}), import('../pages/VideoViewer')]).then(([, page]) => page),
+  videoViewer: () => Promise.all([withStyleTimeout(import('../reader-typography.css')).catch(() => {}), import('../pages/VideoViewer')]).then(([, page]) => page),
   settings: () => import('../pages/Settings'),
   login: () => import('../pages/Login'),
 }

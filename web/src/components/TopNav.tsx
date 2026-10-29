@@ -11,7 +11,7 @@ import {
   Menu,
   X,
 } from 'lucide-react'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useAuth } from '../contexts/AuthContext'
 import WebsiteUpdate from './WebsiteUpdate'
 import { preloadPage } from '../lib/pages'
@@ -30,8 +30,9 @@ export default function TopNav() {
   const location = useLocation()
   const { user, authEnabled, signOut } = useAuth()
   const [mobileOpen, setMobileOpen] = useState(false)
+  const menuButton = useRef<HTMLButtonElement>(null)
 
-  useEffect(() => { const close = (e: KeyboardEvent) => { if (e.key === 'Escape') setMobileOpen(false) }; document.addEventListener('keydown', close); return () => document.removeEventListener('keydown', close) }, [])
+  useEffect(() => { const close = (e: KeyboardEvent) => { if (e.key === 'Escape' && mobileOpen) { setMobileOpen(false); menuButton.current?.focus() } }; document.addEventListener('keydown', close); return () => document.removeEventListener('keydown', close) }, [mobileOpen])
 
   useEffect(() => { setMobileOpen(false) }, [location.pathname, location.search])
 
@@ -100,6 +101,8 @@ export default function TopNav() {
 
           {/* Mobile menu button */}
           <button
+            ref={menuButton}
+            aria-controls="mobile-navigation"
             aria-label={mobileOpen ? 'Close navigation' : 'Open navigation'}
             aria-expanded={mobileOpen}
             onClick={() => setMobileOpen(!mobileOpen)}
@@ -114,7 +117,7 @@ export default function TopNav() {
 
       {/* Mobile dropdown */}
       {mobileOpen && (
-        <div className="md:hidden border-t border-dark-border bg-dark-surface p-2 space-y-1">
+        <div id="mobile-navigation" className="md:hidden border-t border-dark-border bg-dark-surface p-2 space-y-1">
           {navItems.map((item) => {
             const isActive = item.path === '/'
               ? location.pathname === '/'

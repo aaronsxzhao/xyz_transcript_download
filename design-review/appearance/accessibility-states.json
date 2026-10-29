@@ -1,0 +1,194 @@
+[
+  {
+    "design": "classic",
+    "theme": "light",
+    "state": "settings-general",
+    "violations": []
+  },
+  {
+    "design": "classic",
+    "theme": "light",
+    "state": "Platform Accounts",
+    "violations": []
+  },
+  {
+    "design": "classic",
+    "theme": "light",
+    "state": "Tools & Data",
+    "violations": []
+  },
+  {
+    "design": "classic",
+    "theme": "light",
+    "state": "add-podcast",
+    "violations": []
+  },
+  {
+    "design": "classic",
+    "theme": "light",
+    "state": "reader-appearance",
+    "violations": []
+  },
+  {
+    "design": "classic",
+    "theme": "light",
+    "state": "login",
+    "violations": []
+  },
+  {
+    "design": "classic",
+    "theme": "light",
+    "state": "signup",
+    "violations": []
+  },
+  {
+    "design": "classic",
+    "theme": "light",
+    "state": "recovery",
+    "violations": []
+  },
+  {
+    "design": "classic",
+    "theme": "dark",
+    "state": "settings-general",
+    "violations": []
+  },
+  {
+    "design": "classic",
+    "theme": "dark",
+    "state": "Platform Accounts",
+    "violations": []
+  },
+  {
+    "design": "classic",
+    "theme": "dark",
+    "state": "Tools & Data",
+    "violations": []
+  },
+  {
+    "design": "classic",
+    "theme": "dark",
+    "state": "add-podcast",
+    "violations": []
+  },
+  {
+    "design": "classic",
+    "theme": "dark",
+    "state": "reader-appearance",
+    "violations": []
+  },
+  {
+    "design": "classic",
+    "theme": "dark",
+    "state": "login",
+    "violations": []
+  },
+  {
+    "design": "classic",
+    "theme": "dark",
+    "state": "signup",
+    "violations": []
+  },
+  {
+    "design": "classic",
+    "theme": "dark",
+    "state": "recovery",
+    "violations": []
+  },
+  {
+    "design": "editorial",
+    "theme": "light",
+    "state": "settings-general",
+    "violations": []
+  },
+  {
+    "design": "editorial",
+    "theme": "light",
+    "state": "Platform Accounts",
+    "violations": []
+  },
+  {
+    "design": "editorial",
+    "theme": "light",
+    "state": "Tools & Data",
+    "violations": []
+  },
+  {
+    "design": "editorial",
+    "theme": "light",
+    "state": "add-podcast",
+    "violations": []
+  },
+  {
+    "design": "editorial",
+    "theme": "light",
+    "state": "reader-appearance",
+    "violations": []
+  },
+  {
+    "design": "editorial",
+    "theme": "light",
+    "state": "login",
+    "violations": []
+  },
+  {
+    "design": "editorial",
+    "theme": "light",
+    "state": "signup",
+    "violations": []
+  },
+  {
+    "design": "editorial",
+    "theme": "light",
+    "state": "recovery",
+    "violations": []
+  },
+  {
+    "design": "editorial",
+    "theme": "dark",
+    "state": "settings-general",
+    "violations": []
+  },
+  {
+    "design": "editorial",
+    "theme": "dark",
+    "state": "Platform Accounts",
+    "violations": []
+  },
+  {
+    "design": "editorial",
+    "theme": "dark",
+    "state": "Tools & Data",
+    "violations": []
+  },
+  {
+    "design": "editorial",
+    "theme": "dark",
+    "state": "add-podcast",
+    "violations": []
+  },
+  {
+    "design": "editorial",
+    "theme": "dark",
+    "state": "reader-appearance",
+    "violations": []
+  },
+  {
+    "design": "editorial",
+    "theme": "dark",
+    "state": "login",
+    "violations": []
+  },
+  {
+    "design": "editorial",
+    "theme": "dark",
+    "state": "signup",
+    "violations": []
+  },
+  {
+    "design": "editorial",
+    "theme": "dark",
+    "state": "recovery",
+    "violations": []
+  }
+]

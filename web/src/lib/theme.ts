@@ -1,3 +1,4 @@
+import {withStyleTimeout} from './styleLoading'
 import {useSyncExternalStore} from 'react'
 
 export type ColorTheme = 'light' | 'dark'
@@ -11,9 +12,9 @@ const subscribe = (listener: () => void) => {
   return () => { window.removeEventListener(event, listener); listeners.delete(listener); if (!listeners.size) window.removeEventListener('storage', syncStorage) }
 }
 function syncStorage(e: StorageEvent) {
-  if (e.storageArea !== localStorage) return
   if (e.key === 'xyz:design' || e.key === 'xyz:color-theme' || e.key === null) {
     try {
+      if (e.storageArea !== localStorage) return
       void setAppearance(localStorage.getItem('xyz:design') === 'editorial' ? 'editorial' : 'classic', localStorage.getItem('xyz:color-theme') === 'light' ? 'light' : 'dark', false).catch(() => { /* Keep the current usable skin if its replacement cannot load. */ })
     } catch { /* Other tabs may deny storage. */ }
   }
@@ -24,8 +25,8 @@ let revision = 0
 const skins: Partial<Record<Design, Promise<unknown>>> = {}
 export function loadAppearance(design = getDesign(), theme = getColorTheme()) {
   return Promise.all([
-    design === 'editorial' ? (skins.editorial ||= import('../editorial.css')) : Promise.resolve(),
-    design === 'classic' && theme === 'light' ? (skins.classic ||= import('../classic-light.css')) : Promise.resolve(),
+    design === 'editorial' ? (skins.editorial ||= withStyleTimeout(import('../editorial.css'))) : Promise.resolve(),
+    design === 'classic' && theme === 'light' ? (skins.classic ||= withStyleTimeout(import('../classic-light.css'))) : Promise.resolve(),
   ])
 }
 export async function setAppearance(design: Design, theme: ColorTheme, persist = true) {

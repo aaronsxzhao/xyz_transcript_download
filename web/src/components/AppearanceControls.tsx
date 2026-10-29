@@ -12,7 +12,7 @@ export default function AppearanceControls() {
     catch { setError('Appearance unavailable. Reload to retry.') }
     finally { setBusy(false) }
   }
-  return <div className="appearance-controls" role="group" aria-label="Appearance">
+  return <div className="appearance-controls" role="group" aria-label="Appearance" aria-busy={busy}>
     <select aria-label="Interface style" disabled={busy} value={design} onChange={e => void change(e.target.value as Design, theme)}>
       <option value="classic">Classic</option>
       <option value="editorial">A · Editorial</option>
@@ -21,6 +21,7 @@ export default function AppearanceControls() {
       aria-label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'} title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}>
       <span aria-hidden="true">{theme === 'dark' ? '☀' : '◐'}</span>
     </button>
+    {busy && <span role="status" className="sr-only">Loading appearance…</span>}
     {error && <span className="appearance-error" role="alert">{error}</span>}
   </div>
 }
