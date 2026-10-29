@@ -37,7 +37,10 @@ claim needs correction rather than a missing qualification, return a missing
 receipt; do not silently approve the conflict or hide it in an addition.
 Check all substantive arguments and meaning-changing qualifications in supplied
 source_units against the union of existing fields. Repetition, parallel examples
-and filler do not require a new passage. If covered, return a content receipt
+and filler do not require a new passage. Incidental asides and illustrative trivia
+are not independent gaps unless they change an argument, evidence, disagreement
+or condition. Coverage means retaining the essential meaning, not adding a new
+heading for every isolated fact. If covered, return a content receipt
 pointing to existing fields. Only if genuinely absent, add the smallest useful
 source-grounded delta under an existing relevant topic. Never repeat the whole
 source unit or append generic recaps to obtain a receipt. Keep the source language.
@@ -57,14 +60,24 @@ def passage_index(fields):
     from reading_budget import visible_prose
     from source_coverage import split_source
     passages = {}
+    reserved = set(fields)
+    number = 1
     for key, value in fields.items():
         parts = split_source(visible_prose(value), 3000)
-        for number, part in enumerate(parts):
-            passages[key if len(parts)==1 else f'{key}:part:{number}'] = part
+        for part_number, part in enumerate(parts):
+            if part_number == 0:
+                identity = key
+            else:
+                while f'point:{number}' in reserved:
+                    number += 1
+                identity = f'point:{number}'
+                reserved.add(identity)
+                number += 1
+            passages[identity] = part
     return passages
 
 
-def relevant_passages(source, passages, limit=40000):
+def relevant_passages(source, passages, limit=24000):
     """Lexical shortlist only; proposed additions must still scan the full draft."""
     from source_coverage import source_units
     if sum(map(len, passages.values())) <= limit:
@@ -137,7 +150,9 @@ def review_document(source, fields, call, *, deadline=None, resume=None):
             if not isinstance(addition, dict) or not all(isinstance(addition.get(k),str) for k in ('topic','summary','original_quote','timestamp')):
                 raise ValueError('Invalid saved review addition')
             additions.append(dict(addition))
-            current[f'resumed:{len(additions)}'] = addition['summary']
+            number = len(current)+1
+            while f'point:{number}' in current: number += 1
+            current[f'point:{number}'] = addition['summary']
         for check in resume.get('checks', []):
             if isinstance(check,dict) and check.get('complete') is True and type(check.get('chunk')) is int and 1 <= check['chunk'] <= len(chunks):
                 completed[check['chunk']] = dict(check)
@@ -146,10 +161,10 @@ def review_document(source, fields, call, *, deadline=None, resume=None):
             checks.append(completed[index+1])
             continue
         def guarded_call(system, payload, timeout=60):
-            remaining = (deadline - time.monotonic()) if deadline else timeout
+            remaining = (deadline - time.monotonic()) if deadline else max(timeout,120)
             if remaining <= 0:
                 raise TimeoutError('Saved-review deadline')
-            return call(system, payload, min(timeout, remaining))
+            return call(system, payload, min(max(timeout, 120), remaining))
         def invoke(system, payload, timeout=60):
             result = guarded_call(system + CONTRACT, payload, timeout)
             if isinstance(result, dict) and result.get('edits'):

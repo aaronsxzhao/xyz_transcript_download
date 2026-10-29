@@ -1,3 +1,4 @@
+import re
 import json
 import time
 from unittest.mock import Mock
@@ -121,3 +122,20 @@ def test_incomplete_checkpoint_is_not_treated_as_completed():
     provider=Mock(return_value={'coverage':[{'unit':'S1','kind':'content','fields':['body']}]})
     result=review_document('First claim.',{'body':'First claim.'},provider,resume={'checks':[{'chunk':1,'complete':False},{'chunk':999,'complete':True}]})
     assert result['complete'] and result['resumed_chunks']==0 and provider.call_count==1
+
+
+def test_real_coverage_validator_accepts_partitioned_video_fields():
+    fields={'body':'First argument. '*400}
+    def call(system,payload,timeout):
+        request=json.loads(payload)
+        return {'coverage':[{'unit':unit,'kind':'content','fields':list(request['draft_fields'])} for unit in request['source_units']]}
+    result=review_document('A substantive source argument.',fields,call)
+    assert result['complete']
+
+
+def test_large_point_field_ids_do_not_collide_with_existing_points():
+    from scripts.complete_saved_coverage import passage_index
+    fields={'point:1':'Long argument. '*500,'point:2':'Other argument.'}
+    indexed=passage_index(fields)
+    assert indexed['point:2']=='Other argument.'
+    assert all(re.fullmatch(r'point:\d+',key) for key in indexed)
