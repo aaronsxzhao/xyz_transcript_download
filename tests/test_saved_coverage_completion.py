@@ -86,3 +86,17 @@ def test_index_keeps_all_prose_even_for_large_fields():
     from scripts.complete_saved_coverage import passage_index
     text='Important condition. '*500
     assert ''.join(passage_index({'body':text}).values()).strip()==text.strip()
+
+
+def test_duplicate_check_uses_its_own_response_contract(monkeypatch):
+    from scripts.complete_saved_coverage import CONTRACT
+    monkeypatch.setattr('scripts.complete_saved_coverage.relevant_passages',lambda source,fields: {'body':fields['body']})
+    calls=[]
+    def call(system,payload,timeout):
+        data=json.loads(payload); calls.append(data)
+        if 'existing_fields' in data:
+            assert CONTRACT not in system
+            return {'covered':True,'fields':['other']}
+        return {'additions':[{'id':'added:1','topic':'Condition','heading':'Exception','text':'The effect reverses.','source_ids':['S1']}], 'coverage':[{'unit':'S1','kind':'content','fields':['added:1']}]}
+    result=review_document('The effect reverses.',{'body':'The general effect.','other':'The effect reverses.'},call)
+    assert result['complete'] and not result['additions'] and len(calls)==2

@@ -131,11 +131,13 @@ def review_document(source, fields, call, *, deadline=None):
         raise ValueError('Missing saved source or prose')
     additions, checks = [], []
     for index, chunk in enumerate(chunks):
-        def invoke(system, payload, timeout=60):
+        def guarded_call(system, payload, timeout=60):
             remaining = (deadline - time.monotonic()) if deadline else timeout
             if remaining <= 0:
                 raise TimeoutError('Saved-review deadline')
-            result = call(system + CONTRACT, payload, min(timeout, remaining))
+            return call(system, payload, min(timeout, remaining))
+        def invoke(system, payload, timeout=60):
+            result = guarded_call(system + CONTRACT, payload, timeout)
             if isinstance(result, dict) and result.get('edits'):
                 raise SummaryOutputError('invalid')
             return result
@@ -150,9 +152,10 @@ def review_document(source, fields, call, *, deadline=None):
                        'issues':review.issues, 'completion':review.receipt_recheck})
         for addition in review.additions:
             try:
-                if not confirm_missing_addition(addition, current, selected, invoke):
+                if not confirm_missing_addition(addition, current, selected, guarded_call):
                     continue
-            except Exception:
+            except Exception as error:
+                checks[-1]['addition_review_error'] = type(error).__name__
                 checks[-1]['complete'] = False
                 checks[-1]['addition_review_unavailable'] = True
                 continue
