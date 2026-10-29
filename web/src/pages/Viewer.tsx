@@ -22,6 +22,7 @@ import { markdownToSafeHtml } from "../lib/safeHtml";
 import {readingIntersection} from '../lib/readingIntersection';
 import {
   summaryChapters,
+  summaryPointCount,
   summaryIntroduction,
 } from "../lib/summaryReading";
 import { useState, useEffect, useRef, useCallback } from "react";
@@ -409,7 +410,7 @@ export default function Viewer() {
           {summary && (
             <>
               <span>{topicEntries.length} chapters</span>
-              <span>{summary.key_points.length} key points</span>
+              <span>{summaryPointCount(summary.key_points)} key points</span>
             </>
           )}
           {transcript && <span>{formatTime(transcript.duration)}</span>}
@@ -650,7 +651,7 @@ export default function Viewer() {
                         </span>
                         <span className="font-medium text-white">{topic}</span>
                         <span className="text-sm text-gray-500">
-                          ({points.length} points)
+                          ({summaryPointCount(points)} {summaryPointCount(points) === 1 ? "point" : "points"})
                         </span>
                       </div>
                       {expandedTopics.has(topic) ? (

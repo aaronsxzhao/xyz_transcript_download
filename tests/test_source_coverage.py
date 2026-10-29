@@ -317,7 +317,7 @@ def test_audit_preserves_a_point_without_fabricating_its_missing_quote():
         final = s._audit_summary(draft, 'The real source.')
     assert final.key_points[0].summary == 'Unsupported detail'
     assert final.key_points[0].original_quote == final.key_points[0].timestamp == ''
-    assert 'coverage review did not complete' in final.overview
+    assert final.overview == 'Overview'  # Citation absence is not a coverage failure.
 
 
 def test_changed_point_uses_its_new_audited_evidence_instead_of_old_quote():

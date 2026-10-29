@@ -267,10 +267,6 @@ class Summarizer:
                 return Summary(episode_id, episode_title,
                     delivery_notice('', 'format', transcript_text),
                     [KeyPoint('生成正文' if chinese_source(transcript_text) else 'Generated notes', raw, '', '')], ['生成正文' if chinese_source(transcript_text) else 'Generated notes'], [])
-            if not result.key_points:
-                from summary_errors import delivery_notice
-                return replace(result, overview=delivery_notice('', 'format', transcript_text),
-                    key_points=[KeyPoint('生成正文' if chinese_source(transcript_text) else 'Generated notes', result.overview, '', '')], topics=['生成正文' if chinese_source(transcript_text) else 'Generated notes'])
             try:
                 result = self._audit_summary(result, transcript_text, progress_callback, source_context)
             except Exception as audit_error:
@@ -286,6 +282,9 @@ class Summarizer:
                 compact = lambda value: re.sub(r"\s+", "", value)
                 spoken = compact(spoken_source(transcript_text))
                 points = []
+                if not result.key_points and result.overview.strip():
+                    topic = '生成正文' if chinese_source(transcript_text) else 'Generated notes'
+                    result = replace(result, key_points=[KeyPoint(topic, result.overview, '', '')], topics=[topic])
                 for point in result.key_points:
                     quote = point.original_quote if compact(point.original_quote) and compact(point.original_quote) in spoken else ""
                     points.append(replace(point, original_quote=quote, timestamp=quote_timestamp(transcript_text, quote, point.timestamp)))
@@ -315,6 +314,12 @@ class Summarizer:
 
     def _audit_summary(self, summary: Summary, source: str, progress_callback=None, source_context=None) -> Summary:
         """Review extraction against the source before any outline synthesis."""
+        empty_extraction = not summary.key_points
+        if empty_extraction:
+            # Valid empty JSON is not a formatting failure. Audit the source
+            # before deciding that an outro contains no substantive material.
+            topic = '生成正文' if chinese_source(source) else 'Generated notes'
+            summary = replace(summary, key_points=[KeyPoint(topic, summary.overview or spoken_source(source), '', '')])
         fields = {"overview": summary.overview}
         fields.update({f"point:{i+1}": point.summary for i, point in enumerate(summary.key_points)})
         fields.update({f"takeaway:{i+1}": value for i, value in enumerate(summary.takeaways)})
@@ -327,13 +332,19 @@ class Summarizer:
         context = {**(source_context or {}), "chapter_titles": summary.topics}
         review = audit_source(source, fields, call, context, repair=False, best_effort=True,
                               recheck=self._editorial_json)
+        if empty_extraction and getattr(review, 'non_content_only', False) and review.complete:
+            from reading_generation import record_review
+            record_review(self, True, review=review)
+            return replace(summary, overview='', key_points=[], topics=[], takeaways=[])
         updated, additions, citations = review
-        evidence_incomplete = False
+        missing_citations = 0
         compact = lambda value: re.sub(r"\s+", "", value)
         spoken = compact(spoken_source(source))
         points = []
         for i, point in enumerate(summary.key_points):
             field = f"point:{i+1}"
+            if empty_extraction and field not in updated and additions:
+                continue
             verified_quote = bool(compact(point.original_quote)) and compact(point.original_quote) in spoken
             # Keep the selected verbatim excerpt when the reviewed claim is
             # unchanged; coverage receipts can span much broader source units.
@@ -342,15 +353,19 @@ class Summarizer:
             if not compact(quote) or compact(quote) not in spoken:
                 # Missing evidence affects this citation, not the other notes.
                 quote = ""
-                evidence_incomplete = True
+                missing_citations += 1
             points.append(replace(point, summary=updated[field], original_quote=quote,
                                   timestamp=quote_timestamp(source, quote, point.timestamp)))
         for i, addition in enumerate(additions):
             points.append(KeyPoint(addition["topic"], updated[addition["id"]],
                                    addition["source_quote"], quote_timestamp(source, addition["source_quote"], addition["timestamp"])))
+        if missing_citations and hasattr(self, '_generation_lock'):
+            with self._generation_lock:
+                evidence = self.generation_report.setdefault('evidence', {})
+                evidence['unmatched_points'] = evidence.get('unmatched_points', 0) + missing_citations
         gaps = getattr(review, 'identified_gaps', {})
         from reading_generation import record_review
-        record_review(self,not gaps and getattr(review,'complete',True) and not evidence_incomplete,
+        record_review(self,not gaps and getattr(review,'complete',True),
                       'coverage_gap' if gaps else 'unresolved_checks',review=review)
         if gaps:
             gap_topic = '核对标出的原文' if chinese_source(source) else 'Source passages flagged by review'
@@ -360,7 +375,7 @@ class Summarizer:
         from summary_errors import delivery_notice
         if gaps:
             overview = delivery_notice(overview, 'coverage_gap', source)
-        elif not getattr(review, 'complete', True) or evidence_incomplete:
+        elif not getattr(review, 'complete', True):
             overview = delivery_notice(overview, 'audit', source)
         if not getattr(review, 'complete', True):
             logger.warning('Podcast review retained valid items; unresolved checks: %s', ','.join(review.issues))

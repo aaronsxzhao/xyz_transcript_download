@@ -51,3 +51,26 @@ it('keeps multiline takeaways inside their own list item in Markdown export',asy
  expect(div.querySelectorAll('ul>li')).toHaveLength(2)
  expect(div.querySelector('li')?.textContent).toContain('A necessary condition.')
 })
+
+it('counts displayed arguments and removes only adjacent repeated headings in reader and export',async()=>{
+ const {normalizeSummaryMarkdown,summaryPointCount}=await import('../src/lib/summaryReading')
+ const body='#### 安全边际\n\n#### 安全边际\n\nFirst argument.\n\n#### 定价\n\nSecond argument.'
+ expect(normalizeSummaryMarkdown(body).match(/#### 安全边际/g)).toHaveLength(1)
+ expect(summaryPointCount([point('Topic',body)])).toBe(2)
+ expect(summaryPointCount([point('Topic','#### Main\n\nBody\n\n##### Nested\n\nDetail')])).toBe(1)
+ const protectedText='```md\n#### A\n#### A\n```\n\n> #### A\n> #### A\n\n#### A\n\nBody\n\n#### A\n\nOther body'
+ expect(normalizeSummaryMarkdown(protectedText)).toBe(protectedText)
+ const markdown=summaryToMarkdown({episode_id:'e',title:'Title',overview:'Overview',topics:['Topic'],key_points:[point('Topic',body)],takeaways:[]})
+ expect(markdown.match(/#### 安全边际/g)).toHaveLength(1)
+})
+
+it('keeps reference definitions and original CRLF when normalizing headings',async()=>{
+ const {normalizeSummaryMarkdown}=await import('../src/lib/summaryReading')
+ const source='#### A\r\n\r\n#### A\r\n\r\nRead [evidence][ref].\r\n\r\n[ref]: https://example.com/source "Source"\r\n'
+ const result=normalizeSummaryMarkdown(source)
+ expect(result).toContain('[ref]: https://example.com/source "Source"\r\n')
+ expect(result.match(/#### A/g)).toHaveLength(1)
+ expect(result.replace(/\r\n/g,'')).not.toContain('\n')
+ const original='Read [evidence][ref].\n\n[ref]: https://example.com/source\n'
+ expect(normalizeSummaryMarkdown(original)).toBe(original)
+})

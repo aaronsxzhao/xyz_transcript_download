@@ -236,3 +236,18 @@ def localize_note(markdown,source,call,checkpoint=None,budget=120,report=None):
             report['retained']=report.get('retained',0)+1
             result.append(piece)
     return ''.join(result)
+
+
+def deduplicate_adjacent_headings(markdown):
+    """Remove only repeated adjacent headings, never quotes/code or later repeats."""
+    lines = markdown.splitlines(keepends=True)
+    headings = [t for t in MarkdownIt().parse(markdown) if t.type == 'heading_open' and t.level == 0]
+    remove = set()
+    previous = None
+    for token in headings:
+        start, end = token.map
+        identity = (token.tag, ''.join(lines[start:end]).strip())
+        if previous and previous[0] == identity and not ''.join(lines[previous[2]:start]).strip():
+            remove.update(range(start, end))
+        previous = (identity, start, end)
+    return ''.join(line for i, line in enumerate(lines) if i not in remove)

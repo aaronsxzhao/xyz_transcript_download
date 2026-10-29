@@ -1,9 +1,10 @@
+import {Lexer} from 'marked'
 import type { KeyPoint, Summary } from './api'
 
 /** CommonMark treats **中文。**后文 as literal asterisks. Move only the
  * closing punctuation outside emphasis, leaving text and code unchanged. */
 export function normalizeSummaryMarkdown(markdown: string): string {
-  return markdown.split(/(```[\s\S]*?```|~~~[\s\S]*?~~~|`[^`\n]*`)/g).map((part, index) => index % 2 ? part : part.replace(/(?<!\\)\*\*(?=\S)([^*\n]+?)([，。；：！？、,.!?;:]+)\*\*(?=[\p{L}\p{N}])/gu, '**$1**$2')).join('')
+  return deduplicateHeadings(markdown).split(/(```[\s\S]*?```|~~~[\s\S]*?~~~|`[^`\n]*`)/g).map((part, index) => index % 2 ? part : part.replace(/(?<!\\)\*\*(?=\S)([^*\n]+?)([，。；：！？、,.!?;:]+)\*\*(?=[\p{L}\p{N}])/gu, '**$1**$2')).join('')
 }
 
 /** New notes keep their labelled introduction in the existing overview field.
@@ -29,4 +30,35 @@ export function summaryChapters(summary?: Summary | null): [string, KeyPoint[]][
     groups.get(point.topic)!.push(point)
   }
   return [...groups].filter(([, points]) => points.length > 0)
+}
+
+/** Top-level Markdown tokens exclude headings inside quotes and code. */
+function deduplicateHeadings(markdown: string): string {
+  let previous = '', cursor = 0, output = '', kept = 0
+  const newline = markdown.includes('\r\n') ? '\r\n' : '\n'
+  for (const token of Lexer.lex(markdown)) {
+    // Lexer omits reference definitions. Edit original spans, not token output.
+    const raw = token.raw.replace(/\n/g, newline)
+    const start = markdown.indexOf(raw, cursor)
+    if (start < 0) return markdown
+    if (markdown.slice(cursor, start).trim()) previous = ''
+    cursor = start + raw.length
+    if (token.type === 'space') continue
+    const key = token.type === 'heading' ? token.depth + ':' + token.text : ''
+    if (key && key === previous) {
+      output += markdown.slice(kept, start)
+      kept = cursor
+    }
+    previous = key
+  }
+  return output + markdown.slice(kept)
+}
+
+/** Count visible top-level arguments, rather than storage rows or nested headings. */
+export function summaryPointCount(points: KeyPoint[]): number {
+  return points.reduce((total, point) => {
+    const depths = Lexer.lex(deduplicateHeadings(point.summary)).flatMap(token => token.type === 'heading' ? [token.depth] : [])
+    const depth = Math.min(...depths)
+    return total + (depths.filter(value => value === depth).length || Number(!!point.summary.trim()))
+  }, 0)
 }
