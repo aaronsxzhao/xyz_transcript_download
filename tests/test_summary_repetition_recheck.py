@@ -136,3 +136,22 @@ def test_edit_grounding_requires_source_references_or_explicit_original_review(r
                         best_effort=True,recheck=retry)
     assert review.complete is complete
     assert review.receipt_recheck['edit_resolved']==int(complete)
+
+
+@pytest.mark.parametrize('reason',['closing exchange and music','empty transition and farewell',
+                                   ' EMPTY-TRANSITION ', 'greetings'])
+def test_equivalent_non_content_labels_do_not_create_false_incomplete_warning(reason):
+    retry=Mock()
+    review=audit_source('Thank you. Goodbye. [Music]',{'body':'Earlier notes remain.'},
+        Mock(return_value={'coverage':[{'unit':'S1','kind':'non_content','reason':reason}]}),
+        best_effort=True,recheck=retry)
+    assert review.complete and review.fields['body']=='Earlier notes remain.'
+    retry.assert_not_called()
+
+
+@pytest.mark.parametrize('reason',['repetition','unimportant','conclusion','example','closing reflection'])
+def test_substantive_categories_cannot_be_normalized_into_exclusions(reason):
+    review=audit_source('An important condition.',{'body':'Draft'},
+        Mock(return_value={'coverage':[{'unit':'S1','kind':'non_content','reason':reason}]}),
+        best_effort=True)
+    assert not review.complete and review.unverified_units==['S1']

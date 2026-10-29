@@ -203,6 +203,23 @@ AUDIT_ISSUES = {"invalid_json", "invalid_object", "invalid_lists", "invalid_edit
                 "invalid_exclusion", "invalid_note_reference", "invalid_kind", "missing_units", "invalid_unit_repair"}
 
 
+def _exclusion_reason(value):
+    """Normalize explicit non-content labels, never infer low importance.
+
+    Providers sometimes express the enum as an equivalent natural-language
+    label. Repetition, conclusions, examples and 'unimportant' are deliberately
+    absent: they require a real content receipt referencing existing notes.
+    """
+    if not isinstance(value, str):
+        return value
+    key = re.sub(r'[\s_-]+', ' ', value.strip().lower())
+    return {'greeting':'greeting', 'greetings':'greeting',
+            'advertisement':'advertisement', 'advertisements':'advertisement',
+            'empty transition':'empty_transition', 'farewell':'empty_transition',
+            'farewells':'empty_transition', 'closing exchange and music':'empty_transition',
+            'empty transition and farewell':'empty_transition'}.get(key, value)
+
+
 def _audit_error(issue, response, **details):
     error = SummaryOutputError("coverage")
     error.audit_feedback = {"issue": issue, **details}
@@ -650,6 +667,8 @@ def _apply_audit_data(source, fields, data, context=None, *, best_effort=False):
             kind = original.get('kind')
             if kind == 'non_content':
                 reason = original.get('reason')
+                if best_effort:
+                    reason = _exclusion_reason(reason)
                 if not isinstance(reason, str) or reason not in {'greeting', 'advertisement', 'empty_transition'}:
                     raise _audit_error('invalid_exclusion', data, unit=unit)
                 canonical = (kind, reason)
