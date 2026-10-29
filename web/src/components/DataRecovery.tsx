@@ -71,10 +71,12 @@ export function NoteRecovery({ id, version = '', warning = '', failed = false, l
     const note=id, generation=getAuthGeneration()
     // A lost POST acknowledgement does not mean the repair failed. Reconcile
     // through the read-only status endpoint, never automatically submit twice.
+    let rejected = false
     try {
       const data = await requestWithDeadline(async signal => {
         const r = await authFetch(base + '/repair-media', {method:'POST',signal,headers:{'Content-Type':'application/json'},body:JSON.stringify({source_path:source})})
         if (!r.ok) {
+          rejected = r.status >= 400 && r.status < 500
           let detail=''
           try { detail=(await r.json()).detail || '' } catch { /* HTML proxy response. */ }
           throw new Error(detail || `Cannot start screenshot repair (HTTP ${r.status}).`)
@@ -83,7 +85,7 @@ export function NoteRecovery({ id, version = '', warning = '', failed = false, l
       }, {timeout:20000,retry:false,message:'Repair confirmation timed out. Checking whether it started…'})
       if(currentId.current===note && generation===getAuthGeneration()) setRepair(data)
     } catch(error) {
-      if(currentId.current===note && generation===getAuthGeneration())
+      if(!rejected && currentId.current===note && generation===getAuthGeneration())
         setRepair({status:'running',message:'Checking whether screenshot repair started…'})
       throw error
     }

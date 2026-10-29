@@ -162,7 +162,7 @@ def _verbatim_blocks(text, types=('blockquote_open','fence','code_block')):
             if token.map and token.type in types]
 
 
-def edit_sections(items, call, checkpoint=None, budget=120, *, preserve_order=False, source_text='', report=None, reserved_text='', additional_reserved_units=0):
+def edit_sections(items, call, checkpoint=None, budget=120, *, preserve_order=False, source_text='', report=None, reserved_text='', additional_reserved_units=0, overall_deadline=None):
     """Return paragraphs with source IDs; failed batches retain original text.
 
     Each item has id, topic, text and optional evidence. The input is untouched.
@@ -173,7 +173,7 @@ def edit_sections(items, call, checkpoint=None, budget=120, *, preserve_order=Fa
     if budget is None and PLAN.get() and PLAN.get().get('target_high'):
         from focused_editor import edit_whole_note
         return edit_whole_note(items, call, checkpoint, preserve_order=preserve_order, additional_reserved_units=additional_reserved_units,
-                               source_text=source_text, report=report, reserved_text=reserved_text)
+                               source_text=source_text, report=report, reserved_text=reserved_text, overall_deadline=overall_deadline)
     if len(items) < 2:
         return [dict(item, ids=[item['id']], evidence_id=item['id']) for item in items]
     report = report if report is not None else {}
@@ -183,7 +183,7 @@ def edit_sections(items, call, checkpoint=None, budget=120, *, preserve_order=Fa
     # individually, so a restart reuses completed planning/composition/review.
     allowance = min(600, max(120, len(items)*8)) if budget is None else budget
     started=time.monotonic()
-    deadline = started + allowance
+    deadline = min(started + allowance, overall_deadline if overall_deadline is not None else float("inf"))
     stage_deadline = min(deadline, time.monotonic()+60)
     unavailable = False
     consecutive_failures = 0
@@ -258,7 +258,7 @@ def edit_sections(items, call, checkpoint=None, budget=120, *, preserve_order=Fa
         # Budget by actual independent chapter waves, not input card count.
         # Otherwise a small note with three chapters can lose its final chapter
         # after two 45-second composition/review calls in an earlier wave.
-        deadline=started+min(600,max(120,60+((len(chapters)+1)//2)*90))
+        deadline=min(started+min(600,max(120,60+((len(chapters)+1)//2)*90)), overall_deadline if overall_deadline is not None else float("inf"))
 
     def compose_chapter(chapter):
         # One difficult chapter cannot consume every later chapter's editing

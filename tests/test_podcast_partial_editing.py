@@ -91,3 +91,17 @@ def test_failed_partial_run_does_not_contaminate_next_successful_report():
     assert report['runs'][0]['fallback_reason']=='TimeoutError'
     assert 'fallback_reason' not in report['runs'][1]
     assert report['model_calls']==2
+
+
+def test_partial_runs_share_the_same_absolute_time_limit():
+    engine=Summarizer(api_key='fixture');engine.generation_report={}
+    summary=Summary('e','Title','Overview',[KeyPoint('A','First','',''),
+        KeyPoint('Original transcript','Raw','',''),KeyPoint('B','Last','','')],[],[])
+    deadlines=[]
+    def edit(items,*args,**kwargs):
+        deadlines.append(kwargs['overall_deadline'])
+        return [dict(row,ids=[row['id']],evidence_id=row['id']) for row in items]
+    with patch('reading_editor.edit_sections',side_effect=edit):
+        result=engine._edit_reading(summary,_deadline=12345)
+    assert deadlines==[12345,12345]
+    assert result.key_points[1] is summary.key_points[1]

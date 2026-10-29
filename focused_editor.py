@@ -79,7 +79,9 @@ def _source_groups(items, count, language):
 
 
 def edit_whole_note(items, call, checkpoint=None, *, preserve_order=False,
-                    source_text='', report=None, reserved_text='', additional_reserved_units=0):
+                    source_text='', report=None, reserved_text='', additional_reserved_units=0, overall_deadline=None):
+    started = time.monotonic()
+    overall_deadline = min(started + 600, overall_deadline if overall_deadline is not None else float("inf"))
     from math import ceil
     from reading_editor import _media, _verbatim_blocks
     from note_presentation import normalize_media_markers, media_times
@@ -213,7 +215,7 @@ Use content-specific topic headings, never schema labels such as "chapters".
                 neighbor=requests[index]['notes']
                 note=neighbor[-1] if label=='previous' else neighbor[0]
                 boundary[label]={'topic':note['topic'],'text':note['text'][:4000]}
-        deadline = time.monotonic()+240
+        deadline = min(overall_deadline, time.monotonic()+240)
         def request(system,payload):
             if checkpoint:checkpoint()
             if provider_unavailable.is_set():
@@ -368,7 +370,16 @@ Do not add prose unrelated to a repair. Do not restate the input in full.
     stats = [stat for _,stat in results]
     if not any(stat['retained_sections'] for stat in stats):
         from reading_repetition import remove_repeated_examples
-        output, repetition = remove_repeated_examples(output, call, checkpoint)
+        repetition_calls = 0
+        def bounded_call(system, payload, timeout):
+            nonlocal repetition_calls
+            remaining = overall_deadline-time.monotonic()
+            if remaining < 1:
+                raise TimeoutError('Reading edit deadline exhausted')
+            repetition_calls += 1
+            return call(system, payload, min(timeout, remaining))
+        output, repetition = remove_repeated_examples(output, bounded_call, checkpoint)
+        repetition['model_calls'] = repetition_calls
         report['repetition'] = repetition
     measured_output = sum(units(visible_prose(row['text']),language) for row in output)
     if preserve_order:
@@ -377,6 +388,7 @@ Do not add prose unrelated to a repair. Do not restate the input in full.
             if row['topic']!=previous:measured_output+=units(visible_prose(row['topic']),language)
             previous=row['topic']
     report.update(batches=stats,source_groups=len(grouped),
+        elapsed_seconds=round(time.monotonic()-started,2),
         source_order_preserved=preserve_order,
         model_calls=sum(s['model_calls'] for s in stats)+report.get('repetition',{}).get('model_calls',0),
         composed_batches=sum(bool(s['composed_sections']) for s in stats),

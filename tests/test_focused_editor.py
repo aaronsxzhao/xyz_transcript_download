@@ -310,3 +310,24 @@ def test_interleaved_screenshot_keeps_its_exact_source_position(plan):
     source[0]['text'] = 'First claim.\n\nScreenshot-[01:00]\n\nDifferent later claim.'
     result = edit_whole_note(source, provider, preserve_order=True)
     assert result[0]['text'] == source[0]['text']
+
+
+def test_overall_deadline_preserves_notes_without_starting_a_model_call(plan):
+    source=rows();call=Mock();report={}
+    with patch('focused_editor.time.monotonic',return_value=100):
+        result=edit_whole_note(source,call,report=report,overall_deadline=99)
+    call.assert_not_called()
+    assert [r['text'] for r in result]==[r['text'] for r in source]
+    assert report['retained_batches']>0
+
+
+def test_review_uses_remaining_overall_time_instead_of_new_allowance(plan):
+    clock=[100.0];timeouts=[]
+    def call(system,payload,timeout):
+        timeouts.append(timeout)
+        clock[0]+=4
+        return provider(system,payload,timeout)
+    with patch('focused_editor.time.monotonic',side_effect=lambda:clock[0]):
+        result=edit_whole_note(rows(),call,overall_deadline=110)
+    assert timeouts==[10,6]
+    assert 'untested' in result[0]['text']

@@ -172,8 +172,11 @@ class Summarizer:
         from reading_language import source_language_lock
         return call_editor(self.client, self.model, system+source_language_lock(getattr(self,'_reading_source','')), payload, timeout)
 
-    def _edit_reading(self, summary, checkpoint=None):
+    def _edit_reading(self, summary, checkpoint=None, _deadline=None):
         from reading_editor import edit_sections, has_unedited_source
+        import time
+        if _deadline is None:
+            _deadline = time.monotonic() + 600
         if not summary or not summary.key_points:
             return summary
         generation = getattr(self, 'generation_report', None)
@@ -209,7 +212,7 @@ class Summarizer:
                 # A failed run must not leave its reason/counts in a later run.
                 child_report = generation['editor'] = {}
                 try:
-                    edited = self._edit_reading(child, checkpoint)
+                    edited = self._edit_reading(child, checkpoint, _deadline=_deadline)
                 finally:
                     PLAN.reset(token)
                     generation['editor'] = report
@@ -231,7 +234,7 @@ class Summarizer:
                   'evidence':point.original_quote} for i,point in enumerate(summary.key_points)]
         lookup = {item['id']:point for item,point in zip(items,summary.key_points)}
         try:
-            paragraphs = edit_sections(items, self._editorial_json, checkpoint, budget=None, reserved_text='\n'.join([summary.overview, *summary.takeaways]), source_text=getattr(self,'_reading_source',''), report=getattr(self,'generation_report',{}).setdefault('editor',{}))
+            paragraphs = edit_sections(items, self._editorial_json, checkpoint, budget=None, overall_deadline=_deadline, reserved_text='\n'.join([summary.overview, *summary.takeaways]), source_text=getattr(self,'_reading_source',''), report=getattr(self,'generation_report',{}).setdefault('editor',{}))
             points = []
             for paragraph in paragraphs:
                 evidence = lookup[paragraph['evidence_id']]
