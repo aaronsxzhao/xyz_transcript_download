@@ -384,6 +384,7 @@ export async function fetchSettings(): Promise<{
   whisper_backend: string
   whisper_device: string
   llm_model: string
+  summary_generation_mode?: 'single' | 'segmented'
   llm_reasoning_effort?: string
   llm_service_tier?: string
   llm_provider: 'server' | 'groq' | 'custom'
@@ -403,6 +404,7 @@ export async function fetchSettings(): Promise<{
 export async function updateSettings(settings: {
   whisper_model?: string
   llm_model?: string
+  summary_generation_mode?: 'single' | 'segmented'
   llm_reasoning_effort?: string
   llm_service_tier?: string
   llm_provider?: 'server' | 'groq' | 'custom'

@@ -8,7 +8,7 @@ from typing import Optional
 
 from config import DATABASE_PATH, USE_SUPABASE, WHISPER_MODE, WHISPER_LOCAL_MODEL, get_runtime_settings
 
-SETTING_KEYS = {"llm_reasoning_effort", "llm_service_tier", "whisper_model", "llm_model", "llm_provider", "transcription_provider", "llm_base_url", "whisper_base_url"}
+SETTING_KEYS = {"summary_generation_mode", "llm_reasoning_effort", "llm_service_tier", "whisper_model", "llm_model", "llm_provider", "transcription_provider", "llm_base_url", "whisper_base_url"}
 SECRET_KEYS = {"llm_api_key", "whisper_api_key"}
 _settings_locks = WeakValueDictionary()
 _settings_locks_guard = threading.Lock()
@@ -44,6 +44,7 @@ def _load_preferences(user_id: Optional[str]) -> dict:
 
 def get_user_settings(user_id: Optional[str]) -> dict:
     defaults = get_runtime_settings()
+    defaults["summary_generation_mode"] = "single"
     from api.llm_settings import GROQ_API_KEY, GROQ_MODELS, LLM_MODEL
     defaults["llm_provider"] = "groq" if GROQ_API_KEY else "server"
     defaults["transcription_provider"] = "server"

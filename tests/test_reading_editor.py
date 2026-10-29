@@ -176,21 +176,22 @@ def test_groq_editor_has_the_same_output_room_as_the_paid_summary_path():
 
 @pytest.mark.parametrize('video',[False,True])
 @pytest.mark.parametrize('long',[False,True])
-def test_new_short_and_long_generations_apply_editorial_pass(video,long):
-    if video:
-        from note_summarizer import NoteSummarizer
-        engine=NoteSummarizer(api_key='synthetic');engine.chunk_chars=1 if long else 10000
-        with patch.object(engine,'_generate_chunked' if long else '_generate_single',return_value='# Draft') as generate,patch.object(engine,'_edit_reading',return_value='# Edited') as edit:
-            assert '# Edited' in engine.generate_note('Title','Complete source transcript.')
-    else:
-        from summarizer import Summarizer,Summary
-        from transcriber import Transcript
-        engine=Summarizer(api_key='synthetic');engine.chunk_chars=1 if long else 10000
-        draft=Summary('ep','Title','Draft',[],[],[]);edited=Summary('ep','Title','Edited',[],[],[])
-        with patch('transcript_quality.validate_transcript'),patch.object(engine,'_summarize_long_transcript' if long else '_summarize_single',return_value=draft) as generate,patch.object(engine,'_edit_reading',return_value=edited) as edit:
-            assert engine.summarize(Transcript('ep','en',120,'Complete source transcript.',[])) is edited
-    generate.assert_called_once()
-    edit.assert_called_once()
+def test_new_short_and_long_generations_use_the_source_linked_pipeline(video,long):
+    from tests.test_transcript_reading import provider
+    from transcriber import Transcript
+    from note_summarizer import NoteSummarizer
+    from summarizer import Summarizer
+    engine=NoteSummarizer(api_key='synthetic') if video else Summarizer(api_key='synthetic')
+    engine.chunk_chars=1 if long else 10000
+    source='Complete source transcript. '* (1000 if long else 1)
+    calls=[]
+    with patch('transcript_reading.call_json',side_effect=provider(calls)),patch.object(engine,'_edit_reading') as edit:
+        if video:result=engine.generate_note('Title',source)
+        else:
+            with patch('transcript_quality.validate_transcript'):
+                result=engine.summarize(Transcript('ep','en',120,source,[]))
+    assert result and engine.generation_report['generation_requests']==1
+    edit.assert_not_called()
 
 
 @pytest.mark.parametrize('video',[True,False])

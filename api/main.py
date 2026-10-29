@@ -652,6 +652,7 @@ def _public_settings(runtime: dict) -> dict:
         "whisper_backend": WHISPER_BACKEND,
         "whisper_device": WHISPER_DEVICE,
         "whisper_provider": WHISPER_API_PROVIDER,
+        "summary_generation_mode": runtime.get("summary_generation_mode", "single"),
         "llm_reasoning_effort": runtime.get("llm_reasoning_effort", ""),
         "llm_service_tier": runtime.get("llm_service_tier", ""),
         "llm_model": runtime.get("llm_model", "openrouter/openai/gpt-4o"),

@@ -134,11 +134,16 @@ class NoteSummarizer:
         model: str = "",
         custom_endpoint: bool = False,
         model_options: Optional[dict] = None,
+        generation_mode: str = "single",
     ):
         self.api_key = api_key or LLM_API_KEY
         self.base_url = base_url or LLM_BASE_URL
         self.model = model or LLM_MODEL
         self.custom_endpoint = custom_endpoint
+        from transcript_reading import MODES
+        if generation_mode not in MODES:
+            raise ValueError("Generation mode must be single or segmented")
+        self.generation_mode = generation_mode
         self.model_options = dict(model_options or {})
         self._groq = self.base_url.rstrip('/') == "https://api.groq.com/openai/v1"
         self.chunk_chars = NOTE_CHUNK_CHARS
@@ -170,71 +175,13 @@ class NoteSummarizer:
         progress_callback=None,
         duration: float = 0,
     ) -> Optional[str]:
-        """
-        Generate a Markdown note from a transcript.
-        Automatically chunks long transcripts (> NOTE_CHUNK_CHARS) and merges results.
-        """
-        if formats is None:
-            formats = []
-
+        """Generate once from the full source, or use explicit segmented mode."""
+        from transcript_reading import generate
         self._reading_source = transcript_text
-        self._pending_overview = None
-        transcript_len = len(transcript_text)
-        logger.info(
-            f"Generating note: style={style}, formats={formats}, "
-            f"transcript={transcript_len} chars"
-        )
-
-        try:
-            last_chars = 0
-            original_progress = progress_callback
-            if original_progress:
-                def progress_callback(chars, *args):
-                    nonlocal last_chars
-                    last_chars = max(last_chars, chars)
-                    original_progress(chars, *args)
-            from source_coverage import extraction_limit
-            if transcript_len > extraction_limit(transcript_text, self.chunk_chars):
-                result = self._generate_chunked(
-                    title, transcript_text, style, formats,
-                    visual_context, tags, extras, progress_callback,
-                    duration=duration,
-                )
-            else:
-                result = self._generate_single(
-                    title, transcript_text, style, formats,
-                    visual_context, tags, extras, progress_callback,
-                    duration=duration,
-                )
-
-            if result:
-                ratio = len(result) / transcript_len if transcript_len > 0 else 1
-                if ratio < 0.05:
-                    logger.warning(
-                        f"Output may be too sparse: {len(result)} chars output "
-                        f"for {transcript_len} chars input (ratio={ratio:.3f})"
-                    )
-
-            if result:
-                checkpoint = (lambda:original_progress(last_chars, result)) if original_progress else None
-                from note_presentation import chronological_chapters
-                result = chronological_chapters(result)
-                result = self._edit_reading(result, title, 'toc' in formats, checkpoint, source_text=transcript_text)
-                if self._pending_overview:
-                    result = self._complete_overview(result, title, checkpoint)
-                result = self._finish_presentation(result, title, 'toc' in formats, transcript_text, checkpoint)
-            return _repair_numbered_heading_markers(result) if result else result
-        except Exception as e:
-            if "cancel" in type(e).__name__.lower() or "cancel" in str(e).lower():
-                raise
-            logger.error(f"Note generation failed: {type(e).__name__ if self.custom_endpoint else e}")
-            if self.custom_endpoint:
-                from api.custom_models import public_model_error
-                raise RuntimeError(public_model_error(e, "summary")) from None
-            if self._groq:
-                from api.llm_settings import safe_provider_error
-                raise RuntimeError(safe_provider_error(e)) from None
-            return None
+        edition = generate(self, transcript_text, title, formats=formats or (),
+            style=style, extras=extras, visual_context=visual_context, tags=tags,
+            progress=progress_callback, duration=duration)
+        return edition['markdown']
 
     def _editorial_json(self, system, payload, timeout):
         from reading_editor import call_editor
@@ -834,11 +781,11 @@ class NoteSummarizer:
 _note_summarizer: Optional[NoteSummarizer] = None
 
 
-def get_note_summarizer(model: str = "", *, api_key: str = "", base_url: str = "", custom_endpoint: bool = False, model_options: Optional[dict] = None) -> NoteSummarizer:
+def get_note_summarizer(model: str = "", *, api_key: str = "", base_url: str = "", custom_endpoint: bool = False, model_options: Optional[dict] = None, generation_mode: str = "single") -> NoteSummarizer:
     """Get or create a NoteSummarizer instance, reusing the existing LLM config."""
     global _note_summarizer
-    if model or api_key or base_url or model_options:
-        return NoteSummarizer(model=model, api_key=api_key, base_url=base_url, custom_endpoint=custom_endpoint,model_options=model_options)
+    if model or api_key or base_url or model_options or generation_mode != "single":
+        return NoteSummarizer(model=model, api_key=api_key, base_url=base_url, custom_endpoint=custom_endpoint,model_options=model_options,generation_mode=generation_mode)
     if _note_summarizer is None:
         _note_summarizer = NoteSummarizer()
     return _note_summarizer

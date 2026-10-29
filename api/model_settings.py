@@ -33,11 +33,19 @@ def prepared_settings(owner: str, patch: dict) -> tuple[dict, dict]:
         raise ModelConfigurationError("Choose a supported summary provider.")
     if filtered.get("transcription_provider", current.get("transcription_provider", "server")) not in {"server", "custom"}:
         raise ModelConfigurationError("Choose a supported transcription provider.")
+    if filtered.get("summary_generation_mode", current.get("summary_generation_mode", "single")) not in {"single", "segmented"}:
+        raise ModelConfigurationError("Choose full-transcript or segmented generation.")
     for prefix in ("llm", "whisper"):
         url_key, key_field = prefix + "_base_url", prefix + "_api_key"
         if filtered.get(url_key):
             filtered[url_key] = normalize_base_url(filtered[url_key])
-            if filtered[url_key] != current.get(url_key) and (current.get(key_field) or current.get(key_field + "_error")) and not filtered.get(key_field):
+            previous_url = current.get(url_key, '')
+            if previous_url:
+                try:
+                    previous_url = normalize_base_url(previous_url)
+                except ModelConfigurationError:
+                    pass
+            if filtered[url_key] != previous_url and (current.get(key_field) or current.get(key_field + "_error")) and not filtered.get(key_field):
                 raise ModelConfigurationError("Base URL changed. Re-enter the API key for this endpoint; the old key will not be sent to a different service.")
     merged = {**current, **filtered}
     for field in SECRET_KEYS & filtered.keys():

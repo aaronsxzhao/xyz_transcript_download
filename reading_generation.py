@@ -24,7 +24,7 @@ def generation_session(method):
             'prompt_version': VERSION, 'source_language': language,
             'source_sha256': hashlib.sha256(source.encode()).hexdigest(),
             'model': self.model, 'model_options': dict(getattr(self, 'model_options', {})),
-            'editor': {}, 'language': {},
+            'editor': {}, 'language': {}, 'generated': False,
         }
         self._generation_lock = threading.RLock()
         started = time.monotonic()

@@ -1,4 +1,5 @@
 """Guard request responsiveness, provider routing, and complete summary outputs."""
+import json
 import asyncio
 import threading
 from types import SimpleNamespace
@@ -115,27 +116,31 @@ async def test_connection_test_returns_useful_errors_without_secrets(client):
     assert "private-key" not in result.text
 
 
-def test_groq_long_podcast_chunks_fit_and_failed_chunk_preserves_prior_summary():
+def test_groq_full_source_capacity_failure_does_not_silently_chunk():
     from summarizer import Summarizer
     from transcriber import Transcript
-    summarizer = Summarizer(api_key="fixture", base_url="https://api.groq.com/openai/v1", model="openai/gpt-oss-120b")
-    transcript = Transcript(episode_id="episode", language="zh", duration=100, text="中文内容。" * 15000, segments=[])
-    with patch.object(summarizer, "_summarize_single", return_value=None) as single:
-        assert summarizer.summarize(transcript) is None
-        assert 0 < len(single.call_args.args[1]) <= summarizer.chunk_chars
+    summarizer=Summarizer(api_key='fixture',base_url='https://api.groq.com/openai/v1',model='openai/gpt-oss-120b')
+    transcript=Transcript('episode','zh',100,'中文内容。'*15000,[])
+    with patch('transcript_reading.call_json',side_effect=RuntimeError('context capacity')) as call:
+        with pytest.raises(RuntimeError):summarizer.summarize(transcript)
+    assert call.call_count==1
+    assert summarizer.generation_report['actual_mode']=='single'
 
 
-def test_groq_video_audit_or_later_chunk_failure_keeps_the_available_notes():
+def test_segmented_video_failure_keeps_available_notes_and_labels_original_source():
     from note_summarizer import NoteSummarizer
-    summarizer = NoteSummarizer(api_key="fixture", base_url="https://api.groq.com/openai/v1", model="openai/gpt-oss-120b")
-    text = "一段中文内容。" * 4000
-    chunks = summarizer._split_transcript(text)
-    assert "".join(chunks) == text
-    assert max(map(len, chunks)) <= 10000
-    with patch.object(summarizer, "_call_llm", side_effect=["First part", RuntimeError("quota exceeded")]):
-        result = summarizer.generate_note("Title", text)
-    assert 'First part' in result
-    assert '核对未完成' in result and '原始转写' in result
+    from tests.test_transcript_reading import provider
+    summarizer=NoteSummarizer(api_key='fixture',generation_mode='segmented')
+    summarizer.chunk_chars=1000
+    calls=[]
+    def response(owner,system,payload,timeout):
+        request=json.loads(payload)
+        if request.get('part')==2:raise RuntimeError('temporary outage')
+        return provider(calls)(owner,system,payload,timeout)
+    with patch('transcript_reading.call_json',side_effect=response):
+        result=summarizer.generate_note('Title','Original source.\n'*150)
+    assert 'complete claim' in result and 'Original transcript' in result
+    assert 'Some sections could not be summarized' in result
 
 
 @pytest.mark.asyncio
