@@ -8,11 +8,12 @@ export default function PodcastUploadForm({audioFile,onFile,title,onTitle,descri
   return (
 <div className="p-4 md:p-6 bg-dark-surface border border-dark-border rounded-xl">
           <h2 className="text-lg font-semibold text-white mb-4">Upload Local Audio</h2>
-          <form onSubmit={onSubmit} className="space-y-4">
+          <form aria-busy={uploading} onSubmit={onSubmit} className="space-y-4">
             <div className="grid gap-4 md:grid-cols-2">
               <div>
                 <label htmlFor={`${id}-file`} className="block text-sm text-gray-400 mb-2">Audio file</label>
                 <input
+                  disabled={uploading}
                   id={`${id}-file`}
                   type="file"
                   accept="audio/*,.mp3,.m4a,.wav,.aac,.flac,.ogg,.opus,.mp4,.mpeg,.mpga"
@@ -24,6 +25,7 @@ export default function PodcastUploadForm({audioFile,onFile,title,onTitle,descri
               <div>
                 <label htmlFor={`${id}-title`} className="block text-sm text-gray-400 mb-2">Episode title</label>
                 <input
+                  disabled={uploading}
                   id={`${id}-title`}
                   type="text"
                   value={title}
@@ -35,7 +37,7 @@ export default function PodcastUploadForm({audioFile,onFile,title,onTitle,descri
             </div>
             <div>
               <label htmlFor={`${id}-description`} className="block text-sm text-gray-400 mb-2">Description</label>
-              <textarea id={`${id}-description`}
+              <textarea disabled={uploading} id={`${id}-description`}
                 value={description}
                 onChange={e => onDescription(e.target.value)}
                 placeholder="Optional notes about this upload"

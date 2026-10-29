@@ -414,3 +414,9 @@ Sign-in, sign-up, recovery and reset forms lock fields while submitting and igno
 `python scripts/check_auth_forms.py` verifies pending/retry states in both designs and themes at phone/tablet widths using synthetic API responses. CI also runs its phone matrix in WebKit; no live account or email writes are performed.
 
 Integrated settings updates and authentication state feedback bring initial compressed assets to 193.0 KiB. The allowance is 193.5 KiB (+0.5 KiB, 0.26%); rich formatting remains deferred. Recovery mode shows one return-to-sign-in action.
+
+### Podcast form interaction review
+
+The detected platform appears below the podcast URL without covering typed text. Subscription and audio upload requests lock the current form and its toggles, prevent duplicate submissions, and preserve inputs/files for retry after failure. `scripts/check_podcast_forms.py` checks these states across both designs and themes at phone/tablet widths; CI also runs phone WebKit coverage with synthetic responses.
+
+Light-theme notifications use the theme background and foreground together; the podcast failure/retry browser checks enforce at least 4.5:1 text contrast.

@@ -42,6 +42,7 @@ export default function Podcasts() {
   usePageTiming('podcasts', !loading, CacheKeys.PODCASTS)
   useWarmCache<Podcast[]>(CacheKeys.PODCASTS,value=>{setPodcasts(value);setLoading(false)})
   const [error, setError] = useState('')
+  const submitting = useRef(false)
   const [adding, setAdding] = useState(false)
   const [uploading, setUploading] = useState(false)
   const [newUrl, setNewUrl] = useState('')
@@ -116,8 +117,9 @@ export default function Podcasts() {
 
   async function handleAdd(e: React.FormEvent) {
     e.preventDefault()
-    if (!newUrl.trim()) return
+    if (submitting.current || !newUrl.trim()) return
 
+    submitting.current = true
     setAdding(true)
     const toastId = addToast({
       type: 'loading',
@@ -141,14 +143,16 @@ export default function Podcasts() {
         message: err instanceof Error ? err.message : 'Unknown error',
       })
     } finally {
+      submitting.current = false
       setAdding(false)
     }
   }
 
   async function handleUploadAudio(e: React.FormEvent) {
     e.preventDefault()
-    if (!audioFile) return
+    if (submitting.current || !audioFile) return
 
+    submitting.current = true
     setUploading(true)
     const toastId = addToast({
       type: 'loading',
@@ -177,6 +181,7 @@ export default function Podcasts() {
         message: err instanceof Error ? err.message : 'Unknown error',
       })
     } finally {
+      submitting.current = false
       setUploading(false)
     }
   }
@@ -331,15 +336,19 @@ export default function Podcasts() {
             </button>
           )}
           <button
+            disabled={adding || uploading}
+            aria-expanded={showUploadForm}
             onClick={() => { setShowUploadForm(!showUploadForm); setShowAddForm(false) }}
-            className="flex items-center justify-center gap-2 px-4 py-2.5 bg-dark-surface border border-dark-border hover:bg-dark-hover text-white font-medium rounded-lg transition-colors flex-1 sm:flex-none"
+            className="flex items-center justify-center gap-2 px-4 py-2.5 bg-dark-surface border border-dark-border hover:bg-dark-hover text-white font-medium rounded-lg transition-colors disabled:opacity-50 flex-1 sm:flex-none"
           >
             <Upload size={18} />
             Upload Audio
           </button>
           <button
+            disabled={adding || uploading}
+            aria-expanded={showAddForm}
             onClick={() => { setShowAddForm(!showAddForm); setShowUploadForm(false) }}
-            className="flex items-center justify-center gap-2 px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-medium rounded-lg transition-colors flex-1 sm:flex-none"
+            className="flex items-center justify-center gap-2 px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-medium rounded-lg transition-colors disabled:opacity-50 flex-1 sm:flex-none"
           >
             <Plus size={20} />
             Add Podcast
@@ -351,10 +360,11 @@ export default function Podcasts() {
       {showAddForm && (
         <div className="p-4 md:p-6 bg-dark-surface border border-dark-border rounded-xl">
           <h2 className="text-lg font-semibold text-white mb-4">Add New Podcast</h2>
-          <form onSubmit={handleAdd} className="flex flex-col sm:flex-row gap-3 sm:gap-4">
+          <form aria-busy={adding} onSubmit={handleAdd} className="flex flex-col sm:flex-row sm:items-start gap-3 sm:gap-4">
             <div className="flex-1 relative">
               <input
                 type="text"
+                disabled={adding}
                 value={newUrl}
                 onChange={(e) => setNewUrl(e.target.value)}
                 aria-label="Podcast URL"
@@ -362,7 +372,7 @@ export default function Podcasts() {
                 className="w-full px-4 py-3 bg-dark-hover border border-dark-border rounded-lg text-white placeholder:text-gray-500 focus:outline-none focus:border-indigo-500 text-base"
               />
               {detectedPlatform && (
-                <span className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-1.5 px-2 py-1 rounded-md bg-dark-border text-xs text-gray-300">
+                <span className="mt-2 inline-flex items-center gap-1.5 text-xs text-gray-400">
                   <PlatformIcon platform={detectedPlatform} size={14} className={PLATFORM_COLORS[detectedPlatform] || ''} />
                   {PLATFORM_LABELS[detectedPlatform] || detectedPlatform}
                 </span>
