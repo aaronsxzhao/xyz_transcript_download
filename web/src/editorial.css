@@ -200,3 +200,5 @@ html[data-design='editorial'][data-theme='light'] .auth-page :is(.text-red-400,.
 @media(max-width:1170px) {
   :where(html[data-design='editorial']) .unified-reader { grid-template-columns:minmax(0,var(--reader-measure)); gap:0; max-width:1020px; }
 }
+
+html[data-design='editorial'] .podcast-reader .topic-number { color:var(--ui-accent); }
