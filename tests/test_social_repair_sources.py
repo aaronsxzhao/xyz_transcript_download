@@ -59,3 +59,41 @@ def test_public_source_restrictions_keep_their_actionable_reason(monkeypatch):
  monkeypatch.setattr('video_downloader.get_downloader',lambda *args:downloader)
  maintenance._repair({'id':'repair-social','platform':'substack','url':'https://writer.substack.com/p/video'},'owner','repair-key')
  assert report.call_args.args[1]['message']=='This Substack post requires a subscription. Open the original post.'
+
+
+def test_repair_lists_storage_once_per_phase_and_reports_progress(monkeypatch):
+ from api.routers import maintenance
+ frames={f'repair_00-{i:02}.jpg':i for i in range(40)}
+ existing=Mock(side_effect=[set(),set(frames)])
+ monkeypatch.setattr(maintenance,'_frames',lambda *args:frames)
+ monkeypatch.setattr(maintenance,'_existing',existing)
+ reports=[]
+ monkeypatch.setattr(maintenance,'_save_report',lambda key,value:reports.append(dict(value)))
+ monkeypatch.setattr('cookie_manager.get_cookie_manager',lambda owner:Mock())
+ monkeypatch.setattr('video_downloader.get_downloader',lambda *args:Mock(download_video=Mock(return_value='/tmp/video.mp4')))
+ monkeypatch.setattr('screenshot_extractor.extract_screenshots_batch',Mock())
+ monkeypatch.setattr('video_task_db.get_video_task_db',lambda:Mock(get_task=Mock(return_value={'status':'success','error':''})))
+ maintenance._repair({'id':'repair','platform':'youtube','url':'https://youtube.com/watch?v=test'},'owner','key')
+ assert existing.call_count==2
+ assert any('Retrieving original' in r['message'] for r in reports)
+ assert any('Rebuilding 40' in r['message'] for r in reports)
+ assert reports[-1]['status']=='completed'
+
+
+def test_status_storage_failure_does_not_abort_repair(monkeypatch):
+ from api.routers import maintenance
+ monkeypatch.setattr(maintenance,'USE_SUPABASE',True)
+ client=Mock();client.storage.from_.return_value.upload.side_effect=RuntimeError('unavailable')
+ monkeypatch.setattr(maintenance,'_client',lambda:client)
+ monkeypatch.setattr(maintenance,'_reports',{})
+ maintenance._save_report('fixture',{'status':'running','message':'Checking'})
+ assert maintenance._reports['fixture']['message']=='Checking'
+
+
+def test_running_status_includes_current_phase(monkeypatch):
+ from api.routers import maintenance
+ monkeypatch.setattr('video_task_db.get_video_task_db',lambda:Mock(get_task=Mock(return_value={'id':'note'})))
+ key='media-repair/owner/note.json'
+ monkeypatch.setattr(maintenance,'_running',{key})
+ monkeypatch.setattr(maintenance,'_reports',{key:{'status':'running','message':'Rebuilding 12 screenshots…','missing':12}})
+ assert maintenance.repair_status('note',Mock(id='owner'))['message']=='Rebuilding 12 screenshots…'

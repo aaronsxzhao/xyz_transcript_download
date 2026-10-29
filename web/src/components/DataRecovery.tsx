@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { authFetch } from '../lib/api'
 import { clearCache } from '../lib/cache'
@@ -33,10 +33,12 @@ const button = 'px-3 py-2 text-sm rounded-lg bg-dark-hover border border-dark-bo
 
 export function NoteRecovery({ id, version = '', warning = '', failed = false, local = false, expanded = false, onRestored }: { id: string; version?: string; warning?: string; failed?: boolean; local?: boolean; expanded?: boolean; onRestored?: () => void }) {
   const [message, setMessage] = useState(''); const [error, setError] = useState(''); const [busy, setBusy] = useState(false)
+  const currentId = useRef(id); currentId.current = id
+  const restoredRef = useRef(onRestored); restoredRef.current = onRestored
   const [repair, setRepair] = useState<Repair | null>(null)
   const base = `/api/maintenance/notes/${encodeURIComponent(id)}`
   useEffect(() => {
-    setMessage(''); setError(''); setRepair(null)
+    setMessage(''); setError(''); setRepair(null); setBusy(false)
   }, [id])
   useEffect(() => {
     if (repair?.status !== 'running') return
@@ -52,7 +54,7 @@ export function NoteRecovery({ id, version = '', warning = '', failed = false, l
           if (!r.ok) throw new Error('Could not check screenshot repair. You can retry later.')
           return await r.json() as Repair
         },{signal:controller.signal,timeout:15000,message:'Could not check screenshot repair. Retrying status shortly.'})
-        if (current()) { setError('');setRepair(next); if (next.status === 'completed') { clearCache(); setMessage(''); onRestored?.() } }
+        if (current()) { setError('');setRepair(next); if (next.status === 'completed') { clearCache(); setMessage(''); restoredRef.current?.() } }
       }catch(e){if(current())setError(e instanceof Error?e.message:'Could not check screenshot repair.')}
       finally{if(current())timer=setTimeout(()=>void poll(),4000)}
     }
@@ -60,12 +62,31 @@ export function NoteRecovery({ id, version = '', warning = '', failed = false, l
     return () => { stopped = true; clearTimeout(timer); controller.abort() }
   }, [base, repair?.status])
   async function run(action: () => Promise<void>) {
+    const note = id, generation = getAuthGeneration()
+    const current = () => currentId.current === note && generation === getAuthGeneration()
     setBusy(true); setError('')
-    try { await action() } catch (e) { setError(e instanceof Error ? e.message : 'Please retry') } finally { setBusy(false) }
+    try { await action() } catch (e) { if (current()) setError(e instanceof Error ? e.message : 'Please retry') } finally { if (current()) setBusy(false) }
   }
   async function startRepair(source = '') {
-    const r = await authFetch(base + '/repair-media', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({source_path:source})})
-    const data = await r.json(); if (!r.ok) throw new Error(data.detail || 'Cannot start screenshot repair'); setRepair(data)
+    const note=id, generation=getAuthGeneration()
+    // A lost POST acknowledgement does not mean the repair failed. Reconcile
+    // through the read-only status endpoint, never automatically submit twice.
+    try {
+      const data = await requestWithDeadline(async signal => {
+        const r = await authFetch(base + '/repair-media', {method:'POST',signal,headers:{'Content-Type':'application/json'},body:JSON.stringify({source_path:source})})
+        if (!r.ok) {
+          let detail=''
+          try { detail=(await r.json()).detail || '' } catch { /* HTML proxy response. */ }
+          throw new Error(detail || `Cannot start screenshot repair (HTTP ${r.status}).`)
+        }
+        return await r.json() as Repair
+      }, {timeout:20000,retry:false,message:'Repair confirmation timed out. Checking whether it started…'})
+      if(currentId.current===note && generation===getAuthGeneration()) setRepair(data)
+    } catch(error) {
+      if(currentId.current===note && generation===getAuthGeneration())
+        setRepair({status:'running',message:'Checking whether screenshot repair started…'})
+      throw error
+    }
   }
   return <section aria-label="Note recovery and backup" className="mb-3 text-sm space-y-2">
     {warning && <p role="status" className="text-amber-300">The summary is saved. {warning}</p>}
@@ -85,6 +106,7 @@ export function NoteRecovery({ id, version = '', warning = '', failed = false, l
       }} /></label>}
     </div>
     </details>
+    {repair?.status === 'idle' && <p role="status">No active screenshot repair was found. You can retry safely.</p>}
     {repair?.message && <p role={repair.status==='failed'?'alert':'status'} className={repair.status==='failed'?'text-red-300':undefined}>{repair.message}</p>}
     {message && <p role="status" className="text-gray-300">{message}</p>}
     {error && <p role="alert" className="text-red-300">{error}</p>}
