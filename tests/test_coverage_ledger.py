@@ -249,3 +249,24 @@ def test_one_unresolved_item_does_not_discard_an_independently_valid_repair():
 def test_paraphrased_excerpt_boundary_is_not_published_as_source_fact(text):
     from coverage_ledger import boundary_commentary
     assert boundary_commentary(text)
+
+
+def test_terminal_period_is_recovered_to_an_exact_draft_fragment():
+    draft=[{'paragraphs':[{'id':'P1','text':'He returned to school and learned neuroscience.'}]}]
+    data={'matches':[{'item_id':'C1','status':'covered','grounded':True,'duplicate':False,
+                     'support':[{'paragraph_id':'P1','quote':'He returned to school.'}]}]}
+    matching_response(data,[{'id':'C1'}],draft)
+    assert data['matches'][0]['support'][0]['quote']=='He returned to school'
+
+
+def test_invalid_check_retries_once_with_feedback_without_regenerating_body():
+    case=CASES[0];lines,sections,_=setup_case(case);calls=[]
+    sections[0]['paragraphs'][0]['text']=case['complete_draft']
+    attempts=[]
+    def response(engine,system,payload,validator):
+        attempts.append(payload)
+        if len(attempts)==1:return {}
+        return scripted(case,calls)(engine,system,payload,validator)
+    with patch('coverage_ledger.request',side_effect=response):report=audit(SimpleNamespace(),lines,sections)
+    assert report['validation_retries']==1 and report['status']=='model_reviewed'
+    assert 'validation_feedback' in attempts[1] and report['repairs_accepted']==0

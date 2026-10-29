@@ -377,7 +377,7 @@ export default function Episodes() {
                   if (activeJob) {
                     // Show processing progress
                     return (
-                      <div className="collection-task"><TaskProgress status={activeJob.status} progress={activeJob.progress} startedAt={activeJob.started_at} compact/></div>
+                      <div className="collection-task"><TaskProgress status={activeJob.status} progress={activeJob.progress} startedAt={activeJob.started_at} message={activeJob.message} compact/></div>
                     )
                   }
                   

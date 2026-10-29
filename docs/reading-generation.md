@@ -104,12 +104,30 @@ Invalid inventories, incomplete match receipts, unavailable providers and failed
 repair checks remain unverified. Cancellation propagates. Terminal configuration
 errors stop further checklist calls. Inventory, matching and repair responses
 are validated before checkpointing; completed calls can be reused on retry.
+Malformed schema/evidence responses get one bounded retry with validation feedback.
+Matching may remove an extra terminal period only when the remaining quotation
+is an exact substring of the named draft paragraph (at least 16 characters).
+Changed words and fabricated quotations remain invalid. The retry count is recorded;
+these rules do not turn failed checks into passes.
 `metrics.generation.coverage_ledger` records item IDs/kinds/source ranges,
 statuses and matching paragraph IDs, failed batches, request count and accepted
 or rejected repairs. Full item statements live in the normal request checkpoints,
 not telemetry. Independent inventories are additional review calls; the complete
 source still has only one **drafting** call in single mode. The old grounding
 review's unresolved findings are not silently cleared by a checklist pass.
+
+## Processing progress
+
+Both modes publish actual drafting, grounding, source-inventory, checklist,
+repair, recheck and rendering stages. Counts reflect completed batches/items;
+overall percentages use approximate stage weights, not output-character targets
+or elapsed-time simulation. A stage message updates even when the rounded
+percentage stays the same. Long model calls retain their current percentage.
+Video and podcast routes reserve the final percentage range for saving/media work.
+The UI prevents backward jumps within an attempt, resets on retry, caps active
+tasks below 100%, and shows elapsed time and the current step in collection and
+detail views. Width transitions and a moving highlight indicate activity;
+reduced-motion preferences disable those animations.
 
 ## Diagnostics and recovery
 

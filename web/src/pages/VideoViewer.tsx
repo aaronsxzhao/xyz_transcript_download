@@ -703,8 +703,8 @@ export default function VideoViewer() {
             status={uiTask.status}
             progress={uiTask.progress}
             startedAt={uiTask.started_at}
+            message={uiTask.message || "Waiting for processing…"}
           />
-          <p>{uiTask.message || "Waiting for processing…"}</p>
         </div>
       ) : (
         <>
