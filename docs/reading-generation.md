@@ -24,7 +24,9 @@ explicit API path prefixes are preserved.
    extraction cannot declare a question unanswered in the whole recording.
 4. Both modes produce chapters and paragraphs with **continuous source ranges**.
    Validate every endpoint, order and owned line. Preserve original quotes from
-   those lines in podcast evidence fields; the model never supplies quotes or
+   one continuous range in each podcast evidence field, with a matching playback
+   time; never splice nonadjacent excerpts into one verbatim quotation. Raw
+   fallback blocks mark gaps explicitly. The model never supplies quotes or
    media timestamps. Invalid prose evidence fails generation rather than
    silently receiving manufactured references.
 5. Independently review the full source in single mode, or bounded source batches
@@ -36,7 +38,7 @@ explicit API path prefixes are preserved.
    specifically identified unsupported paragraphs fall back to their original
    source ranges, and an unsupported opening is omitted. Their generated wording
    stays in the model checkpoint, not in the reading body.
-   model receipts are not proof of semantic completeness. Do not append another
+   Model receipts are not proof of semantic completeness. Do not append another
    set of section conclusions. Exact duplicates with identical evidence are
    removed; semantic duplication is not inferred from a lexical score.
    If the provider explicitly rejects a whole-source **review** for context
@@ -46,7 +48,8 @@ explicit API path prefixes are preserved.
 6. Resolve screenshot time from a source ID **inside that paragraph's evidence**.
    Reject unknown/outside references, absent/out-of-range/nonchronological times
    and adjacent duplicate candidates. Keep the paragraph; skip the bad picture
-   and show a provenance notice. Pixel correctness and visual relevance still
+   and show a provenance notice. Playback links in both video and podcast output
+   also reject source times outside the known duration. Pixel correctness and visual relevance still
    require the media pipeline; transcript references alone cannot prove them.
    When the model omits the optional picture field, a chapter can use the first
    genuine timed line inside its first paragraph's evidence as its screenshot
@@ -71,6 +74,11 @@ requests, review status, paragraph source ranges and accepted/blocked screenshot
 references in `metrics.generation`. No API key or full transcript is added to
 these diagnostics. `implicit_fallback` is always false. Checkpoints include the
 new request schema, model, endpoint, selected model options and output allowance.
+Both generation evidence and complete review receipts/additions are validated
+before checkpoint persistence; invalid reviews can be retried while a completed
+generation is reused. Review changes are applied atomically, so malformed
+additions cannot partially replace a draft. The global opening is explicitly
+included in grounding checks using the reserved `overview` ID.
 Successful model calls can be reused on a resumed attempt without publishing a
 partial generation as a completed note.
 

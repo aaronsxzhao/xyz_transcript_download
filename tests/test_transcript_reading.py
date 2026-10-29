@@ -293,3 +293,82 @@ def test_missing_optional_frame_uses_a_genuine_chapter_evidence_anchor():
     frames=owner.generation_report['provenance']['screenshots']
     assert frames[0]['selection']=='chapter_source_anchor'
     assert owner.generation_report['provenance']['chapter_source_anchor_frames']==1
+
+
+def test_out_of_duration_playback_is_suppressed_in_final_and_progress():
+    calls=[]; previews=[]
+    with patch('transcript_reading.call_json', side_effect=provider(calls)):
+        result=generate(engine(), '[20:00] Real words with corrupt timing.', 'Title',
+                        formats=['link','screenshot'], duration=30,
+                        progress=lambda chars, text='', *args: previews.append(text))
+    assert '*Content-[' not in result['markdown']
+    assert 'Screenshot-[' not in result['markdown']
+    assert all('*Content-[' not in preview for preview in previews)
+
+
+def test_malformed_review_does_not_partially_change_the_draft():
+    calls=[]
+    def call(owner, system, payload, timeout):
+        result=provider(calls)(owner,system,payload,timeout)
+        if 'global_draft' in calls[-1]:
+            result.update(grounded=False, unsupported_paragraph_ids=['P1'],
+                          additions=[{'heading':'Broken', 'paragraphs':[]}])
+        return result
+    with patch('transcript_reading.call_json', side_effect=call):
+        result=generate(engine(),'Actual evidence.', 'Title')
+    assert 'A complete claim' in result['markdown']
+    assert 'Completeness is unverified' in result['markdown']
+    assert not result['sections'][0]['paragraphs'][0].get('raw')
+
+
+def test_invalid_review_is_retried_while_completed_generation_is_reused():
+    from note_summarizer import NoteSummarizer
+    from processing_execution import Execution, bind
+    class Store:
+        def __init__(self): self.values={}
+        def get_checkpoint(self,*key): return self.values.get(key)
+        def put_checkpoint(self,*args): self.values[args[:-1]]=args[-1]
+    owner=NoteSummarizer(api_key='synthetic')
+    owner.client=Mock(base_url='https://models.example/v1/')
+    calls=[]; reviews=[]
+    def complete(**kwargs):
+        response=provider(calls)(owner,kwargs['messages'][0]['content'],kwargs['messages'][1]['content'],120)
+        if 'global_draft' in calls[-1]:
+            reviews.append(response)
+            if len(reviews)==1: response['checked_source_ids']=[]
+        return SimpleNamespace(choices=[SimpleNamespace(finish_reason='stop',message=SimpleNamespace(content=json.dumps(response)))])
+    owner.client.with_options.return_value.chat.completions.create.side_effect=complete
+    store=Store()
+    with bind(Execution('owner','source',store)):
+        first=owner.generate_note('Title','Actual evidence.')
+        second=owner.generate_note('Title','Actual evidence.')
+    assert 'Completeness is unverified' in first
+    assert 'Completeness is unverified' not in second
+    assert len(calls)==3 and len(reviews)==2 and len(store.values)==2
+
+
+def test_podcast_disjoint_evidence_is_not_spliced_into_one_verbatim_quote():
+    from summarizer import Summarizer
+    from transcriber import Transcript, TranscriptSegment
+    source=['First supported claim.', 'Intervening qualification.', 'Later supported claim.']
+    transcript=Transcript('disjoint','en',90,' '.join(source),
+                          [TranscriptSegment(i*30,(i+1)*30,text) for i,text in enumerate(source)])
+    calls=[]
+    def call(owner,system,payload,timeout):
+        result=provider(calls)(owner,system,payload,timeout)
+        if 'mode' in calls[-1]:
+            rows=calls[-1]['primary_source']
+            result['sections'][0]['paragraphs'][0]['source_ranges']=[
+                {'start':rows[2]['id'],'end':rows[2]['id']},
+                {'start':rows[0]['id'],'end':rows[0]['id']}]
+        return result
+    with patch('transcript_reading.call_json', side_effect=call):
+        result=Summarizer(api_key='synthetic').summarize(transcript)
+    assert result.key_points[0].original_quote==source[0]
+    assert result.key_points[0].timestamp=='00:00:00'
+
+
+def test_raw_disjoint_source_fallback_marks_the_omission():
+    from transcript_reading import source_excerpt
+    _, lines=source_lines('First sentence.\nIntervening sentence.\nLast sentence.')
+    assert source_excerpt([0,2],lines)=='First sentence.\n\n\n[…]\n\nLast sentence.'

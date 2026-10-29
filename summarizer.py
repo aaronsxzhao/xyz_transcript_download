@@ -145,19 +145,25 @@ class Summarizer:
         transcript_text = video_source_text(transcript.text,
             [{'start':s.start, 'end':s.end, 'text':s.text} for s in transcript.segments])
         self._reading_source = transcript_text
-        from transcript_reading import generate
+        from transcript_reading import generate, playback_time
         edition = generate(self, transcript_text, episode_title or podcast_title,
             formats=('summary',), progress=(lambda chars, *args: progress_callback(chars)) if progress_callback else None,
             duration=transcript.duration or 0)
         from source_coverage import spoken_source
         points = []
+        line_index = {line.id:i for i,line in enumerate(edition['lines'])}
         for section in edition['sections']:
             for paragraph in section['paragraphs']:
-                evidence = [edition['lines'][i] for i in paragraph['indices']]
+                # One displayed quotation must be a continuous source passage.
+                # Other supporting ranges remain attached in provenance, never
+                # spliced into an apparently verbatim uninterrupted statement.
+                span = min(paragraph['source_ranges'], key=lambda item:line_index[item['start']])
+                quote_indices = list(range(line_index[span['start']], line_index[span['end']]+1))
+                evidence = [edition['lines'][i] for i in quote_indices]
                 quote = spoken_source(''.join(line.text for line in evidence)).strip()
-                times = [line.time for line in evidence if line.time is not None]
-                timestamp = (f'{int(times[0])//3600:02d}:{int(times[0])%3600//60:02d}:{int(times[0])%60:02d}'
-                             if times else '')
+                anchor = playback_time({'indices':quote_indices}, edition['lines'], transcript.duration or 0)
+                timestamp = (f'{int(anchor)//3600:02d}:{int(anchor)%3600//60:02d}:{int(anchor)%60:02d}'
+                             if anchor is not None else '')
                 text = paragraph['text']
                 if paragraph.get('raw'):
                     text = '\n'.join('> '+line for line in text.splitlines())
