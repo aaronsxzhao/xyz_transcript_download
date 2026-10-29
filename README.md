@@ -394,3 +394,9 @@ AI providers, Notion, and native desktop packaging need their own configured
 integration checks.
 
 Issues and PRs welcome! This tool is actively maintained.
+
+### Interaction review: right-aligned actions and deterministic themes
+
+Collection actions stay right aligned at every breakpoint. Video More disclosures dismiss on outside pointer/focus and Escape. Podcast search, subscription URL, upload fields and the Notion token have stable accessible names; settings section buttons expose their selected state.
+
+Appearance selectors now outrank the asynchronously loaded workspace stylesheet, so direct reader entry renders the same colors and controls as navigation from another page. Heading levels H1–H6 and emphasis remain readable in light/dark modes. Appearance regressions include episode routes, settings section/draft retention and heading contrast; tablet regressions check action alignment and menu dismissal. The comprehensive interaction runner accepts `--design editorial --theme light`; CI exercises that combination in WebKit at phone and tablet widths.

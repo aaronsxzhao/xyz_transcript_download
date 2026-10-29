@@ -234,7 +234,7 @@ html[data-design='classic'][data-theme='light'] .app-shell .reader-segments butt
 html[data-design='classic'][data-theme='light'] .unified-reader .reader-body :is(p,li) {
     color: #344156
 }
-html[data-design='classic'][data-theme='light'] .unified-reader .reader-body :is(h2,h3,h4) {
+html[data-design='classic'][data-theme='light'] .unified-reader .reader-body :is(h1,h2,h3,h4,h5,h6) {
     color: #253247
 }
 html[data-design='classic'][data-theme='light'] .unified-reader .reader-core {
@@ -318,7 +318,7 @@ html[data-design='classic'][data-theme='light'] :is(.bg-indigo-600,.bg-indigo-70
 html[data-design='classic'][data-theme='light'] :is(.bg-indigo-600,.bg-indigo-700,.bg-purple-600,.ui-button-primary) :is(span,svg){color:inherit}
 html[data-design='classic'][data-theme='light'] .disabled\:bg-gray-700:disabled{background:#d9e0eb;color:#5d6c80}html[data-design='classic'][data-theme='light'] .hover\:bg-dark-hover:hover{background:#edf1f7}html[data-design='classic'][data-theme='light'] .hover\:text-white:hover{color:#253247}
 html[data-design='classic'][data-theme='light'] .note-prose{--tw-prose-body:#344156;--tw-prose-headings:#253247;--tw-prose-bold:#253247;--tw-prose-links:#5148ae;--tw-prose-quotes:#526176;--tw-prose-bullets:#5d6c80;--tw-prose-counters:#5d6c80;--tw-prose-code:#5148ae}
-html[data-design='classic'][data-theme='light'] .note-prose :is(p,li){color:#344156}html[data-design='classic'][data-theme='light'] .note-prose :is(h1,h2,h3,h4,strong){color:#253247}html[data-design='classic'][data-theme='light'] .note-prose a{color:#5148ae}
+html[data-design='classic'][data-theme='light'] .note-prose :is(p,li){color:#344156}html[data-design='classic'][data-theme='light'] .note-prose :is(h1,h2,h3,h4,h5,h6,strong,b){color:#253247}html[data-design='classic'][data-theme='light'] .note-prose a{color:#5148ae}
 html[data-design='classic'][data-theme='light'] .reader-menu-panel :is(button,a){color:#344156}html[data-design='classic'][data-theme='light'] .app-shell .unified-tabs>button[aria-selected=true]{color:#403879;border-bottom-color:#6755bb}
 html[data-design='classic'][data-theme='light'] .reader-quote summary,html[data-design='classic'][data-theme='light'] .reader-quote blockquote{color:#526176}html[data-design='classic'][data-theme='light'] .library-card-footer>:last-child{color:#5148ae}
 html[data-design='classic'][data-theme='light'] .library-artwork,html[data-design='classic'][data-theme='light'] .library-card[data-kind=podcast] .library-artwork{background:#f0f2f8}html[data-design='classic'][data-theme='light'] .library-artwork-fallback,html[data-design='classic'][data-theme='light'] .library-card[data-kind=video] .library-artwork-fallback{background:#edf0f8;color:#6555ac}

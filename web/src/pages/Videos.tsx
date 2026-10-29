@@ -470,6 +470,7 @@ export default function Videos() {
       <div className="relative max-w-md">
         <Search size={16} className="absolute left-3 top-2.5 text-gray-500" />
         <input type="text" value={search} onChange={e => setSearch(e.target.value)}
+          aria-label={view.type === 'videos' ? 'Search videos' : 'Search channels'}
           placeholder={view.type === 'videos' ? 'Search videos...' : 'Search channels...'}
           className="w-full pl-9 pr-3 py-2 bg-dark-surface border border-dark-border rounded-lg text-sm text-white placeholder-gray-500 focus:outline-none focus:border-indigo-500" />
       </div>
@@ -733,6 +734,21 @@ function VideoList({ videos, onDelete, onRetry, onCancel }: {
   onCancel: (id: string) => Promise<void>
 }) {
   const navigate = useNavigate()
+  const list = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    const dismiss = (event: Event) => {
+      if (!(event.target instanceof Node)) return
+      for (const menu of list.current?.querySelectorAll<HTMLDetailsElement>('.task-more[open]') || []) {
+        if (!menu.contains(event.target)) menu.open = false
+      }
+    }
+    document.addEventListener('pointerdown', dismiss)
+    document.addEventListener('focusin', dismiss)
+    return () => {
+      document.removeEventListener('pointerdown', dismiss)
+      document.removeEventListener('focusin', dismiss)
+    }
+  }, [])
   const activeActions = useRef(new Set<string>())
   const [pending, setPending] = useState(new Set<string>())
   const runAction = async (id:string, action:(id:string)=>Promise<void>) => {
@@ -768,7 +784,7 @@ function VideoList({ videos, onDelete, onRetry, onCancel }: {
   }
 
   return (
-    <div className="space-y-3 video-task-list">
+    <div ref={list} className="space-y-3 video-task-list">
       {videos.map((task,index) => {
         const isFailed = task.status === 'failed'
         const errorMsg = task.message && task.message !== 'Failed' ? task.message : task.error || ''

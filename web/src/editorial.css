@@ -139,7 +139,7 @@ html[data-design='editorial'][data-theme='light'] :is(.app-shell,.ui-scope) :is(
 :where(html[data-design='editorial']) .unified-toolbar { background:var(--ui-bg); border-color:var(--ui-border); margin-top:24px; margin-bottom:30px; }
 :where(html[data-design='editorial']) .app-shell .unified-tabs>button { font-size:12px; color:var(--ui-secondary); }
 :where(html[data-design='editorial']) .app-shell .unified-tabs>button[aria-selected='true'] { color:var(--ui-text); border-color:var(--ui-text); }
-:where(html[data-design='editorial']) .app-shell .reader-action { color:var(--ui-secondary); border-radius:3px; }
+:where(html[data-design='editorial']) .app-shell .reader-action { color:var(--ui-secondary); border-radius:var(--ui-radius); }
 :where(html[data-design='editorial']) .app-shell .reader-action:hover:not(:disabled),:where(html[data-design='editorial']) .reader-menu-panel :is(button,a):hover:not(:disabled) { background:var(--ui-hover); color:var(--ui-text); }
 :where(html[data-design='editorial']) .app-shell .reader-action-outlined { background:var(--ui-surface); border-color:var(--ui-border); }
 :where(html[data-design='editorial']) .reader-menu-panel :is(button,a) { color:var(--ui-text); }:where(html[data-design='editorial']) .reader-menu-panel { border-radius:4px; box-shadow:0 10px 30px #0001; }
@@ -147,7 +147,7 @@ html[data-design='editorial'][data-theme='light'] :is(.app-shell,.ui-scope) :is(
 :where(html[data-design='editorial']) .publication-reader-cover { margin:0 0 35px; }:where(html[data-design='editorial']) .publication-reader-cover>.cached-image { aspect-ratio:16/8; background:var(--ui-surface); }
 :where(html[data-design='editorial']) .publication-reader-cover:has([data-image-state='failed']),:where(html[data-design='editorial']) .publication-reader-cover:has([data-image-state='empty']) { display:none; }
 :where(html[data-design='editorial']) .unified-reader .reader-body :is(p,li) { color:var(--ui-text); font-family:var(--publication-serif); font-size:var(--reader-font-size,18px); line-height:2; }
-:where(html[data-design='editorial']) .unified-reader .reader-body :is(h2,h3,h4) { color:var(--ui-text); font-family:var(--publication-serif); font-weight:600; }
+:where(html[data-design='editorial']) .unified-reader .reader-body :is(h1,h2,h3,h4,h5,h6) { color:var(--ui-text); font-family:var(--publication-serif); font-weight:600; }
 :where(html[data-design='editorial']) .unified-reader .reader-body h2 { font-size:25px; margin-top:30px; }
 :where(html[data-design='editorial']) .unified-reader .reader-body :is(h3,h4) { font-size:21px; }
 :where(html[data-design='editorial']) .unified-reader .reader-core { padding:0 0 24px; border:0; border-bottom:1px solid var(--ui-border); margin:0 0 28px; background:transparent; }
@@ -212,7 +212,7 @@ html[data-design='editorial'] .settings-page .bg-pink-600 { background:#b71964; 
 /* Reader routes can load after the skin. Color contrast must not depend on
    stylesheet arrival order; typography and layout retain their existing rules. */
 html[data-design='editorial'] .unified-header h1,
-html[data-design='editorial'] .unified-reader .reader-body :is(p,li,h2,h3,h4),
+html[data-design='editorial'] .unified-reader .reader-body :is(p,li,h1,h2,h3,h4,h5,h6),
 html[data-design='editorial'] .mindmap-canvas .markmap { color:var(--ui-text); }
 html[data-design='editorial'] :is(.unified-toolbar,.reader-segments,.mindmap-canvas,.mindmap-overlay,.reader-menu-panel,.reader-utility-panel,.reader-confirm) { background:var(--ui-surface); color:var(--ui-text); border-color:var(--ui-border); }
 html[data-design='editorial'] .app-shell .reader-action-outlined { background:var(--ui-surface); border-color:var(--ui-border); }
@@ -221,3 +221,7 @@ html[data-design='editorial'] .app-shell .unified-tabs>button[aria-selected='tru
 html[data-design='editorial'] .mindmap-canvas .markmap-foreign a { color:var(--ui-accent); }
 
 html[data-design='editorial'] :is(.task-launcher,.task-drawer,.task-more>div) { background:var(--ui-surface); color:var(--ui-text); border-color:var(--ui-border); }
+
+html[data-design='editorial'] .note-prose :is(strong,b) { color:var(--ui-text); }
+html[data-design='editorial'] .note-prose h1 { border-color:var(--ui-border); }
+html[data-design='editorial'] .reader-menu-panel :is(button,a) { color:var(--ui-text); }

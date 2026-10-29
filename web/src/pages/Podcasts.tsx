@@ -357,6 +357,7 @@ export default function Podcasts() {
                 type="text"
                 value={newUrl}
                 onChange={(e) => setNewUrl(e.target.value)}
+                aria-label="Podcast URL"
                 placeholder="Xiaoyuzhou, Apple Podcasts or Spotify episode URL…"
                 className="w-full px-4 py-3 bg-dark-hover border border-dark-border rounded-lg text-white placeholder:text-gray-500 focus:outline-none focus:border-indigo-500 text-base"
               />
@@ -392,6 +393,7 @@ export default function Podcasts() {
           type="text"
           value={search}
           onChange={e => setSearch(e.target.value)}
+          aria-label="Search podcasts"
           placeholder="Search podcasts..."
           className="w-full pl-9 pr-3 py-2 bg-dark-surface border border-dark-border rounded-lg text-sm text-white placeholder-gray-500 focus:outline-none focus:border-indigo-500"
         />
