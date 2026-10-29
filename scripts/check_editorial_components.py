@@ -22,7 +22,7 @@ CONTROL = r'''e => {
   fg:getComputedStyle(e).color,bg:getComputedStyle(e).backgroundColor,radius:getComputedStyle(e).borderRadius,
   disabled:!!e.disabled,native:['checkbox','radio','range'].includes(e.type),ratio:Math.min(contrast(e),...text.map(s=>contrast(s))),
   fileRatio:e.type==='file'?contrast(e,'::file-selector-button'):null,
-  text:!!e.innerText?.trim(),outline:getComputedStyle(e).outlineStyle};
+  text:!!e.innerText?.trim(),tag:e.tagName,shadow:getComputedStyle(e).boxShadow,outline:getComputedStyle(e).outlineStyle};
 }'''
 
 async def run(browser, origin, theme, widths, output, routes):
@@ -64,6 +64,8 @@ async def run(browser, origin, theme, widths, output, routes):
                 elif state=='active':
                     await control.hover(force=True);await page.mouse.down()
                 info=await control.evaluate(CONTROL);info.update(theme=theme,step=step,state=state);records.append(info)
+                if state=='focus' and info['tag'] in ['INPUT','SELECT','TEXTAREA']:
+                    assert info['shadow']=='none', (step,'legacy focus ring',info)
                 if state=='active':
                     await page.mouse.move(0,0);await page.mouse.up()
                 if not info['disabled'] and not info['native']:

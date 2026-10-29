@@ -310,3 +310,5 @@ html[data-design='editorial'] :is(.app-shell,.ui-scope,.auth-page) :is(.hover\:t
 html[data-design='editorial'] :is(.app-shell,.ui-scope,.auth-page) :is(.ui-button-danger,button.text-red-400,button.text-red-300):hover:not(:disabled) { color:var(--editorial-danger); background:color-mix(in srgb,var(--editorial-danger) 10%,var(--ui-bg)); border-color:var(--editorial-danger); }
 html[data-design='editorial'] .reader-screenshot { background:var(--ui-surface); color:var(--ui-text); border-color:var(--ui-border); border-radius:var(--ui-card-radius); }
 html[data-design='editorial'] .video-import-panel h3,html[data-design='editorial'] section[aria-label='Bilibili favorites'] h2 { font-family:var(--publication-serif); font-size:22px; font-weight:500; line-height:1.5; }
+/* One keyboard focus treatment instead of stacked legacy colored rings. */
+html[data-design='editorial'] :is(.app-shell,.ui-scope,.auth-page) :is(input,select,textarea):focus { box-shadow:none; --tw-ring-color:var(--ui-accent); }
