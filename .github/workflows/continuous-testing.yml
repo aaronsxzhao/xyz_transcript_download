@@ -56,6 +56,19 @@ jobs:
           git archive "$BASE_REVISION" web/dist | tar -x -C /tmp/library-baseline
           pip install playwright
           python -m playwright install --with-deps chromium webkit
+      - name: Check appearance and retained state
+        timeout-minutes: 5
+        run: |
+          mkdir -p appearance-checks
+          python scripts/check_appearance.py | tee appearance-checks/chromium.log
+          python scripts/check_appearance.py --webkit --widths 390 | tee appearance-checks/webkit.log
+      - name: Upload appearance failure evidence
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: appearance-failure-pr
+          path: appearance-checks/
+          if-no-files-found: ignore
       - name: Check mobile controls in Chromium
         timeout-minutes: 5
         run: python scripts/check_mobile_controls.py
@@ -93,6 +106,46 @@ jobs:
         run: |
           python scripts/check_first_paint.py
           python scripts/check_network_resilience.py --baseline-dist /tmp/library-baseline/web/dist
+
+  appearance-monitor:
+    name: Scheduled Appearance Checks
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    concurrency:
+      group: scheduled-appearance-checks
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Build current frontend
+        working-directory: web
+        run: |
+          npm ci
+          npm run build
+      - name: Prepare browsers
+        run: |
+          pip install playwright
+          python -m playwright install --with-deps chromium webkit
+      - name: Check appearance and retained state
+        run: |
+          mkdir -p appearance-checks
+          python scripts/check_appearance.py | tee appearance-checks/chromium.log
+          python scripts/check_appearance.py --webkit --widths 390 | tee appearance-checks/webkit.log
+      - name: Upload failure evidence
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: appearance-failure-scheduled
+          path: appearance-checks/
+          if-no-files-found: ignore
 
   test:
     name: Run Tests
