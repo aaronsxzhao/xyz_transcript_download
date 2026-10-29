@@ -116,7 +116,10 @@ def main():
         logging.disable(logging.CRITICAL)
         with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
             try:
-                if os.environ.get('REVIEW_MODE','').startswith('argument'):
+                if os.environ.get('REVIEW_MODE') == 'saved_coverage':
+                    from scripts.complete_saved_coverage import child as complete_coverage
+                    complete_coverage(Path(sys.argv[2]))
+                elif os.environ.get('REVIEW_MODE','').startswith('argument'):
                     from scripts.review_argument_reading import child as argument_review
                     argument_review(Path(sys.argv[2]))
                 else:
@@ -140,10 +143,14 @@ def main():
         if bindings:
             environment = {**os.environ, **bindings, 'XYZ_DATA_DIR': name,
                            'DISCORD_WEBHOOK_URL': '', 'WHISPER_MODE': 'api', 'PYTHONPATH': '.'}
-            result = subprocess.run([sys.executable, __file__, '--child', name], env=environment,
-                                    capture_output=True, text=True, timeout=1500)
-            if result.returncode == 0 and output.joinpath('report.json').exists():
+            try:
+                result = subprocess.run([sys.executable, __file__, '--child', name], env=environment,
+                                        capture_output=True, text=True, timeout=2700 if os.environ.get('REVIEW_MODE') == 'saved_coverage' else 1500)
+            except subprocess.TimeoutExpired:
+                result = None
+            if output.joinpath('report.json').exists() and (result is None or result.returncode == 0):
                 report = json.loads(output.joinpath('report.json').read_text())
+                if result is None: report['deadline_exceeded'] = True
         destination = Path('/tmp/xyz-review-artifacts')
         destination.mkdir(mode=0o700, exist_ok=True)
         envelope = encrypt_report(report, ROOT.joinpath('scripts/sample_review_public.pem').read_bytes())
