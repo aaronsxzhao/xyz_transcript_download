@@ -55,6 +55,27 @@ def remove_audit_notice(text):
     return '\n\n'.join([*[n for n in notices if n not in {AUDIT_WARNING, _EN_NOTICES['audit']}], body])
 
 
+def saved_media_scope(transcript, recorded_duration):
+    """A text review cannot resolve a large media/source duration discrepancy.
+
+    This is a scope check, not a diagnosis of missing speech: metadata may be a
+    collection duration, or the recording may have a long silent ending.
+    """
+    def positive(value):
+        try:
+            number = float(value)
+        except (TypeError, ValueError):
+            return 0
+        return number if math.isfinite(number) and number > 0 else 0
+    duration = positive(recorded_duration) or positive(transcript.get('duration'))
+    end = max((positive(segment.get('end')) for segment in (transcript.get('segments') or [])
+               if isinstance(segment, dict)), default=0)
+    discrepancy = bool(duration and end and duration-end > max(120, duration*.1))
+    return {'recorded_duration':duration, 'last_segment_end':end,
+            'requires_source_resolution':discrepancy,
+            'verification_scope':'saved_transcript_only'}
+
+
 def passage_index(fields):
     """Bound paragraph context without dropping any saved prose."""
     from reading_budget import visible_prose
@@ -257,17 +278,21 @@ def child(output):
                 fields['overview'] = remove_audit_notice(text)
                 fields['takeaways'] = '\n'.join(original.get('takeaways') or [])
             else:
-                records = db.table('video_tasks').select('id,title,markdown,transcript_json,updated_at,status,style,model').eq('user_id',owner).eq('id',identifier).limit(1).execute().data or []
+                records = db.table('video_tasks').select('id,title,markdown,transcript_json,updated_at,status,style,model,duration').eq('user_id',owner).eq('id',identifier).limit(1).execute().data or []
                 if not records: raise ValueError('Owned video unavailable')
                 original = records[0]
                 raw = original.pop('transcript_json') or ''
                 transcript = json.loads(raw)
+                row['media_scope'] = saved_media_scope(transcript, original.get('duration'))
                 from source_coverage import video_source_text
                 source = video_source_text(transcript.get('text') or '', transcript.get('segments') or [])
                 row['source_md5'] = hashlib.md5(raw.encode()).hexdigest()
                 text = original['markdown'] or ''
                 fields = {'body':remove_audit_notice(text)}
             row['original'] = original
+            if row.get('media_scope', {}).get('requires_source_resolution'):
+                row['blocked_reason'] = 'Recorded media duration and saved transcript extent differ; resolve source scope before clearing coverage notices.'
+                return row
             if not any(notice in text for notice in (AUDIT_WARNING, _EN_NOTICES['audit'])):
                 row.update(ok=True, already_clear=True)
                 return row

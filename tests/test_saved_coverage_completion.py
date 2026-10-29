@@ -13,6 +13,26 @@ def test_fixed_authorized_scope():
     assert sum(kind == 'podcast' for kind, _ in CASES) == 4
 
 
+def test_collection_duration_cannot_be_cleared_by_reviewing_only_first_part():
+    from scripts.complete_saved_coverage import saved_media_scope
+    scope = saved_media_scope({'duration':6790, 'segments':[{'end':959.9}]}, 6790)
+    assert scope['requires_source_resolution']
+    assert scope['verification_scope'] == 'saved_transcript_only'
+
+
+@pytest.mark.parametrize('duration,end', [(620,618.5),(1548,1547.2),(600,590),(600,602)])
+def test_minor_trailing_difference_does_not_block_review(duration,end):
+    from scripts.complete_saved_coverage import saved_media_scope
+    assert not saved_media_scope({'segments':[{'end':end}]},duration)['requires_source_resolution']
+
+
+def test_unknown_segment_extent_is_not_claimed_to_verify_media():
+    from scripts.complete_saved_coverage import saved_media_scope
+    scope = saved_media_scope({'segments':[{'end':'nan'},None]}, 'invalid')
+    assert scope['last_segment_end'] == 0
+    assert scope['verification_scope'] == 'saved_transcript_only'
+
+
 def test_only_leading_audit_notice_is_removed():
     body = 'Source passage\n\n' + AUDIT_WARNING
     assert remove_audit_notice(AUDIT_WARNING+'\n\n'+FORMAT_WARNING+'\n\n'+body) == FORMAT_WARNING+'\n\n'+body
