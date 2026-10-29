@@ -55,6 +55,27 @@ def remove_audit_notice(text):
     return '\n\n'.join([*[n for n in notices if n not in {AUDIT_WARNING, _EN_NOTICES['audit']}], body])
 
 
+def saved_media_scope(transcript, recorded_duration):
+    """A text review cannot resolve a large media/source duration discrepancy.
+
+    This is a scope check, not a diagnosis of missing speech: metadata may be a
+    collection duration, or the recording may have a long silent ending.
+    """
+    def positive(value):
+        try:
+            number = float(value)
+        except (TypeError, ValueError):
+            return 0
+        return number if math.isfinite(number) and number > 0 else 0
+    duration = positive(recorded_duration) or positive(transcript.get('duration'))
+    end = max((positive(segment.get('end')) for segment in (transcript.get('segments') or [])
+               if isinstance(segment, dict)), default=0)
+    discrepancy = bool(duration and end and duration-end > max(120, duration*.1))
+    return {'recorded_duration':duration, 'last_segment_end':end,
+            'requires_source_resolution':discrepancy,
+            'verification_scope':'saved_transcript_only'}
+
+
 def passage_index(fields):
     """Bound paragraph context without dropping any saved prose."""
     from reading_budget import visible_prose
@@ -106,8 +127,12 @@ def relevant_passages(source, passages, limit=24000):
 
 
 def confirm_missing_addition(addition, passages, selected, call):
-    """A retrieval miss must never become a duplicate appended passage."""
-    remaining = {key:text for key,text in passages.items() if key not in selected}
+    """Verify novelty against all prose, including passages the reviewer saw.
+
+    The review model can overlook an already-selected explanation as well as a
+    retrieval miss. Its proposed addition is not evidence of novelty.
+    """
+    remaining = passages
     batch, size = {}, 0
     batches = []
     for key,text in remaining.items():
@@ -160,6 +185,11 @@ def review_document(source, fields, call, *, deadline=None, resume=None):
         if index+1 in completed:
             checks.append(completed[index+1])
             continue
+        if deadline is not None and time.monotonic() >= deadline:
+            checks.extend(completed.get(i+1, {'chunk':i+1, 'complete':False,
+                'not_started':True, 'issues':['review_deadline']})
+                for i in range(index,len(chunks)))
+            break
         def guarded_call(system, payload, timeout=60):
             remaining = (deadline - time.monotonic()) if deadline else max(timeout,120)
             if remaining <= 0:
@@ -178,6 +208,8 @@ def review_document(source, fields, call, *, deadline=None, resume=None):
         checks.append({'chunk':index+1, 'complete':review.complete,
                        'unverified_units':len(review.unverified_units),
                        'identified_gaps':len(review.identified_gaps),
+                       'unverified_unit_ids':review.unverified_units,
+                       'gap_source_passages':review.identified_gaps,
                        'issues':review.issues, 'completion':review.receipt_recheck})
         for addition in review.additions:
             try:
@@ -241,7 +273,8 @@ def child(output):
         started = time.monotonic()
         try:
             if stopped.is_set() or started >= deadline:
-                raise TimeoutError('Provider unavailable or review deadline')
+                row.update(not_started=True, blocked_reason='provider_unavailable' if stopped.is_set() else 'batch_deadline')
+                return row
             if kind == 'podcast':
                 records = db.table('summaries').select('id,episode_id,title,overview,topics,takeaways,created_at').eq('user_id',owner).eq('episode_id',identifier).limit(1).execute().data or []
                 if not records: raise ValueError('Owned summary unavailable')
@@ -257,17 +290,21 @@ def child(output):
                 fields['overview'] = remove_audit_notice(text)
                 fields['takeaways'] = '\n'.join(original.get('takeaways') or [])
             else:
-                records = db.table('video_tasks').select('id,title,markdown,transcript_json,updated_at,status,style,model').eq('user_id',owner).eq('id',identifier).limit(1).execute().data or []
+                records = db.table('video_tasks').select('id,title,markdown,transcript_json,updated_at,status,style,model,duration').eq('user_id',owner).eq('id',identifier).limit(1).execute().data or []
                 if not records: raise ValueError('Owned video unavailable')
                 original = records[0]
                 raw = original.pop('transcript_json') or ''
                 transcript = json.loads(raw)
+                row['media_scope'] = saved_media_scope(transcript, original.get('duration'))
                 from source_coverage import video_source_text
                 source = video_source_text(transcript.get('text') or '', transcript.get('segments') or [])
                 row['source_md5'] = hashlib.md5(raw.encode()).hexdigest()
                 text = original['markdown'] or ''
                 fields = {'body':remove_audit_notice(text)}
             row['original'] = original
+            if row.get('media_scope', {}).get('requires_source_resolution'):
+                row['blocked_reason'] = 'Recorded media duration and saved transcript extent differ; resolve source scope before clearing coverage notices.'
+                return row
             if not any(notice in text for notice in (AUDIT_WARNING, _EN_NOTICES['audit'])):
                 row.update(ok=True, already_clear=True)
                 return row
@@ -281,7 +318,7 @@ def child(output):
             engine = NoteSummarizer(**settings)
             engine._reading_source = source
             result = review_document(source, fields, engine._editorial_json,
-                                     deadline=min(deadline, started+1200), resume=resume)
+                                     deadline=deadline, resume=resume)
             row.update(ok=result['complete'], review=result)
             if result['complete']:
                 row['cleaned_introduction' if kind == 'podcast' else 'cleaned_markdown'] = remove_audit_notice(text)

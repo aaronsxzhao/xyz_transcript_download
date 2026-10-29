@@ -1,0 +1,6 @@
+{
+  "request": "resume-authorized-14-notes-2026-10-29",
+  "scope": "Existing fixed 14 account-owned notes only; skip cleared notes and unresolved media scope.",
+  "purpose": "Resume completed source partitions; proposed additions still require review before publication.",
+  "production_content_writes": false
+}

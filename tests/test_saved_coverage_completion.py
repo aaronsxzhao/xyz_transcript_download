@@ -13,6 +13,26 @@ def test_fixed_authorized_scope():
     assert sum(kind == 'podcast' for kind, _ in CASES) == 4
 
 
+def test_collection_duration_cannot_be_cleared_by_reviewing_only_first_part():
+    from scripts.complete_saved_coverage import saved_media_scope
+    scope = saved_media_scope({'duration':6790, 'segments':[{'end':959.9}]}, 6790)
+    assert scope['requires_source_resolution']
+    assert scope['verification_scope'] == 'saved_transcript_only'
+
+
+@pytest.mark.parametrize('duration,end', [(620,618.5),(1548,1547.2),(600,590),(600,602)])
+def test_minor_trailing_difference_does_not_block_review(duration,end):
+    from scripts.complete_saved_coverage import saved_media_scope
+    assert not saved_media_scope({'segments':[{'end':end}]},duration)['requires_source_resolution']
+
+
+def test_unknown_segment_extent_is_not_claimed_to_verify_media():
+    from scripts.complete_saved_coverage import saved_media_scope
+    scope = saved_media_scope({'segments':[{'end':'nan'},None]}, 'invalid')
+    assert scope['last_segment_end'] == 0
+    assert scope['verification_scope'] == 'saved_transcript_only'
+
+
 def test_only_leading_audit_notice_is_removed():
     body = 'Source passage\n\n' + AUDIT_WARNING
     assert remove_audit_notice(AUDIT_WARNING+'\n\n'+FORMAT_WARNING+'\n\n'+body) == FORMAT_WARNING+'\n\n'+body
@@ -45,7 +65,10 @@ def test_addition_carries_forward_with_valid_unique_field(monkeypatch):
     monkeypatch.setattr('source_coverage.split_source',lambda *args:['First claim.', 'Second claim.'])
     calls=[]
     def call(system,payload,timeout):
-        request=json.loads(payload); calls.append(request)
+        request=json.loads(payload)
+        if 'existing_fields' in request:
+            return {'covered':False,'fields':[]}
+        calls.append(request)
         if len(calls)==1:
             return {'additions':[{'id':'added:1','topic':'Claim','heading':'First','text':'First claim.','source_ids':['S1']}], 'coverage':[{'unit':'S1','kind':'content','fields':['added:1']}]}
         assert 'point:4' in request['draft_fields']
@@ -59,6 +82,8 @@ def test_expired_deadline_does_not_call_provider():
     call=Mock()
     result=review_document('Source claim.',{'body':'Reading text.'},call,deadline=time.monotonic()-1)
     assert not result['complete']
+    assert result['checks'][0]['not_started']
+    assert result['checks'][0]['issues'] == ['review_deadline']
     call.assert_not_called()
 
 
@@ -77,10 +102,20 @@ def test_addition_checks_unselected_prose_before_being_accepted():
     fields={'a':'Other context','b':'The meaningful condition.'}
     call=Mock(return_value={'covered':True,'fields':['b']})
     assert not confirm_missing_addition(addition,fields,{'a':'Other context'},call)
-    assert json.loads(call.call_args.args[1])['existing_fields']=={'b':fields['b']}
+    assert json.loads(call.call_args.args[1])['existing_fields']==fields
     call=Mock(return_value={'covered':True,'fields':['invented']})
     with pytest.raises(ValueError):
         confirm_missing_addition(addition,fields,{'a':'Other context'},call)
+
+
+def test_addition_already_in_selected_context_is_not_appended():
+    from scripts.complete_saved_coverage import confirm_missing_addition
+    fields={'body':'Students dislike pop quizzes and lower teaching evaluations.'}
+    call=Mock(return_value={'covered':True,'fields':['body']})
+    assert not confirm_missing_addition(
+        {'source_quote':'Pop quizzes reduce teaching evaluations.',
+         'text':'Students lower teaching evaluations after pop quizzes.'}, fields,fields,call)
+    call.assert_called_once()
 
 
 def test_index_keeps_all_prose_even_for_large_fields():

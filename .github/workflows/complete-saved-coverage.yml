@@ -3,9 +3,7 @@ name: Complete authorized saved coverage reviews
 on:
   push:
     branches: [main]
-    paths:
-      - '.github/workflows/complete-saved-coverage.yml'
-      - 'scripts/complete_saved_coverage.py'
+    paths: ['.github/maintenance/saved-coverage-request.json']
   workflow_dispatch:
 
 permissions:
