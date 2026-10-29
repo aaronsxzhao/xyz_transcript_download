@@ -158,7 +158,10 @@ class Summarizer:
                 times = [line.time for line in evidence if line.time is not None]
                 timestamp = (f'{int(times[0])//3600:02d}:{int(times[0])%3600//60:02d}:{int(times[0])%60:02d}'
                              if times else '')
-                points.append(KeyPoint(section['heading'], paragraph['text'], quote, timestamp))
+                text = paragraph['text']
+                if paragraph.get('raw'):
+                    text = '\n'.join('> '+line for line in text.splitlines())
+                points.append(KeyPoint(section['heading'], text, quote, timestamp))
         overview = edition['overview']
         from summary_errors import delivery_notice
         for notice in dict.fromkeys(edition['notices']):

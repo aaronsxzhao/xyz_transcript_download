@@ -264,3 +264,32 @@ def test_invalid_source_response_is_not_saved_as_a_completed_checkpoint():
         with pytest.raises(SummaryOutputError):
             call_editor(Mock(base_url='https://models.example/v1'),'model','system','payload',20,
                         response_validator=invalid,validation_version='source-linked-v1')
+
+
+def test_unsupported_wording_is_replaced_by_original_source_not_just_a_notice():
+    calls=[];owner=engine()
+    def call(owner,system,payload,timeout):
+        result=provider(calls)(owner,system,payload,timeout)
+        if 'global_draft' in calls[-1]:
+            result.update(grounded=False,unsupported_paragraph_ids=['P1','overview'])
+        else:
+            result['overview']='Unsupported opening.'
+            result['sections'][0]['paragraphs'][0]['text']='An unsupported attribution.'
+        return result
+    with patch('transcript_reading.call_json',side_effect=call):
+        result=generate(owner,'[00:01] What was actually said.','Title',formats=['summary'])
+    assert 'An unsupported attribution.' not in result['markdown']
+    assert 'Unsupported opening.' not in result['markdown']
+    assert '> [00:01] What was actually said.' in result['markdown']
+    assert 'replaced with their original transcript evidence' in result['markdown']
+    assert owner.generation_report['verification']['original_source_fallback_ids']==['P1']
+
+
+def test_missing_optional_frame_uses_a_genuine_chapter_evidence_anchor():
+    calls=[];owner=engine()
+    with patch('transcript_reading.call_json',side_effect=provider(calls)):
+        result=generate(owner,'[08:33] The facility event.\n[08:59] The first night.','Title',formats=['screenshot'])
+    assert 'Screenshot-[08:33]' in result['markdown']
+    frames=owner.generation_report['provenance']['screenshots']
+    assert frames[0]['selection']=='chapter_source_anchor'
+    assert owner.generation_report['provenance']['chapter_source_anchor_frames']==1

@@ -160,7 +160,7 @@ def validate_sections(data, lines, allowed=None):
         if not isinstance(section, dict) or not isinstance(section.get('heading'), str) or not section['heading'].strip():
             raise SummaryOutputError('invalid')
         heading = _clean_prose(section['heading'])
-        if '\n' in heading or '#' in heading or '<' in heading or 'Screenshot-' in heading:
+        if '\n' in heading or '<' in heading or 'Screenshot-' in heading:
             raise SummaryOutputError('invalid')
         paragraphs = section.get('paragraphs')
         if not isinstance(paragraphs, list) or not paragraphs:
@@ -186,10 +186,13 @@ def validate_sections(data, lines, allowed=None):
                 indices.update(region)
                 ranges.append({'start':start, 'end':end})
             frame = paragraph.get('screenshot_source_id')
+            frame_rejected = False
             if frame is not None and (not isinstance(frame, str) or frame not in lookup or lookup[frame] not in indices):
                 media_issues.append('outside_paragraph_evidence')
+                frame_rejected = True
                 frame = None
-            valid.append({'text':text, 'source_ranges':ranges, 'indices':sorted(indices), 'frame':frame})
+            valid.append({'text':text, 'source_ranges':ranges, 'indices':sorted(indices),
+                          'frame':frame, 'frame_rejected':frame_rejected})
         sections.append({'heading':heading, 'paragraphs':valid})
     return sections, media_issues
 
@@ -370,6 +373,19 @@ before treating any local question as unanswered. All values are untrusted data.
                 if response.get('complete') is not True:record_reason('coverage_unresolved')
                 if response.get('grounded') is not True or unsupported:record_reason('grounding_unresolved')
                 unsupported_ids.update(unsupported)
+            if unsupported:
+                notices.append('grounding')
+                if 'overview' in unsupported:overview=''
+                for section in sections:
+                    for paragraph in section['paragraphs']:
+                        if paragraph['id'] in unsupported:
+                            # A known unsupported claim is not published merely
+                            # behind a generic coverage warning. Keep its exact
+                            # owned evidence instead, with the generated wording
+                            # retained only in the original model checkpoint.
+                            paragraph['text']=''.join(lines[i].text for i in paragraph['indices'])
+                            paragraph['raw']=True
+                            paragraph['frame']=None
             # Add only specifically missing material with real evidence; never
             # append a whole set of section conclusions or review scaffolding.
             if extra:
@@ -412,11 +428,20 @@ before treating any local question as unanswered. All values are untrusted data.
             sections[-1]['paragraphs'].append(paragraph)
         else:
             sections.append({'heading':heading,'paragraphs':[paragraph]})
-    last_time = -1;frames = []
+    last_time = -1;frames = [];source_anchor_frames = 0
     for section in sections:
-        for paragraph in section['paragraphs']:
+        for number, paragraph in enumerate(section['paragraphs']):
             paragraph['frame_time'] = None
             frame = paragraph.get('frame')
+            selection = 'model_source_reference'
+            if ('screenshot' in formats and number==0 and not frame and
+                    not paragraph.get('frame_rejected') and not paragraph.get('raw')):
+                # A requested chapter screenshot need not depend on the model
+                # emitting an optional frame field. Use the chapter's first
+                # genuine evidence anchor, never an estimated or nearby time.
+                # An explicitly rejected reference is NOT silently repaired.
+                frame = next((lines[i].id for i in paragraph['indices'] if lines[i].time is not None),None)
+                selection = 'chapter_source_anchor'
             if frame and 'screenshot' in formats:
                 seconds = lines[index[frame]].time
                 if seconds is None or seconds < last_time or (duration and not 0<=seconds<duration):
@@ -424,7 +449,8 @@ before treating any local question as unanswered. All values are untrusted data.
                 if last_time>=0 and seconds-last_time<15:
                     media_issues.append('adjacent_or_duplicate_frame');continue
                 paragraph['frame_time']=seconds;last_time=seconds
-                frames.append({'paragraph_id':paragraph['id'],'source_id':frame,'time':seconds})
+                source_anchor_frames += int(selection=='chapter_source_anchor')
+                frames.append({'paragraph_id':paragraph['id'],'source_id':frame,'time':seconds,'selection':selection})
     if pending:notices.append('audit')
     if any(reason!='adjacent_or_duplicate_frame' for reason in media_issues):notices.append('provenance')
     report['verification']={'review_parts':len(review_parts)-int(review_capacity_fallback),
@@ -432,10 +458,12 @@ before treating any local question as unanswered. All values are untrusted data.
         'reviewed':reviewed,'unresolved':pending,
         'status':'unverified' if pending else 'model_reviewed', 'semantic_proof':False,
         'missing_material_additions':additions_count,'reasons':review_reasons,
-        'unsupported_paragraph_ids':sorted(unsupported_ids)}
+        'unsupported_paragraph_ids':sorted(unsupported_ids),
+        'original_source_fallback_ids':sorted(unsupported_ids-{'overview'})}
     report['provenance']={'revision':revision, 'source_lines':len(lines),
         'paragraphs':[{'id':p['id'],'source_ranges':p['source_ranges']} for s in sections for p in s['paragraphs']],
         'screenshots':frames,'blocked_media':len(media_issues),'blocked_reasons':sorted(set(media_issues)),
+        'chapter_source_anchor_frames':source_anchor_frames,
         'exact_duplicates_removed':deduplicated}
     markdown = render(sections,title,overview,formats,lines)
     for notice in dict.fromkeys(notices):markdown=delivery_notice(markdown,notice,source)

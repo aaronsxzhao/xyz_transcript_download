@@ -33,6 +33,9 @@ explicit API path prefixes are preserved.
    Review calls verify coverage; they do not regenerate the entire note. Add
    only missing material with valid source ranges. Incomplete receipts,
    unsupported claims or unavailable reviews produce an unverified notice;
+   specifically identified unsupported paragraphs fall back to their original
+   source ranges, and an unsupported opening is omitted. Their generated wording
+   stays in the model checkpoint, not in the reading body.
    model receipts are not proof of semantic completeness. Do not append another
    set of section conclusions. Exact duplicates with identical evidence are
    removed; semantic duplication is not inferred from a lexical score.
@@ -45,6 +48,10 @@ explicit API path prefixes are preserved.
    and adjacent duplicate candidates. Keep the paragraph; skip the bad picture
    and show a provenance notice. Pixel correctness and visual relevance still
    require the media pipeline; transcript references alone cannot prove them.
+   When the model omits the optional picture field, a chapter can use the first
+   genuine timed line inside its first paragraph's evidence as its screenshot
+   anchor. Diagnostics label this `chapter_source_anchor`. An explicitly invalid
+   model reference is skipped rather than silently replaced with a nearby time.
 7. Render the existing Markdown/summary format, extract frames through the
    existing media pipeline, then use the existing completion/version transaction.
    Cancellation, failures and retries retain the existing saved note. Raw model

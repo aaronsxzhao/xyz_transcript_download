@@ -647,7 +647,7 @@ export default function Settings() {
               </div>}
               <label className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 text-sm text-gray-400">
                 Summary generation
-                <select aria-label="Summary generation" value={generationMode} disabled={!settings||saving} onChange={event=>setGenerationMode(event.target.value as 'single'|'segmented')} className="bg-dark-hover border border-dark-border text-white rounded-lg px-3 py-2">
+                <select aria-label="Summary generation" value={generationMode} disabled={!settings||saving} onChange={event=>setGenerationMode(event.target.value as 'single'|'segmented')} className="min-w-0 w-full sm:w-auto sm:max-w-[260px] bg-dark-hover border border-dark-border text-white rounded-lg px-3 py-2">
                   <option value="single">Full transcript — one generation</option>
                   <option value="segmented">Segmented generation</option>
                 </select>
