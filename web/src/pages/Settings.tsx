@@ -556,7 +556,7 @@ export default function Settings() {
           </div>
 
       {/* Top-level tab bar */}
-      <div className="grid grid-cols-3 gap-1 p-1 bg-dark-surface border border-dark-border rounded-xl mb-5">
+      <div className="settings-tabs grid grid-cols-3 gap-1 p-1 bg-dark-surface border border-dark-border rounded-xl mb-5">
         {TOP_TABS.map(tab => (
           <button
             key={tab.id}

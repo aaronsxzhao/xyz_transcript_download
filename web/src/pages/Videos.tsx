@@ -453,7 +453,7 @@ export default function Videos() {
       </div>}
       {/* New note form */}
       {formOpen && (
-        <div className="bg-dark-surface rounded-xl border border-dark-border overflow-hidden">
+        <div className="video-import-panel bg-dark-surface rounded-xl border border-dark-border overflow-hidden">
           <div className="flex items-center justify-between px-4 pt-3 pb-0">
             <h3 className="text-sm font-semibold text-white">Add video, article or social content</h3>
             <button aria-label="Close new video note form" onClick={() => setFormOpen(false)} className="p-1 text-gray-500 hover:text-white transition-colors">

@@ -420,3 +420,13 @@ Integrated settings updates and authentication state feedback bring initial comp
 The detected platform appears below the podcast URL without covering typed text. Subscription and audio upload requests lock the current form and its toggles, prevent duplicate submissions, and preserve inputs/files for retry after failure. `scripts/check_podcast_forms.py` checks these states across both designs and themes at phone/tablet widths; CI also runs phone WebKit coverage with synthetic responses.
 
 Light-theme notifications use the theme background and foreground together; the podcast failure/retry browser checks enforce at least 4.5:1 text contrast.
+
+### Editorial component states and Library titles
+
+Editorial now owns default, hover, focus, pressed and disabled colors for primary/secondary/destructive controls, native file pickers, deferred reader menus and screenshot viewers. Settings tabs and section headings, import panels and empty states use the publication theme; Classic layout rules are unchanged.
+
+Library titles wrap unbroken text inside an explicit two-line box. Editorial list cards use smaller typography, bounded artwork and separate metadata/source/footer space on phones.
+
+`python scripts/check_editorial_components.py` captures real routes and expanded tools in both Editorial themes, checks text/icon contrast across control states, and asserts title containment for grid/list layouts at 390/820/1440px. It includes custom model settings, four platform account panels, video advanced options, favorites selection, processing failures, reader menus, gallery and auth forms. CI also runs phone WebKit and saves screenshots/control records on failure. Existing four-appearance checks continue protecting Classic and theme switching.
+
+Detailed processing-stage feedback integrated with Editorial control states brings initial assets to 193.5 KiB; the budget is 194 KiB (+0.5 KiB). Deferred formatting remains outside the initial bundle.

@@ -6,7 +6,7 @@ export default function PodcastUploadForm({audioFile,onFile,title,onTitle,descri
 }) {
   const id = useId()
   return (
-<div className="p-4 md:p-6 bg-dark-surface border border-dark-border rounded-xl">
+<div className="podcast-upload-panel p-4 md:p-6 bg-dark-surface border border-dark-border rounded-xl">
           <h2 className="text-lg font-semibold text-white mb-4">Upload Local Audio</h2>
           <form aria-busy={uploading} onSubmit={onSubmit} className="space-y-4">
             <div className="grid gap-4 md:grid-cols-2">

@@ -23,7 +23,7 @@ env:
 jobs:
   frontend:
     name: Frontend Checks
-    timeout-minutes: 30
+    timeout-minutes: 45
     runs-on: ubuntu-latest
     if: github.event_name != 'schedule'
     steps:
@@ -81,6 +81,19 @@ jobs:
         run: |
           python scripts/check_podcast_forms.py
           python scripts/check_podcast_forms.py --webkit --widths 390
+      - name: Check Editorial components and long titles
+        timeout-minutes: 10
+        run: python scripts/check_editorial_components.py
+      - name: Check Editorial components in WebKit
+        timeout-minutes: 10
+        run: python scripts/check_editorial_components.py --webkit --widths 390
+      - name: Upload Editorial failure evidence
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: editorial-component-failure
+          path: /tmp/editorial-component-checks/
+          if-no-files-found: ignore
       - name: Check mobile controls in Chromium
         timeout-minutes: 5
         run: python scripts/check_mobile_controls.py
