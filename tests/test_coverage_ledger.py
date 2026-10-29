@@ -104,6 +104,35 @@ def test_transient_matching_failure_can_recover_without_hiding_failure_history()
     assert sum(p['phase']=='inventory' for p in calls)==1
 
 
+def test_later_accepted_addition_resolves_earlier_item_without_another_repair():
+    case={'source':'[00:00] First condition.\n[00:01] Second condition.',
+          'missing_draft':'An introduction.'}
+    lines,sections,ranges=setup_case(case);calls=[]
+    def respond(engine,system,payload,validator):
+        calls.append(copy.deepcopy(payload))
+        if payload['phase']=='inventory':
+            return {'checked_source_ranges':ranges,'items':[
+                {'kind':'condition','statement':text,'source_ranges':ranges}
+                for text in ('First condition.','Second condition.')]}
+        if payload['phase']=='repair':
+            text='An incomplete addition.' if payload['items'][0]['statement']=='First condition.' else 'First condition. Second condition.'
+            return {'sections':[{'heading':'Argument','paragraphs':[{'text':text,'source_ranges':ranges}]}]}
+        rows=[]
+        for item in payload['items']:
+            p=next((p for s in payload['global_draft'] for p in s['paragraphs'] if item['statement'] in p['text']),None)
+            rows.append({'item_id':item['id'],'status':'covered' if p else 'missing',
+                         'grounded':True,'duplicate':False,
+                         'support':[{'paragraph_id':p['id'],'quote':item['statement']}] if p else []})
+        return {'matches':rows}
+    with patch('coverage_ledger.ITEM_LIMIT',1),patch('coverage_ledger.request',side_effect=respond):
+        report=audit(SimpleNamespace(),lines,sections)
+    assert report['status']=='model_reviewed' and report['initial_unresolved_items']==1
+    assert report['repairs_accepted']==1 and len(sections)==2
+    assert sum(p['phase']=='repair' for p in calls)==2
+    assert calls[-1]['phase']=='match' and calls[-1]['items'][0]['id']=='C1.1'
+    assert report['items'][0]['paragraph_ids']==['L2.1']
+
+
 @pytest.mark.parametrize('failure',[TimeoutError(),ProcessingCancelledError()])
 def test_inventory_failures_are_explicit_and_cancellation_propagates(failure):
     lines,sections,_=setup_case(CASES[0]);before=copy.deepcopy(sections)
