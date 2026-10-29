@@ -7,8 +7,12 @@ html[data-theme='light'] { color-scheme:light; }
 .appearance-controls option { background:#1e293b; color:#e2e8f0; }
 html[data-theme='light'] .appearance-controls option { background:#fff; color:#253247; }
 .appearance-controls button { width:36px; cursor:pointer; font-size:20px; }
-.auth-appearance { display:flex; justify-content:flex-end; margin-bottom:24px; }
-.auth-page { padding-block:32px; }
+.auth-appearance { position:absolute; top:16px; right:16px; z-index:50; }
+.auth-appearance summary { display:grid; place-items:center; width:44px; height:44px; cursor:pointer; list-style:none; border-radius:6px; color:var(--ui-text); background:#1e293b; }
+.auth-appearance summary::-webkit-details-marker { display:none; }
+.auth-appearance .appearance-controls { position:absolute; top:52px; right:0; padding:8px; border:1px solid var(--ui-border); border-radius:6px; background:#1e293b; }
+html[data-theme='light'] .auth-appearance :is(summary,.appearance-controls) { background:#fff; }
+
 @media(max-width:767px) {
  .appearance-controls button,.appearance-controls select { min-height:44px; }
  .appearance-controls button { width:44px; }
@@ -17,7 +21,8 @@ html[data-theme='light'] .appearance-controls option { background:#fff; color:#2
 .appearance-controls { position:relative; }
 .appearance-error { position:absolute; right:0; top:100%; width:240px; padding:8px; background:var(--ui-bg,#1e293b); color:var(--ui-text); border:1px solid var(--ui-border); z-index:50; }
 
-html[data-design='classic'] .publication-dashboard-content { display:contents; }
+/* Preserve the original gap between the two dashboard sections. */
+html[data-design='classic'] .publication-dashboard-content > .dashboard-workspace { margin-bottom:24px; }
 /* Maintain contrast for account actions and status text in both light skins. */
 
 

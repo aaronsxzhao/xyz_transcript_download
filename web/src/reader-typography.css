@@ -1,5 +1,7 @@
 /* Preserve the existing rich-text typography; fetch it with reader routes. */
 @import "tailwindcss/utilities.css" layer(utilities) source(none);
+/* Keep spacing/radius utilities identical to the original Tailwind build. */
+@reference "tailwindcss/theme.css";
 @plugin "@tailwindcss/typography";
 @source "./components/PlainNote.tsx";
 @source "./components/SummaryText.tsx";

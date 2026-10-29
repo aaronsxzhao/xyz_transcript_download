@@ -312,7 +312,7 @@ html[data-design='classic'][data-theme='light'] {
     background: #f5eee1;
     color: #8d641e
 }
-html{--ui-text:#253247;--ui-secondary:#526176;--ui-muted:#5d6c80;--ui-border:#dbe2ec;color-scheme:light}
+html[data-design='classic'][data-theme='light']{--ui-text:#253247;--ui-secondary:#526176;--ui-muted:#5d6c80;--ui-border:#dbe2ec;color-scheme:light}
 html[data-design='classic'][data-theme='light'],:where(html[data-design='classic'][data-theme='light']) body,:where(html[data-design='classic'][data-theme='light']) .app-shell{background:#f5f7fb;color:#253247}
 :where(html[data-design='classic'][data-theme='light']) .bg-dark-bg{background:#f5f7fb}:where(html[data-design='classic'][data-theme='light']) .bg-dark-surface{background:#fff}:where(html[data-design='classic'][data-theme='light']) .bg-dark-hover{background:#eef2f8}:where(html[data-design='classic'][data-theme='light']) .border-dark-border{border-color:#dbe2ec}
 :where(html[data-design='classic'][data-theme='light']) .text-white,:where(html[data-design='classic'][data-theme='light']) .text-gray-100,:where(html[data-design='classic'][data-theme='light']) .text-gray-200{color:#253247}:where(html[data-design='classic'][data-theme='light']) .text-gray-300{color:#46556a}:where(html[data-design='classic'][data-theme='light']) .text-gray-400{color:#526176}:where(html[data-design='classic'][data-theme='light']) .text-gray-500{color:#5d6c80}

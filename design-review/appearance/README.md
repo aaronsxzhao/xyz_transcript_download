@@ -56,3 +56,16 @@ Found a second focus defect in the appearance controls: when an uncached skin di
 Validation: all 438 unit tests passed; production build passed at 191.6 KiB; diff checks passed. No production deployment or real-account operations occurred. The remote main branch was checked and remained at `7c6a8a6`.
 
 The Product Design screenshot-audit workflow was unavailable in this run: the required in-app browser execution interface was not exposed. This round provides code and automated browser-regression evidence, not a completed new screenshot-based design audit. The earlier screenshots are historical evidence only.
+
+## Classic layout restoration (2026-10-29)
+
+Compared the merged appearance implementation against pre-appearance main `665bb2e` using identical fixtures, at 390px and 1440px. The earlier checks did not verify layout equivalence and missed these regressions:
+
+- Dashboard: the extra container removed the original 24px gap before Recently added. Restore that gap in Classic only; keep the wrapper stable so switching does not remount forms or recent filters.
+- Video reader: the extracted Tailwind typography sheet lacked theme references, so spacing utilities such as blockquote padding were not generated. The fixture's body was 32px shorter. Reference the existing theme without duplicating it in the document.
+- Login: the new controls displaced the original centered form by 30px on desktop and 34px on mobile. Login and password reset now use an out-of-flow, expandable appearance entry. Escape closes it and returns focus.
+- Scope the remaining plain `html` rule in the light stylesheet to Classic light. The measured round-trip layout did not reproduce a global color leak; this is stylesheet isolation cleanup.
+
+`classic-layout-check.cjs` compares positions, dimensions, typography and colors for key blocks on nine routes, then cycles Classic dark → Classic light → Editorial light → Editorial dark → Classic dark. All 18 route/viewport comparisons and return trips passed. `classic-layout-before.json` and `classic-layout-after.json` record the measurements. These checks exclude top navigation positioning because its requested appearance controls are new. They do not constitute exhaustive pixel equality or real-account testing.
+
+Run the original revision's Vite server on 5183 and the candidate on 5180, then run the script with Playwright available through NODE_PATH. BASELINE_URL and CURRENT_URL override those origins. Screenshot files are generated locally.

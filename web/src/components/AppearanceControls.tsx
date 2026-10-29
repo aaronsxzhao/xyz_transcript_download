@@ -2,7 +2,7 @@ import {useLayoutEffect, useRef, useState} from 'react'
 import {setAppearance, useAppearance, type Design} from '../lib/theme'
 
 /** Device-local appearance; independent of account and page form state. */
-export default function AppearanceControls() {
+export default function AppearanceControls({compact = false}: {compact?: boolean}) {
   const {design, theme} = useAppearance()
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
@@ -22,7 +22,7 @@ export default function AppearanceControls() {
     catch { setError('Appearance unavailable. Reload to retry.') }
     finally { setBusy(false) }
   }
-  return <div className="appearance-controls" role="group" aria-label="Appearance" aria-busy={busy}>
+  const controls = <div className="appearance-controls" role="group" aria-label="Appearance" aria-busy={busy}>
     <select aria-label="Interface style" disabled={busy} value={design} onChange={e => void change(e.target.value as Design, theme)}>
       <option value="classic">Classic</option>
       <option value="editorial">A · Editorial</option>
@@ -34,4 +34,7 @@ export default function AppearanceControls() {
     {busy && <span role="status" className="sr-only">Loading appearance…</span>}
     {error && <span className="appearance-error" role="alert">{error}</span>}
   </div>
+  return compact ? <details className="auth-appearance" onKeyDown={e => {
+    if (e.key === 'Escape') { e.currentTarget.open = false; e.currentTarget.querySelector('summary')?.focus() }
+  }}><summary aria-label="Appearance settings" title="Appearance settings">◐</summary>{controls}</details> : controls
 }
