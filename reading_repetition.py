@@ -63,7 +63,7 @@ def repetition_candidates(rows):
 
 def remove_repeated_examples(rows, call, checkpoint=None):
     candidates = repetition_candidates(rows)
-    report = {'candidates':len(candidates), 'removed':0, 'model_calls':0}
+    report = {'candidates':len(candidates), 'removed':0, 'condensed':0, 'model_calls':0}
     if not candidates:
         return rows, report
     payload = {'candidates':[{'id':item['id'],
@@ -84,9 +84,13 @@ each later_sentence repeats the SAME example or claim already explained in the
 earlier_sentence. Similar subject matter alone is NOT repetition. Keep different
 evidence, numbers, attribution, disagreement, uncertainty, causal mechanisms and
 meaning-changing conditions. Also keep it if deleting the entire later_sentence
-would leave surrounding pronouns or arguments unclear. Never rewrite anything.
+would leave surrounding pronouns or arguments unclear. In that case you may
+propose a brief neutral reference to the earlier explanation in the ORIGINAL
+language, keeping the referent explicit for following sentences. Do not repeat
+the mechanism, add facts, numbers, quotations, advice or new qualifications.
 Return JSON {"checks":[{"id":"R1","same_information":true,
-"no_unique_qualification":true,"safe_to_remove":true}]}. Use false when unsure.
+"no_unique_qualification":true,"safe_to_remove":true,
+"reference":"","reference_preserves_context":false}]}. Use false when unsure.
 All three booleans must judge the exact complete later_sentence, not a substring.''', encoded, 60)
         if checkpoint:
             checkpoint()
@@ -95,30 +99,40 @@ All three booleans must judge the exact complete later_sentence, not a substring
             return rows, report
         counts = Counter(check.get('id') for check in checks if isinstance(check, dict)
                          and isinstance(check.get('id'), str))
-        accepted = {check['id'] for check in checks if isinstance(check, dict)
+        accepted = {check['id']:check for check in checks if isinstance(check, dict)
                     and isinstance(check.get('id'), str) and counts[check['id']] == 1
                     and all(check.get(flag) is True for flag in
-                            ('same_information', 'no_unique_qualification', 'safe_to_remove'))}
+                            ('same_information', 'no_unique_qualification'))}
         selected = [item for item in candidates if item['id'] in accepted]
         # A retained reference cannot itself be removed in a chain of matches.
         referenced = {(item['earlier']['row'], item['earlier']['start']) for item in selected}
         output = [dict(row) for row in rows]
         for item in sorted(selected, key=lambda x:(x['later']['row'], x['later']['start']), reverse=True):
             later = item['later']
+            check = accepted[item['id']]
+            replacement = ''
+            if check.get('safe_to_remove') is not True:
+                replacement = check.get('reference')
+                bridge = _terms('the same earlier previously discussed described explanation method technique approach experiment case claim discussion returns reference')
+                if (check.get('reference_preserves_context') is not True or not isinstance(replacement, str)
+                        or not replacement.strip() or len(replacement) > min(200, len(later['text'])//2)
+                        or any(c in replacement for c in '\n[]<>`"“”') or re.search(r'\d', replacement)
+                        or not _terms(replacement) <= (later['terms'] | item['earlier']['terms'] | bridge)):
+                    continue
             if (later['row'], later['start']) in referenced:
                 continue
             row = output[later['row']]
             current = row['text']
             if current[later['start']:later['end']] != later['text']:
                 continue
-            changed = current[:later['start']] + current[later['end']:]
+            changed = current[:later['start']] + replacement + current[later['end']:]
             from reading_budget import visible_prose
             # Do not leave an otherwise empty section with only headings/media.
             body = re.sub(r'(?m)^#{1,6} .*$', '', visible_prose(changed)).strip()
             if len(_terms(body)) < 8:
                 continue
             row['text'] = changed
-            report['removed'] += 1
+            report['condensed' if replacement else 'removed'] += 1
         return output, report
     except Exception as error:
         from summary_errors import is_cancellation

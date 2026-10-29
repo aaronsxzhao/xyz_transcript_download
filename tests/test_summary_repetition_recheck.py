@@ -79,7 +79,7 @@ def test_invalid_exclusion_rechecked_as_content_without_rewriting():
     review=audit_source('The speaker repeats the conditional mechanism.',fields,Mock(return_value=first),
                         best_effort=True,recheck=retry)
     assert review.complete and review.fields==fields
-    assert review.receipt_recheck=={'attempted':1,'resolved':1}
+    assert review.receipt_recheck['attempted']==review.receipt_recheck['resolved']==1
 
 
 @pytest.mark.parametrize('response', [{}, {'coverage':[{'unit':'S1','kind':'non_content','reason':'repetition'}]},
@@ -100,3 +100,38 @@ def test_valid_receipt_needs_no_additional_call():
         best_effort=True,recheck=retry)
     assert review.complete
     retry.assert_not_called()
+
+
+def test_repeated_method_keeps_short_referent_for_following_condition():
+    rows=sections()
+    response={'checks':[dict(id='R1',same_information=True,no_unique_qualification=True,
+        safe_to_remove=False,reference='The discussion returns to the earlier experiment.',
+        reference_preserves_context=True)]}
+    output,report=remove_repeated_examples(rows,Mock(return_value=response))
+    assert report['condensed']==1 and report['removed']==0
+    assert LIMIT in output[1]['text'] and 'earlier experiment.' in output[1]['text']
+    response['checks'][0]['reference']='This proves a cancer cure.'
+    assert remove_repeated_examples(rows,Mock(return_value=response))[0]==rows
+
+
+@pytest.mark.parametrize('response,complete',[
+    ({'edits':[{'field':'body','text':'Qualified argument.','source_ids':['S1']}]},True),
+    ({'keep_original':[{'field':'body','complete':True,'grounded':True}]},True),
+    ({'keep_original':[{'field':'body','complete':True}]},False),
+    ({'edits':[{'field':'body','text':'Invented.','source_ids':['S99']}]},False),
+    ({'keep_original':[{'field':'body','complete':True,'grounded':True}],
+      'edits':[{'field':'body','text':'Conflicting decision.','source_ids':['S1']}]},False),
+])
+def test_edit_grounding_requires_source_references_or_explicit_original_review(response,complete):
+    data={'edits':[{'field':'body','text':'Qualified argument.','source_ids':[]}],
+          'coverage':[{'unit':'S1','kind':'content','fields':['body']}]}
+    def retry(system,payload,timeout):
+        assert timeout==60
+        request=json.loads(payload)
+        assert request['unverified_edit_proposals']==data['edits']
+        assert request['source_units']=={'S1':'Qualified argument.'}
+        return response
+    review=audit_source('Qualified argument.',{'body':'Original argument.'},Mock(return_value=data),
+                        best_effort=True,recheck=retry)
+    assert review.complete is complete
+    assert review.receipt_recheck['edit_resolved']==int(complete)

@@ -62,7 +62,7 @@ def record_review(engine, complete, reason='', review=None):
             reasons[reason or 'unresolved_checks']=reasons.get(reason or 'unresolved_checks',0)+1
         if review is not None:
             recheck = getattr(review, 'receipt_recheck', {})
-            for key in ('attempted', 'resolved'):
+            for key in ('attempted', 'resolved', 'edit_attempted', 'edit_resolved'):
                 if recheck.get(key):
                     name = 'receipt_recheck_' + key
                     report[name] = report.get(name, 0) + recheck[key]
