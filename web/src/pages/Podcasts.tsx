@@ -358,7 +358,7 @@ export default function Podcasts() {
 
       {/* Add form */}
       {showAddForm && (
-        <div className="p-4 md:p-6 bg-dark-surface border border-dark-border rounded-xl">
+        <div className="podcast-entry-panel p-4 md:p-6 bg-dark-surface border border-dark-border rounded-xl">
           <h2 className="text-lg font-semibold text-white mb-4">Add New Podcast</h2>
           <form aria-busy={adding} onSubmit={handleAdd} className="flex flex-col sm:flex-row sm:items-start gap-3 sm:gap-4">
             <div className="flex-1 relative">

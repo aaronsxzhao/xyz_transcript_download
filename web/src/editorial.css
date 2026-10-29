@@ -225,3 +225,88 @@ html[data-design='editorial'] :is(.task-launcher,.task-drawer,.task-more>div) { 
 html[data-design='editorial'] .note-prose :is(strong,b) { color:var(--ui-text); }
 html[data-design='editorial'] .note-prose h1 { border-color:var(--ui-border); }
 html[data-design='editorial'] .reader-menu-panel :is(button,a) { color:var(--ui-text); }
+
+/* Component contracts: the optional skin owns its control states, including
+   deferred tools and native file controls. Keep these separate from layout. */
+html[data-design='editorial'] { --editorial-danger:#a33632; --editorial-danger-fill:#96352f; --editorial-accent-hover:#71301f; }
+html[data-design='editorial'][data-theme='dark'] { --editorial-danger:#ffb4a9; --editorial-danger-fill:#96352f; --editorial-accent-hover:#a65136; }
+html[data-design='editorial'] :is(.app-shell,.ui-scope,.auth-page) :is(.ui-button,.reader-action,button.bg-dark-surface,button.bg-dark-hover,summary.ui-button) {
+  background:var(--ui-surface); color:var(--ui-text); border-color:var(--ui-border); border-radius:var(--ui-radius);
+}
+html[data-design='editorial'] :is(.app-shell,.ui-scope,.auth-page) :is(.ui-button,.reader-action,button.bg-dark-surface,button.bg-dark-hover,summary.ui-button):hover:not(:disabled) {
+  background:var(--ui-hover); color:var(--ui-text); border-color:var(--ui-accent);
+}
+html[data-design='editorial'] :is(.app-shell,.ui-scope,.auth-page) :is(.ui-button-quiet,.reader-action:not(.reader-action-outlined)) { background:transparent; color:var(--ui-secondary); }
+html[data-design='editorial'] :is(.app-shell,.ui-scope,.auth-page) :is(button,a.ui-button):is(.bg-indigo-600,.bg-indigo-700,.bg-purple-600,.bg-pink-600,.bg-cyan-600,.bg-blue-600,.bg-green-600,.ui-button-primary) {
+  background:var(--ui-accent-fill); border-color:var(--ui-accent-fill); color:var(--ui-on-accent);
+}
+html[data-design='editorial'] :is(.app-shell,.ui-scope,.auth-page) :is(button,a.ui-button):is(.bg-indigo-600,.bg-indigo-700,.bg-purple-600,.bg-pink-600,.bg-cyan-600,.bg-blue-600,.bg-green-600,.ui-button-primary):hover:not(:disabled) {
+  background:var(--editorial-accent-hover); border-color:var(--editorial-accent-hover); color:var(--ui-on-accent);
+}
+html[data-design='editorial'] :is(.app-shell,.ui-scope,.auth-page) :is(button,a.ui-button):is(.bg-red-600,.bg-red-700) { background:var(--editorial-danger-fill); border-color:var(--editorial-danger-fill); color:#fff; }
+html[data-design='editorial'] :is(.app-shell,.ui-scope,.auth-page) :is(button,a.ui-button):is(.bg-red-600,.bg-red-700):hover:not(:disabled) { background:#7b2925; color:#fff; }
+html[data-design='editorial'] :is(.app-shell,.ui-scope,.auth-page) :is(.ui-button-danger,button.text-red-400,button.text-red-300) { color:var(--editorial-danger); }
+html[data-design='editorial'] :is(.app-shell,.ui-scope,.auth-page) button:is(.bg-indigo-600,.bg-indigo-700,.bg-purple-600,.bg-pink-600,.bg-cyan-600,.bg-blue-600,.bg-green-600,.bg-red-600,.ui-button-primary) :is(span,svg) { color:inherit; }
+html[data-design='editorial'] :is(.app-shell,.ui-scope,.auth-page) button:disabled {
+  opacity:.65; cursor:not-allowed;
+}
+html[data-design='editorial'] :is(.app-shell,.ui-scope,.auth-page) button:is(.bg-indigo-600,.bg-indigo-700,.bg-purple-600,.bg-pink-600,.bg-cyan-600,.bg-blue-600,.bg-green-600,.bg-red-600,.ui-button-primary):disabled {
+  background:var(--ui-hover); color:var(--ui-secondary); border-color:var(--ui-border); opacity:1;
+}
+html[data-design='editorial'] :is(.app-shell,.ui-scope,.auth-page) :is(button,a,summary):focus-visible { outline:2px solid var(--ui-accent); outline-offset:3px; }
+html[data-design='editorial'] :is(.app-shell,.ui-scope,.auth-page) :is(input:not([type='checkbox']):not([type='radio']):not([type='range']):not([type='file']),select,textarea) {
+  background:var(--ui-surface); color:var(--ui-text); border-color:var(--ui-border); border-radius:var(--ui-radius);
+}
+html[data-design='editorial'] :is(input,textarea)::placeholder { color:var(--ui-muted); opacity:1; }
+html[data-design='editorial'] :is(input[type='checkbox'],input[type='radio'],input[type='range'],progress) { accent-color:var(--ui-accent-fill); }
+html[data-design='editorial'] input[type='file'] { color:var(--ui-secondary); }
+html[data-design='editorial'] input[type='file']::file-selector-button {
+  background:var(--ui-surface); color:var(--ui-text); border:1px solid var(--ui-border); border-radius:var(--ui-radius); padding:8px 12px; margin-right:12px; min-height:var(--ui-control-height); cursor:pointer;
+}
+html[data-design='editorial'] input[type='file']:hover:not(:disabled)::file-selector-button { background:var(--ui-hover); border-color:var(--ui-accent); }
+html[data-design='editorial'] input[type='file']:disabled::file-selector-button { opacity:.65; cursor:not-allowed; }
+
+/* Editorial panels use quiet rules and serif section headings, not Classic
+   floating cards. These selectors do not affect the Classic layout. */
+html[data-design='editorial'] :is(.settings-page section,.podcast-entry-panel,.podcast-upload-panel,.ui-empty-state) { border-radius:var(--ui-card-radius); box-shadow:none; border-color:var(--ui-border); background:var(--ui-surface); }
+html[data-design='editorial'] :is(.settings-page section,.podcast-entry-panel,.podcast-upload-panel,.ui-empty-state)>h2 { font-family:var(--publication-serif); font-size:22px; font-weight:500; line-height:1.5; }
+html[data-design='editorial'] .settings-tabs { background:transparent; border:0; border-bottom:1px solid var(--ui-border); border-radius:0; padding:0; gap:12px; }
+html[data-design='editorial'] .settings-tabs button { background:transparent; color:var(--ui-secondary); border-radius:0; border:0; border-bottom:2px solid transparent; }
+html[data-design='editorial'] .settings-page .settings-tabs button[aria-pressed='true'],html[data-design='editorial'] .settings-page .settings-tabs button:hover { background:transparent; color:var(--ui-text); border-bottom-color:var(--ui-accent); }
+html[data-design='editorial'] .podcast-upload-panel button[type='submit'] { flex-shrink:0; white-space:nowrap; }
+
+/* Card titles have a real two-line box; long words wrap instead of escaping
+   the card, and list typography leaves room for source and metadata. */
+html[data-design='editorial'] .library-card { min-width:0; }
+html[data-design='editorial'] .library-card-body { min-width:0; }
+html[data-design='editorial'] .library-card-body h2 { overflow-wrap:anywhere; min-height:3.2em; max-height:3.2em; flex-shrink:0; overflow:hidden; }
+html[data-design='editorial'] .library-card-meta { flex-wrap:wrap; }
+html[data-design='editorial'] .library-card-meta>* { min-width:0; overflow-wrap:anywhere; }
+html[data-design='editorial'] .library-card[data-layout='list'] { gap:20px; align-items:start; padding-block:16px; }
+html[data-design='editorial'] .library-card[data-layout='list'] .library-artwork { width:168px; height:112px; }
+html[data-design='editorial'] .library-card[data-layout='list'] .library-card-body { padding:0; }
+html[data-design='editorial'] .library-card[data-layout='list'] h2 { font-size:21px; }
+html[data-design='editorial'] .library-card:hover h2 { color:var(--ui-accent); }
+@media(max-width:540px) {
+  html[data-design='editorial'] .library-card[data-layout='list'] { gap:14px; }
+  html[data-design='editorial'] .library-card[data-layout='list'] .library-artwork { width:80px; height:80px; }
+  html[data-design='editorial'] .library-card[data-layout='list'] h2 { font-size:18px; }
+  html[data-design='editorial'] .library-card[data-layout='list'] .library-card-footer { flex-wrap:wrap; gap:6px; }
+}
+html[data-design='editorial'] .app-shell .rounded-xl { border-radius:var(--ui-card-radius); }
+html[data-design='editorial'] .settings-page .settings-tabs button[aria-pressed]:hover:not(:disabled) { background:var(--ui-hover); color:var(--ui-text); }
+html[data-design='editorial'] :is(.app-shell,.ui-scope,.auth-page) :is(button,a.ui-button):active:not(:disabled) { box-shadow:inset 0 0 0 1px currentColor; }
+/* Legacy hover utilities must not introduce pale Classic text on paper. */
+html[data-design='editorial'] :is(.app-shell,.ui-scope,.auth-page) :is(.hover\:text-white,.hover\:text-gray-200):hover { color:var(--ui-text); }
+html[data-design='editorial'] :is(.app-shell,.ui-scope,.auth-page) :is(.hover\:bg-dark-hover,.hover\:bg-dark-border):hover { background:var(--ui-hover); }
+html[data-design='editorial'] .podcast-reader .topic-toggle:hover { color:var(--ui-accent); }
+html[data-design='editorial'] :is(.app-shell,.ui-scope,.auth-page) :is(input,select,textarea):focus-visible { outline:2px solid var(--ui-accent); outline-offset:2px; }
+html[data-design='editorial'] .ui-scope:is(.screenshot-gallery,.screenshot-pending) { background:var(--ui-bg); color:var(--ui-text); }
+html[data-design='editorial'] .ui-scope button { background:var(--ui-surface); color:var(--ui-text); border-color:var(--ui-border); border-radius:var(--ui-radius); }
+html[data-design='editorial'] .ui-scope button:hover:not(:disabled) { background:var(--ui-hover); border-color:var(--ui-accent); }
+html[data-design='editorial'] :is(.dashboard-dialog,.reader-confirm,.reader-utility-panel,.reader-menu-panel,.task-row) { background:var(--ui-surface); color:var(--ui-text); border-color:var(--ui-border); border-radius:var(--ui-card-radius); }
+html[data-design='editorial'] :is(.reader-menu-panel,.reader-segments,.unified-outline) button:hover:not(:disabled) { background:var(--ui-hover); color:var(--ui-text); }
+html[data-design='editorial'] :is(.app-shell,.ui-scope,.auth-page) :is(.hover\:text-indigo-200,.hover\:text-indigo-300,.hover\:text-indigo-400):hover { color:var(--ui-accent); }
+html[data-design='editorial'] :is(.app-shell,.ui-scope,.auth-page) :is(.ui-button-danger,button.text-red-400,button.text-red-300):hover:not(:disabled) { color:var(--editorial-danger); background:color-mix(in srgb,var(--editorial-danger) 10%,var(--ui-bg)); border-color:var(--editorial-danger); }
+html[data-design='editorial'] .reader-screenshot { background:var(--ui-surface); color:var(--ui-text); border-color:var(--ui-border); border-radius:var(--ui-card-radius); }
+html[data-design='editorial'] .video-import-panel h3,html[data-design='editorial'] section[aria-label='Bilibili favorites'] h2 { font-family:var(--publication-serif); font-size:22px; font-weight:500; line-height:1.5; }

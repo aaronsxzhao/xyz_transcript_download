@@ -116,7 +116,7 @@ export default function Library() {
       <LibraryArtwork priority={index<4} key={`${i.kind}:${i.id}:${i.thumbnail || ''}`} item={i} />
       <div className="library-card-body">
         <div className="library-card-meta"><span>{platformLabel(i.platform,i.kind === 'podcast' ? 'Podcast' : 'Video')}</span><time title={i.published_at ? `Published ${i.published_at.slice(0,10)}` : "Date this summary was saved, not its original publication date"} dateTime={i.published_at || i.date}>{i.published_at ? `Published ${i.published_at.slice(0,10)}` : i.date ? `Saved ${new Date(i.date).toLocaleDateString()}` : ''}</time></div>
-        <h2 className="font-semibold leading-snug line-clamp-2 group-hover:text-indigo-200">{i.title}</h2>
+        <h2 title={i.title} className="font-semibold leading-snug line-clamp-2 group-hover:text-indigo-200">{i.title}</h2>
         <p className="mt-2 text-sm text-gray-400 truncate">{i.source}</p>
         <div className="library-card-footer"><span>{history.some(r=>r.kind===i.kind&&r.id===i.id) ? `${history.find(r=>r.kind===i.kind&&r.id===i.id)!.progress}% read` : i.topics_count ? `${i.topics_count} topics` : 'Ready to read'}</span><span className="flex items-center gap-1">{i.content_type==='article'?'Read article':['twitter','substack'].includes(i.platform||'')?'Read post':'Read summary'} <ArrowUpRight size={14} /></span></div>
       </div>
