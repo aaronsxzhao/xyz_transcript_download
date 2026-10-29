@@ -50,3 +50,15 @@ def test_out_of_range_screenshot_does_not_reuse_or_relabel_cached_last_frame(tmp
     with patch('screenshot_extractor.SCREENSHOTS_DIR',tmp_path), patch('screenshot_extractor.run_media_process') as process:
         assert extract_screenshot(str(video),120,'task',duration=60) is None
         process.assert_not_called()
+
+
+def test_source_review_cannot_silently_delete_video_frames():
+    original = 'Original claim.\n\nScreenshot-[01:00]\n\nLater claim.\n\nScreenshot-[02:00]'
+    response = {'edits':[{'field':'body','text':'Corrected claim.','source_ids':['S1']}],
+                'additions':[], 'coverage':[{'unit':'S1','kind':'content','fields':['body']}]}
+    review = audit_source('Source claim.', {'body':original}, lambda *args:response, best_effort=True)
+    assert review.fields['body'] == original
+    assert 'source_media' in review.issues and not review.complete
+    response['edits'][0]['text'] = original.replace('Original claim.', 'Corrected claim.')
+    valid = audit_source('Source claim.', {'body':original}, lambda *args:response, best_effort=True)
+    assert valid.complete and 'Corrected claim.' in valid.fields['body']
