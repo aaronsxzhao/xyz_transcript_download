@@ -312,7 +312,7 @@ html[data-design='classic'][data-theme='light'] {
     background: #f5eee1;
     color: #8d641e
 }
-html{--ui-text:#253247;--ui-secondary:#526176;--ui-muted:#5d6c80;--ui-border:#dbe2ec;color-scheme:light}
+html[data-design='classic'][data-theme='light']{--ui-text:#253247;--ui-secondary:#526176;--ui-muted:#5d6c80;--ui-border:#dbe2ec;color-scheme:light}
 html[data-design='classic'][data-theme='light'],:where(html[data-design='classic'][data-theme='light']) body,:where(html[data-design='classic'][data-theme='light']) .app-shell{background:#f5f7fb;color:#253247}
 :where(html[data-design='classic'][data-theme='light']) .bg-dark-bg{background:#f5f7fb}:where(html[data-design='classic'][data-theme='light']) .bg-dark-surface{background:#fff}:where(html[data-design='classic'][data-theme='light']) .bg-dark-hover{background:#eef2f8}:where(html[data-design='classic'][data-theme='light']) .border-dark-border{border-color:#dbe2ec}
 :where(html[data-design='classic'][data-theme='light']) .text-white,:where(html[data-design='classic'][data-theme='light']) .text-gray-100,:where(html[data-design='classic'][data-theme='light']) .text-gray-200{color:#253247}:where(html[data-design='classic'][data-theme='light']) .text-gray-300{color:#46556a}:where(html[data-design='classic'][data-theme='light']) .text-gray-400{color:#526176}:where(html[data-design='classic'][data-theme='light']) .text-gray-500{color:#5d6c80}
@@ -327,3 +327,6 @@ html[data-design='classic'][data-theme='light'],:where(html[data-design='classic
 :where(html[data-design='classic'][data-theme='light']) .library-artwork,:where(html[data-design='classic'][data-theme='light']) .library-card[data-kind=podcast] .library-artwork{background:#f0f2f8}:where(html[data-design='classic'][data-theme='light']) .library-artwork-fallback,:where(html[data-design='classic'][data-theme='light']) .library-card[data-kind=video] .library-artwork-fallback{background:#edf0f8;color:#6555ac}
 :where(html[data-design='classic'][data-theme='light']) .library-media-badge,:where(html[data-design='classic'][data-theme='light']) .library-duration{background:#344156e6;color:#fff}
 :where(html[data-design='classic'][data-theme='light']) .unified-header h1{color:#253247}:where(html[data-design='classic'][data-theme='light']) .note-prose blockquote{background:#eeedf7;color:#46556a}:where(html[data-design='classic'][data-theme='light']) .note-prose pre,:where(html[data-design='classic'][data-theme='light']) .note-prose th{background:#eef2f8}:where(html[data-design='classic'][data-theme='light']) .dashboard-add-helper{color:#5d6c80}
+
+html[data-theme='light'] .auth-appearance :is(summary,.appearance-controls) { background:#fff; }
+html[data-design='classic'][data-theme='light'] .settings-page .bg-pink-600 { background:#b71964; color:#fff; }

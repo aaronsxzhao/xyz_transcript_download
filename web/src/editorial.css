@@ -202,3 +202,6 @@ html[data-design='editorial'][data-theme='light'] .auth-page :is(.text-red-400,.
 }
 
 html[data-design='editorial'] .podcast-reader .topic-number { color:var(--ui-accent); }
+
+html[data-theme='light'] .auth-appearance :is(summary,.appearance-controls) { background:#fff; }
+html[data-design='editorial'] .settings-page .bg-pink-600 { background:#b71964; color:#fff; }
