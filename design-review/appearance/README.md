@@ -85,3 +85,11 @@ The supplied iPad screenshot exposed two gaps not caught by the prior empty-list
 `check_tablet_controls.py` uses logged-in touch contexts with actual video cards, checks four appearances across 320/390/640/744/768/820/834/1024/1180/1366px, equal control heights, fully visible/unobscured header hit targets, title width, and More/View interactions. WebKit runs at 744/820/1024px in both PR and scheduled CI. In the 820px fixture, title width is 594px and select/theme controls are 44px high. Screenshots wait for color transitions and loaded artwork.
 
 Local validation: 444 unit tests, the touch matrix and existing appearance/state/failure regression passed. The initial compressed document increased from about 191.9 KiB to 192.1 KiB; the enforced budget is explicitly adjusted by 0.5 KiB to 192.5 KiB for these control/layout rules. Other performance and startup checks remain unchanged. WebKit and the full suite run in CI. This is emulated browser evidence; it is not a physical iPad test.
+
+## Complete thumbnails and consistent button corners (2026-10-29)
+
+Video-list thumbnails now use contain fitting. In the constrained two-row layout they span both rows, center vertically, and use the loaded image's natural height (capped at 128px), instead of retaining a cropped 128×72 box aligned only with the first row.
+
+Standard rectangular controls use `--ui-radius`: Classic 8px and Editorial 4px. Appearance controls, collection actions, reader actions, standard rounded workspace buttons and auth form controls use this token. More already uses the shared `ui-button` component class; its competing radius/background overrides were removed, so it has the same secondary-button treatment. Navigation tabs and pill-shaped controls retain their intentional shapes.
+
+The touch regression now asserts image contain fitting, vertical centering across the card rows, and consistent 1px borders/theme radii for the appearance and card controls. Local production checks cover all four appearances and ten viewport widths. The preview uses synthetic content and licensed fixture artwork.

@@ -788,7 +788,7 @@ function VideoList({ videos, onDelete, onRetry, onCancel }: {
         >
           <div className="video-task-content flex flex-col sm:flex-row sm:items-start gap-3 md:gap-4">
             {task.thumbnail ? (
-              <CachedImage priority={index<3} src={task.thumbnail} alt="" className="video-thumbnail w-full sm:w-40 md:w-48 h-24 sm:h-24 md:h-28 rounded-lg object-cover flex-shrink-0 bg-dark-hover" />
+              <CachedImage priority={index<3} src={task.thumbnail} alt="" fit="contain" className="video-thumbnail w-full sm:w-40 md:w-48 h-24 sm:h-24 md:h-28 rounded-lg object-cover flex-shrink-0 bg-dark-hover" />
             ) : (
               <div className={`video-thumbnail hidden sm:flex w-40 md:w-48 h-24 md:h-28 rounded-lg items-center justify-center flex-shrink-0 ${
                 isFailed ? 'bg-red-500/10' : 'bg-dark-hover'
