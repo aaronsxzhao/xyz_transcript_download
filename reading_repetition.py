@@ -32,10 +32,10 @@ def repetition_candidates(rows):
             paragraph = ''.join(lines[start:end])
             for match in re.finditer(r'[^.!?。！？\n]+(?:[。！？]+|[.!?]+(?=\s|$)|$)', paragraph):
                 sentence = match[0].strip()
-                if not 70 <= len(sentence) <= 900 or any(c in sentence for c in '[]<>`"“”'):
+                if not 50 <= len(sentence) <= 900 or any(c in sentence for c in '[]<>`'):
                     continue
                 terms = _terms(sentence)
-                if len(terms) < 12:
+                if len(terms) < 8:
                     continue
                 begin = offsets[start] + match.start() + len(match[0]) - len(match[0].lstrip())
                 passages.append({'row':index, 'start':begin, 'end':begin+len(sentence),
@@ -49,21 +49,22 @@ def repetition_candidates(rows):
             shared = len(current['terms'] & earlier['terms'])
             score = shared / max(len(current['terms']), len(earlier['terms']))
             # Different quantities/dates are a reason to retain, not deduplicate.
-            if (shared >= 10 and score >= .45 and
+            if (shared >= 6 and score >= .30 and
                     set(re.findall(r'\d+(?:\.\d+)?', current['text'])) <=
                     set(re.findall(r'\d+(?:\.\d+)?', earlier['text']))):
                 if best is None or score > best[0]:
                     best = (score, earlier)
         if best:
             candidates.append({'id':f'R{len(candidates)+1}', 'later':current, 'earlier':best[1]})
-            if len(candidates) == 8:
+            if len(candidates) == 12:
                 break
     return candidates
 
 
 def remove_repeated_examples(rows, call, checkpoint=None):
     candidates = repetition_candidates(rows)
-    report = {'candidates':len(candidates), 'removed':0, 'condensed':0, 'model_calls':0}
+    report = {'candidates':len(candidates), 'removed':0, 'condensed':0, 'model_calls':0,
+              'method':'lexical_candidates_semantic_review', 'exhaustive':False}
     if not candidates:
         return rows, report
     payload = {'candidates':[{'id':item['id'],
@@ -110,6 +111,10 @@ All three booleans must judge the exact complete later_sentence, not a substring
         for item in sorted(selected, key=lambda x:(x['later']['row'], x['later']['start']), reverse=True):
             later = item['later']
             check = accepted[item['id']]
+            # Inline verbatim wording remains protected even though it can
+            # participate in candidate discovery and semantic review.
+            if any(mark in later['text'] for mark in ('"', '“', '”')):
+                continue
             replacement = ''
             if check.get('safe_to_remove') is not True:
                 replacement = check.get('reference')

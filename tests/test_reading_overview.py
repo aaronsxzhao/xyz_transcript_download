@@ -51,3 +51,16 @@ def test_partial_raw_transcript_never_receives_a_misleading_whole_video_intro():
     assert engine._complete_overview(body,'Title')==body
     engine._editorial_json.assert_not_called()
     assert engine.generation_report['overview']['reason']=='raw_source_retained'
+
+
+def test_incomplete_explanation_phrase_is_checked_against_later_sections():
+    body = "The supplied notes do not complete her explanation of movement and sleep.\n\nShe explains movement after sleep and the glymphatic system."
+    # The production phrase uses 'do not', not just 'not answered'.
+    def call(system,payload,timeout):
+        data=json.loads(payload)
+        assert data['transition_candidates']==['P1']
+        return {'overview':'Movement is discussed.', 'transitions':[{
+            'paragraph_id':'P1','old':'do not complete her explanation of movement and sleep',
+            'new':'continue the explanation in the next section','answer_paragraph_ids':['P2']}]}
+    edited,_,report=compose_overview('Title',[],body,call,100,'en')
+    assert report['transition_repairs']==1 and 'do not complete' not in edited

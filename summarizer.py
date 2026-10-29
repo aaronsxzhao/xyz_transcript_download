@@ -174,8 +174,51 @@ class Summarizer:
 
     def _edit_reading(self, summary, checkpoint=None):
         from reading_editor import edit_sections, has_unedited_source
-        if not summary or not summary.key_points or has_unedited_source(summary.overview):
+        if not summary or not summary.key_points:
             return summary
+        report = getattr(self, 'generation_report', {}).setdefault('editor', {})
+        protected = {i for i, point in enumerate(summary.key_points)
+                     if re.search(r'原始转写|Original transcript|核对标出的原文|Source passages flagged by review|^生成正文$|^Generated notes$', point.topic, re.I)
+                     or has_unedited_source(point.summary)}
+        if has_unedited_source(summary.overview) and not protected:
+            report['fallback_reason'] = 'unclassified_source_fallback'
+            return summary
+        if protected:
+            # Edit only contiguous successful runs. Raw passages retain their
+            # exact wording, position and warning; they never enter the editor.
+            from summary_errors import strip_delivery_notices
+            points, runs, reports = [], [], []
+            from reading_budget import PLAN, units, visible_prose
+            plan = PLAN.get()
+            language = (plan or {}).get('language', 'en')
+            reserved = units(visible_prose('\n'.join([summary.overview, *summary.takeaways])), language)
+            raw_units = sum(units(visible_prose(point.summary), language) for i, point in enumerate(summary.key_points) if i in protected)
+            editable_units = sum(units(visible_prose(point.summary), language) for i, point in enumerate(summary.key_points) if i not in protected)
+            def finish_run():
+                if not runs: return
+                child = replace(summary, overview=strip_delivery_notices(summary.overview), key_points=list(runs))
+                share = sum(units(visible_prose(point.summary), language) for point in runs) / max(1, editable_units)
+                child_plan = dict(plan) if plan else None
+                if child_plan and child_plan.get('target_high'):
+                    for bound in ('target_low', 'target_high'):
+                        child_plan[bound] = reserved + max(1, round(max(0, plan[bound]-reserved-raw_units)*share))
+                token = PLAN.set(child_plan)
+                try:
+                    edited = self._edit_reading(child, checkpoint)
+                finally:
+                    PLAN.reset(token)
+                points.extend(edited.key_points)
+                reports.append(dict(report))
+                runs.clear()
+            for i, point in enumerate(summary.key_points):
+                if i in protected:
+                    finish_run(); points.append(point)
+                else:
+                    runs.append(point)
+            finish_run()
+            report.clear()
+            report.update(strategy='partial_source_runs', protected_sections=len(protected), protected_units=raw_units, runs=reports)
+            return replace(summary, key_points=points, topics=list(dict.fromkeys(p.topic for p in points)))
         items = [{'id':f'N{i+1}', 'topic':point.topic, 'text':point.summary,
                   'evidence':point.original_quote} for i,point in enumerate(summary.key_points)]
         lookup = {item['id']:point for item,point in zip(items,summary.key_points)}
@@ -191,19 +234,23 @@ class Summarizer:
                 # appending every merged quote duplicates the reading body.
                 text = paragraph['text']
                 points.append(KeyPoint(paragraph['topic'], text, evidence.original_quote, evidence.timestamp))
+            from podcast_order import chronological_points
+            points = chronological_points(points)
             return replace(summary, key_points=points, topics=list(dict.fromkeys(point.topic for point in points)))
         except Exception as error:
             from summary_errors import is_cancellation
             if is_cancellation(error):
                 raise
             logger.info('Keeping complete podcast notes after optional editing failure: %s', type(error).__name__)
+            report['fallback_reason'] = type(error).__name__
             return summary
 
     def _localize_summary(self, summary, source):
         if not summary: return summary
         from note_presentation import localize_note, language_mismatch
         from reading_editor import has_unedited_source
-        if has_unedited_source(summary.overview):
+        raw_notice = has_unedited_source(summary.overview)
+        if raw_notice and getattr(self, 'generation_report', {}).get('editor', {}).get('fallback_reason') == 'unclassified_source_fallback':
             getattr(self,'generation_report',{}).setdefault('language',{})['raw_source_retained']=True
             return summary
         if not any(language_mismatch(source,text) for text in [summary.overview,*summary.takeaways,*[p.topic+'\n'+p.summary for p in summary.key_points]]):
@@ -214,9 +261,13 @@ class Summarizer:
         def fix(text):
             return localize_note(text,source,self._editorial_json,budget=max(0,deadline-time.monotonic()),report=report)
         # Quotes are independent source fields and never enter the translator.
-        overview=fix(summary.overview)
+        overview=summary.overview if raw_notice else fix(summary.overview)
         points=[]
         for point in summary.key_points:
+            if re.search(r'原始转写|Original transcript|核对标出的原文|Source passages flagged by review|^生成正文$|^Generated notes$', point.topic, re.I) or has_unedited_source(point.summary):
+                points.append(point)
+                report['raw_source_retained'] = True
+                continue
             text=fix('## '+point.topic+'\n\n'+point.summary)
             heading,separator,body=text.partition('\n\n')
             points.append(replace(point,topic=heading.removeprefix('## '),summary=body) if separator else point)
@@ -605,6 +656,8 @@ class Summarizer:
                 topics.append(topic)
             key_points.append(KeyPoint(topic, point['summary'],
                 point.get('original_quote', ''), point.get('timestamp', '')))
+        from podcast_order import chronological_points
+        key_points = chronological_points(key_points)
         return Summary(episode_id, episode_title, data['overview'], key_points, topics, takeaways)
 
     def _merge_summaries(

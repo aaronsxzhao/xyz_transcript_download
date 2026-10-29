@@ -4,7 +4,7 @@ import re
 from contextvars import ContextVar
 
 PLAN = ContextVar('reading_budget_plan', default=None)
-VERSION = 'focused-reading-v16'
+VERSION = 'focused-reading-v17'
 
 
 def counts(text):
@@ -134,6 +134,7 @@ def diagnostics(result, source, plan):
             'estimated_reading_minutes':reading,
             'reading_rate_basis':{'han_per_minute':350,'words_per_minute':200,'personalized':False},
             'exact_duplicate_paragraphs':len(paragraphs)-len(set(paragraphs)),
+            'duplicate_metric_scope':'exact_text_only_not_semantic',
             'budget_status': ('not_applicable' if low is None else
                 'below' if amount < low else 'above' if amount > high else 'within'),
             'advisory_only':True}
