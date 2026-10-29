@@ -2,6 +2,7 @@ import {useEffect,useRef,useState} from 'react'
 import {Link,useParams} from 'react-router-dom'
 import {authFetch,type VideoTask} from '../../lib/api'
 import {getAuthGeneration} from '../../lib/auth'
+import {requestWithDeadline} from '../../lib/requestDeadline'
 
 type Part={page:number;title:string;url:string;task_id?:string|null;status:string;progress:number;error?:string}
 const active=new Set(['pending','parsing','downloading','transcribing','summarizing','saving','running','queued'])
@@ -19,24 +20,34 @@ export default function BilibiliParts({metadata}: {metadata:NonNullable<VideoTas
     const controller=new AbortController(),generation=getAuthGeneration();read.current=controller
     setLoading(true)
     try {
-      const response=await authFetch(base,{signal:controller.signal})
-      const data=await response.json().catch(()=>null)
+      const {response,data}=await requestWithDeadline(async signal=>{
+        const response=await authFetch(base,{signal})
+        return {response,data:await response.json().catch(()=>null)}
+      },{signal:controller.signal,timeout:15000})
       if(!response.ok||!Array.isArray(data?.parts))throw new Error(typeof data?.detail==='string'?data.detail:'Cannot load collection statuses')
       if(!mounted.current||controller.signal.aborted||generation!==getAuthGeneration())return
       setParts(data.parts);setSelected(previous=>new Set([...previous].filter(page=>data.parts.some((part:Part)=>part.page===page&&selectable(part)))))
       setError('')
     } catch(reason) {
       if(mounted.current&&!controller.signal.aborted&&generation===getAuthGeneration())setError(reason instanceof Error?reason.message:'Cannot load collection statuses')
-    } finally {if(mounted.current&&!controller.signal.aborted)setLoading(false)}
+    } finally {
+      if(read.current===controller)read.current=undefined
+      if(mounted.current&&!controller.signal.aborted)setLoading(false)
+    }
   }
   useEffect(()=>{
-    mounted.current=true;submitting.current=false;setBusy(false);setMessage('');setError('');setParts([]);setSelected(new Set());void refresh()
-    return()=>{mounted.current=false;read.current?.abort();write.current?.abort()}
+    mounted.current=true
+    const reset=()=>{
+      read.current?.abort();write.current?.abort();submitting.current=false
+      setBusy(false);setMessage('');setError('');setParts([]);setSelected(new Set());void refresh()
+    }
+    reset();window.addEventListener('xyz:session-changed',reset)
+    return()=>{mounted.current=false;read.current?.abort();write.current?.abort();window.removeEventListener('xyz:session-changed',reset)}
   },[taskId])
   const working=parts.some(part=>active.has(part.status))
   useEffect(()=>{
     if(!working||busy)return
-    const timer=setInterval(()=>{if(document.visibilityState!=='hidden')void refresh()},15000)
+    const timer=setInterval(()=>{if(!read.current&&document.visibilityState!=='hidden')void refresh()},15000)
     return()=>clearInterval(timer)
   },[working,busy,taskId])
   async function processSelected() {
@@ -48,8 +59,10 @@ export default function BilibiliParts({metadata}: {metadata:NonNullable<VideoTas
     try {
       for(const part of pages) {
         if(controller.signal.aborted||generation!==getAuthGeneration())break
-        const response=await authFetch(`${base}/${part.page}/process`,{method:'POST',signal:controller.signal})
-        const data=await response.json().catch(()=>null)
+        const {response,data}=await requestWithDeadline(async signal=>{
+          const response=await authFetch(`${base}/${part.page}/process`,{method:'POST',signal})
+          return {response,data:await response.json().catch(()=>null)}
+        },{signal:controller.signal,timeout:60000,message:'Queue confirmation timed out. The part may already be processing.'})
         if(!response.ok||!data?.task_id)throw new Error(`P${part.page}: ${typeof data?.detail==='string'?data.detail:'Queue confirmation was not received.'}`)
         if(controller.signal.aborted||!mounted.current||generation!==getAuthGeneration())break
         accepted++

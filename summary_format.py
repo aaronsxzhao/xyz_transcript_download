@@ -18,8 +18,12 @@ def _without_trailing_commas(value: str) -> str:
                 quoted = False
         elif char == '"':
             quoted = True
-        elif char == ',' and value[index + 1:].lstrip().startswith(('}', ']')):
-            continue
+        elif char == ',':
+            following = index + 1
+            while following < len(value) and value[following].isspace():
+                following += 1
+            if following < len(value) and value[following] in '}]':
+                continue
         output.append(char)
     return ''.join(output)
 
@@ -27,26 +31,52 @@ def _without_trailing_commas(value: str) -> str:
 def extract_model_json(content: str):
     """Decode fenced/prefixed JSON, including trailing commas, string-aware."""
     decoder = json.JSONDecoder()
+    opening = re.compile(r'[\[{]')
     candidates = [content.strip()]
     candidates.extend(match.group(1) for match in re.finditer(r'```(?:json)?\s*([\s\S]*?)```', content, re.I))
     for candidate in candidates:
-        for text in (candidate, _without_trailing_commas(candidate)):
+        for repair in (False, True):
+            text = _without_trailing_commas(candidate) if repair else candidate
             try:
                 return json.loads(text)
             except json.JSONDecodeError:
                 pass
-            match = re.search(r'[\[{]', text)
-            if match:
+            offset = 0
+            while match := opening.search(text, offset):
+                start = match.start()
                 try:
-                    value, _ = decoder.raw_decode(text, match.start())
+                    value, _ = decoder.raw_decode(text, start)
                     if isinstance(value, (dict, list)):
                         return value
                 except json.JSONDecodeError:
-                    continue
+                    # Skip only a complete bracketed preamble. Never salvage
+                    # one nested point from a truncated outer JSON document.
+                    depth, quoted, escaped = 0, False, False
+                    for index in range(start, len(text)):
+                        char = text[index]
+                        if quoted:
+                            if escaped:
+                                escaped = False
+                            elif char == '\\':
+                                escaped = True
+                            elif char == '"':
+                                quoted = False
+                        elif char == '"':
+                            quoted = True
+                        elif char in '[{':
+                            depth += 1
+                        elif char in ']}':
+                            depth -= 1
+                            if depth == 0:
+                                offset = index + 1
+                                break
+                    else:
+                        break
     raise json.JSONDecodeError('No valid JSON found in response', content, 0)
 
 
 def normalize_summary_fields(data):
+    from reading_language import chinese_source
     if isinstance(data, list):
         data = {'key_points': data}
     elif isinstance(data, str):
@@ -87,7 +117,8 @@ def normalize_summary_fields(data):
         if not body:
             continue
         point = row if isinstance(row, dict) else {}
-        points.append({'topic': text(point.get('topic')) or '其他内容', 'summary': body,
+        fallback_topic = '其他内容' if chinese_source(overview or body) else 'Other content'
+        points.append({'topic': text(point.get('topic')) or fallback_topic, 'summary': body,
                        'original_quote': text(point.get('original_quote')), 'timestamp': text(point.get('timestamp'))})
     if not overview and not points:
         raise SummaryOutputError('invalid')
