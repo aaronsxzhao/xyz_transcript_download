@@ -110,16 +110,23 @@ async def test_failures_are_not_cached_as_success_and_allow_a_later_retry(monkey
 
 
 @pytest.mark.asyncio
-async def test_endpoint_cache_validator_and_private_domain_rejection(client,monkeypatch):
+@pytest.mark.parametrize('url', [
+    'https://image.xyzcdn.net/etag',
+    'https://images.unsplash.com/photo-1630155923002-17db0f219f1f?fit=max&fm=jpg&w=1080',
+])
+async def test_endpoint_cache_validator_and_private_domain_rejection(client,monkeypatch,url):
     origin=AsyncMock(return_value=covers.make_thumbnail(image()));monkeypatch.setattr(covers,'_origin',origin)
-    response=await client.get('/api/image-proxy',params={'url':'https://image.xyzcdn.net/etag'})
+    response=await client.get('/api/image-proxy',params={'url':url})
     assert response.status_code==200 and response.headers['content-type']=='image/webp'
     assert response.headers['x-artwork-cache']=='origin'
-    cached=await client.get('/api/image-proxy',params={'url':'https://image.xyzcdn.net/etag'},headers={'If-None-Match':response.headers['etag']})
+    cached=await client.get('/api/image-proxy',params={'url':url},headers={'If-None-Match':response.headers['etag']})
     assert cached.status_code==304 and cached.headers['x-artwork-cache']=='disk'
     assert origin.await_count==1
     denied=await client.get('/api/image-proxy',params={'url':'https://project.supabase.co/storage/v1/object/public/thumbnails/private.jpg'})
     assert denied.status_code==403 and denied.headers['cache-control']=='no-store'
+    spoofed=await client.get('/api/image-proxy',params={'url':'https://images.unsplash.com.attacker.invalid/photo.jpg'})
+    assert spoofed.status_code==403
+    assert origin.await_count==1
 
 
 def test_library_private_thumbnail_remains_signed(monkeypatch):

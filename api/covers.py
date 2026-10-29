@@ -15,7 +15,8 @@ from config import DATA_DIR, SUPABASE_URL, SUPABASE_SERVICE_KEY, USE_SUPABASE
 HOSTS = ('image.xyzcdn.net', 'bts-image.xyzcdn.net', 'jike.ruguoapp.com',
          'piccdn.igetget.com', 'mzstatic.com', 'i.ytimg.com', 'yt3.ggpht.com',
          'yt3.googleusercontent.com', 'i0.hdslb.com', 'i1.hdslb.com', 'i2.hdslb.com',
-         'pbs.twimg.com', 'substackcdn.com', 'substack-post-media.s3.amazonaws.com')
+         'pbs.twimg.com', 'substackcdn.com', 'substack-post-media.s3.amazonaws.com',
+         'images.unsplash.com')
 MAX_SOURCE = 8 * 1024 * 1024
 MAX_STORED = 32 * 1024 * 1024  # Full-resolution WebP may exceed its source JPEG.
 MAX_CACHE = 64 * 1024 * 1024
