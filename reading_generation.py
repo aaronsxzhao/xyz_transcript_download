@@ -62,10 +62,20 @@ def record_review(engine, complete, reason='', review=None):
             reasons[reason or 'unresolved_checks']=reasons.get(reason or 'unresolved_checks',0)+1
         if review is not None:
             recheck = getattr(review, 'receipt_recheck', {})
-            for key in ('attempted', 'resolved', 'edit_attempted', 'edit_resolved'):
+            for key in ('calls', 'attempted', 'resolved', 'edit_attempted', 'edit_resolved', 'initial_retry_attempted'):
                 if recheck.get(key):
                     name = 'receipt_recheck_' + key
                     report[name] = report.get(name, 0) + recheck[key]
+            if recheck.get('failed'):
+                report['completion_failures'] = report.get('completion_failures', 0) + 1
+                reason = recheck.get('failure_reason', 'invalid_or_unavailable_response')
+                if reason in {'provider_configuration', 'timeout', 'invalid_or_unavailable_response'}:
+                    failures = report.setdefault('completion_failure_reasons', {})
+                    failures[reason] = failures.get(reason, 0) + 1
+            skipped = recheck.get('skipped_reason')
+            if skipped in {'invalid_object', 'invalid_lists', 'input_capacity'}:
+                reasons = report.setdefault('completion_skipped', {})
+                reasons[skipped] = reasons.get(skipped, 0) + 1
             from source_coverage import AUDIT_ISSUES
             issues=report.setdefault('issues',{})
             for issue in set(getattr(review,'issues',[])):

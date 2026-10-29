@@ -199,7 +199,7 @@ its substantive information is retained, not that its advertising is repeated.
 """
 
 
-AUDIT_ISSUES = {"invalid_json", "invalid_object", "invalid_lists", "invalid_edit", "duplicate_edit_field",
+AUDIT_ISSUES = {"review_unavailable", "invalid_json", "invalid_object", "invalid_lists", "invalid_edit", "duplicate_edit_field",
                 "unknown_edit_field", "empty_edit", "ungrounded_edit", "invalid_addition", "source_media",
                 "invalid_receipt", "unknown_or_duplicate_unit", "ungrounded_unit",
                 "invalid_exclusion", "invalid_note_reference", "invalid_kind", "missing_units", "invalid_unit_repair"}
@@ -281,14 +281,28 @@ class SourceReview:
 
 
 def audit_source(source, fields, call_json, context=None, *, repair=True, best_effort=False, recheck=None):
-    """Review once for readers; strict tools may request one bounded repair."""
+    """Review source, then complete unresolved reader checks with bounded retries."""
     if best_effort:
         captured = []
         def capture(system, payload):
             data = call_json(system, payload)
             captured.append(data)
             return data
-        review = _audit_source_once(source, fields, capture, context, best_effort=True)
+        try:
+            review = _audit_source_once(source, fields, capture, context, best_effort=True)
+        except Exception as error:
+            from summary_errors import is_cancellation
+            from model_execution import terminal_provider_failure, retryable_model_failure
+            if (not recheck or is_cancellation(error) or terminal_provider_failure(error)
+                    or not (retryable_model_failure(error) or isinstance(error, json.JSONDecodeError))):
+                raise
+            # A transient/JSON failure is not a finished review. Retry once via
+            # the same saved provider, with a bounded timeout and checkpoint.
+            review = SourceReview(dict(fields), [], {}, list(source_units(source)),
+                                  issues=['invalid_json' if isinstance(error, json.JSONDecodeError) else 'review_unavailable'])
+            return _recover_review_envelope(source, review, recheck, context)
+        if recheck and {'invalid_object', 'invalid_lists'}.intersection(review.issues):
+            return _recover_review_envelope(source, review, recheck, context)
         return _recheck_review(source, fields, captured[0], review, recheck, context)
     if not repair:
         # Reader delivery is best effort: one editorial pass, then the caller
@@ -325,48 +339,74 @@ def audit_source(source, fields, call_json, context=None, *, repair=True, best_e
             raise
 
 
-def _recheck_review(source, fields, data, review, call, context):
-    """One bounded second opinion; never infer covered meaning or source IDs.
+def _recover_review_envelope(source, review, call, context):
+    """One bounded recovery, retaining independent accepted corrections on failure."""
+    from summary_errors import is_cancellation
+    from model_execution import terminal_provider_failure
+    try:
+        recovered = _audit_source_once(source, review.fields,
+            lambda system, payload: call(system, payload, 60), context, best_effort=True)
+        recovered.additions = [*review.additions, *recovered.additions]
+        recovered.non_content_only = recovered.non_content_only and not recovered.additions
+        recovered.citations = {**review.citations, **recovered.citations}
+        recovered.receipt_recheck = {'initial_retry_attempted':1, 'calls':1}
+        return recovered
+    except Exception as error:
+        if is_cancellation(error):
+            raise
+        review.receipt_recheck = {'initial_retry_attempted':1, 'calls':1, 'failed':True,
+            'failure_reason':('provider_configuration' if terminal_provider_failure(error)
+                else 'timeout' if isinstance(error, TimeoutError) or 'Timeout' in type(error).__name__ else 'invalid_or_unavailable_response')}
+        return review
+
+
+def _recheck_review(source, fields, data, review, call, context, remaining=1):
+    """At most two completion passes; never infer covered meaning or source IDs.
 
     A repeated argument is content mapped to an existing field, not excluded
     source. Invalid exclusion labels cannot establish that distinction. Recheck
     only those units, retaining valid patches and every unresolved finding.
     """
-    if not call or not {'invalid_exclusion', 'ungrounded_edit'}.intersection(review.issues):
+    if not call or review.complete:
         return review
-    receipts = data.get('coverage') if isinstance(data, dict) else None
-    if not isinstance(receipts, list):
+    if not isinstance(data, dict):
+        review.receipt_recheck = {'skipped_reason':'invalid_object'}
         return review
-    pending = {row.get('unit') for row in receipts if isinstance(row, dict)
-               and isinstance(row.get('unit'), str) and row.get('kind') == 'non_content'
-               and row.get('unit') in review.unverified_units}
+    receipts = data.get('coverage', [])
     edits = data.get('edits', [])
-    failed_fields = set(review.unresolved_fields)
-    if not isinstance(edits, list) or len(failed_fields) > 1:
+    if not isinstance(receipts, list) or not isinstance(edits, list):
+        review.receipt_recheck = {'skipped_reason':'invalid_lists'}
         return review
+    # Include omitted receipts, invalid references and explicitly identified
+    # gaps, not just one or two unsupported exclusion labels.
+    pending = set(review.unverified_units)
+    failed_fields = set(review.unresolved_fields)
     proposals = [row for row in edits if isinstance(row, dict)
                  and isinstance(row.get('field'), str) and row['field'] in failed_fields]
-    if failed_fields and ('ungrounded_edit' not in review.issues or len(proposals) != 1):
-        return review
-    if not (pending or failed_fields) or len(pending) > 2:
+    if not (pending or failed_fields):
         return review
     units = source_units(source)
     payload = json.dumps({'source_units':units if failed_fields else {key:units[key] for key in units if key in pending},
                           'draft_fields':review.fields, 'unverified_edit_proposals':proposals,
                           'receipt_units_to_recheck':sorted(pending),
                           'boundary_context':context or {}}, ensure_ascii=False)
-    if len(payload) > 24000:
+    if len(payload) > 64000:
+        review.receipt_recheck = {'skipped_reason':'input_capacity'}
         return review
-    review.receipt_recheck = {'attempted':len(pending), 'resolved':0,
+    review.receipt_recheck = {'calls':1, 'attempted':len(pending), 'resolved':0,
                              'edit_attempted':len(failed_fields), 'edit_resolved':0}
     try:
         response = call(AUDIT_SYSTEM + '''
-For this bounded second opinion return {"coverage":[...],"edits":[],"keep_original":[]}.
+For this bounded completion pass return {"coverage":[...],"edits":[],"additions":[],"keep_original":[]}.
 Return coverage ONLY for receipt_units_to_recheck, using the FINAL draft_fields. Repeated
 arguments and equivalent examples are content: reference the existing detailed
 field if it preserves the important meaning. They are NOT non_content. Use
 non_content only for a whole greeting, advertisement, or empty_transition.
-If important meaning is absent, use kind=missing; if uncertain, omit the receipt.
+If important meaning is absent, supply an addition containing ONLY that missing
+argument or qualification, grounded in source_ids from receipt_units_to_recheck,
+and map the receipt to its new added:N ID. Reuse an existing argument when it
+already covers the source; never duplicate it to satisfy bookkeeping.
+If a real gap cannot be repaired, use kind=missing; if uncertain, omit the receipt.
 Never mark a unit covered merely to clear a warning.
 If unverified_edit_proposals is nonempty, compare each proposed correction with
 ALL source_units and the current field. Return a corrected edit with real
@@ -374,13 +414,20 @@ source_ids only when needed and supported. Do not guess source IDs. If the
 existing field already preserves the important meaning and is grounded, explicitly
 return keep_original:[{"field":"body","complete":true,"grounded":true}].
 This rejects the unnecessary proposed edit; it does NOT waive grounding. If
-uncertain, leave it unresolved. Do not edit any other field or add new material.''', payload, 60)
+uncertain, leave it unresolved. Do not edit other fields. Additions may only repair
+important gaps in receipt_units_to_recheck. Preserve all media markers.''', payload, 60)
         rows = response.get('coverage', []) if isinstance(response, dict) else None
         if not isinstance(rows, list):
-            return review
+            raise ValueError('Invalid completion response')
         rows = [row for row in rows if isinstance(row, dict)
                 and isinstance(row.get('unit'), str) and row['unit'] in pending]
         revision = {'coverage':rows}
+        additions = response.get('additions', [])
+        if isinstance(additions, list):
+            revision['additions'] = [row for row in additions if isinstance(row, dict)
+                and isinstance(row.get('id'), str) and row['id'] not in review.fields
+                and isinstance(row.get('source_ids'), list) and row['source_ids']
+                and all(isinstance(key, str) and key in pending for key in row['source_ids'])]
         originals = response.get('keep_original', [])
         keep = set()
         if isinstance(originals, list):
@@ -400,16 +447,31 @@ uncertain, leave it unresolved. Do not edit any other field or add new material.
                     (isinstance(row, dict) and isinstance(row.get('field'), str) and row['field'] in keep)]}
         merged = _merge_audit_response(previous, revision)
         revised = _apply_audit_data(source, fields, merged, context, best_effort=True)
-        revised.receipt_recheck = {'attempted':len(pending),
+        revised.receipt_recheck = {'calls':1, 'attempted':len(pending),
                                   'resolved':len(pending - set(revised.unverified_units)),
                                   'edit_attempted':len(failed_fields),
                                   'edit_resolved':len(failed_fields-set(revised.unresolved_fields))}
+        if not revised.complete and remaining:
+            first_stats = dict(revised.receipt_recheck)
+            final = _recheck_review(source, fields, merged, revised, call, context, remaining=remaining-1)
+            # Keep cumulative work visible even though each pass only receives
+            # the remaining units. Successful first-pass fixes are retained.
+            for key in ('calls', 'attempted', 'resolved', 'edit_attempted', 'edit_resolved'):
+                final.receipt_recheck[key] = final.receipt_recheck.get(key, 0) + first_stats.get(key, 0)
+            return final
         return revised
     except Exception as error:
         from summary_errors import is_cancellation
         if is_cancellation(error):
             raise
+        from model_execution import terminal_provider_failure
+        if remaining and not terminal_provider_failure(error):
+            final = _recheck_review(source, fields, data, review, call, context, remaining=remaining-1)
+            final.receipt_recheck['calls'] = final.receipt_recheck.get('calls', 0) + 1
+            return final
         review.receipt_recheck['failed'] = True
+        review.receipt_recheck['failure_reason'] = ('provider_configuration' if terminal_provider_failure(error)
+            else 'timeout' if isinstance(error, TimeoutError) or 'Timeout' in type(error).__name__ else 'invalid_or_unavailable_response')
         return review
 
 

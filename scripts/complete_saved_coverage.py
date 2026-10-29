@@ -1,0 +1,178 @@
+"""Read-only completion proposals for the 14 explicitly authorized saved notes.
+
+Uses the account's saved provider. Existing prose, quotes and media are immutable;
+only source-grounded additions are proposed. The maintenance runner encrypts the
+original snapshots and results before exporting them. Applying a completed result
+is a separate owner-scoped, compare-and-swap operation after review.
+"""
+import hashlib
+import json
+import threading
+import time
+from concurrent.futures import ThreadPoolExecutor, as_completed
+
+CASES = (
+    ('podcast', '6ad9fb07c96c8942ec10b2b4'),
+    ('podcast', '3c212eb111615ed110974808'),
+    ('podcast', '29e534cef818728c40bb797e'),
+    ('podcast', '6ae1f123c96c8942ec13c18e'),
+    ('video', 'b82e287e-a1d'), ('video', 'a4f1b713-678'),
+    ('video', 'ac5c4dc6-102'), ('video', '3533f301-6c7'),
+    ('video', 'c3c31ae4-0c3'), ('video', 'daf7961d-966'),
+    ('video', 'db675cfd-a5c'), ('video', 'f4f1c4ee-fd6'),
+    ('video', 'c5e438ad-0c5'), ('video', '17db4358-377'),
+)
+OWNER_ANCHOR = 'bc2c988b-2b4'
+
+CONTRACT = '''
+SAVED-DOCUMENT COVERAGE COMPLETION, not regeneration or restyling.
+The draft_fields contain the WHOLE saved document; source_units contain only
+ONE consecutive partition of its source. Claims from other partitions are NOT
+unsupported merely because this partition does not mention them. Do not rewrite
+or remove existing fields: return edits:[] always. If you believe an existing
+claim needs correction rather than a missing qualification, return a missing
+receipt; do not silently approve the conflict or hide it in an addition.
+Check all substantive arguments and meaning-changing qualifications in supplied
+source_units against the union of existing fields. Repetition, parallel examples
+and filler do not require a new passage. If covered, return a content receipt
+pointing to existing fields. Only if genuinely absent, add the smallest useful
+source-grounded delta under an existing relevant topic. Never repeat the whole
+source unit or append generic recaps to obtain a receipt. Keep the source language.
+Quotation evidence is preserved by the application; do not invent quotations or
+screenshots. Do not judge or summarize before/after context as a source unit.
+'''
+
+
+def remove_audit_notice(text):
+    from summary_errors import _leading_notices, AUDIT_WARNING, _EN_NOTICES
+    notices, body = _leading_notices(text)
+    return '\n\n'.join([*[n for n in notices if n not in {AUDIT_WARNING, _EN_NOTICES['audit']}], body])
+
+
+def review_document(source, fields, call, *, deadline=None):
+    from reading_budget import visible_prose
+    from source_coverage import audit_source, split_source, extraction_limit, quote_timestamp
+    from summary_errors import SummaryOutputError
+    # Folded original quotations never substitute for the reading edition.
+    current = {key: visible_prose(value) for key, value in fields.items()}
+    chunks = split_source(source, extraction_limit(source))
+    if not chunks or not any(value.strip() for value in current.values()):
+        raise ValueError('Missing saved source or prose')
+    additions, checks = [], []
+    for index, chunk in enumerate(chunks):
+        def invoke(system, payload, timeout=60):
+            remaining = (deadline - time.monotonic()) if deadline else timeout
+            if remaining <= 0:
+                raise TimeoutError('Saved-review deadline')
+            result = call(system + CONTRACT, payload, min(timeout, remaining))
+            if isinstance(result, dict) and result.get('edits'):
+                raise SummaryOutputError('invalid')
+            return result
+        context = {'before': chunks[index-1][-500:] if index else '',
+                   'after': chunks[index+1][:500] if index+1 < len(chunks) else ''}
+        review = audit_source(chunk, current, invoke, context, repair=False,
+                              best_effort=True, recheck=invoke)
+        checks.append({'chunk':index+1, 'complete':review.complete,
+                       'unverified_units':len(review.unverified_units),
+                       'identified_gaps':len(review.identified_gaps),
+                       'issues':review.issues, 'completion':review.receipt_recheck})
+        for addition in review.additions:
+            # Rename between partitions; model-local added:N IDs must not collide.
+            number = len(current) + 1
+            while f'point:{number}' in current:
+                number += 1
+            field = f'point:{number}'
+            current[field] = review.fields[addition['id']]
+            additions.append({'topic':addition['topic'],
+                              'summary':review.fields[addition['id']],
+                              'original_quote':addition['source_quote'],
+                              'timestamp':quote_timestamp(chunk, addition['source_quote'], addition.get('timestamp',''))})
+    return {'complete':all(row['complete'] for row in checks),
+            'checks':checks, 'additions':additions, 'source_chunks':len(chunks)}
+
+
+def child(output):
+    from api.supabase_client import get_supabase_admin_client
+    from api.user_settings import get_user_settings
+    from api.llm_settings import resolve_llm_settings
+    from note_summarizer import NoteSummarizer
+    from scripts.run_production_sample_review import safe_failure
+    from model_execution import terminal_provider_failure
+    from reading_budget import VERSION
+    from summary_errors import AUDIT_WARNING, _EN_NOTICES
+    db = get_supabase_admin_client()
+    owners = db.table('video_tasks').select('user_id').eq('id', OWNER_ANCHOR).limit(1).execute().data or []
+    if len(owners) != 1:
+        raise ValueError('Requested owner unavailable')
+    owner = owners[0]['user_id']
+    preferences = get_user_settings(owner)
+    if preferences.get('llm_provider') != 'custom':
+        raise ValueError('Saved custom provider is not selected')
+    settings = resolve_llm_settings(preferences)
+    report = {'scope':'authorized_14_saved_notes', 'prompt_version':VERSION,
+              'production_writes':False, 'expected_cases':len(CASES),
+              'halted_after_connection_test':False, 'samples':[]}
+    lock = threading.Lock()
+    stopped = threading.Event()
+    deadline = time.monotonic() + 2400
+    def save(row=None):
+        with lock:
+            if row is not None: report['samples'].append(row)
+            temp = output / 'report.tmp'
+            temp.write_text(json.dumps(report, ensure_ascii=False))
+            temp.replace(output / 'report.json')
+    save()
+    def one(case):
+        kind, identifier = case
+        row = {'kind':kind, 'id':identifier, 'ok':False}
+        engine = None
+        started = time.monotonic()
+        try:
+            if stopped.is_set() or started >= deadline:
+                raise TimeoutError('Provider unavailable or review deadline')
+            if kind == 'podcast':
+                records = db.table('summaries').select('id,episode_id,title,overview,topics,takeaways,created_at').eq('user_id',owner).eq('episode_id',identifier).limit(1).execute().data or []
+                if not records: raise ValueError('Owned summary unavailable')
+                original = records[0]
+                points = db.table('summary_key_points').select('id,topic,summary,original_quote,timestamp').eq('summary_id',original['id']).order('id').execute().data or []
+                original['key_points'] = points
+                transcripts = db.table('transcripts').select('text,created_at').eq('user_id',owner).eq('episode_id',identifier).limit(1).execute().data or []
+                if not transcripts: raise ValueError('Owned source unavailable')
+                source = transcripts[0]['text']
+                row['source_md5'] = hashlib.md5(source.encode()).hexdigest()
+                text = original['overview']
+                fields = {f'point:{i+1}':point['topic']+'\n'+point['summary'] for i,point in enumerate(points)}
+                fields['overview'] = remove_audit_notice(text)
+                fields['takeaways'] = '\n'.join(original.get('takeaways') or [])
+            else:
+                records = db.table('video_tasks').select('id,title,markdown,transcript_json,updated_at,status,style,model').eq('user_id',owner).eq('id',identifier).limit(1).execute().data or []
+                if not records: raise ValueError('Owned video unavailable')
+                original = records[0]
+                raw = original.pop('transcript_json') or ''
+                transcript = json.loads(raw)
+                from source_coverage import video_source_text
+                source = video_source_text(transcript.get('text') or '', transcript.get('segments') or [])
+                row['source_md5'] = hashlib.md5(raw.encode()).hexdigest()
+                text = original['markdown'] or ''
+                fields = {'body':remove_audit_notice(text)}
+            row['original'] = original
+            if not any(notice in text for notice in (AUDIT_WARNING, _EN_NOTICES['audit'])):
+                row.update(ok=True, already_clear=True)
+                return row
+            engine = NoteSummarizer(**settings)
+            engine._reading_source = source
+            result = review_document(source, fields, engine._editorial_json,
+                                     deadline=min(deadline, started+1200))
+            row.update(ok=result['complete'], review=result)
+            if result['complete']:
+                row['cleaned_introduction' if kind == 'podcast' else 'cleaned_markdown'] = remove_audit_notice(text)
+        except Exception as error:
+            if terminal_provider_failure(error): stopped.set()
+            row.update(safe_failure(error))
+        finally:
+            if engine: engine.client.close()
+            row['elapsed_seconds'] = round(time.monotonic()-started,2)
+        return row
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        futures = [pool.submit(one,case) for case in CASES]
+        for future in as_completed(futures): save(future.result())
