@@ -167,6 +167,13 @@ async def check(browser, origin, width):
     assert await page.get_by_label('Email', exact=True).input_value() == 'reader@example.com'
     assert await page.get_by_label('Password', exact=True).input_value() == 'synthetic-password'
     assert await geometry(page) == baseline, (width,'auth layout changed')
+    await entry.click()
+    await page.get_by_label('Email',exact=True).focus()
+    assert await page.locator('.auth-appearance[open]').count() == 0, 'Appearance stays open after focus leaves'
+    await entry.click()
+    await page.locator('h1').click()
+    assert await page.locator('.auth-appearance[open]').count() == 0, 'Appearance stays open after outside click'
+    assert await page.get_by_label('Email',exact=True).input_value() == 'reader@example.com'
     await context.close()
     print(json.dumps({'width':width,'auth_draft_focus_layout':'passed'}), flush=True)
 

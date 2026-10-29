@@ -31,6 +31,7 @@ async def check(browser, origin, width, output):
                   const box=e=>{const r=e.getBoundingClientRect();return {x:r.x,y:r.y,width:r.width,height:r.height,bottom:r.bottom}};
                   const card=document.querySelector('.video-task-content'),nav=document.querySelector('.navigation-toggle');
                   return {select:box(document.querySelector('.appearance-controls select')),button:box(document.querySelector('.appearance-controls button')),
+                    navTargets:[...document.querySelectorAll('header nav a,header button[aria-label="Sign out"]')].map(box).filter(r=>r.width),
                     radius:getComputedStyle(document.documentElement).getPropertyValue('--ui-radius').trim(),
                     controls:[...document.querySelectorAll('.appearance-controls select,.appearance-controls button,.video-task-list .collection-actions>.ui-button,.video-task-list .task-more>summary')].map(e=>({radius:getComputedStyle(e).borderTopLeftRadius,border:getComputedStyle(e).borderTopWidth})),
                     secondary:[...card.querySelectorAll('.collection-actions>.ui-button:not(.ui-button-primary),.task-more>summary')].map(e=>{const c=getComputedStyle(e);return [c.backgroundColor,c.borderColor,c.fontSize,c.lineHeight]}),
@@ -43,6 +44,7 @@ async def check(browser, origin, width, output):
                       const r=e.getBoundingClientRect();return r.width&&r.height&&!e.disabled&&(r.x<0||r.right>innerWidth+1||!e.contains(document.elementFromPoint(r.x+r.width/2,r.y+r.height/2)))
                     }).map(e=>e.getAttribute('aria-label')||e.textContent)};
                 }''')
+                assert all(r['width']>=44 and r['height']>=44 for r in metrics['navTargets']), (width,design,theme,'small touch navigation',metrics['navTargets'])
                 assert metrics['select']['height'] == metrics['button']['height'] == 44, (width,design,theme,metrics)
                 if metrics['menu']['width']:
                     assert metrics['menu']['height'] == metrics['button']['height']
@@ -61,6 +63,22 @@ async def check(browser, origin, width, output):
                     await page.locator('.publication-nav').screenshot(path=str(output/'tablet-controls.png'))
                     await page.locator('.video-task-list').screenshot(path=str(output/'tablet-card.png'))
                 print(json.dumps({'width':width,'design':design,'theme':theme,'title_width':metrics['title']['width'],'control_height':44}),flush=True)
+        if width < 768:
+            toggle = page.get_by_role('button',name='Open navigation',exact=True)
+            await toggle.click()
+            await page.locator('main h1').click()
+            assert await page.locator('#mobile-navigation').count() == 0
+            await toggle.click()
+            await page.get_by_label('Search videos',exact=True).focus()
+            assert await page.locator('#mobile-navigation').count() == 0
+            await toggle.click()
+            await page.keyboard.press('Escape')
+            assert await toggle.evaluate('(e)=>e===document.activeElement')
+            await toggle.click()
+            await page.set_viewport_size({'width':1280,'height':900})
+            await page.locator('#mobile-navigation').wait_for(state='detached')
+            await page.set_viewport_size({'width':width,'height':900})
+            assert await toggle.get_attribute('aria-expanded') == 'false'
         # The More disclosure and source link remain separate from card navigation.
         more = page.locator('.video-task-list .task-more summary').first
         await more.click()

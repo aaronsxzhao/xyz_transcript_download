@@ -400,3 +400,9 @@ Issues and PRs welcome! This tool is actively maintained.
 Collection actions stay right aligned at every breakpoint. Video More disclosures dismiss on outside pointer/focus and Escape. Podcast search, subscription URL, upload fields and the Notion token have stable accessible names; settings section buttons expose their selected state.
 
 Appearance selectors now outrank the asynchronously loaded workspace stylesheet, so direct reader entry renders the same colors and controls as navigation from another page. Heading levels H1–H6 and emphasis remain readable in light/dark modes. Appearance regressions include episode routes, settings section/draft retention and heading contrast; tablet regressions check action alignment and menu dismissal. The comprehensive interaction runner accepts `--design editorial --theme light`; CI exercises that combination in WebKit at phone and tablet widths.
+
+### Navigation and disclosure follow-up
+
+Mobile navigation dismisses when pointer/focus leaves the header and resets when entering desktop width; Escape still returns focus to its trigger. Login/recovery appearance disclosures also dismiss on outside interaction. A shared hook preserves the same behavior for video More menus. Touch navigation links and sign-out controls have at least 44×44 px targets; route loading has an accessible status label.
+
+Browser regressions cover outside-pointer/focus dismissal, Escape focus, viewport round trips and touch target geometry across all appearances. The initial compressed asset allowance increases by 0.5 KiB (192.5 → 193 KiB, 0.26%) for this interaction logic; measured output is 192.7 KiB.

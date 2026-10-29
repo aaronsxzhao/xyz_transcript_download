@@ -46,7 +46,7 @@ function ProtectedRoute() {
 }
 
 const PageSpinner = () => (
-  <div className="min-h-[60vh] flex items-center justify-center">
+  <div role="status" aria-label="Loading page" className="min-h-[60vh] flex items-center justify-center">
     <Loader2 className="w-6 h-6 animate-spin text-indigo-500" />
   </div>
 )

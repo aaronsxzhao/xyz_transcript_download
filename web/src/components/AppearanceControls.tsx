@@ -1,3 +1,4 @@
+import {useOutsideInteraction} from '../lib/outsideInteraction'
 import {ChevronDown} from 'lucide-react'
 import {useLayoutEffect, useRef, useState} from 'react'
 import {setAppearance, useAppearance, type Design} from '../lib/theme'
@@ -7,6 +8,10 @@ export default function AppearanceControls({compact = false}: {compact?: boolean
   const {design, theme} = useAppearance()
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
+  const popup = useRef<HTMLDetailsElement>(null)
+  useOutsideInteraction(target => {
+    if (popup.current?.open && !popup.current.contains(target)) popup.current.open = false
+  })
   const restoreFocus = useRef<HTMLElement | null>(null)
   useLayoutEffect(() => {
     if (busy) return
@@ -35,7 +40,7 @@ export default function AppearanceControls({compact = false}: {compact?: boolean
     {busy && <span role="status" className="sr-only">Loading appearance…</span>}
     {error && <span className="appearance-error" role="alert">{error}</span>}
   </div>
-  return compact ? <details className="auth-appearance" onKeyDown={e => {
+  return compact ? <details ref={popup} className="auth-appearance" onKeyDown={e => {
     if (e.key === 'Escape') { e.currentTarget.open = false; e.currentTarget.querySelector('summary')?.focus() }
   }}><summary aria-label="Appearance settings" title="Appearance settings">◐</summary>{controls}</details> : controls
 }

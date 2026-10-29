@@ -26,3 +26,8 @@ html[data-design='classic'] .publication-dashboard-content > .dashboard-workspac
 
 /* Standard rectangular controls share the theme radius; tabs and pills keep their shape. */
 .app-shell button:is(.rounded-md,.rounded-lg),.auth-page form :is(button,input:not([type=checkbox])) { border-radius:var(--ui-radius); }
+
+/* Touch navigation keeps full targets in both layouts, including tablet widths. */
+@media(max-width:767px),(pointer:coarse) {
+  .app-shell .publication-nav nav a,.publication-nav #mobile-navigation :is(a,button),.publication-nav button[aria-label='Sign out'] { min-width:44px; min-height:44px; }
+}

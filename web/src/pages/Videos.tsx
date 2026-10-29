@@ -1,3 +1,4 @@
+import {useOutsideInteraction} from '../lib/outsideInteraction'
 import { videoFailureHint } from '../lib/videoFailure'
 import {sourceAction,TaskProgress} from '../components/TaskStatus'
 import ContentDates from '../components/ContentDates'
@@ -735,20 +736,11 @@ function VideoList({ videos, onDelete, onRetry, onCancel }: {
 }) {
   const navigate = useNavigate()
   const list = useRef<HTMLDivElement>(null)
-  useEffect(() => {
-    const dismiss = (event: Event) => {
-      if (!(event.target instanceof Node)) return
-      for (const menu of list.current?.querySelectorAll<HTMLDetailsElement>('.task-more[open]') || []) {
-        if (!menu.contains(event.target)) menu.open = false
-      }
+  useOutsideInteraction(target => {
+    for (const menu of list.current?.querySelectorAll<HTMLDetailsElement>('.task-more[open]') || []) {
+      if (!menu.contains(target)) menu.open = false
     }
-    document.addEventListener('pointerdown', dismiss)
-    document.addEventListener('focusin', dismiss)
-    return () => {
-      document.removeEventListener('pointerdown', dismiss)
-      document.removeEventListener('focusin', dismiss)
-    }
-  }, [])
+  })
   const activeActions = useRef(new Set<string>())
   const [pending, setPending] = useState(new Set<string>())
   const runAction = async (id:string, action:(id:string)=>Promise<void>) => {
