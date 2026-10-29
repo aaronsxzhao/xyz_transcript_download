@@ -18,7 +18,7 @@ READER_CONTRAST = r'''() => {
                     const rgb=color.match(/[\d.]+/g).slice(0,3).map(Number).map(v=>v/255).map(v=>v<=.04045?v/12.92:((v+.055)/1.055)**2.4);
                     return rgb[0]*.2126+rgb[1]*.7152+rgb[2]*.0722;
                   };
-                  return [...document.querySelectorAll('.reader-body :is(h1,h2,h3,h4,h5,h6,strong)')].map(e=>{
+                  return [...document.querySelectorAll('.reader-body :is(h1,h2,h3,h4,h5,h6,strong),.reader-menu-panel button:not(:disabled)')].map(e=>{
                     let bg=e;while(bg.parentElement&&getComputedStyle(bg).backgroundColor==='rgba(0, 0, 0, 0)')bg=bg.parentElement;
                     const a=luminance(getComputedStyle(e).color),b=luminance(getComputedStyle(bg).backgroundColor);
                     return {text:e.textContent,ratio:(Math.max(a,b)+.05)/(Math.min(a,b)+.05)};

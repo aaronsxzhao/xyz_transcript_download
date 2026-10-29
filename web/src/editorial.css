@@ -224,3 +224,4 @@ html[data-design='editorial'] :is(.task-launcher,.task-drawer,.task-more>div) { 
 
 html[data-design='editorial'] .note-prose :is(strong,b) { color:var(--ui-text); }
 html[data-design='editorial'] .note-prose h1 { border-color:var(--ui-border); }
+html[data-design='editorial'] .reader-menu-panel :is(button,a) { color:var(--ui-text); }
