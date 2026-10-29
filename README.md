@@ -412,3 +412,5 @@ Browser regressions cover outside-pointer/focus dismissal, Escape focus, viewpor
 Sign-in, sign-up, recovery and reset forms lock fields while submitting and ignore duplicate submissions. Failed requests preserve input for retry; authentication feedback exposes alert/status semantics with readable light-theme contrast. Missing recovery links open the recovery form directly.
 
 `python scripts/check_auth_forms.py` verifies pending/retry states in both designs and themes at phone/tablet widths using synthetic API responses. CI also runs its phone matrix in WebKit; no live account or email writes are performed.
+
+Integrated settings updates and authentication state feedback bring initial compressed assets to 193.0 KiB. The allowance is 193.5 KiB (+0.5 KiB, 0.26%); rich formatting remains deferred. Recovery mode shows one return-to-sign-in action.

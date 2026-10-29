@@ -207,7 +207,7 @@ export default function Login() {
 
           <button type="button" disabled={loading} className="mt-4 disabled:opacity-50 text-indigo-200 underline" onClick={() => { setMode(mode === 'recovery' ? 'signin' : 'recovery'); setError(''); setMessage('') }}>{mode === 'recovery' ? 'Back to sign in' : 'Forgot password?'}</button>
           {/* Toggle Mode */}
-          <div className="mt-6 text-center">
+          {mode !== 'recovery' && <div className="mt-6 text-center">
             <p className="text-gray-400">
               {mode === 'signin' ? (
                 <>
@@ -241,7 +241,7 @@ export default function Login() {
                 </>
               )}
             </p>
-          </div>
+          </div>}
         </div>
 
         {/* Footer */}
