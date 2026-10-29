@@ -325,7 +325,8 @@ class Summarizer:
             return extract_json_from_response(response.choices[0].message.content)
 
         context = {**(source_context or {}), "chapter_titles": summary.topics}
-        review = audit_source(source, fields, call, context, repair=False, best_effort=True)
+        review = audit_source(source, fields, call, context, repair=False, best_effort=True,
+                              recheck=self._editorial_json)
         updated, additions, citations = review
         evidence_incomplete = False
         compact = lambda value: re.sub(r"\s+", "", value)
