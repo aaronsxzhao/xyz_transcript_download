@@ -428,3 +428,5 @@ Editorial now owns default, hover, focus, pressed and disabled colors for primar
 Library titles wrap unbroken text inside an explicit two-line box. Editorial list cards use smaller typography, bounded artwork and separate metadata/source/footer space on phones.
 
 `python scripts/check_editorial_components.py` captures real routes and expanded tools in both Editorial themes, checks text/icon contrast across control states, and asserts title containment for grid/list layouts at 390/820/1440px. It includes custom model settings, four platform account panels, video advanced options, favorites selection, processing failures, reader menus, gallery and auth forms. CI also runs phone WebKit and saves screenshots/control records on failure. Existing four-appearance checks continue protecting Classic and theme switching.
+
+Detailed processing-stage feedback integrated with Editorial control states brings initial assets to 193.5 KiB; the budget is 194 KiB (+0.5 KiB). Deferred formatting remains outside the initial bundle.
