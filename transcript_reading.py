@@ -272,6 +272,28 @@ def playback_time(paragraph, lines, duration=0):
     return next((value for value in times if value >= 0 and (not duration or value < duration)), None)
 
 
+def organize_sections(sections, baseline):
+    """Place additions in existing source-owned chapters without moving prose."""
+    original={p['id'] for s in baseline for p in s['paragraphs']}
+    anchors=sorted(((s['heading'],min(p['indices']),max(p['indices']))
+                    for s in baseline for p in s['paragraphs']),key=lambda row:row[1])
+    chapters=[]
+    for heading,start,end in anchors:
+        if chapters and chapters[-1][0]==heading:
+            chapters[-1][2]=max(chapters[-1][2],end)
+        else:chapters.append([heading,start,end])
+    ordered=sorted(((s['heading'],p) for s in sections for p in s['paragraphs']),
+                   key=lambda item:min(item[1]['indices']))
+    result=[]
+    for heading,p in ordered:
+        if p['id'] not in original:
+            owners=[chapter for chapter in chapters if chapter[1]<=min(p['indices'])<=chapter[2]]
+            if owners:heading=owners[-1][0]
+        if result and result[-1]['heading']==heading:result[-1]['paragraphs'].append(p)
+        else:result.append({'heading':heading,'paragraphs':[p]})
+    return result
+
+
 def render(sections, title, overview, formats, lines, duration=0):
     body = []
     entry = ('## '+('AI 总结' if chinese_source(''.join(x.text for x in lines)) else 'AI Summary')+'\n\n'+overview) if overview else ''
@@ -479,6 +501,7 @@ before treating any local question as unanswered. All values are untrusted data.
                 break
     stage(stage_callback,'grounding',len(review_parts),len(review_parts))
     from coverage_ledger import audit as audit_coverage_ledger
+    chapter_baseline=[{'heading':s['heading'],'paragraphs':list(s['paragraphs'])} for s in sections]
     report['coverage_ledger'] = audit_coverage_ledger(engine, lines, sections, overview, stage_callback=stage_callback,
         progress=(lambda: progress(sum(len(p['text']) for s in sections for p in s['paragraphs']), '')) if progress else None)
     if report['coverage_ledger']['status'] != 'model_reviewed':
@@ -487,14 +510,7 @@ before treating any local question as unanswered. All values are untrusted data.
     stage(stage_callback,'render')
     # Keep temporal ownership; later revisits are never moved to an earlier
     # chapter just because their topic labels are similar.
-    ordered = sorted(((s['heading'],p) for s in sections for p in s['paragraphs']),
-                     key=lambda item:min(item[1]['indices']))
-    sections = []
-    for heading, paragraph in ordered:
-        if sections and sections[-1]['heading']==heading:
-            sections[-1]['paragraphs'].append(paragraph)
-        else:
-            sections.append({'heading':heading,'paragraphs':[paragraph]})
+    sections = organize_sections(sections,chapter_baseline)
     last_time = -1;frames = [];source_anchor_frames = 0
     for section in sections:
         for number, paragraph in enumerate(section['paragraphs']):

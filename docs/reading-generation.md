@@ -124,7 +124,10 @@ If source validation fails, that batch cannot propose new prose. Correction IDs
 and failed source-validation batches are recorded. A corrected checklist does
 not certify the draft automatically.
 The final renderer orders additions by their real source evidence and applies
-the existing media/time gates.
+the existing media/time gates. Additions within an existing chapter's source
+span inherit that chapter heading, avoiding alternating duplicate headings.
+Prose order, paragraph IDs and evidence remain unchanged; uncovered source spans
+can retain a new chapter, and later chronological revisits stay separate.
 
 Invalid inventories, incomplete match receipts, unavailable providers and failed
 repair checks remain unverified. Cancellation propagates. Terminal configuration
