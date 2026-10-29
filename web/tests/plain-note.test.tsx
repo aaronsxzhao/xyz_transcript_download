@@ -5,7 +5,8 @@ import { afterEach, expect, it, vi } from 'vitest'
 import ReaderScreenshot from '../src/components/ReaderScreenshot'
 import { ScreenshotRecoveryContext } from '../src/lib/screenshotRecovery'
 import PlainNote from '../src/components/PlainNote'
-import {extractNoteToc,rehypeNoteHeadings,normalizeNoteHeadings} from '../src/lib/noteMarkdown'
+import {extractNoteToc,normalizeNoteHeadings} from '../src/lib/noteMarkdown'
+import {rehypeNoteHeadings} from '../src/lib/noteHeadingPlugin'
 
 let cleanup: (() => void) | undefined
 afterEach(() => { cleanup?.(); cleanup=undefined; vi.useRealTimers() })

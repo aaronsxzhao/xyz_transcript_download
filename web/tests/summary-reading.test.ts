@@ -63,3 +63,14 @@ it('counts displayed arguments and removes only adjacent repeated headings in re
  const markdown=summaryToMarkdown({episode_id:'e',title:'Title',overview:'Overview',topics:['Topic'],key_points:[point('Topic',body)],takeaways:[]})
  expect(markdown.match(/#### 安全边际/g)).toHaveLength(1)
 })
+
+it('keeps reference definitions and original CRLF when normalizing headings',async()=>{
+ const {normalizeSummaryMarkdown}=await import('../src/lib/summaryReading')
+ const source='#### A\r\n\r\n#### A\r\n\r\nRead [evidence][ref].\r\n\r\n[ref]: https://example.com/source "Source"\r\n'
+ const result=normalizeSummaryMarkdown(source)
+ expect(result).toContain('[ref]: https://example.com/source "Source"\r\n')
+ expect(result.match(/#### A/g)).toHaveLength(1)
+ expect(result.replace(/\r\n/g,'')).not.toContain('\n')
+ const original='Read [evidence][ref].\n\n[ref]: https://example.com/source\n'
+ expect(normalizeSummaryMarkdown(original)).toBe(original)
+})

@@ -1,4 +1,4 @@
-import {Lexer, type Tokens} from 'marked'
+import {Lexer} from 'marked'
 import type { KeyPoint, Summary } from './api'
 
 /** CommonMark treats **中文。**后文 as literal asterisks. Move only the
@@ -34,30 +34,31 @@ export function summaryChapters(summary?: Summary | null): [string, KeyPoint[]][
 
 /** Top-level Markdown tokens exclude headings inside quotes and code. */
 function deduplicateHeadings(markdown: string): string {
-  let previous = ''
-  return Lexer.lex(markdown).map(token => {
-    if (token.type === 'space') return token.raw
-    if (token.type === 'heading') {
-      const key = token.depth + ':' + token.text
-      const duplicate = previous === key
-      previous = key
-      return duplicate ? '' : token.raw
+  let previous = '', cursor = 0, output = '', kept = 0
+  const newline = markdown.includes('\r\n') ? '\r\n' : '\n'
+  for (const token of Lexer.lex(markdown)) {
+    // Lexer omits reference definitions. Edit original spans, not token output.
+    const raw = token.raw.replace(/\n/g, newline)
+    const start = markdown.indexOf(raw, cursor)
+    if (start < 0) return markdown
+    if (markdown.slice(cursor, start).trim()) previous = ''
+    cursor = start + raw.length
+    if (token.type === 'space') continue
+    const key = token.type === 'heading' ? token.depth + ':' + token.text : ''
+    if (key && key === previous) {
+      output += markdown.slice(kept, start)
+      kept = cursor
     }
-    previous = ''
-    return token.raw
-  }).join('')
+    previous = key
+  }
+  return output + markdown.slice(kept)
 }
 
 /** Count visible top-level arguments, rather than storage rows or nested headings. */
 export function summaryPointCount(points: KeyPoint[]): number {
   return points.reduce((total, point) => {
-    const tokens = Lexer.lex(deduplicateHeadings(point.summary))
-    const headings = tokens.filter((token): token is Tokens.Heading => token.type === 'heading')
-    if (!headings.length) return total + (point.summary.trim() ? 1 : 0)
-    const depth = Math.min(...headings.map(token => token.depth))
-    const count = headings.filter(token => token.depth === depth).length
-    const first = tokens.findIndex(token => token.type === 'heading')
-    const prefix = tokens.slice(0, first).some(token => token.type !== 'space')
-    return total + count + (prefix ? 1 : 0)
+    const depths = Lexer.lex(deduplicateHeadings(point.summary)).flatMap(token => token.type === 'heading' ? [token.depth] : [])
+    const depth = Math.min(...depths)
+    return total + (depths.filter(value => value === depth).length || Number(!!point.summary.trim()))
   }, 0)
 }

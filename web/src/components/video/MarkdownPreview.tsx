@@ -1,6 +1,7 @@
 import ReaderScreenshot from '../ReaderScreenshot'
 import { lazy, memo, Suspense, useEffect, useState } from 'react'
-import { prepareNoteMarkdown, rehypeNoteHeadings } from '../../lib/noteMarkdown'
+import { prepareNoteMarkdown } from '../../lib/noteMarkdown'
+import { rehypeNoteHeadings } from '../../lib/noteHeadingPlugin'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import type { PluggableList } from 'unified'
