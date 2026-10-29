@@ -50,3 +50,44 @@ def test_partial_runs_share_one_budget_and_restore_the_generation_context():
         assert PLAN.get() is plan
     finally:
         PLAN.reset(token)
+
+
+def test_large_raw_fallback_does_not_starve_successful_notes_of_editing_budget():
+    from reading_budget import PLAN
+    engine=Summarizer(api_key='fixture');engine.generation_report={}
+    raw=KeyPoint('Original transcript','raw '*5000,'','')
+    summary=Summary('e','Title',delivery_notice('Overview','generation','English'),
+                    [KeyPoint('A','word '*200,'',''),raw,KeyPoint('B','word '*200,'','')],[],[])
+    observed=[]
+    def edit(items,*args,**kwargs):
+        observed.append(PLAN.get()['target_high'])
+        return [dict(row,ids=[row['id']],evidence_id=row['id']) for row in items]
+    token=PLAN.set({'language':'en','target_low':400,'target_high':600})
+    try:
+        with patch('reading_editor.edit_sections',side_effect=edit):
+            result=engine._edit_reading(summary)
+        assert all(200 <= target <= 350 for target in observed)
+        assert result.key_points[1] is raw
+        assert engine.generation_report['editor']['budget_excludes_protected_source']
+    finally:
+        PLAN.reset(token)
+
+
+def test_failed_partial_run_does_not_contaminate_next_successful_report():
+    engine=Summarizer(api_key='fixture');engine.generation_report={}
+    summary=Summary('e','Title','Overview',[KeyPoint('A','First','',''),
+        KeyPoint('Original transcript','Raw','',''),KeyPoint('B','Last','','')],[],[])
+    def edit(items,*args,**kwargs):
+        report=kwargs['report']
+        report['model_calls']=1
+        if items[0]['topic']=='A':
+            report['retention_reasons']={'timeout':1}
+            raise TimeoutError()
+        assert 'retention_reasons' not in report and 'fallback_reason' not in report
+        return [dict(row,ids=[row['id']],evidence_id=row['id']) for row in items]
+    with patch('reading_editor.edit_sections',side_effect=edit):
+        engine._edit_reading(summary)
+    report=engine.generation_report['editor']
+    assert report['runs'][0]['fallback_reason']=='TimeoutError'
+    assert 'fallback_reason' not in report['runs'][1]
+    assert report['model_calls']==2

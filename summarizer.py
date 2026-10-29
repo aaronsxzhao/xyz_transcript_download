@@ -176,7 +176,10 @@ class Summarizer:
         from reading_editor import edit_sections, has_unedited_source
         if not summary or not summary.key_points:
             return summary
-        report = getattr(self, 'generation_report', {}).setdefault('editor', {})
+        generation = getattr(self, 'generation_report', None)
+        if generation is None:
+            generation = self.generation_report = {}
+        report = generation.setdefault('editor', {})
         protected = {i for i, point in enumerate(summary.key_points)
                      if re.search(r'原始转写|Original transcript|核对标出的原文|Source passages flagged by review|^生成正文$|^Generated notes$', point.topic, re.I)
                      or has_unedited_source(point.summary)}
@@ -201,14 +204,17 @@ class Summarizer:
                 child_plan = dict(plan) if plan else None
                 if child_plan and child_plan.get('target_high'):
                     for bound in ('target_low', 'target_high'):
-                        child_plan[bound] = reserved + max(1, round(max(0, plan[bound]-reserved-raw_units)*share))
+                        child_plan[bound] = reserved + max(1, round(max(0, plan[bound]-reserved)*share))
                 token = PLAN.set(child_plan)
+                # A failed run must not leave its reason/counts in a later run.
+                child_report = generation['editor'] = {}
                 try:
                     edited = self._edit_reading(child, checkpoint)
                 finally:
                     PLAN.reset(token)
+                    generation['editor'] = report
                 points.extend(edited.key_points)
-                reports.append(dict(report))
+                reports.append(child_report)
                 runs.clear()
             for i, point in enumerate(summary.key_points):
                 if i in protected:
@@ -217,7 +223,9 @@ class Summarizer:
                     runs.append(point)
             finish_run()
             report.clear()
-            report.update(strategy='partial_source_runs', protected_sections=len(protected), protected_units=raw_units, runs=reports)
+            report.update(strategy='partial_source_runs', protected_sections=len(protected), protected_units=raw_units,
+                          budget_excludes_protected_source=True, runs=reports,
+                          model_calls=sum(run.get('model_calls', 0) for run in reports))
             return replace(summary, key_points=points, topics=list(dict.fromkeys(p.topic for p in points)))
         items = [{'id':f'N{i+1}', 'topic':point.topic, 'text':point.summary,
                   'evidence':point.original_quote} for i,point in enumerate(summary.key_points)]

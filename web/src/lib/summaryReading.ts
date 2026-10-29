@@ -4,7 +4,23 @@ import type { KeyPoint, Summary } from './api'
 /** CommonMark treats **中文。**后文 as literal asterisks. Move only the
  * closing punctuation outside emphasis, leaving text and code unchanged. */
 export function normalizeSummaryMarkdown(markdown: string): string {
-  return deduplicateHeadings(markdown).split(/(```[\s\S]*?```|~~~[\s\S]*?~~~|`[^`\n]*`)/g).map((part, index) => index % 2 ? part : part.replace(/(?<!\\)\*\*(?=\S)([^*\n]+?)([，。；：！？、,.!?;:]+)\*\*(?=[\p{L}\p{N}])/gu, '**$1**$2')).join('')
+  markdown = deduplicateHeadings(markdown)
+  const newline = markdown.includes('\r\n') ? '\r\n' : '\n'
+  let cursor = 0, output = ''
+  for (const token of Lexer.lex(markdown)) {
+    const raw = token.raw.replace(/\n/g, newline)
+    const start = markdown.indexOf(raw, cursor)
+    if (start < 0) return markdown
+    output += markdown.slice(cursor, start)
+    // Code, HTML, quotations and nested block containers retain source bytes.
+    // Inline parsing also protects multi-backtick code and link destinations.
+    output += ['paragraph', 'heading', 'table'].includes(token.type)
+      ? Lexer.lexInline(raw).map(part => part.type === 'text'
+        ? part.raw.replace(/(?<!\\)\*\*(?=\S)([^*\n]+?)([，。；：！？、,.!?;:]+)\*\*(?=[\p{L}\p{N}])/gu, '**$1**$2')
+        : part.raw).join('') : raw
+    cursor = start + raw.length
+  }
+  return output + markdown.slice(cursor)
 }
 
 /** New notes keep their labelled introduction in the existing overview field.

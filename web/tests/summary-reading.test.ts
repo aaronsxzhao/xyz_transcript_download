@@ -74,3 +74,17 @@ it('keeps reference definitions and original CRLF when normalizing headings',asy
  const original='Read [evidence][ref].\n\n[ref]: https://example.com/source\n'
  expect(normalizeSummaryMarkdown(original)).toBe(original)
 })
+
+it.each(['\n','\r\n'])('preserves indented/nested code, quotations and multi-backtick spans (%j)',async newline=>{
+ const {normalizeSummaryMarkdown}=await import('../src/lib/summaryReading')
+ const code=['    **原样。**代码','    next()'].join(newline)
+ const nested=['- Example','','      **原样。**代码'].join(newline)
+ const quote='> **原话。**不能改'
+ const inline='``**原样。**代码``'
+ const source=['正文 **重点。**后文',code,nested,quote,inline,'[ref]: https://example.com/原样'].join(newline+newline)
+ const result=normalizeSummaryMarkdown(source)
+ expect(result).toContain('正文 **重点**。后文')
+ for(const literal of [code,nested,quote,inline,'[ref]: https://example.com/原样'])expect(result).toContain(literal)
+ const exported=summaryToMarkdown({episode_id:'e',title:'Title',overview:'Overview',topics:['Code'],key_points:[point('Code',source)],takeaways:[]})
+ expect(exported).toContain(code)
+})
