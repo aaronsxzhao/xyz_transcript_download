@@ -1,3 +1,11 @@
+/* Light-only shared controls and statuses. */
+html[data-theme='light'] :is(.bg-indigo-600,.bg-indigo-700,.bg-purple-600,.bg-pink-600,.bg-cyan-600,.bg-blue-600,.bg-red-600,.bg-green-600).text-white { color:#fff; }
+html[data-theme='light'] :is(.bg-pink-600,.bg-cyan-600,.bg-blue-600,.bg-red-600,.bg-green-600) .text-white { color:#fff; }
+html[data-theme='light'] :is(.text-yellow-400,.text-amber-400,.text-amber-300,.text-amber-200\/80) { color:#83531f; }
+html[data-theme='light'] :is(.text-red-400,.text-red-300,.text-pink-400) { color:#a03b50; }
+html[data-theme='light'] :where(button,a,input,select,textarea,summary):focus-visible { outline-color:#6653b5; }
+html[data-theme='light'] .text-cyan-400 { color:#236b80; }
+html[data-design='classic'][data-theme='light'] .bg-dark-hover\/50 { background:#edf1f7; }
 /* Color-only overlay for the unchanged HEAD frontend. */
 html[data-design='classic'][data-theme='light'] {
     --ui-text: #253247;

@@ -9,41 +9,17 @@ html[data-theme='light'] .appearance-controls option { background:#fff; color:#2
 .appearance-controls button { width:36px; cursor:pointer; font-size:20px; }
 .auth-appearance { display:flex; justify-content:flex-end; margin-bottom:24px; }
 .auth-page { padding-block:32px; }
-html[data-design='editorial'] .publication-brand>svg,html[data-design='editorial'] .publication-nav nav a>svg { display:none; }
-html[data-design='editorial'] :is(.bg-dark-bg,.bg-dark-surface,.bg-dark-hover) { background:var(--ui-bg); }
-html[data-design='editorial'] .bg-dark-surface { background:var(--ui-surface); }
-html[data-design='editorial'] .bg-dark-hover { background:var(--ui-hover); }
-html[data-design='editorial'] .border-dark-border { border-color:var(--ui-border); }
-html[data-design='editorial'] :is(.text-white,.text-gray-100,.text-gray-200) { color:var(--ui-text); }
-html[data-design='editorial'] :is(.bg-indigo-600,.bg-indigo-700) { color:#fff; background:var(--ui-accent-fill); }
-html[data-design='editorial'] :is(.bg-indigo-600,.bg-indigo-700) .text-white { color:#fff; }
-html[data-design='editorial'] .publication-nav nav a { background:transparent; }
-html[data-design='editorial'] .publication-nav nav a[aria-current='page'] { color:var(--ui-text); }
 @media(max-width:767px) {
  .appearance-controls button,.appearance-controls select { min-height:44px; }
  .appearance-controls button { width:44px; }
- html[data-design='editorial'] .publication-brand>span { font-size:16px; max-width:108px; white-space:normal; }
- html[data-design='editorial'] .publication-nav-inner { padding-inline:12px; gap:6px; }
 }
 
 .appearance-controls { position:relative; }
 .appearance-error { position:absolute; right:0; top:100%; width:240px; padding:8px; background:var(--ui-bg,#1e293b); color:var(--ui-text); border:1px solid var(--ui-border); z-index:50; }
 
 html[data-design='classic'] .publication-dashboard-content { display:contents; }
-html[data-design='editorial'] .publication-dashboard-content>.dashboard-recent { order:-1; }
 /* Maintain contrast for account actions and status text in both light skins. */
-html[data-theme='light'] :is(.bg-indigo-600,.bg-indigo-700,.bg-purple-600,.bg-pink-600,.bg-cyan-600,.bg-blue-600,.bg-red-600,.bg-green-600).text-white { color:#fff; }
-html[data-theme='light'] :is(.bg-pink-600,.bg-cyan-600,.bg-blue-600,.bg-red-600,.bg-green-600) .text-white { color:#fff; }
-html[data-theme='light'] :is(.text-yellow-400,.text-amber-400,.text-amber-300,.text-amber-200\/80) { color:#83531f; }
-html[data-theme='light'] :is(.text-red-400,.text-red-300,.text-pink-400) { color:#a03b50; }
-html[data-theme='light'] :where(button,a,input,select,textarea,summary):focus-visible { outline-color:#6653b5; }
 
-html[data-design='classic'][data-theme='light'] .bg-dark-hover\/50 { background:#edf1f7; }
-html[data-design='editorial'] .bg-dark-hover\/50 { background:var(--ui-hover); }
-html[data-design='editorial'] :is([class~="bg-indigo-600/20"],[class~="bg-indigo-600/10"],[class~="bg-indigo-500/10"],[class~="bg-indigo-950/30"]) { background:var(--ui-tint); }
-html[data-design='editorial'] :is([class~="border-indigo-500/30"],[class~="border-indigo-500/40"],[class~="border-indigo-500/50"]) { border-color:var(--ui-accent); }
 
-html[data-theme='light'] .text-cyan-400 { color:#236b80; }
 html[data-design='classic'][data-theme='dark'] .settings-page :is(.text-gray-600,[data-account-status] .text-gray-500) { color:#a4b0c3; }
 .settings-page .bg-pink-600 { background:#b71964; color:#fff; }
-html[data-design='editorial'] .settings-page .bg-pink-600 { color:#fff; }
