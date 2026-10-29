@@ -477,6 +477,55 @@ def process_video_note_sync(
         existing_task = db.get_task(task_id, user_id)
         if not existing_task:
             return
+        bilibili_part = None
+        if platform == 'bilibili':
+            from bilibili_parts import prepare_parts
+            from resource_scheduler import NETWORK_EXECUTOR
+            downloader = get_downloader(platform, cookie_mgr.get_cookie(platform))
+            _update_task_status(db, task_id, 'parsing', 3, 'Checking Bilibili parts before processing…', user_id)
+            manifest_future = NETWORK_EXECUTOR.submit(downloader.resolve_parts, url)
+            try:
+                parts = manifest_future.result(timeout=45)
+            except FutureTimeout:
+                manifest_future.cancel()
+                raise VideoDownloadError('Bilibili part listing timed out. Retry to process the complete collection.', 'PARTS_UNAVAILABLE')
+            options = dict(style=style, formats=formats, quality=quality, llm_model=llm_model,
+                           model=llm_model, extras=extras, video_understanding=video_understanding,
+                           video_interval=video_interval, grid_cols=grid_cols, grid_rows=grid_rows,
+                           video_quality=video_quality)
+
+            def check_part_cancel():
+                from processing_execution import assert_lease
+                assert_lease()
+                if is_video_task_cancelled(task_id):
+                    raise VideoCancelledException('Cancelled during collection admission')
+
+            def submit_part(child_id, child_url):
+                from execution_store import enabled, get_store
+                payload = {key:value for key,value in options.items() if key != 'model'}
+                payload.update(url=child_url, platform='bilibili', user_id=user_id)
+                if enabled():
+                    store = get_store()
+                    latest = store.latest(user_id, 'video', child_id)
+                    if not latest or latest['state'] not in ('queued', 'running'):
+                        _new_video_attempt(child_id)
+                    store.enqueue(user_id, 'video', child_id, 'video:' + child_id + ':' + str(uuid.uuid4()), payload)
+                else:
+                    loop = get_main_loop()
+                    if not loop or not loop.is_running():
+                        raise RuntimeError('Cannot queue Bilibili parts: processing loop unavailable')
+                    async def admit_child():
+                        if any(worker.get_name() == 'video:' + child_id and not worker.done() for worker in _video_workers):
+                            return
+                        payload['attempt_id'] = _new_video_attempt(child_id)
+                        await enqueue_video_note(child_id, **payload)
+                    asyncio.run_coroutine_threadsafe(admit_child(), loop).result(timeout=15)
+
+            bilibili_part = prepare_parts(db, existing_task, parts, url, options, submit_part, check_part_cancel)
+            db.flush_task(task_id, strict=True)
+            url = bilibili_part['url']
+            existing_task = db.get_task(task_id, user_id)
+            _invalidate_list_cache(user_id)
         # Keep a readable previous result stable until complete_task atomically
         # saves its replacement. First attempts may still expose partial output.
         preserve_existing_note = bool((existing_task.get("markdown") or "").strip())
@@ -485,6 +534,7 @@ def process_video_note_sync(
             existing_transcript
             and existing_transcript.get("text")
             and len(existing_transcript["text"]) > 50
+            and (bilibili_part is None or existing_transcript.get('bilibili_part') == bilibili_part)
         )
 
         if social_source:
@@ -568,7 +618,8 @@ def process_video_note_sync(
                 published_at = metadata.published_at or ""
 
             task_updates: dict = {
-                "url": url,
+                # Keep the collection URL as its admission identity on retries.
+                "url": existing_task['url'] if bilibili_part else url,
                 "title": title,
                 "thumbnail": thumbnail,
                 "duration": duration,
@@ -713,6 +764,7 @@ def process_video_note_sync(
                     "text": transcript_text,
                     "segments": transcript_segments,
                     "duration": duration,
+                    **({'bilibili_part':bilibili_part} if bilibili_part else {}),
                 }, ensure_ascii=False),
             })
             _update_task_status(db, task_id, "transcribing", 60, "Transcription complete — preparing to generate notes...", user_id)
@@ -982,7 +1034,7 @@ async def enqueue_video_note(task_id: str, **kwargs):
         source = previous['source_id'] if previous and previous['state'] != 'completed' else 'video:' + task_id + ':' + str(uuid.uuid4())
         await asyncio.to_thread(store.enqueue, owner, 'video', task_id, source, kwargs)
         return
-    worker = asyncio.create_task(process_video_note_async(task_id, **kwargs))
+    worker = asyncio.create_task(process_video_note_async(task_id, **kwargs), name='video:' + task_id)
     _video_workers.add(worker)
     worker.add_done_callback(_video_workers.discard)
 
@@ -1032,7 +1084,8 @@ def generate_note(
 
     _invalidate_list_cache(user_id)
 
-    existing = db.get_task_by_url(url, user_id)
+    from bilibili_parts import find_task
+    existing = find_task(db, url, user_id) if platform == 'bilibili' else db.get_task_by_url(url, user_id)
     if is_local and USE_SUPABASE:
         from api.local_media import get_local_video_dir
         candidate = Path(url).resolve()
@@ -1115,7 +1168,10 @@ def video_submission(url: str = Query(..., max_length=2048), platform: str = Que
     from video_downloader import normalize_video_url, detect_platform
     if USE_SUPABASE and not user:
         raise HTTPException(status_code=401, detail="Authentication required")
-    task = get_video_task_db().get_task_by_url(normalize_video_url(url, platform), user.id if user else None)
+    from bilibili_parts import find_task
+    platform = detect_platform(url) or platform
+    normalized = normalize_video_url(url, platform)
+    task = find_task(get_video_task_db(), normalized, user.id if user else None) if platform == 'bilibili' else get_video_task_db().get_task_by_url(normalized, user.id if user else None)
     if not task or task.get('status') == 'discovered':
         return {"task_id": None}
     return {"task_id": task['id'], "status": task.get('status')}
@@ -1154,7 +1210,8 @@ def generate_note_json(
 
     _invalidate_list_cache(user_id)
 
-    existing = db.get_task_by_url(url, user_id)
+    from bilibili_parts import find_task
+    existing = find_task(db, url, user_id) if platform == 'bilibili' else db.get_task_by_url(url, user_id)
     if existing and data.get("skip_existing") and existing.get("status") != "discovered":
         return {"task_id":existing["id"], "skipped":True}
     if is_local and USE_SUPABASE:
