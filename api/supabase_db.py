@@ -1003,6 +1003,7 @@ class SupabaseDatabase:
             "title", "thumbnail", "duration", "error", "model", "platform",
             "source_metadata", "channel", "channel_url", "channel_avatar", "published_at",
             "style", "formats", "quality", "video_quality",
+            "extras", "video_understanding", "video_interval", "grid_cols", "grid_rows",
         }
         fields = {k: v for k, v in updates.items() if k in allowed}
         if not fields:
@@ -1020,7 +1021,7 @@ class SupabaseDatabase:
         if not self.client:
             return None
 
-        cols = "*" if include_transcript else "id,user_id,url,platform,title,thumbnail,status,progress,message,markdown,source_metadata,style,model,formats,quality,video_quality,video_understanding,video_interval,grid_cols,grid_rows,duration,error,channel,channel_url,channel_avatar,published_at,created_at,updated_at"
+        cols = "*" if include_transcript else "id,user_id,url,platform,title,thumbnail,status,progress,message,markdown,source_metadata,style,model,formats,quality,video_quality,extras,video_understanding,video_interval,grid_cols,grid_rows,duration,error,channel,channel_url,channel_avatar,published_at,created_at,updated_at"
         query = self.client.table("video_tasks").select(cols).eq("id", task_id)
         if user_id:
             query = query.eq("user_id", user_id)

@@ -45,6 +45,25 @@ def find_task(db, url, owner):
     return task
 
 
+def ensure_part_task(db, parent, part, options):
+    owner = parent.get('user_id')
+    child = find_task(db, part['url'], owner)
+    if child:
+        return child
+    child_id = str(uuid.uuid5(uuid.NAMESPACE_URL, str(owner) + ':' + part['url']))[:12]
+    try:
+        db.create_task({**options, 'id':child_id, 'user_id':owner,
+                        'url':part['url'], 'platform':'bilibili',
+                        'title':part['title'], 'duration':part['duration'],
+                        'channel':parent.get('channel',''), 'thumbnail':parent.get('thumbnail','')})
+    except Exception:
+        child = db.get_task(child_id, owner)
+        if not child or child.get('url') != part['url']:
+            raise
+        return child
+    return db.get_task(child_id, owner)
+
+
 def prepare_parts(db, task, parts, url, options, submit, check_cancel=lambda: None):
     """Idempotently admit children before processing P1; retry unaccepted work.
 
@@ -66,17 +85,8 @@ def prepare_parts(db, task, parts, url, options, submit, check_cancel=lambda: No
             child_id = child['id'] if child else None
             if page is None:
                 if child is None:
-                    # Stable identity survives a retry after an uncertain insert.
-                    child_id = str(uuid.uuid5(uuid.NAMESPACE_URL, str(owner) + ':' + part['url']))[:12]
-                    try:
-                        db.create_task({**options, 'id':child_id, 'user_id':owner,
-                                        'url':part['url'], 'platform':'bilibili',
-                                        'title':part['title'], 'duration':part['duration'],
-                                        'channel':task.get('channel',''), 'thumbnail':task.get('thumbnail','')})
-                    except Exception:
-                        child = db.get_task(child_id, owner)
-                        if not child or child.get('url') != part['url']:
-                            raise
+                    child = ensure_part_task(db, task, part, options)
+                    child_id = child['id']
                 transcript = (child or {}).get('transcript') or {}
                 if (not child or child.get('status') != 'success' or not child.get('markdown')
                         or transcript.get('bilibili_part') != part):

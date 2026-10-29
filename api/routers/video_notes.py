@@ -1039,6 +1039,73 @@ async def enqueue_video_note(task_id: str, **kwargs):
     worker.add_done_callback(_video_workers.discard)
 
 
+def _owned_collection(task_id, user):
+    from video_task_db import get_video_task_db
+    if USE_SUPABASE and not user:
+        raise HTTPException(401, 'Authentication required')
+    db = get_video_task_db()
+    task = db.get_task(task_id, user.id if user else None, include_transcript=False)
+    if not task or task.get('platform') != 'bilibili':
+        raise HTTPException(404, 'Bilibili task not found')
+    parts = (task.get('source_metadata') or {}).get('bilibili_parts')
+    if not parts:
+        raise HTTPException(409, 'Part list is not available yet. Process this video to discover its collection.')
+    return db, task, parts
+
+
+@router.get('/collections/{task_id}/parts')
+def collection_parts(task_id: str, user: Optional[User] = Depends(get_current_user)):
+    db, task, parts = _owned_collection(task_id, user)
+    urls = [part['url'] for part in parts]
+    base = urls[0].split('?')[0]
+    rows = {row['url']:row for row in db.part_statuses([*urls, base], task.get('user_id'))}
+    result = []
+    for part in parts:
+        row = rows.get(part['url']) or (rows.get(base) if part['page'] == 1 else None)
+        result.append({**part, 'task_id':row['id'] if row else None,
+                       'status':row['status'] if row else 'not_started',
+                       'progress':row.get('progress',0) if row else 0,
+                       'error':str(row.get('error') or '')[:600] if row else ''})
+    return {'parts':result}
+
+
+@router.post('/collections/{task_id}/parts/{page}/process')
+async def process_collection_part(task_id: str, page: int, user: Optional[User] = Depends(get_current_user)):
+    """Admit one selected part and acknowledge its queue write before returning."""
+    from bilibili_parts import ensure_part_task
+    from execution_store import enabled, get_store
+    db, parent, parts = await asyncio.to_thread(_owned_collection, task_id, user)
+    part = next((part for part in parts if part['page'] == page), None)
+    if not part:
+        raise HTTPException(404, 'Part not found in this collection')
+    owner = parent.get('user_id')
+    options = {key:parent.get(key, default) for key,default in {
+        'style':'detailed','formats':['summary'],'quality':'medium','video_quality':'720',
+        'model':'','extras':'','video_understanding':False,'video_interval':4,'grid_cols':3,'grid_rows':3}.items()}
+    child = await asyncio.to_thread(ensure_part_task, db, parent, part, options)
+    child_id = child['id']
+    if child.get('status') == 'success':
+        return {'task_id':child_id, 'skipped':True}
+    if enabled():
+        latest = await asyncio.to_thread(get_store().latest, owner, 'video', child_id)
+        if latest and latest['state'] in ('queued','running') and not latest.get('cancel_requested'):
+            return {'task_id':child_id, 'skipped':True}
+    elif any(worker.get_name() == 'video:' + child_id and not worker.done() for worker in _video_workers):
+        return {'task_id':child_id, 'skipped':True}
+    updates = {**options, 'status':'pending', 'progress':0, 'error':'', 'message':'Queued for processing…'}
+    await asyncio.to_thread(db.update_task, child_id, updates)
+    await asyncio.to_thread(db.flush_task, child_id, strict=True)
+    payload = {key:value for key,value in options.items() if key != 'model'}
+    payload.update(url=part['url'], platform='bilibili', user_id=owner, llm_model=options['model'],
+                   attempt_id=_new_video_attempt(child_id))
+    try:
+        await enqueue_video_note(child_id, **payload)
+    except Exception as error:
+        raise HTTPException(503, 'Queue confirmation was not received. Refresh part statuses before retrying.') from error
+    _invalidate_list_cache(owner)
+    return {'task_id':child_id, 'skipped':False}
+
+
 @router.post("/generate")
 def generate_note(
     background_tasks: BackgroundTasks,

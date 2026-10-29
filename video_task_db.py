@@ -256,6 +256,7 @@ class _SQLiteVideoTaskDB:
             "title", "thumbnail", "duration", "error", "model", "platform",
             "source_metadata", "channel", "channel_url", "channel_avatar",
             "style", "formats", "quality", "video_quality", "published_at",
+            "extras", "video_understanding", "video_interval", "grid_cols", "grid_rows",
         }
         fields = {k: v for k, v in updates.items() if k in allowed}
         if not fields:
@@ -276,7 +277,7 @@ class _SQLiteVideoTaskDB:
 
     def get_task(self, task_id: str, user_id: str = None, include_transcript: bool = True) -> Optional[dict]:
         with self._conn() as conn:
-            cols = "*" if include_transcript else "id,user_id,url,platform,title,thumbnail,status,progress,message,markdown,source_metadata,style,model,formats,quality,video_quality,video_understanding,video_interval,grid_cols,grid_rows,duration,error,channel,channel_url,channel_avatar,published_at,created_at,updated_at"
+            cols = "*" if include_transcript else "id,user_id,url,platform,title,thumbnail,status,progress,message,markdown,source_metadata,style,model,formats,quality,video_quality,extras,video_understanding,video_interval,grid_cols,grid_rows,duration,error,channel,channel_url,channel_avatar,published_at,created_at,updated_at"
             if user_id:
                 row = conn.execute(
                     f"SELECT {cols} FROM video_tasks WHERE id = ? AND user_id = ?",
@@ -805,6 +806,25 @@ class VideoTaskDB:
 
     def list_tasks(self, user_id: str = None, limit: int = 2000) -> List[dict]:
         return self._backend.list_tasks(user_id, limit)
+
+    def part_statuses(self, urls: list[str], user_id: str = None) -> List[dict]:
+        """Bounded account-scoped status reads, without loading every transcript."""
+        columns = 'id,url,status,progress,error'
+        rows = []
+        for offset in range(0, len(urls), 100):
+            batch = urls[offset:offset+100]
+            if isinstance(self._backend, _SupabaseVideoTaskDB):
+                if not user_id:
+                    return []
+                rows.extend(self._backend._sb.client.table('video_tasks').select(columns)
+                            .eq('user_id', user_id).in_('url', batch).execute().data or [])
+            else:
+                with self._backend._conn() as conn:
+                    scope = 'user_id = ?' if user_id else 'user_id IS NULL'
+                    params = [*batch, *([user_id] if user_id else [])]
+                    rows.extend(dict(row) for row in conn.execute(
+                        f"SELECT {columns} FROM video_tasks WHERE url IN ({','.join('?' for _ in batch)}) AND {scope}", params))
+        return rows
 
     def list_progress_tasks(self, user_id: str = None, known_ids: list[str] = ()) -> List[dict]:
         if isinstance(self._backend, _SupabaseVideoTaskDB):
