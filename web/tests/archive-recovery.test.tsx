@@ -113,3 +113,15 @@ it('reconciles a lost repair submission response without submitting twice',async
  expect(mocks.fetch.mock.calls.filter(c=>c[1]?.method==='POST')).toHaveLength(1)
  expect(node.textContent).toContain('Screenshots restored')
 })
+
+it('shows an explicit rejection without pretending a repair is running',async()=>{
+ mocks.fetch.mockResolvedValueOnce(Response.json({detail:'Wait until note processing finishes.'},{status:409}))
+ node=document.createElement('div');document.body.append(node);root=createRoot(node)
+ await act(async()=>root!.render(<MemoryRouter><NoteRecovery id="note" expanded/></MemoryRouter>))
+ await act(async()=>[...node!.querySelectorAll('button')].find(b=>b.textContent==='Repair screenshots')!.click())
+ expect(node.querySelector('[role=alert]')?.textContent).toContain('Wait until note processing')
+ expect(node.textContent).not.toContain('Restoring screenshots')
+ expect([...node.querySelectorAll('button')].find(b=>b.textContent==='Repair screenshots')!.disabled).toBe(false)
+ await act(async()=>vi.advanceTimersByTimeAsync(30000))
+ expect(mocks.fetch).toHaveBeenCalledOnce()
+})

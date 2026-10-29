@@ -1,4 +1,4 @@
-import {withStyleTimeout} from './styleLoading'
+import {retryableStyleLoad} from './styleLoading'
 import {useSyncExternalStore} from 'react'
 
 export type ColorTheme = 'light' | 'dark'
@@ -22,11 +22,11 @@ function syncStorage(e: StorageEvent) {
 export function getColorTheme(): ColorTheme { return document.documentElement.dataset.theme === 'light' ? 'light' : 'dark' }
 export function getDesign(): Design { return document.documentElement.dataset.design === 'editorial' ? 'editorial' : 'classic' }
 let revision = 0
-const skins: Partial<Record<Design, Promise<unknown>>> = {}
+const skins = {editorial:retryableStyleLoad(() => import('../editorial.css')), classic:retryableStyleLoad(() => import('../classic-light.css'))}
 export function loadAppearance(design = getDesign(), theme = getColorTheme()) {
   return Promise.all([
-    design === 'editorial' ? (skins.editorial ||= withStyleTimeout(import('../editorial.css'))) : Promise.resolve(),
-    design === 'classic' && theme === 'light' ? (skins.classic ||= withStyleTimeout(import('../classic-light.css'))) : Promise.resolve(),
+    design === 'editorial' ? skins.editorial() : Promise.resolve(),
+    design === 'classic' && theme === 'light' ? skins.classic() : Promise.resolve(),
   ])
 }
 export async function setAppearance(design: Design, theme: ColorTheme, persist = true) {

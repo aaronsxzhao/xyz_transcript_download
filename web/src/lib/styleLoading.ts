@@ -5,3 +5,17 @@ export function withStyleTimeout<T>(load: Promise<T>): Promise<T> {
     load.then(resolve, reject).finally(() => clearTimeout(timer))
   })
 }
+
+/** Share in-flight/successful loads, but a rejected load must be retryable. */
+export function retryableStyleLoad(load: () => Promise<unknown>) {
+  let pending: Promise<unknown> | undefined
+  return () => {
+    if (!pending) {
+      pending = withStyleTimeout(Promise.resolve().then(load)).catch(error => {
+        pending = undefined
+        throw error
+      })
+    }
+    return pending
+  }
+}
