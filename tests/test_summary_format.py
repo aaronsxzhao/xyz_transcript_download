@@ -42,7 +42,11 @@ def test_delivers_readable_prose_or_overview_without_requiring_valid_points(cont
     response=NS(choices=[NS(message=NS(content=content))])
     with patch.object(engine,'_call_llm_with_retry',return_value=response):
         result=engine._summarize_single('episode','Source '*400,'Show','Title')
-    assert result.key_points and delivery_notice("", "format", "Source").strip() in result.overview
+    # Valid JSON with no points is audited, not a JSON-format failure.
+    reason = 'format' if content.startswith('#') else 'audit'
+    assert result.key_points and delivery_notice("", reason, "Source").strip() in result.overview
+    if reason == 'audit':
+        assert delivery_notice("", "format", "Source").strip() not in result.overview
     assert any(word in result.key_points[0].summary for word in ('Readable','Overview only'))
     assert result.key_points[0].original_quote==''
 
@@ -60,3 +64,27 @@ def test_a_broken_outer_document_cannot_silently_become_just_one_nested_point():
 @pytest.mark.parametrize('content',[{},[],{'key_points':{'topic':'Only metadata'}}])
 def test_metadata_only_output_still_is_not_a_readable_summary(content):
     with pytest.raises(SummaryOutputError):Summarizer._parse_summary(content,'episode','Title')
+
+
+@pytest.mark.parametrize('prefix', ['[Note: generated result]', '[说明：以下为摘要]', '{format: JSON}'])
+def test_bracketed_preamble_does_not_hide_complete_summary(prefix):
+    content = prefix + '\n{"overview":"Keep the whole introduction","key_points":[{"summary":"The evidence",}],}'
+    result = extract_json_from_response(content)
+    assert result['overview'] == 'Keep the whole introduction'
+    assert result['key_points'][0]['summary'] == 'The evidence'
+
+
+def test_truncated_document_after_preamble_does_not_become_a_nested_point():
+    with pytest.raises(json.JSONDecodeError):
+        extract_json_from_response('[Note]\n{"overview":"Keep this","key_points":[{"summary":"Nested"}]')
+
+
+@pytest.mark.parametrize('language,expected', [('en','Other content'),('zh','其他内容')])
+def test_missing_topic_respects_locked_source_language(language,expected):
+    from reading_language import LANGUAGE
+    token = LANGUAGE.set(language)
+    try:
+        summary = Summarizer._parse_summary({'overview':'Overview','key_points':['The evidence']},'episode','Title')
+        assert summary.key_points[0].topic == expected
+    finally:
+        LANGUAGE.reset(token)
