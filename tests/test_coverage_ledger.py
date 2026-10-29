@@ -238,3 +238,14 @@ def test_one_unresolved_item_does_not_discard_an_independently_valid_repair():
     assert report['repairs_accepted']==1 and report['unresolved_items']==1
     assert report['status']=='unverified'
     assert case['complete_draft'] in json.dumps(sections)
+
+
+@pytest.mark.parametrize('text',[
+    'The thought is unfinished in the source.',
+    'The source ends before supplying the answer.',
+    'The provided text stops here.',
+    'The explanation remains incomplete in the provided text.',
+])
+def test_paraphrased_excerpt_boundary_is_not_published_as_source_fact(text):
+    from coverage_ledger import boundary_commentary
+    assert boundary_commentary(text)

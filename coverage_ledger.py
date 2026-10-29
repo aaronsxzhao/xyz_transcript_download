@@ -7,7 +7,7 @@ from reading_language import source_language_lock
 from source_coverage import SOURCE_FIDELITY
 from summary_errors import is_cancellation
 
-VERSION = 'coverage-ledger-v4'
+VERSION = 'coverage-ledger-v5'
 SOURCE_LIMIT = 12000
 ITEM_LIMIT = 8
 KINDS = {'claim', 'experiment', 'counterexample', 'condition', 'disagreement', 'procedure', 'example'}
@@ -73,8 +73,9 @@ def request(engine, system, payload, validate):
 def boundary_commentary(text):
     """Reject review scaffolding, not genuine source questions left open."""
     return bool(re.search(
-        r"\b(?:excerpt|chunk|provided (?:source|text)|source passage)\s+(?:ends?|stops?|cuts? off)|"
+        r"\b(?:excerpt|chunk|provided (?:source|text)|source passage|source|text)\s+(?:ends?|stops?|cuts? off)|"
         r"\b(?:excerpt|chunk)\s+(?:does not|doesn't)\s+(?:include|provide)|"
+        r"\b(?:thought|sentence|statement|explanation)\s+(?:is |remains |was )?(?:unfinished|incomplete)\s+in (?:the |this |provided )*(?:source|text|excerpt)|"
         r"(?:本片段|本摘录|所给片段|所提供的文本).{0,16}(?:结束|截断|未给出|没有提供)",
         text, re.I))
 
