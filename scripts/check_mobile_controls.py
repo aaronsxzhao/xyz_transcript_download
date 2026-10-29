@@ -5,6 +5,7 @@ from urllib.parse import urlparse,parse_qs
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]))
 from scripts.check_library_browser import serve,fixtures
 from scripts.check_page_loading import token
+from scripts.check_appearance import READER_CONTRAST
 from playwright.async_api import async_playwright
 AUDIT=r'''() => {
  const visible=e=>{const r=e.getBoundingClientRect();return r.width>0&&r.height>0&&getComputedStyle(e).visibility!=='hidden'};
@@ -20,7 +21,7 @@ AUDIT=r'''() => {
  return {problems,overflow:document.querySelector('main')?.scrollWidth>document.querySelector('main')?.clientWidth+1,shellFits:Math.abs(document.querySelector('.app-shell').getBoundingClientRect().height-innerHeight)<=1};
 }'''
 async def main():
- parser=argparse.ArgumentParser();parser.add_argument('--browser-path');parser.add_argument('--webkit',action='store_true');parser.add_argument('--widths',type=int,nargs='+',default=[320,360,390,430,1440]);parser.add_argument('--output',type=Path,default=Path('/tmp/xyz-mobile-controls'));args=parser.parse_args();args.output.mkdir(parents=True,exist_ok=True)
+ parser=argparse.ArgumentParser();parser.add_argument('--browser-path');parser.add_argument('--design',choices=['classic','editorial'],default='classic');parser.add_argument('--theme',choices=['dark','light'],default='dark');parser.add_argument('--webkit',action='store_true');parser.add_argument('--widths',type=int,nargs='+',default=[320,360,390,430,1440]);parser.add_argument('--output',type=Path,default=Path('/tmp/xyz-mobile-controls'));args=parser.parse_args();args.output.mkdir(parents=True,exist_ok=True)
  server=serve(Path(__file__).resolve().parents[1]/'web/dist');origin=f'http://127.0.0.1:{server.server_port}'
  task,summary=fixtures();task['versions']=[]
  archive_stream=io.BytesIO()
@@ -45,12 +46,16 @@ async def main():
    maintenance={'empty':False,'bundle_requests':0}
    context=await browser.new_context(viewport={'width':width,'height':844},is_mobile=width<768,has_touch=width<768,service_workers='block')
    await context.add_init_script("if(window.top===window){localStorage.setItem('xyz_access_token',"+json.dumps(token(int(time.time())+7200))+");localStorage.setItem('xyz_user',JSON.stringify({id:'bench',email:'bench@example.com',authenticated:true}));window.WebSocket=class{static OPEN=1;readyState=1;constructor(){setTimeout(()=>this.onopen?.(),1)}send(){setTimeout(()=>this.onmessage?.({data:JSON.stringify({type:'init',jobs:[{job_id:'fixture-job',episode_title:'A long podcast title / 一期较长的播客标题',status:'failed',created_at:1700000000,progress:0,message:'Connection needs attention'}],video_tasks:[]})}),1)}close(){}}}")
+   await context.add_init_script("if(window.top===window){localStorage.setItem('xyz:design',"+json.dumps(args.design)+");localStorage.setItem('xyz:color-theme',"+json.dumps(args.theme)+");}")
    page=await context.new_page();errors=[];page.on('pageerror',lambda e:errors.append(str(e)))
    connection_offline=False
    connection_reads={'/api/auth/me':0,'/api/library':0}
    async def inspect(label):
     await page.evaluate("async()=>{await Promise.all(document.querySelector('.toast-stack')?.getAnimations({subtree:true}).map(animation=>animation.finished.catch(()=>{}))||[])}")
     result=await page.evaluate(AUDIT)
+    if args.theme == 'light' and await page.locator('.reader-body h1').count():
+     contrast=await page.evaluate(READER_CONTRAST)
+     assert all(c['ratio']>=4.5 for c in contrast),(width,label,'unreadable reader headings',contrast)
     assert not result['problems'],(width,label,result['problems'])
     assert await page.evaluate("""()=>{
      const launcher=document.querySelector('.task-launcher');if(!launcher)return true;
@@ -416,6 +421,7 @@ async def main():
      await inspect('reader-actions')
      await page.keyboard.press('Escape')
      await page.get_by_role('button',name='Reading appearance',exact=True).click()
+     await page.locator('.reader-appearance h2').wait_for()
      await inspect('appearance')
      await page.screenshot(path=str(args.output/f'reader-{width}.png'))
      # Readable enlarged labels must fit too, not be hidden behind clipping.

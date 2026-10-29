@@ -36,6 +36,7 @@ async def check(browser, origin, width, output):
                     secondary:[...card.querySelectorAll('.collection-actions>.ui-button:not(.ui-button-primary),.task-more>summary')].map(e=>{const c=getComputedStyle(e);return [c.backgroundColor,c.borderColor,c.fontSize,c.lineHeight]}),
                     artwork:box(card.querySelector('.video-thumbnail')),fit:getComputedStyle(card.querySelector('.video-thumbnail img')).objectFit,
                     menu:box(nav),card:box(card),title:box(card.querySelector('h3')),actions:box(card.querySelector('.collection-actions')),
+                    lastAction:box(card.querySelector('.collection-actions').lastElementChild),
                     container:document.querySelector('.video-task-list').clientWidth,
                     overflow:document.documentElement.scrollWidth>innerWidth+1||document.querySelector('main').scrollWidth>document.querySelector('main').clientWidth+1,
                     obscured:[...document.querySelectorAll('header a,header button,header select')].filter(e=>{
@@ -47,6 +48,7 @@ async def check(browser, origin, width, output):
                     assert metrics['menu']['height'] == metrics['button']['height']
                 assert all(c['radius'] == metrics['radius'] and c['border'] == '1px' for c in metrics['controls']), (width,design,theme,'inconsistent controls',metrics)
                 assert all(c == metrics['secondary'][0] for c in metrics['secondary']), (width,design,theme,'inconsistent secondary button styles',metrics)
+                assert abs(metrics['lastAction']['x']+metrics['lastAction']['width']-metrics['actions']['x']-metrics['actions']['width']) < 1, (width,design,theme,'actions not right aligned',metrics)
                 assert metrics['fit'] == 'contain', (width,design,theme,'cropped artwork')
                 assert not metrics['overflow'] and not metrics['obscured'], (width,design,theme,metrics)
                 if 600 <= metrics['container'] <= 1000:
@@ -64,7 +66,15 @@ async def check(browser, origin, width, output):
         await more.click()
         assert '/videos?' in page.url, 'More unexpectedly navigated into the reader'
         assert await page.locator('.video-task-list .task-more[open]').count() == 1
+        await page.locator('h1').click()
+        assert await page.locator('.task-more[open]').count() == 0, 'Outside click did not dismiss More'
         await more.click()
+        await page.keyboard.press('Escape')
+        assert await page.locator('.task-more[open]').count() == 0
+        assert await more.evaluate('(e)=>e===document.activeElement')
+        await more.click()
+        await page.get_by_role('combobox', name='Interface style').focus()
+        assert await page.locator('.task-more[open]').count() == 0, 'Focus leaving the menu did not dismiss More'
         await page.get_by_role('link',name='View',exact=True).click()
         await page.wait_for_url('**/videos/bench')
     except Exception:

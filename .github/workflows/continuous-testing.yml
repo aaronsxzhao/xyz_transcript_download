@@ -77,6 +77,9 @@ jobs:
       - name: Check mobile controls in WebKit
         timeout-minutes: 5
         run: python scripts/check_mobile_controls.py --webkit --widths 320 390 430
+      - name: Check Editorial light interactions
+        timeout-minutes: 5
+        run: python scripts/check_mobile_controls.py --webkit --widths 390 820 --design editorial --theme light
       - name: Check WebKit reader and document startup
         timeout-minutes: 5
         run: |

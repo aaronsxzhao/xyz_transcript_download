@@ -1,17 +1,19 @@
-import type {FormEvent} from 'react'
+import {useId, type FormEvent} from 'react'
 import {Loader2,Upload} from 'lucide-react'
 export default function PodcastUploadForm({audioFile,onFile,title,onTitle,description,onDescription,uploading,onSubmit}:{
   audioFile:File|null;onFile:(file:File|null)=>void;title:string;onTitle:(value:string)=>void;
   description:string;onDescription:(value:string)=>void;uploading:boolean;onSubmit:(event:FormEvent)=>void
 }) {
+  const id = useId()
   return (
 <div className="p-4 md:p-6 bg-dark-surface border border-dark-border rounded-xl">
           <h2 className="text-lg font-semibold text-white mb-4">Upload Local Audio</h2>
           <form onSubmit={onSubmit} className="space-y-4">
             <div className="grid gap-4 md:grid-cols-2">
               <div>
-                <label className="block text-sm text-gray-400 mb-2">Audio file</label>
+                <label htmlFor={`${id}-file`} className="block text-sm text-gray-400 mb-2">Audio file</label>
                 <input
+                  id={`${id}-file`}
                   type="file"
                   accept="audio/*,.mp3,.m4a,.wav,.aac,.flac,.ogg,.opus,.mp4,.mpeg,.mpga"
                   onChange={e => onFile(e.target.files?.[0] || null)}
@@ -20,8 +22,9 @@ export default function PodcastUploadForm({audioFile,onFile,title,onTitle,descri
                 {audioFile && <p className="mt-2 text-xs text-gray-500">{audioFile.name}</p>}
               </div>
               <div>
-                <label className="block text-sm text-gray-400 mb-2">Episode title</label>
+                <label htmlFor={`${id}-title`} className="block text-sm text-gray-400 mb-2">Episode title</label>
                 <input
+                  id={`${id}-title`}
                   type="text"
                   value={title}
                   onChange={e => onTitle(e.target.value)}
@@ -31,8 +34,8 @@ export default function PodcastUploadForm({audioFile,onFile,title,onTitle,descri
               </div>
             </div>
             <div>
-              <label className="block text-sm text-gray-400 mb-2">Description</label>
-              <textarea
+              <label htmlFor={`${id}-description`} className="block text-sm text-gray-400 mb-2">Description</label>
+              <textarea id={`${id}-description`}
                 value={description}
                 onChange={e => onDescription(e.target.value)}
                 placeholder="Optional notes about this upload"

@@ -556,6 +556,7 @@ export default function Settings() {
         {TOP_TABS.map(tab => (
           <button
             key={tab.id}
+            aria-pressed={activeTab === tab.id}
             onClick={() => {setActiveTab(tab.id);if(tab.id==='tools')setMaintenanceOpened(true)}}
             className={`min-w-0 flex flex-col sm:flex-row items-center justify-center gap-2 px-2 py-2.5 text-sm font-medium rounded-lg transition-colors ${
               activeTab === tab.id
@@ -671,7 +672,7 @@ export default function Settings() {
             </h2>
             <div className="space-y-3">
               <div className="flex flex-col gap-2">
-                <label className="text-gray-400 text-sm">Integration Token</label>
+                <label htmlFor="notion-integration-token" className="text-gray-400 text-sm">Integration Token</label>
                 <div className="flex flex-wrap gap-2">
                   <input
                     type="password"
@@ -680,6 +681,7 @@ export default function Settings() {
                       setNotionKey(e.target.value)
                       setNotionTestResult(null)
                     }}
+                    id="notion-integration-token"
                     placeholder="ntn_..."
                     className="flex-1 bg-dark-hover border border-dark-border text-white text-sm rounded-lg px-3 py-2 focus:ring-2 focus:ring-orange-500 focus:border-transparent font-mono"
                   />

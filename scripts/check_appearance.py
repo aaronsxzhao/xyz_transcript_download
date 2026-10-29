@@ -13,6 +13,18 @@ from scripts.check_page_loading import token
 from playwright.async_api import async_playwright
 
 
+READER_CONTRAST = r'''() => {
+                  const luminance = color => {
+                    const rgb=color.match(/[\d.]+/g).slice(0,3).map(Number).map(v=>v/255).map(v=>v<=.04045?v/12.92:((v+.055)/1.055)**2.4);
+                    return rgb[0]*.2126+rgb[1]*.7152+rgb[2]*.0722;
+                  };
+                  return [...document.querySelectorAll('.reader-body :is(h1,h2,h3,h4,h5,h6,strong)')].map(e=>{
+                    let bg=e;while(bg.parentElement&&getComputedStyle(bg).backgroundColor==='rgba(0, 0, 0, 0)')bg=bg.parentElement;
+                    const a=luminance(getComputedStyle(e).color),b=luminance(getComputedStyle(bg).backgroundColor);
+                    return {text:e.textContent,ratio:(Math.max(a,b)+.05)/(Math.min(a,b)+.05)};
+                  });
+                }'''
+
 async def context_for(browser, width, authenticated=True, touch=False):
     context = await browser.new_context(viewport={'width': width, 'height': 900}, service_workers='block', has_touch=touch)
     if authenticated:
@@ -24,7 +36,7 @@ async def context_for(browser, width, authenticated=True, touch=False):
             send(){setTimeout(()=>this.onmessage?.({data:JSON.stringify({type:'init',jobs:[],video_tasks:[]})}),1)}close(){}}
         """.replace('TOKEN', json.dumps(token(int(time.time()) + 7200))))
     task, summary = fixtures()
-    task.update(versions=[], markdown='# Synthetic note\n\nA readable paragraph.\n\n> A quote with its original spacing.\n\n## Next section\n\nFinal paragraph.')
+    task.update(versions=[], markdown='# Synthetic note\n\nA readable paragraph.\n\n> A quote with its original spacing.\n\n## Next section\n\nFinal paragraph.\n\n### Third\n\n#### Fourth\n\n##### Fifth\n\n###### Sixth\n\n**Emphasis**.')
     entry = {'id':'bench','kind':'video','content_type':'video','title':'Synthetic video','source':'Synthetic source',
              'status':'completed','platform':'youtube','date':'2026-10-29','thumbnail':''}
     async def api(route):
@@ -43,6 +55,10 @@ async def context_for(browser, width, authenticated=True, touch=False):
         elif path == '/api/library': body = {'items':[entry],'next_cursor':None}
         elif path == '/api/library/sources': body = {'sources':['Synthetic source'],'next_cursor':None}
         elif path == '/api/podcasts': body = [{'pid':'show','title':'Synthetic podcast','platform':'xiaoyuzhou','cover_url':'','episode_count':3,'summarized_count':1}]
+        elif path == '/api/cookies': body = {'cookies':[]}
+        elif path == '/api/truncated': body = {'truncated':[]}
+        elif path == '/api/podcasts/show': body = {'pid':'show','title':'Synthetic podcast','platform':'xiaoyuzhou','episode_count':1}
+        elif path == '/api/podcasts/content': body = [{'eid':'bench','pid':'show','title':'Synthetic episode','duration':1200,'has_summary':True,'has_transcript':True}]
         elif path == '/api/jobs': body = {'jobs':[]}
         elif path == '/api/content-updates': body = {'items':[]}
         elif path == '/api/video-notes/tasks/bench': body = task
@@ -77,7 +93,7 @@ async def check(browser, origin, width):
     page = await context.new_page()
     errors = []
     page.on('pageerror', lambda error: errors.append(str(error)))
-    routes = ['/', '/library', '/settings', '/podcasts?platform=xiaoyuzhou', '/videos', '/videos/bench', '/viewer/bench']
+    routes = ['/', '/library', '/settings', '/podcasts?platform=xiaoyuzhou', '/podcasts/show/episodes', '/videos', '/videos/bench', '/viewer/bench']
     for path in routes:
         await page.goto(origin + path)
         await page.get_by_role('combobox', name='Interface style').wait_for()
@@ -99,6 +115,10 @@ async def check(browser, origin, width):
             await choose(page, design, theme)
             assert not await page.evaluate("""() => document.documentElement.scrollWidth>innerWidth+1 ||
               [...document.querySelectorAll('.app-shell>main')].some(e=>e.scrollWidth>e.clientWidth+1)"""), (width,path,design,theme,'overflow')
+            if path == '/videos/bench':
+                await page.wait_for_timeout(200)
+                contrast = await page.evaluate(READER_CONTRAST)
+                assert contrast and all(c['ratio'] >= 4.5 for c in contrast), (width,design,theme,'heading contrast',contrast)
             if design == 'classic':
                 assert not await page.locator('.publication-feature').count()
             if draft:
@@ -109,6 +129,14 @@ async def check(browser, origin, width):
             await choose(page, 'editorial', 'light')
             await choose(page, 'classic', 'dark')
             assert await page.get_by_role('button', name='Articles', exact=True).get_attribute('aria-pressed') == 'true'
+        if path == '/settings':
+            for tab in ['Platform Accounts', 'Tools & Data', 'General']:
+                button = page.get_by_role('button', name=tab, exact=True)
+                await button.click()
+                assert await button.get_attribute('aria-pressed') == 'true'
+                assert await page.get_by_role('button', pressed=True).filter(has_text=tab).count() == 1
+            assert await draft.input_value() == 'custom', 'Draft lost when changing settings sections'
+            assert await page.get_by_label('Integration Token', exact=True).count() == 1
         print(json.dumps({'width':width,'path':path,'appearances':4,'round_trip':'passed'}), flush=True)
     await page.goto(origin + '/library')
     await choose(page, 'editorial', 'light')
