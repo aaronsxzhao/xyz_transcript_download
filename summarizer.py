@@ -77,7 +77,7 @@ class Summarizer:
     """Handles transcript summarization using LLM with retry logic."""
 
     def __init__(self, api_key: Optional[str] = None, base_url: Optional[str] = None, 
-                 model: Optional[str] = None, custom_endpoint: bool = False, model_options: Optional[dict] = None):
+                 model: Optional[str] = None, custom_endpoint: bool = False, model_options: Optional[dict] = None, generation_mode: str = "single"):
         """
         Initialize summarizer.
         
@@ -90,10 +90,13 @@ class Summarizer:
         self.base_url = base_url or LLM_BASE_URL
         self.model = model or LLM_MODEL
         self.custom_endpoint = custom_endpoint
+        from transcript_reading import MODES
+        if generation_mode not in MODES:
+            raise ValueError("Generation mode must be single or segmented")
+        self.generation_mode = generation_mode
         self.model_options = dict(model_options or {})
         self._groq = self.base_url.rstrip('/') == "https://api.groq.com/openai/v1"
-        # Context capacity is not an editorial coverage budget. A long interview
-        # fitting in one request still loses details when reduced in one pass.
+        # Retained as the explicit segmented path's bounded source size.
         self.chunk_chars = min(SOURCE_CHUNK_CHARS, SUMMARIZER_CHUNK_CHARS)
         # Outline synthesis never rewrites point bodies and has its own context
         # budget; a small extraction unit must not prevent a full-episode outline.
@@ -138,34 +141,39 @@ class Summarizer:
         from transcript_quality import validate_transcript
         validate_transcript(transcript)
         # Prepare the transcript text
-        transcript_text = self._transcript_text(transcript)
+        from source_coverage import video_source_text
+        transcript_text = video_source_text(transcript.text,
+            [{'start':s.start, 'end':s.end, 'text':s.text} for s in transcript.segments])
         self._reading_source = transcript_text
-        duration = transcript.duration or 0
-        duration_hours = duration / 3600
-        
-        logger.info(f"Transcript: {len(transcript_text):,} chars, {duration/60:.0f} min")
-        
-        from source_coverage import extraction_limit
-        use_chunking = len(transcript_text) > extraction_limit(transcript_text, self.chunk_chars)
-        last_chars = 0
-        original_progress = progress_callback
-        if original_progress:
-            def progress_callback(chars, *args):
-                nonlocal last_chars
-                last_chars = max(last_chars, chars)
-                original_progress(chars, *args)
-        
-        if use_chunking:
-            logger.info(f"Using bounded source extraction for {duration_hours:.1f} hours")
-            result = self._summarize_long_transcript(
-                transcript, podcast_title, episode_title, progress_callback, existing_topics
-            )
-        else:
-            result = self._summarize_single(
-                transcript.episode_id, transcript_text, podcast_title, episode_title,
-                progress_callback, existing_topics)
-        result = self._edit_reading(result, (lambda:original_progress(last_chars)) if original_progress else None)
-        return self._localize_summary(result, transcript_text)
+        from transcript_reading import generate, playback_time
+        edition = generate(self, transcript_text, episode_title or podcast_title,
+            formats=('summary',), progress=(lambda chars, *args: progress_callback(chars)) if progress_callback else None,
+            duration=transcript.duration or 0)
+        from source_coverage import spoken_source
+        points = []
+        line_index = {line.id:i for i,line in enumerate(edition['lines'])}
+        for section in edition['sections']:
+            for paragraph in section['paragraphs']:
+                # One displayed quotation must be a continuous source passage.
+                # Other supporting ranges remain attached in provenance, never
+                # spliced into an apparently verbatim uninterrupted statement.
+                span = min(paragraph['source_ranges'], key=lambda item:line_index[item['start']])
+                quote_indices = list(range(line_index[span['start']], line_index[span['end']]+1))
+                evidence = [edition['lines'][i] for i in quote_indices]
+                quote = spoken_source(''.join(line.text for line in evidence)).strip()
+                anchor = playback_time({'indices':quote_indices}, edition['lines'], transcript.duration or 0)
+                timestamp = (f'{int(anchor)//3600:02d}:{int(anchor)%3600//60:02d}:{int(anchor)%60:02d}'
+                             if anchor is not None else '')
+                text = paragraph['text']
+                if paragraph.get('raw'):
+                    text = '\n'.join('> '+line for line in text.splitlines())
+                points.append(KeyPoint(section['heading'], text, quote, timestamp))
+        overview = edition['overview']
+        from summary_errors import delivery_notice
+        for notice in dict.fromkeys(edition['notices']):
+            overview = delivery_notice(overview, notice, transcript_text)
+        return Summary(transcript.episode_id, episode_title, overview, points,
+                       list(dict.fromkeys(point.topic for point in points)), [])
 
     def _editorial_json(self, system, payload, timeout):
         from reading_editor import call_editor
@@ -877,7 +885,7 @@ def merge_summaries(fast_summary: Summary, accurate_summary: Summary) -> Summary
 _summarizer: Optional[Summarizer] = None
 
 
-def get_summarizer(model: Optional[str] = None, *, api_key: str = "", base_url: str = "", custom_endpoint: bool = False, model_options: Optional[dict] = None) -> Summarizer:
+def get_summarizer(model: Optional[str] = None, *, api_key: str = "", base_url: str = "", custom_endpoint: bool = False, model_options: Optional[dict] = None, generation_mode: str = "single") -> Summarizer:
     """
     Get or create a Summarizer instance.
     
@@ -890,8 +898,8 @@ def get_summarizer(model: Optional[str] = None, *, api_key: str = "", base_url: 
     """
     global _summarizer
     
-    if model is not None or api_key or base_url or model_options:
-        return Summarizer(model=model, api_key=api_key, base_url=base_url, custom_endpoint=custom_endpoint,model_options=model_options)
+    if model is not None or api_key or base_url or model_options or generation_mode != "single":
+        return Summarizer(model=model, api_key=api_key, base_url=base_url, custom_endpoint=custom_endpoint,model_options=model_options,generation_mode=generation_mode)
     
     if _summarizer is None:
         _summarizer = Summarizer()

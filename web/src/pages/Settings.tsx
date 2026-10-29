@@ -34,6 +34,7 @@ interface SettingsData {
   whisper_model: string
   whisper_backend: string
   whisper_device: string
+  summary_generation_mode?: 'single' | 'segmented'
   llm_reasoning_effort?: string
   llm_service_tier?: string
   llm_model: string
@@ -79,6 +80,7 @@ export default function Settings() {
   const whisperModels = settings?.whisper_mode === 'local' ? localWhisperModels : WHISPER_MODELS
   const [whisperModel, setWhisperModel] = useState('')
   const [modelExecutionOpen,setModelExecutionOpen]=useState(false)
+  const [generationMode,setGenerationMode]=useState<'single'|'segmented'>('single')
   const [executionOptions,setExecutionOptions]=useState<ExecutionOptions>({llm_reasoning_effort:'',llm_service_tier:''})
   const [llmModel, setLlmModel] = useState('')
   const [llmProvider, setLlmProvider] = useState<'server' | 'groq' | 'custom'>('server')
@@ -184,7 +186,7 @@ export default function Settings() {
   const savedVideoDraft = useRef([vdStyle,vdFormats,vdQuality,vdVideoQuality])
   const settingsRequest = useRef(0)
   const settingsWrite = useRef(false)
-  const draft = JSON.stringify([whisperModel, llmModel, llmProvider, vdStyle, vdFormats, vdQuality, vdVideoQuality,transcriptionProvider,summaryConnection,transcriptionConnection,executionOptions])
+  const draft = JSON.stringify([whisperModel, llmModel, llmProvider, vdStyle, vdFormats, vdQuality, vdVideoQuality,transcriptionProvider,summaryConnection,transcriptionConnection,executionOptions,generationMode])
   const dirty = !!savedDraft && draft !== savedDraft
   useUnsavedChanges(dirty)
 
@@ -407,10 +409,11 @@ export default function Settings() {
       setLlmProvider(settings.llm_provider)
       const savedOptions={llm_reasoning_effort:settings.llm_reasoning_effort||'',llm_service_tier:settings.llm_service_tier||''}
       setExecutionOptions(savedOptions)
+      setGenerationMode(settings.summary_generation_mode||'single')
       setTranscriptionProvider(settings.transcription_provider||'server')
       const summaryDraft={baseUrl:settings.llm_base_url||''},transcriptionDraft={baseUrl:settings.whisper_base_url||''}
       setSummaryConnection(summaryDraft);setTranscriptionConnection(transcriptionDraft)
-      setSavedDraft(JSON.stringify([savedWhisperModel, savedLlmModel, settings.llm_provider, ...savedVideoDraft.current,settings.transcription_provider||'server',summaryDraft,transcriptionDraft,savedOptions]))
+      setSavedDraft(JSON.stringify([savedWhisperModel, savedLlmModel, settings.llm_provider, ...savedVideoDraft.current,settings.transcription_provider||'server',summaryDraft,transcriptionDraft,savedOptions,settings.summary_generation_mode||'single']))
     }
   }, [settings])
 
@@ -446,6 +449,7 @@ export default function Settings() {
         llm_model: llmModel,
         llm_provider: llmProvider,
         ...executionOptions,
+        summary_generation_mode:generationMode,
         transcription_provider:transcriptionProvider,
         llm_base_url:summaryConnection.baseUrl,
         whisper_base_url:transcriptionConnection.baseUrl,
@@ -641,6 +645,14 @@ export default function Settings() {
                   ))}
                 </select>
               </div>}
+              <label className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 text-sm text-gray-400">
+                Summary generation
+                <select aria-label="Summary generation" value={generationMode} disabled={!settings||saving} onChange={event=>setGenerationMode(event.target.value as 'single'|'segmented')} className="min-w-0 w-full sm:w-auto sm:max-w-[260px] bg-dark-hover border border-dark-border text-white rounded-lg px-3 py-2">
+                  <option value="single">Full transcript — one generation</option>
+                  <option value="segmented">Segmented generation</option>
+                </select>
+              </label>
+              <p className="text-xs text-gray-400">Full transcript is the default for videos and podcasts. Both modes check coverage and source references. If your model cannot fit the full source, choose segmented generation and retry. Saved notes change only when you regenerate them.</p>
               <button type="button" aria-expanded={modelExecutionOpen} onClick={()=>setModelExecutionOpen(value=>!value)} className="text-sm text-indigo-300 underline">Reasoning and speed</button>
               {modelExecutionOpen&&<OptionalTool fallback={<p role="status">Loading…</p>}><ModelExecutionFields provider={llmProvider} model={llmModel} baseUrl={summaryConnection.baseUrl} value={executionOptions} onChange={setExecutionOptions} disabled={!settings||saving||testingLlm}/></OptionalTool>}
               {settings?.llm_key_saved&&<button type="button" disabled={saving} className="block text-sm text-gray-400 underline" onClick={()=>{setLlmProvider('server');setLlmModel('');setSummaryConnection(value=>({...value,apiKey:''}))}}>Remove saved summary key on save</button>}

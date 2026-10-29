@@ -23,26 +23,22 @@ async def test_new_generation_retains_quotes_through_save_read_and_export(client
     second = 'The independent closing example survives.'
     transcript = Transcript('new-evidence', 'en', 62, first + ' ' + second,
                             [TranscriptSegment(0, 20, first), TranscriptSegment(31, 60, second)])
-    s = Summarizer(api_key='fixture')
-    def draft(text):
-        return {'overview': 'Overview', 'topics': ['Original chapter'], 'takeaways': [],
-                'key_points': [{'topic': 'Original chapter', 'summary': '#### Detail\n\n' + text,
-                                'original_quote': text, 'timestamp': '00:00:00'}]}
-    audit = {'coverage': [{'unit': 'S1', 'kind': 'content', 'fields': ['point:1']}]}
-    if chunked:
-        s.chunk_chars = 65
-        assert len(split_source(s._transcript_text(transcript), s.chunk_chars)) == 2
-        answers = [draft(first), audit, draft(second), audit, {'overview': 'Full overview', 'takeaways': []}]
-        expected = [(first, '00:00:00'), (second, '00:00:31')]
-    else:
-        answers = [draft(first), {'coverage': [{'unit': 'S1', 'kind': 'content', 'fields': ['point:1', 'point:2']}]}]
-        answers[0]['key_points'].extend(draft(second)['key_points'])
-        expected = [(first, '00:00:00'), (second, '00:00:31')]
-    # Only the provider response is mocked: extraction, coverage validation,
-    # chunk assembly, persistence, API serialization and exports run normally.
-    with patch.object(s, '_call_llm_with_retry', side_effect=[response(data) for data in answers]) as provider:
-        note = s.summarize(transcript, episode_title='New note')
-    assert provider.call_count == len(answers)
+    s=Summarizer(api_key='fixture',generation_mode='segmented' if chunked else 'single')
+    s.chunk_chars=1000
+    from tests.test_transcript_reading import provider, section
+    from source_coverage import spoken_source
+    calls=[]
+    def response(owner,system,payload,timeout):
+        data=json.loads(payload)
+        result=provider(calls)(owner,system,payload,timeout)
+        if 'mode' in data:
+            result['sections']=[section([row],spoken_source(row['text']).strip()) for row in data['primary_source']]
+        return result
+    # Mock only provider output: source association, persistence, APIs and exports
+    # run through their real code in both explicit generation modes.
+    with patch('transcript_reading.call_json',side_effect=response):
+        note=s.summarize(transcript,episode_title='New note')
+    expected=[(first,'00:00:00'),(second,'00:00:31')]
     assert note is not None
     assert get_db().save_summary(SummaryData(**asdict(note)))
     loaded = await client.get('/api/summaries/new-evidence')

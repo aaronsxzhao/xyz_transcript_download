@@ -97,17 +97,26 @@ paragraphs absent and state a specific issue in an optional "issues" array.
 """
 
 
-def call_editor(client, model, system, payload, timeout):
+def call_editor(client, model, system, payload, timeout, *, output_tokens=None,
+                response_validator=None, validation_version=None):
     from processing_execution import checkpoint_call
+    def complete():
+        data = _call_editor(client,model,system,payload,timeout,output_tokens=output_tokens)
+        if response_validator is not None:
+            response_validator(data)
+        return data
     return checkpoint_call('model.editor', {'model':model, 'endpoint':str(client.base_url),
-        'options':getattr(client,'options',{}),'system':system,'payload':payload},
-        lambda: _call_editor(client,model,system,payload,timeout))
+        'options':getattr(client,'options',{}),'system':system,'payload':payload,
+        **({'output_tokens':output_tokens} if output_tokens is not None else {}),
+        **({'validation_version':validation_version} if validation_version else {})}, complete)
 
 
-def _call_editor(client, model, system, payload, timeout):
+def _call_editor(client, model, system, payload, timeout, *, output_tokens=None):
     """Use the same configured provider; optional editing has no retry cascade."""
     from summary_format import extract_model_json
     options = {}
+    if output_tokens is not None:
+        options['max_completion_tokens'] = output_tokens
     if str(client.base_url).rstrip('/') == 'https://api.groq.com/openai/v1':
         options['max_completion_tokens'] = 32768
         if model in ('openai/gpt-oss-120b','openai/gpt-oss-20b'):
@@ -116,7 +125,8 @@ def _call_editor(client, model, system, payload, timeout):
         model=model, messages=[{'role':'system','content':system}, {'role':'user','content':payload}],
         response_format={'type':'json_object'}, temperature=0, **options)
     if not response.choices or response.choices[0].finish_reason not in (None, 'stop'):
-        raise ValueError('Incomplete editorial output')
+        from summary_errors import SummaryOutputError
+        raise SummaryOutputError(response.choices[0].finish_reason if response.choices else 'empty')
     return extract_model_json(response.choices[0].message.content or '')
 
 

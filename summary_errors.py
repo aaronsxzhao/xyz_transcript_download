@@ -7,20 +7,24 @@ AUDIT_WARNING = "> ℹ️ 摘要已生成，但全文覆盖核对未完成；完
 COVERAGE_GAP_WARNING = "> ℹ️ 核对提示部分内容可能未覆盖，已附对应原文供对照阅读。"
 FORMAT_WARNING = "> ℹ️ 生成内容已保留，但未能完整整理为结构化格式。"
 MERGE_WARNING = "> ℹ️ 各分段正文已保留，但全文概览未能合并。"
+PROVENANCE_WARNING = "> ℹ️ 部分截图引用未通过来源校验，已跳过对应截图。"
+GROUNDING_WARNING = "> ℹ️ 核对标出部分表述缺少原文支持，已用对应原文替代；请结合 Transcript 阅读。"
 _EN_NOTICES = {
     'generation': "> ⚠️ Some sections could not be summarized and are included as original transcript. See Transcript for the full source.",
     'audit': "> ℹ️ Notes were generated, but the full-source coverage review did not complete. Completeness is unverified; compare with Transcript.",
     'coverage_gap': "> ℹ️ The review flagged potentially uncovered content. Corresponding source passages are included for comparison.",
     'format': "> ℹ️ Generated content is preserved, but could not be fully organized into structured fields.",
     'merge': "> ℹ️ All available section notes are preserved, but the episode overview could not be merged.",
+    'provenance': "> ℹ️ Some screenshot references failed source validation and were skipped.",
+    'grounding': "> ℹ️ The review flagged unsupported wording. Those passages were replaced with their original transcript evidence. Compare with Transcript.",
 }
-_NOTICES = (DELIVERY_WARNING, GENERATION_WARNING, AUDIT_WARNING, COVERAGE_GAP_WARNING, FORMAT_WARNING, MERGE_WARNING, *_EN_NOTICES.values())
+_NOTICES = (DELIVERY_WARNING, GENERATION_WARNING, AUDIT_WARNING, COVERAGE_GAP_WARNING, FORMAT_WARNING, MERGE_WARNING, PROVENANCE_WARNING, GROUNDING_WARNING, *_EN_NOTICES.values())
 
 
 def delivery_notice(text: str, reason: str = 'generation', source: str = '') -> str:
     from reading_language import chinese_source
     chinese = not source or chinese_source(source)
-    notice = ({'generation': GENERATION_WARNING, 'audit': AUDIT_WARNING, 'coverage_gap': COVERAGE_GAP_WARNING, 'format': FORMAT_WARNING, 'merge': MERGE_WARNING}[reason]
+    notice = ({'generation': GENERATION_WARNING, 'audit': AUDIT_WARNING, 'coverage_gap': COVERAGE_GAP_WARNING, 'format': FORMAT_WARNING, 'merge': MERGE_WARNING, 'provenance': PROVENANCE_WARNING, 'grounding': GROUNDING_WARNING}[reason]
               if chinese else _EN_NOTICES[reason])
     return text if notice in text else notice + "\n\n" + text
 
@@ -61,6 +65,7 @@ class SummaryOutputError(RuntimeError):
         'empty': 'The model returned an empty summary. Please retry summary generation.',
         'invalid': 'The model returned an invalid summary format. Please retry summary generation.',
         'content_filter': 'The model declined to generate this summary. Try another summary model.',
+        'capacity': 'The full transcript exceeds the model context capacity. Choose segmented generation or a larger-context model, then retry.',
     }
     def __init__(self, code):
         self.code = code if code in self.MESSAGES else 'invalid'

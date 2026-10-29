@@ -458,7 +458,7 @@ def process_video_note_sync(
             raise ValueError("Groq summaries use the transcript. Turn off Video Understanding, or choose a vision-capable provider in Settings.")
         from video_downloader import get_downloader, detect_platform, normalize_video_url, VideoDownloadError
         from cookie_manager import get_cookie_manager
-        from note_summarizer import get_note_summarizer, NOTE_CHUNK_CHARS
+        from note_summarizer import get_note_summarizer
         from screenshot_extractor import (
             extract_timestamps_from_markdown,
             extract_screenshots_batch,
@@ -851,18 +851,11 @@ def process_video_note_sync(
             from source_coverage import video_source_text
             transcript_text = video_source_text(transcript_text, transcript_segments)
 
-        transcript_chars = len(transcript_text)
-        num_expected_chunks = max(1, transcript_chars // NOTE_CHUNK_CHARS + (1 if transcript_chars % NOTE_CHUNK_CHARS else 0))
-        if num_expected_chunks > 1:
-            _update_task_status(db, task_id, "summarizing", 72,
-                                f"Starting AI note generation — splitting into ~{num_expected_chunks} sections...", user_id)
-        else:
-            _update_task_status(db, task_id, "summarizing", 72, "Starting AI note generation...", user_id)
-
-        # Phase 4: Generate notes (72-92%)
-        note_summarizer = get_note_summarizer(
-            **llm_settings,
-        )
+        generation_mode = preferences.get('summary_generation_mode', 'single')
+        message = ('Starting full-transcript generation...' if generation_mode == 'single'
+                   else 'Starting segmented generation with whole-draft verification...')
+        _update_task_status(db, task_id, "summarizing", 72, message, user_id)
+        note_summarizer = get_note_summarizer(**llm_settings, generation_mode=generation_mode)
 
         last_summarize_progress = [72]
         import time as _time

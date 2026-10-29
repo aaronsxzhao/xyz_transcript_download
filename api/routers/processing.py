@@ -787,7 +787,7 @@ def process_episode_sync(job_id: str, episode_url: str, transcribe_only: bool = 
             if transcribe_only:
                 update_job_status(job_id, "completed", 100, "Transcript already available")
                 return
-            summarizer = get_summarizer(**llm_settings)
+            summarizer = get_summarizer(**llm_settings, generation_mode=preferences.get("summary_generation_mode", "single"))
             # Check for cancellation before starting
             if is_job_cancelled(job_id):
                 update_job_status(job_id, "cancelled", 70, "Cancelled")
@@ -941,7 +941,7 @@ def process_episode_sync(job_id: str, episode_url: str, transcribe_only: bool = 
         
         # ===== PHASE 5: Summarize (70-95%) =====
         update_job_status(job_id, "summarizing", 75, "Generating summary...")
-        summarizer = get_summarizer(**llm_settings)
+        summarizer = get_summarizer(**llm_settings, generation_mode=preferences.get("summary_generation_mode", "single"))
         
         # Progress callback for summarization with cancellation check
         last_summary_progress = [75]

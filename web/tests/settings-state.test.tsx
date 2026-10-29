@@ -28,6 +28,30 @@ async function mount(cached=true){if(cached)setCache(CacheKeys.SETTINGS,server()
 async function choose(value:string){await act(async()=>{model().value=value;model().dispatchEvent(new Event('change',{bubbles:true}))})}
 async function click(label:string){await act(async()=>button(label).click());await act(async()=>vi.dynamicImportSettled())}
 
+it('defaults to a full transcript and persists an explicit segmented choice',async()=>{
+ await mount()
+ const select=node.querySelector<HTMLSelectElement>('[aria-label="Summary generation"]')!
+ expect(select.value).toBe('single')
+ vi.mocked(updateSettings).mockResolvedValueOnce({message:'Saved',settings:{...server(),summary_generation_mode:'segmented'}})
+ await act(async()=>{select.value='segmented';select.dispatchEvent(new Event('change',{bubbles:true}))})
+ expect(node.textContent).toContain('Unsaved changes')
+ await click('Save Settings')
+ expect(vi.mocked(updateSettings).mock.calls[0][0].summary_generation_mode).toBe('segmented')
+ expect(select.value).toBe('segmented')
+ expect(node.textContent).not.toContain('Unsaved changes')
+})
+
+it('does not replace a pending generation-mode edit with a late settings refresh',async()=>{
+ let finish!:(value:any)=>void
+ vi.mocked(fetchSettings).mockImplementationOnce(()=>new Promise(resolve=>{finish=resolve}))
+ await mount()
+ const select=node.querySelector<HTMLSelectElement>('[aria-label="Summary generation"]')!
+ await act(async()=>{select.value='segmented';select.dispatchEvent(new Event('change',{bubbles:true}))})
+ await act(async()=>finish({...server(),summary_generation_mode:'single'}))
+ expect(select.value).toBe('segmented')
+ expect(node.textContent).toContain('Unsaved changes')
+})
+
 it('preserves an edited model when the background settings refresh arrives late',async()=>{
  let finish!:(value:any)=>void
  vi.mocked(fetchSettings).mockImplementationOnce(()=>new Promise(resolve=>{finish=resolve}))
