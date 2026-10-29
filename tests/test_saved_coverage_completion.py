@@ -40,6 +40,7 @@ def test_quotes_are_not_counted_as_covered_summary():
 
 
 def test_addition_carries_forward_with_valid_unique_field(monkeypatch):
+    monkeypatch.setattr('scripts.complete_saved_coverage.passage_index',lambda fields:dict(fields))
     monkeypatch.setattr('source_coverage.split_source',lambda *args:['First claim.', 'Second claim.'])
     calls=[]
     def call(system,payload,timeout):
@@ -58,3 +59,30 @@ def test_expired_deadline_does_not_call_provider():
     result=review_document('Source claim.',{'body':'Reading text.'},call,deadline=time.monotonic()-1)
     assert not result['complete']
     call.assert_not_called()
+
+
+def test_long_draft_context_is_bounded_and_relevant():
+    from scripts.complete_saved_coverage import relevant_passages
+    fields={f'point:{i}':('unrelated advertising slogans. '*70) for i in range(50)}
+    fields['point:51']='The investment requires a margin of safety and a competitive advantage.'
+    selected=relevant_passages('Margin of safety is necessary for an investment.',fields,40000)
+    assert 'point:51' in selected
+    assert sum(map(len,selected.values())) <= 40000
+
+
+def test_addition_checks_unselected_prose_before_being_accepted():
+    from scripts.complete_saved_coverage import confirm_missing_addition
+    addition={'source_quote':'Real source','text':'A meaningful condition.'}
+    fields={'a':'Other context','b':'The meaningful condition.'}
+    call=Mock(return_value={'covered':True,'fields':['b']})
+    assert not confirm_missing_addition(addition,fields,{'a':'Other context'},call)
+    assert json.loads(call.call_args.args[1])['existing_fields']=={'b':fields['b']}
+    call=Mock(return_value={'covered':True,'fields':['invented']})
+    with pytest.raises(ValueError):
+        confirm_missing_addition(addition,fields,{'a':'Other context'},call)
+
+
+def test_index_keeps_all_prose_even_for_large_fields():
+    from scripts.complete_saved_coverage import passage_index
+    text='Important condition. '*500
+    assert ''.join(passage_index({'body':text}).values()).strip()==text.strip()
