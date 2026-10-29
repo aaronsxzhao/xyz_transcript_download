@@ -120,7 +120,7 @@ def confirm_missing_addition(addition, passages, selected, call):
     return True
 
 
-def review_document(source, fields, call, *, deadline=None):
+def review_document(source, fields, call, *, deadline=None, resume=None):
     from reading_budget import visible_prose
     from source_coverage import audit_source, split_source, extraction_limit, quote_timestamp
     from summary_errors import SummaryOutputError
@@ -130,7 +130,21 @@ def review_document(source, fields, call, *, deadline=None):
     if not chunks or not any(value.strip() for value in current.values()):
         raise ValueError('Missing saved source or prose')
     additions, checks = [], []
+    completed = {}
+    if isinstance(resume, dict):
+        # The caller loads this only under an exact original/source fingerprint.
+        for addition in resume.get('additions', []):
+            if not isinstance(addition, dict) or not all(isinstance(addition.get(k),str) for k in ('topic','summary','original_quote','timestamp')):
+                raise ValueError('Invalid saved review addition')
+            additions.append(dict(addition))
+            current[f'resumed:{len(additions)}'] = addition['summary']
+        for check in resume.get('checks', []):
+            if isinstance(check,dict) and check.get('complete') is True and type(check.get('chunk')) is int and 1 <= check['chunk'] <= len(chunks):
+                completed[check['chunk']] = dict(check)
     for index, chunk in enumerate(chunks):
+        if index+1 in completed:
+            checks.append(completed[index+1])
+            continue
         def guarded_call(system, payload, timeout=60):
             remaining = (deadline - time.monotonic()) if deadline else timeout
             if remaining <= 0:
@@ -170,7 +184,8 @@ def review_document(source, fields, call, *, deadline=None):
                               'original_quote':addition['source_quote'],
                               'timestamp':quote_timestamp(chunk, addition['source_quote'], addition.get('timestamp',''))})
     return {'complete':all(row['complete'] for row in checks),
-            'checks':checks, 'additions':additions, 'source_chunks':len(chunks)}
+            'checks':checks, 'additions':additions, 'source_chunks':len(chunks),
+            'resumed_chunks':len(completed)}
 
 
 def child(output):
@@ -241,10 +256,17 @@ def child(output):
             if not any(notice in text for notice in (AUDIT_WARNING, _EN_NOTICES['audit'])):
                 row.update(ok=True, already_clear=True)
                 return row
+            fingerprint = hashlib.sha256(json.dumps({'original':original, 'source_md5':row['source_md5']},
+                sort_keys=True,ensure_ascii=False,separators=(',',':')).encode()).hexdigest()
+            row['review_fingerprint'] = fingerprint
+            checkpoints = db.table('processing_checkpoints').select('result').eq('user_id',owner).eq(
+                'source_id',f'authorized-coverage:{kind}:{identifier}').eq('stage','maintenance.coverage.v16').eq(
+                'fingerprint',fingerprint).limit(1).execute().data or []
+            resume = checkpoints[0]['result'] if checkpoints else None
             engine = NoteSummarizer(**settings)
             engine._reading_source = source
             result = review_document(source, fields, engine._editorial_json,
-                                     deadline=min(deadline, started+1200))
+                                     deadline=min(deadline, started+1200), resume=resume)
             row.update(ok=result['complete'], review=result)
             if result['complete']:
                 row['cleaned_introduction' if kind == 'podcast' else 'cleaned_markdown'] = remove_audit_notice(text)

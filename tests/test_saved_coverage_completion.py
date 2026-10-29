@@ -100,3 +100,24 @@ def test_duplicate_check_uses_its_own_response_contract(monkeypatch):
         return {'additions':[{'id':'added:1','topic':'Condition','heading':'Exception','text':'The effect reverses.','source_ids':['S1']}], 'coverage':[{'unit':'S1','kind':'content','fields':['added:1']}]}
     result=review_document('The effect reverses.',{'body':'The general effect.','other':'The effect reverses.'},call)
     assert result['complete'] and not result['additions'] and len(calls)==2
+
+
+def test_resume_only_calls_unfinished_partition_and_preserves_addition(monkeypatch):
+    monkeypatch.setattr('scripts.complete_saved_coverage.passage_index',lambda fields:dict(fields))
+    monkeypatch.setattr('source_coverage.split_source',lambda *args:['First claim.','Second claim.'])
+    addition={'topic':'First','summary':'First claim.','original_quote':'First claim.','timestamp':''}
+    def call(system,payload,timeout):
+        request=json.loads(payload)
+        assert 'First claim.' not in request['source_units'].values()
+        assert 'First claim.' in request['draft_fields'].values()
+        return {'coverage':[{'unit':'S1','kind':'content','fields':['body']}]}
+    provider=Mock(side_effect=call)
+    result=review_document('Both.',{'body':'Second claim.'},provider,resume={'checks':[{'chunk':1,'complete':True}], 'additions':[addition]})
+    assert result['complete'] and result['resumed_chunks']==1
+    assert result['additions']==[addition] and provider.call_count==1
+
+
+def test_incomplete_checkpoint_is_not_treated_as_completed():
+    provider=Mock(return_value={'coverage':[{'unit':'S1','kind':'content','fields':['body']}]})
+    result=review_document('First claim.',{'body':'First claim.'},provider,resume={'checks':[{'chunk':1,'complete':False},{'chunk':999,'complete':True}]})
+    assert result['complete'] and result['resumed_chunks']==0 and provider.call_count==1
