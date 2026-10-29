@@ -9,6 +9,14 @@ from transcript_reading import generate, source_lines, validate_sections, batche
 from summary_errors import ProcessingCancelledError, SummaryOutputError
 
 
+@pytest.fixture(autouse=True)
+def isolate_existing_generation_and_grounding_contract():
+    # The independent ledger has its own integration tests with real validators
+    # in test_coverage_ledger.py. These tests isolate the original pipeline stages.
+    with patch('coverage_ledger.audit', return_value={'status':'model_reviewed'}):
+        yield
+
+
 def engine(mode='single', limit=8000):
     return SimpleNamespace(generation_mode=mode, chunk_chars=limit, generation_report={})
 
