@@ -114,6 +114,15 @@ resolve an earlier item. Contradictions are not repaired by appending opposites.
 The same independent grounding, novelty and acceptance rules apply in recovery;
 there is no unbounded repair loop. Initial unresolved/failure counts and the
 recovery-round count remain in diagnostics even when recovery succeeds.
+Before any missing/partial item can trigger prose repair, a source-only check
+verifies that checklist claim without seeing the summary. It can correct a
+demonstrably invented condition, attribution
+or causal claim, with a reason and source ranges constrained to that item's source
+and short adjacent context. True conditions cannot be dropped to make coverage
+easier. Corrected items are rematched before deciding whether repair is needed.
+If source validation fails, that batch cannot propose new prose. Correction IDs
+and failed source-validation batches are recorded. A corrected checklist does
+not certify the draft automatically.
 The final renderer orders additions by their real source evidence and applies
 the existing media/time gates.
 
