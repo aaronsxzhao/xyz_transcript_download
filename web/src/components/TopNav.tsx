@@ -1,3 +1,4 @@
+import {useOutsideInteraction} from '../lib/outsideInteraction'
 import AppearanceControls from './AppearanceControls'
 import { Link, useLocation } from 'react-router-dom'
 import {
@@ -31,8 +32,26 @@ export default function TopNav() {
   const { user, authEnabled, signOut } = useAuth()
   const [mobileOpen, setMobileOpen] = useState(false)
   const menuButton = useRef<HTMLButtonElement>(null)
+  const header = useRef<HTMLElement>(null)
 
-  useEffect(() => { const close = (e: KeyboardEvent) => { if (e.key === 'Escape' && mobileOpen) { setMobileOpen(false); menuButton.current?.focus() } }; document.addEventListener('keydown', close); return () => document.removeEventListener('keydown', close) }, [mobileOpen])
+  useOutsideInteraction(target => { if (mobileOpen && !header.current?.contains(target)) setMobileOpen(false) })
+  useEffect(() => {
+    if (!mobileOpen) return
+    const close = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') return
+      menuButton.current?.focus()
+      setMobileOpen(false)
+    }
+    const wide = window.matchMedia('(min-width: 768px)')
+    const resize = () => { if (wide.matches) setMobileOpen(false) }
+    document.addEventListener('keydown', close)
+    wide.addEventListener('change', resize)
+    resize()
+    return () => {
+      document.removeEventListener('keydown', close)
+      wide.removeEventListener('change', resize)
+    }
+  }, [mobileOpen])
 
   useEffect(() => { setMobileOpen(false) }, [location.pathname, location.search])
 
@@ -41,7 +60,7 @@ export default function TopNav() {
   }
 
   return (
-    <header className="publication-nav sticky top-0 z-40 bg-dark-surface border-b border-dark-border">
+    <header ref={header} className="publication-nav sticky top-0 z-40 bg-dark-surface border-b border-dark-border">
       <div className="publication-nav-inner flex items-center justify-between h-14 px-4 md:px-6">
         {/* Logo */}
         <Link to="/" aria-label="Podcast and Video Tool home" className="publication-brand flex items-center gap-2 flex-shrink-0">

@@ -7,7 +7,8 @@ const paths = [...new Set(assets.map(([, path]) => path))]
 // Count the complete document, including embedded code, CSS and bootstrap.
 // Include the small shared connection-feedback state and read-recovery hooks.
 // Allow 0.5 KiB for cross-browser control sizing and responsive card rules.
-const budgetKiB = 192.5
+// Allow 0.5 KiB for shared disclosure dismissal and touch navigation behavior.
+const budgetKiB = 193
 const bytes = gzipSync(html).length + paths.reduce((sum, path) => sum + gzipSync(readFileSync(new URL('../dist' + path, import.meta.url))).length, 0)
 console.log(`Initial compressed document and external assets: ${(bytes / 1024).toFixed(1)} KiB (budget: ${budgetKiB} KiB)`)
 if (bytes > budgetKiB * 1024) throw new Error('Initial page assets exceed the loading budget. Keep rich formatting deferred.')
