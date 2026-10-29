@@ -1,0 +1,25 @@
+/* Controls are shared by authenticated pages, login and recovery. */
+:root { color-scheme:dark; }
+html[data-theme='light'] { color-scheme:light; }
+.appearance-controls { display:flex; align-items:center; gap:4px; flex-shrink:0; }
+.appearance-controls select,.appearance-controls button { min-height:36px; border:1px solid var(--ui-border); border-radius:6px; background:transparent; color:var(--ui-text); font:12px system-ui,sans-serif; }
+.appearance-controls select { width:108px; padding:0 6px; }
+.appearance-controls option { background:#1e293b; color:#e2e8f0; }
+html[data-theme='light'] .appearance-controls option { background:#fff; color:#253247; }
+.appearance-controls button { width:36px; cursor:pointer; font-size:20px; }
+.auth-appearance { display:flex; justify-content:flex-end; margin-bottom:24px; }
+.auth-page { padding-block:32px; }
+@media(max-width:767px) {
+ .appearance-controls button,.appearance-controls select { min-height:44px; }
+ .appearance-controls button { width:44px; }
+}
+
+.appearance-controls { position:relative; }
+.appearance-error { position:absolute; right:0; top:100%; width:240px; padding:8px; background:var(--ui-bg,#1e293b); color:var(--ui-text); border:1px solid var(--ui-border); z-index:50; }
+
+html[data-design='classic'] .publication-dashboard-content { display:contents; }
+/* Maintain contrast for account actions and status text in both light skins. */
+
+
+html[data-design='classic'][data-theme='dark'] .settings-page :is(.text-gray-600,[data-account-status] .text-gray-500) { color:#a4b0c3; }
+.settings-page .bg-pink-600 { background:#b71964; color:#fff; }

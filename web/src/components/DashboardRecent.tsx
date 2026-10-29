@@ -1,3 +1,4 @@
+import {useAppearance} from '../lib/theme'
 import {useEffect, useRef, useState} from 'react'
 import {Link} from 'react-router-dom'
 import {RefreshCw} from 'lucide-react'
@@ -24,6 +25,8 @@ export default function DashboardRecent({revision}: {revision:number}) {
 }
 
 function RecentFeed({kind,revision}: {kind:Kind;revision:number}) {
+  const {design} = useAppearance()
+  const featured = design === 'editorial' && kind === ''
   const key='library_page:dashboard_recent:v1:'+kind
   const [page,setPage]=useState<LibraryPage>(()=>getCache(key)||{items:[],next_cursor:null})
   const [loading,setLoading]=useState(true),[error,setError]=useState('')
@@ -57,7 +60,8 @@ function RecentFeed({kind,revision}: {kind:Kind;revision:number}) {
       <button className="reader-action reader-action-icon" aria-label="Refresh recent content" disabled={loading} onClick={()=>void load()}><RefreshCw size={16} className={loading?'animate-spin':''}/></button>
     </div>
     {error&&<LoadError message={error} onRetry={()=>void load(failedCursor.current)}/>}
-    <div className="dashboard-recent-notes" aria-busy={loading}>{page.items.map((item,index)=><NoteCard key={item.kind+':'+item.id} item={item} priority={index===0}/>)}</div>
+    {featured && page.items[0] && <NoteCard item={page.items[0]} featured priority />}
+    <div className="dashboard-recent-notes" aria-busy={loading}>{(featured ? page.items.slice(1) : page.items).map((item,index)=><NoteCard key={item.kind+':'+item.id} item={item} priority={index===0}/>)}</div>
     {!page.items.length&&!error&&!loading&&<p className="text-sm text-gray-400">No saved {kind==='article'?'articles':kind==='podcast'?'podcast summaries':kind==='video'?'video notes':'content'} yet.</p>}
     {page.next_cursor&&<div className="dashboard-recent-more"><button className="ui-button" disabled={loading} onClick={()=>void load(page.next_cursor!)}>{loading?'Loading…':'Load more'}</button></div>}
   </>

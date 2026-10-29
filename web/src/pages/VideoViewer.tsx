@@ -447,6 +447,7 @@ export default function VideoViewer() {
     <ReaderFrame
       kind={isOriginal ? task.platform==='web'?'Original article':'Original post' : task.source_metadata?.type==='audio'?'Audio':'Video'}
       title={title}
+      cover={viewMode === 'markdown' ? task.thumbnail : undefined}
       sections={
         viewMode === "markdown"
           ? toc.map((item) => ({

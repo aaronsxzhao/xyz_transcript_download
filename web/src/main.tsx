@@ -5,6 +5,8 @@ import App from './App'
 import { ToastProvider } from './components/Toast'
 import PageErrorBoundary from './components/PageErrorBoundary'
 import './index.css'
+import {loadAppearance, setAppearance} from './lib/theme'
+import './appearance.css'
 import { registerPublicCache } from './lib/publicCache'
 import {recoverPageImport} from './lib/chunkRecovery'
 
@@ -39,5 +41,7 @@ function mount() { ReactDOM.createRoot(document.getElementById('root')!).render(
 
 // Production styles arrive in the document. No stylesheet event can strand
 // navigation, page controllers or their data reads behind a permanent wait.
-mount()
+// Optional skins are loaded only when selected, before rendering that appearance.
+// A failed optional asset must not strand the application at startup.
+loadAppearance().catch(() => setAppearance('classic', 'dark', false)).then(mount)
 registerPublicCache()
