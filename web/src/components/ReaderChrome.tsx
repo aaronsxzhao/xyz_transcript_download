@@ -12,6 +12,8 @@ import {deferView} from './DeferredView';
 import {useDialog} from '../lib/reading';
 const RegenerateDialog=deferView(()=>import('./RegenerateDialog'));
 import ReaderControls from "./ReaderControls";
+import {useAppearance} from '../lib/theme';
+import CachedImage from './CachedImage';
 
 export type ReaderSection = { id: string; title: string; level?: number };
 const ReaderOverlay=createContext<((content:ReactNode)=>void)|null>(null);
@@ -162,6 +164,7 @@ export default function ReaderFrame({
   activeSection,
   onNavigate,
   children,
+  cover,
 }: {
   title: string;
   kind: "Podcast" | "Video" | "Audio" | "Original post" | "Original article";
@@ -172,7 +175,9 @@ export default function ReaderFrame({
   activeSection?: string;
   onNavigate: (id: string) => void;
   children: ReactNode;
+  cover?: string;
 }) {
+  const {design} = useAppearance();
   const navigate = useNavigate();
   const [visibleSection, setVisibleSection] = useState("");
   const ids = sections.map((section) => section.id).join("\n");
@@ -292,6 +297,7 @@ export default function ReaderFrame({
             activeSection={activeSection || visibleSection}
           />
         </div>
+        {design === 'editorial' && cover && <figure className="publication-reader-cover"><CachedImage src={cover} priority alt="" fit="cover" /></figure>}
         {children}
       </div>
     </div>

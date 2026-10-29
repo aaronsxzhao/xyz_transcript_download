@@ -1,0 +1,26 @@
+import {useState} from 'react'
+import {setAppearance, useAppearance, type Design} from '../lib/theme'
+
+/** Device-local appearance; independent of account and page form state. */
+export default function AppearanceControls() {
+  const {design, theme} = useAppearance()
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState('')
+  async function change(nextDesign: Design, nextTheme: 'dark' | 'light') {
+    setBusy(true); setError('')
+    try { await setAppearance(nextDesign, nextTheme) }
+    catch { setError('Appearance unavailable. Reload to retry.') }
+    finally { setBusy(false) }
+  }
+  return <div className="appearance-controls" role="group" aria-label="Appearance">
+    <select aria-label="Interface style" disabled={busy} value={design} onChange={e => void change(e.target.value as Design, theme)}>
+      <option value="classic">Classic</option>
+      <option value="editorial">A · Editorial</option>
+    </select>
+    <button type="button" disabled={busy} onClick={() => void change(design, theme === 'dark' ? 'light' : 'dark')}
+      aria-label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'} title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}>
+      <span aria-hidden="true">{theme === 'dark' ? '☀' : '◐'}</span>
+    </button>
+    {error && <span className="appearance-error" role="alert">{error}</span>}
+  </div>
+}

@@ -1,0 +1,290 @@
+[
+  {
+    "design": "classic",
+    "theme": "light",
+    "width": 1440,
+    "name": "settings",
+    "overflow": false,
+    "errors": []
+  },
+  {
+    "design": "classic",
+    "theme": "light",
+    "width": 1440,
+    "name": "settings-platform",
+    "overflow": false,
+    "errors": []
+  },
+  {
+    "design": "classic",
+    "theme": "light",
+    "width": 1440,
+    "name": "settings-tools",
+    "overflow": false,
+    "errors": []
+  },
+  {
+    "design": "classic",
+    "theme": "light",
+    "width": 1440,
+    "name": "login",
+    "overflow": false,
+    "errors": []
+  },
+  {
+    "design": "classic",
+    "theme": "light",
+    "width": 1440,
+    "name": "signup",
+    "overflow": false,
+    "errors": []
+  },
+  {
+    "design": "classic",
+    "theme": "light",
+    "width": 1440,
+    "name": "recovery",
+    "overflow": false,
+    "errors": []
+  },
+  {
+    "design": "classic",
+    "theme": "light",
+    "width": 390,
+    "name": "settings",
+    "overflow": false,
+    "errors": []
+  },
+  {
+    "design": "classic",
+    "theme": "light",
+    "width": 390,
+    "name": "settings-platform",
+    "overflow": false,
+    "errors": []
+  },
+  {
+    "design": "classic",
+    "theme": "light",
+    "width": 390,
+    "name": "settings-tools",
+    "overflow": false,
+    "errors": []
+  },
+  {
+    "design": "classic",
+    "theme": "light",
+    "width": 390,
+    "name": "login",
+    "overflow": false,
+    "errors": []
+  },
+  {
+    "design": "classic",
+    "theme": "light",
+    "width": 390,
+    "name": "signup",
+    "overflow": false,
+    "errors": []
+  },
+  {
+    "design": "classic",
+    "theme": "light",
+    "width": 390,
+    "name": "recovery",
+    "overflow": false,
+    "errors": []
+  },
+  {
+    "design": "classic",
+    "theme": "light",
+    "width": 320,
+    "name": "settings",
+    "overflow": false,
+    "errors": []
+  },
+  {
+    "design": "classic",
+    "theme": "light",
+    "width": 320,
+    "name": "settings-platform",
+    "overflow": false,
+    "errors": []
+  },
+  {
+    "design": "classic",
+    "theme": "light",
+    "width": 320,
+    "name": "settings-tools",
+    "overflow": false,
+    "errors": []
+  },
+  {
+    "design": "classic",
+    "theme": "light",
+    "width": 320,
+    "name": "login",
+    "overflow": false,
+    "errors": []
+  },
+  {
+    "design": "classic",
+    "theme": "light",
+    "width": 320,
+    "name": "signup",
+    "overflow": false,
+    "errors": []
+  },
+  {
+    "design": "classic",
+    "theme": "light",
+    "width": 320,
+    "name": "recovery",
+    "overflow": false,
+    "errors": []
+  },
+  {
+    "design": "editorial",
+    "theme": "light",
+    "width": 1440,
+    "name": "settings",
+    "overflow": false,
+    "errors": []
+  },
+  {
+    "design": "editorial",
+    "theme": "light",
+    "width": 1440,
+    "name": "settings-platform",
+    "overflow": false,
+    "errors": []
+  },
+  {
+    "design": "editorial",
+    "theme": "light",
+    "width": 1440,
+    "name": "settings-tools",
+    "overflow": false,
+    "errors": []
+  },
+  {
+    "design": "editorial",
+    "theme": "light",
+    "width": 1440,
+    "name": "login",
+    "overflow": false,
+    "errors": []
+  },
+  {
+    "design": "editorial",
+    "theme": "light",
+    "width": 1440,
+    "name": "signup",
+    "overflow": false,
+    "errors": []
+  },
+  {
+    "design": "editorial",
+    "theme": "light",
+    "width": 1440,
+    "name": "recovery",
+    "overflow": false,
+    "errors": []
+  },
+  {
+    "design": "editorial",
+    "theme": "light",
+    "width": 390,
+    "name": "settings",
+    "overflow": false,
+    "errors": []
+  },
+  {
+    "design": "editorial",
+    "theme": "light",
+    "width": 390,
+    "name": "settings-platform",
+    "overflow": false,
+    "errors": []
+  },
+  {
+    "design": "editorial",
+    "theme": "light",
+    "width": 390,
+    "name": "settings-tools",
+    "overflow": false,
+    "errors": []
+  },
+  {
+    "design": "editorial",
+    "theme": "light",
+    "width": 390,
+    "name": "login",
+    "overflow": false,
+    "errors": []
+  },
+  {
+    "design": "editorial",
+    "theme": "light",
+    "width": 390,
+    "name": "signup",
+    "overflow": false,
+    "errors": []
+  },
+  {
+    "design": "editorial",
+    "theme": "light",
+    "width": 390,
+    "name": "recovery",
+    "overflow": false,
+    "errors": []
+  },
+  {
+    "design": "editorial",
+    "theme": "light",
+    "width": 320,
+    "name": "settings",
+    "overflow": false,
+    "errors": []
+  },
+  {
+    "design": "editorial",
+    "theme": "light",
+    "width": 320,
+    "name": "settings-platform",
+    "overflow": false,
+    "errors": []
+  },
+  {
+    "design": "editorial",
+    "theme": "light",
+    "width": 320,
+    "name": "settings-tools",
+    "overflow": false,
+    "errors": []
+  },
+  {
+    "design": "editorial",
+    "theme": "light",
+    "width": 320,
+    "name": "login",
+    "overflow": false,
+    "errors": []
+  },
+  {
+    "design": "editorial",
+    "theme": "light",
+    "width": 320,
+    "name": "signup",
+    "overflow": false,
+    "errors": []
+  },
+  {
+    "design": "editorial",
+    "theme": "light",
+    "width": 320,
+    "name": "recovery",
+    "overflow": false,
+    "errors": []
+  }
+]

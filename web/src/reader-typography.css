@@ -1,0 +1,8 @@
+/* Preserve the existing rich-text typography; fetch it with reader routes. */
+@import "tailwindcss/utilities.css" layer(utilities) source(none);
+@plugin "@tailwindcss/typography";
+@source "./components/PlainNote.tsx";
+@source "./components/SummaryText.tsx";
+@source "./components/ArticleNote.tsx";
+@source "./components/video/MarkdownPreview.tsx";
+@config "../tailwind.config.js";

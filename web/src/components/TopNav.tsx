@@ -1,3 +1,4 @@
+import AppearanceControls from './AppearanceControls'
 import { Link, useLocation } from 'react-router-dom'
 import {
   LayoutDashboard,
@@ -39,10 +40,10 @@ export default function TopNav() {
   }
 
   return (
-    <header className="sticky top-0 z-40 bg-dark-surface border-b border-dark-border">
-      <div className="flex items-center justify-between h-14 px-4 md:px-6">
+    <header className="publication-nav sticky top-0 z-40 bg-dark-surface border-b border-dark-border">
+      <div className="publication-nav-inner flex items-center justify-between h-14 px-4 md:px-6">
         {/* Logo */}
-        <Link to="/" aria-label="Podcast and Video Tool home" className="flex items-center gap-2 flex-shrink-0">
+        <Link to="/" aria-label="Podcast and Video Tool home" className="publication-brand flex items-center gap-2 flex-shrink-0">
           <Radio className="w-5 h-5 text-indigo-500" />
           <span className="font-semibold text-sm text-white hidden lg:inline">Podcast & Video Tool</span>
         </Link>
@@ -79,6 +80,7 @@ export default function TopNav() {
 
         {/* Right side: user + mobile toggle */}
         <div className="flex items-center gap-2">
+          <AppearanceControls />
           {authEnabled && user && (
             <div className="hidden md:flex items-center gap-2">
               <div className="hidden xl:flex items-center gap-1.5 text-xs text-gray-400">

@@ -1,9 +1,12 @@
 <!doctype html>
-<html lang="zh" class="dark">
+<html lang="zh" class="dark" data-design="classic" data-theme="dark">
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <script>
+      (() => { const root = document.documentElement; let design = 'classic', theme = 'dark'; try { if(localStorage.getItem('xyz:design') === 'editorial') design = 'editorial'; if(localStorage.getItem('xyz:color-theme') === 'light') theme = 'light'; } catch {} root.dataset.design = design; root.dataset.theme = theme; root.classList.toggle('dark', theme === 'dark'); })();
+    </script>
     <style>
       html,body{margin:0;background:#0f172a;color:#e2e8f0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
       #startup-shell header{height:48px;display:flex;align-items:center;gap:24px;padding:0 20px;background:#1e293b;border-bottom:1px solid #334155}
@@ -16,6 +19,10 @@
       #startup-shell button{padding:10px 16px;background:#4f46e5;color:white;border:0;border-radius:8px;cursor:pointer}
       #startup-shell a:focus-visible,#startup-shell button:focus-visible{outline:2px solid #c7d2fe;outline-offset:2px}
       @media(max-width:700px){#startup-shell header{gap:8px;padding:0 8px}#startup-shell strong{display:none}#startup-shell main{padding:16px}#startup-shell nav{gap:0}}
+      html[data-theme=light],html[data-theme=light] body{background:#f5f7fb;color:#253247}
+      html[data-theme=light] #startup-shell :is(header,.placeholder){background:#fff;border-color:#dbe2ec}
+      html[data-theme=light] #startup-shell :is(a:not([aria-current]),p){color:#526176}
+      html[data-design=editorial][data-theme=light],html[data-design=editorial][data-theme=light] body{background:#fcfbf8}
     </style>
     <title>Podcast Transcript Tool</title>
   </head>

@@ -1,3 +1,4 @@
+import {useAppearance} from '../lib/theme'
 import {detectContentPlatform as detectVideoPlatform} from '../lib/contentLinks'
 import { dismissedTasks } from "../lib/taskPreferences";
 const taskAction = async (
@@ -88,6 +89,7 @@ const VIDEO_QUEUE_STATUSES = new Set([
 
 
 export default function Dashboard() {
+  const {design} = useAppearance()
   const {
     items: reading,
     status: readingStatus,
@@ -542,10 +544,10 @@ export default function Dashboard() {
       <div className="dashboard-header flex items-start justify-between">
         <div>
           <h1 className="page-title text-2xl font-bold text-white mb-2">
-            Dashboard
+            {design === 'editorial' ? 'Your reading, collected.' : 'Dashboard'}
           </h1>
           <p className="text-gray-400">
-            Continue reading and follow your processing tasks
+            {design === 'editorial' ? 'Podcasts, videos and articles. A little more space to read and think.' : 'Continue reading and follow your processing tasks'}
           </p>
         </div>
         <div className="flex flex-wrap items-center justify-end gap-2">
@@ -682,6 +684,7 @@ export default function Dashboard() {
         </div>
       )}
 
+      <div className="publication-dashboard-content">
       <div
         className={`dashboard-workspace ${activeQueue.length ? "has-processing" : ""}`}
       >
@@ -800,6 +803,7 @@ export default function Dashboard() {
         )}
       </div>
       <DashboardRecent revision={recentRevision}/>
+      </div>
       {overlay && (
         <DashboardDialog
           kind={overlay}

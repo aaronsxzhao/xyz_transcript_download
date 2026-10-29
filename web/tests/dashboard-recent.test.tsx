@@ -15,9 +15,10 @@ vi.mock('../src/components/Toast',()=>({useToast:()=>({addToast:toast})}))
 let node:HTMLDivElement,root:ReturnType<typeof createRoot>
 const item=(id:string,kind:'podcast'|'video'='video',article=false):LibraryItem=>({id,kind,content_type:article?'article':kind==='podcast'?'audio':'video',title:'Saved '+id,source:'Source',date:'2026-10-27T03:00:00Z',status:'completed'})
 const button=(name:string)=>[...node.querySelectorAll('button')].find(b=>b.textContent?.trim()===name)!
-const titles=()=>[...node.querySelectorAll('.dashboard-recent-notes h3')].map(el=>el.textContent)
+const titles=()=>[...node.querySelectorAll('.publication-feature h2, .dashboard-recent-notes h3')].map(el=>el.textContent)
 async function mount(dashboard=false){await act(async()=>root.render(<MemoryRouter>{dashboard?<Dashboard/>:<DashboardRecent revision={0}/>}</MemoryRouter>))}
 beforeEach(()=>{
+ document.documentElement.dataset.design='classic';document.documentElement.dataset.theme='dark'
  vi.resetAllMocks();localStorage.clear();sessionStorage.clear();clearCache();useStore.getState().reset()
  localStorage.setItem('xyz_user',JSON.stringify({id:'owner',authenticated:true}))
  vi.mocked(fetchLibrary).mockResolvedValue({items:[],next_cursor:null})
@@ -30,6 +31,8 @@ it('shows a unified twelve-item page and pages without losing or duplicating rec
  vi.mocked(fetchLibrary).mockResolvedValueOnce({items:rows,next_cursor:'next'})
  await mount()
  expect(titles()).toEqual(rows.map(r=>r.title))
+ expect(node.querySelectorAll('.publication-feature')).toHaveLength(0)
+ expect(node.querySelectorAll('.dashboard-recent-notes h3')).toHaveLength(12)
  expect(new URLSearchParams(vi.mocked(fetchLibrary).mock.calls[0][0]).get('limit')).toBe('12')
  vi.mocked(fetchLibrary).mockResolvedValueOnce({items:[rows[11],item('0'),item('older'),item('oldest')],next_cursor:null})
  await act(async()=>button('Load more').click())
@@ -133,4 +136,17 @@ it.each(['/api/video-notes/tasks/removed','/api/episodes/removed'])('invalidates
  expect(titles()).toEqual([])
  await act(async()=>finish({items:[],next_cursor:null}))
  expect(node.textContent).toContain('No saved content yet')
+})
+
+it('switches the saved feed to the editorial feature without losing records or changing the filter',async()=>{
+ const rows=[item('podcast','podcast'),item('video')]
+ vi.mocked(fetchLibrary).mockResolvedValue({items:rows,next_cursor:null})
+ await mount()
+ await act(async()=>{const {setAppearance}=await import('../src/lib/theme');await setAppearance('editorial','light')})
+ expect(titles()).toEqual(rows.map(r=>r.title))
+ expect(node.querySelectorAll('.publication-feature')).toHaveLength(1)
+ expect(node.querySelector('.publication-feature')?.getAttribute('href')).toBe('/viewer/podcast')
+ await act(async()=>{const {setAppearance}=await import('../src/lib/theme');await setAppearance('classic','dark')})
+ expect(node.querySelectorAll('.publication-feature')).toHaveLength(0)
+ expect(titles()).toEqual(rows.map(r=>r.title))
 })
