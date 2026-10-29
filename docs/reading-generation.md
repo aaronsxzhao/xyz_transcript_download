@@ -87,6 +87,11 @@ later answers and the opening. Each item must be returned exactly once as
 supporting substrings from existing paragraph IDs. Topic similarity alone is
 insufficient; raw source fallback is not certified as verified prose. This is
 still a model judgment, not proof that the inventory found every important fact.
+Inventory wording is not a word-for-word output requirement: incidental places,
+dates, pets, metaphors and repeated examples do not create gaps unless they change
+an argument, evidence or condition. Experimental setup/results, mechanisms,
+meaningful numerical scope, attribution, uncertainty and objections still must
+survive. Nonadjacent supporting clauses require separate exact quotations.
 
 For missing/partial items, one local repair attempt proposes only absent meaning.
 It does not rewrite existing paragraphs. Before adding it, a separate matching

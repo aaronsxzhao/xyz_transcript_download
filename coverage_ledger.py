@@ -7,7 +7,7 @@ from reading_language import source_language_lock
 from source_coverage import SOURCE_FIDELITY
 from summary_errors import is_cancellation
 
-VERSION = 'coverage-ledger-v7'
+VERSION = 'coverage-ledger-v8'
 SOURCE_LIMIT = 12000
 ITEM_LIMIT = 8
 KINDS = {'claim', 'experiment', 'counterexample', 'condition', 'disagreement', 'procedure', 'example'}
@@ -41,7 +41,17 @@ Preserve attribution and uncertainty. A later paragraph can supply the answer.
 Equivalent phrasing, compressed incidental detail, or a repeated slogan is not
 a gap. If the meaning is already conveyed, mark covered using the closest
 concrete draft support; do not demand the source's exact rhetoric.
+Inventory statements can contain incidental detail: assess their substantive
+proposition, not every subordinate clause as a separate requirement. A place
+name, calendar date, pet, metaphor, repeated example, or speaker's rhetorical
+wording is not a gap unless it changes the argument, evidence or condition.
+Do not weaken this rule's converse: experimental manipulation AND outcome,
+mechanisms, meaningful numerical scope, safety/causal conditions, attribution,
+uncertainty, and objections must remain. Explain these through concrete support.
 Covered needs concrete supporting quotations from the draft, not source text.
+Each quote must be one contiguous substring. Use separate support entries
+(even for the same paragraph ID) for nonadjacent clauses; never stitch them
+together, insert ellipses, or add sentence punctuation to a fragment.
 Mark partial when only part of the meaning survives; missing when absent;
 contradicted when the draft says its opposite. Do not count raw-source fallback
 as verified prose. For proposed repairs, independently check that ALL new claims
