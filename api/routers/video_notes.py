@@ -857,39 +857,24 @@ def process_video_note_sync(
         _update_task_status(db, task_id, "summarizing", 72, message, user_id)
         note_summarizer = get_note_summarizer(**llm_settings, generation_mode=generation_mode)
 
-        last_summarize_progress = [72]
+        from reading_progress import SummaryProgress
         import time as _time
+        def check_summary_cancelled():
+            if is_video_task_cancelled(task_id):
+                raise VideoCancelledException("Cancelled during summarization")
+        summary_progress = SummaryProgress(
+            lambda value, message: _update_task_status(db, task_id, "summarizing", value, message, user_id),
+            72, 94, check_summary_cancelled)
         _last_stream_broadcast = [0.0]
         _stream_interval = 2.0 if USE_SUPABASE else 0.6
 
         def summarize_progress(chars, partial_text="", chunk_num=0, total_chunks=0):
-            if is_video_task_cancelled(task_id):
-                raise VideoCancelledException("Cancelled during summarization")
-            progress_ratio = min(chars / 8000, 1.0)
-            job_progress = 72 + (progress_ratio * 20)
-
-            if total_chunks > 1 and chunk_num > 0:
-                chunk_progress_base = (chunk_num - 1) / total_chunks
-                chunk_progress_current = 1 / total_chunks * min(chars / 3000, 1.0) if chars > 0 else 0
-                job_progress = 72 + (chunk_progress_base + chunk_progress_current) * 20
-
+            check_summary_cancelled()
             now = _time.monotonic()
-            should_broadcast = (
-                job_progress - last_summarize_progress[0] >= 1
-                or (partial_text and now - _last_stream_broadcast[0] >= _stream_interval)
-            )
-            if should_broadcast:
-                if is_video_task_cancelled(task_id):
-                    raise VideoCancelledException("Cancelled during summarization")
-                last_summarize_progress[0] = job_progress
+            if partial_text and not preserve_existing_note and now - _last_stream_broadcast[0] >= _stream_interval:
                 _last_stream_broadcast[0] = now
-                if total_chunks > 1 and chunk_num > 0:
-                    msg = f"Writing notes — section {chunk_num}/{total_chunks} ({chars:,} chars)"
-                else:
-                    msg = f"Writing notes ({chars:,} chars)..."
-                partial_update = {"markdown": partial_text} if partial_text and not preserve_existing_note else {}
-                _update_task_status(db, task_id, "summarizing", job_progress, msg, user_id,
-                                    **partial_update)
+                _update_task_status(db, task_id, "summarizing", summary_progress.value,
+                                    summary_progress.message, user_id, markdown=partial_text)
 
         markdown = note_summarizer.generate_note(
             title=title,
@@ -900,6 +885,7 @@ def process_video_note_sync(
             tags=tags,
             extras=extras,
             progress_callback=summarize_progress,
+            stage_callback=summary_progress.stage,
             duration=duration,
         )
         if is_video_task_cancelled(task_id):

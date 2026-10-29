@@ -107,3 +107,22 @@ it('identifies saved YouTube login failures separately from an active podcast an
  expect(useStore.getState().videoTasks[0].status).toBe('pending')
  expect(useStore.getState().jobs[0].status).toBe('transcribing')
 })
+
+it('shows the real phase and count without inventing progress while waiting',async()=>{
+ await act(async()=>root.render(<TaskProgress status="summarizing" progress={87} message="Checking coverage · 12/40 items checked"/>))
+ const bar=node.querySelector('[role="progressbar"]')!
+ expect(bar.getAttribute('aria-valuetext')).toContain('12/40 items checked')
+ expect(node.textContent).toContain('Checking coverage')
+ await act(async()=>root.render(<TaskProgress status="summarizing" progress={86} message="Verifying additions · 12/40 items checked"/>))
+ expect(bar.getAttribute('aria-valuenow')).toBe('87')
+ expect(node.textContent).toContain('Verifying additions')
+})
+
+it('resets progress for a new attempt and never renders active 100 percent',async()=>{
+ await act(async()=>root.render(<TaskProgress status="summarizing" progress={96} startedAt={100}/>))
+ await act(async()=>root.render(<TaskProgress status="pending" progress={0} startedAt={200}/>))
+ await act(async()=>root.render(<TaskProgress status="downloading" progress={10} startedAt={200}/>))
+ expect(node.querySelector('[role="progressbar"]')?.getAttribute('aria-valuenow')).toBe('10')
+ await act(async()=>root.render(<TaskProgress status="saving" progress={100} startedAt={200}/>))
+ expect(node.querySelector('[role="progressbar"]')?.getAttribute('aria-valuenow')).toBe('99')
+})

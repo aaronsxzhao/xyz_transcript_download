@@ -805,27 +805,22 @@ def process_episode_sync(job_id: str, episode_url: str, transcribe_only: bool = 
                          for s in existing_transcript.segments],
             )
             
-            # Progress callback with cancellation for existing transcript path
+            from reading_progress import SummaryProgress
             last_progress = [70]
             def existing_summary_progress(*args):
                 if is_job_cancelled(job_id):
                     raise CancelledException("Job cancelled during summarization")
-                if len(args) == 3:
-                    chars, chunk_num, total_chunks = args
-                    job_progress = 70 + (chunk_num / total_chunks) * 25
-                else:
-                    chars = args[0]
-                    progress_ratio = min(chars / 5000, 1.0)
-                    job_progress = 70 + (progress_ratio * 20)
-                if job_progress - last_progress[0] >= 1:
-                    last_progress[0] = job_progress
-                    update_job_status(job_id, "summarizing", job_progress, f"Generating summary ({int(chars)} chars)...")
-            
+            def publish_existing_summary_progress(value, message):
+                last_progress[0] = value
+                update_job_status(job_id, "summarizing", value, message)
+            summary_stage = SummaryProgress(publish_existing_summary_progress, 70, 95, existing_summary_progress)
+
             try:
                 summary = summarizer.summarize(
                     transcript, 
                     episode_title=episode.title,
                     progress_callback=existing_summary_progress,
+                    stage_callback=summary_stage.stage,
                     existing_topics=existing_summary.topics if existing_summary else None,
                 )
             except CancelledException:
@@ -943,37 +938,22 @@ def process_episode_sync(job_id: str, episode_url: str, transcribe_only: bool = 
         update_job_status(job_id, "summarizing", 75, "Generating summary...")
         summarizer = get_summarizer(**llm_settings, generation_mode=preferences.get("summary_generation_mode", "single"))
         
-        # Progress callback for summarization with cancellation check
+        from reading_progress import SummaryProgress
         last_summary_progress = [75]
         def summary_progress_callback(*args):
-            """Progress callback for summarization - supports both single and chunked mode."""
-            # Check for cancellation on every progress update
             if is_job_cancelled(job_id):
                 raise CancelledException("Job cancelled during summarization")
-            
-            # args can be: (chars) for single, or (chars, chunk_num, total_chunks) for chunked
-            if len(args) == 3:
-                chars, chunk_num, total_chunks = args
-                # Map chunk progress to 75-95% range
-                chunk_progress = (chunk_num / total_chunks) * 20
-                job_progress = 75 + chunk_progress
-            else:
-                chars = args[0]
-                # Estimate progress based on chars (typical summary is ~5000 chars)
-                estimated_chars = 5000
-                progress_ratio = min(chars / estimated_chars, 1.0)
-                job_progress = 75 + (progress_ratio * 15)  # 75-90%
-            
-            # Update on every 1% change
-            if job_progress - last_summary_progress[0] >= 1:
-                last_summary_progress[0] = job_progress
-                update_job_status(job_id, "summarizing", job_progress, f"Generating summary ({int(chars)} chars)...")
-        
+        def publish_summary_progress(value, message):
+            last_summary_progress[0] = value
+            update_job_status(job_id, "summarizing", value, message)
+        summary_stage = SummaryProgress(publish_summary_progress, 75, 95, summary_progress_callback)
+
         try:
             summary = summarizer.summarize(
                 transcript, 
                 episode_title=episode.title,
                 progress_callback=summary_progress_callback,
+                stage_callback=summary_stage.stage,
                 existing_topics=existing_summary.topics if existing_summary else None,
             )
         except CancelledException:
@@ -990,7 +970,7 @@ def process_episode_sync(job_id: str, episode_url: str, transcribe_only: bool = 
             update_job_status(job_id, "failed", 0, "Summary generation failed")
             return
         
-        update_job_status(job_id, "summarizing", 95, "Saving summary...")
+        update_job_status(job_id, "saving", 95, "Saving summary...")
         
         # Transcript already saved after transcription
         # Save summary

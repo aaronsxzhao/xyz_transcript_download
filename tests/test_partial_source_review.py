@@ -146,7 +146,10 @@ def test_one_missing_quote_does_not_discard_other_podcast_evidence_or_supplement
     assert result.key_points[1].original_quote=='Actual source.'
     assert result.key_points[1].timestamp=='00:01:00'
     assert result.key_points[2].summary.endswith('A preserved source clarification.')
-    assert 'coverage review did not complete' in result.overview
+    # The receipt covers the full source via point:2. A missing quotation in
+    # another point is not an incomplete source review (the display contract
+    # is also asserted in test_summary_display_regressions).
+    assert 'coverage review did not complete' not in result.overview
 
 
 def test_video_keeps_supplements_after_missing_coverage_and_never_calls_it_missing_content():
