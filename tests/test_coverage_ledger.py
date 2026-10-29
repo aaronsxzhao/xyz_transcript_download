@@ -62,8 +62,46 @@ def test_repair_failing_independent_grounding_is_never_published():
     case=CASES[0];lines,sections,_=setup_case(case);before=copy.deepcopy(sections)
     with patch('coverage_ledger.request',side_effect=scripted(case,[],bad_repair=True)):
         report=audit(SimpleNamespace(),lines,sections)
-    assert sections==before and report['repairs_rejected']==1
+    assert sections==before and report['repairs_rejected']==2
+    assert report['recovery_rounds']==1
     assert report['status']=='unverified' and report['items'][0]['status']=='partial'
+
+
+def test_final_recovery_repairs_only_remaining_items_without_rebuilding_inventory():
+    case=CASES[0];lines,sections,ranges=setup_case(case);calls=[];repairs=[]
+    base=scripted(case,calls)
+    def respond(engine,system,payload,validator):
+        data=base(engine,system,payload,validator)
+        if payload['phase']=='repair':
+            repairs.append(payload)
+            if len(repairs)==1:
+                data['sections'][0]['paragraphs'][0]['text']='A still incomplete explanation.'
+        return data
+    original=copy.deepcopy(sections)
+    with patch('coverage_ledger.request',side_effect=respond):
+        report=audit(SimpleNamespace(),lines,sections)
+    assert report['status']=='model_reviewed' and report['unresolved_items']==0
+    assert report['initial_unresolved_items']==1 and report['recovery_rounds']==1
+    assert report['repairs_accepted']==1 and report['repairs_rejected']==1
+    assert sections[0]==original[0]
+    assert sum(p['phase']=='inventory' for p in calls)==1
+    assert len(repairs)==2 and repairs[0]['items']==repairs[1]['items']
+    assert 'incomplete explanation' not in json.dumps(sections)
+
+
+def test_transient_matching_failure_can_recover_without_hiding_failure_history():
+    case=CASES[0];lines,sections,_=setup_case(case);calls=[];failed=[]
+    base=scripted(case,calls)
+    def respond(engine,system,payload,validator):
+        if payload['phase']=='match' and not failed:
+            failed.append(True)
+            raise TimeoutError('Synthetic one-time failure')
+        return base(engine,system,payload,validator)
+    with patch('coverage_ledger.request',side_effect=respond):
+        report=audit(SimpleNamespace(),lines,sections)
+    assert report['status']=='model_reviewed' and report['failed_batches']==0
+    assert report['initial_failed_batches']==1 and report['recovery_rounds']==1
+    assert sum(p['phase']=='inventory' for p in calls)==1
 
 
 @pytest.mark.parametrize('failure',[TimeoutError(),ProcessingCancelledError()])

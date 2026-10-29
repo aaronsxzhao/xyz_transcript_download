@@ -96,7 +96,14 @@ a valid local repair. Unchecked or failed candidates are discarded; support
 depending on a rejected paragraph cannot certify a surviving half-repair.
 Previously covered items may not regress. The original prose is retained. A contradiction remains explicit;
 appending its opposite is not treated as a repair. Later batches see accepted
-repairs, so they can recognize already restored meaning. There is no repair loop.
+repairs, so they can recognize already restored meaning. After this pass, only
+remaining partial, missing or unverified items receive one bounded recovery
+pass against the final draft. This reuses the source inventory and retains item
+IDs; it never regenerates the whole note. A later accepted addition may already
+resolve an earlier item. Contradictions are not repaired by appending opposites.
+The same independent grounding, novelty and acceptance rules apply in recovery;
+there is no unbounded repair loop. Initial unresolved/failure counts and the
+recovery-round count remain in diagnostics even when recovery succeeds.
 The final renderer orders additions by their real source evidence and applies
 the existing media/time gates.
 

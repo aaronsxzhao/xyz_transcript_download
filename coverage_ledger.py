@@ -7,7 +7,7 @@ from reading_language import source_language_lock
 from source_coverage import SOURCE_FIDELITY
 from summary_errors import is_cancellation
 
-VERSION = 'coverage-ledger-v6'
+VERSION = 'coverage-ledger-v7'
 SOURCE_LIMIT = 12000
 ITEM_LIMIT = 8
 KINDS = {'claim', 'experiment', 'counterexample', 'condition', 'disagreement', 'procedure', 'example'}
@@ -142,6 +142,32 @@ def matching_response(data, items, draft):
 
 
 def audit(engine, lines, sections, overview='', progress=None, stage_callback=None):
+    """Run one bounded recovery of unresolved items against the final draft."""
+    report, inventory = _audit(engine, lines, sections, overview, progress, stage_callback)
+    report['recovery_rounds'] = 0
+    pending = {row['id'] for row in report['items'] if row['status'] not in {'covered', 'contradicted'}}
+    if pending and not report['terminal_provider_failure']:
+        report['recovery_rounds'] = 1
+        report['initial_unresolved_items'] = report['unresolved_items']
+        report['initial_failed_batches'] = report['failed_batches']
+        def recovery_stage(event):
+            if stage_callback:
+                stage_callback({**event, 'message':event['message']+' · remaining items'})
+        recovered, _ = _audit(engine, lines, sections, overview, progress, recovery_stage,
+                              inventory=[item for item in inventory if item['id'] in pending])
+        receipts = {row['id']:row for row in recovered['items']}
+        report['items'] = [receipts.get(row['id'],row) for row in report['items']]
+        for key in ('requests', 'repairs_accepted', 'repairs_rejected', 'validation_retries'):
+            report[key] += recovered[key]
+        report['failed_batches'] = report['inventory_failed_batches'] + recovered['failed_batches']
+        report['terminal_provider_failure'] = recovered['terminal_provider_failure']
+        report['unresolved_items'] = sum(row['status']!='covered' for row in report['items'])
+        if not report['failed_batches'] and not report['unresolved_items'] and not report['ignored_boundary_items']:
+            report['status'] = 'model_reviewed'
+    return report
+
+
+def _audit(engine, lines, sections, overview='', progress=None, stage_callback=None, *, inventory=None):
     """Mutate only by appending independently accepted local repairs.
 
     Inventories see no draft. Matching sees the whole evolving draft. A failed
@@ -152,8 +178,10 @@ def audit(engine, lines, sections, overview='', progress=None, stage_callback=No
     from reading_progress import stage
     report={'version':VERSION, 'status':'unverified', 'semantic_proof':False,
             'inventory_batches':0, 'failed_batches':0, 'items':[], 'repairs_accepted':0,
-            'repairs_rejected':0, 'requests':0, 'ignored_boundary_items':0, 'validation_retries':0}
-    inventory=[]
+            'repairs_rejected':0, 'requests':0, 'ignored_boundary_items':0, 'validation_retries':0,
+            'inventory_failed_batches':0, 'terminal_provider_failure':False}
+    supplied_inventory = inventory is not None
+    inventory = list(inventory) if supplied_inventory else []
     language=source_language_lock(''.join(line.text for line in lines))
     def call(system,payload,validator):
         from summary_errors import SummaryOutputError
@@ -176,8 +204,10 @@ def audit(engine, lines, sections, overview='', progress=None, stage_callback=No
     def fail(error):
         if is_cancellation(error):raise error
         report['failed_batches']+=1
-        return terminal_provider_failure(error)
-    parts=list(batches(lines,SOURCE_LIMIT))
+        terminal = terminal_provider_failure(error)
+        report['terminal_provider_failure'] |= terminal
+        return terminal
+    parts=[] if supplied_inventory else list(batches(lines,SOURCE_LIMIT))
     offset=0
     for number,part in enumerate(parts):
         stage(stage_callback,'inventory',number,len(parts))
@@ -194,8 +224,10 @@ def audit(engine, lines, sections, overview='', progress=None, stage_callback=No
         except Exception as error:
             if fail(error):
                 report['failed_batches']+=len(parts)-number-1
-                return report
-    stage(stage_callback,'inventory',len(parts),len(parts))
+                report['inventory_failed_batches']=report['failed_batches']
+                return report, inventory
+    report['inventory_failed_batches']=report['failed_batches']
+    if not supplied_inventory:stage(stage_callback,'inventory',len(parts),len(parts))
     index={line.id:i for i,line in enumerate(lines)}
     for start in range(0,len(inventory),ITEM_LIMIT):
         stage(stage_callback,'coverage',start,len(inventory))
@@ -298,4 +330,4 @@ def audit(engine, lines, sections, overview='', progress=None, stage_callback=No
     report['unresolved_items']=sum(item['status']!='covered' for item in report['items'])
     if not report['failed_batches'] and not report['unresolved_items'] and not report['ignored_boundary_items']:
         report['status']='model_reviewed'
-    return report
+    return report, inventory
