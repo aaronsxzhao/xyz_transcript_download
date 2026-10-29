@@ -11,6 +11,7 @@ import threading
 from reading_budget import PLAN, units, visible_prose
 from reading_language import source_language_lock
 from summary_errors import is_cancellation
+from note_presentation import deduplicate_adjacent_headings
 
 MAX_INPUT_CHARS = 160000
 
@@ -108,6 +109,22 @@ def edit_whole_note(items, call, checkpoint=None, *, preserve_order=False,
     section_size = 400 if language == 'zh' else 230
     count = min(len(rows),max(1,ceil(min(target,source_units)/section_size)))
     grouped = _source_groups(rows,count,language)
+    # A screenshot belongs to its original note, not to the end of an arbitrary
+    # merged chapter. Keep media-bearing notes as independent editing units.
+    separated = []
+    for group in grouped:
+        pending = []
+        for row in group:
+            if _separate_media(row['text'])[1]:
+                if pending:
+                    separated.append(pending)
+                    pending = []
+                separated.append([row])
+            else:
+                pending.append(row)
+        if pending:
+            separated.append(pending)
+    grouped = separated
     weights = [sum(max(1,units(visible_prose(row['text']),language)) for row in group) for group in grouped]
     total = sum(weights)
     boundaries = [round(target*sum(weights[:i])/total) for i in range(len(weights)+1)]
@@ -244,6 +261,12 @@ Use content-specific topic headings, never schema labels such as "chapters".
                 # recreate it or discard the entire otherwise verified edit.
                 text += '\n\n' + block
             media = [marker for row in lookup[key] for marker in _separate_media(row['text'])[1]]
+            if media:
+                # Only trailing media can be reattached without changing its
+                # relation to surrounding prose. Retain interleaved originals.
+                tail = source[source.find(media[0]):]
+                if _separate_media(tail)[0].strip():
+                    raise ValueError('source_media_position')
             # Several source notes can reference an earlier moment within the
             # same discussion. Keep their exact anchors/assets, in time order.
             if preserve_order:media.sort(key=lambda marker:media_times(marker)[0])
@@ -336,7 +359,7 @@ Do not add prose unrelated to a repair. Do not restate the input in full.
             if evidence not in ids:
                 evidence = next((row['id'] for row in group if row.get('evidence')),ids[0])
             result.append({'topic':value['topic'].lstrip('# ').strip(),
-                'text':'#### '+value['heading'].lstrip('# ').strip()+'\n\n'+value['text'].strip(),
+                'text':deduplicate_adjacent_headings('#### '+value['heading'].lstrip('# ').strip()+'\n\n'+value['text'].strip()),
                 'ids':ids,'evidence_id':evidence})
             stats['composed_sections']+=1
         return result,stats

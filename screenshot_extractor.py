@@ -319,6 +319,13 @@ def extract_screenshot(
     filename = f"{task_id}_{_format_display_time(timestamp).replace(':', '-')}.jpg"
     output_path = SCREENSHOTS_DIR / filename
 
+    # Never label the last frame of a truncated download as a later timestamp.
+    if duration is None:
+        duration = get_video_duration(str(video_path))
+    if timestamp < 0 or (duration > 0 and timestamp > duration):
+        logger.warning("Screenshot timestamp is outside the available video")
+        return None
+
     if output_path.exists():
         if USE_SUPABASE_STORAGE and not _upload_to_supabase(output_path, _SUPABASE_BUCKET, filename):
             return None

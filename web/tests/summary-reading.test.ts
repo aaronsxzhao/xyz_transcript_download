@@ -51,3 +51,15 @@ it('keeps multiline takeaways inside their own list item in Markdown export',asy
  expect(div.querySelectorAll('ul>li')).toHaveLength(2)
  expect(div.querySelector('li')?.textContent).toContain('A necessary condition.')
 })
+
+it('counts displayed arguments and removes only adjacent repeated headings in reader and export',async()=>{
+ const {normalizeSummaryMarkdown,summaryPointCount}=await import('../src/lib/summaryReading')
+ const body='#### 安全边际\n\n#### 安全边际\n\nFirst argument.\n\n#### 定价\n\nSecond argument.'
+ expect(normalizeSummaryMarkdown(body).match(/#### 安全边际/g)).toHaveLength(1)
+ expect(summaryPointCount([point('Topic',body)])).toBe(2)
+ expect(summaryPointCount([point('Topic','#### Main\n\nBody\n\n##### Nested\n\nDetail')])).toBe(1)
+ const protectedText='```md\n#### A\n#### A\n```\n\n> #### A\n> #### A\n\n#### A\n\nBody\n\n#### A\n\nOther body'
+ expect(normalizeSummaryMarkdown(protectedText)).toBe(protectedText)
+ const markdown=summaryToMarkdown({episode_id:'e',title:'Title',overview:'Overview',topics:['Topic'],key_points:[point('Topic',body)],takeaways:[]})
+ expect(markdown.match(/#### 安全边际/g)).toHaveLength(1)
+})

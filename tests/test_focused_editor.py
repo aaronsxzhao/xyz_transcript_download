@@ -82,7 +82,8 @@ def test_media_and_order_are_owned_by_application(plan):
     call=Mock(side_effect=provider)
     result=edit_whole_note(source,call,preserve_order=True)
     from note_presentation import media_times
-    assert media_times(result[0]['text'])==[60,60,120]
+    assert [media_times(row['text']) for row in result]==[[60,60],[120]]
+    assert [row['ids'] for row in result]==[['N1'],['N2']]
     for args in call.call_args_list:
         assert '/data/screenshots/' not in args.args[1] and '*Content-' not in args.args[1]
 
@@ -93,7 +94,7 @@ def test_repeated_earlier_anchor_stays_with_group_in_time_order(plan):
     source[1]['text']+='\n[00:00]'
     result=edit_whole_note(source,provider,preserve_order=True)
     from note_presentation import media_times
-    assert media_times(result[0]['text'])==[0,0,161]
+    assert [media_times(row['text']) for row in result]==[[0,161],[0]]
 
 
 def test_final_presentation_does_not_split_editor_owned_chapters():
@@ -302,3 +303,10 @@ def test_audit_additions_are_ordered_before_grouping(plan):
     with patch.object(engine,'_editorial_json',side_effect=call):
         result=engine._edit_reading(original,'Title',False)
     assert media_times(result)==[10,120]
+
+
+def test_interleaved_screenshot_keeps_its_exact_source_position(plan):
+    source = rows()[:1]
+    source[0]['text'] = 'First claim.\n\nScreenshot-[01:00]\n\nDifferent later claim.'
+    result = edit_whole_note(source, provider, preserve_order=True)
+    assert result[0]['text'] == source[0]['text']

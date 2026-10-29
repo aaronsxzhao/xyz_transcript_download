@@ -1,0 +1,4 @@
+import{n as e,r as t}from"./rolldown-runtime-CNOWq4Kh.js";import{_ as n,b as r,v as i,y as a}from"./workspace-CxGYOEi2.js";var o=t({summaryToMarkdown:()=>s});function s(e,t){let n=[`# ${e.title}`,``];t&&Number.isFinite(t)&&t>0&&n.push(`- Duration: ${Math.floor(t/60)}:${Math.floor(t%60).toString().padStart(2,`0`)}`,``);let o=r(e.overview);o.conclusions&&n.push(/### Key conclusions/.test(e.overview)?`## Key conclusions`:`## 核心结论`,``,i(o.conclusions),``),n.push(`## Overview`,``,i(o.overview),``,`## Key Points by Topic`,``);for(let[t,r]of a(e)){n.push(`### ${t}`,``);for(let e of r)n.push(i(e.summary),``),e.original_quote&&(e.timestamp&&n.push(`Source · ${e.timestamp}`,``),n.push(...e.original_quote.split(`
+`).map(e=>`> ${e}`),``))}return e.takeaways.length&&n.push(`## Takeaways`,``,...e.takeaways.map(e=>`- ${i(e).replace(/\r?\n/g,`
+  `)}`),``),n.join(`
+`)}function c(){return(c=e((()=>{n()})))()}export{o as n,s as r,c as t};
