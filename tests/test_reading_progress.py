@@ -48,3 +48,15 @@ def test_actual_pipeline_reports_generation_review_inventory_and_repair(mode):
     inventory=[e for e in events if e['stage']=='inventory']
     assert inventory[0]['completed']==0 and inventory[-1]['completed']==inventory[-1]['total']
     assert 'full-transcript' in events[0]['message'] if mode=='single' else 'sections' in events[0]['message']
+
+
+def test_repairs_use_source_owned_chapters_without_moving_later_revisits():
+    from transcript_reading import organize_sections
+    def section(heading,ident,start,end):
+        return {'heading':heading,'paragraphs':[{'id':ident,'text':ident,'indices':list(range(start,end+1))}]}
+    baseline=[section('Focus','P1',0,9),section('Rest','P2',10,19),section('Focus','P3',20,29)]
+    additions=[section('Rest','L1',5,6),section('Focus','L2',15,16),section('New topic','L3',35,36)]
+    result=organize_sections(baseline+additions,baseline)
+    assert [s['heading'] for s in result]==['Focus','Rest','Focus','New topic']
+    assert [[p['id'] for p in s['paragraphs']] for s in result]==[['P1','L1'],['P2','L2'],['P3'],['L3']]
+    assert result[0]['paragraphs'][1] is additions[0]['paragraphs'][0]

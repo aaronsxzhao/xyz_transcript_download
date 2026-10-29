@@ -87,6 +87,11 @@ later answers and the opening. Each item must be returned exactly once as
 supporting substrings from existing paragraph IDs. Topic similarity alone is
 insufficient; raw source fallback is not certified as verified prose. This is
 still a model judgment, not proof that the inventory found every important fact.
+Inventory wording is not a word-for-word output requirement: incidental places,
+dates, pets, metaphors and repeated examples do not create gaps unless they change
+an argument, evidence or condition. Experimental setup/results, mechanisms,
+meaningful numerical scope, attribution, uncertainty and objections still must
+survive. Nonadjacent supporting clauses require separate exact quotations.
 
 For missing/partial items, one local repair attempt proposes only absent meaning.
 It does not rewrite existing paragraphs. Before adding it, a separate matching
@@ -94,11 +99,35 @@ call sees the original evidence and candidate draft. Each accepted paragraph mus
 grounding and nonduplication judgments. Unrelated unresolved items do not block
 a valid local repair. Unchecked or failed candidates are discarded; support
 depending on a rejected paragraph cannot certify a surviving half-repair.
+Each proposed paragraph is also presented separately, with the full draft still
+available for context and duplicate checks. The matcher must acknowledge every
+proposed paragraph ID before its receipts can be accepted. This prevents a check
+that silently ignores appended candidates from certifying the repair; the
+acknowledgment alone is never sufficient without grounded, nonduplicate support.
 Previously covered items may not regress. The original prose is retained. A contradiction remains explicit;
 appending its opposite is not treated as a repair. Later batches see accepted
-repairs, so they can recognize already restored meaning. There is no repair loop.
+repairs, so they can recognize already restored meaning. After this pass, only
+remaining partial, missing or unverified items receive one bounded recovery
+pass against the final draft. This reuses the source inventory and retains item
+IDs; it never regenerates the whole note. A later accepted addition may already
+resolve an earlier item. Contradictions are not repaired by appending opposites.
+The same independent grounding, novelty and acceptance rules apply in recovery;
+there is no unbounded repair loop. Initial unresolved/failure counts and the
+recovery-round count remain in diagnostics even when recovery succeeds.
+Before any missing/partial item can trigger prose repair, a source-only check
+verifies that checklist claim without seeing the summary. It can correct a
+demonstrably invented condition, attribution
+or causal claim, with a reason and source ranges constrained to that item's source
+and short adjacent context. True conditions cannot be dropped to make coverage
+easier. Corrected items are rematched before deciding whether repair is needed.
+If source validation fails, that batch cannot propose new prose. Correction IDs
+and failed source-validation batches are recorded. A corrected checklist does
+not certify the draft automatically.
 The final renderer orders additions by their real source evidence and applies
-the existing media/time gates.
+the existing media/time gates. Additions within an existing chapter's source
+span inherit that chapter heading, avoiding alternating duplicate headings.
+Prose order, paragraph IDs and evidence remain unchanged; uncovered source spans
+can retain a new chapter, and later chronological revisits stay separate.
 
 Invalid inventories, incomplete match receipts, unavailable providers and failed
 repair checks remain unverified. Cancellation propagates. Terminal configuration

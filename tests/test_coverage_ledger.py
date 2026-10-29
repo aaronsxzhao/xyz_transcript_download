@@ -26,6 +26,9 @@ def setup_case(case):
 def scripted(case, calls, *, bad_repair=False):
     def request(engine, system, payload, validate):
         calls.append(copy.deepcopy(payload))
+        if payload['phase']=='validate_inventory':
+            assert 'global_draft' not in payload
+            return {'items':[{'id':item['id'],'supported':True} for item in payload['items']]}
         rows=payload['primary_source']
         ranges=[{'start':rows[0]['id'],'end':rows[-1]['id']}]
         if payload['phase']=='inventory':
@@ -37,7 +40,8 @@ def scripted(case, calls, *, bad_repair=False):
                 'text':case['complete_draft'],'source_ranges':ranges}]}]}
         paragraphs=[p for s in payload['global_draft'] for p in s['paragraphs']]
         support=next((p for p in paragraphs if case['complete_draft'] in p['text']),None)
-        return {'matches':[{'item_id':item['id'],'status':'covered' if support else 'partial',
+        return {'checked_proposed_paragraph_ids':payload.get('proposed_paragraph_ids',[]),
+                'matches':[{'item_id':item['id'],'status':'covered' if support else 'partial',
             'support':[{'paragraph_id':support['id'],'quote':case['complete_draft']}] if support else [],
             'grounded':not bad_repair,'duplicate':False} for item in payload['items']]}
     return request
@@ -54,7 +58,7 @@ def test_missing_real_meaning_is_locally_repaired_and_not_added_twice(case):
     assert second['repairs_accepted']==0 and second['status']=='model_reviewed'
     assert sections[0]['paragraphs'][0]['text']==original
     assert len(sections)==2
-    assert [p['phase'] for p in calls]==['inventory','match','repair','match','inventory','match']
+    assert [p['phase'] for p in calls]==['inventory','match','validate_inventory','repair','match','inventory','match']
     assert report['items'][0]['paragraph_ids']==['L1.1']
 
 
@@ -62,8 +66,77 @@ def test_repair_failing_independent_grounding_is_never_published():
     case=CASES[0];lines,sections,_=setup_case(case);before=copy.deepcopy(sections)
     with patch('coverage_ledger.request',side_effect=scripted(case,[],bad_repair=True)):
         report=audit(SimpleNamespace(),lines,sections)
-    assert sections==before and report['repairs_rejected']==1
+    assert sections==before and report['repairs_rejected']==2
+    assert report['recovery_rounds']==1
     assert report['status']=='unverified' and report['items'][0]['status']=='partial'
+
+
+def test_final_recovery_repairs_only_remaining_items_without_rebuilding_inventory():
+    case=CASES[0];lines,sections,ranges=setup_case(case);calls=[];repairs=[]
+    base=scripted(case,calls)
+    def respond(engine,system,payload,validator):
+        data=base(engine,system,payload,validator)
+        if payload['phase']=='repair':
+            repairs.append(payload)
+            if len(repairs)==1:
+                data['sections'][0]['paragraphs'][0]['text']='A still incomplete explanation.'
+        return data
+    original=copy.deepcopy(sections)
+    with patch('coverage_ledger.request',side_effect=respond):
+        report=audit(SimpleNamespace(),lines,sections)
+    assert report['status']=='model_reviewed' and report['unresolved_items']==0
+    assert report['initial_unresolved_items']==1 and report['recovery_rounds']==1
+    assert report['repairs_accepted']==1 and report['repairs_rejected']==1
+    assert sections[0]==original[0]
+    assert sum(p['phase']=='inventory' for p in calls)==1
+    assert len(repairs)==2 and repairs[0]['items']==repairs[1]['items']
+    assert 'incomplete explanation' not in json.dumps(sections)
+
+
+def test_transient_matching_failure_can_recover_without_hiding_failure_history():
+    case=CASES[0];lines,sections,_=setup_case(case);calls=[];failed=[]
+    base=scripted(case,calls)
+    def respond(engine,system,payload,validator):
+        if payload['phase']=='match' and not failed:
+            failed.append(True)
+            raise TimeoutError('Synthetic one-time failure')
+        return base(engine,system,payload,validator)
+    with patch('coverage_ledger.request',side_effect=respond):
+        report=audit(SimpleNamespace(),lines,sections)
+    assert report['status']=='model_reviewed' and report['failed_batches']==0
+    assert report['initial_failed_batches']==1 and report['recovery_rounds']==1
+    assert sum(p['phase']=='inventory' for p in calls)==1
+
+
+def test_later_accepted_addition_resolves_earlier_item_without_another_repair():
+    case={'source':'[00:00] First condition.\n[00:01] Second condition.',
+          'missing_draft':'An introduction.'}
+    lines,sections,ranges=setup_case(case);calls=[]
+    def respond(engine,system,payload,validator):
+        calls.append(copy.deepcopy(payload))
+        if payload['phase']=='validate_inventory':
+            return {'items':[{'id':item['id'],'supported':True} for item in payload['items']]}
+        if payload['phase']=='inventory':
+            return {'checked_source_ranges':ranges,'items':[
+                {'kind':'condition','statement':text,'source_ranges':ranges}
+                for text in ('First condition.','Second condition.')]}
+        if payload['phase']=='repair':
+            text='An incomplete addition.' if payload['items'][0]['statement']=='First condition.' else 'First condition. Second condition.'
+            return {'sections':[{'heading':'Argument','paragraphs':[{'text':text,'source_ranges':ranges}]}]}
+        rows=[]
+        for item in payload['items']:
+            p=next((p for s in payload['global_draft'] for p in s['paragraphs'] if item['statement'] in p['text']),None)
+            rows.append({'item_id':item['id'],'status':'covered' if p else 'missing',
+                         'grounded':True,'duplicate':False,
+                         'support':[{'paragraph_id':p['id'],'quote':item['statement']}] if p else []})
+        return {'checked_proposed_paragraph_ids':payload.get('proposed_paragraph_ids',[]),'matches':rows}
+    with patch('coverage_ledger.ITEM_LIMIT',1),patch('coverage_ledger.request',side_effect=respond):
+        report=audit(SimpleNamespace(),lines,sections)
+    assert report['status']=='model_reviewed' and report['initial_unresolved_items']==1
+    assert report['repairs_accepted']==1 and len(sections)==2
+    assert sum(p['phase']=='repair' for p in calls)==2
+    assert calls[-1]['phase']=='match' and calls[-1]['items'][0]['id']=='C1.1'
+    assert report['items'][0]['paragraph_ids']==['L2.1']
 
 
 @pytest.mark.parametrize('failure',[TimeoutError(),ProcessingCancelledError()])
@@ -259,6 +332,21 @@ def test_terminal_period_is_recovered_to_an_exact_draft_fragment():
     assert data['matches'][0]['support'][0]['quote']=='He returned to school'
 
 
+@pytest.mark.parametrize('checked',[None,[],['unknown'],['L1','L1']])
+def test_repair_matching_requires_every_proposed_paragraph_to_be_inspected(checked):
+    draft=[{'paragraphs':[{'id':'L1','text':'A supported experimental result.'}]}]
+    data={'checked_proposed_paragraph_ids':checked,'matches':[{
+        'item_id':'C1','status':'covered','grounded':True,'duplicate':False,
+        'support':[{'paragraph_id':'L1','quote':'A supported experimental result.'}]}]}
+    with pytest.raises(ValueError,match='proposed-paragraph'):
+        matching_response(data,[{'id':'C1'}],draft,['L1'])
+    data['checked_proposed_paragraph_ids']=['L1']
+    assert matching_response(data,[{'id':'C1'}],draft,['L1'])[0]['status']=='covered'
+    data['matches'][0]['support'][0]['quote']='An invented result.'
+    with pytest.raises(ValueError,match='Fabricated'):
+        matching_response(data,[{'id':'C1'}],draft,['L1'])
+
+
 def test_invalid_check_retries_once_with_feedback_without_regenerating_body():
     case=CASES[0];lines,sections,_=setup_case(case);calls=[]
     sections[0]['paragraphs'][0]['text']=case['complete_draft']
@@ -270,3 +358,49 @@ def test_invalid_check_retries_once_with_feedback_without_regenerating_body():
     with patch('coverage_ledger.request',side_effect=response):report=audit(SimpleNamespace(),lines,sections)
     assert report['validation_retries']==1 and report['status']=='model_reviewed'
     assert 'validation_feedback' in attempts[1] and report['repairs_accepted']==0
+
+
+def test_source_only_recheck_corrects_an_invented_inventory_condition():
+    truth='Participants preferred stimulation producing frustration and mild anger; the speaker connects this to dopamine reward.'
+    false=truth+' This happened when stimulation was unavailable.'
+    case={'source':'[00:00] '+truth,'missing_draft':'Stimulation can feel rewarding.'}
+    lines,sections,ranges=setup_case(case);calls=[]
+    def response(engine,system,payload,validator):
+        calls.append(copy.deepcopy(payload))
+        if payload['phase']=='inventory':
+            return {'checked_source_ranges':ranges,'items':[{'kind':'claim','statement':false,'source_ranges':ranges}]}
+        if payload['phase']=='validate_inventory':
+            assert 'global_draft' not in payload and 'overview' not in payload
+            assert payload['items'][0]['original_source'][0]['id']==lines[0].id
+            return {'items':[{'id':payload['items'][0]['id'],'supported':False,
+                             'reason':'The source does not say stimulation was unavailable.',
+                             'statement':truth,'source_ranges':ranges}]}
+        if payload['phase']=='repair':
+            return {'sections':[{'heading':'Evidence','paragraphs':[{'text':truth,'source_ranges':ranges}]}]}
+        p=next((p for s in payload['global_draft'] for p in s['paragraphs'] if p['text']==truth),None)
+        covered=p and payload['items'][0]['statement']==truth
+        return {'checked_proposed_paragraph_ids':payload['proposed_paragraph_ids'],'matches':[{
+            'item_id':payload['items'][0]['id'],'status':'covered' if covered else 'partial',
+            'grounded':True,'duplicate':False,'support':[{'paragraph_id':p['id'],'quote':truth}] if covered else []}]}
+    with patch('coverage_ledger.request',side_effect=response):
+        report=audit(SimpleNamespace(),lines,sections)
+    assert report['status']=='model_reviewed' and report['unresolved_items']==0
+    assert report['corrected_inventory_items']==['C1.1']
+    assert report['repairs_accepted']==1 and len(sections)==2
+    assert 'unavailable' not in json.dumps(sections)
+    assert sum(p['phase']=='validate_inventory' for p in calls)==1
+
+
+def test_source_correction_cannot_escape_its_original_source_context():
+    case=CASES[0];lines,sections,_=setup_case(case);before=copy.deepcopy(sections)
+    calls=[];base=scripted(case,calls,bad_repair=True)
+    def response(engine,system,payload,validator):
+        if payload['phase']=='validate_inventory':
+            return {'items':[{'id':payload['items'][0]['id'],'supported':False,'reason':'Synthetic correction',
+                             'statement':'An invented claim.','source_ranges':[{'start':'unknown','end':'unknown'}]}]}
+        return base(engine,system,payload,validator)
+    with patch('coverage_ledger.request',side_effect=response):
+        report=audit(SimpleNamespace(),lines,sections)
+    assert sections==before and report['status']=='unverified'
+    assert report['inventory_validation_failed_batches']==2 and not report['corrected_inventory_items']
+    assert not any(call['phase']=='repair' for call in calls)
