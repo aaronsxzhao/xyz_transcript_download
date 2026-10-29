@@ -786,7 +786,7 @@ function VideoList({ videos, onDelete, onRetry, onCancel }: {
             isFailed ? 'border-red-500/30 hover:border-red-500/50' : 'border-dark-border hover:border-dark-hover'
           } ${isClickable ? 'cursor-pointer' : ''}`}
         >
-          <div className="flex flex-col sm:flex-row sm:items-start gap-3 md:gap-4">
+          <div className="video-task-content flex flex-col sm:flex-row sm:items-start gap-3 md:gap-4">
             {task.thumbnail ? (
               <CachedImage priority={index<3} src={task.thumbnail} alt="" className="video-thumbnail w-full sm:w-40 md:w-48 h-24 sm:h-24 md:h-28 rounded-lg object-cover flex-shrink-0 bg-dark-hover" />
             ) : (

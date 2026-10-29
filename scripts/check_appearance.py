@@ -13,8 +13,8 @@ from scripts.check_page_loading import token
 from playwright.async_api import async_playwright
 
 
-async def context_for(browser, width, authenticated=True):
-    context = await browser.new_context(viewport={'width': width, 'height': 900}, service_workers='block')
+async def context_for(browser, width, authenticated=True, touch=False):
+    context = await browser.new_context(viewport={'width': width, 'height': 900}, service_workers='block', has_touch=touch)
     if authenticated:
         await context.add_init_script("""
           localStorage.setItem('xyz_remember_me','true');

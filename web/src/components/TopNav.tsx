@@ -106,7 +106,7 @@ export default function TopNav() {
             aria-label={mobileOpen ? 'Close navigation' : 'Open navigation'}
             aria-expanded={mobileOpen}
             onClick={() => setMobileOpen(!mobileOpen)}
-            className="p-1.5 rounded-lg hover:bg-dark-hover transition-colors md:hidden"
+            className="navigation-toggle inline-flex items-center justify-center rounded-lg hover:bg-dark-hover transition-colors md:hidden"
           >
             {mobileOpen ? <X size={20} /> : <Menu size={20} />}
           </button>

@@ -205,3 +205,6 @@ html[data-design='editorial'] .podcast-reader .topic-number { color:var(--ui-acc
 
 html[data-theme='light'] .auth-appearance :is(summary,.appearance-controls) { background:#fff; }
 html[data-design='editorial'] .settings-page .bg-pink-600 { background:#b71964; color:#fff; }
+
+/* Reserve full touch targets before allocating the compact brand width. */
+@media(max-width:767px) { html[data-design='editorial'] .publication-brand { min-width:0; flex-shrink:1; } }

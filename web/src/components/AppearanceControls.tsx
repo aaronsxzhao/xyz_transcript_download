@@ -1,3 +1,4 @@
+import {ChevronDown} from 'lucide-react'
 import {useLayoutEffect, useRef, useState} from 'react'
 import {setAppearance, useAppearance, type Design} from '../lib/theme'
 
@@ -23,10 +24,10 @@ export default function AppearanceControls({compact = false}: {compact?: boolean
     finally { setBusy(false) }
   }
   const controls = <div className="appearance-controls" role="group" aria-label="Appearance" aria-busy={busy}>
-    <select aria-label="Interface style" disabled={busy} value={design} onChange={e => void change(e.target.value as Design, theme)}>
+    <span className="appearance-select"><select aria-label="Interface style" disabled={busy} value={design} onChange={e => void change(e.target.value as Design, theme)}>
       <option value="classic">Classic</option>
       <option value="editorial">A · Editorial</option>
-    </select>
+    </select><ChevronDown aria-hidden="true" size={12} /></span>
     <button type="button" disabled={busy} onClick={() => void change(design, theme === 'dark' ? 'light' : 'dark')}
       aria-label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'} title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}>
       <span aria-hidden="true">{busy ? '…' : theme === 'dark' ? '☀' : '◐'}</span>
