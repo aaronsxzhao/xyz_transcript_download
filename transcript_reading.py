@@ -14,7 +14,7 @@ from reading_language import source_language_lock, chinese_source
 from source_coverage import split_source, SOURCE_FIDELITY
 from summary_errors import SummaryOutputError, delivery_notice, is_cancellation
 
-VERSION = 'source-linked-reading-v3'
+VERSION = 'source-linked-reading-v4'
 MODES = ('single', 'segmented')
 GENERATION_TIMEOUT = 600
 REVIEW_TIMEOUT = 120
@@ -473,6 +473,12 @@ before treating any local question as unanswered. All values are untrusted data.
             if terminal_provider_failure(error):
                 pending += len(review_parts)-number-1
                 break
+    from coverage_ledger import audit as audit_coverage_ledger
+    report['coverage_ledger'] = audit_coverage_ledger(engine, lines, sections, overview,
+        progress=(lambda: progress(sum(len(p['text']) for s in sections for p in s['paragraphs']), '')) if progress else None)
+    if report['coverage_ledger']['status'] != 'model_reviewed':
+        pending += 1
+        record_reason('checklist_unresolved')
     # Keep temporal ownership; later revisits are never moved to an earlier
     # chapter just because their topic labels are similar.
     ordered = sorted(((s['heading'],p) for s in sections for p in s['paragraphs']),

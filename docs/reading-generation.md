@@ -70,6 +70,47 @@ short global opening when requested. The reading budget is shared across source
 parts and remains advisory: essential steps, numerical scope and conditions take
 priority over a word target.
 
+## Independent coverage checklist
+
+After the existing grounding review, both modes run the same draft-blind
+inventory stage. Each bounded source batch is sent **without the draft**, with
+short boundary context. All inventories finish before any checklist matching.
+Items distinguish claims, experiments (manipulation and outcome), counterexamples,
+conditions, disagreements and procedures. Each has validated source ranges;
+receipts must include every owned source line. Boundary context does not confer
+ownership and must not become a false claim that the whole source leaves a
+question unanswered.
+
+Matching compares small item batches with the whole evolving draft, including
+later answers and the opening. Each item must be returned exactly once as
+`covered`, `partial`, `missing` or `contradicted`. Covered items require exact
+supporting substrings from existing paragraph IDs. Topic similarity alone is
+insufficient; raw source fallback is not certified as verified prose. This is
+still a model judgment, not proof that the inventory found every important fact.
+
+For missing/partial items, one local repair attempt proposes only absent meaning.
+It does not rewrite existing paragraphs. Before adding it, a separate matching
+call sees the original evidence and candidate draft. Each accepted paragraph must be used in complete coverage receipts with passing
+grounding and nonduplication judgments. Unrelated unresolved items do not block
+a valid local repair. Unchecked or failed candidates are discarded; support
+depending on a rejected paragraph cannot certify a surviving half-repair.
+Previously covered items may not regress. The original prose is retained. A contradiction remains explicit;
+appending its opposite is not treated as a repair. Later batches see accepted
+repairs, so they can recognize already restored meaning. There is no repair loop.
+The final renderer orders additions by their real source evidence and applies
+the existing media/time gates.
+
+Invalid inventories, incomplete match receipts, unavailable providers and failed
+repair checks remain unverified. Cancellation propagates. Terminal configuration
+errors stop further checklist calls. Inventory, matching and repair responses
+are validated before checkpointing; completed calls can be reused on retry.
+`metrics.generation.coverage_ledger` records item IDs/kinds/source ranges,
+statuses and matching paragraph IDs, failed batches, request count and accepted
+or rejected repairs. Full item statements live in the normal request checkpoints,
+not telemetry. Independent inventories are additional review calls; the complete
+source still has only one **drafting** call in single mode. The old grounding
+review's unresolved findings are not silently cleared by a checklist pass.
+
 ## Diagnostics and recovery
 
 The existing processing execution store checkpoints model requests and records
@@ -102,3 +143,10 @@ validation. `tests/test_generated_quote_roundtrip.py` checks that program-resolv
 quotes and playback times survive persistence, API retrieval and exports in both
 modes. The Settings UI tests cover explicit mode selection, persistence and late
 refreshes. No live production summary is modified by these tests.
+
+`tests/test_coverage_ledger.py` checks draft-blind inventory, complete source
+ownership, cross-batch answers, item matching receipts, invalid cache recovery,
+staged repairs, raw fallback, contradictions and duplicate/unchecked candidates.
+The real Huberman source windows are retained under
+`tests/fixtures/coverage_ledger/huberman.json`; mocked tests verify program
+behavior, while paid live regression runs separately assess model judgments.
