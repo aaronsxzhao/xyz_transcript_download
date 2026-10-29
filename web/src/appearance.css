@@ -11,7 +11,6 @@ html[data-theme='light'] .appearance-controls option { background:#fff; color:#2
 .auth-appearance summary { display:grid; place-items:center; width:44px; height:44px; cursor:pointer; list-style:none; border-radius:6px; color:var(--ui-text); background:#1e293b; }
 .auth-appearance summary::-webkit-details-marker { display:none; }
 .auth-appearance .appearance-controls { position:absolute; top:52px; right:0; padding:8px; border:1px solid var(--ui-border); border-radius:6px; background:#1e293b; }
-html[data-theme='light'] .auth-appearance :is(summary,.appearance-controls) { background:#fff; }
 
 @media(max-width:767px) {
  .appearance-controls button,.appearance-controls select { min-height:44px; }
@@ -23,8 +22,3 @@ html[data-theme='light'] .auth-appearance :is(summary,.appearance-controls) { ba
 
 /* Preserve the original gap between the two dashboard sections. */
 html[data-design='classic'] .publication-dashboard-content > .dashboard-workspace { margin-bottom:24px; }
-/* Maintain contrast for account actions and status text in both light skins. */
-
-
-html[data-design='classic'][data-theme='dark'] .settings-page :is(.text-gray-600,[data-account-status] .text-gray-500) { color:#a4b0c3; }
-.settings-page .bg-pink-600 { background:#b71964; color:#fff; }
