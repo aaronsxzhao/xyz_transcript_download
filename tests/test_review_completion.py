@@ -97,3 +97,10 @@ def test_completion_additions_cannot_overwrite_verified_fields_or_use_outside_un
     result = audit_source('Source.', {'body':'Original draft.'}, Mock(return_value={'coverage':[]}), best_effort=True, recheck=Mock(return_value=response))
     assert not result.complete and result.fields == {'body':'Original draft.'}
     assert not result.additions
+
+
+def test_recovered_envelope_completes_remaining_missing_receipts():
+    retry = Mock(side_effect=[{'coverage':[]}, {'coverage':[{'unit':'S1','kind':'content','fields':['body']}]}])
+    result = audit_source('An argument.', {'body':'An argument.'}, Mock(side_effect=TimeoutError()), best_effort=True, recheck=retry)
+    assert result.complete and retry.call_count == 2
+    assert result.receipt_recheck['calls'] == 2

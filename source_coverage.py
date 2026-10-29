@@ -344,12 +344,18 @@ def _recover_review_envelope(source, review, call, context):
     from summary_errors import is_cancellation
     from model_execution import terminal_provider_failure
     try:
-        recovered = _audit_source_once(source, review.fields,
-            lambda system, payload: call(system, payload, 60), context, best_effort=True)
+        captured = []
+        def retry(system, payload):
+            result = call(system, payload, 60)
+            captured.append(result)
+            return result
+        recovered = _audit_source_once(source, review.fields, retry, context, best_effort=True)
+        recovered = _recheck_review(source, review.fields, captured[0], recovered, call, context)
         recovered.additions = [*review.additions, *recovered.additions]
         recovered.non_content_only = recovered.non_content_only and not recovered.additions
         recovered.citations = {**review.citations, **recovered.citations}
-        recovered.receipt_recheck = {'initial_retry_attempted':1, 'calls':1}
+        recovered.receipt_recheck = {**recovered.receipt_recheck, 'initial_retry_attempted':1,
+                                   'calls':1 + recovered.receipt_recheck.get('calls', 0)}
         return recovered
     except Exception as error:
         if is_cancellation(error):
