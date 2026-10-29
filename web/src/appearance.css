@@ -31,3 +31,5 @@ html[data-design='classic'] .publication-dashboard-content > .dashboard-workspac
 @media(max-width:767px),(pointer:coarse) {
   .app-shell .publication-nav nav a,.publication-nav #mobile-navigation :is(a,button),.publication-nav button[aria-label='Sign out'] { min-width:44px; min-height:44px; }
 }
+
+html[data-theme='light'] .auth-page .auth-feedback { color:var(--ui-text); }

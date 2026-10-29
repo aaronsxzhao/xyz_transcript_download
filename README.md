@@ -406,3 +406,9 @@ Appearance selectors now outrank the asynchronously loaded workspace stylesheet,
 Mobile navigation dismisses when pointer/focus leaves the header and resets when entering desktop width; Escape still returns focus to its trigger. Login/recovery appearance disclosures also dismiss on outside interaction. A shared hook preserves the same behavior for video More menus. Touch navigation links and sign-out controls have at least 44×44 px targets; route loading has an accessible status label.
 
 Browser regressions cover outside-pointer/focus dismissal, Escape focus, viewport round trips and touch target geometry across all appearances. The initial compressed asset allowance increases by 0.5 KiB (192.5 → 193 KiB, 0.26%) for this interaction logic; measured output is 192.7 KiB.
+
+### Authentication form interaction review
+
+Sign-in, sign-up, recovery and reset forms lock fields while submitting and ignore duplicate submissions. Failed requests preserve input for retry; authentication feedback exposes alert/status semantics with readable light-theme contrast. Missing recovery links open the recovery form directly.
+
+`python scripts/check_auth_forms.py` verifies pending/retry states in both designs and themes at phone/tablet widths using synthetic API responses. CI also runs its phone matrix in WebKit; no live account or email writes are performed.

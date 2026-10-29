@@ -71,6 +71,11 @@ jobs:
           name: appearance-failure-pr
           path: appearance-checks/
           if-no-files-found: ignore
+      - name: Check authentication form interactions
+        timeout-minutes: 3
+        run: |
+          python scripts/check_auth_forms.py
+          python scripts/check_auth_forms.py --webkit --widths 390
       - name: Check mobile controls in Chromium
         timeout-minutes: 5
         run: python scripts/check_mobile_controls.py
