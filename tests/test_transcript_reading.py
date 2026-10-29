@@ -372,3 +372,30 @@ def test_raw_disjoint_source_fallback_marks_the_omission():
     from transcript_reading import source_excerpt
     _, lines=source_lines('First sentence.\nIntervening sentence.\nLast sentence.')
     assert source_excerpt([0,2],lines)=='First sentence.\n\n\n[…]\n\nLast sentence.'
+
+
+def test_normal_stop_prefix_only_draft_is_rejected_before_cache_or_review():
+    from note_summarizer import NoteSummarizer
+    from processing_execution import Execution, bind
+    class Store:
+        def get_checkpoint(self,*args): return None
+        def put_checkpoint(self,*args): pytest.fail('Prefix-only draft must not be checkpointed')
+    owner=NoteSummarizer(api_key='synthetic')
+    owner.client=Mock(base_url='https://models.example/v1/')
+    def complete(**kwargs):
+        request=json.loads(kwargs['messages'][1]['content'])
+        response={'sections':[section(request['primary_source'][:3])]}
+        return SimpleNamespace(choices=[SimpleNamespace(finish_reason='stop',message=SimpleNamespace(content=json.dumps(response)))])
+    owner.client.with_options.return_value.chat.completions.create.side_effect=complete
+    with bind(Execution('owner','source',Store())):
+        with pytest.raises(SummaryOutputError,match='only the beginning'):
+            owner.generate_note('Title','A substantive source sentence.\n'*1000)
+    assert owner.client.with_options.return_value.chat.completions.create.call_count==1
+    assert owner.generation_report['generated'] is False
+
+
+def test_prefix_guard_does_not_require_citing_incidental_closing_credits():
+    from transcript_reading import reject_prefix_only
+    _,lines=source_lines('Substantive source sentence.\n'*1000)
+    sections,_=validate_sections({'sections':[section([{'id':x.id} for x in lines[:800]])]},lines)
+    reject_prefix_only(sections,lines)

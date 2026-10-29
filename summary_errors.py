@@ -60,6 +60,7 @@ class ProcessingCancelledError(Exception):
 
 class SummaryOutputError(RuntimeError):
     MESSAGES = {
+        'incomplete': 'The model returned only the beginning of the full transcript. This draft was not accepted. Please retry generation.',
         'coverage': 'The source coverage check could not be verified. The previous note was kept. Please retry generation.',
         'length': 'The model reached its summary output limit. Please retry summary generation.',
         'empty': 'The model returned an empty summary. Please retry summary generation.',

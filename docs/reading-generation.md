@@ -16,7 +16,11 @@ explicit API path prefixes are preserved.
 2. In `single` mode submit every source line in one generation request. Do not
    infer that a long recording needs partitioning from its duration or character
    count. A context-capacity or output-limit error fails explicitly and keeps the
-   previous saved result. There is no implicit segmented fallback.
+   previous saved result. A normal provider stop is not sufficient: for sources
+   of at least 12,000 characters, reject a draft whose evidence never reaches
+   the latter half before caching or review. This narrow prefix-truncation guard
+   is not a claim of semantic completeness and does not reject skipped credits.
+   There is no implicit segmented fallback.
 3. In `segmented` mode partition source ownership without dropping whitespace or
    unmatched tails. Each request owns its primary lines, with adjacent context
    to resolve incomplete sentences. A failed part retains its original source
