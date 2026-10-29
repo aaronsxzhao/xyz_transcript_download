@@ -114,10 +114,14 @@ All three booleans must judge the exact complete later_sentence, not a substring
             if check.get('safe_to_remove') is not True:
                 replacement = check.get('reference')
                 bridge = _terms('the same earlier previously discussed described explanation method technique approach experiment case claim discussion returns reference')
+                # A short referent may use the section's name for a method
+                # (e.g. "breathing") rather than the repeated sentence's noun
+                # ("breaths"). Vocabulary still comes from the reviewed context.
+                vocabulary = _terms(rows[later['row']]['text'] + '\n' + rows[item['earlier']['row']]['text'])
                 if (check.get('reference_preserves_context') is not True or not isinstance(replacement, str)
                         or not replacement.strip() or len(replacement) > min(200, len(later['text'])//2)
                         or any(c in replacement for c in '\n[]<>`"“”') or re.search(r'\d', replacement)
-                        or not _terms(replacement) <= (later['terms'] | item['earlier']['terms'] | bridge)):
+                        or not _terms(replacement) <= (vocabulary | bridge)):
                     continue
             if (later['row'], later['start']) in referenced:
                 continue

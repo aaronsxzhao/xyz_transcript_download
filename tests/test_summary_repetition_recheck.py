@@ -104,12 +104,13 @@ def test_valid_receipt_needs_no_additional_call():
 
 def test_repeated_method_keeps_short_referent_for_following_condition():
     rows=sections()
+    rows[0]['text']+='\n\nThe laboratory called this a stimulation protocol.\n'
     response={'checks':[dict(id='R1',same_information=True,no_unique_qualification=True,
-        safe_to_remove=False,reference='The discussion returns to the earlier experiment.',
+        safe_to_remove=False,reference='The discussion returns to the earlier stimulation protocol.',
         reference_preserves_context=True)]}
     output,report=remove_repeated_examples(rows,Mock(return_value=response))
     assert report['condensed']==1 and report['removed']==0
-    assert LIMIT in output[1]['text'] and 'earlier experiment.' in output[1]['text']
+    assert LIMIT in output[1]['text'] and 'earlier stimulation protocol.' in output[1]['text']
     response['checks'][0]['reference']='This proves a cancer cure.'
     assert remove_repeated_examples(rows,Mock(return_value=response))[0]==rows
 
