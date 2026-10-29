@@ -2,8 +2,8 @@ import AppearanceControls from '../components/AppearanceControls'
 /**
  * Login/Signup page
  */
-import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useRef, useState } from 'react'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { Loader2, Radio, Mail, Lock, AlertCircle } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 import { setRememberMe, getRememberMe, requestAuth } from '../lib/auth'
@@ -14,7 +14,9 @@ export default function Login() {
   const navigate = useNavigate()
   const { signIn, signUp } = useAuth()
   
-  const [mode, setMode] = useState<AuthMode>('signin')
+  const [params] = useSearchParams()
+  const [mode, setMode] = useState<AuthMode>(() => params.get('mode') === 'recovery' ? 'recovery' : 'signin')
+  const submitting = useRef(false)
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
@@ -25,6 +27,7 @@ export default function Login() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    if (submitting.current) return
     setError('')
     setMessage('')
 
@@ -43,6 +46,7 @@ export default function Login() {
       return
     }
 
+    submitting.current = true
     setLoading(true)
 
     try {
@@ -63,6 +67,7 @@ export default function Login() {
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Authentication failed')
     } finally {
+      submitting.current = false
       setLoading(false)
     }
   }
@@ -84,7 +89,7 @@ export default function Login() {
 
         {/* Auth Form */}
         <div className="bg-dark-surface border border-dark-border rounded-xl p-6">
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form aria-busy={loading} onSubmit={handleSubmit} className="space-y-4">
             {/* Email */}
             <div>
               <label htmlFor="auth-email" className="block text-sm font-medium text-gray-300 mb-1">
@@ -93,6 +98,8 @@ export default function Login() {
               <div className="relative">
                 <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-500" />
                 <input
+                  disabled={loading}
+                  required
                   type="email"
                   id="auth-email"
                   autoComplete="username"
@@ -112,6 +119,8 @@ export default function Login() {
               <div className="relative">
                 <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-500" />
                 <input
+                  disabled={loading}
+                  required
                   type="password"
                   id="auth-password"
                   autoComplete={mode === 'signin' ? 'current-password' : 'new-password'}
@@ -133,6 +142,8 @@ export default function Login() {
                 <div className="relative">
                   <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-500" />
                   <input
+                    disabled={loading}
+                    required
                     type="password"
                     id="auth-confirm-password"
                     autoComplete="new-password"
@@ -149,6 +160,7 @@ export default function Login() {
             {mode === 'signin' && (
               <div className="flex items-center gap-2">
                 <input
+                  disabled={loading}
                   type="checkbox"
                   id="rememberMe"
                   checked={rememberMe}
@@ -163,16 +175,16 @@ export default function Login() {
 
             {/* Error Message */}
             {error && (
-              <div className="flex items-center gap-2 p-3 bg-red-500/10 border border-red-500/20 rounded-lg">
+              <div role="alert" className="auth-feedback text-red-400 flex items-center gap-2 p-3 bg-red-500/10 border border-red-500/20 rounded-lg">
                 <AlertCircle className="w-5 h-5 text-red-400 flex-shrink-0" />
-                <p className="text-sm text-red-400">{error}</p>
+                <p className="text-sm">{error}</p>
               </div>
             )}
 
             {/* Success Message */}
             {message && (
-              <div className="p-3 bg-green-500/10 border border-green-500/20 rounded-lg">
-                <p className="text-sm text-green-400">{message}</p>
+              <div role="status" className="auth-feedback text-green-400 p-3 bg-green-500/10 border border-green-500/20 rounded-lg">
+                <p className="text-sm">{message}</p>
               </div>
             )}
 
@@ -193,20 +205,21 @@ export default function Login() {
             </button>
           </form>
 
-          <button type="button" className="mt-4 text-indigo-200 underline" onClick={() => { setMode(mode === 'recovery' ? 'signin' : 'recovery'); setError(''); setMessage('') }}>{mode === 'recovery' ? 'Back to sign in' : 'Forgot password?'}</button>
+          <button type="button" disabled={loading} className="mt-4 disabled:opacity-50 text-indigo-200 underline" onClick={() => { setMode(mode === 'recovery' ? 'signin' : 'recovery'); setError(''); setMessage('') }}>{mode === 'recovery' ? 'Back to sign in' : 'Forgot password?'}</button>
           {/* Toggle Mode */}
-          <div className="mt-6 text-center">
+          {mode !== 'recovery' && <div className="mt-6 text-center">
             <p className="text-gray-400">
               {mode === 'signin' ? (
                 <>
                   Don't have an account?{' '}
                   <button
+                    disabled={loading}
                     onClick={() => {
                       setMode('signup')
                       setError('')
                       setMessage('')
                     }}
-                    className="text-indigo-400 hover:text-indigo-300 font-medium"
+                    className="text-indigo-400 hover:text-indigo-300 font-medium disabled:opacity-50"
                   >
                     Sign up
                   </button>
@@ -215,19 +228,20 @@ export default function Login() {
                 <>
                   Already have an account?{' '}
                   <button
+                    disabled={loading}
                     onClick={() => {
                       setMode('signin')
                       setError('')
                       setMessage('')
                     }}
-                    className="text-indigo-400 hover:text-indigo-300 font-medium"
+                    className="text-indigo-400 hover:text-indigo-300 font-medium disabled:opacity-50"
                   >
                     Sign in
                   </button>
                 </>
               )}
             </p>
-          </div>
+          </div>}
         </div>
 
         {/* Footer */}
