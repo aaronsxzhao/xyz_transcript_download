@@ -27,7 +27,9 @@ def normalize_base_url(value: str) -> str:
         raise ModelConfigurationError("Use an HTTPS Base URL for your API key.")
     if parsed.path.endswith(("/models", "/chat/completions", "/audio/transcriptions")):
         raise ModelConfigurationError("Enter the API root (usually ending in /v1), not /models, /chat/completions or /audio/transcriptions.")
-    return value
+    # Bare hosts use the conventional OpenAI root. Preserve custom prefixes
+    # (for example /openai/v1 or /gateway), and never append /v1 twice.
+    return value + '/v1' if not parsed.path else value
 
 
 def _check_destination(request: httpx.Request) -> None:

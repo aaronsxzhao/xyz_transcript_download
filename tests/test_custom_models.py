@@ -74,6 +74,17 @@ def test_rejects_invalid_api_roots(url):
     with pytest.raises(ModelConfigurationError):normalize_base_url(url)
 
 
+@pytest.mark.parametrize('root,expected',[
+    ('https://models.example','https://models.example/v1'),
+    ('https://models.example/','https://models.example/v1'),
+    ('https://models.example/v1/','https://models.example/v1'),
+    ('https://models.example/gateway','https://models.example/gateway'),
+    ('https://models.example/openai/v1','https://models.example/openai/v1'),
+])
+def test_normalizes_bare_roots_without_overwriting_custom_api_paths(root,expected):
+    assert normalize_base_url(root)==expected
+
+
 @pytest.mark.parametrize('address',['127.0.0.1','10.0.0.1','169.254.169.254','::1'])
 def test_cloud_cannot_send_model_keys_to_private_addresses(address):
     from api.custom_models import _check_destination
