@@ -14,7 +14,7 @@ from reading_language import source_language_lock, chinese_source
 from source_coverage import split_source, SOURCE_FIDELITY
 from summary_errors import SummaryOutputError, delivery_notice, is_cancellation
 
-VERSION = 'source-linked-reading-v2'
+VERSION = 'source-linked-reading-v3'
 MODES = ('single', 'segmented')
 GENERATION_TIMEOUT = 600
 REVIEW_TIMEOUT = 120
@@ -201,6 +201,20 @@ def validate_sections(data, lines, allowed=None):
     return sections, media_issues
 
 
+def reject_prefix_only(sections, lines):
+    """Reject an obvious stopped-early draft, even if the provider says stop.
+
+    This deliberately narrow guard is not a semantic coverage score: it only
+    rejects long sources whose citations never reach their latter half. Small
+    omissions and skipped closing credits remain the independent review's job.
+    """
+    total = sum(len(line.text) for line in lines)
+    last = max(i for section in sections for p in section['paragraphs'] for i in p['indices'])
+    reached = sum(len(line.text) for line in lines[:last+1])
+    if total >= 12000 and reached < total * 0.5:
+        raise SummaryOutputError('incomplete')
+
+
 def validate_review(response, lines, allowed, known):
     """Validate a whole review atomically, before caching or changing the draft."""
     index = {line.id:i for i,line in enumerate(lines)}
@@ -291,7 +305,9 @@ def call_json(engine, system, payload, timeout):
     if 'mode' in request:
         owned = [SourceLine(row['id'],row['text'],None) for row in request['primary_source']]
         def validator(data):
-            validate_sections(data,owned)
+            sections, _ = validate_sections(data,owned)
+            if request['mode'] == 'single':
+                reject_prefix_only(sections, owned)
             if request.get('overview') and data.get('overview'):
                 _clean_prose(data['overview'])
     elif 'primary_source' in request and 'global_draft' in request:
@@ -342,6 +358,8 @@ def generate(engine, source, title, *, formats=(), style='detailed', extras='',
             data = call_json(engine, SOURCE_FIDELITY+GENERATION+guidance(''.join(x.text for x in part))+
                 source_language_lock(source), json.dumps(payload, ensure_ascii=False), GENERATION_TIMEOUT)
             found, issues = validate_sections(data, lines, [x.id for x in part])
+            if mode == 'single':
+                reject_prefix_only(found, lines)
             sections.extend(found);media_issues.extend(issues);generated += 1
             if mode=='single' and 'summary' in formats and data.get('overview'):
                 overview = _clean_prose(data['overview'])
