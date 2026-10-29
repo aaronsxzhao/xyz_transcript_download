@@ -52,6 +52,13 @@ async def check(browser, origin, width, design, theme, output):
             await page.screenshot(path=str(output/f'{width}-{design}-{theme}-{upload}-pending.png'), full_page=True)
             release.set()
             await page.get_by_text('Synthetic failure. Please retry.', exact=True).wait_for()
+            if theme == 'light':
+                contrast = await page.locator('.toast-stack [role="alert"]').first.evaluate("""e => {
+                    const lum = c => {const v=c.match(/[\d.]+/g).slice(0,3).map(Number).map(n=>n/255).map(n=>n<=.04045?n/12.92:((n+.055)/1.055)**2.4);return v[0]*.2126+v[1]*.7152+v[2]*.0722};
+                    const bg=lum(getComputedStyle(e).backgroundColor);
+                    return Math.min(...[...e.querySelectorAll('p')].map(p=>{const fg=lum(getComputedStyle(p).color);return (Math.max(bg,fg)+.05)/(Math.min(bg,fg)+.05)}));
+                }""")
+                assert contrast >= 4.5, ('Unreadable notification', contrast)
             assert await submit.is_enabled()
             assert await form.get_attribute('aria-busy') == 'false'
             if upload:

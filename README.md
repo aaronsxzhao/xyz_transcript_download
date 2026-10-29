@@ -418,3 +418,5 @@ Integrated settings updates and authentication state feedback bring initial comp
 ### Podcast form interaction review
 
 The detected platform appears below the podcast URL without covering typed text. Subscription and audio upload requests lock the current form and its toggles, prevent duplicate submissions, and preserve inputs/files for retry after failure. `scripts/check_podcast_forms.py` checks these states across both designs and themes at phone/tablet widths; CI also runs phone WebKit coverage with synthetic responses.
+
+Light-theme notifications use the theme background and foreground together; the podcast failure/retry browser checks enforce at least 4.5:1 text contrast.
