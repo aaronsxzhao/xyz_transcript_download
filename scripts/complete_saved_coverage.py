@@ -127,8 +127,12 @@ def relevant_passages(source, passages, limit=24000):
 
 
 def confirm_missing_addition(addition, passages, selected, call):
-    """A retrieval miss must never become a duplicate appended passage."""
-    remaining = {key:text for key,text in passages.items() if key not in selected}
+    """Verify novelty against all prose, including passages the reviewer saw.
+
+    The review model can overlook an already-selected explanation as well as a
+    retrieval miss. Its proposed addition is not evidence of novelty.
+    """
+    remaining = passages
     batch, size = {}, 0
     batches = []
     for key,text in remaining.items():
@@ -181,6 +185,11 @@ def review_document(source, fields, call, *, deadline=None, resume=None):
         if index+1 in completed:
             checks.append(completed[index+1])
             continue
+        if deadline is not None and time.monotonic() >= deadline:
+            checks.extend(completed.get(i+1, {'chunk':i+1, 'complete':False,
+                'not_started':True, 'issues':['review_deadline']})
+                for i in range(index,len(chunks)))
+            break
         def guarded_call(system, payload, timeout=60):
             remaining = (deadline - time.monotonic()) if deadline else max(timeout,120)
             if remaining <= 0:
@@ -199,6 +208,8 @@ def review_document(source, fields, call, *, deadline=None, resume=None):
         checks.append({'chunk':index+1, 'complete':review.complete,
                        'unverified_units':len(review.unverified_units),
                        'identified_gaps':len(review.identified_gaps),
+                       'unverified_unit_ids':review.unverified_units,
+                       'gap_source_passages':review.identified_gaps,
                        'issues':review.issues, 'completion':review.receipt_recheck})
         for addition in review.additions:
             try:
@@ -262,7 +273,8 @@ def child(output):
         started = time.monotonic()
         try:
             if stopped.is_set() or started >= deadline:
-                raise TimeoutError('Provider unavailable or review deadline')
+                row.update(not_started=True, blocked_reason='provider_unavailable' if stopped.is_set() else 'batch_deadline')
+                return row
             if kind == 'podcast':
                 records = db.table('summaries').select('id,episode_id,title,overview,topics,takeaways,created_at').eq('user_id',owner).eq('episode_id',identifier).limit(1).execute().data or []
                 if not records: raise ValueError('Owned summary unavailable')
@@ -306,7 +318,7 @@ def child(output):
             engine = NoteSummarizer(**settings)
             engine._reading_source = source
             result = review_document(source, fields, engine._editorial_json,
-                                     deadline=min(deadline, started+1200), resume=resume)
+                                     deadline=deadline, resume=resume)
             row.update(ok=result['complete'], review=result)
             if result['complete']:
                 row['cleaned_introduction' if kind == 'podcast' else 'cleaned_markdown'] = remove_audit_notice(text)

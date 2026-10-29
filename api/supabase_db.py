@@ -540,7 +540,7 @@ class SupabaseDatabase:
 
         result = (
             self.client.table("summaries")
-            .select("*, summary_key_points(topic, summary, original_quote, timestamp)")
+            .select("*, summary_key_points(id, topic, summary, original_quote, timestamp)")
             .eq("user_id", user_id)
             .eq("episode_id", episode_id)
             .execute()
@@ -549,7 +549,12 @@ class SupabaseDatabase:
             return None
 
         row = result.data[0]
-        kp_list = row.get("summary_key_points") or []
+        # A joined relation has no implicit order. Updating an existing point
+        # can change its physical row position without changing its reading order.
+        kp_list = [
+            {key: value for key, value in point.items() if key != "id"}
+            for point in sorted(row.get("summary_key_points") or [], key=lambda point: point["id"])
+        ]
 
         return SummaryRecord(
             id=row["id"],

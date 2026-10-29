@@ -1,6 +1,9 @@
 name: Complete authorized saved coverage reviews
 
 on:
+  push:
+    branches: [main]
+    paths: ['.github/maintenance/saved-coverage-request.json']
   workflow_dispatch:
 
 permissions:

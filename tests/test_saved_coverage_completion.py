@@ -65,7 +65,10 @@ def test_addition_carries_forward_with_valid_unique_field(monkeypatch):
     monkeypatch.setattr('source_coverage.split_source',lambda *args:['First claim.', 'Second claim.'])
     calls=[]
     def call(system,payload,timeout):
-        request=json.loads(payload); calls.append(request)
+        request=json.loads(payload)
+        if 'existing_fields' in request:
+            return {'covered':False,'fields':[]}
+        calls.append(request)
         if len(calls)==1:
             return {'additions':[{'id':'added:1','topic':'Claim','heading':'First','text':'First claim.','source_ids':['S1']}], 'coverage':[{'unit':'S1','kind':'content','fields':['added:1']}]}
         assert 'point:4' in request['draft_fields']
@@ -79,6 +82,8 @@ def test_expired_deadline_does_not_call_provider():
     call=Mock()
     result=review_document('Source claim.',{'body':'Reading text.'},call,deadline=time.monotonic()-1)
     assert not result['complete']
+    assert result['checks'][0]['not_started']
+    assert result['checks'][0]['issues'] == ['review_deadline']
     call.assert_not_called()
 
 
@@ -97,10 +102,20 @@ def test_addition_checks_unselected_prose_before_being_accepted():
     fields={'a':'Other context','b':'The meaningful condition.'}
     call=Mock(return_value={'covered':True,'fields':['b']})
     assert not confirm_missing_addition(addition,fields,{'a':'Other context'},call)
-    assert json.loads(call.call_args.args[1])['existing_fields']=={'b':fields['b']}
+    assert json.loads(call.call_args.args[1])['existing_fields']==fields
     call=Mock(return_value={'covered':True,'fields':['invented']})
     with pytest.raises(ValueError):
         confirm_missing_addition(addition,fields,{'a':'Other context'},call)
+
+
+def test_addition_already_in_selected_context_is_not_appended():
+    from scripts.complete_saved_coverage import confirm_missing_addition
+    fields={'body':'Students dislike pop quizzes and lower teaching evaluations.'}
+    call=Mock(return_value={'covered':True,'fields':['body']})
+    assert not confirm_missing_addition(
+        {'source_quote':'Pop quizzes reduce teaching evaluations.',
+         'text':'Students lower teaching evaluations after pop quizzes.'}, fields,fields,call)
+    call.assert_called_once()
 
 
 def test_index_keeps_all_prose_even_for_large_fields():
