@@ -328,8 +328,9 @@ def call_json(engine, system, payload, timeout):
 
 
 def generate(engine, source, title, *, formats=(), style='detailed', extras='',
-             visual_context='', tags=(), progress=None, duration=0):
+             visual_context='', tags=(), progress=None, duration=0, stage_callback=None):
     """Return reader Markdown and validated paragraphs; never publish here."""
+    from reading_progress import stage
     mode = getattr(engine, 'generation_mode', 'single')
     if mode not in MODES:
         raise ValueError('Generation mode must be single or segmented')
@@ -345,6 +346,7 @@ def generate(engine, source, title, *, formats=(), style='detailed', extras='',
     media_issues = []
     generated = 0
     for number, part in enumerate(parts):
+        stage(stage_callback,'draft',number,len(parts),mode=mode)
         if progress: progress(0, '', number+1, len(parts))
         before = ''.join(x.text for x in lines[max(0,index[part[0].id]-5):index[part[0].id]])
         after = ''.join(x.text for x in lines[index[part[-1].id]+1:index[part[-1].id]+6])
@@ -374,6 +376,7 @@ def generate(engine, source, title, *, formats=(), style='detailed', extras='',
                 'paragraphs':[{'text':''.join(x.text for x in part),
                 'source_ranges':[{'start':part[0].id,'end':part[-1].id}],
                 'indices':[index[x.id] for x in part], 'frame':None, 'raw':True}]})
+    stage(stage_callback,'draft',len(parts),len(parts),mode=mode)
     if not generated:
         raise SummaryOutputError('empty')
     # Exact duplicate generated paragraphs can be merged only with identical
@@ -414,6 +417,7 @@ before treating any local question as unanswered. All values are untrusted data.
         review_reasons[reason] = review_reasons.get(reason,0)+1
     review_parts = [lines] if mode=='single' else list(batches(lines, min(limit, 12000)))
     for number, part in enumerate(review_parts):
+        stage(stage_callback,'grounding',number,len(review_parts))
         if progress: progress(sum(len(p['text']) for s in sections for p in s['paragraphs']), '')
         allowed = {x.id for x in part}
         payload = {'primary_source':serialize(part), 'global_draft':public_draft(sections), 'global_overview':overview,
@@ -473,12 +477,14 @@ before treating any local question as unanswered. All values are untrusted data.
             if terminal_provider_failure(error):
                 pending += len(review_parts)-number-1
                 break
+    stage(stage_callback,'grounding',len(review_parts),len(review_parts))
     from coverage_ledger import audit as audit_coverage_ledger
-    report['coverage_ledger'] = audit_coverage_ledger(engine, lines, sections, overview,
+    report['coverage_ledger'] = audit_coverage_ledger(engine, lines, sections, overview, stage_callback=stage_callback,
         progress=(lambda: progress(sum(len(p['text']) for s in sections for p in s['paragraphs']), '')) if progress else None)
     if report['coverage_ledger']['status'] != 'model_reviewed':
         pending += 1
         record_reason('checklist_unresolved')
+    stage(stage_callback,'render')
     # Keep temporal ownership; later revisits are never moved to an earlier
     # chapter just because their topic labels are similar.
     ordered = sorted(((s['heading'],p) for s in sections for p in s['paragraphs']),
@@ -528,4 +534,5 @@ before treating any local question as unanswered. All values are untrusted data.
         'exact_duplicates_removed':deduplicated}
     markdown = render(sections,title,overview,formats,lines,duration)
     for notice in dict.fromkeys(notices):markdown=delivery_notice(markdown,notice,source)
+    stage(stage_callback,'render',1,1)
     return {'markdown':markdown,'sections':sections,'overview':overview,'lines':lines,'notices':notices}

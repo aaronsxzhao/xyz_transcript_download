@@ -174,13 +174,14 @@ class NoteSummarizer:
         extras: str = "",
         progress_callback=None,
         duration: float = 0,
+        stage_callback=None,
     ) -> Optional[str]:
         """Generate once from the full source, or use explicit segmented mode."""
         from transcript_reading import generate
         self._reading_source = transcript_text
         edition = generate(self, transcript_text, title, formats=formats or (),
             style=style, extras=extras, visual_context=visual_context, tags=tags,
-            progress=progress_callback, duration=duration)
+            progress=progress_callback, duration=duration, stage_callback=stage_callback)
         return edition['markdown']
 
     def _editorial_json(self, system, payload, timeout):

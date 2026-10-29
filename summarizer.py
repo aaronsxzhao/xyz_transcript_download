@@ -125,6 +125,7 @@ class Summarizer:
         episode_title: str = "",
         progress_callback=None,
         existing_topics: Optional[List[str]] = None,
+        stage_callback=None,
     ) -> Optional[Summary]:
         """
         Generate a summary from a transcript.
@@ -148,7 +149,7 @@ class Summarizer:
         from transcript_reading import generate, playback_time
         edition = generate(self, transcript_text, episode_title or podcast_title,
             formats=('summary',), progress=(lambda chars, *args: progress_callback(chars)) if progress_callback else None,
-            duration=transcript.duration or 0)
+            duration=transcript.duration or 0, stage_callback=stage_callback)
         from source_coverage import spoken_source
         points = []
         line_index = {line.id:i for i,line in enumerate(edition['lines'])}
@@ -291,8 +292,9 @@ class Summarizer:
             heading,separator,body=text.partition('\n\n')
             points.append(replace(point,topic=heading.removeprefix('## '),summary=body) if separator else point)
         takeaways=[fix(value) for value in summary.takeaways]
-        return replace(summary,overview=overview,key_points=points,
+        localized = replace(summary,overview=overview,key_points=points,
                        topics=list(dict.fromkeys(p.topic for p in points)) if points else summary.topics,takeaways=takeaways)
+        return summary if localized == summary else localized
 
     def _summarize_single(
         self,

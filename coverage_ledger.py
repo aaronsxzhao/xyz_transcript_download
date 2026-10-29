@@ -7,7 +7,7 @@ from reading_language import source_language_lock
 from source_coverage import SOURCE_FIDELITY
 from summary_errors import is_cancellation
 
-VERSION = 'coverage-ledger-v5'
+VERSION = 'coverage-ledger-v6'
 SOURCE_LIMIT = 12000
 ITEM_LIMIT = 8
 KINDS = {'claim', 'experiment', 'counterexample', 'condition', 'disagreement', 'procedure', 'example'}
@@ -67,7 +67,9 @@ def request(engine, system, payload, validate):
     return call_editor(engine.client, engine.model, SOURCE_FIDELITY + '\nReturn valid JSON only.\n' + system,
                        json.dumps(payload, ensure_ascii=False), 120,
                        output_tokens=16384, response_validator=validate,
-                       validation_version=VERSION)
+                       # Schema is unchanged; audit revalidates cached results. Preserve
+                       # completed inventories when retry/normalization rules improve.
+                       validation_version='coverage-ledger-v5')
 
 
 def boundary_commentary(text):
@@ -125,14 +127,21 @@ def matching_response(data, items, draft):
         for evidence in support:
             if not isinstance(evidence,dict):raise ValueError('Invalid support')
             pid=evidence.get('paragraph_id');quote=evidence.get('quote')
-            if not isinstance(pid,str) or pid not in lookup or not isinstance(quote,str) or not quote.strip() or quote not in lookup[pid]['text']:
+            if not isinstance(pid,str) or pid not in lookup or not isinstance(quote,str) or not quote.strip():
                 raise ValueError('Fabricated draft evidence')
+            if quote not in lookup[pid]['text']:
+                # A fragment may receive a generated terminal period. Recover
+                # the exact draft substring, never changed or invented words.
+                fragment=quote.rstrip('.。')
+                if len(fragment)<16 or fragment==quote or fragment not in lookup[pid]['text']:
+                    raise ValueError('Fabricated draft evidence')
+                evidence['quote']=fragment
             if lookup[pid].get('raw') and row['status']=='covered':
                 raise ValueError('Raw fallback is not verified prose')
     return rows
 
 
-def audit(engine, lines, sections, overview='', progress=None):
+def audit(engine, lines, sections, overview='', progress=None, stage_callback=None):
     """Mutate only by appending independently accepted local repairs.
 
     Inventories see no draft. Matching sees the whole evolving draft. A failed
@@ -140,17 +149,30 @@ def audit(engine, lines, sections, overview='', progress=None):
     """
     from transcript_reading import batches, serialize, public_draft, validate_sections
     from model_execution import terminal_provider_failure
+    from reading_progress import stage
     report={'version':VERSION, 'status':'unverified', 'semantic_proof':False,
             'inventory_batches':0, 'failed_batches':0, 'items':[], 'repairs_accepted':0,
-            'repairs_rejected':0, 'requests':0, 'ignored_boundary_items':0}
+            'repairs_rejected':0, 'requests':0, 'ignored_boundary_items':0, 'validation_retries':0}
     inventory=[]
     language=source_language_lock(''.join(line.text for line in lines))
     def call(system,payload,validator):
-        if progress:progress()
-        report['requests']+=1
-        result=request(engine,system+language,payload,validator)
-        validator(result)  # Also validate replayed or injected responses.
-        return result
+        from summary_errors import SummaryOutputError
+        for attempt in range(2):
+            if progress:progress()
+            report['requests']+=1
+            request_payload=payload if not attempt else {**payload,'validation_feedback':
+                'The previous response failed schema or evidence validation. Return valid JSON, '
+                'include every requested ID exactly once, and copy support quotations exactly '
+                'from the named draft paragraph. Use only supplied source ranges. '
+                'Do not describe excerpt boundaries as missing source facts.'}
+            try:
+                result=request(engine,system+language,request_payload,validator)
+                validator(result)
+                return result
+            except (ValueError,SummaryOutputError) as error:
+                if attempt or (isinstance(error,SummaryOutputError) and error.code not in {'invalid','empty'}):
+                    raise
+                report['validation_retries']+=1
     def fail(error):
         if is_cancellation(error):raise error
         report['failed_batches']+=1
@@ -158,6 +180,7 @@ def audit(engine, lines, sections, overview='', progress=None):
     parts=list(batches(lines,SOURCE_LIMIT))
     offset=0
     for number,part in enumerate(parts):
+        stage(stage_callback,'inventory',number,len(parts))
         report['inventory_batches']+=1
         payload={'phase':'inventory','primary_source':serialize(part),
                  'boundary_context':serialize(lines[max(0,offset-5):offset]+lines[offset+len(part):offset+len(part)+5])}
@@ -172,8 +195,10 @@ def audit(engine, lines, sections, overview='', progress=None):
             if fail(error):
                 report['failed_batches']+=len(parts)-number-1
                 return report
+    stage(stage_callback,'inventory',len(parts),len(parts))
     index={line.id:i for i,line in enumerate(lines)}
     for start in range(0,len(inventory),ITEM_LIMIT):
+        stage(stage_callback,'coverage',start,len(inventory))
         items=inventory[start:start+ITEM_LIMIT]
         evidence_indices=set()
         for item in items:
@@ -199,6 +224,7 @@ def audit(engine, lines, sections, overview='', progress=None):
             by_id={row['item_id']:row for row in rows}
             gaps=[item for item in items if by_id[item['id']]['status'] in {'partial','missing'}]
             if gaps:
+                stage(stage_callback,'repair',start,len(inventory),fraction=(start+len(items)*.35)/len(inventory))
                 payload={'phase':'repair','items':gaps,'matches':rows,
                          'primary_source':serialize(evidence),'global_draft':draft_of(sections)}
                 allowed={line.id for line in evidence}
@@ -223,6 +249,7 @@ def audit(engine, lines, sections, overview='', progress=None):
                         p['frame']=None
                         proposed.append(p['id'])
                     candidate.append(s)
+                stage(stage_callback,'recheck',start,len(inventory),fraction=(start+len(items)*.7)/len(inventory))
                 rechecked=match(candidate,proposed)
                 # Accept independently verified paragraphs, not all-or-nothing
                 # batches: one still-missing condition must not discard a valid
@@ -267,6 +294,7 @@ def audit(engine, lines, sections, overview='', progress=None):
             if status=='covered' and (not row.get('grounded') or row.get('duplicate')):status='unverified'
             report['items'].append({'id':item['id'],'kind':item['kind'],'source_ranges':item['source_ranges'],
                                     'status':status,'paragraph_ids':[p['paragraph_id'] for p in row.get('support',[])]})
+    stage(stage_callback,'coverage',len(inventory),len(inventory))
     report['unresolved_items']=sum(item['status']!='covered' for item in report['items'])
     if not report['failed_batches'] and not report['unresolved_items'] and not report['ignored_boundary_items']:
         report['status']='model_reviewed'

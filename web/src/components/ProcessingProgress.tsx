@@ -79,8 +79,9 @@ export default function ProcessingProgress({
         status={restricted ? "restricted" : job.status}
         progress={job.progress}
         startedAt={job.started_at}
+        message={failure.message}
       />
-      {job.message && <p className="task-message">{failure.message}</p>}
+      {job.message && !active && <p className="task-message">{failure.message}</p>}
       <div className="task-actions">
         {active && job.status !== "cancelling" && onCancel && (
           <Button

@@ -1,16 +1,16 @@
 // Shared processing semantics: queued tasks have no estimated percentage.
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   getStatusColor,
   getStatusIcon,
   getStatusText,
   isActiveStatus,
 } from "../lib/statusUtils";
-export function StatusBadge({ status }: { status: string }) {
+export function StatusBadge({ status, label }: { status: string; label?: string }) {
   return (
     <span className="task-status-badge">
       {getStatusIcon(status)}
-      {getStatusText(status)}
+      {label || getStatusText(status)}
     </span>
   );
 }
@@ -19,27 +19,36 @@ export function TaskProgress({
   progress = 0,
   compact = false,
   startedAt = 0,
+  message = "",
 }: {
   status: string;
   progress?: number;
   compact?: boolean;
   startedAt?: number;
+  message?: string;
 }) {
   const [now, setNow] = useState(Date.now());
   useEffect(() => {
     if (!startedAt || !isActiveStatus(status) || status === "pending") return;
-    const timer = setInterval(() => setNow(Date.now()), 5000);
+    setNow(Date.now());
+    const timer = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(timer);
   }, [startedAt, status]);
   const elapsed = Math.max(0, Math.floor(now / 1000 - startedAt));
-  const value = Number.isFinite(progress)
+  const incoming = Number.isFinite(progress)
     ? Math.max(0, Math.min(99, Math.round(progress)))
     : 0;
+  const previous = useRef({ startedAt, status, value: incoming });
+  const freshAttempt = previous.current.startedAt !== startedAt || status === "pending" || !isActiveStatus(previous.current.status);
+  const value = freshAttempt ? incoming : Math.max(previous.current.value, incoming);
+  previous.current = { startedAt, status, value };
   const waiting = status === "pending" || status === "cancelling";
+  const stageMessage = isActiveStatus(status) && !waiting ? message : "";
+  const stageLabel = status === "summarizing" ? ["Writing full-transcript summary", "Writing sections", "Checking source accuracy", "Building coverage checklist", "Checking coverage", "Filling missing details", "Verifying additions", "Preparing the final summary"].find(label => stageMessage.startsWith(label)) : undefined;
   return (
     <div className="task-progress">
       <div className="flex items-center gap-2 text-xs text-gray-400">
-        <StatusBadge status={status} />
+        <StatusBadge status={status} label={stageLabel} />
         {isActiveStatus(status) && !waiting && value > 0 && (
           <span
             className="ml-auto tabular-nums"
@@ -52,7 +61,8 @@ export function TaskProgress({
       {isActiveStatus(status) && !waiting && (
         <div
           role="progressbar"
-          aria-label={getStatusText(status)}
+          aria-label={stageLabel || getStatusText(status)}
+          aria-valuetext={stageMessage ? `${stageMessage}${value > 0 ? `; approximately ${value}% overall` : ""}` : undefined}
           aria-valuemin={0}
           aria-valuemax={100}
           {...(value > 0 ? { "aria-valuenow": value } : {})}
@@ -66,6 +76,8 @@ export function TaskProgress({
           />
         </div>
       )}
+      {stageMessage && <p className="task-stage-message" role="status">{stageMessage}</p>}
+      {!compact && status === "summarizing" && <p className="text-xs text-gray-500">Working on this step. Progress updates as results arrive.</p>}
       {startedAt > 0 && isActiveStatus(status) && status !== "pending" && (
         <span className="text-xs text-gray-500 tabular-nums">
           Elapsed {Math.floor(elapsed / 60)}m {elapsed % 60}s
