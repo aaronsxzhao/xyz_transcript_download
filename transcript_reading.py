@@ -472,7 +472,7 @@ before treating any local question as unanswered. All values are untrusted data.
                             paragraph['frame']=None
             # Add only specifically missing material with real evidence; never
             # append a whole set of section conclusions or review scaffolding.
-            if extra:
+            if extra and response.get('grounded') is True:
                 valid, issues = validate_sections({'sections':extra},lines,allowed)
                 media_issues.extend(issues)
                 for section in valid:
@@ -542,6 +542,10 @@ before treating any local question as unanswered. All values are untrusted data.
                 from model_execution import terminal_provider_failure
                 if terminal_provider_failure(error):break
         review_reasons={key:value for key,value in review_reasons.items() if value}
+    # A final review can withdraw evidence that the ledger previously used.
+    # Keep receipt counts and references consistent with the delivered prose.
+    from coverage_ledger import invalidate_support
+    invalidate_support(report['coverage_ledger'], unsupported_ids)
     stage(stage_callback,'render')
     # Keep temporal ownership; later revisits are never moved to an earlier
     # chapter just because their topic labels are similar.

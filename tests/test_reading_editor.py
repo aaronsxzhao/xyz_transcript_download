@@ -5,7 +5,7 @@ from unittest.mock import Mock, patch
 
 import pytest
 from reading_editor import edit_sections, call_editor
-from summary_errors import ProcessingCancelledError, delivery_notice
+from summary_errors import ProcessingCancelledError, SummaryOutputError, delivery_notice
 
 
 def notes():
@@ -209,3 +209,30 @@ def test_raw_source_fallbacks_are_not_disguised_as_finished_narrative(video):
         with patch.object(engine,'_editorial_json') as call:
             assert engine._edit_reading(source) is source
     call.assert_not_called()
+
+
+@pytest.mark.parametrize('invalid_error',[ValueError('old schema'),SummaryOutputError('invalid')])
+def test_invalid_cached_model_response_is_replaced_before_reuse(invalid_error):
+    from processing_execution import Execution,bind
+    class Store:
+        def __init__(self):self.data={'valid':False};self.saves=0
+        def get_checkpoint(self,*args):return self.data
+        def put_checkpoint(self,*args):self.data=args[-1];self.saves+=1
+    store=Store();execution=Execution('owner','source',store)
+    def validate(data):
+        if not data.get('valid'):raise invalid_error
+    with bind(execution),patch('reading_editor._call_editor',return_value={'valid':True}) as generate:
+        for _ in range(2):
+            assert call_editor(NS(base_url='https://model.test/v1'),'model','system','payload',20,
+                               response_validator=validate)=={'valid':True}
+    assert generate.call_count==1 and store.saves==1 and execution.hits==1
+
+
+def test_cached_response_validation_does_not_swallow_cancellation():
+    from processing_execution import Execution,bind
+    store=Mock();store.get_checkpoint.return_value={'valid':True}
+    with bind(Execution('owner','source',store)),patch('reading_editor._call_editor') as generate:
+        with pytest.raises(ProcessingCancelledError):
+            call_editor(NS(base_url='https://model.test/v1'),'model','system','payload',20,
+                        response_validator=Mock(side_effect=ProcessingCancelledError('stop')))
+    generate.assert_not_called();store.put_checkpoint.assert_not_called()

@@ -151,6 +151,11 @@ Invalid inventories, incomplete match receipts, unavailable providers and failed
 repair checks remain unverified. Cancellation propagates. Terminal configuration
 errors stop further checklist calls. Inventory, matching and repair responses
 are validated before checkpointing; completed calls can be reused on retry.
+Cached model responses are revalidated before reuse. Invalid cached responses
+are replaced by a fresh request; cancellation still propagates immediately.
+An initial review that fails grounding cannot append its proposed additions.
+If final grounding review withdraws prose or the overview, dependent coverage
+receipts and their counts are invalidated along with that content.
 Malformed schema/evidence responses get one bounded retry with validation feedback.
 Inventory claims mixed with excerpt-boundary commentary also trigger that retry,
 so a substantive claim is re-extracted rather than silently discarded with the commentary.

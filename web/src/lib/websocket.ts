@@ -11,6 +11,7 @@ let pollTimer: number | undefined
 let reconnectTimer: number | undefined
 let staleTimer: number | undefined
 let lastUpdate = 0
+let connectingSince = 0
 let refreshRevision = 0
 type Stream = 'podcast' | 'video'
 const inFlight:Partial<Record<Stream,AbortController>> = {}
@@ -61,6 +62,7 @@ function openSocket(owner: number) {
   const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
   const socket = new WebSocket(`${protocol}//${window.location.host}/api/ws/progress`)
   ws = socket
+  connectingSince = Date.now()
   const current = () => running && owner === epoch && ws === socket
   socket.onopen = () => {
     if (current()) socket.send(JSON.stringify({ type: 'auth', token: getAccessToken() || undefined }))
@@ -111,8 +113,10 @@ export function connectWebSocket() {
   openSocket(owner)
   staleTimer = window.setInterval(() => {
     const state = useStore.getState()
-    if ((state.jobs.some(job => active(job.status)) || state.videoTasks.some(task => active(task.status))) &&
-        ws?.readyState === WebSocket.OPEN && Date.now() - lastUpdate > 30000) ws.close()
+    const stalledHandshake = !state.wsConnected && Date.now() - connectingSince > 30000
+    if (ws && ws.readyState < 2 && (stalledHandshake ||
+        ((state.jobs.some(job => active(job.status)) || state.videoTasks.some(task => active(task.status))) &&
+         ws.readyState === WebSocket.OPEN && Date.now() - lastUpdate > 30000))) ws.close()
   }, 15000)
 }
 
