@@ -151,11 +151,11 @@ def test_inventory_failures_are_explicit_and_cancellation_propagates(failure):
     assert sections==before
 
 
-@pytest.mark.parametrize('damage',['missing_item','duplicate_item','invented_quote','raw_fallback'])
+@pytest.mark.parametrize('damage',['missing_item','duplicate_item','unknown_paragraph','raw_fallback'])
 def test_same_topic_or_invalid_receipts_cannot_certify_coverage(damage):
     items=[{'id':'C1'}];draft=[{'paragraphs':[{'id':'P1','text':'Internal reward helps.','raw':damage=='raw_fallback'}]}]
     row={'item_id':'C1','status':'covered','grounded':True,'duplicate':False,
-         'support':[{'paragraph_id':'P1','quote':'External rewards undermine motivation.' if damage=='invented_quote' else 'Internal reward helps.'}]}
+         'support':[{'paragraph_id':'invented' if damage=='unknown_paragraph' else 'P1'}]}
     data={'matches':[] if damage=='missing_item' else [row,row] if damage=='duplicate_item' else [row]}
     with pytest.raises(ValueError):matching_response(data,items,draft)
 
@@ -271,7 +271,8 @@ def test_invented_excerpt_boundary_is_not_an_omission_to_add():
         return {'checked_source_ranges':ranges,'items':[{'kind':'condition',
             'statement':'The excerpt ends before describing the answer.','source_ranges':ranges}]}
     with patch('coverage_ledger.request',side_effect=response):report=audit(SimpleNamespace(),lines,sections)
-    assert sections==before and report['ignored_boundary_items']==1
+    assert sections==before and report['ignored_boundary_items']==0
+    assert report['inventory_failed_batches']==1 and report['validation_retries']==1
     assert report['status']=='unverified' and report['repairs_accepted']==0
 
 
@@ -324,12 +325,12 @@ def test_paraphrased_excerpt_boundary_is_not_published_as_source_fact(text):
     assert boundary_commentary(text)
 
 
-def test_terminal_period_is_recovered_to_an_exact_draft_fragment():
+def test_internal_support_allows_paraphrase_and_discards_legacy_quotation():
     draft=[{'paragraphs':[{'id':'P1','text':'He returned to school and learned neuroscience.'}]}]
     data={'matches':[{'item_id':'C1','status':'covered','grounded':True,'duplicate':False,
                      'support':[{'paragraph_id':'P1','quote':'He returned to school.'}]}]}
     matching_response(data,[{'id':'C1'}],draft)
-    assert data['matches'][0]['support'][0]['quote']=='He returned to school'
+    assert data['matches'][0]['support']==[{'paragraph_id':'P1'}]
 
 
 @pytest.mark.parametrize('checked',[None,[],['unknown'],['L1','L1']])
@@ -342,8 +343,8 @@ def test_repair_matching_requires_every_proposed_paragraph_to_be_inspected(check
         matching_response(data,[{'id':'C1'}],draft,['L1'])
     data['checked_proposed_paragraph_ids']=['L1']
     assert matching_response(data,[{'id':'C1'}],draft,['L1'])[0]['status']=='covered'
-    data['matches'][0]['support'][0]['quote']='An invented result.'
-    with pytest.raises(ValueError,match='Fabricated'):
+    data['matches'][0]['support'][0]['paragraph_id']='invented'
+    with pytest.raises(ValueError,match='Unknown'):
         matching_response(data,[{'id':'C1'}],draft,['L1'])
 
 
@@ -404,3 +405,110 @@ def test_source_correction_cannot_escape_its_original_source_context():
     assert sections==before and report['status']=='unverified'
     assert report['inventory_validation_failed_batches']==2 and not report['corrected_inventory_items']
     assert not any(call['phase']=='repair' for call in calls)
+
+
+@pytest.mark.parametrize('kind,compressible',[('example',True),('claim',True),('experiment',False),('condition',False),('disagreement',False),('procedure',False),('counterexample',False)])
+def test_only_source_verified_incidental_context_can_skip_repair(kind,compressible):
+    case={**CASES[0],'kind':kind}
+    if compressible:
+        case.update(source='[00:00] Attention can be practiced during daily activities, such as washing a blue coffee mug.',
+                    missing_draft='Practice attention during everyday activities.',
+                    complete_draft='The illustrative coffee mug was blue.')
+    lines,sections,_=setup_case(case);calls=[]
+    base=scripted(case,calls)
+    def response(engine,system,payload,validator):
+        if payload['phase']=='validate_inventory':
+            assert 'global_draft' not in payload
+            assert all(item['reported_gap']=='The illustrative mug was blue.' for item in payload['items'])
+            return {'items':[{'id':item['id'],'supported':True,'material':False,
+                             'material_reason':'An interchangeable illustrative detail, with no change to the explanation.'}
+                            for item in payload['items']]}
+        result=base(engine,system,payload,validator)
+        if payload['phase']=='match':
+            for row in result['matches']:row['missing_meaning']='The illustrative mug was blue.'
+        return result
+    with patch('coverage_ledger.request',side_effect=response):report=audit(SimpleNamespace(),lines,sections)
+    assert report['status']=='model_reviewed' and report['unresolved_items']==0
+    assert report['context_only_items']==int(compressible)
+    if compressible:assert report['items'][0]['compression_reason']
+    assert report['covered_items']==int(not compressible)
+    assert report['repairs_accepted']==int(not compressible)
+    assert not report['corrected_inventory_items']
+    assert any(c['phase']=='repair' for c in calls) is not compressible
+
+
+@pytest.mark.parametrize('reassessment',['partial','contradicted','ungrounded'])
+def test_append_only_repair_preserves_existing_support_but_rejects_contradiction(reassessment):
+    case={**CASES[0],'source':'[00:00] Existing supported argument.\n'+CASES[0]['source'],
+          'missing_draft':'Existing supported argument.'}
+    lines,sections,ranges=setup_case(case);base=scripted(case,[])
+    def response(engine,system,payload,validator):
+        data=base(engine,system,payload,validator)
+        if payload['phase']=='inventory':
+            data['items'].append({'kind':'claim','statement':case['missing_draft'],'source_ranges':ranges})
+        if payload['phase']=='match':
+            old=next(row for row in data['matches'] if row['item_id']=='C1.2')
+            proposed=bool(payload['proposed_paragraph_ids'])
+            old.update(status=reassessment if proposed and reassessment!='ungrounded' else 'covered',
+                       support=[{'paragraph_id':'P1'}],grounded=not(proposed and reassessment=='ungrounded'),duplicate=False)
+        return data
+    with patch('coverage_ledger.request',side_effect=response):report=audit(SimpleNamespace(),lines,sections)
+    assert sections[0]['paragraphs'][0]['text']==case['missing_draft']
+    if reassessment=='partial':
+        assert report['status']=='model_reviewed' and report['repairs_accepted']==1
+        assert report['items'][1]['paragraph_ids']==['P1']
+    else:
+        assert report['status']=='unverified' and report['repairs_accepted']==0
+        assert len(sections)==1
+
+
+def test_repair_can_abstain_without_hiding_an_unresolved_gap():
+    case=CASES[0];lines,sections,_=setup_case(case);before=copy.deepcopy(sections)
+    base=scripted(case,[])
+    def response(engine,system,payload,validator):
+        if payload['phase']=='repair':return {'sections':[]}
+        return base(engine,system,payload,validator)
+    with patch('coverage_ledger.request',side_effect=response):report=audit(SimpleNamespace(),lines,sections)
+    assert sections==before and report['status']=='unverified'
+    assert report['unresolved_items']==1 and report['failed_batches']==0
+    assert report['repairs_accepted']==0 and report['validation_retries']==0
+
+
+def test_boundary_commentary_retry_preserves_the_real_claim_instead_of_dropping_it():
+    case=CASES[0];lines,sections,_=setup_case(case);base=scripted(case,[]);attempts=[]
+    def response(engine,system,payload,validator):
+        data=base(engine,system,payload,validator)
+        if payload['phase']=='inventory':
+            attempts.append(payload)
+            if len(attempts)==1:data['items'][0]['statement']+=' The statement is unfinished in the source.'
+        return data
+    with patch('coverage_ledger.request',side_effect=response):report=audit(SimpleNamespace(),lines,sections)
+    assert len(attempts)==2 and 'validation_feedback' in attempts[1]
+    assert report['status']=='model_reviewed' and report['covered_items']==1
+    assert report['repairs_accepted']==1 and report['validation_retries']==1
+    assert not report['ignored_boundary_items'] and not report['failed_batches']
+
+
+@pytest.mark.parametrize('new_fact_grounded',[True,False])
+def test_shared_context_does_not_discard_grounded_new_information(new_fact_grounded):
+    case={'source':'[00:00] Existing context.\n[00:01] An essential condition.',
+          'missing_draft':'Existing context.', 'complete_draft':'Existing context. An essential condition.', 'kind':'condition'}
+    lines,sections,ranges=setup_case(case);base=scripted(case,[])
+    def response(engine,system,payload,validator):
+        data=base(engine,system,payload,validator)
+        if payload['phase']=='inventory':
+            data['items'].append({'kind':'claim','statement':case['missing_draft'],'source_ranges':ranges})
+        if payload['phase']=='match':
+            proposed=payload['proposed_paragraph_ids']
+            condition,context=data['matches']
+            condition['grounded']=new_fact_grounded if proposed else True
+            context.update(status='covered',grounded=True,duplicate=bool(proposed),
+                           support=[{'paragraph_id':proposed[0] if proposed else 'P1'}])
+        return data
+    with patch('coverage_ledger.request',side_effect=response):report=audit(SimpleNamespace(),lines,sections)
+    assert report['repairs_accepted']==int(new_fact_grounded)
+    if new_fact_grounded:
+        assert report['status']=='model_reviewed' and report['covered_items']==2
+        assert report['items'][1]['context_overlap'] is True
+    else:
+        assert report['status']=='unverified' and len(sections)==1

@@ -9,6 +9,16 @@ from processing_execution import parallel_map
 from reading_editor import edit_sections
 
 
+def test_repair_budget_counts_existing_note_instead_of_allocating_again():
+    from reading_budget import revision_guidance
+    token=PLAN.set({'language':'en','target_low':10,'target_high':20,'unit':'English words'})
+    try:
+        text=revision_guidance([{'paragraphs':[{'text':'word '*25}]}],'Brief overview')
+        assert '27 English words' in text and '0 remain' in text
+        assert 'not a fresh allowance' in text and 'still preserve missing essential meaning' in text
+    finally:PLAN.reset(token)
+
+
 @pytest.mark.parametrize('language,minutes,expected',[
     ('en',14,(600,800)), ('zh',67,(3000,3500)), ('en',133,(3000,4000)),
 ])

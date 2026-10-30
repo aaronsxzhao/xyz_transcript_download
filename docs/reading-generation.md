@@ -83,15 +83,20 @@ question unanswered.
 
 Matching compares small item batches with the whole evolving draft, including
 later answers and the opening. Each item must be returned exactly once as
-`covered`, `partial`, `missing` or `contradicted`. Covered items require exact
-supporting substrings from existing paragraph IDs. Topic similarity alone is
+`covered`, `partial`, `missing` or `contradicted`. Covered items require supporting paragraph IDs and semantic agreement. Internal
+receipts do not copy quotations; paraphrase and merged explanations are accepted. Topic similarity alone is
 insufficient; raw source fallback is not certified as verified prose. This is
 still a model judgment, not proof that the inventory found every important fact.
 Inventory wording is not a word-for-word output requirement: incidental places,
 dates, pets, metaphors and repeated examples do not create gaps unless they change
 an argument, evidence or condition. Experimental setup/results, mechanisms,
 meaningful numerical scope, attribution, uncertainty and objections still must
-survive. Nonadjacent supporting clauses require separate exact quotations.
+survive. Published source quotations still come directly from validated source ranges.
+Matching uses a semantic-review contract, separate from the copyediting contract
+used to write prose. Partial/missing receipts identify the absent meaning after
+subtracting the information already conveyed. Source-only materiality checks see
+that reported gap as an untrusted allegation, so an important overall argument
+does not automatically make every omitted illustration mandatory.
 
 For missing/partial items, one local repair attempt proposes only absent meaning.
 It does not rewrite existing paragraphs. Before adding it, a separate matching
@@ -104,7 +109,14 @@ available for context and duplicate checks. The matcher must acknowledge every
 proposed paragraph ID before its receipts can be accepted. This prevents a check
 that silently ignores appended candidates from certifying the repair; the
 acknowledgment alone is never sufficient without grounded, nonduplicate support.
-Previously covered items may not regress. The original prose is retained. A contradiction remains explicit;
+The original prose and its accepted support are retained. An unrelated partial
+reassessment of unchanged prose does not reject otherwise verified additions;
+contradictions and grounding failures still block the candidate batch.
+Short shared context may accompany verified new information in the same paragraph:
+at least one previously missing/partial item must gain novel, grounded support,
+and all supported items must be covered and grounded. Entirely duplicate proposals
+still fail. Overlapping context is recorded separately on the receipt.
+A contradiction remains explicit;
 appending its opposite is not treated as a repair. Later batches see accepted
 repairs, so they can recognize already restored meaning. After this pass, only
 remaining partial, missing or unverified items receive one bounded recovery
@@ -120,6 +132,12 @@ demonstrably invented condition, attribution
 or causal claim, with a reason and source ranges constrained to that item's source
 and short adjacent context. True conditions cannot be dropped to make coverage
 easier. Corrected items are rematched before deciding whether repair is needed.
+The same source-only check can classify a claim or example as `context_only`
+with an explicit compression reason when it is incidental background or an
+interchangeable illustration. Protected kinds (experiments, conditions, objections,
+counterexamples and procedures) remain required. Context-only items are counted
+separately from covered items; uncertainty defaults to required. This is a model
+judgment, not a numeric accuracy score.
 If source validation fails, that batch cannot propose new prose. Correction IDs
 and failed source-validation batches are recorded. A corrected checklist does
 not certify the draft automatically.
@@ -134,16 +152,25 @@ repair checks remain unverified. Cancellation propagates. Terminal configuration
 errors stop further checklist calls. Inventory, matching and repair responses
 are validated before checkpointing; completed calls can be reused on retry.
 Malformed schema/evidence responses get one bounded retry with validation feedback.
-Matching may remove an extra terminal period only when the remaining quotation
-is an exact substring of the named draft paragraph (at least 16 characters).
-Changed words and fabricated quotations remain invalid. The retry count is recorded;
-these rules do not turn failed checks into passes.
+Inventory claims mixed with excerpt-boundary commentary also trigger that retry,
+so a substantive claim is re-extracted rather than silently discarded with the commentary.
+Internal matching validates actual paragraph IDs rather than generated quotation
+strings. The retry count is recorded; these rules do not turn failed checks into
+passes. Repairs share the original whole-note soft reading budget, including
+existing prose, rather than receiving a new allowance for each batch. Related
+missing details should be combined without repeated setup; essential meaning is
+never truncated to satisfy a word target.
 `metrics.generation.coverage_ledger` records item IDs/kinds/source ranges,
 statuses and matching paragraph IDs, failed batches, request count and accepted
 or rejected repairs. Full item statements live in the normal request checkpoints,
 not telemetry. Independent inventories are additional review calls; the complete
 source still has only one **drafting** call in single mode. The old grounding
-review's unresolved findings are not silently cleared by a checklist pass.
+review's unresolved findings are not silently cleared by a checklist pass. When
+only coverage concerns remain after a successful checklist, a final source review
+can clear them only if the repaired draft actually passes. Failed or incomplete
+rechecks retain the warning; grounding concerns are not waived. Optional screenshots
+that fail source/time validation are skipped and recorded in diagnostics without
+a reader-facing whole-note warning.
 
 ## Processing progress
 
