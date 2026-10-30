@@ -31,6 +31,14 @@ it('keeps successful deletion responses compatible',async()=>{
  await expect(removePodcast('owned-id')).resolves.toBeUndefined()
  await expect(deleteEpisode('owned-id')).resolves.toEqual({message:'Deleted'})
 })
+it('keeps a successful server deletion successful when browser cache removal is denied',async()=>{
+ const {getAccountId}=await import('../src/lib/preferences')
+ localStorage.setItem(`xyz_cache_${getAccountId()}:episodes_old`,'stale')
+ vi.stubGlobal('fetch',vi.fn().mockResolvedValue(Response.json({message:'Deleted'})))
+ const denied=vi.spyOn(Storage.prototype,'removeItem').mockImplementation(()=>{throw new DOMException('Storage denied','SecurityError')})
+ try {await expect(deleteEpisode('owned-id')).resolves.toEqual({message:'Deleted'})}
+ finally {denied.mockRestore()}
+})
 it.each(['search','export','saved-video'])('keeps Notion %s proxy errors readable with their status',async kind=>{
  vi.stubGlobal('fetch',vi.fn().mockImplementation(async()=>new Response('Upstream unavailable',{status:502})))
  const pending=kind==='search'?fetchNotionPages():kind==='saved-video'?exportToNotion('task','parent'):exportMarkdownToNotion('# Note','Title','parent')

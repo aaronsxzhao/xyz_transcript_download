@@ -24,6 +24,7 @@ const note = (updated_at='2026-10-24T00:00:01Z', markdown='Saved first note'):Vi
 let node:HTMLDivElement,root:ReturnType<typeof createRoot>
 beforeEach(() => {
   vi.clearAllMocks(); useStore.getState().reset(); localStorage.clear(); sessionStorage.clear()
+  document.documentElement.dataset.design='classic'
   vi.stubGlobal('IntersectionObserver',class {observe(){} disconnect(){}})
   vi.mocked(fetchVideoTask).mockResolvedValue(note())
   vi.mocked(fetchVideoTranscript).mockResolvedValue({transcript:{text:'Original words',duration:120,segments:[]}} as any)
@@ -31,6 +32,23 @@ beforeEach(() => {
 })
 afterEach(() => {act(()=>root.unmount());node.remove();useStore.getState().reset();vi.useRealTimers();vi.unstubAllGlobals()})
 async function mount() {await act(async()=>root.render(<MemoryRouter initialEntries={['/videos/one']}><Routes><Route path="/videos/:taskId" element={<VideoViewer/>}/></Routes></MemoryRouter>))}
+
+it.each(['web','substack','twitter'])('does not add a second cover above the original %s article',async platform=>{
+ document.documentElement.dataset.design='editorial'
+ vi.mocked(fetchVideoTask).mockResolvedValue({...note(),platform,style:'original',thumbnail:'https://images.example/cover.jpg',markdown:'![Original cover](https://images.example/cover.jpg)\n\nOriginal article text.'})
+ await mount()
+ expect(node.querySelector('.publication-reader-cover')).toBeNull()
+ expect(node.querySelectorAll('.reader-body img')).toHaveLength(1)
+ expect(node.querySelector('.reader-body img')?.getAttribute('src')).toBe('https://images.example/cover.jpg')
+ expect(node.querySelector('.reader-body')?.textContent).toContain('Original article text.')
+})
+
+it('retains the editorial cover for generated video summaries',async()=>{
+ document.documentElement.dataset.design='editorial'
+ vi.mocked(fetchVideoTask).mockResolvedValue({...note(),thumbnail:'https://images.example/video.jpg'})
+ await mount()
+ expect(node.querySelector('.publication-reader-cover img')?.getAttribute('src')).toBe('/api/image-proxy?url=https%3A%2F%2Fimages.example%2Fvideo.jpg&v=2')
+})
 
 it.each(['failed','cancelled','summarizing'])('keeps saved content and export actions available after status becomes %s',async status=>{
  vi.mocked(fetchVideoTask).mockResolvedValue({...note(),status,error:status==='failed'?'Provider unavailable':''})

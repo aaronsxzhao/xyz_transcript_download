@@ -54,6 +54,27 @@ it('does not write an old account response into a new account cache', async () =
   expect(getCache(CacheKeys.SUMMARY('private'))).toBeNull()
 })
 
+it('does not reuse or cache a read started while a mutation was pending', async () => {
+  let finishMutation!: (response:Response)=>void
+  let finishOldRead!: (response:Response)=>void
+  const fetch=vi.fn()
+    .mockImplementationOnce(()=>new Promise<Response>(resolve=>{finishMutation=resolve}))
+    .mockImplementationOnce(()=>new Promise<Response>(resolve=>{finishOldRead=resolve}))
+    .mockResolvedValueOnce(Response.json({id:'during-write',status:'success',markdown:'New note'}))
+  vi.stubGlobal('fetch',fetch)
+  const mutation=authFetch('/api/video-notes/tasks/during-write/retry',{method:'POST'})
+  prefetchVideoNote('during-write')
+  await new Promise(resolve=>setTimeout(resolve,220))
+  finishMutation(Response.json({ok:true}))
+  await mutation
+  const fresh=fetchVideoTask('during-write')
+  finishOldRead(Response.json({id:'during-write',status:'success',markdown:'Old note'}))
+  await expect(fresh).resolves.toMatchObject({markdown:'New note'})
+  await new Promise(resolve=>setTimeout(resolve,0))
+  expect(getCache(CacheKeys.VIDEO_NOTE('during-write'))).toBeNull()
+  expect(fetch).toHaveBeenCalledTimes(3)
+})
+
 it('does not request notes when a pointer only passes over a card', async () => {
   const fetch=vi.fn(); vi.stubGlobal('fetch',fetch)
   prefetchVideoNote('passing'); cancelPrefetch()

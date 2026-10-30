@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import {beforeEach,expect,it} from 'vitest'
+import {beforeEach,expect,it,vi} from 'vitest'
 import {clearCache,getCache,setCache,invalidateForMutation} from '../src/lib/cache'
 beforeEach(()=>{localStorage.clear();sessionStorage.clear();clearCache()})
 it('keeps bulky bodies out of synchronous localStorage and bounds entry count',()=>{
@@ -24,4 +24,13 @@ it('keeps saved settings during read-only provider probes and invalidates an act
   }
   invalidateForMutation('/api/settings')
   expect(getCache('settings')).toBeNull()
+})
+
+it('clears memory even when browser storage cannot be accessed',()=>{
+ setCache('summary_denied','Old note')
+ const denied=vi.spyOn(window,'localStorage','get').mockImplementation(()=>{throw new DOMException('Storage denied','SecurityError')})
+ try {
+  expect(()=>clearCache()).not.toThrow()
+ } finally {denied.mockRestore()}
+ expect(getCache('summary_denied')).toBeNull()
 })

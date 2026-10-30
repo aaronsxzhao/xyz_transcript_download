@@ -81,8 +81,11 @@ it("continues without disk cache when IndexedDB opening stalls", async () => {
   void hydrateCache("summary_network").then(() => {
     done = true;
   });
+  let secondDone = false;
+  void hydrateCache("summary_network").then(() => { secondDone = true; });
   await vi.advanceTimersByTimeAsync(1001);
   expect(done).toBe(true);
+  expect(secondDone).toBe(true);
   setCache("summary_network", "Fresh network body");
   expect(getCache("summary_network")).toBe("Fresh network body");
 });
@@ -108,8 +111,11 @@ it("bounds stalled transactions and does not replace fresh data with a late disk
   void hydrateCache("summary_network").then(() => {
     done = true;
   });
+  let simultaneousDone = false;
+  void hydrateCache("summary_network").then(() => { simultaneousDone = true; });
   await vi.advanceTimersByTimeAsync(1001);
   expect(done).toBe(true);
+  expect(simultaneousDone).toBe(true);
   setCache("summary_network", "Fresh network body");
   read.result = {
     key: "xyz_cache_local:summary_network",

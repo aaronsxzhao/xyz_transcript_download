@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import { getAccountId } from "./preferences";
+import { requestWithDeadline } from "./requestDeadline";
 
 const CACHE_PREFIX = "xyz_cache_";
 const CACHE_TTL_MS = 24 * 60 * 60 * 1000;
@@ -23,6 +24,13 @@ const scoped = (key: string) => `${CACHE_PREFIX}${getAccountId()}:${key}`;
 const ttl = (key: string) =>
   key.endsWith(":reading_history") ? 90 * CACHE_TTL_MS : CACHE_TTL_MS;
 const small = (key: string) => key === "settings" || key === "stats";
+function removeStoredEntries(matches: (key: string) => boolean) {
+  try {
+    for (const key of Object.keys(localStorage)) {
+      if (matches(key)) try { localStorage.removeItem(key); } catch {}
+    }
+  } catch { /* Browser storage is optional; memory and disk invalidation continue. */ }
+}
 function size(value: unknown): number {
   if (typeof value === "string") return value.length * 2;
   if (Array.isArray(value)) return value.reduce((n, v) => n + size(v), 0);
@@ -134,13 +142,11 @@ function scheduleMaintenance() {
         }
       };
     });
-    for (const key of Object.keys(localStorage))
-      if (
+    removeStoredEntries(key =>
         key.startsWith(CACHE_PREFIX) &&
         !key.endsWith(":settings") &&
         !key.endsWith(":stats")
-      )
-        localStorage.removeItem(key);
+    );
   };
   setTimeout(() => {
     if ("requestIdleCallback" in window)
@@ -182,19 +188,12 @@ export async function hydrateCache(key?: string): Promise<void> {
       request.onerror = () => resolve();
     });
   })().catch(() => {});
-  hydration.set(name, pending);
-  let timer: ReturnType<typeof setTimeout>;
-  try {
-    await Promise.race([
-      pending,
-      new Promise<void>((resolve) => {
-        timer = setTimeout(resolve, 1000);
-      }),
-    ]);
-  } finally {
-    clearTimeout(timer!);
-    if (hydration.get(name) === pending) hydration.delete(name);
-  }
+  // Every caller shares the bounded read, including simultaneous subscribers.
+  const bounded = requestWithDeadline(() => pending, {timeout: 1000}).catch(() => {}).finally(() => {
+    if (hydration.get(name) === bounded) hydration.delete(name);
+  });
+  hydration.set(name, bounded);
+  return bounded;
 }
 export function useWarmCache<T>(key: string, apply: (value: T) => void) {
   useEffect(() => {
@@ -294,8 +293,7 @@ export function clearCache() {
   revision++;
   memory.clear();
   hydration.clear();
-  for (const key of Object.keys(localStorage))
-    if (key.startsWith(CACHE_PREFIX)) localStorage.removeItem(key);
+  removeStoredEntries(key => key.startsWith(CACHE_PREFIX));
   enqueue((db) =>
     db.transaction("entries", "readwrite").objectStore("entries").clear(),
   );
@@ -401,22 +399,14 @@ export function invalidateForMutation(url: string): void {
   else prefixes = [];
   const accountPrefix = `${CACHE_PREFIX}${getAccountId()}:`;
   revision++;
-  for (const key of Object.keys(localStorage))
-    if (
+  const matches = (key: string) =>
       key.startsWith(accountPrefix) &&
       prefixes.some((prefix) =>
         key.slice(accountPrefix.length).startsWith(prefix),
-      )
-    )
-      localStorage.removeItem(key);
+      );
+  removeStoredEntries(matches);
   for (const key of memory.keys())
-    if (
-      key.startsWith(accountPrefix) &&
-      prefixes.some((prefix) =>
-        key.slice(accountPrefix.length).startsWith(prefix),
-      )
-    )
-      memory.delete(key);
+    if (matches(key)) memory.delete(key);
   enqueue((db) => {
     const tx = db.transaction("entries", "readwrite");
     const cursor = tx.objectStore("entries").openCursor();
@@ -424,13 +414,7 @@ export function invalidateForMutation(url: string): void {
       const row = cursor.result;
       if (!row) return;
       const key = String(row.key);
-      if (
-        key.startsWith(accountPrefix) &&
-        prefixes.some((prefix) =>
-          key.slice(accountPrefix.length).startsWith(prefix),
-        )
-      )
-        row.delete();
+      if (matches(key)) row.delete();
       row.continue();
     };
   });
