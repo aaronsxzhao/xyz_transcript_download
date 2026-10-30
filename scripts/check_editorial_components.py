@@ -1,4 +1,4 @@
-"""Inspect real Editorial controls and long Library titles with synthetic APIs."""
+"""Inspect real appearance controls and long Library titles with synthetic APIs."""
 import argparse
 import asyncio
 import json
@@ -25,7 +25,7 @@ CONTROL = r'''e => {
   text:!!e.innerText?.trim(),tag:e.tagName,shadow:getComputedStyle(e).boxShadow,outline:getComputedStyle(e).outlineStyle};
 }'''
 
-async def run(browser, origin, theme, widths, output, routes):
+async def run(browser, origin, theme, widths, output, routes, design="editorial"):
     context=await context_for(browser, widths[0])
     jobs=[{'job_id':'fixture-job','episode_title':'A failed task to review','status':'failed','created_at':1700000000,'progress':0,'message':'Connection needs attention'}]
     await context.route('**/api/jobs',lambda r:r.fulfill(json={'jobs':jobs}))
@@ -63,8 +63,8 @@ async def run(browser, origin, theme, widths, output, routes):
                     await control.focus()
                 elif state=='active':
                     await control.hover(force=True);await page.mouse.down()
-                info=await control.evaluate(CONTROL);info.update(theme=theme,step=step,state=state);records.append(info)
-                if state=='focus' and info['tag'] in ['INPUT','SELECT','TEXTAREA']:
+                info=await control.evaluate(CONTROL);info.update(design=design,theme=theme,step=step,state=state);records.append(info)
+                if design=='editorial' and state=='focus' and info['tag'] in ['INPUT','SELECT','TEXTAREA']:
                     assert info['shadow']=='none', (step,'legacy focus ring',info)
                 if state=='active':
                     await page.mouse.move(0,0);await page.mouse.up()
@@ -84,7 +84,7 @@ async def run(browser, origin, theme, widths, output, routes):
         print(json.dumps({'theme':theme,'step':step,'controls_checked':len(records)}),flush=True)
     try:
         for route in routes:
-            await page.goto(origin+route);await page.locator('h1').first.wait_for();await choose(page,'editorial',theme)
+            await page.goto(origin+route);await page.locator('h1').first.wait_for();await choose(page,design,theme)
             await capture(route.strip('/').replace('/','-') or 'dashboard')
             if route=='/library':
                 await page.get_by_role('button',name='Open processing tasks',exact=True).click();await capture('processing-drawer',scope='[role=dialog]');await page.keyboard.press('Escape')
@@ -95,6 +95,10 @@ async def run(browser, origin, theme, widths, output, routes):
                         await page.wait_for_timeout(100)
                         geometry=await page.locator('.library-card').evaluate_all('''cards=>cards.map(c=>{const h=c.querySelector('h2'),p=h.nextElementSibling,t=h.getBoundingClientRect(),s=p.getBoundingClientRect(),b=c.getBoundingClientRect();return {wrap:h.scrollWidth<=h.clientWidth+1,inside:t.left>=b.left&&t.right<=b.right+1,separate:t.bottom<=s.top+1}})''')
                         assert all(all(g.values()) for g in geometry),(theme,width,layout,geometry)
+                        for card in await page.locator('.library-card').all():
+                            await card.hover();await page.wait_for_timeout(170)
+                            heading=card.locator('h2')
+                            assert (await heading.evaluate(CONTROL))['ratio']>=4.5,(design,theme,width,layout,'title hover contrast')
                         await capture(f'library-{width}-{layout}',states=False)
                 await page.set_viewport_size({'width':widths[0],'height':900})
             elif route=='/podcasts':
@@ -123,7 +127,7 @@ async def run(browser, origin, theme, widths, output, routes):
         if '/settings' in routes:
             await context.close()
             context=await context_for(browser,widths[0],authenticated=False)
-            await context.add_init_script("localStorage.setItem('xyz:design','editorial');localStorage.setItem('xyz:color-theme',"+json.dumps(theme)+");")
+            await context.add_init_script("localStorage.setItem('xyz:design',"+json.dumps(design)+");localStorage.setItem('xyz:color-theme',"+json.dumps(theme)+");")
             page=await context.new_page();page.on('pageerror',lambda e:errors.append(str(e)))
             await page.goto(origin+'/login');await page.get_by_label('Email',exact=True).wait_for();await capture('login')
             await page.get_by_role('button',name='Sign up',exact=True).click();await capture('signup')
@@ -138,13 +142,13 @@ async def run(browser, origin, theme, widths, output, routes):
 
 async def main():
     parser=argparse.ArgumentParser();parser.add_argument('--routes',nargs='+',default=['/','/library','/podcasts','/videos','/settings','/podcasts/show/episodes','/videos?platform=youtube&channel=Synthetic%20channel','/videos/bench','/viewer/bench']);parser.add_argument('--browser-path');parser.add_argument('--webkit',action='store_true')
-    parser.add_argument('--widths',type=int,nargs='+',default=[820,390,1440]);parser.add_argument('--output',type=Path,default=Path('/tmp/editorial-component-checks'))
+    parser.add_argument('--design',choices=['classic','editorial'],default='editorial');parser.add_argument('--widths',type=int,nargs='+',default=[820,390,1440]);parser.add_argument('--output',type=Path,default=Path('/tmp/editorial-component-checks'))
     args=parser.parse_args();args.output.mkdir(parents=True,exist_ok=True);server=serve(Path(__file__).resolve().parents[1]/'web/dist')
     try:
         async with async_playwright() as p:
             browser=await p.webkit.launch() if args.webkit else await p.chromium.launch(executable_path=args.browser_path,args=['--no-sandbox'])
             try:
-                for theme in ['light','dark']:await run(browser,f'http://127.0.0.1:{server.server_port}',theme,args.widths,args.output,args.routes)
+                for theme in ['light','dark']:await run(browser,f'http://127.0.0.1:{server.server_port}',theme,args.widths,args.output,args.routes,args.design)
             finally:await browser.close()
     finally:server.shutdown();server.server_close()
 if __name__=='__main__':asyncio.run(main())

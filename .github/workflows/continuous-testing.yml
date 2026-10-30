@@ -84,6 +84,14 @@ jobs:
       - name: Check Editorial components and long titles
         timeout-minutes: 10
         run: python scripts/check_editorial_components.py
+      - name: Check Classic components and long titles
+        timeout-minutes: 10
+        run: python scripts/check_editorial_components.py --design classic --output /tmp/classic-component-checks
+      - name: Check global notification themes and keyboard dismissal
+        timeout-minutes: 3
+        run: |
+          python scripts/check_global_feedback.py
+          python scripts/check_global_feedback.py --webkit --output /tmp/global-feedback-webkit
       - name: Check rich summary themes and article interactions
         timeout-minutes: 5
         run: |

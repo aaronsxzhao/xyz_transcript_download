@@ -165,7 +165,7 @@ html[data-reader-contents="hidden"] [data-reader-contents], html[data-reader-con
 :is(.app-shell,.ui-scope) :where(button,a) svg { flex-shrink: 0; }
 .collection-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 280px), 1fr)); gap: 16px; }
 .library-card { min-height: 144px; }
-.library-card h2 { font-size: 16px; }
+.library-card h2 { font-size: 16px; overflow-wrap:anywhere; }
 .library-filters { display: flex; gap: 12px; }
 .library-filters > input { flex: 2; }
 .library-filter-options { display: flex; gap: 12px; flex: 3; min-width: 0; }
