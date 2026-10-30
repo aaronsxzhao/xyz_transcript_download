@@ -14,7 +14,7 @@ import threading
 import time
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from urllib.parse import urlparse
+from urllib.parse import parse_qs, urlparse
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from api.frontend import frontend_html
@@ -136,8 +136,14 @@ async def measure(browser, origin, verify, recovery_only=False):
             delay = 6
             body = {"id": "bench", "email": "bench@example.com", "authenticated": True}
         elif path == '/api/podcasts': body = [podcast]
-        elif path == '/api/podcasts/bench': body = podcast
-        elif path in {'/api/podcasts/content','/api/podcasts/bench/episodes'}: body = [{**episode,'eid':'prefetch' if state.get('prefetch_probe') else 'bench'}]
+        elif path in {'/api/podcasts/bench', '/api/podcasts/prefetch'}:
+            body = {**podcast, 'pid': path.rsplit('/', 1)[-1]}
+        elif path == '/api/podcasts/content':
+            pid = parse_qs(urlparse(route.request.url).query).get('pid', ['bench'])[0]
+            body = [{**episode, 'pid': pid, 'eid': 'prefetch' if pid == 'prefetch' else 'bench'}]
+        elif path == '/api/podcasts/bench/episodes': body = [episode]
+        elif path == '/api/podcasts/prefetch/episodes':
+            body = [{**episode, 'pid': 'prefetch', 'eid': 'prefetch'}]
         elif path == '/api/video-notes/channels':
             body = {"channels": [{"channel": "Synthetic channel", "platform": "youtube", "channel_url": "", "channel_avatar": "", "thumbnail": "", "total": 1, "done": 1, "last_updated": ""}]}
         elif path.startswith('/api/summaries/'):
@@ -204,10 +210,10 @@ async def measure(browser, origin, verify, recovery_only=False):
     if verify:
         assert max(warm.values()) < 2000, warm
         state['delay'] = .2
-        # A new episode key prevents an older in-flight cache write from
-        # masquerading as a completed focus prefetch.
-        state['prefetch_probe'] = True
-        await page.goto(origin + '/podcasts/bench/episodes')
+        # Use a new podcast and episode: the warm bench list is intentionally
+        # cached for 60 seconds. Mutating its fixture would make this probe
+        # depend on whether the runner took longer than that cache window.
+        await page.goto(origin + '/podcasts/prefetch/episodes')
         await page.locator('a[href="/viewer/prefetch"]').wait_for()
         await page.get_by_role('link', name='View', exact=True).focus()
         cached = False
