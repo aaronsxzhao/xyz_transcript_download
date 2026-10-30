@@ -26,19 +26,13 @@ async def check(browser, origin, width, output):
         for design in ['editorial','classic']:
             for theme in ['light','dark']:
                 await page.goto(origin+'/')
-                await page.locator('.collection-stats').wait_for()
+                await page.locator('.dashboard-stats').wait_for()
                 await choose(page,design,theme)
                 await page.wait_for_timeout(250)
                 assert not await page.get_by_role('button',name='Add content',exact=True).count()
-                if design=='editorial':
-                    assert not await page.locator('.collection-stats').evaluate('e=>e.open')
-                    stats=page.locator('.collection-stats>summary')
-                    await stats.focus();await stats.press('Enter')
-                    assert await page.locator('.collection-stats').evaluate('e=>e.open')
-                    await stats.press('Enter')
-                else:
-                    assert await page.locator('.collection-stats').evaluate('e=>e.open')
-                    assert not await page.locator('.collection-stats>summary').is_visible()
+                assert await page.locator('.dashboard-stats>div').count()==7
+                assert await page.locator('.dashboard-stats>div').evaluate_all('cards=>cards.every(c=>c.getBoundingClientRect().height>0)')
+                assert not await page.locator('.collection-stats').count()
                 for path,selector in [('/', '#dashboard-add-content input'),('/library','input[placeholder]'),('/settings','#notion-integration-token')]:
                     await page.goto(origin+path)
                     field=page.locator(selector).first

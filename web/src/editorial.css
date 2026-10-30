@@ -338,4 +338,3 @@ html[data-design='editorial'] .toast-stack button:hover { color:var(--ui-text); 
 html[data-design='editorial'] .toast-stack button:focus-visible { outline-color:var(--ui-accent); }
 html[data-design='editorial'] .toast-stack .text-indigo-400 { color:var(--ui-accent); }
 
-html[data-design='editorial'] .collection-stats>summary{cursor:pointer;color:var(--ui-muted);font-size:13px;padding:12px 0;border-bottom:1px solid var(--ui-border)}
