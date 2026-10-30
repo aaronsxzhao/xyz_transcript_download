@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import React,{act} from 'react'
 import {createRoot} from 'react-dom/client'
-import {MemoryRouter} from 'react-router-dom'
+import {MemoryRouter,useLocation} from 'react-router-dom'
 import {beforeEach,afterEach,it,expect,vi} from 'vitest'
 import ProcessingPanel from '../src/components/ProcessingPanel'
 import {TaskProgress} from '../src/components/TaskStatus'
@@ -125,4 +125,19 @@ it('resets progress for a new attempt and never renders active 100 percent',asyn
  expect(node.querySelector('[role="progressbar"]')?.getAttribute('aria-valuenow')).toBe('10')
  await act(async()=>root.render(<TaskProgress status="saving" progress={100} startedAt={200}/>))
  expect(node.querySelector('[role="progressbar"]')?.getAttribute('aria-valuenow')).toBe('99')
+})
+
+
+it.each(['/', '/viewer/0123456789abcdef01234567'])('reveals the requested summary after navigating from the task drawer at %s',async path=>{
+ useStore.getState().setJobs([job('done','completed')])
+ function Location(){const location=useLocation();return <p data-current-path>{location.pathname}</p>}
+ await act(async()=>root.render(<MemoryRouter initialEntries={[path]}><Location/><ProcessingPanel/></MemoryRouter>))
+ const opener=node.querySelector<HTMLButtonElement>('[aria-label="Open processing tasks"]')!
+ opener.focus();await open()
+ const link=document.querySelector<HTMLAnchorElement>('[role="dialog"] a[href^="/viewer/"]')!
+ await act(async()=>link.click())
+ expect(node.querySelector('[data-current-path]')?.textContent).toBe('/viewer/0123456789abcdef01234567')
+ expect(document.querySelector('[role="dialog"]')).toBeNull()
+ expect(document.activeElement).toBe(opener)
+ expect(useStore.getState().jobs).toHaveLength(1)
 })

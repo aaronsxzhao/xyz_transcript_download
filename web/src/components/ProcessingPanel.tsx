@@ -17,8 +17,10 @@ const formatBytes = (n: number) =>
   `${(Math.max(0, n) / 1048576).toFixed(1)} MB`;
 export default function ProcessingPanel() {
   const state = useStore();
-  const { pathname } = useLocation();
+  const { pathname, key: locationKey } = useLocation();
   const [open, setOpen] = useState(false);
+  // Reveal the destination even when a task link opens the current route again.
+  useEffect(() => setOpen(false), [locationKey]);
   const [dismissed, setDismissed] = useState<string[]>(dismissedTasks);
   useEffect(() => {
     const sync = () => setDismissed(dismissedTasks());

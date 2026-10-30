@@ -23,6 +23,7 @@ async def main():
  server=serve(Path('web/dist').resolve()); origin=f'http://127.0.0.1:{server.server_port}'
  async with async_playwright() as p:
   launch={}
+  if Path('/usr/bin/chromium').exists():launch={'executable_path':'/usr/bin/chromium','args':['--no-sandbox']}
   if Path('/tmp/chromium').exists():launch={'executable_path':'/tmp/chromium','args':json.loads(Path('/tmp/xyz-chromium-args.json').read_text())}
   for width in [1440,390]:
    tasks[0].update(status="saving",progress=98,markdown="",updated_at='2026-10-21T14:59:59Z')
@@ -89,6 +90,13 @@ async def main():
    await page.get_by_role('tab',name='Summary',exact=True).click()
    await page.get_by_text('Updated full note content.',exact=True).first.wait_for()
    assert detail_reads==3,detail_reads
+   for _ in range(2):
+    await page.get_by_role('button',name='Open processing tasks',exact=True).click()
+    drawer=page.get_by_role('dialog',name='Processing tasks')
+    await drawer.locator('[data-task-id=v0]').get_by_role('link',name='Read summary',exact=True).click()
+    await drawer.wait_for(state='detached')
+    await page.get_by_text('Updated full note content.',exact=True).first.wait_for()
+   await page.screenshot(path=f'/tmp/task-summary-navigation-{width}.png')
    assert not errors,errors
    print(json.dumps({'viewport':width,'detail_reads_while_processing':before_reads,'detail_reads_after_completion':detail_reads,'drawer_grouped':True}),flush=True)
    await browser.close()
