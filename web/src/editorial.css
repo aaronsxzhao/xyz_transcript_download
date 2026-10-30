@@ -337,4 +337,3 @@ html[data-design='editorial'] .toast-stack button { border-radius:var(--ui-radiu
 html[data-design='editorial'] .toast-stack button:hover { color:var(--ui-text); background:var(--ui-hover); }
 html[data-design='editorial'] .toast-stack button:focus-visible { outline-color:var(--ui-accent); }
 html[data-design='editorial'] .toast-stack .text-indigo-400 { color:var(--ui-accent); }
-
