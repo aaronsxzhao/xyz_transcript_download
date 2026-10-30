@@ -17,7 +17,7 @@ from summary_errors import SummaryOutputError, delivery_notice, is_cancellation
 VERSION = 'source-linked-reading-v5-meaning-first'
 MODES = ('single', 'segmented')
 GENERATION_TIMEOUT = 600
-REVIEW_TIMEOUT = 120
+REVIEW_TIMEOUT = 240
 
 
 class ReadingProviderError(RuntimeError):

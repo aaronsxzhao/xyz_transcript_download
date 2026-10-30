@@ -117,7 +117,9 @@ def request(engine, system, payload, validate):
     # Copyediting instructions over-constrain semantic matching into literal recall.
     contract = '' if payload.get('phase') in {'match','validate_inventory'} else SOURCE_FIDELITY
     return call_editor(engine.client, engine.model, contract + '\nReturn valid JSON only.\n' + system,
-                       json.dumps(payload, ensure_ascii=False), 120,
+                       # Matching reads the whole evolving draft. Long-source
+                       # reviews need more headroom than source-local calls.
+                       json.dumps(payload, ensure_ascii=False), 240 if payload.get('phase')=='match' else 120,
                        output_tokens=16384, response_validator=validate,
                        validation_version=VERSION)
 
