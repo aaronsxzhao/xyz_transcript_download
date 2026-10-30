@@ -418,10 +418,14 @@ def test_only_source_verified_incidental_context_can_skip_repair(kind,compressib
     def response(engine,system,payload,validator):
         if payload['phase']=='validate_inventory':
             assert 'global_draft' not in payload
+            assert all(item['reported_gap']=='The illustrative mug was blue.' for item in payload['items'])
             return {'items':[{'id':item['id'],'supported':True,'material':False,
                              'material_reason':'An interchangeable illustrative detail, with no change to the explanation.'}
                             for item in payload['items']]}
-        return base(engine,system,payload,validator)
+        result=base(engine,system,payload,validator)
+        if payload['phase']=='match':
+            for row in result['matches']:row['missing_meaning']='The illustrative mug was blue.'
+        return result
     with patch('coverage_ledger.request',side_effect=response):report=audit(SimpleNamespace(),lines,sections)
     assert report['status']=='model_reviewed' and report['unresolved_items']==0
     assert report['context_only_items']==int(compressible)

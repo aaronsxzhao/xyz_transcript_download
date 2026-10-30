@@ -92,6 +92,11 @@ dates, pets, metaphors and repeated examples do not create gaps unless they chan
 an argument, evidence or condition. Experimental setup/results, mechanisms,
 meaningful numerical scope, attribution, uncertainty and objections still must
 survive. Published source quotations still come directly from validated source ranges.
+Matching uses a semantic-review contract, separate from the copyediting contract
+used to write prose. Partial/missing receipts identify the absent meaning after
+subtracting the information already conveyed. Source-only materiality checks see
+that reported gap as an untrusted allegation, so an important overall argument
+does not automatically make every omitted illustration mandatory.
 
 For missing/partial items, one local repair attempt proposes only absent meaning.
 It does not rewrite existing paragraphs. Before adding it, a separate matching
