@@ -96,3 +96,15 @@ it('does not close an initialized idle connection at the handshake deadline', as
   await vi.advanceTimersByTimeAsync(60000)
   expect(socket.close).not.toHaveBeenCalled()
 })
+
+it('gives an active task connection its full initialization grace period', async () => {
+  connectWebSocket()
+  const socket = FakeSocket.instances[0]
+  vi.stubGlobal('fetch',vi.fn(async (url: string) => Response.json(url.endsWith('/jobs')
+    ? {jobs:[{job_id:'active',status:'transcribing',progress:10}]} : {tasks:[]})))
+  await vi.advanceTimersByTimeAsync(30000)
+  expect(useStore.getState().jobs[0]?.status).toBe('transcribing')
+  expect(socket.close).not.toHaveBeenCalled()
+  await vi.advanceTimersByTimeAsync(15000)
+  expect(socket.close).toHaveBeenCalledOnce()
+})

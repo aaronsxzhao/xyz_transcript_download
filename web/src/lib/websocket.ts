@@ -115,7 +115,7 @@ export function connectWebSocket() {
     const state = useStore.getState()
     const stalledHandshake = !state.wsConnected && Date.now() - connectingSince > 30000
     if (ws && ws.readyState < 2 && (stalledHandshake ||
-        ((state.jobs.some(job => active(job.status)) || state.videoTasks.some(task => active(task.status))) &&
+        (state.wsConnected && (state.jobs.some(job => active(job.status)) || state.videoTasks.some(task => active(task.status))) &&
          ws.readyState === WebSocket.OPEN && Date.now() - lastUpdate > 30000))) ws.close()
   }, 15000)
 }
