@@ -548,7 +548,7 @@ export default function Podcasts() {
                   onTouchStart={() => prefetchEpisodes(podcast.pid)}
                   className="p-4 md:p-6 bg-dark-surface border border-dark-border rounded-xl hover:border-dark-hover transition-colors cursor-pointer"
                 >
-                  <div className="flex flex-col sm:flex-row sm:items-start gap-4">
+                  <div className="collection-row">
                     <div className="flex items-start gap-3 sm:gap-4 flex-1 min-w-0">
                       <PodcastImage priority={index<3} url={podcast.cover_url} alt={podcast.title} />
 
@@ -557,9 +557,9 @@ export default function Podcasts() {
                           {podcast.title}
                         </h3>
                         {podcast.author && (
-                          <p className="text-sm text-gray-400 mb-1 md:mb-2">{podcast.author}</p>
+                          <p className="text-sm text-gray-400 mb-1 md:mb-2 line-clamp-2">{podcast.author}</p>
                         )}
-                        <p className="text-sm text-gray-500 line-clamp-2 hidden sm:block">
+                        <p className="text-sm text-gray-500 hidden sm:line-clamp-2">
                           {podcast.description || 'No description'}
                         </p>
                         <p className="text-sm text-indigo-400 mt-1 md:mt-2">
@@ -571,13 +571,13 @@ export default function Podcasts() {
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-2 justify-end sm:justify-start" onClick={e => e.stopPropagation()}>
+                    <div className="collection-actions" onClick={e => e.stopPropagation()}>
                       <Link
                         to={`/podcasts/${podcast.pid}/episodes`}
                         aria-label={`Open episodes: ${podcast.title}`}
                         onFocus={() => prefetchEpisodes(podcast.pid)}
                         onBlur={cancelPrefetch}
-                        className="flex items-center gap-1 px-3 py-2 bg-dark-hover hover:bg-dark-border text-white rounded-lg transition-colors text-sm"
+                        className="ui-button ui-button-icon-mobile"
                       >
                         <ExternalLink size={16} />
                         <span className="hidden sm:inline">Episodes</span>
@@ -586,7 +586,7 @@ export default function Podcasts() {
                         <button
                           onClick={() => handleRefresh(podcast.pid)}
                           disabled={refreshingAll || !!pendingActions[podcast.pid]}
-                          className="p-2 bg-dark-hover hover:bg-dark-border text-white rounded-lg transition-colors disabled:opacity-50"
+                          className="ui-button ui-button-icon"
                           title="Refresh episodes"
                           aria-label={`Refresh ${podcast.title}`}
                           aria-busy={pendingActions[podcast.pid] === 'refresh'}
@@ -597,7 +597,7 @@ export default function Podcasts() {
                       <button
                         onClick={() => handleRemove(podcast.pid)}
                         disabled={refreshingAll || !!pendingActions[podcast.pid]}
-                        className="p-2 bg-dark-hover hover:bg-red-600/20 text-red-400 rounded-lg transition-colors disabled:opacity-50"
+                        className="ui-button ui-button-icon ui-button-danger"
                         title="Remove podcast"
                         aria-label={`Remove ${podcast.title}`}
                         aria-busy={pendingActions[podcast.pid] === 'delete'}

@@ -163,6 +163,11 @@ jobs:
           python scripts/check_performance_backlog.py
           python scripts/check_dashboard_recent.py
           python scripts/check_dashboard_recent.py --webkit --widths 390
+      - name: Check collection list wrapping and alignment
+        timeout-minutes: 4
+        run: |
+          python scripts/check_collection_lists.py --output appearance-checks/collection-lists/chromium
+          python scripts/check_collection_lists.py --webkit --output appearance-checks/collection-lists/webkit
       - name: Check first paint and connection recovery
         timeout-minutes: 5
         run: |

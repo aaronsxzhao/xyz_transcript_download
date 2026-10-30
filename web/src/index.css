@@ -482,6 +482,9 @@ html[data-reader-contents="hidden"] .unified-reader{grid-template-columns:minmax
 .note-card-fallback{background:#172f40;color:#79c4dd}.note-card-fallback[data-type="audio"]{background:#292540;color:#b8a6ec}.note-card-fallback[data-type="article"]{background:#352d22;color:#d6b57b}
 
 /* Collection links, buttons and disclosures share one control geometry. */
+.collection-row{display:flex;flex-wrap:wrap;align-items:flex-start;gap:16px}
+.collection-row>:first-child{flex:1 1 28rem;min-width:0;overflow-wrap:anywhere}
+.collection-row>.collection-actions{margin-left:auto}
 .collection-actions{display:flex;flex-wrap:wrap;align-items:center;justify-content:flex-end;gap:8px;min-width:0}
 .collection-actions :is(.ui-button,.task-more>summary){box-sizing:border-box;border-radius:var(--ui-radius);height:var(--ui-control-height);min-height:var(--ui-control-height);display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:0 12px;font-size:14px;line-height:20px;white-space:nowrap;flex-shrink:0}
 .collection-actions .ui-button:disabled{opacity:.5}
