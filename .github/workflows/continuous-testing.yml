@@ -396,16 +396,27 @@ jobs:
   summary:
     name: Test Summary
     runs-on: ubuntu-latest
-    needs: [test]
+    needs: [test, frontend, appearance-monitor]
     if: always()
     
     steps:
       - name: Check test status
+        env:
+          BACKEND_RESULT: ${{ needs.test.result }}
+          FRONTEND_RESULT: ${{ needs.frontend.result }}
+          APPEARANCE_RESULT: ${{ needs.appearance-monitor.result }}
+          EVENT_NAME: ${{ github.event_name }}
         run: |
-          if [ "${{ needs.test.result }}" == "success" ]; then
-            echo "✅ All tests passed!"
-            exit 0
-          else
-            echo "❌ Some tests failed. Check the test job for details."
+          expected_frontend=success
+          expected_appearance=skipped
+          if [ "$EVENT_NAME" = "schedule" ]; then
+            expected_frontend=skipped
+            expected_appearance=success
+          elif [ "$EVENT_NAME" = "workflow_dispatch" ]; then
+            expected_appearance=success
+          fi
+          if [ "$BACKEND_RESULT" != "success" ] || [ "$FRONTEND_RESULT" != "$expected_frontend" ] || [ "$APPEARANCE_RESULT" != "$expected_appearance" ]; then
+            echo "❌ Required checks did not pass: backend=$BACKEND_RESULT frontend=$FRONTEND_RESULT appearance=$APPEARANCE_RESULT"
             exit 1
           fi
+          echo "✅ All required tests passed!"
