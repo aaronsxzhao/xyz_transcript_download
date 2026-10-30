@@ -328,3 +328,5 @@ html[data-design='editorial'] .note-prose .reader-screenshot img { border-color:
 html[data-design='editorial'] .markdown-table :is(th,td) { min-width:100px; }
 html[data-design='editorial'] .auth-appearance :is(summary,.appearance-controls) { background:var(--ui-surface); color:var(--ui-text); border:1px solid var(--ui-border); }
 html[data-design='editorial'] .auth-appearance summary { font-size:20px; }
+html[data-design='editorial'] .publication-feature h2 { display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:4; overflow:hidden; }
+html[data-design='editorial'] .publication-feature .note-card-fallback>span { display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:3; overflow:hidden; max-width:100%; overflow-wrap:anywhere; line-height:1.5; }
