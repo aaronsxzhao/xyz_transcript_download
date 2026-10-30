@@ -638,6 +638,8 @@ export default function Dashboard() {
 
       {/* Stats — podcast + video combined */}
       {stats && (
+        <details className="collection-stats" open={design === 'classic' ? true : undefined}>
+        <summary hidden={design === 'classic'}>Collection details · {stats.total_summaries} podcast summaries · {stats.completed_videos} completed videos</summary>
         <div className="dashboard-stats grid grid-cols-2 md:grid-cols-3 lg:grid-cols-7 gap-3">
           <StatCard
             icon={Radio}
@@ -682,6 +684,7 @@ export default function Dashboard() {
             color="text-emerald-500"
           />
         </div>
+        </details>
       )}
 
       <div className="publication-dashboard-content">

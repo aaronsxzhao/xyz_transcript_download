@@ -24,3 +24,9 @@ it('keeps both dates even when imported on publication day and treats local medi
   expect(html).not.toContain('Published')
   expect(html).not.toContain('unavailable')
 })
+
+it('keeps the import date without repeating missing publication notices in compact rows', () => {
+ const html = renderToStaticMarkup(<ContentDates imported="2026-10-30T12:00:00Z" compact />)
+ expect(html).toContain('Imported 2026-10-30')
+ expect(html).not.toContain('Publication date unavailable')
+})

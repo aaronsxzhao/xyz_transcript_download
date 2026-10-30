@@ -510,3 +510,5 @@ html[data-reader-contents="hidden"] .unified-reader{grid-template-columns:minmax
  .task-progress-track>span { transition:none; }
  .task-progress-track>span::after,.task-indeterminate { animation:none!important; }
 }
+
+.app-shell :is(input,textarea)::placeholder{color:var(--ui-placeholder,var(--ui-secondary));opacity:1}
