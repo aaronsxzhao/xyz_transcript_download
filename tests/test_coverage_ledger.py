@@ -459,3 +459,15 @@ def test_append_only_repair_preserves_existing_support_but_rejects_contradiction
     else:
         assert report['status']=='unverified' and report['repairs_accepted']==0
         assert len(sections)==1
+
+
+def test_repair_can_abstain_without_hiding_an_unresolved_gap():
+    case=CASES[0];lines,sections,_=setup_case(case);before=copy.deepcopy(sections)
+    base=scripted(case,[])
+    def response(engine,system,payload,validator):
+        if payload['phase']=='repair':return {'sections':[]}
+        return base(engine,system,payload,validator)
+    with patch('coverage_ledger.request',side_effect=response):report=audit(SimpleNamespace(),lines,sections)
+    assert sections==before and report['status']=='unverified'
+    assert report['unresolved_items']==1 and report['failed_batches']==0
+    assert report['repairs_accepted']==0 and report['validation_retries']==0

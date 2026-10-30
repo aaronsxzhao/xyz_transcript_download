@@ -405,6 +405,8 @@ def _audit(engine, lines, sections, overview='', progress=None, stage_callback=N
                          'primary_source':serialize(evidence),'global_draft':draft_of(sections)}
                 allowed={line.id for line in evidence}
                 def validate(data):
+                    # Abstaining is valid; it does not certify the unresolved gap.
+                    if isinstance(data,dict) and data.get('sections')==[]:return [],[]
                     validated, issues = validate_sections(data,lines,allowed)
                     if any(boundary_commentary(p['text']) for s in validated for p in s['paragraphs']):
                         raise ValueError('Repair contains boundary commentary')
