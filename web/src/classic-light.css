@@ -1,4 +1,6 @@
 /* Light-only shared controls and statuses. */
+html[data-design='classic'][data-theme='light'] .summary-screenshot-placeholder { background:#eef2f8; color:#526176; border-color:#dbe2ec; }
+html[data-design='classic'][data-theme='light'] .note-prose :is(th,td) { color:#253247; border-color:#dbe2ec; }
 html[data-theme='light'] :is(.bg-indigo-600,.bg-indigo-700,.bg-purple-600,.bg-pink-600,.bg-cyan-600,.bg-blue-600,.bg-red-600,.bg-green-600).text-white { color:#fff; }
 html[data-theme='light'] :is(.bg-pink-600,.bg-cyan-600,.bg-blue-600,.bg-red-600,.bg-green-600) .text-white { color:#fff; }
 html[data-theme='light'] :is(.text-yellow-400,.text-amber-400,.text-amber-300,.text-amber-200\/80) { color:#83531f; }

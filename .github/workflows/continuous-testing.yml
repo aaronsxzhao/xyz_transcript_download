@@ -84,6 +84,11 @@ jobs:
       - name: Check Editorial components and long titles
         timeout-minutes: 10
         run: python scripts/check_editorial_components.py
+      - name: Check rich summary themes and article interactions
+        timeout-minutes: 5
+        run: |
+          python scripts/check_summary_theme.py
+          python scripts/check_summary_theme.py --webkit --output /tmp/summary-theme-webkit
       - name: Check Editorial components in WebKit
         timeout-minutes: 10
         run: python scripts/check_editorial_components.py --webkit --widths 390

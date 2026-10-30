@@ -1,0 +1,17 @@
+/* Loaded with the formatter; Classic dark retains its original Prism palette. */
+html:is([data-design='editorial'],[data-theme='light']) .note-prose .summary-code {
+  background:var(--ui-surface,#eef2f8); color:var(--ui-text); padding:0; overflow:auto;
+  --syntax-keyword:#8b3f2b; --syntax-string:#536136; --syntax-number:#346666;
+}
+html[data-design='editorial'][data-theme='dark'] .note-prose .summary-code {
+  --syntax-keyword:#e8b098; --syntax-string:#c5c098; --syntax-number:#a9c8c2;
+}
+html:is([data-design='editorial'],[data-theme='light']) .note-prose .summary-code>code {
+  background:transparent; color:inherit; padding:0; border-radius:0;
+  font:inherit; white-space:pre; text-shadow:none;
+}
+html:is([data-design='editorial'],[data-theme='light']) .summary-code .token { background:transparent; }
+html:is([data-design='editorial'],[data-theme='light']) .summary-code :is(.comment,.prolog,.doctype,.cdata) { color:var(--ui-secondary); }
+html:is([data-design='editorial'],[data-theme='light']) .summary-code :is(.keyword,.tag,.operator,.function,.class-name) { color:var(--syntax-keyword); }
+html:is([data-design='editorial'],[data-theme='light']) .summary-code :is(.string,.char,.attr-value,.regex) { color:var(--syntax-string); }
+html:is([data-design='editorial'],[data-theme='light']) .summary-code :is(.number,.boolean,.constant,.symbol) { color:var(--syntax-number); }

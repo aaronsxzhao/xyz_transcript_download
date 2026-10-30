@@ -29,11 +29,13 @@ async def context_for(browser, width, authenticated=True, touch=False):
     context = await browser.new_context(viewport={'width': width, 'height': 900}, service_workers='block', has_touch=touch)
     if authenticated:
         await context.add_init_script("""
+          if (window === window.top) {
           localStorage.setItem('xyz_remember_me','true');
           localStorage.setItem('xyz_access_token',TOKEN);
           localStorage.setItem('xyz_user',JSON.stringify({id:'bench',email:'bench@example.com',authenticated:true}));
           window.WebSocket=class {static OPEN=1;readyState=1;constructor(){setTimeout(()=>this.onopen?.(),1)}
             send(){setTimeout(()=>this.onmessage?.({data:JSON.stringify({type:'init',jobs:[],video_tasks:[]})}),1)}close(){}}
+          }
         """.replace('TOKEN', json.dumps(token(int(time.time()) + 7200))))
     task, summary = fixtures()
     task.update(versions=[], markdown='# Synthetic note\n\nA readable paragraph.\n\n> A quote with its original spacing.\n\n## Next section\n\nFinal paragraph.\n\n### Third\n\n#### Fourth\n\n##### Fifth\n\n###### Sixth\n\n**Emphasis**.')
