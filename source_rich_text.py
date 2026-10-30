@@ -4,7 +4,19 @@ import unicodedata
 
 
 def escape_text(value):
-    return re.sub(r'([\\`*{}_~\[\]<>])', r'\\\1', str(value or ''))
+    return protect_paragraph(re.sub(r'([\\`*{}_~\[\]<>])', r'\\\1', str(value or '')))
+
+
+def protect_paragraph(value):
+    """Keep literal source prose from becoming Markdown block syntax.
+
+    Call after joining inline nodes too: an editor can split ``2018`` and
+    ``. Text`` across spans. Real list/heading markers are added afterwards.
+    """
+    value = re.sub(r'(?m)^([ \t]{0,3}\d{1,9})([.)])(?=[ \t]|$)', r'\1\\\2', value)
+    value = re.sub(r'(?m)^([ \t]{0,3})([#+-])(?=[ \t]|$)', r'\1\\\2', value)
+    value = re.sub(r'(?m)^([ \t]{0,3})(#)(?=#{1,5}[ \t])', r'\1\\\2', value)
+    return re.sub(r'(?m)^([ \t]{0,3})([-=])(?=[-= \t]*$)', r'\1\\\2', value)
 
 
 def inline_code(value):
@@ -12,6 +24,14 @@ def inline_code(value):
     fence = '`' * max(1, max((len(match[0]) + 1 for match in re.finditer(r'`+', value)), default=1))
     pad = ' ' if not value.isspace() and (value.startswith(('`', ' ')) or value.endswith(('`', ' '))) else ''
     return fence + pad + value + pad + fence
+
+
+def source_list(items, ordered=False, start=1):
+    lines=[]
+    for index,item in enumerate(items):
+        marker=f'{start+index}. ' if ordered else '- '
+        lines.append(marker+item.strip().replace('\n','\n'+' '*len(marker)))
+    return '\n\n'+'\n'.join(lines)+'\n\n'
 
 
 def emphasis(value, marker):

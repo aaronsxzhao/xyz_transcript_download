@@ -8,3 +8,14 @@
 @source "./components/ArticleNote.tsx";
 @source "./components/video/MarkdownPreview.tsx";
 @config "../tailwind.config.js";
+
+/* Keep long native list numbers in the content box, including old saved notes.
+   Normal one/two-digit lists retain their original hanging indentation. */
+.note-prose :is(ol,ul) { list-style-position:outside; }
+.note-prose ol.wide-number-list { list-style-position:inside; padding-inline-start:.25em; }
+.note-prose ol.wide-number-list>li>p:first-child { display:inline; }
+.note-prose ol.wide-number-list>li { overflow-wrap:anywhere; }
+.note-prose :is(ol,ul)>li::marker { color:var(--ui-secondary,#94a3b8); }
+.note-prose .markdown-table { max-width:100%; min-width:0; }
+.note-prose .markdown-table table { display:table; width:100%; min-width:480px; max-width:none; }
+.note-prose .markdown-table:focus-visible { outline:2px solid var(--ui-accent,#818cf8); outline-offset:2px; }
