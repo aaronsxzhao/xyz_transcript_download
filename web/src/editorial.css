@@ -326,3 +326,5 @@ html[data-design='editorial'] .markdown-table:focus-visible { outline:2px solid 
 html[data-design='editorial'] .summary-screenshot-placeholder { background:var(--ui-tint); color:var(--ui-secondary); border-color:var(--ui-border); border-radius:var(--ui-radius); }
 html[data-design='editorial'] .note-prose .reader-screenshot img { border-color:var(--ui-border); border-radius:var(--ui-card-radius); }
 html[data-design='editorial'] .markdown-table :is(th,td) { min-width:100px; }
+html[data-design='editorial'] .auth-appearance :is(summary,.appearance-controls) { background:var(--ui-surface); color:var(--ui-text); border:1px solid var(--ui-border); }
+html[data-design='editorial'] .auth-appearance summary { font-size:20px; }
