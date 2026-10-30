@@ -148,6 +148,8 @@ repair checks remain unverified. Cancellation propagates. Terminal configuration
 errors stop further checklist calls. Inventory, matching and repair responses
 are validated before checkpointing; completed calls can be reused on retry.
 Malformed schema/evidence responses get one bounded retry with validation feedback.
+Inventory claims mixed with excerpt-boundary commentary also trigger that retry,
+so a substantive claim is re-extracted rather than silently discarded with the commentary.
 Internal matching validates actual paragraph IDs rather than generated quotation
 strings. The retry count is recorded; these rules do not turn failed checks into
 passes. Repairs share the original whole-note soft reading budget, including

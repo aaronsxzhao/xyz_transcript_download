@@ -147,7 +147,10 @@ def inventory_response(data, lines):
     aliases={'limitation':'condition','objection':'disagreement','study':'experiment','finding':'claim'}
     normalized=[]
     for item in data['items']:
-        if boundary_commentary(item['statement']):continue
+        if boundary_commentary(item['statement']):
+            # Do not silently discard a real claim mixed with chunk commentary.
+            # The bounded inventory retry must recover its substantive meaning.
+            raise ValueError('Inventory contains excerpt-boundary commentary; retain substantive claims using boundary context')
         kind=aliases.get(item['kind'],item['kind'])
         # Category labels aid navigation; they are not evidence. A model's
         # extra category must not discard an otherwise valid source inventory.

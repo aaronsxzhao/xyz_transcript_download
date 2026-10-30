@@ -271,7 +271,8 @@ def test_invented_excerpt_boundary_is_not_an_omission_to_add():
         return {'checked_source_ranges':ranges,'items':[{'kind':'condition',
             'statement':'The excerpt ends before describing the answer.','source_ranges':ranges}]}
     with patch('coverage_ledger.request',side_effect=response):report=audit(SimpleNamespace(),lines,sections)
-    assert sections==before and report['ignored_boundary_items']==1
+    assert sections==before and report['ignored_boundary_items']==0
+    assert report['inventory_failed_batches']==1 and report['validation_retries']==1
     assert report['status']=='unverified' and report['repairs_accepted']==0
 
 
@@ -471,3 +472,18 @@ def test_repair_can_abstain_without_hiding_an_unresolved_gap():
     assert sections==before and report['status']=='unverified'
     assert report['unresolved_items']==1 and report['failed_batches']==0
     assert report['repairs_accepted']==0 and report['validation_retries']==0
+
+
+def test_boundary_commentary_retry_preserves_the_real_claim_instead_of_dropping_it():
+    case=CASES[0];lines,sections,_=setup_case(case);base=scripted(case,[]);attempts=[]
+    def response(engine,system,payload,validator):
+        data=base(engine,system,payload,validator)
+        if payload['phase']=='inventory':
+            attempts.append(payload)
+            if len(attempts)==1:data['items'][0]['statement']+=' The statement is unfinished in the source.'
+        return data
+    with patch('coverage_ledger.request',side_effect=response):report=audit(SimpleNamespace(),lines,sections)
+    assert len(attempts)==2 and 'validation_feedback' in attempts[1]
+    assert report['status']=='model_reviewed' and report['covered_items']==1
+    assert report['repairs_accepted']==1 and report['validation_retries']==1
+    assert not report['ignored_boundary_items'] and not report['failed_batches']
