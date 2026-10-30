@@ -2,6 +2,7 @@
 import argparse
 import asyncio
 import json
+import re
 import sys
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
@@ -48,6 +49,7 @@ async def run(browser, origin, theme, widths, output, routes, design="editorial"
     page=await context.new_page();errors=[];records=[]
     page.on('pageerror',lambda e:errors.append(str(e)))
     async def capture(step, states=True, scope="body"):
+        filename=re.sub(r'[^A-Za-z0-9_.-]', '-', step)
         await page.wait_for_timeout(200)
         assert not await page.get_by_text('This page could not open',exact=True).count(), (step,'page failed')
         controls=page.locator(scope).locator('button,summary,select,input:not([type=hidden]),textarea,a[href]')
@@ -73,10 +75,10 @@ async def run(browser, origin, theme, widths, output, routes, design="editorial"
                     assert info['ratio']>=threshold, (step,state,info)
                     if info['fileRatio'] is not None: assert info['fileRatio']>=4.5,(step,info)
         await page.mouse.move(0,0)
-        await page.screenshot(path=str(output/f'{theme}-{step}.png'),full_page=True)
+        await page.screenshot(path=str(output/f'{theme}-{filename}.png'),full_page=True)
         if scope == 'body' and await page.locator('main').count():
             await page.locator('main').first.evaluate('e=>e.scrollTo(0,0)')
-            await page.screenshot(path=str(output/f'{theme}-{step}-top.png'),full_page=True)
+            await page.screenshot(path=str(output/f'{theme}-{filename}-top.png'),full_page=True)
         assert not await page.evaluate('document.documentElement.scrollWidth>innerWidth+1'),(step,'page overflow')
         for heading in await page.locator('.publication-feature h2').all():
             assert await heading.evaluate('e=>e.getBoundingClientRect().height<=parseFloat(getComputedStyle(e).lineHeight)*4+1'),(step,'featured title pushes content away')
