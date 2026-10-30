@@ -337,3 +337,14 @@ html[data-design='editorial'] .toast-stack button { border-radius:var(--ui-radiu
 html[data-design='editorial'] .toast-stack button:hover { color:var(--ui-text); background:var(--ui-hover); }
 html[data-design='editorial'] .toast-stack button:focus-visible { outline-color:var(--ui-accent); }
 html[data-design='editorial'] .toast-stack .text-indigo-400 { color:var(--ui-accent); }
+
+/* Separate importing, task status and alternate input without boxed links. */
+html[data-design='editorial'] .dashboard-page #dashboard-add-content form { gap:12px; }
+html[data-design='editorial'] .dashboard-page .dashboard-idle { margin-top:24px; padding-top:16px; border-top:1px solid var(--ui-border); gap:16px; flex-wrap:wrap; }
+html[data-design='editorial'] .dashboard-page .dashboard-add-helper { margin-top:16px; gap:12px; align-items:stretch; }
+html[data-design='editorial'] .app-shell .dashboard-page :is(.dashboard-idle,.dashboard-add-helper) .reader-action {
+  border-color:transparent; background:transparent; padding:8px 0; min-height:44px; margin-left:auto; color:var(--ui-secondary);
+}
+html[data-design='editorial'] .app-shell .dashboard-page :is(.dashboard-idle,.dashboard-add-helper) .reader-action:hover {
+  border-color:transparent; background:transparent; color:var(--ui-accent); text-decoration:underline; text-underline-offset:4px;
+}
