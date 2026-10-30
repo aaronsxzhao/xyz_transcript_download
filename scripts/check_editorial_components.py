@@ -78,6 +78,8 @@ async def run(browser, origin, theme, widths, output, routes):
             await page.locator('main').first.evaluate('e=>e.scrollTo(0,0)')
             await page.screenshot(path=str(output/f'{theme}-{step}-top.png'),full_page=True)
         assert not await page.evaluate('document.documentElement.scrollWidth>innerWidth+1'),(step,'page overflow')
+        for heading in await page.locator('.publication-feature h2').all():
+            assert await heading.evaluate('e=>e.getBoundingClientRect().height<=parseFloat(getComputedStyle(e).lineHeight)*4+1'),(step,'featured title pushes content away')
         assert not errors,(step,errors)
         print(json.dumps({'theme':theme,'step':step,'controls_checked':len(records)}),flush=True)
     try:

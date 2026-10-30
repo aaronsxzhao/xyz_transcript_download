@@ -60,6 +60,9 @@ const NoteMarkdown = memo(function NoteMarkdown({ markdown,readerTitle }: { mark
               remarkPlugins={math ? [remarkGfm, math.remark] : [remarkGfm]}
               rehypePlugins={rehypePlugins}
               components={{
+                table({ children }) {
+                  return <div className="markdown-table" role="region" aria-label="Table" tabIndex={0}><table>{children}</table></div>
+                },
                 p({ children, ...props }) {
                   const childArray = Array.isArray(children) ? children : [children]
                   const processed = childArray.map((child, i) => {
@@ -72,7 +75,7 @@ const NoteMarkdown = memo(function NoteMarkdown({ markdown,readerTitle }: { mark
                       if (match.index > lastIdx) parts.push(child.slice(lastIdx, match.index))
                       const ts = match[1]
                       parts.push(
-                        <span key={`ss-${i}-${ts}`} className="inline-flex items-center gap-1.5 px-2.5 py-1 my-1 bg-slate-700/50 border border-slate-600/50 rounded-lg text-xs text-slate-400">
+                        <span key={`ss-${i}-${ts}`} className="summary-screenshot-placeholder inline-flex items-center gap-1.5 px-2.5 py-1 my-1 bg-slate-700/50 border border-slate-600/50 rounded-lg text-xs text-slate-400">
                           <ImageIcon size={12} />
                           Screenshot @ {ts}
                         </span>

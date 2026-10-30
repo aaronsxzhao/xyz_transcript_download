@@ -317,3 +317,16 @@ html[data-design='editorial'] :is(.app-shell,.ui-scope,.auth-page) :is(input,sel
 html[data-design='editorial'] .task-progress-track { background:var(--ui-hover); }
 html[data-design='editorial'] .task-status-badge { min-width:0; overflow-wrap:anywhere; }
 html[data-design='editorial'] .task-status-badge>svg { flex-shrink:0; }
+
+/* Rich summary content must follow the same palette as its reader shell. */
+html[data-design='editorial'] .note-prose :is(th,td) { color:var(--ui-text); border-color:var(--ui-border); }
+html[data-design='editorial'] .note-prose th { background:var(--ui-hover); }
+html[data-design='editorial'] .markdown-table table { display:table; width:100%; min-width:480px; }
+html[data-design='editorial'] .markdown-table:focus-visible { outline:2px solid var(--ui-accent); outline-offset:3px; }
+html[data-design='editorial'] .summary-screenshot-placeholder { background:var(--ui-tint); color:var(--ui-secondary); border-color:var(--ui-border); border-radius:var(--ui-radius); }
+html[data-design='editorial'] .note-prose .reader-screenshot img { border-color:var(--ui-border); border-radius:var(--ui-card-radius); }
+html[data-design='editorial'] .markdown-table :is(th,td) { min-width:100px; }
+html[data-design='editorial'] .auth-appearance :is(summary,.appearance-controls) { background:var(--ui-surface); color:var(--ui-text); border:1px solid var(--ui-border); }
+html[data-design='editorial'] .auth-appearance summary { font-size:20px; }
+html[data-design='editorial'] .publication-feature h2 { display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:4; overflow:hidden; }
+html[data-design='editorial'] .publication-feature .note-card-fallback>span { display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:3; overflow:hidden; max-width:100%; overflow-wrap:anywhere; line-height:1.5; }
