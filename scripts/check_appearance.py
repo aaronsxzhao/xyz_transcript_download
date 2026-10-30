@@ -213,6 +213,14 @@ async def check_failure(browser, origin):
             assert seen, 'Failure check must intercept the actual stylesheet'
             assert await page.locator('html').get_attribute('data-design') == 'classic'
             assert await page.get_by_role('combobox', name='Interface style').is_enabled()
+            # Vite caches CSS preload URLs. A retry must not apply an unstyled
+            # skin after the timed-out link was detached; the UI asks to reload.
+            await page.get_by_role('combobox', name='Interface style').select_option('editorial')
+            await page.get_by_role('alert').filter(has_text='Reload to retry').wait_for()
+            assert await page.locator('html').get_attribute('data-design') == 'classic'
+        except Exception:
+            print(json.dumps({'appearance_failure':mode,'state':await page.evaluate("""() => ({design:document.documentElement.dataset.design,busy:document.querySelector('.appearance-controls')?.getAttribute('aria-busy'),alerts:[...document.querySelectorAll('[role=alert]')].map(e=>e.textContent),styles:[...document.querySelectorAll('link[rel=stylesheet]')].map(e=>({href:e.href,loaded:!!e.sheet,disabled:e.disabled}))})""")}),flush=True)
+            raise
         finally:
             release.set()
             # Let the held request finish before disposing the route context.
