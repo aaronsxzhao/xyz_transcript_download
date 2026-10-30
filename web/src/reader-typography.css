@@ -11,6 +11,7 @@
 
 /* Keep long native list numbers in the content box, including old saved notes.
    Normal one/two-digit lists retain their original hanging indentation. */
+.note-prose :is(ol,ul) { list-style-position:outside; }
 .note-prose ol.wide-number-list { list-style-position:inside; padding-inline-start:.25em; }
 .note-prose ol.wide-number-list>li>p:first-child { display:inline; }
 .note-prose ol.wide-number-list>li { overflow-wrap:anywhere; }
