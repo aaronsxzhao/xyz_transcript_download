@@ -7,8 +7,7 @@ import { getAccountId } from './preferences'
 const pending = new Set<string>()
 
 function runPrefetch(kind: 'podcast' | 'video' | 'episodes', id: string) {
-  const connection = (navigator as Navigator & { connection?: { saveData?: boolean; effectiveType?: string } }).connection
-  if (connection?.saveData || /(^|-)2g$/.test(connection?.effectiveType || '')) return
+  if (slowConnection()) return
   const key = kind === 'episodes' ? CacheKeys.EPISODES(id) : kind === 'podcast' ? CacheKeys.SUMMARY(id) : CacheKeys.VIDEO_NOTE(id)
   const owner = getAccountId()
   const generation = getAuthGeneration()

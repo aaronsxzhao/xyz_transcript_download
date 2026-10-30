@@ -14,6 +14,7 @@ const UNKNOWN_CHANNEL_SENTINEL = '__unknown__'
 const pendingReads = new Map<string, Promise<unknown>>()
 let readRevision = 0
 export function getReadRevision() { return readRevision }
+function invalidateReads() { readRevision++; pendingReads.clear() }
 
 export class ApiError extends Error {
   constructor(message: string, public readonly status: number) { super(message) }
@@ -121,6 +122,8 @@ export async function authFetch(url: string, options: RequestInit = {}): Promise
 }
 
 function acknowledgeMutation(url:string) {
+  // Reads started during the write may still contain the pre-write snapshot.
+  invalidateReads()
   invalidateForMutation(url)
   if(/\/(?:generate(?:-json)?|process|batch|retry|cancel)$/.test(url.split('?')[0]))
     window.dispatchEvent(new Event('xyz:processing-changed'))
@@ -136,7 +139,7 @@ async function performAuthFetch(url: string, options: RequestInit = {}): Promise
   }
   if (token) headers.set('Authorization', `Bearer ${token}`)
   const mutating = !['GET', 'HEAD'].includes((options.method || 'GET').toUpperCase())
-  if (mutating) { readRevision += 1; pendingReads.clear() }
+  if (mutating) invalidateReads()
   
   const pendingStartup = (options.method || 'GET').toUpperCase() === 'GET' && !options.body ? takeStartupRead(url, token) : null
   const early = pendingStartup ? await pendingStartup : null
