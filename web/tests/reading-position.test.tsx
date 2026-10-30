@@ -122,3 +122,38 @@ it.each(['keyboard','pointer'])('stops restoring when the reader navigates by %s
   expect(node.scrollTop).toBe(20);
   expect(sessionStorage.getItem('xyz_reading:local:video:one')).toBe('20');
 });
+
+it('defers resize restoration to a frame and respects navigation before it runs', async () => {
+  let resize!:()=>void, frame!:FrameRequestCallback, maximum=50, position=0;
+  vi.stubGlobal('ResizeObserver',class {
+    constructor(callback:()=>void){resize=callback}
+    observe(){}
+    disconnect(){}
+  });
+  const request=vi.fn((callback:FrameRequestCallback)=>{frame=callback;return 7});
+  const cancel=vi.fn();
+  vi.stubGlobal('requestAnimationFrame',request);
+  vi.stubGlobal('cancelAnimationFrame',cancel);
+  Object.defineProperty(node,'scrollTop',{
+    configurable:true,get:()=>position,set:(value:number)=>{position=Math.min(value,maximum)},
+  });
+  sessionStorage.setItem('xyz_reading:local:video:one','860');
+  await act(async()=>root.render(<Reader/>));
+  maximum=2000;
+  resize();resize();
+  expect(node.scrollTop).toBe(50); // No layout writes during observer delivery.
+  expect(request).toHaveBeenCalledTimes(1);
+  frame(0);
+  expect(node.scrollTop).toBe(860);
+
+  await act(async()=>root.render(<Reader ready={false}/>));
+  maximum=50;
+  await act(async()=>root.render(<Reader/>));
+  maximum=2000;resize();
+  node.dispatchEvent(new KeyboardEvent('keydown',{key:'PageDown',bubbles:true}));
+  node.scrollTop=20;node.dispatchEvent(new Event('scroll'));
+  frame(0);
+  expect(node.scrollTop).toBe(20);
+  await act(async()=>root.render(<Reader ready={false}/>));
+  expect(cancel).toHaveBeenCalled();
+});

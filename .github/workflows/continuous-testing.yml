@@ -20,6 +20,11 @@ env:
   PYTHON_VERSION: '3.11'
   DEFAULT_DEPLOY_URL: 'https://aipodcastsummary.online'
 
+# Explicit bash enables pipefail: tee must not hide a failed browser check.
+defaults:
+  run:
+    shell: bash
+
 jobs:
   frontend:
     name: Frontend Checks
@@ -84,15 +89,18 @@ jobs:
       - name: Check concurrent podcast actions and navigation
         timeout-minutes: 3
         run: python scripts/check_podcast_actions.py
-      - name: Check Editorial and Classic components and long titles
+      - name: Check Editorial and Classic controls in Chromium and WebKit
         timeout-minutes: 10
         run: |
           python scripts/check_editorial_components.py &
           editorial_check_pid=$!
           python scripts/check_editorial_components.py --design classic --output /tmp/classic-component-checks &
           classic_check_pid=$!
+          python scripts/check_editorial_components.py --webkit --widths 390 --output /tmp/editorial-webkit-component-checks &
+          webkit_check_pid=$!
           wait "$editorial_check_pid"
           wait "$classic_check_pid"
+          wait "$webkit_check_pid"
       - name: Check global notification themes and keyboard dismissal
         timeout-minutes: 3
         run: |
@@ -103,9 +111,6 @@ jobs:
         run: |
           python scripts/check_summary_theme.py
           python scripts/check_summary_theme.py --webkit --output /tmp/summary-theme-webkit
-      - name: Check Editorial components in WebKit
-        timeout-minutes: 10
-        run: python scripts/check_editorial_components.py --webkit --widths 390
       - name: Upload Editorial failure evidence
         if: failure()
         uses: actions/upload-artifact@v4
@@ -114,6 +119,7 @@ jobs:
           path: |
             /tmp/editorial-component-checks/
             /tmp/classic-component-checks/
+            /tmp/editorial-webkit-component-checks/
             /tmp/global-feedback/
             /tmp/global-feedback-webkit/
           if-no-files-found: ignore

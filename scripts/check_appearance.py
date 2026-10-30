@@ -185,8 +185,10 @@ async def check_failure(browser, origin):
         context = await context_for(browser, 390)
         seen = []
         release = asyncio.Event()
+        requested = asyncio.Event()
         async def reject(route):
             seen.append(route.request.url)
+            requested.set()
             if mode != 'blocked':
                 await release.wait()
             await route.abort()
@@ -194,10 +196,17 @@ async def check_failure(browser, origin):
         if mode == 'stalled-startup':
             await context.add_init_script("localStorage.setItem('xyz:design','editorial')")
         page = await context.new_page()
+        # Exercise the actual 8-second deadline without background-tab timer
+        # throttling making WebKit's wall-clock assertion nondeterministic.
+        await page.clock.install()
         try:
             await page.goto(origin + '/', wait_until='domcontentloaded')
             if mode != 'stalled-startup':
                 await page.get_by_role('combobox', name='Interface style').select_option('editorial')
+            await asyncio.wait_for(requested.wait(), timeout=12)
+            if mode != 'blocked':
+                await page.clock.fast_forward(9000)
+            if mode != 'stalled-startup':
                 await page.get_by_role('alert').filter(has_text='Reload to retry').wait_for(timeout=12000)
             else:
                 await page.get_by_role('combobox', name='Interface style').wait_for(timeout=12000)
