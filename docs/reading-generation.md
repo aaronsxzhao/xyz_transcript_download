@@ -83,15 +83,15 @@ question unanswered.
 
 Matching compares small item batches with the whole evolving draft, including
 later answers and the opening. Each item must be returned exactly once as
-`covered`, `partial`, `missing` or `contradicted`. Covered items require exact
-supporting substrings from existing paragraph IDs. Topic similarity alone is
+`covered`, `partial`, `missing` or `contradicted`. Covered items require supporting paragraph IDs and semantic agreement. Internal
+receipts do not copy quotations; paraphrase and merged explanations are accepted. Topic similarity alone is
 insufficient; raw source fallback is not certified as verified prose. This is
 still a model judgment, not proof that the inventory found every important fact.
 Inventory wording is not a word-for-word output requirement: incidental places,
 dates, pets, metaphors and repeated examples do not create gaps unless they change
 an argument, evidence or condition. Experimental setup/results, mechanisms,
 meaningful numerical scope, attribution, uncertainty and objections still must
-survive. Nonadjacent supporting clauses require separate exact quotations.
+survive. Published source quotations still come directly from validated source ranges.
 
 For missing/partial items, one local repair attempt proposes only absent meaning.
 It does not rewrite existing paragraphs. Before adding it, a separate matching
@@ -120,6 +120,12 @@ demonstrably invented condition, attribution
 or causal claim, with a reason and source ranges constrained to that item's source
 and short adjacent context. True conditions cannot be dropped to make coverage
 easier. Corrected items are rematched before deciding whether repair is needed.
+The same source-only check can classify a claim or example as `context_only`
+with an explicit compression reason when it is incidental background or an
+interchangeable illustration. Protected kinds (experiments, conditions, objections,
+counterexamples and procedures) remain required. Context-only items are counted
+separately from covered items; uncertainty defaults to required. This is a model
+judgment, not a numeric accuracy score.
 If source validation fails, that batch cannot propose new prose. Correction IDs
 and failed source-validation batches are recorded. A corrected checklist does
 not certify the draft automatically.
@@ -134,16 +140,23 @@ repair checks remain unverified. Cancellation propagates. Terminal configuration
 errors stop further checklist calls. Inventory, matching and repair responses
 are validated before checkpointing; completed calls can be reused on retry.
 Malformed schema/evidence responses get one bounded retry with validation feedback.
-Matching may remove an extra terminal period only when the remaining quotation
-is an exact substring of the named draft paragraph (at least 16 characters).
-Changed words and fabricated quotations remain invalid. The retry count is recorded;
-these rules do not turn failed checks into passes.
+Internal matching validates actual paragraph IDs rather than generated quotation
+strings. The retry count is recorded; these rules do not turn failed checks into
+passes. Repairs share the original whole-note soft reading budget, including
+existing prose, rather than receiving a new allowance for each batch. Related
+missing details should be combined without repeated setup; essential meaning is
+never truncated to satisfy a word target.
 `metrics.generation.coverage_ledger` records item IDs/kinds/source ranges,
 statuses and matching paragraph IDs, failed batches, request count and accepted
 or rejected repairs. Full item statements live in the normal request checkpoints,
 not telemetry. Independent inventories are additional review calls; the complete
 source still has only one **drafting** call in single mode. The old grounding
-review's unresolved findings are not silently cleared by a checklist pass.
+review's unresolved findings are not silently cleared by a checklist pass. When
+only coverage concerns remain after a successful checklist, a final source review
+can clear them only if the repaired draft actually passes. Failed or incomplete
+rechecks retain the warning; grounding concerns are not waived. Optional screenshots
+that fail source/time validation are skipped and recorded in diagnostics without
+a reader-facing whole-note warning.
 
 ## Processing progress
 

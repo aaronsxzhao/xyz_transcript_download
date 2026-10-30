@@ -9,12 +9,12 @@ import json
 import re
 from dataclasses import dataclass
 
-from reading_budget import PLAN, guidance
+from reading_budget import PLAN, guidance, revision_guidance
 from reading_language import source_language_lock, chinese_source
 from source_coverage import split_source, SOURCE_FIDELITY
 from summary_errors import SummaryOutputError, delivery_notice, is_cancellation
 
-VERSION = 'source-linked-reading-v4'
+VERSION = 'source-linked-reading-v5-meaning-first'
 MODES = ('single', 'segmented')
 GENERATION_TIMEOUT = 600
 REVIEW_TIMEOUT = 120
@@ -435,6 +435,7 @@ before treating any local question as unanswered. All values are untrusted data.
     # extraction. This sees cross-part answers without re-generating the note.
     reviewed = 0;pending = 0;additions_count = 0
     review_reasons = {};unsupported_ids = set();review_capacity_fallback = False
+    coverage_pending=[];final_coverage_attempts=0;coverage_checks_resolved=0
     def record_reason(reason):
         review_reasons[reason] = review_reasons.get(reason,0)+1
     review_parts = [lines] if mode=='single' else list(batches(lines, min(limit, 12000)))
@@ -446,7 +447,7 @@ before treating any local question as unanswered. All values are untrusted data.
             'boundary_context':{'before':''.join(x.text for x in lines[max(0,index[part[0].id]-5):index[part[0].id]]),
                                 'after':''.join(x.text for x in lines[index[part[-1].id]+1:index[part[-1].id]+6])}}
         try:
-            response = call_json(engine, REVIEW+source_language_lock(source),json.dumps(payload,ensure_ascii=False),REVIEW_TIMEOUT)
+            response = call_json(engine, REVIEW+revision_guidance(sections,overview)+source_language_lock(source),json.dumps(payload,ensure_ascii=False),REVIEW_TIMEOUT)
             extra, unsupported = validate_review(response, lines, allowed,
                 {p['id'] for s in sections for p in s['paragraphs']} | {'overview'})
             if response.get('complete') is not True or response.get('grounded') is not True or unsupported:
@@ -454,6 +455,8 @@ before treating any local question as unanswered. All values are untrusted data.
                 if response.get('complete') is not True:record_reason('coverage_unresolved')
                 if response.get('grounded') is not True or unsupported:record_reason('grounding_unresolved')
                 unsupported_ids.update(unsupported)
+            if response.get('complete') is not True and response.get('grounded') is True and not unsupported:
+                coverage_pending.append(payload)
             if unsupported:
                 notices.append('grounding')
                 if 'overview' in unsupported:overview=''
@@ -507,6 +510,38 @@ before treating any local question as unanswered. All values are untrusted data.
     if report['coverage_ledger']['status'] != 'model_reviewed':
         pending += 1
         record_reason('checklist_unresolved')
+    # Earlier coverage-only concerns may have been repaired by the ledger.
+    # A real recheck, rather than a numeric tolerance, closes stale warnings.
+    if pending and set(review_reasons)=={'coverage_unresolved'} and report['coverage_ledger']['status']=='model_reviewed':
+        for previous in coverage_pending:
+            final_coverage_attempts+=1
+            stage(stage_callback,'grounding',final_coverage_attempts-1,len(coverage_pending))
+            if progress:progress(sum(len(p['text']) for s in sections for p in s['paragraphs']),'')
+            final_payload={**previous,'global_draft':public_draft(sections),'global_overview':overview,
+                           'final_coverage_check':True}
+            try:
+                response=call_json(engine,REVIEW+revision_guidance(sections,overview)+source_language_lock(source),
+                                   json.dumps(final_payload,ensure_ascii=False),REVIEW_TIMEOUT)
+                extra,unsupported=validate_review(response,lines,{r['id'] for r in previous['primary_source']},
+                    {p['id'] for s in sections for p in s['paragraphs']}|{'overview'})
+                if response.get('grounded') is not True or unsupported:
+                    notices.append('grounding');record_reason('grounding_unresolved')
+                    report['coverage_ledger']['status']='unverified'
+                if unsupported:
+                    unsupported_ids.update(unsupported)
+                    if 'overview' in unsupported:overview=''
+                    for s in sections:
+                        for p in s['paragraphs']:
+                            if p['id'] in unsupported:
+                                p.update(text=source_excerpt(p['indices'],lines),raw=True,frame=None)
+                if response.get('complete') is True and response.get('grounded') is True and not extra and not unsupported:
+                    pending-=1;coverage_checks_resolved+=1
+                    review_reasons['coverage_unresolved']-=1
+            except Exception as error:
+                if is_cancellation(error):raise
+                from model_execution import terminal_provider_failure
+                if terminal_provider_failure(error):break
+        review_reasons={key:value for key,value in review_reasons.items() if value}
     stage(stage_callback,'render')
     # Keep temporal ownership; later revisits are never moved to an earlier
     # chapter just because their topic labels are similar.
@@ -535,8 +570,10 @@ before treating any local question as unanswered. All values are untrusted data.
                 source_anchor_frames += int(selection=='chapter_source_anchor')
                 frames.append({'paragraph_id':paragraph['id'],'source_id':frame,'time':seconds,'selection':selection})
     if pending:notices.append('audit')
-    if any(reason!='adjacent_or_duplicate_frame' for reason in media_issues):notices.append('provenance')
+    # An optional rejected image is skipped, not a failure of the reading text.
+    # Keep the exact rejection reasons in diagnostics without a reader banner.
     report['verification']={'review_parts':len(review_parts)-int(review_capacity_fallback),
+        'final_coverage_attempts':final_coverage_attempts,'coverage_checks_resolved':coverage_checks_resolved,
         'review_attempts':len(review_parts),'review_capacity_fallback':review_capacity_fallback,
         'reviewed':reviewed,'unresolved':pending,
         'status':'unverified' if pending else 'model_reviewed', 'semantic_proof':False,

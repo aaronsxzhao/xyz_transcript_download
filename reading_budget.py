@@ -73,6 +73,22 @@ def guidance(source=None, *, share=None):
             'Review your length before returning: remove repeated explanations and equivalent anecdotes first.\n')
 
 
+def revision_guidance(sections, overview=''):
+    """Share the original whole-note budget with every review/repair call."""
+    plan=PLAN.get()
+    text='\n'.join([overview,*[p['text'] for s in sections for p in s['paragraphs']]])
+    if not plan or not plan.get('target_high'):
+        return '\nPrefer the smallest informative addition; do not restate already covered explanations.\n'
+    current=units(text,plan['language'])
+    remaining=max(0,plan['target_high']-current)
+    return guidance()+(
+        f'\nThe existing note already contains about {current} {plan["unit"]}; '
+        f'about {remaining} remain within the SOFT whole-note target. '
+        'This is not a fresh allowance for each batch. When already above target, '
+        'still preserve missing essential meaning, but omit setup already explained '
+        'and combine related missing details. Do not pad or add incidental context.\n')
+
+
 def _is_navigation(children):
     """A standalone fragment link is navigation, not prose containing a link."""
     inside = False

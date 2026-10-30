@@ -151,11 +151,11 @@ def test_inventory_failures_are_explicit_and_cancellation_propagates(failure):
     assert sections==before
 
 
-@pytest.mark.parametrize('damage',['missing_item','duplicate_item','invented_quote','raw_fallback'])
+@pytest.mark.parametrize('damage',['missing_item','duplicate_item','unknown_paragraph','raw_fallback'])
 def test_same_topic_or_invalid_receipts_cannot_certify_coverage(damage):
     items=[{'id':'C1'}];draft=[{'paragraphs':[{'id':'P1','text':'Internal reward helps.','raw':damage=='raw_fallback'}]}]
     row={'item_id':'C1','status':'covered','grounded':True,'duplicate':False,
-         'support':[{'paragraph_id':'P1','quote':'External rewards undermine motivation.' if damage=='invented_quote' else 'Internal reward helps.'}]}
+         'support':[{'paragraph_id':'invented' if damage=='unknown_paragraph' else 'P1'}]}
     data={'matches':[] if damage=='missing_item' else [row,row] if damage=='duplicate_item' else [row]}
     with pytest.raises(ValueError):matching_response(data,items,draft)
 
@@ -324,12 +324,12 @@ def test_paraphrased_excerpt_boundary_is_not_published_as_source_fact(text):
     assert boundary_commentary(text)
 
 
-def test_terminal_period_is_recovered_to_an_exact_draft_fragment():
+def test_internal_support_allows_paraphrase_and_discards_legacy_quotation():
     draft=[{'paragraphs':[{'id':'P1','text':'He returned to school and learned neuroscience.'}]}]
     data={'matches':[{'item_id':'C1','status':'covered','grounded':True,'duplicate':False,
                      'support':[{'paragraph_id':'P1','quote':'He returned to school.'}]}]}
     matching_response(data,[{'id':'C1'}],draft)
-    assert data['matches'][0]['support'][0]['quote']=='He returned to school'
+    assert data['matches'][0]['support']==[{'paragraph_id':'P1'}]
 
 
 @pytest.mark.parametrize('checked',[None,[],['unknown'],['L1','L1']])
@@ -342,8 +342,8 @@ def test_repair_matching_requires_every_proposed_paragraph_to_be_inspected(check
         matching_response(data,[{'id':'C1'}],draft,['L1'])
     data['checked_proposed_paragraph_ids']=['L1']
     assert matching_response(data,[{'id':'C1'}],draft,['L1'])[0]['status']=='covered'
-    data['matches'][0]['support'][0]['quote']='An invented result.'
-    with pytest.raises(ValueError,match='Fabricated'):
+    data['matches'][0]['support'][0]['paragraph_id']='invented'
+    with pytest.raises(ValueError,match='Unknown'):
         matching_response(data,[{'id':'C1'}],draft,['L1'])
 
 
@@ -404,3 +404,29 @@ def test_source_correction_cannot_escape_its_original_source_context():
     assert sections==before and report['status']=='unverified'
     assert report['inventory_validation_failed_batches']==2 and not report['corrected_inventory_items']
     assert not any(call['phase']=='repair' for call in calls)
+
+
+@pytest.mark.parametrize('kind,compressible',[('example',True),('claim',True),('experiment',False),('condition',False),('disagreement',False),('procedure',False),('counterexample',False)])
+def test_only_source_verified_incidental_context_can_skip_repair(kind,compressible):
+    case={**CASES[0],'kind':kind}
+    if compressible:
+        case.update(source='[00:00] Attention can be practiced during daily activities, such as washing a blue coffee mug.',
+                    missing_draft='Practice attention during everyday activities.',
+                    complete_draft='The illustrative coffee mug was blue.')
+    lines,sections,_=setup_case(case);calls=[]
+    base=scripted(case,calls)
+    def response(engine,system,payload,validator):
+        if payload['phase']=='validate_inventory':
+            assert 'global_draft' not in payload
+            return {'items':[{'id':item['id'],'supported':True,'material':False,
+                             'material_reason':'An interchangeable illustrative detail, with no change to the explanation.'}
+                            for item in payload['items']]}
+        return base(engine,system,payload,validator)
+    with patch('coverage_ledger.request',side_effect=response):report=audit(SimpleNamespace(),lines,sections)
+    assert report['status']=='model_reviewed' and report['unresolved_items']==0
+    assert report['context_only_items']==int(compressible)
+    if compressible:assert report['items'][0]['compression_reason']
+    assert report['covered_items']==int(not compressible)
+    assert report['repairs_accepted']==int(not compressible)
+    assert not report['corrected_inventory_items']
+    assert any(c['phase']=='repair' for c in calls) is not compressible

@@ -105,7 +105,7 @@ def test_frame_must_belong_to_its_paragraph_not_merely_the_whole_document():
         return result
     with patch('transcript_reading.call_json',side_effect=call):result=generate(owner,text,'Title',formats=['screenshot'])
     assert 'Screenshot-' not in result['markdown']
-    assert 'failed source validation' in result['markdown']
+    assert 'failed source validation' not in result['markdown']
     assert owner.generation_report['provenance']['blocked_media']==1
 
 
@@ -407,3 +407,25 @@ def test_prefix_guard_does_not_require_citing_incidental_closing_credits():
     _,lines=source_lines('Substantive source sentence.\n'*1000)
     sections,_=validate_sections({'sections':[section([{'id':x.id} for x in lines[:800]])]},lines)
     reject_prefix_only(sections,lines)
+
+
+@pytest.mark.parametrize('final_result',['complete','incomplete','timeout','ungrounded'])
+def test_only_a_successful_final_recheck_clears_earlier_coverage_concern(final_result):
+    calls=[];owner=engine();base=provider(calls)
+    def call(owner,system,payload,timeout):
+        data=json.loads(payload)
+        if data.get('final_coverage_check') and final_result=='timeout':raise TimeoutError()
+        result=base(owner,system,payload,timeout)
+        if 'global_draft' in data:
+            result['complete']=bool(data.get('final_coverage_check') and final_result=='complete')
+            if data.get('final_coverage_check') and final_result=='ungrounded':result['grounded']=False
+        return result
+    with patch('transcript_reading.call_json',side_effect=call):
+        result=generate(owner,'[00:00] An important argument with its condition.','Title')
+    verification=owner.generation_report['verification']
+    assert verification['final_coverage_attempts']==1
+    assert verification['coverage_checks_resolved']==int(final_result=='complete')
+    assert ('coverage review did not complete' in result['markdown']) is (final_result!='complete')
+    if final_result=='ungrounded':
+        assert verification['reasons']['grounding_unresolved']==1
+        assert owner.generation_report['coverage_ledger']['status']=='unverified'
