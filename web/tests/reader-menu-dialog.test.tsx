@@ -69,3 +69,22 @@ it('still closes when focus actually moves outside or an outside pointer is pres
  act(()=>outside.dispatchEvent(new Event('pointerdown',{bubbles:true})))
  expect(trigger.getAttribute('aria-expanded')).toBe('false')
 })
+
+it('returns keyboard focus to the disclosure after a menu action removes its button',async()=>{
+ await act(async()=>root.render(<MemoryRouter><MoreReaderActions><button>Download file</button></MoreReaderActions></MemoryRouter>))
+ const trigger=node.querySelector('button')!
+ act(()=>{trigger.focus();trigger.click()})
+ const item=[...node.querySelectorAll('button')].find(b=>b.textContent==='Download file')!
+ act(()=>{item.focus();item.click()})
+ expect(trigger.getAttribute('aria-expanded')).toBe('false')
+ expect(document.activeElement).toBe(trigger)
+})
+
+it('does not move focus back when an action deliberately focuses another control',async()=>{
+ await act(async()=>root.render(<MemoryRouter><MoreReaderActions><button onClick={()=>node.querySelector<HTMLButtonElement>('#destination')!.focus()}>Jump</button></MoreReaderActions><button id="destination">Destination</button></MemoryRouter>))
+ const trigger=node.querySelector('button')!
+ act(()=>trigger.click())
+ const item=[...node.querySelectorAll('button')].find(b=>b.textContent==='Jump')!
+ act(()=>{item.focus();item.click()})
+ expect(document.activeElement).toBe(node.querySelector('#destination'))
+})

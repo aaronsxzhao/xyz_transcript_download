@@ -93,3 +93,15 @@ Video-list thumbnails now use contain fitting. In the constrained two-row layout
 Standard rectangular controls use `--ui-radius`: Classic 8px and Editorial 4px. Appearance controls, collection actions, reader actions, standard rounded workspace buttons and auth form controls use this token. More already uses the shared `ui-button` component class; its competing radius/background overrides were removed, so it has the same secondary-button treatment. Navigation tabs and pill-shaped controls retain their intentional shapes.
 
 The touch regression now asserts image contain fitting, vertical centering across the card rows, and consistent 1px borders/theme radii for the appearance and card controls. Local production checks cover all four appearances and ten viewport widths. The preview uses synthetic content and licensed fixture artwork.
+
+## Reader interaction and stalled-tool review (2026-10-30)
+
+Reviewed the library/reader, shared dialogs, optional-module loading, account/navigation state, progress updates and backend request/pagination code. Three defects were fixed:
+
+- Selecting a reader menu action with the keyboard removed the focused control and left focus on the document body. Menu actions now return focus to their disclosure when the action has not deliberately moved it elsewhere.
+- A failed regeneration-confirmation module showed generic retry controls outside its modal focus trap. Recovery is now rendered inside the dialog, with retry, cancel and restored opener focus; retry does not regenerate a note by itself.
+- Optional tools wrapped in Suspense could wait indefinitely for a stalled module. Their pending fallback now expires after 15 seconds and enters the existing tool-specific failure state. The screenshot fallback retains the original image and Close control. Successfully loaded tools cancel their deadline.
+
+Validation uses synthetic API fixtures and Chromium. `check_reader_recovery.py` intercepts actual confirmation/gallery module requests at 390px and 1440px, verifies keyboard download focus, modal retry/Tab/cancel, and original-image fallback without summary mutations. CI runs this separately. Reader interaction checks cover filtering/pagination, export, reading-position restoration, account changes and screenshot controls; mobile-control checks cover 390/820/1440px. Authentication checks cover four appearances and sign-in/sign-up/recovery/reset states at 390/820px. Progress checks cover parallel streams and fast completion with unavailable detail responses. All 464 frontend and 1,372 backend tests pass. Production build is 194.0 KiB compressed; the initial-transfer ceiling increases by 0.5 KiB to 194.5 KiB for bounded tool recovery.
+
+Current-run screenshots and machine-readable results are stored outside the repository at `/workspace/reviews/ui-20261030/`. The required Product Design Browser interface is unavailable; this is source review plus automated browser evidence, not a complete live-account design/accessibility audit. No production notes were rewritten, and physical-device/WebKit verification was not performed locally in this run.

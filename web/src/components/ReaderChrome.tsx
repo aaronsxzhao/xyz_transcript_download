@@ -17,9 +17,9 @@ import CachedImage from './CachedImage';
 
 export type ReaderSection = { id: string; title: string; level?: number };
 const ReaderOverlay=createContext<((content:ReactNode)=>void)|null>(null);
-function ConfirmationPending({close}:{close:()=>void}){
+function ConfirmationPending({close,retry}:{close:()=>void;retry?:()=>void}){
   const ref=useDialog<HTMLElement>(true,close);
-  return <div className="ui-scope reader-confirm-backdrop"><section ref={ref} role="dialog" aria-modal="true" aria-label="Loading confirmation" className="reader-confirm"><p role="status">Loading confirmation…</p><button className="reader-action" onClick={close}>Cancel</button></section></div>;
+  return <div className="ui-scope reader-confirm-backdrop"><section ref={ref} role="dialog" aria-modal="true" aria-label={retry ? "Confirmation unavailable" : "Loading confirmation"} className="reader-confirm"><p role="status">{retry ? "Confirmation could not load." : "Loading confirmation…"}</p>{retry&&<button className="reader-action" onClick={retry}>Retry loading</button>}<button className="reader-action" onClick={close}>Cancel</button></section></div>;
 }
 
 /** A non-modal disclosure: Tab follows the page; Escape returns to its trigger. */
@@ -99,8 +99,12 @@ export function ReaderMenu({
             if (
               (event.target as HTMLElement).closest("button,a") &&
               !(event.target as HTMLElement).closest("[data-keep-open]")
-            )
+            ) {
+              // The selected control disappears with the panel. Preserve the
+              // keyboard's place unless the action already moved focus away.
+              if (event.currentTarget.contains(document.activeElement)) trigger.current?.focus();
               setOpen(false);
+            }
           }}
         >
           {children}
@@ -123,7 +127,7 @@ export function RegenerateAction({
 }) {
   const [open, setOpen] = useState(false);
   const overlay=useContext(ReaderOverlay);
-  const dialog=(close:()=>void)=><RegenerateDialog description={description} onClose={close} onConfirm={onConfirm} fallback={<ConfirmationPending close={close}/>}/>;
+  const dialog=(close:()=>void)=><RegenerateDialog description={description} onClose={close} onConfirm={onConfirm} fallback={<ConfirmationPending close={close}/>} errorFallback={retry=><ConfirmationPending close={close} retry={retry}/>}/>;
   return (
     <>
       <button

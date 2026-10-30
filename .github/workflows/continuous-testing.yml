@@ -126,6 +126,9 @@ jobs:
         run: |
           python scripts/check_reader_interactions.py
           python scripts/check_unified_readers.py
+      - name: Check reader recovery from stalled modules
+        timeout-minutes: 3
+        run: python scripts/check_reader_recovery.py
       - name: Check task workspace and performance
         timeout-minutes: 5
         run: |
