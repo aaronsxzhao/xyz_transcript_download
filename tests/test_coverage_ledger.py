@@ -434,3 +434,28 @@ def test_only_source_verified_incidental_context_can_skip_repair(kind,compressib
     assert report['repairs_accepted']==int(not compressible)
     assert not report['corrected_inventory_items']
     assert any(c['phase']=='repair' for c in calls) is not compressible
+
+
+@pytest.mark.parametrize('reassessment',['partial','contradicted','ungrounded'])
+def test_append_only_repair_preserves_existing_support_but_rejects_contradiction(reassessment):
+    case={**CASES[0],'source':'[00:00] Existing supported argument.\n'+CASES[0]['source'],
+          'missing_draft':'Existing supported argument.'}
+    lines,sections,ranges=setup_case(case);base=scripted(case,[])
+    def response(engine,system,payload,validator):
+        data=base(engine,system,payload,validator)
+        if payload['phase']=='inventory':
+            data['items'].append({'kind':'claim','statement':case['missing_draft'],'source_ranges':ranges})
+        if payload['phase']=='match':
+            old=next(row for row in data['matches'] if row['item_id']=='C1.2')
+            proposed=bool(payload['proposed_paragraph_ids'])
+            old.update(status=reassessment if proposed and reassessment!='ungrounded' else 'covered',
+                       support=[{'paragraph_id':'P1'}],grounded=not(proposed and reassessment=='ungrounded'),duplicate=False)
+        return data
+    with patch('coverage_ledger.request',side_effect=response):report=audit(SimpleNamespace(),lines,sections)
+    assert sections[0]['paragraphs'][0]['text']==case['missing_draft']
+    if reassessment=='partial':
+        assert report['status']=='model_reviewed' and report['repairs_accepted']==1
+        assert report['items'][1]['paragraph_ids']==['P1']
+    else:
+        assert report['status']=='unverified' and report['repairs_accepted']==0
+        assert len(sections)==1

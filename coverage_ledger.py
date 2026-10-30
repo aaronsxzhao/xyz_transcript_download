@@ -433,7 +433,12 @@ def _audit(engine, lines, sections, overview='', progress=None, stage_callback=N
                 # experiment repair. Existing covered items may not regress.
                 def good(row):
                     return row['status']=='covered' and row['grounded'] and not row['duplicate']
-                regression=any(by_id[row['item_id']]['status']=='covered' and not good(row) for row in rechecked)
+                # Repairs only append prose: an unrelated shift from covered
+                # to partial cannot remove existing support. Keep its previous
+                # receipt instead of rejecting every independently valid repair.
+                # Contradiction or a grounding failure still vetoes the batch.
+                regression=any(by_id[row['item_id']]['status']=='covered' and
+                               (row['status']=='contradicted' or not row['grounded']) for row in rechecked)
                 accepted=set()
                 if not regression:
                     for pid in proposed:
