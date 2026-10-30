@@ -3,6 +3,7 @@ import {
   lazy,
   Suspense,
   useState,
+  useEffect,
   type ComponentType,
   type ReactNode,
 } from "react";
@@ -42,8 +43,9 @@ export function deferView<P extends object>(
   const InitialView = createView();
   return function DeferredView({
     fallback,
+    errorFallback,
     ...props
-  }: P & { fallback: ReactNode }) {
+  }: P & { fallback: ReactNode; errorFallback?: (retry: () => void) => ReactNode }) {
     const [{ View, attempt }, setView] = useState(() => ({
       View: InitialView,
       attempt: 0,
@@ -51,7 +53,7 @@ export function deferView<P extends object>(
     return (
       <OptionalBoundary
         key={attempt}
-        fallback={
+        fallback={errorFallback ? errorFallback(() => setView({ View: createView(), attempt: attempt + 1 })) : (
           <>
             {fallback}
             <p role="status" className="text-sm text-gray-400 py-3">
@@ -72,7 +74,7 @@ export function deferView<P extends object>(
               </button>
             </p>
           </>
-        }
+        )}
       >
         <Suspense fallback={fallback}>
           <View {...(props as P)} />
@@ -80,6 +82,17 @@ export function deferView<P extends object>(
       </OptionalBoundary>
     );
   };
+}
+
+/** Mounted only while Suspense is pending; a stalled chunk must be escapable. */
+function ToolPending({children}: {children: ReactNode}) {
+  const [expired, setExpired] = useState(false);
+  useEffect(() => {
+    const timer = setTimeout(() => setExpired(true), 15000);
+    return () => clearTimeout(timer);
+  }, []);
+  if (expired) throw new Error("Tool loading timed out");
+  return <>{children}</>;
 }
 
 /** Failure of a secondary tool must not replace the reading page. */
@@ -105,7 +118,7 @@ export function OptionalTool({
         )
       }
     >
-      <Suspense fallback={fallback}>{children}</Suspense>
+      <Suspense fallback={<ToolPending>{fallback}</ToolPending>}>{children}</Suspense>
     </OptionalBoundary>
   );
 }
