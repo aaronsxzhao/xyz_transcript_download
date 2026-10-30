@@ -60,6 +60,13 @@ async def check(browser, origin, design, theme, width, output):
     try:
         await page.goto(origin + '/podcasts')
         await choose(page, design, theme)
+        await page.wait_for_timeout(400)
+        await page.keyboard.press('Tab')
+        search = page.get_by_role('textbox', name='Search podcasts', exact=True)
+        await search.focus()
+        assert await search.evaluate("e=>e.matches(':focus-visible')")
+        assert (await search.evaluate(CONTROL))['outlineRatio'] >= 3, (design,theme,'search focus')
+        await page.screenshot(path=str(output/f'{design}-{theme}-{width}-focus.png'))
         await page.get_by_role('button', name='Check podcast updates', exact=True).click()
         await inspect('info', 'No update sources')
         await page.get_by_role('button', name='Add Podcast', exact=True).click()

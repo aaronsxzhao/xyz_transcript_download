@@ -13,14 +13,15 @@ from scripts.check_library_browser import serve, fixtures
 CONTROL = r'''e => {
  const rgb=s=>{if(s.startsWith('rgb'))return (s.match(/[\d.]+/g)||[]).map(Number);const c=document.createElement('canvas');c.width=c.height=1;const x=c.getContext('2d');x.fillStyle=s;x.fillRect(0,0,1,1);const v=[...x.getImageData(0,0,1,1).data];return [v[0],v[1],v[2],v[3]/255]};
  const lum=c=>{const v=c.slice(0,3).map(n=>n/255).map(n=>n<=.04045?n/12.92:((n+.055)/1.055)**2.4);return v[0]*.2126+v[1]*.7152+v[2]*.0722};
- function contrast(el,pseudo){const css=getComputedStyle(el,pseudo);let bg=[255,255,255];const parents=[];for(let p=el;p;p=p.parentElement)parents.unshift(p);
+ function contrast(el,pseudo,foreground){const css=getComputedStyle(el,pseudo);let bg=[255,255,255];const parents=[];for(let p=el;p;p=p.parentElement)parents.unshift(p);
   for(const p of parents){const c=rgb(getComputedStyle(p).backgroundColor),a=c[3]??1;if(c.length)bg=bg.map((v,i)=>c[i]*a+v*(1-a))}
   if(pseudo){const c=rgb(css.backgroundColor),a=c[3]??1;bg=bg.map((v,i)=>c[i]*a+v*(1-a))}
-  const a=lum(rgb(css.color)),b=lum(bg);return (Math.max(a,b)+.05)/(Math.min(a,b)+.05);
+  const a=lum(rgb(foreground||css.color)),b=lum(bg);return (Math.max(a,b)+.05)/(Math.min(a,b)+.05);
  }
  const text=[...e.querySelectorAll('span')].filter(s=>s.innerText.trim()&&s.getClientRects().length);
  return {name:e.getAttribute('aria-label')||e.innerText||e.getAttribute('placeholder')||e.type,classes:e.className,
   fg:getComputedStyle(e).color,bg:getComputedStyle(e).backgroundColor,radius:getComputedStyle(e).borderRadius,
+  outlineRatio:contrast(e.parentElement||e,null,getComputedStyle(e).outlineColor),
   disabled:!!e.disabled,native:['checkbox','radio','range'].includes(e.type),ratio:Math.min(contrast(e),...text.map(s=>contrast(s))),
   fileRatio:e.type==='file'?contrast(e,'::file-selector-button'):null,
   text:!!e.innerText?.trim(),tag:e.tagName,shadow:getComputedStyle(e).boxShadow,outline:getComputedStyle(e).outlineStyle};

@@ -31,7 +31,7 @@ html[data-design='classic'][data-theme='light'] .text-red-500 {
     color: #a44838
 }
 html[data-design='classic'][data-theme='light'] :where(button,a,input,select,textarea,summary):focus-visible {
-    outline: 2px solid #dbe2ec
+    outline: 2px solid #6653b5
 }
 html[data-design='classic'][data-theme='light'] .note-prose h2 {
     border-bottom: 1px solid #dbe2ec
@@ -171,7 +171,7 @@ html[data-design='classic'][data-theme='light'] .podcast-reader .reader-quote bl
     color: #5549a8
 }
 html[data-design='classic'][data-theme='light'] .podcast-reader .reader-quote summary:focus-visible {
-    outline: 2px solid #dbe2ec
+    outline: 2px solid #6653b5
 }
 html[data-design='classic'][data-theme='light'] .ui-button-primary {
     background: #edf1f7;
