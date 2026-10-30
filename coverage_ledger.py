@@ -199,6 +199,21 @@ def matching_response(data, items, draft, proposed=()):
     return rows
 
 
+def invalidate_support(report, paragraph_ids):
+    """Withdraw receipts that depended on prose removed by a later review."""
+    withdrawn=set(paragraph_ids)
+    affected=False
+    for item in report.get('items',[]):
+        if withdrawn.intersection(item.get('paragraph_ids',[])):
+            item['status']='unverified'
+            item['paragraph_ids']=[pid for pid in item['paragraph_ids'] if pid not in withdrawn]
+            affected=True
+    if affected:
+        report['status']='unverified'
+        report['covered_items']=sum(item['status']=='covered' for item in report['items'])
+        report['unresolved_items']=sum(item['status'] not in RESOLVED for item in report['items'])
+
+
 def audit(engine, lines, sections, overview='', progress=None, stage_callback=None):
     """Run one bounded recovery of unresolved items against the final draft."""
     report, inventory = _audit(engine, lines, sections, overview, progress, stage_callback)

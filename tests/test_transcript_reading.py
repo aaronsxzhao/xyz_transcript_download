@@ -429,3 +429,41 @@ def test_only_a_successful_final_recheck_clears_earlier_coverage_concern(final_r
     if final_result=='ungrounded':
         assert verification['reasons']['grounding_unresolved']==1
         assert owner.generation_report['coverage_ledger']['status']=='unverified'
+
+
+@pytest.mark.parametrize('mode',['single','segmented'])
+def test_review_rejects_additions_when_its_grounding_check_fails(mode):
+    calls=[];owner=engine(mode);base=provider(calls)
+    def call(owner,system,payload,timeout):
+        data=json.loads(payload);result=base(owner,system,payload,timeout)
+        if 'global_draft' in data and 'primary_source' in data:
+            result.update(grounded=False,additions=[section(data['primary_source'],'An unsupported new causal claim.')])
+        return result
+    with patch('transcript_reading.call_json',side_effect=call):
+        result=generate(owner,'[00:00] Original source statement.','Title')
+    assert 'unsupported new causal claim' not in result['markdown']
+    assert owner.generation_report['verification']['missing_material_additions']==0
+    assert owner.generation_report['verification']['status']=='unverified'
+
+
+@pytest.mark.parametrize('withdrawn',['P1','overview'])
+def test_final_grounding_failure_invalidates_dependent_coverage_receipts(withdrawn):
+    calls=[];owner=engine();base=provider(calls)
+    other='overview' if withdrawn=='P1' else 'P1'
+    ledger={'status':'model_reviewed','covered_items':2,'unresolved_items':0,'items':[
+        {'id':'C1','status':'covered','paragraph_ids':[withdrawn,other]},
+        {'id':'C2','status':'covered','paragraph_ids':[other]}]}
+    def call(owner,system,payload,timeout):
+        data=json.loads(payload);result=base(owner,system,payload,timeout)
+        if data.get('final_coverage_check'):
+            result.update(complete=True,grounded=False,unsupported_paragraph_ids=[withdrawn])
+        elif 'global_draft' in data and 'primary_source' in data:result['complete']=False
+        return result
+    with patch('transcript_reading.call_json',side_effect=call),patch('coverage_ledger.audit',return_value=ledger):
+        result=generate(owner,'[00:00] Original source statement.','Title')
+    assert ledger['status']=='unverified'
+    assert ledger['covered_items']==1 and ledger['unresolved_items']==1
+    assert ledger['items'][0]['status']=='unverified'
+    assert ledger['items'][0]['paragraph_ids']==[other]
+    assert ledger['items'][1]['status']=='covered'
+    assert owner.generation_report['verification']['status']=='unverified'

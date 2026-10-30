@@ -105,10 +105,20 @@ def call_editor(client, model, system, payload, timeout, *, output_tokens=None,
         if response_validator is not None:
             response_validator(data)
         return data
+    def decode(data):
+        # Cached provider output must satisfy today's validator too. A corrupt
+        # or obsolete checkpoint is a cache miss, not a permanent retry trap.
+        from summary_errors import SummaryOutputError
+        try:
+            if response_validator is not None:
+                response_validator(data)
+        except SummaryOutputError as error:
+            raise ValueError('Invalid cached model response') from error
+        return data
     return checkpoint_call('model.editor', {'model':model, 'endpoint':str(client.base_url),
         'options':getattr(client,'options',{}),'system':system,'payload':payload,
         **({'output_tokens':output_tokens} if output_tokens is not None else {}),
-        **({'validation_version':validation_version} if validation_version else {})}, complete)
+        **({'validation_version':validation_version} if validation_version else {})}, complete, decode=decode)
 
 
 def _call_editor(client, model, system, payload, timeout, *, output_tokens=None):

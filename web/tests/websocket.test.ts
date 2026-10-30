@@ -73,3 +73,38 @@ it('reconciles active jobs when a completion event was missed', async () => {
   expect(fetch).toHaveBeenCalledOnce()
   vi.restoreAllMocks()
 })
+
+it('reconnects a stalled handshake even when there are no active tasks', async () => {
+  connectWebSocket()
+  const socket = FakeSocket.instances[0]
+  socket.readyState = 0
+  socket.close.mockImplementation(() => {
+    socket.readyState = 3
+    socket.onclose?.({code:1006})
+  })
+  await vi.advanceTimersByTimeAsync(30000)
+  expect(socket.close).not.toHaveBeenCalled()
+  await vi.advanceTimersByTimeAsync(18000)
+  expect(socket.close).toHaveBeenCalledOnce()
+  expect(FakeSocket.instances).toHaveLength(2)
+})
+
+it('does not close an initialized idle connection at the handshake deadline', async () => {
+  connectWebSocket()
+  const socket = FakeSocket.instances[0]
+  socket.onmessage!({data:JSON.stringify({type:'init',jobs:[],video_tasks:[]})})
+  await vi.advanceTimersByTimeAsync(60000)
+  expect(socket.close).not.toHaveBeenCalled()
+})
+
+it('gives an active task connection its full initialization grace period', async () => {
+  connectWebSocket()
+  const socket = FakeSocket.instances[0]
+  vi.stubGlobal('fetch',vi.fn(async (url: string) => Response.json(url.endsWith('/jobs')
+    ? {jobs:[{job_id:'active',status:'transcribing',progress:10}]} : {tasks:[]})))
+  await vi.advanceTimersByTimeAsync(30000)
+  expect(useStore.getState().jobs[0]?.status).toBe('transcribing')
+  expect(socket.close).not.toHaveBeenCalled()
+  await vi.advanceTimersByTimeAsync(15000)
+  expect(socket.close).toHaveBeenCalledOnce()
+})
