@@ -303,6 +303,8 @@ export default function Videos() {
   }
 
   const handleDelete = async (taskId: string) => {
+    const title = channelTasks.find(task => task.id === taskId)?.title || 'this saved item'
+    if (!window.confirm(`Delete “${title}”? This removes the saved item and cannot be undone.`)) return
     try {
       await deleteVideoTask(taskId)
       removeVideoTask(taskId)
@@ -477,7 +479,7 @@ export default function Videos() {
       </div>
 
       {/* Horizontal platform quick-select (always visible) */}
-      {sortedPlatforms.length > 0 && (
+      {view.type !== 'videos' && sortedPlatforms.length > 0 && (
         <div className="flex items-center gap-2 overflow-x-auto pb-1">
           <button
             onClick={() => setView({ type: 'platforms' })}
@@ -492,7 +494,7 @@ export default function Videos() {
           {sortedPlatforms.map(p => {
             const meta = PLATFORM_META[p] || { label: p }
             const stats = platformStats[p]
-            const isActive = (view.type === 'channels' || view.type === 'videos') && view.platform === p
+            const isActive = view.type === 'channels' && view.platform === p
             return (
               <button
                 key={p}
@@ -827,7 +829,7 @@ function VideoList({ videos, onDelete, onRetry, onCancel }: {
               )}
 
               <div className="flex flex-wrap items-center gap-2 md:gap-4 text-xs md:text-sm text-gray-400">
-                <ContentDates published={task.published_at} imported={task.created_at} local={task.platform === "local"} />
+                <ContentDates published={task.published_at} imported={task.created_at} local={task.platform === "local"} compact />
                 {task.duration > 0 && (
                   <span>{formatDuration(task.duration)}</span>
                 )}
@@ -883,14 +885,6 @@ function VideoList({ videos, onDelete, onRetry, onCancel }: {
                 if (task.status === 'success') {
                   return (
                     <>
-                      <button
-                        disabled={pending.has(task.id)} aria-busy={pending.has(task.id)} onClick={() => void runAction(task.id, onRetry)}
-                        className="ui-button ui-button-icon-mobile"
-                        title="Re-process video" aria-label={`Re-process ${displayTitle}`}
-                      >
-                        <RefreshCw size={16} />
-                        <span className="hidden sm:inline">Re-Process</span>
-                      </button>
                       <Link
                         to={`/videos/${task.id}`}
                         onFocus={() => prefetchVideoNote(task.id)}
@@ -945,13 +939,32 @@ function VideoList({ videos, onDelete, onRetry, onCancel }: {
               )}
 
               {!isProcessing(task.status) && (
-                <details className="task-more" onKeyDown={event=>{if(event.key==='Escape'){event.currentTarget.open=false;event.currentTarget.querySelector('summary')?.focus()}}}><summary className="ui-button" aria-label={`More actions for ${displayTitle}`}>More</summary><div><button
-                  disabled={pending.has(task.id)} aria-busy={pending.has(task.id)} onClick={() => void runAction(task.id, onDelete)}
-                  className="ui-button ui-button-danger"
-                  title="Delete video"
-                >
-                  <Trash2 size={16} /><span>Delete video</span>
-                </button></div></details>
+                <details className="task-more" onKeyDown={event => {
+                  if (event.key === 'Escape') {
+                    event.currentTarget.open = false
+                    event.currentTarget.querySelector('summary')?.focus()
+                  }
+                }}>
+                  <summary className="ui-button" aria-label={`More actions for ${displayTitle}`}>More</summary>
+                  <div>
+                    {task.status === 'success' && (
+                      <button
+                        disabled={pending.has(task.id)} aria-busy={pending.has(task.id)} onClick={() => void runAction(task.id, onRetry)}
+                        className="ui-button"
+                        title="Re-process video" aria-label={`Re-process ${displayTitle}`}
+                      >
+                        <RefreshCw size={16} /><span>Re-Process</span>
+                      </button>
+                    )}
+                    <button
+                      disabled={pending.has(task.id)} aria-busy={pending.has(task.id)} onClick={() => void runAction(task.id, onDelete)}
+                      className="ui-button ui-button-danger"
+                      title="Delete video"
+                    >
+                      <Trash2 size={16} /><span>Delete video</span>
+                    </button>
+                  </div>
+                </details>
               )}
 
               {isProcessing(task.status) && task.status !== 'cancelling' && (

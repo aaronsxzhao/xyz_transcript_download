@@ -11,7 +11,8 @@ const paths = [...new Set(assets.map(([, path]) => path))]
 // Allow 0.5 KiB for authentication pending-state feedback and integrated settings updates.
 // Allow 0.5 KiB for detailed processing stages integrated with Editorial control states.
 // Allow 0.5 KiB for bounded optional tools and accessible modal recovery.
-const budgetKiB = 194.5
+// Allow 0.5 KiB for guarded deletion and persistent form labels.
+const budgetKiB = 195
 const bytes = gzipSync(html).length + paths.reduce((sum, path) => sum + gzipSync(readFileSync(new URL('../dist' + path, import.meta.url))).length, 0)
 console.log(`Initial compressed document and external assets: ${(bytes / 1024).toFixed(1)} KiB (budget: ${budgetKiB} KiB)`)
 if (bytes > budgetKiB * 1024) throw new Error('Initial page assets exceed the loading budget. Keep rich formatting deferred.')
