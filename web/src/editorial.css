@@ -96,8 +96,8 @@ html[data-design='editorial'][data-theme='light'] :is(.app-shell,.ui-scope) :is(
 :where(html[data-design='editorial']) .dashboard-page #dashboard-add-content form { flex-direction:column; }
 :where(html[data-design='editorial']) .dashboard-page #dashboard-add-content form input { width:100%; background:var(--ui-surface); border-color:var(--ui-border); font-size:12px; border-radius:3px; padding:12px; }
 :where(html[data-design='editorial']) .dashboard-page #dashboard-add-content form button { border-radius:3px; font-size:12px; }
-:where(html[data-design='editorial']) .dashboard-add-helper { display:block; font-size:12px; line-height:1.9; color:var(--ui-muted); }
-:where(html[data-design='editorial']) .dashboard-add-helper .reader-action { margin-top:6px; font-size:12px; }
+:where(html[data-design='editorial']) .dashboard-add-helper { display:flex; flex-direction:column; align-items:flex-start; gap:8px; font-size:12px; line-height:1.9; color:var(--ui-muted); }
+:where(html[data-design='editorial']) .dashboard-add-helper .reader-action { margin-top:0; font-size:12px; }
 :where(html[data-design='editorial']) .dashboard-idle { font-size:12px; color:var(--ui-secondary); gap:5px; }
 :where(html[data-design='editorial']) .dashboard-idle .reader-action { font-size:12px; }
 :where(html[data-design='editorial']) .dashboard-main-work section[aria-label='Continue reading']>div:first-child { flex-wrap:wrap; gap:10px; }
