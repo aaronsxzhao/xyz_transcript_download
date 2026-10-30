@@ -487,3 +487,28 @@ def test_boundary_commentary_retry_preserves_the_real_claim_instead_of_dropping_
     assert report['status']=='model_reviewed' and report['covered_items']==1
     assert report['repairs_accepted']==1 and report['validation_retries']==1
     assert not report['ignored_boundary_items'] and not report['failed_batches']
+
+
+@pytest.mark.parametrize('new_fact_grounded',[True,False])
+def test_shared_context_does_not_discard_grounded_new_information(new_fact_grounded):
+    case={'source':'[00:00] Existing context.\n[00:01] An essential condition.',
+          'missing_draft':'Existing context.', 'complete_draft':'Existing context. An essential condition.', 'kind':'condition'}
+    lines,sections,ranges=setup_case(case);base=scripted(case,[])
+    def response(engine,system,payload,validator):
+        data=base(engine,system,payload,validator)
+        if payload['phase']=='inventory':
+            data['items'].append({'kind':'claim','statement':case['missing_draft'],'source_ranges':ranges})
+        if payload['phase']=='match':
+            proposed=payload['proposed_paragraph_ids']
+            condition,context=data['matches']
+            condition['grounded']=new_fact_grounded if proposed else True
+            context.update(status='covered',grounded=True,duplicate=bool(proposed),
+                           support=[{'paragraph_id':proposed[0] if proposed else 'P1'}])
+        return data
+    with patch('coverage_ledger.request',side_effect=response):report=audit(SimpleNamespace(),lines,sections)
+    assert report['repairs_accepted']==int(new_fact_grounded)
+    if new_fact_grounded:
+        assert report['status']=='model_reviewed' and report['covered_items']==2
+        assert report['items'][1]['context_overlap'] is True
+    else:
+        assert report['status']=='unverified' and len(sections)==1

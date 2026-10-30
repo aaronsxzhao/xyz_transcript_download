@@ -448,7 +448,8 @@ def _audit(engine, lines, sections, overview='', progress=None, stage_callback=N
                 if not regression:
                     for pid in proposed:
                         related=[row for row in rechecked if any(s['paragraph_id']==pid for s in row['support'])]
-                        if related and all(good(row) for row in related):
+                        novel=any(good(row) and by_id[row['item_id']]['status'] in {'partial','missing'} for row in related)
+                        if novel and all(row['status']=='covered' and row['grounded'] for row in related):
                             accepted.add(pid)
                     # A joint support receipt cannot certify one half of a
                     # rejected repair. Remove such dependencies to a fixed point.
@@ -465,6 +466,13 @@ def _audit(engine, lines, sections, overview='', progress=None, stage_callback=N
                     if kept:sections.append({**section,'paragraphs':kept})
                 report['repairs_accepted']+=len(accepted)
                 report['repairs_rejected']+=len(proposed)-len(accepted)
+                # One overlapping setup clause must not discard other missing
+                # facts in the same grounded paragraph. Entirely duplicate
+                # proposals have no novel receipt and cannot reach this branch.
+                for row in rechecked:
+                    used={s['paragraph_id'] for s in row['support']} & set(proposed)
+                    if row['status']=='covered' and row['grounded'] and row['duplicate'] and used and used<=accepted:
+                        row.update(duplicate=False,context_overlap=True)
                 rows=[row if good(row) and not ({s['paragraph_id'] for s in row['support']} & (set(proposed)-accepted))
                       else by_id[row['item_id']] for row in rechecked]
         except Exception as error:
@@ -481,6 +489,7 @@ def _audit(engine, lines, sections, overview='', progress=None, stage_callback=N
             if status=='covered' and (not row.get('grounded') or row.get('duplicate')):status='unverified'
             report['items'].append({'id':item['id'],'kind':item['kind'],'source_ranges':item['source_ranges'],
                                     'status':status,'paragraph_ids':[p['paragraph_id'] for p in row.get('support',[])],
+                                    **({'context_overlap':True} if row.get('context_overlap') else {}),
                                     **({'compression_reason':item['material_reason']} if status=='context_only' else {})})
     stage(stage_callback,'coverage',len(inventory),len(inventory))
     report['unresolved_items']=sum(item['status'] not in RESOLVED for item in report['items'])

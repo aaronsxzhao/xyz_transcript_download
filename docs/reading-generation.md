@@ -112,6 +112,10 @@ acknowledgment alone is never sufficient without grounded, nonduplicate support.
 The original prose and its accepted support are retained. An unrelated partial
 reassessment of unchanged prose does not reject otherwise verified additions;
 contradictions and grounding failures still block the candidate batch.
+Short shared context may accompany verified new information in the same paragraph:
+at least one previously missing/partial item must gain novel, grounded support,
+and all supported items must be covered and grounded. Entirely duplicate proposals
+still fail. Overlapping context is recorded separately on the receipt.
 A contradiction remains explicit;
 appending its opposite is not treated as a repair. Later batches see accepted
 repairs, so they can recognize already restored meaning. After this pass, only
