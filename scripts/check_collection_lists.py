@@ -35,9 +35,9 @@ async def main():
      assert not overflow,(name,design,theme,width)
      rows=await page.locator('.collection-row').evaluate_all("""rows=>rows.map(row=>{
        const h=row.querySelector('h3'),a=row.querySelector('.collection-actions'),r=row.getBoundingClientRect(),b=a.getBoundingClientRect();
-       return {right:Math.abs(r.right-b.right),title:h.getBoundingClientRect().height,line:parseFloat(getComputedStyle(h).lineHeight),buttons:[...a.children].map(e=>e.getBoundingClientRect().height)};
+       return {right:Math.abs(r.right-b.right),title:h.getBoundingClientRect().height,line:parseFloat(getComputedStyle(h).lineHeight),buttons:[...a.children].map(e=>e.getBoundingClientRect().height),clamped:[...row.querySelectorAll('p')].filter(e=>getComputedStyle(e).webkitLineClamp==='2').every(e=>e.getBoundingClientRect().height<=parseFloat(getComputedStyle(e).lineHeight)*2+1)};
      })""")
-     assert rows and all(r['right']<2 and r['title']<=r['line']*2+1 and min(r['buttons'])>=36 for r in rows),rows
+     assert rows and all(r['right']<2 and r['title']<=r['line']*2+1 and min(r['buttons'])>=36 and r['clamped'] for r in rows),rows
      if width in [390,820]: await page.screenshot(path=str(out/f'{name}-{design}-{theme}-{width}.png'))
    if name in ['podcasts','channels']:
     search=page.get_by_placeholder('Search '+name+'...')
