@@ -330,3 +330,10 @@ html[data-design='editorial'] .auth-appearance :is(summary,.appearance-controls)
 html[data-design='editorial'] .auth-appearance summary { font-size:20px; }
 html[data-design='editorial'] .publication-feature h2 { display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:4; overflow:hidden; }
 html[data-design='editorial'] .publication-feature .note-card-fallback>span { display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:3; overflow:hidden; max-width:100%; overflow-wrap:anywhere; line-height:1.5; }
+
+/* Notifications live outside the page shell and must follow the selected skin. */
+html[data-design='editorial'][data-theme] .toast-stack>div { background:var(--ui-surface); border-radius:var(--ui-radius); }
+html[data-design='editorial'] .toast-stack button { border-radius:var(--ui-radius); }
+html[data-design='editorial'] .toast-stack button:hover { color:var(--ui-text); background:var(--ui-hover); }
+html[data-design='editorial'] .toast-stack button:focus-visible { outline-color:var(--ui-accent); }
+html[data-design='editorial'] .toast-stack .text-indigo-400 { color:var(--ui-accent); }

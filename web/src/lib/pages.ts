@@ -6,9 +6,9 @@ const pages = {
   dashboard: () => import('../pages/Dashboard'),
   podcasts: () => import('../pages/Podcasts'),
   episodes: () => import('../pages/Episodes'),
-  viewer: () => Promise.all([withStyleTimeout(import('../reader-typography.css')).catch(() => {}), import('../pages/Viewer')]).then(([, page]) => page),
+  viewer: () => Promise.all([withStyleTimeout(import('../reader-typography.css'), 'reader-typography').catch(() => {}), import('../pages/Viewer')]).then(([, page]) => page),
   videos: () => import('../pages/Videos'),
-  videoViewer: () => Promise.all([withStyleTimeout(import('../reader-typography.css')).catch(() => {}), import('../pages/VideoViewer')]).then(([, page]) => page),
+  videoViewer: () => Promise.all([withStyleTimeout(import('../reader-typography.css'), 'reader-typography').catch(() => {}), import('../pages/VideoViewer')]).then(([, page]) => page),
   settings: () => import('../pages/Settings'),
   login: () => import('../pages/Login'),
 }

@@ -185,8 +185,10 @@ async def check_failure(browser, origin):
         context = await context_for(browser, 390)
         seen = []
         release = asyncio.Event()
+        requested = asyncio.Event()
         async def reject(route):
             seen.append(route.request.url)
+            requested.set()
             if mode != 'blocked':
                 await release.wait()
             await route.abort()
@@ -194,16 +196,31 @@ async def check_failure(browser, origin):
         if mode == 'stalled-startup':
             await context.add_init_script("localStorage.setItem('xyz:design','editorial')")
         page = await context.new_page()
+        # Exercise the actual 8-second deadline without background-tab timer
+        # throttling making WebKit's wall-clock assertion nondeterministic.
+        await page.clock.install()
         try:
             await page.goto(origin + '/', wait_until='domcontentloaded')
             if mode != 'stalled-startup':
                 await page.get_by_role('combobox', name='Interface style').select_option('editorial')
+            await asyncio.wait_for(requested.wait(), timeout=12)
+            if mode != 'blocked':
+                await page.clock.fast_forward(9000)
+            if mode != 'stalled-startup':
                 await page.get_by_role('alert').filter(has_text='Reload to retry').wait_for(timeout=12000)
             else:
                 await page.get_by_role('combobox', name='Interface style').wait_for(timeout=12000)
             assert seen, 'Failure check must intercept the actual stylesheet'
             assert await page.locator('html').get_attribute('data-design') == 'classic'
             assert await page.get_by_role('combobox', name='Interface style').is_enabled()
+            # Vite caches CSS preload URLs. A retry must not apply an unstyled
+            # skin after the timed-out link was detached; the UI asks to reload.
+            await page.get_by_role('combobox', name='Interface style').select_option('editorial')
+            await page.get_by_role('alert').filter(has_text='Reload to retry').wait_for()
+            assert await page.locator('html').get_attribute('data-design') == 'classic'
+        except Exception:
+            print(json.dumps({'appearance_failure':mode,'state':await page.evaluate("""() => ({design:document.documentElement.dataset.design,busy:document.querySelector('.appearance-controls')?.getAttribute('aria-busy'),alerts:[...document.querySelectorAll('[role=alert]')].map(e=>e.textContent),styles:[...document.querySelectorAll('link[rel=stylesheet]')].map(e=>({href:e.href,loaded:!!e.sheet,disabled:e.disabled}))})""")}),flush=True)
+            raise
         finally:
             release.set()
             # Let the held request finish before disposing the route context.

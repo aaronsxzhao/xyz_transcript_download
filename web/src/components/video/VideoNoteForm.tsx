@@ -549,7 +549,7 @@ export default function VideoNoteForm({ onTaskCreated, hideTitle, initialUrl = '
               }`}
             >
               <span className="font-medium">{q.label}</span>
-              <span className={`text-[10px] mt-0.5 ${quality === q.id ? 'text-indigo-200' : 'text-gray-500'}`}>{q.sub}</span>
+              <span className="text-[10px] mt-0.5">{q.sub}</span>
             </button>
           ))}
         </div>

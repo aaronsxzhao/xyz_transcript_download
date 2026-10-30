@@ -22,7 +22,7 @@ function syncStorage(e: StorageEvent) {
 export function getColorTheme(): ColorTheme { return document.documentElement.dataset.theme === 'light' ? 'light' : 'dark' }
 export function getDesign(): Design { return document.documentElement.dataset.design === 'editorial' ? 'editorial' : 'classic' }
 let revision = 0
-const skins = {editorial:retryableStyleLoad(() => import('../editorial.css')), classic:retryableStyleLoad(() => import('../classic-light.css'))}
+const skins = {editorial:retryableStyleLoad(() => import('../editorial.css'), 'editorial'), classic:retryableStyleLoad(() => import('../classic-light.css'), 'classic-light')}
 export function loadAppearance(design = getDesign(), theme = getColorTheme()) {
   return Promise.all([
     design === 'editorial' ? skins.editorial() : Promise.resolve(),

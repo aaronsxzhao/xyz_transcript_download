@@ -1,6 +1,21 @@
+// @vitest-environment jsdom
 import {afterEach,expect,it,vi} from 'vitest'
 import {withStyleTimeout} from '../src/lib/styleLoading'
 afterEach(()=>vi.useRealTimers())
+it('detaches the stalled optional stylesheet without removing loaded or unrelated styles',async()=>{
+ vi.useFakeTimers()
+ const links=['editorial-pending','editorial-loaded','reader-typography-pending'].map(name=>{
+  const link=document.createElement('link');link.rel='stylesheet';link.href='/assets/'+name+'.css';document.head.append(link);return link
+ })
+ Object.defineProperty(links[1],'sheet',{value:{}})
+ try {
+  const rejected=expect(withStyleTimeout(new Promise(()=>{}),'editorial')).rejects.toThrow('timed out')
+  await vi.advanceTimersByTimeAsync(8000);await rejected
+  expect(links[0].isConnected).toBe(false)
+  expect(links[1].isConnected).toBe(true)
+  expect(links[2].isConnected).toBe(true)
+ } finally {links.forEach(link=>link.remove())}
+})
 it('bounds a stalled cosmetic request and tolerates its late completion',async()=>{
  vi.useFakeTimers()
  let complete!:()=>void
@@ -16,6 +31,14 @@ it('returns successful loads and clears their timer',async()=>{
  vi.useFakeTimers()
  await expect(withStyleTimeout(Promise.resolve('ready'))).resolves.toBe('ready')
  expect(vi.getTimerCount()).toBe(0)
+})
+it('keeps a failed named skin unavailable until reload instead of accepting an empty cached import',async()=>{
+ const {retryableStyleLoad}=await import('../src/lib/styleLoading')
+ const loader=vi.fn().mockRejectedValueOnce(new Error('network')).mockResolvedValue('cached empty module')
+ const load=retryableStyleLoad(loader,'editorial')
+ await expect(load()).rejects.toThrow('network')
+ await expect(load()).rejects.toThrow('network')
+ expect(loader).toHaveBeenCalledTimes(1)
 })
 
 it('shares pending loads and retries after failure instead of caching rejection',async()=>{

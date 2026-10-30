@@ -31,7 +31,7 @@ html[data-design='classic'][data-theme='light'] .text-red-500 {
     color: #a44838
 }
 html[data-design='classic'][data-theme='light'] :where(button,a,input,select,textarea,summary):focus-visible {
-    outline: 2px solid #dbe2ec
+    outline: 2px solid #6653b5
 }
 html[data-design='classic'][data-theme='light'] .note-prose h2 {
     border-bottom: 1px solid #dbe2ec
@@ -171,7 +171,7 @@ html[data-design='classic'][data-theme='light'] .podcast-reader .reader-quote bl
     color: #5549a8
 }
 html[data-design='classic'][data-theme='light'] .podcast-reader .reader-quote summary:focus-visible {
-    outline: 2px solid #dbe2ec
+    outline: 2px solid #6653b5
 }
 html[data-design='classic'][data-theme='light'] .ui-button-primary {
     background: #edf1f7;
@@ -329,3 +329,9 @@ html[data-design='classic'][data-theme='light'] .unified-header h1{color:#253247
 
 html[data-theme='light'] .auth-appearance :is(summary,.appearance-controls) { background:#fff; }
 html[data-design='classic'][data-theme='light'] .settings-page .bg-pink-600 { background:#b71964; color:#fff; }
+
+html[data-design='classic'][data-theme='light'] .text-orange-400 { color:#92611e; }
+html[data-design='classic'][data-theme='light'] .hover\:text-orange-300:hover { color:#754b16; }
+html[data-design='classic'][data-theme='light'] .library-card:hover h2 { color:#5148ae; }
+html[data-design='classic'][data-theme='light'] .hover\:bg-dark-border:hover { background:#e2e8f0; }
+html[data-design='classic'][data-theme='light'] .ui-button-primary:hover:not(:disabled) { background:#4338ca; border-color:#4338ca; color:#fff; }

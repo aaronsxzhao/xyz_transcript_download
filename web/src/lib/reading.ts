@@ -50,7 +50,16 @@ export function useReadingPosition(
         restoring = target > 0;
         restore();
       });
-    const observer = new ResizeObserver(restore);
+    // Scroll writes can resize the observed content (for example when a
+    // scrollbar appears). Defer them out of ResizeObserver delivery.
+    let restoreFrame = 0;
+    const observer = new ResizeObserver(() => {
+      if (!restoring || restoreFrame) return;
+      restoreFrame = requestAnimationFrame(() => {
+        restoreFrame = 0;
+        if (active) restore();
+      });
+    });
     if (el.firstElementChild) observer.observe(el.firstElementChild);
     const stop = () => {
       restoring = false;
@@ -80,6 +89,7 @@ export function useReadingPosition(
     return () => {
       active = false;
       clearTimeout(timeout);
+      cancelAnimationFrame(restoreFrame);
       save();
       observer.disconnect();
       el.removeEventListener("scroll", scroll);
