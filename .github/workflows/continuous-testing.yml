@@ -81,6 +81,9 @@ jobs:
         run: |
           python scripts/check_podcast_forms.py
           python scripts/check_podcast_forms.py --webkit --widths 390
+      - name: Check concurrent podcast actions and navigation
+        timeout-minutes: 3
+        run: python scripts/check_podcast_actions.py
       - name: Check Editorial components and long titles
         timeout-minutes: 10
         run: python scripts/check_editorial_components.py

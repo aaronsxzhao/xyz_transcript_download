@@ -3,7 +3,7 @@ const PodcastUploadForm=lazy(()=>import('../components/PodcastUploadForm'))
 import CachedImage from '../components/CachedImage'
 import LoadError from '../components/LoadError'
 import { lazy, useState, useEffect, useMemo, useCallback, useRef } from 'react'
-import { Link, useNavigate, useSearchParams } from 'react-router-dom'
+import { Link, useNavigate, useSearchParams, useLocation } from 'react-router-dom'
 import { Radio, Plus, Trash2, RefreshCw, Loader2, ExternalLink, ArrowLeft, ChevronRight, Search, Upload } from 'lucide-react'
 import { fetchPodcasts, addPodcast, removePodcast, refreshPodcast, uploadLocalPodcastAudio, type Podcast } from '../lib/api'
 import { useToast } from '../components/Toast'
@@ -51,11 +51,15 @@ export default function Podcasts() {
   const [uploadTitle, setUploadTitle] = useState('')
   const [uploadDescription, setUploadDescription] = useState('')
   const [audioFile, setAudioFile] = useState<File | null>(null)
-  const [refreshing, setRefreshing] = useState<string | null>(null)
+  const [pendingActions, setPendingActions] = useState<Record<string, 'refresh' | 'delete'>>({})
+  const actionLocks = useRef(new Set<string>())
+  const bulkLock = useRef(false)
   const [refreshingAll, setRefreshingAll] = useState(false)
-  const [deletingPid, setDeletingPid] = useState<string | null>(null)
   const [search, setSearch] = useState('')
   const navigate = useNavigate()
+  const location = useLocation()
+  const currentRoute = useRef<string | null>(location.key)
+  currentRoute.current = location.key
   const { addToast, removeToast } = useToast()
   const [searchParams, setSearchParams] = useSearchParams()
 
@@ -72,7 +76,7 @@ export default function Podcasts() {
   }, [setSearchParams])
 
   const listRequest = useRef(0)
-  useEffect(() => { loadPodcasts(); return () => { listRequest.current++ } }, [])
+  useEffect(() => { currentRoute.current = location.key; loadPodcasts(); return () => { listRequest.current++; currentRoute.current = null } }, [])
 
   function changePodcasts(change: (rows: Podcast[]) => Podcast[]) {
     const owner = getAccountId()
@@ -119,6 +123,7 @@ export default function Podcasts() {
     e.preventDefault()
     if (submitting.current || !newUrl.trim()) return
 
+    const routeKey = location.key
     submitting.current = true
     setAdding(true)
     const toastId = addToast({
@@ -134,7 +139,7 @@ export default function Podcasts() {
       setShowAddForm(false)
       removeToast(toastId)
       addToast({ type: 'success', title: podcast.resolved_episode_id ? 'Spotify episode matched to public RSS' : 'Podcast added', message: podcast.resolved_episode_title || podcast.title })
-      if (podcast.resolved_episode_id) navigate(`/podcasts/${podcast.pid}/episodes`)
+      if (podcast.resolved_episode_id && currentRoute.current === routeKey) navigate(`/podcasts/${podcast.pid}/episodes`)
     } catch (err: unknown) {
       removeToast(toastId)
       addToast({
@@ -152,6 +157,7 @@ export default function Podcasts() {
     e.preventDefault()
     if (submitting.current || !audioFile) return
 
+    const routeKey = location.key
     submitting.current = true
     setUploading(true)
     const toastId = addToast({
@@ -172,7 +178,7 @@ export default function Podcasts() {
       setShowUploadForm(false)
       await loadPodcasts()
       addToast({ type: 'success', title: 'Audio uploaded', message: result.episode.title })
-      navigate(`/podcasts/${result.podcast.pid}/episodes`)
+      if (currentRoute.current === routeKey) navigate(`/podcasts/${result.podcast.pid}/episodes`)
     } catch (err: unknown) {
       removeToast(toastId)
       addToast({
@@ -186,10 +192,21 @@ export default function Podcasts() {
     }
   }
 
+  function beginAction(pid: string, action: 'refresh' | 'delete') {
+    if (bulkLock.current || actionLocks.current.has(pid)) return false
+    actionLocks.current.add(pid)
+    setPendingActions(previous => ({...previous, [pid]: action}))
+    return true
+  }
+  function finishAction(pid: string) {
+    actionLocks.current.delete(pid)
+    setPendingActions(previous => { const next = {...previous}; delete next[pid]; return next })
+  }
+
   async function handleRemove(pid: string) {
-    if (!confirm('Remove this podcast?')) return
+    if (bulkLock.current || actionLocks.current.has(pid)) return
+    if (!confirm('Remove this podcast?') || !beginAction(pid, 'delete')) return
     const podcast = podcasts.find(p => p.pid === pid)
-    setDeletingPid(pid)
     try {
       await removePodcast(pid)
       changePodcasts(prev => prev.filter(p => p.pid !== pid))
@@ -197,7 +214,7 @@ export default function Podcasts() {
     } catch (err) {
       addToast({ type: 'error', title: 'Failed to remove podcast', message: err instanceof Error ? err.message : undefined })
     } finally {
-      setDeletingPid(null)
+      finishAction(pid)
     }
   }
 
@@ -207,7 +224,7 @@ export default function Podcasts() {
       addToast({ type: 'info', title: 'Local uploads', message: 'Uploaded audio is managed manually and does not support refresh.' })
       return
     }
-    setRefreshing(pid)
+    if (!beginAction(pid, 'refresh')) return
     try {
       const result = await refreshPodcast(pid)
       addToast({ type: 'success', title: 'Podcast refreshed', message: result.message })
@@ -215,12 +232,12 @@ export default function Podcasts() {
     } catch (error) {
       addToast({ type: 'error', title: 'Failed to refresh podcast', message: error instanceof Error ? error.message : 'Source unavailable' })
     } finally {
-      setRefreshing(null)
+      finishAction(pid)
     }
   }
 
   async function handleCheckAllUpdates() {
-    if (refreshingAll) return
+    if (bulkLock.current || actionLocks.current.size) return
     if (view.type === 'podcasts' && view.platform === 'local') {
       addToast({ type: 'info', title: 'Local uploads', message: 'Local uploads do not have external updates to check.' })
       return
@@ -231,6 +248,7 @@ export default function Podcasts() {
       return
     }
 
+    bulkLock.current = true
     setRefreshingAll(true)
     let totalNew = 0
     let checked = 0
@@ -238,7 +256,7 @@ export default function Podcasts() {
 
     const owner = getAccountId()
     for (let offset=0;offset<platformPodcasts.length;offset+=3) {
-      if (owner !== getAccountId()) return
+      if (owner !== getAccountId()) { bulkLock.current = false; setRefreshingAll(false); return }
       await Promise.all(platformPodcasts.slice(offset,offset+3).map(async podcast => {
       try {
         const result = await refreshPodcast(podcast.pid)
@@ -251,7 +269,9 @@ export default function Podcasts() {
       }))
     }
 
+    bulkLock.current = false
     setRefreshingAll(false)
+    if (owner !== getAccountId()) return
     loadPodcasts()
     addToast({
       type: failures.length ? 'error' : 'success',
@@ -327,7 +347,7 @@ export default function Podcasts() {
             <button
               onClick={handleCheckAllUpdates}
               aria-label="Check podcast updates"
-              disabled={refreshingAll}
+              disabled={refreshingAll || Object.keys(pendingActions).length > 0}
               className="flex items-center justify-center gap-2 px-4 py-2.5 bg-dark-surface border border-dark-border hover:bg-dark-hover text-white font-medium rounded-lg transition-colors disabled:opacity-50 flex-1 sm:flex-none"
               title="Check all podcasts for new episodes"
             >
@@ -565,20 +585,24 @@ export default function Podcasts() {
                       {podcast.platform !== 'local' && (
                         <button
                           onClick={() => handleRefresh(podcast.pid)}
-                          disabled={refreshing === podcast.pid}
+                          disabled={refreshingAll || !!pendingActions[podcast.pid]}
                           className="p-2 bg-dark-hover hover:bg-dark-border text-white rounded-lg transition-colors disabled:opacity-50"
                           title="Refresh episodes"
+                          aria-label={`Refresh ${podcast.title}`}
+                          aria-busy={pendingActions[podcast.pid] === 'refresh'}
                         >
-                          <RefreshCw size={16} className={refreshing === podcast.pid ? 'animate-spin' : ''} />
+                          <RefreshCw size={16} className={pendingActions[podcast.pid] === 'refresh' ? 'animate-spin' : ''} />
                         </button>
                       )}
                       <button
                         onClick={() => handleRemove(podcast.pid)}
-                        disabled={deletingPid === podcast.pid}
+                        disabled={refreshingAll || !!pendingActions[podcast.pid]}
                         className="p-2 bg-dark-hover hover:bg-red-600/20 text-red-400 rounded-lg transition-colors disabled:opacity-50"
                         title="Remove podcast"
+                        aria-label={`Remove ${podcast.title}`}
+                        aria-busy={pendingActions[podcast.pid] === 'delete'}
                       >
-                        {deletingPid === podcast.pid ? (
+                        {pendingActions[podcast.pid] === 'delete' ? (
                           <Loader2 size={16} className="animate-spin" />
                         ) : (
                           <Trash2 size={16} />

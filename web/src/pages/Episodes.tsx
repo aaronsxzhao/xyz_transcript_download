@@ -30,7 +30,15 @@ export default function Episodes() {
   const [loading, setLoading] = useState(() => !getCache(CacheKeys.EPISODES(pid!)))
   const removedEpisodes = useRef(new Set<string>())
   const ownCache = useRef<Episode[] | null>(null)
-  useWarmCache<Episode[]>(CacheKeys.EPISODES(pid!),value=>{if(value===ownCache.current)return;setEpisodes(value.filter(row=>!removedEpisodes.current.has(row.eid)));setLoading(false);setError('');const cached=cachedPodcast();if(cached)setPodcast(cached);setHasMore(cachedHasMore(value,cached?.episode_count))})
+  const updatedEpisodes = useRef(new Map<string, Episode>())
+  const addedEpisodes = useRef(new Set<string>())
+  function reconcileEpisodes(rows: Episode[]) {
+    const ids = new Set(rows.map(row => row.eid))
+    return [...[...addedEpisodes.current].filter(id => !ids.has(id)).map(id => updatedEpisodes.current.get(id)!),
+      ...rows.map(row => updatedEpisodes.current.get(row.eid) || row)]
+      .filter(row => !removedEpisodes.current.has(row.eid))
+  }
+  useWarmCache<Episode[]>(CacheKeys.EPISODES(pid!),value=>{if(value===ownCache.current)return;setEpisodes(() => reconcileEpisodes(value));setLoading(false);setError('');const cached=cachedPodcast();if(cached)setPodcast(cached);setHasMore(cachedHasMore(value,cached?.episode_count))})
   const [error, setError] = useState('')
   const [refreshWarning,setRefreshWarning] = useState('')
   const [errorSource, setErrorSource] = useState<'initial' | 'more'>('initial')
@@ -71,6 +79,11 @@ export default function Episodes() {
     const owner=getAccountId()
     setEpisodes(previous=>{
       const rows=update(previous).filter(row=>!removedEpisodes.current.has(row.eid))
+      const prior = new Map(previous.map(row => [row.eid, row]))
+      for (const row of rows) {
+        if (prior.get(row.eid) !== row) updatedEpisodes.current.set(row.eid, row)
+        if (!prior.has(row.eid)) addedEpisodes.current.add(row.eid)
+      }
       saveEpisodes(rows,owner)
       return rows
     })
@@ -99,6 +112,8 @@ export default function Episodes() {
   
   useEffect(() => {
     if (!pid) return
+    updatedEpisodes.current.clear()
+    addedEpisodes.current.clear()
     const cached = getCache<Episode[]>(CacheKeys.EPISODES(pid))
     setEpisodes(cached || [])
     const metadata = cachedPodcast()
@@ -144,7 +159,7 @@ export default function Episodes() {
     const key=CacheKeys.EPISODES(pid), cached=getCache<Episode[]>(key)
     setLoading(!cached)
     if(cached && (getCacheAge(key) ?? Infinity)<60000) {
-      setEpisodes(cached)
+      setEpisodes(() => reconcileEpisodes(cached))
       const count=cachedPodcast()?.episode_count
       setHasMore(cachedHasMore(cached,count))
       return
@@ -152,15 +167,17 @@ export default function Episodes() {
     try {
       const data = await fetchEpisodes(pid)
       if (!current()) return
-      const rows=data.filter(row=>!removedEpisodes.current.has(row.eid))
-      setEpisodes(rows)
-      saveEpisodes(rows,owner)
+      setEpisodes(() => {
+        const rows = reconcileEpisodes(data)
+        saveEpisodes(rows, owner)
+        return rows
+      })
       // A full page may have a successor even if metadata is unavailable/stale.
       setHasMore(data.length === 50)
     } catch (err) {
       if (current()) {
         const available=getCache<Episode[]>(CacheKeys.EPISODES(pid))
-        if(available){setEpisodes(available);setRefreshWarning('Showing saved episodes. Live refresh is unavailable.')}
+        if(available){setEpisodes(() => reconcileEpisodes(available));setRefreshWarning('Showing saved episodes. Live refresh is unavailable.')}
         else {
           setError(episodeError(err))
           // The collection's bounded previews can still recover a failed page

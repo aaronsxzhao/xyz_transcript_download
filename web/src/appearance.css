@@ -39,3 +39,6 @@ html[data-theme='light'] .toast-stack p { color:var(--ui-text); }
 html[data-theme='light'] .toast-stack .text-blue-400 { color:#326a8b; }
 html[data-theme='light'] .toast-stack .text-red-400 { color:#a44838; }
 html[data-theme='light'] .toast-stack .text-green-400 { color:#287346; }
+
+/* An ongoing import notification must not cover expanded mobile navigation. */
+@media(max-width:767px) { body:has(#mobile-navigation) .toast-stack { z-index:39; } }

@@ -10,6 +10,7 @@ import {useStore} from '../src/lib/store'
 vi.mock('../src/lib/api',async load=>({...await load<object>(),fetchPodcast:vi.fn(),fetchPodcasts:vi.fn(),fetchEpisodes:vi.fn(),fetchEpisode:vi.fn(),processEpisode:vi.fn(),deleteEpisode:vi.fn()}))
 const notify=vi.hoisted(()=>vi.fn())
 vi.mock('../src/components/Toast',()=>({useToast:()=>({addToast:notify})}))
+vi.mock('../src/components/LocalPodcastUpload',()=>({default:({onUploaded}:any)=><button onClick={()=>onUploaded({podcast:show('local'),episode:episode('uploaded')})}>Complete synthetic upload</button>}))
 vi.mock('../src/lib/pageTiming',()=>({usePageTiming:()=>{}}))
 vi.mock('../src/lib/seen',()=>({markSeen:()=>{},isNewItem:()=>false}))
 vi.mock('../src/lib/summaryPrefetch',()=>({prefetchSummary:()=>{}}))
@@ -96,4 +97,33 @@ it('keeps a full cached page pageable even when source counts are older',async()
  await mount()
  expect(node.textContent).toContain('Load more episodes')
  expect(fetchEpisodes).not.toHaveBeenCalled()
+})
+
+it('does not lose a newly completed summary when an older page response arrives',async()=>{
+ const now=Date.now();const clock=vi.spyOn(Date,'now').mockReturnValue(now-61000)
+ setCache(CacheKeys.PODCAST('show'),show());setCache(CacheKeys.EPISODES('show'),[episode('one')]);clock.mockReturnValue(now)
+ let finish!:(value:Episode[])=>void
+ vi.mocked(fetchEpisodes).mockImplementationOnce(()=>new Promise(resolve=>{finish=resolve}))
+ await mount()
+ vi.mocked(fetchEpisode).mockResolvedValueOnce({...episode('one'),has_transcript:true,has_summary:true,topics_count:4,key_points_count:8})
+ await act(async()=>useStore.getState().updateJob({job_id:'done',episode_id:'one',status:'completed',progress:100,message:'Complete'}))
+ expect(card('one').textContent).toContain('View')
+ await act(async()=>finish([episode('one'),episode('two')]))
+ expect(card('one').textContent).toContain('View')
+ expect(node.textContent).toContain('Episode two')
+ expect(getCache<Episode[]>(CacheKeys.EPISODES('show'))?.find(row=>row.eid==='one')?.has_summary).toBe(true)
+})
+
+
+it('retains a new local upload when a pre-upload list snapshot arrives',async()=>{
+ const now=Date.now();const clock=vi.spyOn(Date,'now').mockReturnValue(now-61000)
+ setCache(CacheKeys.PODCAST('show'),show('local'));setCache(CacheKeys.EPISODES('show'),[episode('one')]);clock.mockReturnValue(now)
+ let finish!:(value:Episode[])=>void
+ vi.mocked(fetchEpisodes).mockImplementationOnce(()=>new Promise(resolve=>{finish=resolve}))
+ await mount();await act(async()=>vi.dynamicImportSettled())
+ await act(async()=>[...node.querySelectorAll('button')].find(button=>button.textContent==='Complete synthetic upload')!.click())
+ await act(async()=>finish([episode('one'),episode('two')]))
+ expect(node.textContent).toContain('Episode uploaded')
+ expect(node.textContent).toContain('Episode two')
+ expect(getCache<Episode[]>(CacheKeys.EPISODES('show'))?.map(row=>row.eid)).toEqual(['uploaded','one','two'])
 })
