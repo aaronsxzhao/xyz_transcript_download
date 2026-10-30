@@ -323,7 +323,7 @@ export default function Episodes() {
             onTouchStart={() => { if (episode.has_summary) prefetchSummary(episode.eid) }}
             className={`p-3 md:p-4 bg-dark-surface border border-dark-border rounded-xl hover:border-dark-hover transition-colors${episode.has_summary ? ' cursor-pointer' : ''}`}
           >
-            <div className="flex flex-col sm:flex-row sm:items-start gap-3 md:gap-4">
+            <div className="collection-row">
               <div className="flex-1 min-w-0">
                 <h3 className="font-medium text-white mb-1 line-clamp-2 text-sm md:text-base">
                   {episode.title}

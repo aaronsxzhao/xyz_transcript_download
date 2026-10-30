@@ -607,7 +607,7 @@ function ChannelList({ channels, onSelectChannel, onDeleteChannel, onCheckUpdate
             key={ch.channel}
             className="p-4 md:p-6 bg-dark-surface border border-dark-border rounded-xl hover:border-dark-hover transition-colors"
           >
-            <div className="flex flex-col sm:flex-row sm:items-start gap-4">
+            <div className="collection-row">
               <Link className="flex items-start gap-3 sm:gap-4 flex-1 min-w-0" to={'/videos?'+new URLSearchParams({platform:ch.platform,channel:ch.channel})}>
                 {imgSrc ? (
                   <CachedImage priority={index<3} src={imgSrc} alt="" className={`w-14 h-14 md:w-20 md:h-20 flex-shrink-0 bg-dark-hover object-cover ${ch.channel_avatar ? 'rounded-full' : 'rounded-lg'}`} />
