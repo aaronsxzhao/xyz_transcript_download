@@ -36,3 +36,6 @@ html[data-theme='light'] .auth-page .auth-feedback { color:var(--ui-text); }
 
 html[data-design][data-theme='light'] .toast-stack>div { background:var(--ui-bg); }
 html[data-theme='light'] .toast-stack p { color:var(--ui-text); }
+
+/* An ongoing import notification must not cover expanded mobile navigation. */
+@media(max-width:767px) { body:has(#mobile-navigation) .toast-stack { z-index:39; } }
