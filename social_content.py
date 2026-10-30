@@ -180,9 +180,10 @@ def html_markdown(html: str, base: str) -> str:
             lines.insert(1,'| '+' | '.join(['---']*width)+' |')
             return '\n\n'+'\n'.join(lines)+'\n\n'
         if name == 'ol':
+            from source_rich_text import source_list
             try: start=int(node.get('start',1))
             except ValueError: start=1
-            return '\n\n'+'\n'.join(f'{start+i}. '+''.join(render(child) for child in item.children).strip().replace('\n','\n   ') for i,item in enumerate(node.find_all('li',recursive=False)))+'\n\n'
+            return source_list([''.join(render(child) for child in item.children) for item in node.find_all('li',recursive=False)],ordered=True,start=start)
         children = ''.join(render(child) for child in node.children)
         if re.fullmatch('h[1-6]', name or ''):
             return '\n\n' + '#' * int(name[1]) + ' ' + children.strip() + '\n\n'
@@ -200,7 +201,7 @@ def html_markdown(html: str, base: str) -> str:
         if name == 'img':
             url = _image_url(node, base)
             return f'\n\n![{_escape(node.get("alt", ""))}]({url})\n\n' if url else ''
-        from source_rich_text import emphasis
+        from source_rich_text import emphasis, protect_paragraph
         css = dict((key.strip().lower(),value.strip().lower()) for declaration in str(node.get('style','')).split(';') if ':' in declaration for key,value in [declaration.split(':',1)])
         weight=css.get('font-weight','')
         bold=name in ('strong','b') or weight in ('bold','bolder') or (weight.isdigit() and int(weight)>=600)
@@ -213,6 +214,10 @@ def html_markdown(html: str, base: str) -> str:
             if name in ('strong','b','em','i','s','del','strike','span'): return children
         if name == 'li':
             return '\n- ' + children.strip().replace('\n', '\n  ') + '\n'
+        if name in ('p', 'figcaption'):
+            return '\n\n' + protect_paragraph(children.strip()) + '\n\n'
+        if name == 'div' and not node.find(['p','div','ol','ul','pre','blockquote','table','h1','h2','h3','h4','h5','h6']):
+            return '\n\n' + protect_paragraph(children.strip()) + '\n\n'
         if name == 'blockquote':
             return '\n\n' + '\n'.join('> ' + line for line in children.strip().splitlines()) + '\n\n'
         if name in ('video', 'audio', 'iframe'):
@@ -242,9 +247,13 @@ def _body_json(node) -> str:
         except ValueError: return _escape(node)
     if not isinstance(node, dict):
         return ''
+    if node.get('type') in ('code_block','codeBlock'):
+        raw=''.join(child.get('text','') for child in node.get('content',[]) if isinstance(child,dict))
+        fence='`'*max(3,max((len(m[0])+1 for m in re.finditer(r'`+',raw)),default=3))
+        return f'\n\n{fence}\n{raw}\n{fence}\n\n'
     raw_text=node.get('text','')
     marks=node.get('marks',[])
-    from source_rich_text import emphasis, inline_code
+    from source_rich_text import emphasis, inline_code, protect_paragraph
     text=inline_code(raw_text) if any(mark.get('type')=='code' for mark in marks) else _escape(raw_text)
     for mark in marks:
         kind=mark.get('type')
@@ -255,10 +264,12 @@ def _body_json(node) -> str:
             if url: text=f'[{text}]({url})'
     children = text + ''.join(_body_json(child) for child in node.get('content', []))
     kind = node.get('type')
+    if kind == 'paragraph': return protect_paragraph(children) + '\n\n'
     if kind in ('bullet_list','ordered_list'):
+        from source_rich_text import source_list
         try: start=int(node.get('attrs',{}).get('order',1))
         except (ValueError,TypeError): start=1
-        return '\n\n'+'\n'.join((str(start+i)+'. ' if kind=='ordered_list' else '- ')+''.join(_body_json(part) for part in child.get('content',[])).strip().replace('\n','\n  ') for i,child in enumerate(node.get('content',[])))+'\n\n'
+        return source_list([''.join(_body_json(part) for part in child.get('content',[])) for child in node.get('content',[])],ordered=kind=='ordered_list',start=start)
     if kind == 'blockquote': return '\n\n'+'\n'.join('> '+line for line in children.strip().splitlines())+'\n\n'
     if kind == 'hard_break': return '  \n'
     if kind == 'heading':
@@ -378,7 +389,8 @@ def _twitter_article_body(article, base):
         prefix = {'header-one':'## ', 'header-two':'### ', 'header-three':'#### ', 'unordered-list-item':'- ', 'ordered-list-item':'1. ', 'blockquote':'> '}.get(block.get('type'), '')
         depth=block.get('depth',0)
         indent='    '*min(8,max(0,depth)) if isinstance(depth,int) and block.get('type') in ('unordered-list-item','ordered-list-item') else ''
-        parts.append(indent + prefix + ''.join(pieces))
+        from source_rich_text import protect_paragraph
+        parts.append(indent + prefix + protect_paragraph(''.join(pieces)))
     for item in media.values():
         target = _twitter_article_image(item, base)
         if target and target not in placed:

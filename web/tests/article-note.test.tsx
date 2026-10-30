@@ -69,3 +69,14 @@ it('offers a refresh for an expired article image capability instead of an endle
   expect([...node.querySelectorAll('button')].some(button=>button.textContent==='Refresh image links')).toBe(true)
  }finally{vi.unstubAllGlobals()}
 })
+
+it('keeps an escaped year as prose while containing real large list numbers',async()=>{
+ await act(async()=>root.render(<ArticleNote markdown={'2018\\. A year in a source paragraph.\n\n2018. A real list item.\n2019. Another item.\n\n## Next section\n\n1. A normal list item.'}/>))
+ expect(node.querySelector('p')?.textContent).toBe('2018. A year in a source paragraph.')
+ const lists=node.querySelectorAll('ol')
+ expect(lists).toHaveLength(2)
+ expect(lists[0].start).toBe(2018)
+ expect(lists[0].classList.contains('wide-number-list')).toBe(true)
+ expect(lists[0].children).toHaveLength(2)
+ expect(lists[1].classList.contains('wide-number-list')).toBe(false)
+})

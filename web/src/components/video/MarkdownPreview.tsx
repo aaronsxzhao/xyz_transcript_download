@@ -1,5 +1,6 @@
 import ReaderScreenshot from '../ReaderScreenshot'
-import { lazy, memo, Suspense, useEffect, useState } from 'react'
+import { Children, lazy, memo, Suspense, useEffect, useState } from 'react'
+import { wideList } from '../../lib/listLayout'
 import { prepareNoteMarkdown } from '../../lib/noteMarkdown'
 import { rehypeNoteHeadings } from '../../lib/noteHeadingPlugin'
 import ReactMarkdown from 'react-markdown'
@@ -60,6 +61,9 @@ const NoteMarkdown = memo(function NoteMarkdown({ markdown,readerTitle }: { mark
               remarkPlugins={math ? [remarkGfm, math.remark] : [remarkGfm]}
               rehypePlugins={rehypePlugins}
               components={{
+                ol({ start, children }) {
+                  return <ol start={start} className={wideList(start,Children.count(children))?'wide-number-list':undefined}>{children}</ol>
+                },
                 table({ children }) {
                   return <div className="markdown-table" role="region" aria-label="Table" tabIndex={0}><table>{children}</table></div>
                 },

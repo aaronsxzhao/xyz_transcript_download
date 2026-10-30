@@ -147,3 +147,39 @@ def test_format_repair_does_not_change_code_whitespace_or_link_destinations(tmp_
         source=SocialContent('twitter',old.url,old.title,body)
         assert repair_one(db,db.get_task(ident,'owner'),lambda _:source)=='changed_source_kept'
     assert len(db.get_versions(ident))==1
+
+@pytest.mark.parametrize('literal', ['2018. College bedroom.', '42) A literal label.', '- Not a source list', '+ Not a source list', '# Not a source heading', '## Not a source heading', '---', '==='])
+def test_literal_paragraph_block_markers_do_not_change_source_structure(literal):
+    from source_rich_text import escape_text
+    html=rendered(escape_text(literal))
+    assert html.strip()==f'<p>{literal}</p>'
+
+
+def test_split_year_and_punctuation_remain_a_paragraph_in_html_and_json():
+    html='<p><span>2018</span><span>. College bedroom.</span></p>'
+    body={'type':'paragraph','content':[{'type':'text','text':'2018'},{'type':'text','text':'. College bedroom.'}]}
+    assert rendered(html_markdown(html,'https://example.com')).strip()=='<p>2018. College bedroom.</p>'
+    assert rendered(_body_json(body)).strip()=='<p>2018. College bedroom.</p>'
+
+
+def test_real_source_lists_and_code_keep_their_semantics():
+    result=rendered(html_markdown('<ol start="2018"><li><p>First</p></li><li>Second</li></ol><pre>2018. Code</pre>','https://example.com'))
+    assert '<ol start="2018">' in result
+    assert '<li>' in result and 'Second</li>' in result
+    assert '<code>2018. Code\n</code>' in result
+    body={'type':'ordered_list','attrs':{'order':2018},'content':[{'type':'list_item','content':[{'type':'paragraph','content':[{'type':'text','text':'First'}]}]}]}
+    assert '<ol start="2018">' in rendered(_body_json(body))
+
+
+def test_large_ordered_source_list_keeps_continuation_paragraphs_inside_item():
+    result=rendered(html_markdown('<ol start="2018"><li><p>First paragraph.</p><p>Second paragraph.</p><ul><li>Nested item.</li></ul></li></ol>','https://example.com'))
+    from bs4 import BeautifulSoup
+    tree=BeautifulSoup(result,'html.parser')
+    assert tree.ol['start']=='2018'
+    assert len(tree.ol.li.find_all('p',recursive=False))==2
+    assert tree.ol.li.ul.li.get_text(strip=True)=='Nested item.'
+
+
+def test_json_code_block_does_not_escape_a_year_or_list_example():
+    body={'type':'code_block','content':[{'type':'text','text':'2018. example\n- literal'}]}
+    assert '<code>2018. example\n- literal\n</code>' in rendered(_body_json(body))
