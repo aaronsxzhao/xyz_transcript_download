@@ -31,7 +31,7 @@ function readJson<T>(url: string, operation: string, signal?: AbortSignal): Prom
   if (existing && !signal) return existing as Promise<T>
   const request = requestWithDeadline(async controllerSignal => {
     assertSessionGeneration(generation)
-    return authFetch(url, { signal: controllerSignal, ...(/\/(?:progress|jobs)(?:\?|$)/.test(url)?{cache:'no-store' as const}:{}) }).then(response => parseApiResponseAsJson<T>(response, operation)).then(data => {
+    return authFetch(url, { signal: controllerSignal, ...(/\/(?:progress|jobs|content-updates)(?:\?|$)/.test(url)?{cache:'no-store' as const}:{}) }).then(response => parseApiResponseAsJson<T>(response, operation)).then(data => {
       assertSessionGeneration(generation)
       return data
     })
@@ -553,6 +553,7 @@ export async function importUserSubscriptions(username: string): Promise<ImportS
 // ===== Video Notes API =====
 
 export interface VideoTask {
+  task_dismissed?: boolean | null
   client_pending?:true
   started_at?: number
   id: string
@@ -680,6 +681,11 @@ export async function fetchRecentVideoTasks(limit: number = 6): Promise<{ tasks:
   const res = await authFetch(`${API_BASE}/video-notes/recent?limit=${encodeURIComponent(String(limit))}`)
   if (!res.ok) throw new Error('Failed to fetch recent video tasks')
   return res.json()
+}
+
+export async function dismissVideoTask(taskId:string):Promise<VideoTask> {
+  const response = await authFetch(`${API_BASE}/video-notes/tasks/${encodeURIComponent(taskId)}/dismiss`, {method:'POST'})
+  return parseApiResponseAsJson<VideoTask>(response, 'Could not save dismissal. Please retry.')
 }
 
 export async function fetchVideoTask(taskId: string): Promise<VideoTask> {

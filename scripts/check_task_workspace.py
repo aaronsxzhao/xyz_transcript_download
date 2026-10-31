@@ -26,6 +26,7 @@ async def main():
   if Path('/usr/bin/chromium').exists():launch={'executable_path':'/usr/bin/chromium','args':['--no-sandbox']}
   if Path('/tmp/chromium').exists():launch={'executable_path':'/tmp/chromium','args':json.loads(Path('/tmp/xyz-chromium-args.json').read_text())}
   for width in [1440,390]:
+   tasks[3].update(task_dismissed=False,updated_at='2026-10-21T14:59:59Z')
    tasks[0].update(status="saving",progress=98,markdown="",updated_at='2026-10-21T14:59:59Z')
    detail_reads=0
    browser=await p.chromium.launch(**launch)
@@ -46,6 +47,8 @@ async def main():
     elif path=='/api/video-notes/channels':body={'channels':[{'channel':'Trading Course','platform':'youtube','total_count':4,'success_count':0,'processing_count':3,'failed_count':1,'channel_avatar':'','total':4,'done':0}]}
     elif path=='/api/library/sources':body={'sources':[],'next_cursor':None}
     elif path=='/api/library':body={'items':[],'next_cursor':None}
+    elif path=='/api/video-notes/tasks/v3/dismiss':
+     tasks[3].update(task_dismissed=True,updated_at='2026-10-31T15:00:00Z');body=tasks[3]
     elif path=='/api/video-notes/tasks/v0':
      detail_reads+=1;body=tasks[0]
     elif path=='/api/health':body={'revision':'audit'}
@@ -64,6 +67,33 @@ async def main():
    await page.screenshot(path=f'/tmp/task-drawer-{width}.png')
    await page.keyboard.press('Escape')
    assert not await page.get_by_role('dialog',name='Processing tasks').count()
+   # The existing dashboard entry must reconcile progress, including cancelled videos.
+   tasks[2]['progress'] += 7
+   tasks.append({**tasks[2], 'id':'cancelled-history', 'title':'Cancelled import', 'status':'cancelled'})
+   await page.locator('.dashboard-history-link').click()
+   history=page.get_by_role('dialog',name='Task history',exact=True)
+   await history.wait_for()
+   await page.wait_for_function("v=>document.querySelector('.dashboard-task-history [data-task-id=v2] [role=progressbar]')?.getAttribute('aria-valuenow')===String(v)",arg=tasks[2]['progress'])
+   await history.locator('[data-task-id="cancelled-history"]').wait_for()
+   tasks[2]['progress'] += 7
+   await page.evaluate("window.dispatchEvent(new Event('focus'))")
+   await page.wait_for_function("v=>document.querySelector('.dashboard-task-history [data-task-id=v2] [role=progressbar]')?.getAttribute('aria-valuenow')===String(v)",arg=tasks[2]['progress'])
+   await page.screenshot(path=f'/tmp/task-history-{width}.png')
+   await page.get_by_role('button',name='Close dashboard dialog').click()
+   # Dismissal is shared by history and drawer, and survives a fresh server read.
+   await page.locator('.dashboard-history-link').click()
+   await history.locator('[data-task-id=v3]').get_by_role('button',name='Dismiss',exact=True).click()
+   await page.wait_for_function("!document.querySelector('.dashboard-task-history [data-task-id=v3]')")
+   await page.get_by_role('button',name='Close dashboard dialog').click()
+   await page.get_by_role('button',name='Open processing tasks',exact=True).click()
+   assert not await drawer.locator('[data-task-id=v3]').count()
+   await page.keyboard.press('Escape')
+   await page.reload(wait_until='domcontentloaded')
+   await page.locator('.dashboard-history-link').click()
+   await page.evaluate("window.dispatchEvent(new Event('pageshow'))")
+   await page.wait_for_function("!document.querySelector('.dashboard-task-history [data-task-id=v3]')")
+   await page.get_by_role('button',name='Close dashboard dialog').click()
+   tasks.pop()
    await page.screenshot(path=f'/tmp/audit-dashboard-{width}.png')
    print(json.dumps({'viewport':width,'overflow':await page.evaluate('document.documentElement.scrollWidth>innerWidth'),'errors':errors}),flush=True)
    await page.locator('.dashboard-processing').scroll_into_view_if_needed();await page.screenshot(path=f'/tmp/audit-queue-{width}.png')

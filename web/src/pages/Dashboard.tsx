@@ -1,6 +1,6 @@
 import {useAppearance} from '../lib/theme'
 import {detectContentPlatform as detectVideoPlatform} from '../lib/contentLinks'
-import { dismissedTasks } from "../lib/taskPreferences";
+import { taskVisible } from "../lib/taskPreferences";
 const taskAction = async (
   action: "cancelTask" | "retryTask" | "dismissTask",
   job: import("../lib/api").ProcessingJob,
@@ -45,7 +45,6 @@ import {
 import { useStore } from "../lib/store";
 import { useWarmCache, getCache, setCache, CacheKeys } from "../lib/cache";
 import { useToast } from "../components/Toast";
-import { markSeen, shouldDismissCompleted } from "../lib/seen";
 import NoteCard from "../components/NoteCard";
 import DashboardRecent from "../components/DashboardRecent";
 import { useVerifiedReading } from "../lib/readingHistory";
@@ -109,13 +108,9 @@ export default function Dashboard() {
   const [episodeUrl, setEpisodeUrl] = useState("");
   const [processing, setProcessing] = useState(false);
   const processingRef = useRef(false);
-  const [updatesSnapshot, setUpdatesSnapshot] = useState<ContentUpdates>(() =>
-    unreadSnapshot(getCache<ContentUpdates>(UPDATES_CACHE) || { items: [] }),
-  );
-  const contentUpdates = updatesSnapshot.items;
-  useWarmCache<ContentUpdates>(UPDATES_CACHE, (value) =>
-    setUpdatesSnapshot(unreadSnapshot(value)),
-  );
+  const [updatesSnapshot, setUpdatesSnapshot] = useState<ContentUpdates>({items:[]});
+  const [updatesVerified, setUpdatesVerified] = useState(false);
+  const contentUpdates = updatesVerified ? updatesSnapshot.items : [];
   const [updatesError, setUpdatesError] = useState("");
   useConnectionRecovery(() => void loadContentUpdates(), !!updatesError);
   useConnectionRecovery(retryReading, readingStatus === 'error');
@@ -125,7 +120,8 @@ export default function Dashboard() {
   const [checkingUpdates, setCheckingUpdates] = useState(false);
   const checkingRef = useRef(false);
   const [overlay, setOverlay] = useState<"updates" | "history" | "">("");
-  const { jobs, updateJob, videoTasks } = useStore();
+  const { jobs, updateJob, videoTasks, uploadSessions } = useStore();
+  const uploading = uploadSessions.filter(s => !["success", "failed", "cancelled"].includes(s.phase) && (!s.taskId || !videoTasks.some(t => t.id === s.taskId))).length;
   const { addToast } = useToast();
 
   const previousActive = useRef(new Set<string>());
@@ -205,8 +201,7 @@ export default function Dashboard() {
     return videoTasks
       .filter(
         (t) =>
-          (t.status === "success" || t.status === "failed") &&
-          (t.status === "failed" || !shouldDismissCompleted(t.id)),
+          (["success", "failed", "cancelled"].includes(t.status)),
       )
       .map((t) => ({
         job_id: t.id,
@@ -215,7 +210,7 @@ export default function Dashboard() {
         message:
           t.status === "success"
             ? "Notes generated!"
-            : t.error || t.message || "Failed",
+            : t.error || t.message || (t.status === "cancelled" ? "Cancelled" : "Failed"),
         episode_title: t.title || "Video",
       }));
   }, [videoTasks]);
@@ -224,7 +219,11 @@ export default function Dashboard() {
   useEffect(() => {
     const refresh = () => setDismissalRevision((n) => n + 1);
     window.addEventListener("xyz:tasks-dismissed", refresh);
-    return () => window.removeEventListener("xyz:tasks-dismissed", refresh);
+    window.addEventListener("storage", refresh);
+    return () => {
+      window.removeEventListener("xyz:tasks-dismissed", refresh);
+      window.removeEventListener("storage", refresh);
+    };
   }, []);
   const allQueueItems = useMemo(() => {
     const activePodcasts = jobs
@@ -240,8 +239,7 @@ export default function Dashboard() {
         (j) =>
           (j.status === "completed" ||
             j.status === "failed" ||
-            j.status === "cancelled") &&
-          (j.status === "failed" || !shouldDismissCompleted(j.job_id)),
+            j.status === "cancelled"),
       )
       .map((j) => ({ ...j, _kind: "podcast" as const }));
     const videoJobs = activeVideoJobs.map((j) => ({
@@ -253,7 +251,6 @@ export default function Dashboard() {
       _kind: "video" as const,
     }));
 
-    const dismissed = dismissedTasks();
     return [
       ...activePodcasts,
       ...videoJobs,
@@ -261,23 +258,12 @@ export default function Dashboard() {
       ...doneVideos,
     ].filter(
       (row) =>
-        !["failed", "success", "completed", "cancelled"].includes(row.status) ||
-        !dismissed.includes(row._kind + ":" + row.job_id),
+        taskVisible(row.status, row._kind + ":" + row.job_id,
+          row._kind === "video" ? videoTasks.find(t => t.id === row.job_id)?.task_dismissed : undefined),
     );
   }, [jobs, activeVideoJobs, recentlyDoneVideos, dismissalRevision]);
 
-  // Mark completed queue items as seen so they auto-dismiss on next load
-  const queueSeenRef = useRef(false);
-  useEffect(() => {
-    const doneIds = [
-      ...jobs.filter((j) => j.status === "completed").map((j) => j.job_id),
-      ...videoTasks.filter((t) => t.status === "success").map((t) => t.id),
-    ];
-    if (doneIds.length > 0 && !queueSeenRef.current) {
-      queueSeenRef.current = true;
-      markSeen(doneIds);
-    }
-  }, [jobs, videoTasks]);
+
 
   useEffect(() => {
     mounted.current = true;
@@ -287,10 +273,20 @@ export default function Dashboard() {
       if (!document.hidden) void loadContentUpdates();
     };
     const timer = window.setInterval(refresh, 30000);
+    const restored = () => {
+      setUpdatesVerified(false);
+      refresh();
+    };
     window.addEventListener("focus", refresh);
+    window.addEventListener("pageshow", restored);
+    window.addEventListener("storage", restored);
+    document.addEventListener("visibilitychange", restored);
     return () => {
       window.clearInterval(timer);
       window.removeEventListener("focus", refresh);
+      window.removeEventListener("pageshow", restored);
+      window.removeEventListener("storage", restored);
+      document.removeEventListener("visibilitychange", restored);
       dataVersion.current++;
       updatesReadVersion.current++;
       mounted.current = false;
@@ -325,11 +321,12 @@ export default function Dashboard() {
         return;
       const next = unreadSnapshot(data);
       setUpdatesSnapshot(next);
+      setUpdatesVerified(true);
       setCache(UPDATES_CACHE, next, owner);
       setUpdatesError("");
     } catch {
       if (owner === getAccountId() && version === updatesReadVersion.current)
-        setUpdatesError("Cannot refresh new content. Saved updates are shown.");
+        setUpdatesError("Could not refresh new content. Retry to check for updates.");
     }
   }
 
@@ -725,7 +722,7 @@ export default function Dashboard() {
             {!activeQueue.length && (
               <div className="dashboard-idle">
                 <span>
-                  {attentionCount
+                  {uploading ? `${uploading} local upload${uploading === 1 ? "" : "s"}` : attentionCount
                     ? `${attentionCount} earlier tasks need review`
                     : "✓ No active tasks"}
                 </span>
@@ -812,9 +809,7 @@ export default function Dashboard() {
           history={
             allQueueItems.length ? (
               allQueueItems.map(renderTask)
-            ) : (
-              <p>No recent tasks. Add a podcast or video to get started.</p>
-            )
+            ) : null
           }
           fallback={
             <button

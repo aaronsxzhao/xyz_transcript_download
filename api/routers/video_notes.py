@@ -725,17 +725,20 @@ def process_video_note_sync(
                 transcriber = get_transcriber(model=preferences.get("whisper_model") or None, **({"preferences": preferences} if preferences.get("transcription_provider") == "custom" else {}))
 
                 last_progress = [42]
+                last_transcription_message = [""]
 
                 def transcribe_progress(progress: float):
                     if is_video_task_cancelled(task_id):
                         raise VideoCancelledException("Cancelled during transcription")
                     job_progress = 42 + (progress * 18)
-                    if job_progress - last_progress[0] >= 1:
+                    from reading_progress import transcription_message
+                    detail = transcription_message(progress)
+                    if job_progress - last_progress[0] >= 0.5 or detail != last_transcription_message[0]:
+                        last_transcription_message[0] = detail
                         last_progress[0] = job_progress
-                        pct = int(progress * 100)
                         _update_task_status(
                             db, task_id, "transcribing", job_progress,
-                            f"Transcribing... {pct}%", user_id,
+                            detail, user_id,
                         )
 
                 transcript = transcriber.transcribe(
@@ -872,6 +875,7 @@ def process_video_note_sync(
 
         def summarize_progress(chars, partial_text="", chunk_num=0, total_chunks=0):
             check_summary_cancelled()
+            summary_progress.stream(chars)
             now = _time.monotonic()
             if partial_text and not preserve_existing_note and now - _last_stream_broadcast[0] >= _stream_interval:
                 _last_stream_broadcast[0] = now
@@ -1520,6 +1524,23 @@ def delete_channel(channel_name: str, user: Optional[User] = Depends(get_current
             delete_task_assets(task_id)
     _invalidate_list_cache(user_id)
     return {"message": f"Deleted {count} video(s) from channel '{channel_name}'", "deleted": count}
+
+
+@router.post("/tasks/{task_id}/dismiss")
+async def dismiss_task_notification(task_id: str, user: Optional[User] = Depends(get_current_user)):
+    from video_task_db import get_video_task_db
+    user_id = user.id if user else None
+    try:
+        task = await asyncio.to_thread(get_video_task_db().dismiss_task, task_id, user_id)
+    except LookupError as exc:
+        raise HTTPException(status_code=404, detail=str(exc))
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail=str(exc))
+    except Exception:
+        raise HTTPException(status_code=503, detail="Could not save dismissal. Please retry.")
+    await broadcast_video_job(task_id, task, user_id)
+    from api.progress_payload import video_progress_payload
+    return video_progress_payload(task)
 
 
 @router.post("/tasks/{task_id}/retry")

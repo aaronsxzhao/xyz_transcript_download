@@ -1,5 +1,6 @@
 import {
   cancelJob,
+  dismissVideoTask,
   cancelVideoTask,
   deleteJob,
   fetchJob,
@@ -23,9 +24,16 @@ export async function dismissTask(
     if (owner !== getAccountId()) return;
     useStore.getState().removeJob(job.job_id);
   }
+  if (kind === "video" && remove) {
+    const task = await dismissVideoTask(job.job_id);
+    if (owner !== getAccountId()) return;
+    useStore.getState().updateVideoTask(task);
+    window.dispatchEvent(new Event("xyz:tasks-dismissed"));
+    return;
+  }
   const next = [
     ...new Set([...dismissedTasks(), kind + ":" + job.job_id]),
-  ].slice(-200);
+  ];
   setPreference("dismissed_tasks", JSON.stringify(next));
   window.dispatchEvent(new Event("xyz:tasks-dismissed"));
 }

@@ -60,3 +60,27 @@ def test_repairs_use_source_owned_chapters_without_moving_later_revisits():
     assert [s['heading'] for s in result]==['Focus','Rest','Focus','New topic']
     assert [[p['id'] for p in s['paragraphs']] for s in result]==[['P1','L1'],['P2','L2'],['P3'],['L3']]
     assert result[0]['paragraphs'][1] is additions[0]['paragraphs'][0]
+
+
+def test_measured_transcription_reports_real_units_and_clamps_bounds():
+    from reading_progress import MeasuredProgress, transcription_message
+    assert MeasuredProgress(30,120)==.25
+    assert '0:30 / 2:00 processed' in transcription_message(MeasuredProgress(30,120))
+    assert '2/8 segments finished' in transcription_message(MeasuredProgress(2,8,'chunks'))
+    assert MeasuredProgress(200,120)==1
+    assert MeasuredProgress(0,0)==0
+    assert 'Waiting for transcription results' in transcription_message(0)
+
+
+def test_streaming_output_updates_activity_without_inventing_a_percentage():
+    updates=[]
+    bridge=SummaryProgress(lambda value,message:updates.append((value,message)),72,94)
+    stage(bridge.stage,'draft',0,4,mode='segmented')
+    bridge.stream(512)
+    assert updates[-1][0]==72
+    assert '512 characters' in updates[-1][1]
+    stage(bridge.stage,'draft',1,4,mode='segmented')
+    assert updates[-1][0]>72
+    assert '1/4 finished' in updates[-1][1]
+    bridge.stream(256)
+    assert '1/4 finished' in updates[-1][1]

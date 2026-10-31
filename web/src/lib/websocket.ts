@@ -46,7 +46,7 @@ function pollJobs(owner:number) {
   }
   // A response can discover active work after this tick was scheduled.
   // Keep the tick short; per-stream freshness still bounds idle network reads.
-  pollTimer=window.setTimeout(()=>pollJobs(owner),5000)
+  pollTimer=window.setTimeout(()=>pollJobs(owner),busy.podcast || busy.video ? 2000 : 5000)
 }
 
 function refreshProgress() {
@@ -108,6 +108,7 @@ export function connectWebSocket() {
   window.addEventListener('xyz:processing-changed',refreshProgress)
   window.addEventListener('focus',refreshProgress)
   window.addEventListener('online',refreshProgress)
+  window.addEventListener('pageshow',refreshProgress)
   document.addEventListener('visibilitychange',refreshProgress)
   pollTimer = window.setTimeout(() => { void pollJobs(owner) }, 5000)
   openSocket(owner)
@@ -133,6 +134,7 @@ export function disconnectWebSocket() {
   window.removeEventListener('xyz:processing-changed',refreshProgress)
   window.removeEventListener('focus',refreshProgress)
   window.removeEventListener('online',refreshProgress)
+  window.removeEventListener('pageshow',refreshProgress)
   document.removeEventListener('visibilitychange',refreshProgress)
   for(const stream of ['podcast','video'] as const){inFlight[stream]?.abort();delete inFlight[stream];lastSnapshot[stream]=0}
   useStore.getState().setWsConnected(false)

@@ -4,10 +4,11 @@ import {createRoot} from 'react-dom/client'
 import {MemoryRouter,useLocation} from 'react-router-dom'
 import {beforeEach,afterEach,it,expect,vi} from 'vitest'
 import ProcessingPanel from '../src/components/ProcessingPanel'
+import DashboardDialog from '../src/components/DashboardDialog'
 import {TaskProgress} from '../src/components/TaskStatus'
 import {useStore} from '../src/lib/store'
 import {markSeen} from '../src/lib/seen'
-const api=vi.hoisted(()=>({cancelJob:vi.fn(),cancelVideoTask:vi.fn(),deleteJob:vi.fn(),retryJob:vi.fn(),retryVideoTask:vi.fn(),fetchJob:vi.fn()}))
+const api=vi.hoisted(()=>({dismissVideoTask:vi.fn(),cancelJob:vi.fn(),cancelVideoTask:vi.fn(),deleteJob:vi.fn(),retryJob:vi.fn(),retryVideoTask:vi.fn(),fetchJob:vi.fn()}))
 const toast=vi.hoisted(()=>vi.fn())
 vi.mock('../src/lib/api',async load=>({...await load<object>(),...api}))
 vi.mock('../src/components/Toast',()=>({useToast:()=>({addToast:toast})}))
@@ -74,10 +75,11 @@ it('explains source restrictions without a useless retry and never shows termina
 })
 it('does not call an estimated progress value a measured percentage or show fake queued progress',async()=>{
  await act(async()=>root.render(<TaskProgress status="saving" progress={98}/>));expect(node.textContent).toContain('Saving and verifying');expect(node.textContent).toContain('~98%');expect(node.querySelector('[role="progressbar"]')?.getAttribute('aria-valuenow')).toBe('98')
+ await act(async()=>root.render(<TaskProgress status="success" progress={100}/>));expect(node.textContent).toContain("100%");expect(node.textContent).not.toContain("~100%");expect(node.querySelector(".task-progress-fill")?.getAttribute("style")).toContain("scaleX(1)")
  await act(async()=>root.render(<TaskProgress status="pending" progress={0}/>));expect(node.textContent).not.toContain('%');expect(node.querySelector('[role="progressbar"]')).toBeNull()
 })
 it('closing the last failed video does not reopen the drawer for the next queued task',async()=>{
- useStore.getState().setVideoTasks([{id:'video',title:'Failed video',status:'failed',progress:20,message:'Timeout',platform:'youtube'} as any]);await render();await open()
+ useStore.getState().setVideoTasks([{id:'video',title:'Failed video',status:'failed',progress:20,message:'Timeout',platform:'youtube'} as any]);api.dismissVideoTask.mockResolvedValue({id:'video',status:'failed',task_dismissed:true});await render();await open()
  await act(async()=>Array.from(document.querySelectorAll('button')).find(b=>b.textContent==='Dismiss')!.click())
  expect(document.querySelector('[role="dialog"]')).toBeNull()
  await act(async()=>useStore.getState().setJobs([job('new','pending')]))
@@ -128,7 +130,7 @@ it('shows the real phase and count without inventing progress while waiting',asy
  expect(bar.getAttribute('aria-valuetext')).toContain('12/40 items checked')
  expect(node.textContent).toContain('Checking coverage')
  await act(async()=>root.render(<TaskProgress status="summarizing" progress={86} message="Verifying additions · 12/40 items checked"/>))
- expect(bar.getAttribute('aria-valuenow')).toBe('87')
+ expect(bar.getAttribute('aria-valuenow')).toBe('86') // Canonical shared state, not a component-local high watermark.
  expect(node.textContent).toContain('Verifying additions')
 })
 
@@ -143,7 +145,7 @@ it('resets progress for a new attempt and never renders active 100 percent',asyn
 
 
 it.each(['/', '/viewer/0123456789abcdef01234567'])('reveals the requested summary after navigating from the task drawer at %s',async path=>{
- useStore.getState().setJobs([job('done','completed')])
+ useStore.getState().setJobs([job('done','completed'),job('working','summarizing')])
  function Location(){const location=useLocation();return <p data-current-path>{location.pathname}</p>}
  await act(async()=>root.render(<MemoryRouter initialEntries={[path]}><Location/><ProcessingPanel/></MemoryRouter>))
  const opener=node.querySelector<HTMLButtonElement>('[aria-label="Open processing tasks"]')!
@@ -153,5 +155,49 @@ it.each(['/', '/viewer/0123456789abcdef01234567'])('reveals the requested summar
  expect(node.querySelector('[data-current-path]')?.textContent).toBe('/viewer/0123456789abcdef01234567')
  expect(document.querySelector('[role="dialog"]')).toBeNull()
  expect(document.activeElement).toBe(opener)
- expect(useStore.getState().jobs).toHaveLength(1)
+ expect(useStore.getState().jobs).toHaveLength(2)
+})
+
+it('hides the idle launcher but keeps an open drawer updated through completion',async()=>{
+ useStore.getState().setJobs([job('done','completed')]);await render()
+ expect(node.querySelector('.task-launcher')).toBeNull()
+ await act(async()=>useStore.getState().setJobs([job('live','summarizing')]))
+ await open()
+ await act(async()=>useStore.getState().setJobs([job('live','completed')]))
+ expect(document.querySelector('[role="dialog"]')?.textContent).toContain('Finished')
+ expect(node.querySelector('.task-launcher')).toBeNull()
+})
+it('refreshes the existing history entry and follows local upload progress through server handoff',async()=>{
+ const refresh=vi.fn();window.addEventListener('xyz:processing-changed',refresh)
+ const session={id:'upload',filename:'recording.mp4',phase:'uploading',percent:20,uploadedBytes:20,totalBytes:100,statusText:'Uploading',locationLabel:'Local file'} as any
+ useStore.getState().upsertUploadSession(session)
+ await act(async()=>root.render(<MemoryRouter><DashboardDialog kind="history" updates={[]} history={null} onClose={()=>{}}/></MemoryRouter>))
+ expect(refresh).toHaveBeenCalledOnce()
+ expect(node.textContent).toContain('20%');expect(node.textContent).not.toContain('No recent tasks')
+ await act(async()=>useStore.getState().upsertUploadSession({...session,percent:70}))
+ expect(node.textContent).toContain('70%');expect(node.textContent).toContain('reconnecting')
+ await act(async()=>{useStore.getState().setWsConnected(true);useStore.getState().upsertUploadSession({...session,taskId:'server'});useStore.getState().setVideoTasks([{id:'server',status:'pending'} as any])})
+ expect(node.textContent).not.toContain('recording.mp4');expect(node.textContent).not.toContain('reconnecting')
+ window.removeEventListener('xyz:processing-changed',refresh)
+})
+
+it('explains quiet processing, clears the wait on new stage details, and distinguishes offline',async()=>{
+ vi.useFakeTimers()
+ const online=vi.spyOn(navigator,'onLine','get').mockReturnValue(true)
+ try {
+  await act(async()=>root.render(<TaskProgress status="transcribing" progress={44} compact/>))
+  expect(node.textContent).not.toContain('No new progress')
+  await act(async()=>vi.advanceTimersByTime(31000))
+  expect(node.textContent).toContain('No new progress for 0m 30s')
+  expect(node.querySelector('[role="progressbar"]')?.getAttribute('aria-valuenow')).toBe('44')
+  await act(async()=>root.render(<TaskProgress status="transcribing" progress={44} message="Transcribing segment 2 of 8" compact/>))
+  expect(node.textContent).not.toContain('No new progress')
+  online.mockReturnValue(false)
+  await act(async()=>window.dispatchEvent(new Event('offline')))
+  expect(node.textContent).toContain("You're offline")
+  expect(node.querySelector('.task-progress')?.hasAttribute('data-offline')).toBe(true)
+  await act(async()=>root.render(<TaskProgress status="success" progress={100}/>))
+  expect(node.textContent).not.toContain("You're offline")
+  expect(node.querySelector('[role="progressbar"]')).toBeNull()
+ } finally { online.mockRestore();vi.useRealTimers() }
 })

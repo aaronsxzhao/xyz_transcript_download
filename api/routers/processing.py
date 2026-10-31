@@ -810,6 +810,8 @@ def process_episode_sync(job_id: str, episode_url: str, transcribe_only: bool = 
             def existing_summary_progress(*args):
                 if is_job_cancelled(job_id):
                     raise CancelledException("Job cancelled during summarization")
+                if args:
+                    summary_stage.stream(args[0])
             def publish_existing_summary_progress(value, message):
                 last_progress[0] = value
                 update_job_status(job_id, "summarizing", value, message)
@@ -861,6 +863,7 @@ def process_episode_sync(job_id: str, episode_url: str, transcribe_only: bool = 
         transcriber = get_transcriber(model=whisper_model, **({"preferences": preferences} if preferences.get("transcription_provider") == "custom" else {}))
         
         last_progress = [30]
+        last_transcription_message = [""]
         def progress_callback(progress: float):
             # Check for cancellation on every progress update - immediate cancel
             if is_job_cancelled(job_id):
@@ -869,11 +872,12 @@ def process_episode_sync(job_id: str, episode_url: str, transcribe_only: bool = 
             # Map 0-1 progress to 30-70% of job (40% range for transcription)
             job_progress = 30 + (progress * 40)
             # Update on every 0.5% change for smooth progress bar
-            if job_progress >= last_progress[0] + 0.5:
+            from reading_progress import transcription_message
+            detail = transcription_message(progress)
+            if job_progress >= last_progress[0] + 0.5 or detail != last_transcription_message[0]:
+                last_transcription_message[0] = detail
                 last_progress[0] = job_progress
-                pct = int(progress * 100)
-                # Show clear progress message with percentage
-                update_job_status(job_id, "transcribing", job_progress, f"Transcribing audio... {pct}%")
+                update_job_status(job_id, "transcribing", job_progress, detail)
         
         # Transcribe (using fast audio if available)
         try:
@@ -943,6 +947,8 @@ def process_episode_sync(job_id: str, episode_url: str, transcribe_only: bool = 
         def summary_progress_callback(*args):
             if is_job_cancelled(job_id):
                 raise CancelledException("Job cancelled during summarization")
+            if args:
+                summary_stage.stream(args[0])
         def publish_summary_progress(value, message):
             last_summary_progress[0] = value
             update_job_status(job_id, "summarizing", value, message)

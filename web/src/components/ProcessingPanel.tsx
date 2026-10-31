@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { useLocation } from "react-router-dom";
-import { Activity, X, Upload } from "lucide-react";
-import { useStore, type VideoUploadSession } from "../lib/store";
+import { Activity, X } from "lucide-react";
+import { useStore } from "../lib/store";
 
 import {
   cancelTask,
@@ -12,16 +12,16 @@ import {
 } from "../lib/taskActions";
 import { useDialog } from "../lib/reading";
 import ProcessingProgress from "./ProcessingProgress";
+import { taskVisible } from "../lib/taskPreferences";
 import { taskGroup } from "./TaskStatus";
-const formatBytes = (n: number) =>
-  `${(Math.max(0, n) / 1048576).toFixed(1)} MB`;
+import UploadSessionItem from "./UploadSessionItem";
 export default function ProcessingPanel() {
   const state = useStore();
   const { pathname, key: locationKey } = useLocation();
   const [open, setOpen] = useState(false);
   // Reveal the destination even when a task link opens the current route again.
   useEffect(() => setOpen(false), [locationKey]);
-  const [dismissed, setDismissed] = useState<string[]>(dismissedTasks);
+  const [, setDismissed] = useState<string[]>(dismissedTasks);
   useEffect(() => {
     const sync = () => setDismissed(dismissedTasks());
     window.addEventListener("xyz:tasks-dismissed", sync);
@@ -33,11 +33,12 @@ export default function ProcessingPanel() {
   }, []);
   const dialogRef = useDialog(open, () => setOpen(false));
   const rows = [
-    ...state.jobs.map((job) => ({ ...job, kind: "podcast" as const, platform: '', sourceUrl: '', createdAt: '' })),
+    ...state.jobs.map((job) => ({ ...job, kind: "podcast" as const, platform: '', sourceUrl: '', createdAt: '', task_dismissed: undefined as boolean | undefined })),
     ...state.videoTasks
       .filter((t) => t.status !== "discovered")
       .map((t) => ({
         job_id: t.id,
+        task_dismissed: t.task_dismissed,
         episode_title: t.title,
         episode_id: "",
         status: t.status,
@@ -49,20 +50,7 @@ export default function ProcessingPanel() {
         createdAt: t.created_at,
         kind: "video" as const,
       })),
-  ].filter(
-    (row) =>
-      !dismissed.includes(row.kind + ":" + row.job_id) ||
-      [
-        "pending",
-        "parsing",
-        "fetching",
-        "downloading",
-        "transcribing",
-        "summarizing",
-        "saving",
-        "cancelling",
-      ].includes(row.status),
-  );
+  ].filter(row => taskVisible(row.status, row.kind + ":" + row.job_id, row.task_dismissed));
   const uploads = state.uploadSessions.filter(
     (s) => !s.taskId || !state.videoTasks.some((t) => t.id === s.taskId),
   );
@@ -84,15 +72,15 @@ export default function ProcessingPanel() {
   if (!rows.length && !uploads.length) return null;
   return (
     <>
-      <button
+      {(running + queued + failures > 0) && <button
         className="task-launcher"
         aria-label="Open processing tasks"
         aria-haspopup="dialog"
-        onClick={() => setOpen(true)}
+        onClick={() => { setOpen(true); window.dispatchEvent(new Event("xyz:processing-changed")); }}
       >
         <Activity size={16} />
         <span>{count}</span>
-      </button>
+      </button>}
       {open &&
         createPortal(
           <div
@@ -177,72 +165,5 @@ export default function ProcessingPanel() {
           document.body,
         )}
     </>
-  );
-}
-function UploadSessionItem({
-  session,
-  onDismiss,
-}: {
-  session: VideoUploadSession;
-  onDismiss: () => void;
-}) {
-  const isActive = !["failed", "success", "cancelled"].includes(session.phase);
-  const statusColor =
-    session.phase === "failed"
-      ? "bg-red-500"
-      : session.phase === "success"
-        ? "bg-emerald-500"
-        : session.phase === "cancelled"
-          ? "bg-orange-400"
-          : session.phase === "assembling"
-            ? "bg-amber-500"
-            : session.phase === "uploaded"
-              ? "bg-emerald-500"
-              : "bg-sky-500";
-
-  return (
-    <div className="p-3 space-y-2">
-      <div className="flex items-start gap-2">
-        <Upload size={16} className="text-sky-400 mt-0.5 flex-shrink-0" />
-        <div className="flex-1 min-w-0">
-          <p className="text-sm font-medium text-white truncate">
-            {session.filename || "Uploading local video..."}
-          </p>
-          <p className="text-xs text-gray-500">
-            {session.statusText || session.phase}
-          </p>
-          <p className="text-[11px] text-gray-600 mt-0.5">
-            {session.locationLabel}
-          </p>
-        </div>
-        {!isActive && (
-          <button
-            onClick={onDismiss}
-            className="p-2 sm:p-1 min-w-[40px] min-h-[40px] sm:min-w-0 sm:min-h-0 flex items-center justify-center text-gray-500 hover:text-white hover:bg-dark-border rounded transition-colors -mr-1"
-            title="Dismiss"
-          >
-            <X className="w-5 h-5 sm:w-4 sm:h-4" />
-          </button>
-        )}
-      </div>
-      <div className="relative h-1.5 bg-dark-border rounded-full overflow-hidden">
-        <div
-          className={`absolute left-0 top-0 h-full ${statusColor} transition-all duration-300`}
-          style={{ width: `${Math.min(session.percent, 100)}%` }}
-        />
-        {session.percent === 0 && isActive && (
-          <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent animate-shimmer" />
-        )}
-      </div>
-      <div className="flex justify-between items-center">
-        <p className="text-xs text-sky-400">
-          {formatBytes(session.uploadedBytes)} /{" "}
-          {formatBytes(session.totalBytes)}
-        </p>
-        <p className="text-xs font-medium text-white">
-          {Math.round(session.percent)}%
-        </p>
-      </div>
-    </div>
   );
 }
