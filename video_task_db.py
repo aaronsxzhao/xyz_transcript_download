@@ -92,6 +92,7 @@ class _SQLiteVideoTaskDB:
                 ("channel_url TEXT", "''"),
                 ("channel_avatar TEXT", "''"),
                 ("published_at TEXT", "''"),
+                ("task_dismissed INTEGER", "NULL"),
                 ("source_metadata TEXT", "'{}'"),
             ]:
                 try:
@@ -240,19 +241,19 @@ class _SQLiteVideoTaskDB:
         with self._conn() as conn:
             if user_id:
                 rows = conn.execute(
-                    f"SELECT id,url,platform,title,thumbnail,status,progress,message,style,duration,error,channel,channel_url,channel_avatar,published_at,created_at,updated_at FROM video_tasks WHERE channel = ? AND platform = ? AND user_id = ? {order}",
+                    f"SELECT id,url,platform,title,thumbnail,status,progress,task_dismissed,message,style,duration,error,channel,channel_url,channel_avatar,published_at,created_at,updated_at FROM video_tasks WHERE channel = ? AND platform = ? AND user_id = ? {order}",
                     (channel, platform, user_id),
                 ).fetchall()
             else:
                 rows = conn.execute(
-                    f"SELECT id,url,platform,title,thumbnail,status,progress,message,style,duration,error,channel,channel_url,channel_avatar,published_at,created_at,updated_at FROM video_tasks WHERE channel = ? AND platform = ? AND user_id IS NULL {order}",
+                    f"SELECT id,url,platform,title,thumbnail,status,progress,task_dismissed,message,style,duration,error,channel,channel_url,channel_avatar,published_at,created_at,updated_at FROM video_tasks WHERE channel = ? AND platform = ? AND user_id IS NULL {order}",
                     (channel, platform),
                 ).fetchall()
             return [self._row_to_dict(r) for r in rows]
 
     def update_task(self, task_id: str, updates: dict):
         allowed = {
-            "status", "progress", "message", "markdown", "transcript_json",
+            "status", "progress", "message", "markdown", "transcript_json", "task_dismissed",
             "title", "thumbnail", "duration", "error", "model", "platform",
             "source_metadata", "channel", "channel_url", "channel_avatar",
             "style", "formats", "quality", "video_quality", "published_at",
@@ -265,6 +266,8 @@ class _SQLiteVideoTaskDB:
             fields["source_metadata"] = json.dumps(fields["source_metadata"], ensure_ascii=False)
         if "formats" in fields and isinstance(fields["formats"], list):
             fields["formats"] = json.dumps(fields["formats"])
+        if fields.get("status") and fields["status"] not in {"success", "failed", "cancelled"}:
+            fields["task_dismissed"] = False
         fields["updated_at"] = datetime.now(timezone.utc).isoformat()
         set_clause = ", ".join(f"{k} = ?" for k in fields)
         values = list(fields.values()) + [task_id]
@@ -277,7 +280,7 @@ class _SQLiteVideoTaskDB:
 
     def get_task(self, task_id: str, user_id: str = None, include_transcript: bool = True) -> Optional[dict]:
         with self._conn() as conn:
-            cols = "*" if include_transcript else "id,user_id,url,platform,title,thumbnail,status,progress,message,markdown,source_metadata,style,model,formats,quality,video_quality,extras,video_understanding,video_interval,grid_cols,grid_rows,duration,error,channel,channel_url,channel_avatar,published_at,created_at,updated_at"
+            cols = "*" if include_transcript else "id,user_id,url,platform,title,thumbnail,status,progress,task_dismissed,message,markdown,source_metadata,style,model,formats,quality,video_quality,extras,video_understanding,video_interval,grid_cols,grid_rows,duration,error,channel,channel_url,channel_avatar,published_at,created_at,updated_at"
             if user_id:
                 row = conn.execute(
                     f"SELECT {cols} FROM video_tasks WHERE id = ? AND user_id = ?",
@@ -317,12 +320,12 @@ class _SQLiteVideoTaskDB:
         with self._conn() as conn:
             if user_id:
                 rows = conn.execute(
-                    f"SELECT id,url,platform,title,thumbnail,status,progress,message,style,duration,error,channel,channel_url,channel_avatar,published_at,created_at,updated_at,json_extract(source_metadata,'$.type') AS source_type,{saved_note} FROM video_tasks WHERE user_id = ? {order} LIMIT ?",
+                    f"SELECT id,url,platform,title,thumbnail,status,progress,task_dismissed,message,style,duration,error,channel,channel_url,channel_avatar,published_at,created_at,updated_at,json_extract(source_metadata,'$.type') AS source_type,{saved_note} FROM video_tasks WHERE user_id = ? {order} LIMIT ?",
                     (user_id, limit),
                 ).fetchall()
             else:
                 rows = conn.execute(
-                    f"SELECT id,url,platform,title,thumbnail,status,progress,message,style,duration,error,channel,channel_url,channel_avatar,published_at,created_at,updated_at,json_extract(source_metadata,'$.type') AS source_type,{saved_note} FROM video_tasks WHERE user_id IS NULL {order} LIMIT ?",
+                    f"SELECT id,url,platform,title,thumbnail,status,progress,task_dismissed,message,style,duration,error,channel,channel_url,channel_avatar,published_at,created_at,updated_at,json_extract(source_metadata,'$.type') AS source_type,{saved_note} FROM video_tasks WHERE user_id IS NULL {order} LIMIT ?",
                     (limit,),
                 ).fetchall()
             return [self._row_to_dict(r) for r in rows]
@@ -534,6 +537,8 @@ class _SupabaseVideoTaskDB:
         # Otherwise cached progress overwrites the DB's fresh timestamp and
         # browsers correctly reject it as older than their queued snapshot.
         updates = {**updates, 'updated_at': datetime.now(timezone.utc).isoformat()}
+        if updates.get('status') and updates['status'] not in self.TERMINAL_STATUSES:
+            updates['task_dismissed'] = False
         with self._lock:
             if task_id in self._cache:
                 self._cache[task_id].update(updates)
@@ -650,6 +655,8 @@ class _SupabaseVideoTaskDB:
             if version(existing) > version(cached_task) > 0:
                 continue
             merged_by_id[task_id] = {**existing, **cached_task}
+            if "task_dismissed" in existing:
+                merged_by_id[task_id]["task_dismissed"] = existing["task_dismissed"]
 
         for server_task in server_tasks:
             task_id = server_task.get("id")
@@ -785,6 +792,31 @@ class VideoTaskDB:
         else:
             self._backend = _SQLiteVideoTaskDB(db_path)
             logger.info("VideoTaskDB using SQLite backend")
+
+    def dismiss_task(self, task_id: str, user_id: str = None) -> dict:
+        """Acknowledge a terminal task without deleting its saved reading content."""
+        backend = self._backend
+        task = (backend._sb.get_video_task(task_id, user_id, include_transcript=False)
+                if isinstance(backend, _SupabaseVideoTaskDB)
+                else self.get_task(task_id, user_id, include_transcript=False))
+        if not task:
+            raise LookupError("Task not found")
+        if task['status'] not in {'success', 'failed', 'cancelled'}:
+            raise ValueError("Task is still processing. Wait for it to finish.")
+        stamp = datetime.now(timezone.utc).isoformat()
+        backend = self._backend
+        if isinstance(backend, _SupabaseVideoTaskDB):
+            query = backend._sb.client.table('video_tasks').update({'task_dismissed':True, 'updated_at':stamp}).eq('id',task_id).eq('user_id',user_id).eq('status',task['status']).eq('updated_at',task['updated_at'])
+            rows = query.execute().data or []
+            if not rows: raise ValueError("Task changed. Refresh and try again.")
+            stamp = rows[0].get("updated_at", stamp)
+            # Do not cache this acknowledgement: another device may start a retry.
+        else:
+            with backend._conn() as conn:
+                changed = conn.execute('UPDATE video_tasks SET task_dismissed=1,updated_at=? WHERE id=? AND user_id IS ? AND status=? AND updated_at=?', (stamp,task_id,user_id,task['status'],task['updated_at'])).rowcount
+                if not changed: raise ValueError("Task changed. Refresh and try again.")
+                conn.commit()
+        return {**task, 'task_dismissed':True, 'updated_at':stamp}
 
     def get_saved_media_task_ids(self) -> set[str]:
         """Server maintenance only: retain media belonging to saved tasks."""

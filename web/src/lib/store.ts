@@ -23,9 +23,18 @@ function mergeProcessingJobPair(existing: ProcessingJob | undefined, incoming: P
   return {
     ...existing,
     ...incoming,
+    progress: sameAttemptProgress(existing, incoming),
     episode_title: incoming.episode_title || existing.episode_title,
     episode_id: incoming.episode_id || existing.episode_id,
   }
+}
+
+function sameAttemptProgress(existing: {progress?:number;status:string;started_at?:number}, incoming: {progress?:number;status:string;started_at?:number}) {
+  const terminal = ['completed','success','failed','cancelled'];
+  const restart = incoming.status === 'pending' || terminal.includes(existing.status) ||
+    (!!incoming.started_at && incoming.started_at !== existing.started_at);
+  return !restart && !terminal.includes(incoming.status)
+    ? Math.max(existing.progress || 0, incoming.progress || 0) : (incoming.progress ?? 0);
 }
 
 function isActiveVideoTaskStatus(status: string) {
@@ -71,7 +80,8 @@ export function mergeVideoTaskPair(existing: VideoTask | undefined, incoming: Vi
     published_at: normalizedIncoming.published_at || existing.published_at,
     created_at: normalizedIncoming.created_at || existing.created_at,
     updated_at: keepExistingProgress ? existing.updated_at : (normalizedIncoming.updated_at || existing.updated_at),
-    progress: keepExistingProgress ? existing.progress : normalizedIncoming.progress,
+    progress: keepExistingProgress ? existing.progress : sameAttemptProgress(existing, normalizedIncoming),
+    task_dismissed: keepExistingProgress ? existing.task_dismissed : (normalizedIncoming.task_dismissed ?? existing.task_dismissed),
     status: keepExistingProgress ? existing.status : normalizedIncoming.status,
     message: keepExistingProgress ? existing.message : normalizedIncoming.message,
     error: keepExistingProgress ? existing.error : (normalizedIncoming.error ?? existing.error),

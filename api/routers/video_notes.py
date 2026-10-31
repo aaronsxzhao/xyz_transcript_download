@@ -1522,6 +1522,23 @@ def delete_channel(channel_name: str, user: Optional[User] = Depends(get_current
     return {"message": f"Deleted {count} video(s) from channel '{channel_name}'", "deleted": count}
 
 
+@router.post("/tasks/{task_id}/dismiss")
+async def dismiss_task_notification(task_id: str, user: Optional[User] = Depends(get_current_user)):
+    from video_task_db import get_video_task_db
+    user_id = user.id if user else None
+    try:
+        task = await asyncio.to_thread(get_video_task_db().dismiss_task, task_id, user_id)
+    except LookupError as exc:
+        raise HTTPException(status_code=404, detail=str(exc))
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail=str(exc))
+    except Exception:
+        raise HTTPException(status_code=503, detail="Could not save dismissal. Please retry.")
+    await broadcast_video_job(task_id, task, user_id)
+    from api.progress_payload import video_progress_payload
+    return video_progress_payload(task)
+
+
 @router.post("/tasks/{task_id}/retry")
 async def retry_task(
     task_id: str,

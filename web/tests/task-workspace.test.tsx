@@ -8,7 +8,7 @@ import DashboardDialog from '../src/components/DashboardDialog'
 import {TaskProgress} from '../src/components/TaskStatus'
 import {useStore} from '../src/lib/store'
 import {markSeen} from '../src/lib/seen'
-const api=vi.hoisted(()=>({cancelJob:vi.fn(),cancelVideoTask:vi.fn(),deleteJob:vi.fn(),retryJob:vi.fn(),retryVideoTask:vi.fn(),fetchJob:vi.fn()}))
+const api=vi.hoisted(()=>({dismissVideoTask:vi.fn(),cancelJob:vi.fn(),cancelVideoTask:vi.fn(),deleteJob:vi.fn(),retryJob:vi.fn(),retryVideoTask:vi.fn(),fetchJob:vi.fn()}))
 const toast=vi.hoisted(()=>vi.fn())
 vi.mock('../src/lib/api',async load=>({...await load<object>(),...api}))
 vi.mock('../src/components/Toast',()=>({useToast:()=>({addToast:toast})}))
@@ -78,7 +78,7 @@ it('does not call an estimated progress value a measured percentage or show fake
  await act(async()=>root.render(<TaskProgress status="pending" progress={0}/>));expect(node.textContent).not.toContain('%');expect(node.querySelector('[role="progressbar"]')).toBeNull()
 })
 it('closing the last failed video does not reopen the drawer for the next queued task',async()=>{
- useStore.getState().setVideoTasks([{id:'video',title:'Failed video',status:'failed',progress:20,message:'Timeout',platform:'youtube'} as any]);await render();await open()
+ useStore.getState().setVideoTasks([{id:'video',title:'Failed video',status:'failed',progress:20,message:'Timeout',platform:'youtube'} as any]);api.dismissVideoTask.mockResolvedValue({id:'video',status:'failed',task_dismissed:true});await render();await open()
  await act(async()=>Array.from(document.querySelectorAll('button')).find(b=>b.textContent==='Dismiss')!.click())
  expect(document.querySelector('[role="dialog"]')).toBeNull()
  await act(async()=>useStore.getState().setJobs([job('new','pending')]))
@@ -129,7 +129,7 @@ it('shows the real phase and count without inventing progress while waiting',asy
  expect(bar.getAttribute('aria-valuetext')).toContain('12/40 items checked')
  expect(node.textContent).toContain('Checking coverage')
  await act(async()=>root.render(<TaskProgress status="summarizing" progress={86} message="Verifying additions · 12/40 items checked"/>))
- expect(bar.getAttribute('aria-valuenow')).toBe('87')
+ expect(bar.getAttribute('aria-valuenow')).toBe('86') // Canonical shared state, not a component-local high watermark.
  expect(node.textContent).toContain('Verifying additions')
 })
 

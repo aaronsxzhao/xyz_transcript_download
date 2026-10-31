@@ -12,6 +12,7 @@ import {
 } from "../lib/taskActions";
 import { useDialog } from "../lib/reading";
 import ProcessingProgress from "./ProcessingProgress";
+import { taskVisible } from "../lib/taskPreferences";
 import { taskGroup } from "./TaskStatus";
 import UploadSessionItem from "./UploadSessionItem";
 export default function ProcessingPanel() {
@@ -20,7 +21,7 @@ export default function ProcessingPanel() {
   const [open, setOpen] = useState(false);
   // Reveal the destination even when a task link opens the current route again.
   useEffect(() => setOpen(false), [locationKey]);
-  const [dismissed, setDismissed] = useState<string[]>(dismissedTasks);
+  const [, setDismissed] = useState<string[]>(dismissedTasks);
   useEffect(() => {
     const sync = () => setDismissed(dismissedTasks());
     window.addEventListener("xyz:tasks-dismissed", sync);
@@ -32,11 +33,12 @@ export default function ProcessingPanel() {
   }, []);
   const dialogRef = useDialog(open, () => setOpen(false));
   const rows = [
-    ...state.jobs.map((job) => ({ ...job, kind: "podcast" as const, platform: '', sourceUrl: '', createdAt: '' })),
+    ...state.jobs.map((job) => ({ ...job, kind: "podcast" as const, platform: '', sourceUrl: '', createdAt: '', task_dismissed: undefined as boolean | undefined })),
     ...state.videoTasks
       .filter((t) => t.status !== "discovered")
       .map((t) => ({
         job_id: t.id,
+        task_dismissed: t.task_dismissed,
         episode_title: t.title,
         episode_id: "",
         status: t.status,
@@ -48,20 +50,7 @@ export default function ProcessingPanel() {
         createdAt: t.created_at,
         kind: "video" as const,
       })),
-  ].filter(
-    (row) =>
-      !dismissed.includes(row.kind + ":" + row.job_id) ||
-      [
-        "pending",
-        "parsing",
-        "fetching",
-        "downloading",
-        "transcribing",
-        "summarizing",
-        "saving",
-        "cancelling",
-      ].includes(row.status),
-  );
+  ].filter(row => taskVisible(row.status, row.kind + ":" + row.job_id, row.task_dismissed));
   const uploads = state.uploadSessions.filter(
     (s) => !s.taskId || !state.videoTasks.some((t) => t.id === s.taskId),
   );

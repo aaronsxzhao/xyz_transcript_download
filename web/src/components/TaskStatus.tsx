@@ -1,5 +1,6 @@
 // Shared processing semantics: queued tasks have no estimated percentage.
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
+import {useSmoothedProgress} from "../lib/smoothedProgress";
 import {
   getStatusColor,
   getStatusIcon,
@@ -38,10 +39,8 @@ export function TaskProgress({
   const incoming = Number.isFinite(progress)
     ? Math.max(0, Math.min(99, Math.round(progress)))
     : 0;
-  const previous = useRef({ startedAt, status, value: incoming });
-  const freshAttempt = previous.current.startedAt !== startedAt || status === "pending" || !isActiveStatus(previous.current.status);
-  const value = freshAttempt ? incoming : Math.max(previous.current.value, incoming);
-  previous.current = { startedAt, status, value };
+  const value = incoming;
+  const animated = useSmoothedProgress(value, `${startedAt}:${status === 'pending' ? 'queued' : 'active'}`);
   const waiting = status === "pending" || status === "cancelling";
   const stageMessage = isActiveStatus(status) && !waiting ? message : "";
   const stageLabel = status === "summarizing" ? ["Writing full-transcript summary", "Writing sections", "Checking source accuracy", "Building coverage checklist", "Checking coverage", "Filling missing details", "Verifying additions", "Preparing the final summary"].find(label => stageMessage.startsWith(label)) : undefined;
@@ -54,7 +53,7 @@ export function TaskProgress({
             className="ml-auto tabular-nums"
             title="Estimated overall progress"
           >
-            ~{value}%
+            ~{Math.round(animated)}%
           </span>
         )}
       </div>
@@ -72,7 +71,7 @@ export function TaskProgress({
             className={
               value > 0 ? getStatusColor(status) : "task-indeterminate"
             }
-            style={value > 0 ? { width: `${value}%` } : undefined}
+            style={value > 0 ? { width: `${animated}%`, transition: "none" } : undefined}
           />
         </div>
       )}

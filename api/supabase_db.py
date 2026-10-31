@@ -963,7 +963,7 @@ class SupabaseDatabase:
         if not self.client or not user_id or not channel:
             return []
         cols = (
-            "id, url, platform, title, thumbnail, status, progress, message,"
+            "id, url, platform, title, thumbnail, status, progress, task_dismissed, message,"
             "style, duration, error, channel, channel_url, channel_avatar,"
             "published_at, created_at, updated_at"
         )
@@ -999,7 +999,7 @@ class SupabaseDatabase:
             return
 
         allowed = {
-            "status", "progress", "message", "markdown", "transcript_json",
+            "status", "progress", "message", "markdown", "transcript_json", "task_dismissed",
             "title", "thumbnail", "duration", "error", "model", "platform",
             "source_metadata", "channel", "channel_url", "channel_avatar", "published_at",
             "style", "formats", "quality", "video_quality",
@@ -1021,7 +1021,7 @@ class SupabaseDatabase:
         if not self.client:
             return None
 
-        cols = "*" if include_transcript else "id,user_id,url,platform,title,thumbnail,status,progress,message,markdown,source_metadata,style,model,formats,quality,video_quality,extras,video_understanding,video_interval,grid_cols,grid_rows,duration,error,channel,channel_url,channel_avatar,published_at,created_at,updated_at"
+        cols = "*" if include_transcript else "id,user_id,url,platform,title,thumbnail,status,progress,task_dismissed,message,markdown,source_metadata,style,model,formats,quality,video_quality,extras,video_understanding,video_interval,grid_cols,grid_rows,duration,error,channel,channel_url,channel_avatar,published_at,created_at,updated_at"
         query = self.client.table("video_tasks").select(cols).eq("id", task_id)
         if user_id:
             query = query.eq("user_id", user_id)
@@ -1040,7 +1040,7 @@ class SupabaseDatabase:
         if not self.client or not url:
             return None
         cols = (
-            "id, url, platform, title, thumbnail, status, progress, message,"
+            "id, url, platform, title, thumbnail, status, progress, task_dismissed, message,"
             "style, duration, error, channel, channel_url, channel_avatar,"
             "published_at, created_at, updated_at"
         )
@@ -1058,7 +1058,7 @@ class SupabaseDatabase:
             return []
 
         cols = (
-            "id, url, platform, title, thumbnail, status, progress, message,"
+            "id, url, platform, title, thumbnail, status, progress, task_dismissed, message,"
             "style, duration, error, channel, channel_url, channel_avatar,"
             "published_at, created_at, updated_at"
         )
@@ -1084,7 +1084,7 @@ class SupabaseDatabase:
         # fetch by created_at and re-sort in Python using published_at for
         # normal videos and created_at for local/podcast uploads.
         cols_fallback = (
-            "id, url, platform, title, thumbnail, status, progress, message,"
+            "id, url, platform, title, thumbnail, status, progress, task_dismissed, message,"
             "style, duration, error, channel, channel_url, channel_avatar,"
             "created_at, updated_at"
         )
@@ -1102,7 +1102,7 @@ class SupabaseDatabase:
         """Small progress snapshot, independent of the saved video library."""
         if not self.client or not user_id:
             return []
-        columns = 'id,url,platform,title,thumbnail,status,progress,message,error,channel,channel_url,channel_avatar,duration,created_at,updated_at'
+        columns = 'id,url,platform,title,thumbnail,status,progress,task_dismissed,message,error,channel,channel_url,channel_avatar,duration,created_at,updated_at'
         terminal = ['success', 'failed', 'cancelled', 'discovered']
         def query():
             return self.client.table('video_tasks').select(columns).eq('user_id', user_id)
@@ -1120,7 +1120,7 @@ class SupabaseDatabase:
             return []
 
         cols = (
-            "id, url, platform, title, thumbnail, status, progress, message,"
+            "id, url, platform, title, thumbnail, status, progress, task_dismissed, message,"
             "style, duration, error, channel, channel_url, channel_avatar,"
             "published_at, created_at, updated_at"
         )
