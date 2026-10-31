@@ -4,6 +4,7 @@ import {createRoot} from 'react-dom/client'
 import {MemoryRouter,useLocation} from 'react-router-dom'
 import {beforeEach,afterEach,it,expect,vi} from 'vitest'
 import ProcessingPanel from '../src/components/ProcessingPanel'
+import DashboardDialog from '../src/components/DashboardDialog'
 import {TaskProgress} from '../src/components/TaskStatus'
 import {useStore} from '../src/lib/store'
 import {markSeen} from '../src/lib/seen'
@@ -143,7 +144,7 @@ it('resets progress for a new attempt and never renders active 100 percent',asyn
 
 
 it.each(['/', '/viewer/0123456789abcdef01234567'])('reveals the requested summary after navigating from the task drawer at %s',async path=>{
- useStore.getState().setJobs([job('done','completed')])
+ useStore.getState().setJobs([job('done','completed'),job('working','summarizing')])
  function Location(){const location=useLocation();return <p data-current-path>{location.pathname}</p>}
  await act(async()=>root.render(<MemoryRouter initialEntries={[path]}><Location/><ProcessingPanel/></MemoryRouter>))
  const opener=node.querySelector<HTMLButtonElement>('[aria-label="Open processing tasks"]')!
@@ -153,5 +154,28 @@ it.each(['/', '/viewer/0123456789abcdef01234567'])('reveals the requested summar
  expect(node.querySelector('[data-current-path]')?.textContent).toBe('/viewer/0123456789abcdef01234567')
  expect(document.querySelector('[role="dialog"]')).toBeNull()
  expect(document.activeElement).toBe(opener)
- expect(useStore.getState().jobs).toHaveLength(1)
+ expect(useStore.getState().jobs).toHaveLength(2)
+})
+
+it('hides the idle launcher but keeps an open drawer updated through completion',async()=>{
+ useStore.getState().setJobs([job('done','completed')]);await render()
+ expect(node.querySelector('.task-launcher')).toBeNull()
+ await act(async()=>useStore.getState().setJobs([job('live','summarizing')]))
+ await open()
+ await act(async()=>useStore.getState().setJobs([job('live','completed')]))
+ expect(document.querySelector('[role="dialog"]')?.textContent).toContain('Finished')
+ expect(node.querySelector('.task-launcher')).toBeNull()
+})
+it('refreshes the existing history entry and follows local upload progress through server handoff',async()=>{
+ const refresh=vi.fn();window.addEventListener('xyz:processing-changed',refresh)
+ const session={id:'upload',filename:'recording.mp4',phase:'uploading',percent:20,uploadedBytes:20,totalBytes:100,statusText:'Uploading',locationLabel:'Local file'} as any
+ useStore.getState().upsertUploadSession(session)
+ await act(async()=>root.render(<MemoryRouter><DashboardDialog kind="history" updates={[]} history={null} onClose={()=>{}}/></MemoryRouter>))
+ expect(refresh).toHaveBeenCalledOnce()
+ expect(node.textContent).toContain('20%');expect(node.textContent).not.toContain('No recent tasks')
+ await act(async()=>useStore.getState().upsertUploadSession({...session,percent:70}))
+ expect(node.textContent).toContain('70%');expect(node.textContent).toContain('reconnecting')
+ await act(async()=>{useStore.getState().setWsConnected(true);useStore.getState().upsertUploadSession({...session,taskId:'server'});useStore.getState().setVideoTasks([{id:'server',status:'pending'} as any])})
+ expect(node.textContent).not.toContain('recording.mp4');expect(node.textContent).not.toContain('reconnecting')
+ window.removeEventListener('xyz:processing-changed',refresh)
 })

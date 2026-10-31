@@ -350,3 +350,8 @@ html[data-design='editorial'] .app-shell .dashboard-page :is(.dashboard-idle,.da
 html[data-design='editorial'] .app-shell .dashboard-page :is(.dashboard-idle,.dashboard-add-helper) .reader-action:hover {
   border-color:transparent; background:transparent; color:var(--ui-accent); text-decoration:underline; text-underline-offset:4px;
 }
+
+/* Compact each list item's internal rhythm; retain two-line titles and right-aligned actions. */
+html[data-design='editorial'] .library-card[data-layout='list'] h2 { min-height:0; margin-bottom:0; }
+html[data-design='editorial'] .library-card[data-layout='list'] .library-card-body>p { margin-top:6px; }
+html[data-design='editorial'] .library-card[data-layout='list'] .library-card-footer { padding-top:10px; }

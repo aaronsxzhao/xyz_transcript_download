@@ -64,6 +64,20 @@ async def main():
    await page.screenshot(path=f'/tmp/task-drawer-{width}.png')
    await page.keyboard.press('Escape')
    assert not await page.get_by_role('dialog',name='Processing tasks').count()
+   # The existing dashboard entry must reconcile progress, including cancelled videos.
+   tasks[2]['progress'] += 7
+   tasks.append({**tasks[2], 'id':'cancelled-history', 'title':'Cancelled import', 'status':'cancelled'})
+   await page.locator('.dashboard-history-link').click()
+   history=page.get_by_role('dialog',name='Task history',exact=True)
+   await history.wait_for()
+   await page.wait_for_function("v=>document.querySelector('.dashboard-task-history [data-task-id=v2] [role=progressbar]')?.getAttribute('aria-valuenow')===String(v)",arg=tasks[2]['progress'])
+   await history.locator('[data-task-id="cancelled-history"]').wait_for()
+   tasks[2]['progress'] += 7
+   await page.evaluate("window.dispatchEvent(new Event('focus'))")
+   await page.wait_for_function("v=>document.querySelector('.dashboard-task-history [data-task-id=v2] [role=progressbar]')?.getAttribute('aria-valuenow')===String(v)",arg=tasks[2]['progress'])
+   await page.screenshot(path=f'/tmp/task-history-{width}.png')
+   await page.get_by_role('button',name='Close dashboard dialog').click()
+   tasks.pop()
    await page.screenshot(path=f'/tmp/audit-dashboard-{width}.png')
    print(json.dumps({'viewport':width,'overflow':await page.evaluate('document.documentElement.scrollWidth>innerWidth'),'errors':errors}),flush=True)
    await page.locator('.dashboard-processing').scroll_into_view_if_needed();await page.screenshot(path=f'/tmp/audit-queue-{width}.png')

@@ -125,7 +125,8 @@ export default function Dashboard() {
   const [checkingUpdates, setCheckingUpdates] = useState(false);
   const checkingRef = useRef(false);
   const [overlay, setOverlay] = useState<"updates" | "history" | "">("");
-  const { jobs, updateJob, videoTasks } = useStore();
+  const { jobs, updateJob, videoTasks, uploadSessions } = useStore();
+  const uploading = uploadSessions.filter(s => !["success", "failed", "cancelled"].includes(s.phase) && (!s.taskId || !videoTasks.some(t => t.id === s.taskId))).length;
   const { addToast } = useToast();
 
   const previousActive = useRef(new Set<string>());
@@ -205,7 +206,7 @@ export default function Dashboard() {
     return videoTasks
       .filter(
         (t) =>
-          (t.status === "success" || t.status === "failed") &&
+          (["success", "failed", "cancelled"].includes(t.status)) &&
           (t.status === "failed" || !shouldDismissCompleted(t.id)),
       )
       .map((t) => ({
@@ -215,7 +216,7 @@ export default function Dashboard() {
         message:
           t.status === "success"
             ? "Notes generated!"
-            : t.error || t.message || "Failed",
+            : t.error || t.message || (t.status === "cancelled" ? "Cancelled" : "Failed"),
         episode_title: t.title || "Video",
       }));
   }, [videoTasks]);
@@ -725,7 +726,7 @@ export default function Dashboard() {
             {!activeQueue.length && (
               <div className="dashboard-idle">
                 <span>
-                  {attentionCount
+                  {uploading ? `${uploading} local upload${uploading === 1 ? "" : "s"}` : attentionCount
                     ? `${attentionCount} earlier tasks need review`
                     : "✓ No active tasks"}
                 </span>
@@ -812,9 +813,7 @@ export default function Dashboard() {
           history={
             allQueueItems.length ? (
               allQueueItems.map(renderTask)
-            ) : (
-              <p>No recent tasks. Add a podcast or video to get started.</p>
-            )
+            ) : null
           }
           fallback={
             <button
