@@ -97,3 +97,23 @@ it('clears the previous collection immediately on account change',async()=>{
  expect(node.textContent).not.toContain('P1 Chapter')
  expect(node.querySelectorAll('input')).toHaveLength(0)
 })
+
+it('mutes current, ready and running parts and highlights selected rows and the action',async()=>{
+ parts[0].status='success';parts[2].status='transcribing'
+ // An unconfirmed admission can leave a pending row; keep its safe retry available.
+ parts[3].status='pending'
+ await mount()
+ const rows=node.querySelectorAll('.bilibili-part-row')
+ for(const i of [0,1,2]) {
+  expect(rows[i].hasAttribute('data-unavailable')).toBe(true)
+  expect((rows[i].querySelector('input') as HTMLInputElement).disabled).toBe(true)
+ }
+ expect(button('Process selected').classList.contains('ui-button-primary')).toBe(false)
+ act(()=>button('Select unprocessed').click())
+ expect(rows[3].hasAttribute('data-selected')).toBe(true)
+ expect(button('Process selected').classList.contains('ui-button-primary')).toBe(true)
+ expect(button('Process selected').textContent).toContain('(1)')
+ act(()=>button('Clear selection').click())
+ expect(rows[3].hasAttribute('data-selected')).toBe(false)
+ expect(button('Process selected').disabled).toBe(true)
+})
