@@ -109,7 +109,7 @@ export function TaskProgress({
           {!online
             ? "You're offline. Reconnect to refresh progress."
             : unchangedSeconds >= 30
-              ? `${stageHint} No new progress for ${Math.floor(unchangedSeconds / 60)}m ${Math.floor(unchangedSeconds % 60 / 5) * 5}s; waiting for the next result.`
+              ? `${stageHint} No new progress for ${Math.floor(unchangedSeconds / 60)}m ${unchangedSeconds % 60}s; waiting for the next result.`
               : stageHint}
         </p>
       )}
