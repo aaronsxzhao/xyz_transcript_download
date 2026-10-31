@@ -38,6 +38,8 @@ it('interpolates only toward reported progress and cancels animation when unmoun
  try{
   act(()=>root.render(<Meter value={20}/>))
   act(()=>root.render(<Meter value={60}/>))
+  // RAF timestamps can predate an effect started in the same frame.
+  act(()=>callback(-1));expect(Number(node.textContent)).toBe(20)
   now=300;act(()=>callback(now))
   expect(Number(node.textContent)).toBeGreaterThan(20);expect(Number(node.textContent)).toBeLessThan(60)
   now=600;act(()=>callback(now));expect(Number(node.textContent)).toBe(60)

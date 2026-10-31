@@ -75,6 +75,7 @@ it('explains source restrictions without a useless retry and never shows termina
 })
 it('does not call an estimated progress value a measured percentage or show fake queued progress',async()=>{
  await act(async()=>root.render(<TaskProgress status="saving" progress={98}/>));expect(node.textContent).toContain('Saving and verifying');expect(node.textContent).toContain('~98%');expect(node.querySelector('[role="progressbar"]')?.getAttribute('aria-valuenow')).toBe('98')
+ await act(async()=>root.render(<TaskProgress status="success" progress={100}/>));expect(node.textContent).toContain("100%");expect(node.textContent).not.toContain("~100%");expect(node.querySelector(".task-progress-fill")?.getAttribute("style")).toContain("scaleX(1)")
  await act(async()=>root.render(<TaskProgress status="pending" progress={0}/>));expect(node.textContent).not.toContain('%');expect(node.querySelector('[role="progressbar"]')).toBeNull()
 })
 it('closing the last failed video does not reopen the drawer for the next queued task',async()=>{

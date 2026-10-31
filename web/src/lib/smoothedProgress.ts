@@ -8,13 +8,15 @@ export function useSmoothedProgress(target:number, attempt:string) {
     previousAttempt.current=attempt
     let frame=0
     const publish=(v:number)=>{displayed.current=v;setValue(v)}
-    if(reset || target<displayed.current || document.hidden ||
+    if(reset || target<=displayed.current || document.hidden ||
       window.matchMedia?.('(prefers-reduced-motion: reduce)').matches || typeof requestAnimationFrame==='undefined') {
       publish(target);return
     }
     const from=displayed.current, start=performance.now()
+    // Small updates settle promptly; larger jumps have room to ease into place.
+    const duration=Math.min(600, Math.max(180, Math.abs(target-from)*20))
     const tick=(now:number)=>{
-      const t=Math.min(1,(now-start)/600)
+      const t=Math.max(0, Math.min(1,(now-start)/duration))
       publish(from+(target-from)*(1-Math.pow(1-t,3)))
       if(t<1)frame=requestAnimationFrame(tick)
     }

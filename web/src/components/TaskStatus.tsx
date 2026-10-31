@@ -39,27 +39,29 @@ export function TaskProgress({
   const incoming = Number.isFinite(progress)
     ? Math.max(0, Math.min(99, Math.round(progress)))
     : 0;
-  const value = incoming;
+  const complete = status === "completed" || status === "success";
+  const value = complete ? 100 : incoming;
   const animated = useSmoothedProgress(value, `${startedAt}:${status === 'pending' ? 'queued' : 'active'}`);
   const waiting = status === "pending" || status === "cancelling";
   const stageMessage = isActiveStatus(status) && !waiting ? message : "";
   const stageLabel = status === "summarizing" ? ["Writing full-transcript summary", "Writing sections", "Checking source accuracy", "Building coverage checklist", "Checking coverage", "Filling missing details", "Verifying additions", "Preparing the final summary"].find(label => stageMessage.startsWith(label)) : undefined;
   return (
     <div className="task-progress">
-      <div className="flex items-center gap-2 text-xs text-gray-400">
+      <div className="task-progress-heading text-xs text-gray-400">
         <StatusBadge status={status} label={stageLabel} />
-        {isActiveStatus(status) && !waiting && value > 0 && (
+        {(complete || (isActiveStatus(status) && !waiting && value > 0)) && (
           <span
-            className="ml-auto tabular-nums"
-            title="Estimated overall progress"
+            className="task-progress-percent"
+            title={complete ? "Completed" : "Estimated overall progress"}
           >
-            ~{Math.round(animated)}%
+            {complete ? "100" : `~${Math.min(99, Math.floor(animated))}`}%
           </span>
         )}
       </div>
-      {isActiveStatus(status) && !waiting && (
+      {(complete || (isActiveStatus(status) && !waiting)) && (
         <div
-          role="progressbar"
+          role={complete ? undefined : "progressbar"}
+          aria-hidden={complete || undefined}
           aria-label={stageLabel || getStatusText(status)}
           aria-valuetext={stageMessage ? `${stageMessage}${value > 0 ? `; approximately ${value}% overall` : ""}` : undefined}
           aria-valuemin={0}
@@ -69,9 +71,9 @@ export function TaskProgress({
         >
           <span
             className={
-              value > 0 ? getStatusColor(status) : "task-indeterminate"
+              value > 0 ? `task-progress-fill ${getStatusColor(status)}` : "task-indeterminate"
             }
-            style={value > 0 ? { width: `${animated}%`, transition: "none" } : undefined}
+            style={value > 0 ? { transform: `scaleX(${complete ? 1 : animated / 100})` } : undefined}
           />
         </div>
       )}
