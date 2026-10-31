@@ -2,13 +2,14 @@
 import argparse
 import asyncio
 import json
+import re
 import sys
 from pathlib import Path
 from urllib.parse import urlparse
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
-from playwright.async_api import async_playwright
+from playwright.async_api import async_playwright, expect
 from scripts.check_appearance import context_for, choose
 from scripts.check_library_browser import serve, fixtures
 
@@ -50,8 +51,10 @@ async def check(browser, origin, width, args):
                 if 'videos' in path:
                     selectors += ['.unified-header h1', '.reader-body h2', '.reader-body li', '.reader-body td', '.reader-body blockquote p']
                 for target in selectors:
-                    family = await page.locator(target).first.evaluate('e=>getComputedStyle(e).fontFamily')
-                    assert 'Noto Serif SC' in family, (target, family)
+                    # The plain reader can be replaced by its deferred article
+                    # view during WebKit font loading. Re-resolve the live node.
+                    await expect(page.locator(target).first).to_have_css('font-family', re.compile('Noto Serif SC'))
+                    await page.evaluate('document.fonts.ready')
                     if cdp:
                         await page.locator(target).first.evaluate("""e=>{
                           document.querySelector('[data-font-probe]')?.removeAttribute('data-font-probe');
