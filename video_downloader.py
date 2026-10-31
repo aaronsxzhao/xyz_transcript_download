@@ -1087,6 +1087,37 @@ class BilibiliDownloader(YtdlpDownloader):
         super().__init__("bilibili", cookies)
 
     @staticmethod
+    def _resolve_short_url(url: str) -> str:
+        """Resolve share redirects before metadata extraction, without sending cookies."""
+        import requests
+        from urllib.parse import urljoin
+        current = url
+        for _ in range(4):
+            parsed = urlparse(current)
+            host = (parsed.hostname or '').lower()
+            if parsed.scheme not in ('http', 'https') or parsed.username or parsed.password or parsed.port not in (None, 80, 443):
+                break
+            if host in ('bilibili.com', 'www.bilibili.com', 'm.bilibili.com') and re.fullmatch(r'/video/(?:BV[\w]+|av\d+)/?', parsed.path):
+                return normalize_video_url(current, 'bilibili')
+            if host not in ('b23.tv', 'www.b23.tv'):
+                break
+            try:
+                response = requests.get(current, allow_redirects=False, stream=True, timeout=10,
+                                        headers={'User-Agent': 'Mozilla/5.0'})
+                try:
+                    if response.status_code not in (301, 302, 303, 307, 308):
+                        break
+                    location = response.headers.get('Location')
+                    if not location:
+                        break
+                    current = urljoin(current, location)
+                finally:
+                    response.close()
+            except requests.RequestException as exc:
+                raise VideoDownloadError('Bilibili share link could not be resolved. Retry or paste the full bilibili.com video URL.', 'PARTS_UNAVAILABLE') from exc
+        raise VideoDownloadError('Bilibili share link could not be resolved. Retry or paste the full bilibili.com video URL.', 'PARTS_UNAVAILABLE')
+
+    @staticmethod
     def _media_id(url, task_id):
         from bilibili_parts import selected_part
         return f'{task_id}-bp{selected_part(url) or 1}'
@@ -1107,13 +1138,14 @@ class BilibiliDownloader(YtdlpDownloader):
         Never silently fall back to yt-dlp's first-part metadata here.
         """
         self._parts = None
+        self._parts_failure = ''
         metadata = self.get_metadata(url)
         if self._parts is None and metadata and metadata.url != url:
             canonical = normalize_video_url(metadata.url, 'bilibili')
             if self._extract_bvid(canonical) or self._extract_aid(canonical):
                 self.get_metadata(canonical)
         if not self._parts:
-            raise VideoDownloadError('Could not read the complete Bilibili part list. Retry when source access is available; no first-part-only result was accepted.', 'PARTS_UNAVAILABLE')
+            raise VideoDownloadError(self._parts_failure or 'Could not read the complete Bilibili part list. Retry the request; no first-part-only result was accepted.', 'PARTS_UNAVAILABLE')
         return self._parts
 
     @staticmethod
@@ -1131,6 +1163,10 @@ class BilibiliDownloader(YtdlpDownloader):
         import requests
 
         normalized_url = normalize_video_url(url, "bilibili")
+        if (urlparse(normalized_url).hostname or '').lower() in ('b23.tv', 'www.b23.tv'):
+            normalized_url = self._resolve_short_url(normalized_url)
+        self.resolved_url = normalized_url
+        url = normalized_url
         page_num = 1
         try:
             parsed = urlparse(normalized_url)
@@ -1157,23 +1193,17 @@ class BilibiliDownloader(YtdlpDownloader):
                 except Exception:
                     pass
             if cookie_str:
-                # Extract key-value pairs from Netscape cookie format
-                pairs = []
-                for line in cookie_str.strip().splitlines():
-                    line = line.strip()
-                    if not line or line.startswith("#"):
-                        continue
-                    parts = line.split("\t")
-                    if len(parts) >= 7:
-                        pairs.append(f"{parts[5]}={parts[6]}")
-                if pairs:
-                    headers["Cookie"] = "; ".join(pairs)
+                cookie_header = _netscape_cookie_header(cookie_str)
+                if cookie_header:
+                    headers["Cookie"] = cookie_header
 
             params = {"bvid": bvid} if bvid else {"aid": aid}
             resp = requests.get(
                 "https://api.bilibili.com/x/web-interface/view",
                 params=params, headers=headers, timeout=15,
             )
+            if resp.status_code in (403, 412, 429):
+                self._parts_failure = f'Bilibili part list request was rejected by the source (HTTP {resp.status_code}). Retry later; the complete list has not been confirmed.'
             data = resp.json()
             if data.get("code") != 0:
                 logger.warning(f"Bilibili API returned code {data.get('code')}: {data.get('message')}")

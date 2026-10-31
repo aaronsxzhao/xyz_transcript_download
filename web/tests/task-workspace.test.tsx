@@ -17,6 +17,20 @@ afterEach(()=>{act(()=>root.unmount());node.remove();useStore.getState().reset()
 const job=(job_id:string,status:string,message='Working')=>({job_id,status,message,progress:status==='pending'?0:44,episode_id:'0123456789abcdef01234567',episode_title:job_id})
 async function render(){await act(async()=>root.render(<MemoryRouter><ProcessingPanel/></MemoryRouter>))}
 async function open(){await act(async()=>(node.querySelector('[aria-label="Open processing tasks"]') as HTMLButtonElement).click())}
+it('lets historical Bilibili manifest failures retry instead of sending them to account settings',async()=>{
+ const message='Could not read the complete Bilibili part list. Retry when source access is available; no first-part-only result was accepted.'
+ useStore.getState().setVideoTasks([{id:'bili',...job('bili','failed',message),platform:'bilibili',url:'https://b23.tv/wY0ydIC',error:message}] as any)
+ await render();await open()
+ const row=document.querySelector('[data-task-id="bili"]')!
+ expect(row.textContent).not.toContain('Source access required')
+ expect(row.querySelector('a[href="/settings"]')).toBeNull()
+ expect(row.querySelector('a[href="https://b23.tv/wY0ydIC"]')).not.toBeNull()
+ const retry=[...row.querySelectorAll('button')].find(b=>b.textContent==='Retry')!
+ expect(retry).toBeDefined()
+ api.retryVideoTask.mockResolvedValue({task_id:'bili'})
+ await act(async()=>retry.click())
+ expect(api.retryVideoTask).toHaveBeenCalledWith('bili')
+})
 it.each(['podcast','video'] as const)('allows a cancelled %s to retry without exposing retry while stopping',async kind=>{
  if(kind==='podcast'){
   useStore.getState().setJobs([job('stopped','cancelled'),job('stopping','cancelling')]);

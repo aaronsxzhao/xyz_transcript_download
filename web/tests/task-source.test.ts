@@ -1,5 +1,9 @@
 import {expect,it} from 'vitest'
 import {taskFailure,taskSource} from '../src/lib/taskSource'
+it('keeps a Bilibili share link available as an original source',()=>{
+ expect(taskSource('bilibili','https://b23.tv/wY0ydIC?share_source=copy').original).toBe('https://b23.tv/wY0ydIC')
+ expect(taskSource('bilibili','javascript://b23.tv/wY0ydIC').original).toBe('')
+})
 it('distinguishes historical source checks from website login without exposing raw codes',()=>{
  for(const code of ['LOGIN_REQUIRED','COOKIES_REQUIRED','AGE_RESTRICTED']) {
   const failure=taskFailure(code,'youtube')

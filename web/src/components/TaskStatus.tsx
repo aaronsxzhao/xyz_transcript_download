@@ -101,6 +101,7 @@ export function taskGroup(status: string) {
         : "Processing";
 }
 export function sourceAction(message = "") {
+  if (/PARTS_UNAVAILABLE|Bilibili part list/i.test(message)) return false;
   return /purchas|paywall|subscription|付费|购买|restricted|source.access|required.*login|login.required|sign.in|cookie.*expir/i.test(
     message,
   );

@@ -48,6 +48,60 @@ def test_api_manifest_uses_part_duration_and_title(monkeypatch):
     assert 'P1/3' in d.get_metadata(BASE+'?p=1').title
 
 
+def test_share_link_resolves_before_complete_manifest_read(monkeypatch):
+    redirect = Mock(status_code=302, headers={'Location': BASE+'?p=2&share_source=copy'})
+    data = {'title':'Collection','videos':3,'pages':[
+        {'page':i,'cid':100+i,'duration':i*60,'part':f'Chapter {i}'} for i in range(1,4)]}
+    get = Mock(side_effect=[redirect, Mock(json=lambda:{'code':0,'data':data})])
+    monkeypatch.setattr('requests.get', get)
+    d = BilibiliDownloader(cookies='private-cookie')
+    parts = d.resolve_parts('https://b23.tv/share123')
+    assert len(parts) == 3
+    assert d.resolved_url == BASE+'?p=2'
+    assert get.call_args_list[0].kwargs['allow_redirects'] is False
+    assert 'Cookie' not in get.call_args_list[0].kwargs['headers']
+    assert get.call_args_list[1].kwargs['params'] == {'bvid':'BV1zZrCBoEie'}
+    redirect.close.assert_called_once()
+
+
+@pytest.mark.parametrize('target', ['http://127.0.0.1/private', 'https://evil.example/video/BV1abc',
+                                  'https://user:secret@www.bilibili.com/video/BV1abc'])
+def test_share_redirect_does_not_request_other_hosts_or_credentials(monkeypatch, target):
+    get = Mock(return_value=Mock(status_code=302,headers={'Location':target}))
+    monkeypatch.setattr('requests.get',get)
+    with pytest.raises(VideoDownloadError,match='share link could not be resolved'):
+        BilibiliDownloader().resolve_parts('https://b23.tv/share123')
+    assert get.call_count == 1
+
+
+def test_share_redirect_loop_is_bounded(monkeypatch):
+    get = Mock(return_value=Mock(status_code=302,headers={'Location':'/loop'}))
+    monkeypatch.setattr('requests.get',get)
+    with pytest.raises(VideoDownloadError):
+        BilibiliDownloader().resolve_parts('https://b23.tv/loop')
+    assert get.call_count == 4
+
+
+def test_bilibili_api_keeps_http_only_account_cookies(monkeypatch):
+    get = Mock(return_value=Mock(json=lambda:{'code':0,'data':{
+        'title':'Video','videos':1,'pages':[{'page':1,'cid':1,'duration':60}]}}))
+    monkeypatch.setattr('requests.get',get)
+    cookies='# Netscape HTTP Cookie File\n#HttpOnly_.bilibili.com\tTRUE\t/\tTRUE\t0\tSESSDATA\tfixture-session'
+    assert len(BilibiliDownloader(cookies).resolve_parts(BASE)) == 1
+    assert get.call_args.kwargs['headers']['Cookie'] == 'SESSDATA=fixture-session'
+
+
+def test_manifest_keeps_upstream_rejection_visible_without_claiming_login(monkeypatch):
+    from video_downloader import YtdlpDownloader
+    response = Mock(status_code=412)
+    response.json.side_effect = ValueError('Not JSON')
+    monkeypatch.setattr('requests.get',Mock(return_value=response))
+    monkeypatch.setattr(YtdlpDownloader,'get_metadata',Mock(return_value=None))
+    with pytest.raises(VideoDownloadError,match='HTTP 412') as failure:
+        BilibiliDownloader().resolve_parts(BASE)
+    assert failure.value.error_code == 'PARTS_UNAVAILABLE'
+
+
 @pytest.fixture
 def tasks(tmp_path):
     from video_task_db import VideoTaskDB
@@ -104,8 +158,8 @@ def test_media_cache_identity_distinguishes_parts_and_old_unscoped_files(monkeyp
         assert [call.args[1] for call in method.call_args_list]==['task-bp1','task-bp2']
 
 
-@pytest.mark.parametrize("selected", [None, 2])
-def test_worker_does_not_reuse_unscoped_transcript_and_saves_part_provenance(tasks,monkeypatch,selected):
+@pytest.mark.parametrize("selected,short", [(None,False), (2,False), (1,True), (2,True)])
+def test_worker_does_not_reuse_unscoped_transcript_and_saves_part_provenance(tasks,monkeypatch,selected,short):
     from api.routers import video_notes as routes
     from video_downloader import VideoMetadata
     db,root=tasks
@@ -122,13 +176,14 @@ def test_worker_does_not_reuse_unscoped_transcript_and_saves_part_provenance(tas
     monkeypatch.setattr('execution_store.enabled',lambda:True)
     monkeypatch.setattr('execution_store.get_store',lambda:store)
     d=Mock()
+    d.resolved_url=BASE+(f'?p={selected}' if selected else '')
     d.resolve_parts.return_value=manifest()
     d.get_metadata.return_value=VideoMetadata(title=part['title'],duration=part['duration'])
     d.get_subtitles.return_value=[{'start':0,'end':part['duration'],'text':'Correct selected part source '*10}]
     monkeypatch.setattr('video_downloader.get_downloader',lambda *a:d)
     summarizer=Mock(generate_note=Mock(return_value='## Result\n\n*Content-[00:15]'))
     monkeypatch.setattr('note_summarizer.get_note_summarizer',lambda **k:summarizer)
-    args=(root['id'],BASE+(f'?p={selected}' if selected else ''),'bilibili','detailed',['summary','link'],'medium','','',False,4,3,3,'owner')
+    args=(root['id'],'https://b23.tv/share123' if short else d.resolved_url,'bilibili','detailed',['summary','link'],'medium','','',False,4,3,3,'owner')
     routes.process_video_note_sync(*args)
     saved=db.get_task(root['id'],'owner')
     assert saved['status']=='success',saved['message']
