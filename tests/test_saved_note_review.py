@@ -5,14 +5,14 @@ from unittest.mock import Mock, AsyncMock
 
 import pytest
 
-from saved_note_review import needs_review, snapshot_key, review_saved_note
+from saved_note_review import needs_review, snapshot_key, review_saved_note, saved_transcript
 from summary_errors import _EN_NOTICES, ProcessingCancelledError
 
 
 def task():
     return {'id':'note', 'user_id':'owner', 'status':'success', 'platform':'bilibili', 'url':'https://example.com',
             'markdown':_EN_NOTICES['audit']+'\n\n# Saved note\n\nArgument.\n\n![Screenshot](/image.png)',
-            'transcript_json':json.dumps({'text':'Argument.', 'segments':[{'text':'Argument.','start':0,'end':60}]}),
+            'transcript':{'text':'Argument.', 'segments':[{'text':'Argument.','start':0,'end':60}]},
             'duration':60, 'style':'detailed', 'model':'saved-model'}
 
 
@@ -32,6 +32,17 @@ def test_only_unfinished_notice_enables_retry():
     assert needs_review(task()['markdown'])
     assert not needs_review(_EN_NOTICES['coverage_gap']+'\n\nBody')
     assert not needs_review('Quoted warning later\n\n'+task()['markdown'])
+
+
+def test_database_adapter_and_raw_storage_have_identical_source_fingerprints():
+    from api.supabase_db import SupabaseDatabase
+    original=task()
+    raw={**original,'transcript_json':json.dumps(original['transcript'])}
+    raw.pop('transcript')
+    adapted=SupabaseDatabase._video_task_to_dict(raw)
+    assert 'transcript_json' not in adapted
+    assert saved_transcript(adapted)==original['transcript']
+    assert snapshot_key(raw)==snapshot_key(adapted)==snapshot_key(original)
 
 
 def test_complete_review_keeps_prose_media_and_other_notices(setup,monkeypatch):

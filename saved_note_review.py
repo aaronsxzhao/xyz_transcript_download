@@ -12,9 +12,16 @@ def needs_review(markdown):
     return bool(set(notices) & {AUDIT_WARNING, _EN_NOTICES['audit']})
 
 
+def saved_transcript(task):
+    """Storage adapters expose parsed transcript, while maintenance reads raw JSON."""
+    value = task.get('transcript') or task.get('transcript_json') or {}
+    value = json.loads(value) if isinstance(value,str) else value
+    return value if isinstance(value,dict) else {}
+
+
 def snapshot_key(task):
     return fingerprint({'version':1, 'markdown':task.get('markdown'),
-                        'source':task.get('transcript_json'), 'duration':task.get('duration')})
+                        'source':saved_transcript(task), 'duration':task.get('duration')})
 
 
 def review_saved_note(db, task_id, owner, expected, update, check, media_warning=''):
@@ -27,8 +34,7 @@ def review_saved_note(db, task_id, owner, expected, update, check, media_warning
     task = db.get_task(task_id, owner)
     if not task or snapshot_key(task) != expected:
         raise ValueError('The saved note or transcript changed. Reload before restarting its review.')
-    transcript = task.get('transcript_json') or '{}'
-    transcript = json.loads(transcript) if isinstance(transcript, str) else transcript
+    transcript = saved_transcript(task)
     if saved_media_scope(transcript, task.get('duration'))['requires_source_resolution']:
         raise ValueError('The saved transcript does not span the recorded duration. Check the source before retrying coverage.')
     source = video_source_text(transcript.get('text') or '', transcript.get('segments') or [])
