@@ -76,6 +76,11 @@ jobs:
           name: appearance-failure-pr
           path: appearance-checks/
           if-no-files-found: ignore
+      - name: Check collection controls and protected list actions
+        timeout-minutes: 4
+        run: |
+          python scripts/check_design_refinements.py
+          python scripts/check_design_refinements.py --webkit --output appearance-checks/design-refinements-webkit
       - name: Check authentication form interactions
         timeout-minutes: 3
         run: |

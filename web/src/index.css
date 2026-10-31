@@ -510,3 +510,17 @@ html[data-reader-contents="hidden"] .unified-reader{grid-template-columns:minmax
  .task-progress-track>span { transition:none; }
  .task-progress-track>span::after,.task-indeterminate { animation:none!important; }
 }
+
+.app-shell :is(input,textarea)::placeholder{color:var(--ui-placeholder,var(--ui-secondary));opacity:1}
+.website-update{display:flex;flex-wrap:wrap;align-items:center;gap:12px;padding:12px 24px;border-top:1px solid var(--ui-border);color:var(--ui-secondary);font-size:13px;line-height:1.5}
+.website-update>div{flex:1 1 240px;min-width:0}
+.website-update strong{display:block;color:var(--ui-text);font-weight:600}
+.website-update .ui-button{min-width:120px;min-height:44px;margin-left:auto;flex-shrink:0}
+.website-update .ui-button:disabled{cursor:wait;opacity:.75}
+
+/* Dashboard rows sit on the page, even when a skin colors generic cards. */
+html[data-design][data-theme] .dashboard-page .dashboard-stats>div,
+html[data-design][data-theme] .dashboard-page .dashboard-recent-notes .reading-history-card {
+  background:transparent;
+  border-radius:0;
+}

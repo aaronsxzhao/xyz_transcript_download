@@ -1245,8 +1245,10 @@ export default function Settings() {
             <p className="text-sm text-gray-400 mb-3">
               Import podcasts from Xiaoyuzhou (小宇宙). <span className="text-yellow-400">Profile must be public.</span>
             </p>
+            <label htmlFor="subscription-profile" className="block text-sm text-gray-400 mb-2">Xiaoyuzhou username or profile URL</label>
             <div className="flex flex-col sm:flex-row gap-3 mb-3">
               <input
+                id="subscription-profile"
                 type="text"
                 value={importUsername}
                 onChange={e => setImportUsername(e.target.value)}
@@ -1402,6 +1404,7 @@ function YouTubeLoginSection({
         ]).filter(m => !cloud || m.id !== 'browser').map(m => (
           <button
             key={m.id}
+            aria-pressed={ytMethod === m.id}
             onClick={() => setYtMethod(m.id)}
             className={`flex-1 flex items-center justify-center gap-1.5 px-2 py-1.5 text-xs rounded-md transition-colors ${
               ytMethod === m.id
@@ -1441,7 +1444,9 @@ function YouTubeLoginSection({
             </p>
           </div>
 
+          <label htmlFor="cookie-content" className="block text-sm text-gray-400">Cookie string or cookies.txt content</label>
           <textarea
+            id="cookie-content"
             value={pasteValue}
             onChange={e => setPasteValue(e.target.value)}
             placeholder="Paste cookie string or cookies.txt content here..."

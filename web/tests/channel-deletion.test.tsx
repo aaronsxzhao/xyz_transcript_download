@@ -17,7 +17,7 @@ vi.mock('../src/lib/seen',()=>({markSeen:()=>{},isNewItem:()=>false}))
 const video={id:'deleted',title:'Example video',platform:'youtube',channel:'Example channel',url:'https://www.youtube.com/watch?v=abcdefghijk',status:'success',progress:100,created_at:'2026-10-23T08:00:00Z',updated_at:'2026-10-23T08:00:00Z'}
 let root:ReturnType<typeof createRoot>,node:HTMLDivElement
 beforeEach(()=>{
- vi.resetAllMocks();localStorage.clear();sessionStorage.clear();clearCache();useStore.getState().reset()
+ vi.resetAllMocks();vi.spyOn(window,'confirm').mockReturnValue(true);localStorage.clear();sessionStorage.clear();clearCache();useStore.getState().reset()
  vi.mocked(fetchVideoChannels).mockResolvedValue({channels:[]} as any)
  vi.mocked(fetchVideoTasksByChannel).mockResolvedValueOnce({tasks:[video],next_cursor:'next'} as any)
  node=document.createElement('div');document.body.append(node);root=createRoot(node)
@@ -56,4 +56,13 @@ it('retains the video when the server rejects deletion',async()=>{
  await act(async()=>node.querySelector<HTMLButtonElement>('[title="Delete video"]')!.click())
  expect(node.textContent).toContain('Example video')
  expect(useStore.getState().videoTasks.map(row=>row.id)).toContain(video.id)
+})
+
+it('does not delete or remove the saved video when confirmation is cancelled',async()=>{
+ await mount()
+ vi.mocked(window.confirm).mockReturnValue(false)
+ await act(async()=>node.querySelector<HTMLButtonElement>('[title="Delete video"]')!.click())
+ expect(window.confirm).toHaveBeenCalledWith(expect.stringContaining('Example video'))
+ expect(deleteVideoTask).not.toHaveBeenCalled()
+ expect(node.textContent).toContain('Example video')
 })
