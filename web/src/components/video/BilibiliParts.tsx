@@ -1,3 +1,4 @@
+import './BilibiliParts.css'
 import {useEffect,useRef,useState} from 'react'
 import {Link,useParams} from 'react-router-dom'
 import {authFetch,type VideoTask} from '../../lib/api'
@@ -26,7 +27,7 @@ export default function BilibiliParts({metadata}: {metadata:NonNullable<VideoTas
       },{signal:controller.signal,timeout:15000})
       if(!response.ok||!Array.isArray(data?.parts))throw new Error(typeof data?.detail==='string'?data.detail:'Cannot load collection statuses')
       if(!mounted.current||controller.signal.aborted||generation!==getAuthGeneration())return
-      setParts(data.parts);setSelected(previous=>new Set([...previous].filter(page=>data.parts.some((part:Part)=>part.page===page&&selectable(part)))))
+      setParts(data.parts);setSelected(previous=>new Set([...previous].filter(page=>data.parts.some((part:Part)=>part.page===page&&part.page!==metadata.bilibili_part?.page&&selectable(part)))))
       setError('')
     } catch(reason) {
       if(mounted.current&&!controller.signal.aborted&&generation===getAuthGeneration())setError(reason instanceof Error?reason.message:'Cannot load collection statuses')
@@ -79,7 +80,7 @@ export default function BilibiliParts({metadata}: {metadata:NonNullable<VideoTas
     }
   }
   if((metadata.bilibili_parts?.length||0)<2)return null
-  return <section aria-label="Bilibili collection parts" className="mb-5 rounded-lg border border-dark-border p-3 text-sm">
+  return <section aria-label="Bilibili collection parts" className="bilibili-parts mb-5 rounded-lg border border-dark-border p-3 text-sm">
     <div className="flex flex-wrap items-center justify-between gap-2">
       <h2 className="font-semibold">Collection · {metadata.bilibili_parts?.length} parts</h2>
       <button className="reader-action" disabled={busy||loading} onClick={()=>void refresh()}>Refresh statuses</button>
@@ -88,16 +89,16 @@ export default function BilibiliParts({metadata}: {metadata:NonNullable<VideoTas
     {loading&&<p role="status">Loading part statuses…</p>}
     {error&&<p role="alert" className="mt-2 mb-2 text-red-300">{error}</p>}
     {message&&<p role="status" className="mt-2 mb-2 text-indigo-300">{message}</p>}
-    <div className="max-h-64 overflow-y-auto divide-y divide-dark-border" aria-busy={loading}>
-      {parts.map(part=><div key={part.page} className="flex flex-wrap items-center gap-3 py-3">
-        <label className="flex min-w-0 flex-1 items-start gap-2">
+    <div className="bilibili-parts-list max-h-64 divide-y divide-dark-border" aria-busy={loading}>
+      {parts.map(part=><div key={part.page} className="bilibili-part-row" data-unavailable={!selectable(part)||part.page===metadata.bilibili_part?.page||undefined} data-selected={selected.has(part.page)||undefined}>
+        <label className="bilibili-part-label">
           <input className="mt-1 h-4 w-4 shrink-0" type="checkbox" checked={selected.has(part.page)} disabled={busy||loading||!selectable(part)||part.page===metadata.bilibili_part?.page}
             onChange={event=>setSelected(previous=>{const next=new Set(previous);event.target.checked?next.add(part.page):next.delete(part.page);return next})}/>
-          <span className="min-w-0 break-words"><span>{part.title}</span><span className="mt-1 block text-gray-400">{labels[part.status]||part.status}{active.has(part.status)&&part.progress>0?` · ${Math.round(part.progress)}%`:''}{part.page===metadata.bilibili_part?.page?' · Current part':''}</span>
+          <span className="bilibili-part-copy"><span>{part.title}</span><span className="mt-1 block text-gray-400">{labels[part.status]||part.status}{active.has(part.status)&&part.progress>0?` · ${Math.round(part.progress)}%`:''}{part.page===metadata.bilibili_part?.page?' · Current part':''}</span>
             {part.status==='failed'&&part.error&&<span className="block text-red-300">{part.error}</span>}
           </span>
         </label>
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="bilibili-part-actions">
           {part.task_id&&<Link className="reader-action" to={`/videos/${part.task_id}`}>{part.status==='success'?'Read summary':'View progress'}</Link>}
           <a className="reader-action" href={part.url} target="_blank" rel="noopener noreferrer">Original ↗</a>
         </div>
@@ -106,7 +107,7 @@ export default function BilibiliParts({metadata}: {metadata:NonNullable<VideoTas
     <div className="mt-3 flex flex-wrap items-center gap-2">
       <button className="reader-action" disabled={busy||loading||!parts.length} onClick={()=>setSelected(new Set(parts.filter(part=>part.page!==metadata.bilibili_part?.page&&selectable(part)).map(part=>part.page)))}>Select unprocessed</button>
       <button className="reader-action" disabled={busy||!selected.size} onClick={()=>setSelected(new Set())}>Clear selection</button>
-      <button className="ui-button" disabled={busy||loading||!!error||!selected.size} onClick={()=>void processSelected()}>{busy?'Submitting…':`Process selected (${selected.size})`}</button>
+      <button className={`ui-button ${selected.size ? "ui-button-primary" : ""}`} disabled={busy||loading||!!error||!selected.size} onClick={()=>void processSelected()}>{busy?'Submitting…':`Process selected (${selected.size})`}</button>
     </div>
   </section>
 }

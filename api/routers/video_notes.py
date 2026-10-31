@@ -1045,8 +1045,11 @@ def collection_parts(task_id: str, user: Optional[User] = Depends(get_current_us
     base = urls[0].split('?')[0]
     rows = {row['url']:row for row in db.part_statuses([*urls, base], task.get('user_id'))}
     result = []
+    current_page = ((task.get('source_metadata') or {}).get('bilibili_part') or {}).get('page')
     for part in parts:
-        row = rows.get(part['url']) or (rows.get(base) if part['page'] == 1 else None)
+        # The viewed task may retain an original short or tracking URL. Its
+        # resolved part identity is authoritative, independent of URL spelling.
+        row = task if part['page'] == current_page else (rows.get(part['url']) or (rows.get(base) if part['page'] == 1 else None))
         result.append({**part, 'task_id':row['id'] if row else None,
                        'status':row['status'] if row else 'not_started',
                        'progress':row.get('progress',0) if row else 0,

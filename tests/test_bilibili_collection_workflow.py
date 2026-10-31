@@ -70,3 +70,14 @@ async def test_uncertain_queue_admission_is_retryable_without_creating_duplicate
     with pytest.raises(HTTPException) as invalid:
         await routes.process_collection_part(task,99,user)
     assert invalid.value.status_code==404
+
+
+def test_current_part_uses_resolved_identity_even_when_saved_url_is_short(collection):
+    db,task,user,_=collection
+    metadata=db.get_task(task,'owner')['source_metadata']
+    short=db.create_task({'url':'https://b23.tv/short-original','user_id':'owner','platform':'bilibili','status':'success'})
+    db.update_task(short,{'source_metadata':metadata})
+    parts=routes.collection_parts(short,user)['parts']
+    assert parts[1]['task_id']==short
+    assert parts[1]['status']=='success'
+    assert parts[0]['status']=='not_started'
