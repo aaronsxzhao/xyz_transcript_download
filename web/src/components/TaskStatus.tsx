@@ -29,8 +29,23 @@ export function TaskProgress({
   message?: string;
 }) {
   const [now, setNow] = useState(Date.now());
+  const [online, setOnline] = useState(() => navigator.onLine);
+  const [lastChange, setLastChange] = useState(Date.now());
   useEffect(() => {
-    if (!startedAt || !isActiveStatus(status) || status === "pending") return;
+    setLastChange(Date.now());
+    setNow(Date.now());
+  }, [status, progress, message, startedAt]);
+  useEffect(() => {
+    const update = () => setOnline(navigator.onLine);
+    window.addEventListener("online", update);
+    window.addEventListener("offline", update);
+    return () => {
+      window.removeEventListener("online", update);
+      window.removeEventListener("offline", update);
+    };
+  }, []);
+  useEffect(() => {
+    if (!isActiveStatus(status) || status === "pending") return;
     setNow(Date.now());
     const timer = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(timer);
@@ -45,8 +60,17 @@ export function TaskProgress({
   const waiting = status === "pending" || status === "cancelling";
   const stageMessage = isActiveStatus(status) && !waiting ? message : "";
   const stageLabel = status === "summarizing" ? ["Writing full-transcript summary", "Writing sections", "Checking source accuracy", "Building coverage checklist", "Checking coverage", "Filling missing details", "Verifying additions", "Preparing the final summary"].find(label => stageMessage.startsWith(label)) : undefined;
+  const unchangedSeconds = Math.max(0, Math.floor((now - lastChange) / 1000));
+  const stageHint = status === "summarizing"
+    ? "Summary steps can take a while. Progress updates as each result arrives."
+    : status === "transcribing"
+      ? "Transcribing audio. Progress may arrive in batches."
+      : status === "saving"
+        ? "Saving and checking your notes before marking this complete."
+        : "Progress updates as results arrive.";
+  const active = isActiveStatus(status) && !waiting;
   return (
-    <div className="task-progress">
+    <div className="task-progress" data-offline={!online || undefined}>
       <div className="task-progress-heading text-xs text-gray-400">
         <StatusBadge status={status} label={stageLabel} />
         {(complete || (isActiveStatus(status) && !waiting && value > 0)) && (
@@ -78,7 +102,15 @@ export function TaskProgress({
         </div>
       )}
       {stageMessage && <p className="task-stage-message" role="status">{stageMessage}</p>}
-      {!compact && status === "summarizing" && <p className="text-xs text-gray-500">Working on this step. Progress updates as results arrive.</p>}
+      {active && (
+        <p className="task-progress-expectation">
+          {!online
+            ? "You're offline. Reconnect to refresh progress."
+            : unchangedSeconds >= 30
+              ? `No new progress for ${Math.floor(unchangedSeconds / 60)}m ${unchangedSeconds % 60}s. Waiting for the next update.`
+              : !compact ? stageHint : null}
+        </p>
+      )}
       {startedAt > 0 && isActiveStatus(status) && status !== "pending" && (
         <span className="text-xs text-gray-500 tabular-nums">
           Elapsed {Math.floor(elapsed / 60)}m {elapsed % 60}s

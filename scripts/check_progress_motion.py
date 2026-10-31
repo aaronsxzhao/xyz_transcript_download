@@ -51,6 +51,14 @@ async def main():
      assert max(s['width'] for s in samples)-min(s['width'] for s in samples)<.1
      if not reduced:assert any(.23<s<.69 for s in scales),scales
      else:assert all(any(abs(s-v)<.001 for v in [.22,.70,.88]) for s in scales),scales
+     sheen=await page.locator('[role=dialog] .task-progress-fill').evaluate("e=>getComputedStyle(e,'::after').animationName")
+     assert sheen == ('none' if reduced else 'task-sheen'),sheen
+     await context.set_offline(True)
+     await page.get_by_text("You're offline. Reconnect to refresh progress.").first.wait_for()
+     paused=await page.locator('[role=dialog] .task-progress-fill').evaluate("e=>getComputedStyle(e,'::after').animationPlayState")
+     if not reduced:assert paused=='paused',paused
+     await context.set_offline(False)
+     await page.wait_for_function("!document.querySelector('.task-progress[data-offline]')")
      assert not errors,errors
      assert not await page.evaluate('document.documentElement.scrollWidth>innerWidth')
      await page.screenshot(path=f'/tmp/progress-motion-{os.environ.get("SMOOTH_DESIGN","classic")}-{width}-{reduced}.png')

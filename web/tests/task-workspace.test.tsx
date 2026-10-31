@@ -180,3 +180,24 @@ it('refreshes the existing history entry and follows local upload progress throu
  expect(node.textContent).not.toContain('recording.mp4');expect(node.textContent).not.toContain('reconnecting')
  window.removeEventListener('xyz:processing-changed',refresh)
 })
+
+it('explains quiet processing, clears the wait on new stage details, and distinguishes offline',async()=>{
+ vi.useFakeTimers()
+ const online=vi.spyOn(navigator,'onLine','get').mockReturnValue(true)
+ try {
+  await act(async()=>root.render(<TaskProgress status="transcribing" progress={44} compact/>))
+  expect(node.textContent).not.toContain('No new progress')
+  await act(async()=>vi.advanceTimersByTime(31000))
+  expect(node.textContent).toContain('No new progress for 0m 31s')
+  expect(node.querySelector('[role="progressbar"]')?.getAttribute('aria-valuenow')).toBe('44')
+  await act(async()=>root.render(<TaskProgress status="transcribing" progress={44} message="Transcribing segment 2 of 8" compact/>))
+  expect(node.textContent).not.toContain('No new progress')
+  online.mockReturnValue(false)
+  await act(async()=>window.dispatchEvent(new Event('offline')))
+  expect(node.textContent).toContain("You're offline")
+  expect(node.querySelector('.task-progress')?.hasAttribute('data-offline')).toBe(true)
+  await act(async()=>root.render(<TaskProgress status="success" progress={100}/>))
+  expect(node.textContent).not.toContain("You're offline")
+  expect(node.querySelector('[role="progressbar"]')).toBeNull()
+ } finally { online.mockRestore();vi.useRealTimers() }
+})
