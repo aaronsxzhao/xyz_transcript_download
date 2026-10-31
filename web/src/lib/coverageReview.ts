@@ -8,4 +8,3 @@ export async function retryCoverageReview(taskId: string): Promise<{ task_id: st
   }
   return res.json()
 }
-
