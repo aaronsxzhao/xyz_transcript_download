@@ -48,6 +48,59 @@ def test_api_manifest_uses_part_duration_and_title(monkeypatch):
     assert 'P1/3' in d.get_metadata(BASE+'?p=1').title
 
 
+def test_share_link_resolves_before_complete_manifest_read(monkeypatch):
+    redirect = Mock(status_code=302, headers={'Location': BASE+'?p=2&share_source=copy'})
+    data = {'title':'Collection','videos':3,'pages':[
+        {'page':i,'cid':100+i,'duration':i*60,'part':f'Chapter {i}'} for i in range(1,4)]}
+    get = Mock(side_effect=[redirect, Mock(json=lambda:{'code':0,'data':data})])
+    monkeypatch.setattr('requests.get', get)
+    d = BilibiliDownloader(cookies='private-cookie')
+    parts = d.resolve_parts('https://b23.tv/share123')
+    assert len(parts) == 3
+    assert get.call_args_list[0].kwargs['allow_redirects'] is False
+    assert 'Cookie' not in get.call_args_list[0].kwargs['headers']
+    assert get.call_args_list[1].kwargs['params'] == {'bvid':'BV1zZrCBoEie'}
+    redirect.close.assert_called_once()
+
+
+@pytest.mark.parametrize('target', ['http://127.0.0.1/private', 'https://evil.example/video/BV1abc',
+                                  'https://user:secret@www.bilibili.com/video/BV1abc'])
+def test_share_redirect_does_not_request_other_hosts_or_credentials(monkeypatch, target):
+    get = Mock(return_value=Mock(status_code=302,headers={'Location':target}))
+    monkeypatch.setattr('requests.get',get)
+    with pytest.raises(VideoDownloadError,match='share link could not be resolved'):
+        BilibiliDownloader().resolve_parts('https://b23.tv/share123')
+    assert get.call_count == 1
+
+
+def test_share_redirect_loop_is_bounded(monkeypatch):
+    get = Mock(return_value=Mock(status_code=302,headers={'Location':'/loop'}))
+    monkeypatch.setattr('requests.get',get)
+    with pytest.raises(VideoDownloadError):
+        BilibiliDownloader().resolve_parts('https://b23.tv/loop')
+    assert get.call_count == 4
+
+
+def test_bilibili_api_keeps_http_only_account_cookies(monkeypatch):
+    get = Mock(return_value=Mock(json=lambda:{'code':0,'data':{
+        'title':'Video','videos':1,'pages':[{'page':1,'cid':1,'duration':60}]}}))
+    monkeypatch.setattr('requests.get',get)
+    cookies='# Netscape HTTP Cookie File\n#HttpOnly_.bilibili.com\tTRUE\t/\tTRUE\t0\tSESSDATA\tfixture-session'
+    assert len(BilibiliDownloader(cookies).resolve_parts(BASE)) == 1
+    assert get.call_args.kwargs['headers']['Cookie'] == 'SESSDATA=fixture-session'
+
+
+def test_manifest_keeps_upstream_rejection_visible_without_claiming_login(monkeypatch):
+    from video_downloader import YtdlpDownloader
+    response = Mock(status_code=412)
+    response.json.side_effect = ValueError('Not JSON')
+    monkeypatch.setattr('requests.get',Mock(return_value=response))
+    monkeypatch.setattr(YtdlpDownloader,'get_metadata',Mock(return_value=None))
+    with pytest.raises(VideoDownloadError,match='HTTP 412') as failure:
+        BilibiliDownloader().resolve_parts(BASE)
+    assert failure.value.error_code == 'PARTS_UNAVAILABLE'
+
+
 @pytest.fixture
 def tasks(tmp_path):
     from video_task_db import VideoTaskDB

@@ -97,7 +97,7 @@ export default function ProcessingProgress({
             {busy ? "Retrying…" : "Retry"}
           </Button>
         )}
-        {restricted && source.original && (
+        {job.status === 'failed' && source.original && (
           <a
             className="ui-button"
             target="_blank"

@@ -25,6 +25,8 @@ export function taskSource(platform = '', url = '', episodeId = '', kind?: strin
       original=source.href
     } else if (['substack','web'].includes(platform) && /^https?:$/.test(source.protocol) && !source.username && !source.password) {
       original=source.href
+    } else if (platform === 'bilibili' && ['b23.tv','www.b23.tv'].includes(host) && /^https?:$/.test(source.protocol)) {
+      original=source.origin+source.pathname
     } else if (platform === 'bilibili' && /(^|\.)bilibili\.com$/.test(host)) {
       id = source.pathname.match(/\/video\/(BV[a-zA-Z0-9]+|av\d+)/)?.[1] || ''
       if (id) {
