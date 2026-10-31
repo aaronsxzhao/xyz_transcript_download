@@ -1165,6 +1165,7 @@ class BilibiliDownloader(YtdlpDownloader):
         normalized_url = normalize_video_url(url, "bilibili")
         if (urlparse(normalized_url).hostname or '').lower() in ('b23.tv', 'www.b23.tv'):
             normalized_url = self._resolve_short_url(normalized_url)
+        self.resolved_url = normalized_url
         url = normalized_url
         page_num = 1
         try:

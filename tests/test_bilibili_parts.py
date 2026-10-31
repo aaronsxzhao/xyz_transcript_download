@@ -57,6 +57,7 @@ def test_share_link_resolves_before_complete_manifest_read(monkeypatch):
     d = BilibiliDownloader(cookies='private-cookie')
     parts = d.resolve_parts('https://b23.tv/share123')
     assert len(parts) == 3
+    assert d.resolved_url == BASE+'?p=2'
     assert get.call_args_list[0].kwargs['allow_redirects'] is False
     assert 'Cookie' not in get.call_args_list[0].kwargs['headers']
     assert get.call_args_list[1].kwargs['params'] == {'bvid':'BV1zZrCBoEie'}
@@ -157,8 +158,8 @@ def test_media_cache_identity_distinguishes_parts_and_old_unscoped_files(monkeyp
         assert [call.args[1] for call in method.call_args_list]==['task-bp1','task-bp2']
 
 
-@pytest.mark.parametrize("selected", [None, 2])
-def test_worker_does_not_reuse_unscoped_transcript_and_saves_part_provenance(tasks,monkeypatch,selected):
+@pytest.mark.parametrize("selected,short", [(None,False), (2,False), (1,True), (2,True)])
+def test_worker_does_not_reuse_unscoped_transcript_and_saves_part_provenance(tasks,monkeypatch,selected,short):
     from api.routers import video_notes as routes
     from video_downloader import VideoMetadata
     db,root=tasks
@@ -175,13 +176,14 @@ def test_worker_does_not_reuse_unscoped_transcript_and_saves_part_provenance(tas
     monkeypatch.setattr('execution_store.enabled',lambda:True)
     monkeypatch.setattr('execution_store.get_store',lambda:store)
     d=Mock()
+    d.resolved_url=BASE+(f'?p={selected}' if selected else '')
     d.resolve_parts.return_value=manifest()
     d.get_metadata.return_value=VideoMetadata(title=part['title'],duration=part['duration'])
     d.get_subtitles.return_value=[{'start':0,'end':part['duration'],'text':'Correct selected part source '*10}]
     monkeypatch.setattr('video_downloader.get_downloader',lambda *a:d)
     summarizer=Mock(generate_note=Mock(return_value='## Result\n\n*Content-[00:15]'))
     monkeypatch.setattr('note_summarizer.get_note_summarizer',lambda **k:summarizer)
-    args=(root['id'],BASE+(f'?p={selected}' if selected else ''),'bilibili','detailed',['summary','link'],'medium','','',False,4,3,3,'owner')
+    args=(root['id'],'https://b23.tv/share123' if short else d.resolved_url,'bilibili','detailed',['summary','link'],'medium','','',False,4,3,3,'owner')
     routes.process_video_note_sync(*args)
     saved=db.get_task(root['id'],'owner')
     assert saved['status']=='success',saved['message']

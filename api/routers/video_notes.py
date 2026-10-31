@@ -521,7 +521,9 @@ def process_video_note_sync(
                         await enqueue_video_note(child_id, **payload)
                     asyncio.run_coroutine_threadsafe(admit_child(), loop).result(timeout=15)
 
-            bilibili_part = prepare_parts(db, existing_task, parts, url, options, submit_part, check_part_cancel)
+            # A share redirect can select P2 (or P1); do not expand that link
+            # into all parts merely because the submitted URL was shortened.
+            bilibili_part = prepare_parts(db, existing_task, parts, downloader.resolved_url, options, submit_part, check_part_cancel)
             db.flush_task(task_id, strict=True)
             url = bilibili_part['url']
             existing_task = db.get_task(task_id, user_id)
