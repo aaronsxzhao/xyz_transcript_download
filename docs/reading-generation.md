@@ -64,7 +64,12 @@ explicit API path prefixes are preserved.
    Cancellation, failures and retries retain the existing saved note. Raw model
    JSON is never streamed into the reader preview.
 
-“One generation” means one whole-source drafting call. Independent coverage
+“One generation” normally means one whole-source drafting call. A malformed JSON
+response or invalid draft structure gets one fresh whole-source attempt with an
+explicit schema reminder. Both attempts use the same complete source and evidence
+validation; invalid drafts are never checkpointed. Capacity, output-limit,
+prefix-only and cancellation failures do not trigger this format retry.
+Independent coverage
 reviews are additional model calls. Segmented mode additionally synthesizes one
 short global opening when requested. The reading budget is shared across source
 parts and remains advisory: essential steps, numerical scope and conditions take

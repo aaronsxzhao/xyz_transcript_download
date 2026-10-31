@@ -338,12 +338,28 @@ def call_json(engine, system, payload, timeout):
             validate_review(data, owned, {line.id for line in owned},
                 {p['id'] for s in request['global_draft'] for p in s['paragraphs']} | {'overview'})
     try:
-        return call_editor(engine.client, engine.model, system, payload, timeout,
-                           output_tokens=16384, response_validator=validator,
-                           validation_version=VERSION if validator else None)
+        for attempt in range(2):
+            try:
+                return call_editor(engine.client, engine.model, system, payload, timeout,
+                                   output_tokens=16384, response_validator=validator,
+                                   validation_version=VERSION if validator else None)
+            except (SummaryOutputError, json.JSONDecodeError) as error:
+                # A malformed draft gets one fresh whole-source attempt. Never
+                # relax evidence validation or retry capacity/cancellation errors.
+                if ('mode' not in request or attempt or
+                        isinstance(error, SummaryOutputError) and error.code != 'invalid'):
+                    raise
+                engine.generation_report['format_retries'] = engine.generation_report.get('format_retries', 0) + 1
+                system += ('\nThe previous attempt failed format validation. Return the exact JSON schema above: '
+                           'nonempty sections with heading and paragraphs; every paragraph must have text and '
+                           'source_ranges using exact primary_source IDs in forward order. '
+                           'Do not put headings, HTML, images or media markers inside prose. '
+                           'Read and cover the entire primary_source again.\n')
     except Exception as error:
         if is_cancellation(error) or isinstance(error,SummaryOutputError):
             raise
+        if isinstance(error, json.JSONDecodeError):
+            raise SummaryOutputError('invalid') from None
         if getattr(error, 'code', None) in {'context_length_exceeded', 'max_context_length_exceeded', 'context_window_exceeded'}:
             raise SummaryOutputError('capacity') from None
         raise ReadingProviderError(error) from None

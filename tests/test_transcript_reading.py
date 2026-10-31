@@ -467,3 +467,69 @@ def test_final_grounding_failure_invalidates_dependent_coverage_receipts(withdra
     assert ledger['items'][0]['paragraph_ids']==[other]
     assert ledger['items'][1]['status']=='covered'
     assert owner.generation_report['verification']['status']=='unverified'
+
+
+@pytest.mark.parametrize('bad', ['not JSON', json.dumps({'sections': []}),
+    json.dumps({'sections': [{'heading': 'Claim', 'paragraphs': [
+        {'text': 'Unsupported', 'source_ranges': [{'start': 'unknown', 'end': 'unknown'}]}]}]})])
+def test_generation_retries_invalid_format_with_full_source_and_validates_again(bad):
+    from transcript_reading import call_json
+    owner = engine()
+    owner.client = Mock(base_url='https://models.example/v1/')
+    owner.model = 'fixture'
+    _, lines = source_lines('Complete original source.')
+    payload = json.dumps({'mode': 'single', 'primary_source': [
+        {'id': line.id, 'text': line.text} for line in lines]})
+    valid = json.dumps({'sections': [section([{'id': line.id} for line in lines])]})
+    complete = owner.client.with_options.return_value.chat.completions.create
+    complete.side_effect = [SimpleNamespace(choices=[SimpleNamespace(finish_reason='stop',
+        message=SimpleNamespace(content=body))]) for body in [bad, valid]]
+    result = call_json(owner, 'Schema instruction', payload, 10)
+    assert result['sections']
+    assert complete.call_count == 2
+    assert all(call.kwargs['messages'][1]['content'] == payload for call in complete.call_args_list)
+    assert owner.generation_report['format_retries'] == 1
+
+
+def test_generation_format_retry_is_bounded_and_never_accepts_invalid_evidence():
+    from transcript_reading import call_json
+    owner = engine()
+    owner.client = Mock(base_url='https://models.example/v1/')
+    owner.model = 'fixture'
+    _, lines = source_lines('Original source.')
+    payload = json.dumps({'mode': 'single', 'primary_source': [
+        {'id': line.id, 'text': line.text} for line in lines]})
+    complete = owner.client.with_options.return_value.chat.completions.create
+    complete.return_value = SimpleNamespace(choices=[SimpleNamespace(finish_reason='stop',
+        message=SimpleNamespace(content='{"sections":[]}'))])
+    with pytest.raises(SummaryOutputError):
+        call_json(owner, 'Schema', payload, 10)
+    assert complete.call_count == 2
+
+
+@pytest.mark.parametrize('reason', ['length', 'capacity', 'incomplete'])
+def test_generation_format_retry_does_not_retry_other_output_failures(reason):
+    from transcript_reading import call_json
+    owner = engine()
+    owner.client = Mock(base_url='https://models.example/v1/')
+    owner.model = 'fixture'
+    payload = json.dumps({'mode': 'single', 'primary_source': [{'id': 'L1', 'text': 'Source.'}]})
+    with patch('reading_editor.call_editor', side_effect=SummaryOutputError(reason)) as call:
+        with pytest.raises(SummaryOutputError) as failure:
+            call_json(owner, 'Schema', payload, 10)
+    assert failure.value.code == reason
+    assert call.call_count == 1
+
+
+def test_repeated_invalid_json_reports_format_error_without_provider_details():
+    from transcript_reading import call_json
+    owner = engine()
+    owner.client = Mock(base_url='https://models.example/v1/')
+    owner.model = 'fixture'
+    payload = json.dumps({'mode': 'single', 'primary_source': [{'id': 'L1', 'text': 'Source.'}]})
+    with patch('reading_editor.call_editor', side_effect=json.JSONDecodeError('private', 'private', 0)) as call:
+        with pytest.raises(SummaryOutputError) as failure:
+            call_json(owner, 'Schema', payload, 10)
+    assert failure.value.code == 'invalid'
+    assert 'private' not in str(failure.value)
+    assert call.call_count == 2
