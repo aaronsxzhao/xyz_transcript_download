@@ -8,6 +8,8 @@ import {downloadMarkdown} from '../src/lib/markdownDownload'
 vi.mock('../src/lib/markdownDownload',()=>({downloadMarkdown:vi.fn()}))
 import {fetchVideoTask, fetchVideoTranscript, fetchVideoVersion, retryVideoTask, type VideoTask} from '../src/lib/api'
 import {useStore} from '../src/lib/store'
+import {retryCoverageReview} from '../src/lib/coverageReview'
+vi.mock('../src/lib/coverageReview',()=>({retryCoverageReview:vi.fn()}))
 
 vi.mock('../src/lib/api', async load => ({...await load<object>(), fetchVideoTask:vi.fn(), fetchVideoTranscript:vi.fn(), fetchVideoVersion:vi.fn(), retryVideoTask:vi.fn()}))
 vi.mock('../src/lib/cache', () => ({getCache:()=>null, setCache:vi.fn(), removeCache:vi.fn(), useWarmCache:()=>{}, CacheKeys:{VIDEO_NOTE:(id:string)=>id}}))
@@ -32,6 +34,36 @@ beforeEach(() => {
 })
 afterEach(() => {act(()=>root.unmount());node.remove();useStore.getState().reset();vi.useRealTimers();vi.unstubAllGlobals()})
 async function mount() {await act(async()=>root.render(<MemoryRouter initialEntries={['/videos/one']}><Routes><Route path="/videos/:taskId" element={<VideoViewer/>}/></Routes></MemoryRouter>))}
+
+it('retries unfinished coverage once, keeps the note readable and shows progress',async()=>{
+ let finish!:(value:any)=>void
+ vi.mocked(fetchVideoTask).mockResolvedValue(note(undefined,'> ℹ️ Notes were generated, but the full-source coverage review did not complete. Completeness is unverified; compare with Transcript.\n\nSaved argument.'))
+ vi.mocked(retryCoverageReview).mockImplementation(()=>new Promise(resolve=>{finish=resolve}))
+ await mount()
+ const button=[...node.querySelectorAll('button')].find(b=>b.textContent==='Retry coverage review')!
+ await act(async()=>{button.click();button.click()})
+ expect(retryCoverageReview).toHaveBeenCalledOnce()
+ expect(retryVideoTask).not.toHaveBeenCalled()
+ expect(button.disabled).toBe(true)
+ expect(button.textContent).toBe('Submitting…')
+ await act(async()=>finish({task_id:'one'}))
+ expect(node.textContent).toContain('Checking coverage. Showing the saved note.')
+ expect(node.querySelector('.reader-body')?.textContent).toContain('Saved argument.')
+ await act(async()=>useStore.getState().updateVideoTask({...note('2026-10-31T12:00:00Z'),status:'summarizing',progress:42,message:'Coverage review · 4/9 source sections reviewed'}))
+ expect(node.querySelector('[role="progressbar"]')).not.toBeNull()
+ expect(button.textContent).toBe('Review in progress…')
+})
+
+it('keeps an unsuccessful coverage retry actionable and shows the server explanation',async()=>{
+ vi.mocked(fetchVideoTask).mockResolvedValue(note(undefined,'> ℹ️ 摘要已生成，但全文覆盖核对未完成；完整性尚未验证，可对照 Transcript 阅读。\n\nSaved argument.'))
+ vi.mocked(retryCoverageReview).mockRejectedValue(new Error('Queue unavailable. Retry review.'))
+ await mount()
+ const button=[...node.querySelectorAll('button')].find(b=>b.textContent==='Retry coverage review')!
+ await act(async()=>button.click())
+ expect(node.textContent).toContain('Queue unavailable. Retry review.')
+ expect(button.disabled).toBe(false)
+ expect(node.querySelector('.reader-body')?.textContent).toContain('Saved argument.')
+})
 
 it.each(['web','substack','twitter'])('does not add a second cover above the original %s article',async platform=>{
  document.documentElement.dataset.design='editorial'

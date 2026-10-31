@@ -396,6 +396,8 @@ def process_video_note_sync(
     user_id: Optional[str],
     video_quality: str = "720",
     attempt_id: Optional[int] = None,
+    coverage_review: Optional[str] = None,
+    coverage_media_warning: str = '',
 ):
     """Synchronous video note processing pipeline."""
     start_task("video", task_id)
@@ -407,6 +409,17 @@ def process_video_note_sync(
     video_download_future = None
     download_stop = threading.Event()
     try:
+        if coverage_review:
+            from saved_note_review import review_saved_note
+            def check_review():
+                if _attempt_superseded(task_id) or is_video_task_cancelled(task_id):
+                    raise VideoCancelledException('Coverage review cancelled')
+            review_saved_note(db, task_id, user_id, coverage_review,
+                lambda value,message: _update_task_status(db,task_id,'summarizing',value,message,user_id),
+                check_review, coverage_media_warning)
+            _invalidate_list_cache(user_id)
+            _broadcast_from_thread(task_id, db.get_task(task_id,user_id),user_id)
+            return
         from social_content import social_platform, resolve_social_content, SocialSourceError
         from content_sources import resolve_content, saved_web_media
         social_source = None
@@ -1016,7 +1029,8 @@ async def enqueue_video_note(task_id: str, **kwargs):
         store = get_store()
         owner = kwargs.get('user_id')
         previous = await asyncio.to_thread(store.latest, owner, 'video', task_id)
-        source = previous['source_id'] if previous and previous['state'] != 'completed' else 'video:' + task_id + ':' + str(uuid.uuid4())
+        source = ('coverage:'+task_id+':'+kwargs['coverage_review']) if kwargs.get('coverage_review') else (
+            previous['source_id'] if previous and previous['state'] != 'completed' and not previous.get('payload',{}).get('coverage_review') else 'video:' + task_id + ':' + str(uuid.uuid4()))
         await asyncio.to_thread(store.enqueue, owner, 'video', task_id, source, kwargs)
         return
     worker = asyncio.create_task(process_video_note_async(task_id, **kwargs), name='video:' + task_id)
@@ -1544,6 +1558,49 @@ async def dismiss_task_notification(task_id: str, user: Optional[User] = Depends
     await broadcast_video_job(task_id, task, user_id)
     from api.progress_payload import video_progress_payload
     return video_progress_payload(task)
+
+
+@router.post("/tasks/{task_id}/review-coverage")
+async def retry_coverage_review(task_id: str, user: Optional[User] = Depends(get_current_user)):
+    """Queue only the coverage check; preserve the saved note and media."""
+    from video_task_db import get_video_task_db
+    from saved_note_review import needs_review, snapshot_key
+    from execution_store import enabled, get_store
+    db = get_video_task_db()
+    owner = user.id if user else None
+    task = await asyncio.to_thread(db.get_task,task_id,owner)
+    if not task: raise HTTPException(404,'Task not found')
+    if task['status'] not in ('success','failed','cancelled'):
+        raise HTTPException(409,'This task is already running. Follow its progress before retrying.')
+    if enabled():
+        active = await asyncio.to_thread(get_store().latest,owner,'video',task_id)
+        if active and active['state'] in ('queued','running'):
+            raise HTTPException(409,'A task is already queued or running for this note.')
+    if not needs_review(task.get('markdown')) or not task.get('transcript_json'):
+        raise HTTPException(400,'This note needs an unfinished coverage review and a saved transcript.')
+    await asyncio.to_thread(db.update_task,task_id,{'status':'pending','progress':0,
+        'message':'Coverage review queued · saved note preserved','error':''})
+    try:
+        await enqueue_video_note(task_id,attempt_id=_new_video_attempt(task_id),
+            url=task['url'],platform=task['platform'],style=task.get('style') or 'detailed',
+            formats=task.get('formats') or [],quality=task.get('quality') or 'medium',
+            llm_model=task.get('model') or '',extras='',video_understanding=False,
+            video_interval=4,grid_cols=3,grid_rows=3,user_id=owner,
+            coverage_review=snapshot_key(task),coverage_media_warning=task.get('error','') if task['status']=='success' else '')
+    except Exception as error:
+        # Admission may have succeeded despite a lost response. Do not overwrite
+        # a running worker's state or encourage a duplicate full regeneration.
+        try:
+            latest = await asyncio.to_thread(get_store().latest,owner,'video',task_id) if enabled() else None
+            if not latest or latest['state'] not in ('queued','running'):
+                await asyncio.to_thread(db.update_task,task_id,{'status':'failed','progress':0,
+                    'message':'Coverage review could not be queued. Retry coverage review; the saved note is unchanged.',
+                    'error':'Coverage review could not be queued.'})
+        except Exception:
+            pass
+        raise HTTPException(503,'Queue confirmation was not received. Refresh task status before retrying.') from error
+    _invalidate_list_cache(owner)
+    return {'task_id':task_id,'message':'Coverage review queued'}
 
 
 @router.post("/tasks/{task_id}/retry")

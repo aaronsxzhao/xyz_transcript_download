@@ -59,9 +59,10 @@ export function TaskProgress({
   const animated = useSmoothedProgress(value, `${startedAt}:${status === 'pending' ? 'queued' : 'active'}`);
   const waiting = status === "pending" || status === "cancelling";
   const stageMessage = isActiveStatus(status) && !waiting ? message : "";
-  const stageLabel = status === "summarizing" ? ["Writing full-transcript summary", "Writing sections", "Checking source accuracy", "Building coverage checklist", "Checking coverage", "Filling missing details", "Verifying additions", "Preparing the final summary"].find(label => stageMessage.startsWith(label)) : undefined;
+  const coverageReview = stageMessage.startsWith('Coverage review');
+  const stageLabel = status === "summarizing" ? ["Coverage review", "Writing full-transcript summary", "Writing sections", "Checking source accuracy", "Building coverage checklist", "Checking coverage", "Filling missing details", "Verifying additions", "Preparing the final summary"].find(label => stageMessage.startsWith(label)) : undefined;
   const unchangedSeconds = Math.max(0, Math.floor((now - lastChange) / 1000));
-  const stageHint = status === "summarizing"
+  const stageHint = coverageReview ? "Checking the saved transcript section by section. Your saved note stays readable." : status === "summarizing"
     ? "Writing and checking your summary. Progress follows completed steps."
     : status === "transcribing"
       ? "Working through the audio. Longer recordings finish in batches."
