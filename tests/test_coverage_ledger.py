@@ -185,6 +185,35 @@ def test_persistent_inventory_timeout_is_bounded_and_never_certified():
     assert sections==before
 
 
+def test_invalid_inventory_splits_only_failed_batch_and_covers_every_line():
+    case=CASES[0];lines,sections,_=setup_case(case)
+    calls=[];respond=scripted(case,calls)
+    inventories=[]
+    def provider(engine,system,payload,validate):
+        if payload['phase']=='inventory':
+            ids=[line['id'] for line in payload['primary_source']]
+            inventories.append(ids)
+            if len(ids)==len(lines):raise ValueError('Invalid source receipts')
+        return respond(engine,system,payload,validate)
+    with patch('coverage_ledger.request',side_effect=provider):
+        result=audit(SimpleNamespace(),lines,sections)
+    assert result['status']=='model_reviewed'
+    assert result['inventory_split_retries']==1
+    assert result['inventory_recovered_batches']==1
+    assert inventories[2]+inventories[3]==[line.id for line in lines]
+    assert result['inventory_failed_batches']==0
+
+
+def test_failed_split_never_certifies_missing_source_and_records_safe_range():
+    lines,sections,_=setup_case(CASES[0])
+    with patch('coverage_ledger.request',side_effect=ValueError('Private provider output')) as provider:
+        result=audit(SimpleNamespace(),lines,sections)
+    assert provider.call_count==3
+    assert result['status']=='unverified' and result['inventory_failed_batches']==1
+    assert result['inventory_failures']==[{'batch':1,'start':lines[0].id,'end':lines[-1].id,'error_type':'ValueError'}]
+    assert 'Private provider output' not in json.dumps(result)
+
+
 def test_inventory_retry_does_not_repeat_successful_source_batches():
     case=CASES[0]
     lines,sections,_=setup_case(case)

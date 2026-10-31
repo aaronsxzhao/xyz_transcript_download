@@ -320,7 +320,8 @@ def _audit(engine, lines, sections, overview='', progress=None, stage_callback=N
             'repairs_rejected':0, 'requests':0, 'ignored_boundary_items':0, 'validation_retries':0,
             'inventory_failed_batches':0, 'terminal_provider_failure':False,
             'corrected_inventory_items':[], 'inventory_validation_failed_batches':0,
-            'inventory_transport_retries':0, 'inventory_recovered_batches':0}
+            'inventory_transport_retries':0, 'inventory_recovered_batches':0,
+            'inventory_split_retries':0, 'inventory_failures':[]}
     supplied_inventory = inventory is not None
     inventory = list(inventory) if supplied_inventory else []
     language=source_language_lock(''.join(line.text for line in lines))
@@ -366,19 +367,41 @@ def _audit(engine, lines, sections, overview='', progress=None, stage_callback=N
                 # transient transport failure; never repeat successful batches
                 # or cascade another pair of schema-validation attempts.
                 from summary_errors import SummaryOutputError
-                if isinstance(error, (ValueError, SummaryOutputError)) or not retryable_model_failure(error):
+                schema_failure = isinstance(error, ValueError) or (isinstance(error, SummaryOutputError) and error.code in {'invalid','empty'})
+                if schema_failure and len(part) > 1:
+                    # Missing inventories have no item IDs to recover later.
+                    # Bound recovery to two smaller requests, without repeating
+                    # successful source batches or weakening source validation.
+                    report['inventory_split_retries']+=1
+                    middle=len(part)//2
+                    recovered=[]
+                    for subpart in (part[:middle],part[middle:]):
+                        if progress:progress()
+                        report['requests']+=1
+                        subpayload={**payload,'primary_source':serialize(subpart),
+                            'boundary_context':serialize(part[max(0,middle-5):middle+5]),
+                            'validation_feedback':'Check every supplied source line; use only its IDs. Return checked_source_ranges and substantive items, not commentary about excerpt boundaries.'}
+                        result=request(engine,INVENTORY+language,subpayload,lambda value:inventory_response(value,subpart))
+                        recovered.extend(inventory_response(result,subpart))
+                    data={'items':recovered,'checked_source_ranges':[{'start':part[0].id,'end':part[-1].id}]}
+                    report['inventory_recovered_batches']+=1
+                elif isinstance(error, (ValueError, SummaryOutputError)) or not retryable_model_failure(error):
                     raise
-                report['inventory_transport_retries']+=1
-                if progress:progress()
-                report['requests']+=1
-                data=request(engine,INVENTORY+language,payload,lambda value:inventory_response(value,part))
-                inventory_response(data,part)
-                report['inventory_recovered_batches']+=1
+                else:
+                    report['inventory_transport_retries']+=1
+                    if progress:progress()
+                    report['requests']+=1
+                    data=request(engine,INVENTORY+language,payload,lambda value:inventory_response(value,part))
+                    inventory_response(data,part)
+                    report['inventory_recovered_batches']+=1
             accepted=inventory_response(data,part)
             report['ignored_boundary_items']+=len(data['items'])-len(accepted)
             for item in accepted:
                 inventory.append({**item,'id':f'C{number+1}.{len(inventory)+1}'})
         except Exception as error:
+            if is_cancellation(error):raise
+            report['inventory_failures'].append({'batch':number+1,'start':part[0].id,
+                'end':part[-1].id,'error_type':type(error).__name__})
             if fail(error):
                 report['failed_batches']+=len(parts)-number-1
                 report['inventory_failed_batches']=report['failed_batches']

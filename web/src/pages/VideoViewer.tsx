@@ -1,3 +1,4 @@
+import {retryCoverageReview} from '../lib/coverageReview';
 import LoadError from '../components/LoadError';
 import { videoFailureHint } from '../lib/videoFailure';
 import { taskFailure } from '../lib/taskSource';
@@ -341,7 +342,7 @@ export default function VideoViewer() {
     }
   };
 
-  const handleRegenerate = async () => {
+  const handleRegenerate = async (coverageOnly = false) => {
     if (!task || regenerateLock.current) return;
     regenerateLock.current = true;
     const owner = getAccountId(), id = task.id;
@@ -349,14 +350,14 @@ export default function VideoViewer() {
     setReadFailure(null);
     setActionError("");
     try {
-      await retryVideoTask(task.id);
+      await (coverageOnly ? retryCoverageReview(task.id) : retryVideoTask(task.id));
       if (owner !== getAccountId() || taskRef.current?.id !== id) return;
       completedRead.current = "";
       const pending = {
         ...task,
         status: "pending",
         progress: 0,
-        message: "Queued for processing...",
+        message: coverageOnly ? "Coverage review queued · saved note preserved" : "Queued for processing...",
         error: "",
       };
       taskRef.current = pending;
@@ -610,8 +611,19 @@ export default function VideoViewer() {
       {actionError && <div role="alert" className="text-sm text-red-300 mb-3">
         {actionError}{" "}<button className="underline" onClick={() => setActionError("")}>Dismiss</button>
       </div>}
+      {!selectedVersion && /^(?:>\s*)?.*(?:full-source coverage review did not complete|全文覆盖核对未完成)/m.test(rawContent.slice(0,1600)) && (
+        <div className="reader-coverage-review mb-4" role="status">
+          <p className="text-sm text-gray-400 mb-2">The coverage check is unfinished. Retry checks the saved transcript while keeping this note and its screenshots.</p>
+          <button className="ui-button ui-button-primary" disabled={regenerating || !['success','failed','cancelled'].includes(uiTask.status)} onClick={() => void handleRegenerate(true)}>
+            {regenerating ? 'Submitting…' : !['success','failed','cancelled'].includes(uiTask.status) ? 'Review in progress…' : 'Retry coverage review'}
+          </button>
+        </div>
+      )}
       {!["success", "failed", "cancelled"].includes(uiTask.status) && content &&
-        <p role="status" className="text-sm text-gray-400 mb-3">A new version is processing. Showing the saved note.</p>}
+        <div className="mb-4">
+          <p role="status" className="text-sm text-gray-400 mb-3">{uiTask.message?.startsWith('Coverage review') ? 'Checking coverage. Showing the saved note.' : 'A new version is processing. Showing the saved note.'}</p>
+          <TaskProgress status={uiTask.status} progress={uiTask.progress} startedAt={uiTask.started_at} message={uiTask.message || 'Waiting for processing…'} />
+        </div>}
       {uiTask.status === "cancelled" && (
         <p role="status" className="text-sm text-gray-400 mb-3">
           Processing was cancelled. {content ? "Showing the saved note." : "No saved note is available yet. You can retry from the actions menu."}
@@ -670,7 +682,7 @@ export default function VideoViewer() {
               )}
               <div className="flex items-center gap-2 mt-1">
                 <button
-                  onClick={handleRegenerate}
+                  onClick={() => void handleRegenerate()}
                   disabled={regenerating}
                   className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white text-xs rounded-lg transition-colors"
                 >
@@ -696,7 +708,7 @@ export default function VideoViewer() {
         <section className="reader-processing space-y-3" aria-label="Unprocessed content">
           <h2 className="text-lg font-semibold">Not processed yet</h2>
           <p className="text-sm text-gray-400">This source has been added. Start processing to create its saved note.</p>
-          <button className="ui-button ui-button-primary" disabled={regenerating} onClick={handleRegenerate}>{regenerating?'Submitting…':'Start processing'}</button>
+          <button className="ui-button ui-button-primary" disabled={regenerating} onClick={() => void handleRegenerate()}>{regenerating?'Submitting…':'Start processing'}</button>
         </section>
       ) : !["success", "failed", "cancelled"].includes(uiTask.status) &&
       !content ? (

@@ -158,7 +158,7 @@ def confirm_missing_addition(addition, passages, selected, call):
     return True
 
 
-def review_document(source, fields, call, *, deadline=None, resume=None):
+def review_document(source, fields, call, *, deadline=None, resume=None, checkpoint=None, progress=None):
     from reading_budget import visible_prose
     from source_coverage import audit_source, split_source, extraction_limit, quote_timestamp
     from summary_errors import SummaryOutputError
@@ -182,6 +182,7 @@ def review_document(source, fields, call, *, deadline=None, resume=None):
             if isinstance(check,dict) and check.get('complete') is True and type(check.get('chunk')) is int and 1 <= check['chunk'] <= len(chunks):
                 completed[check['chunk']] = dict(check)
     for index, chunk in enumerate(chunks):
+        if progress: progress(index, len(chunks))
         if index+1 in completed:
             checks.append(completed[index+1])
             continue
@@ -230,6 +231,11 @@ def review_document(source, fields, call, *, deadline=None, resume=None):
                               'summary':review.fields[addition['id']],
                               'original_quote':addition['source_quote'],
                               'timestamp':quote_timestamp(chunk, addition['source_quote'], addition.get('timestamp',''))})
+        if checkpoint:
+            seen = {row['chunk'] for row in checks}
+            checkpoint({'checks':checks+[row for number,row in completed.items() if number not in seen],
+                        'additions':additions, 'source_chunks':len(chunks)})
+        if progress: progress(index+1, len(chunks))
     return {'complete':all(row['complete'] for row in checks),
             'checks':checks, 'additions':additions, 'source_chunks':len(chunks),
             'resumed_chunks':len(completed)}
