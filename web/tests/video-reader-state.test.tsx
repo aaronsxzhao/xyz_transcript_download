@@ -6,10 +6,10 @@ import {afterEach, beforeEach, expect, it, vi} from 'vitest'
 import VideoViewer from '../src/pages/VideoViewer'
 import {downloadMarkdown} from '../src/lib/markdownDownload'
 vi.mock('../src/lib/markdownDownload',()=>({downloadMarkdown:vi.fn()}))
-import {fetchVideoTask, fetchVideoTranscript, retryVideoTask, type VideoTask} from '../src/lib/api'
+import {fetchVideoTask, fetchVideoTranscript, fetchVideoVersion, retryVideoTask, type VideoTask} from '../src/lib/api'
 import {useStore} from '../src/lib/store'
 
-vi.mock('../src/lib/api', async load => ({...await load<object>(), fetchVideoTask:vi.fn(), fetchVideoTranscript:vi.fn(), retryVideoTask:vi.fn()}))
+vi.mock('../src/lib/api', async load => ({...await load<object>(), fetchVideoTask:vi.fn(), fetchVideoTranscript:vi.fn(), fetchVideoVersion:vi.fn(), retryVideoTask:vi.fn()}))
 vi.mock('../src/lib/cache', () => ({getCache:()=>null, setCache:vi.fn(), removeCache:vi.fn(), useWarmCache:()=>{}, CacheKeys:{VIDEO_NOTE:(id:string)=>id}}))
 vi.mock('../src/lib/pageTiming', () => ({usePageTiming:()=>{}}))
 vi.mock('../src/lib/readingHistory', () => ({useRecordReading:()=>{}}))
@@ -250,4 +250,28 @@ it('offers an explicit start action for discovered content instead of a processi
  await act(async()=>accepted({task_id:'one'}))
  expect(node.querySelector('[aria-label="Unprocessed content"]')).toBeNull()
  expect(useStore.getState().videoTasks.find(t=>t.id==='one')?.status).toBe('pending')
+})
+
+
+it('opens the latest saved version when the current note is empty', async () => {
+  vi.mocked(fetchVideoTask).mockResolvedValue({...note(),markdown:'',versions:[{id:'saved',task_id:'one',style:'detailed',model_name:'test',created_at:'2026-10-31'}]})
+  vi.mocked(fetchVideoVersion).mockResolvedValue({id:'saved',task_id:'one',content:'Recovered saved summary',style:'detailed',model_name:'test',created_at:'2026-10-31'})
+  await mount()
+  expect(fetchVideoVersion).toHaveBeenCalledWith('one','saved',expect.any(AbortSignal))
+  expect(node.textContent).toContain('Recovered saved summary')
+})
+
+it('shows recovery controls instead of a blank successful summary', async () => {
+  vi.mocked(fetchVideoTask).mockResolvedValue({...note(),markdown:'',versions:[]})
+  await mount()
+  expect(node.textContent).toContain('No summary content.')
+  expect(node.querySelector('[role=alert] button')).not.toBeNull()
+})
+
+it('reports an empty saved version instead of silently rendering a blank reader', async () => {
+  vi.mocked(fetchVideoTask).mockResolvedValue({...note(),markdown:'',versions:[{id:'empty',task_id:'one',style:'detailed',model_name:'test',created_at:'2026-10-31'}]})
+  vi.mocked(fetchVideoVersion).mockResolvedValue({id:'empty',task_id:'one',content:'',style:'detailed',model_name:'test',created_at:'2026-10-31'})
+  await mount()
+  expect(node.textContent).toContain('Saved version is empty.')
+  expect(node.querySelector('[role=alert] button')).not.toBeNull()
 })

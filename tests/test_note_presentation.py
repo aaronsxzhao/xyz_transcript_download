@@ -139,3 +139,22 @@ def test_finished_reader_uses_persisted_revision_while_running_and_dirty_tasks_k
     backend._cache['note']['status']='success';backend._dirty={'note':{'markdown':'Unsaved final note'}}
     assert backend.get_task('note','owner',include_transcript=False)['markdown']=='Old cached note'
     backend._sb.get_video_task.assert_not_called()
+
+
+@pytest.mark.parametrize('include_transcript', [True, False])
+def test_embedded_durable_api_reads_finished_note_instead_of_stale_pending_cache(monkeypatch, include_transcript):
+    import threading
+    from unittest.mock import Mock
+    from video_task_db import _SupabaseVideoTaskDB
+    monkeypatch.setenv('PROCESSING_DURABLE_QUEUE', '1')
+    monkeypatch.setenv('PROCESSING_ROLE', 'embedded')
+    backend = _SupabaseVideoTaskDB.__new__(_SupabaseVideoTaskDB)
+    backend._lock = threading.Lock()
+    backend._cache = {'note': {'id': 'note', 'user_id': 'owner', 'status': 'pending', 'markdown': ''}}
+    backend._dirty = {}
+    backend._sb = Mock()
+    backend._sb.get_video_task.return_value = {'id': 'note', 'status': 'success', 'markdown': 'Saved summary'}
+    result = backend.get_task('note', 'owner', include_transcript=include_transcript)
+    assert result['status'] == 'success'
+    assert result['markdown'] == 'Saved summary'
+    backend._sb.get_video_task.assert_called_once_with('note', 'owner', include_transcript=include_transcript)

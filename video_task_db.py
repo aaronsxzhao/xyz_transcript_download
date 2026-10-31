@@ -549,8 +549,11 @@ class _SupabaseVideoTaskDB:
     def get_task(self, task_id: str, user_id: str = None, include_transcript: bool = True) -> Optional[dict]:
         if not user_id:
             return None
-        from execution_store import role
-        if role() == 'api':
+        from execution_store import role, enabled
+        # Embedded API processes can retain the admission-time pending row
+        # after a durable worker has saved the finished note elsewhere.
+        # Only an actual worker may serve its own write-behind progress cache.
+        if role() == 'api' or (enabled() and role() != 'worker'):
             return self._sb.get_video_task(task_id,user_id,include_transcript=include_transcript)
         with self._lock:
             cached = dict(self._cache.get(task_id) or {})

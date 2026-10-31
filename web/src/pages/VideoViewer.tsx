@@ -155,10 +155,11 @@ export default function VideoViewer() {
         const data = await fetchVideoTask(taskId);
         if (!cancelled && owner === getAccountId()) {
           setTask(data);
+          setSelectedVersion(current => current || (!data.markdown?.trim() ? data.versions?.[0]?.id || "" : ""));
           if (!["success", "failed", "cancelled"].includes(data.status))
             useStore.getState().updateVideoTask(data);
           setTaskVerified(true);
-          if (data.status === "success")
+          if (data.status === "success" && data.markdown?.trim())
             setCache(CacheKeys.VIDEO_NOTE(taskId), data, owner);
           else removeCache(CacheKeys.VIDEO_NOTE(taskId));
         }
@@ -258,6 +259,7 @@ export default function VideoViewer() {
     setVersionLoading(true);
     fetchVideoVersion(taskId, selectedVersion, controller.signal)
       .then((version) => {
+        if (!version.content?.trim()) throw new Error("Saved version is empty. Choose another version.");
         if (active)
           setVersionContents((cache) => ({
             ...cache,
@@ -723,6 +725,8 @@ export default function VideoViewer() {
                   <Loader2 className="animate-spin" size={18} />
                   Loading saved version…
                 </p>
+              ) : !content.trim() ? (
+                <LoadError message="No summary content. Retry loading or choose a saved version." onRetry={retryRead}/>
               ) : (
                 isOriginal ? <ArticleNote markdown={content} readerTitle={title} readerMeta={{author:task.channel,published:task.published_at}} attachments={selectedVersion ? [] : task.source_metadata?.attachments} fallback={<PlainNote markdown={content} preserveSource readerTitle={title} readerMeta={{author:task.channel,published:task.published_at}}/>}/> : <MarkdownPreview
                   markdown={content}
