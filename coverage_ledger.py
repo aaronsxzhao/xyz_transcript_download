@@ -313,13 +313,14 @@ def _audit(engine, lines, sections, overview='', progress=None, stage_callback=N
     recheck discards proposed prose; no rewrite loop or hidden generation mode.
     """
     from transcript_reading import batches, serialize, public_draft, validate_sections
-    from model_execution import terminal_provider_failure
+    from model_execution import terminal_provider_failure, retryable_model_failure
     from reading_progress import stage
     report={'version':VERSION, 'status':'unverified', 'semantic_proof':False,
             'inventory_batches':0, 'failed_batches':0, 'items':[], 'repairs_accepted':0,
             'repairs_rejected':0, 'requests':0, 'ignored_boundary_items':0, 'validation_retries':0,
             'inventory_failed_batches':0, 'terminal_provider_failure':False,
-            'corrected_inventory_items':[], 'inventory_validation_failed_batches':0}
+            'corrected_inventory_items':[], 'inventory_validation_failed_batches':0,
+            'inventory_transport_retries':0, 'inventory_recovered_batches':0}
     supplied_inventory = inventory is not None
     inventory = list(inventory) if supplied_inventory else []
     language=source_language_lock(''.join(line.text for line in lines))
@@ -357,7 +358,22 @@ def _audit(engine, lines, sections, overview='', progress=None, stage_callback=N
                  'boundary_context':serialize(lines[max(0,offset-5):offset]+lines[offset+len(part):offset+len(part)+5])}
         offset+=len(part)
         try:
-            data=call(INVENTORY,payload,lambda value:inventory_response(value,part))
+            try:
+                data=call(INVENTORY,payload,lambda value:inventory_response(value,part))
+            except Exception as error:
+                # A failed inventory has no item IDs, so the later pending-item
+                # recovery cannot see it. Retry this source batch once after a
+                # transient transport failure; never repeat successful batches
+                # or cascade another pair of schema-validation attempts.
+                from summary_errors import SummaryOutputError
+                if isinstance(error, (ValueError, SummaryOutputError)) or not retryable_model_failure(error):
+                    raise
+                report['inventory_transport_retries']+=1
+                if progress:progress()
+                report['requests']+=1
+                data=request(engine,INVENTORY+language,payload,lambda value:inventory_response(value,part))
+                inventory_response(data,part)
+                report['inventory_recovered_batches']+=1
             accepted=inventory_response(data,part)
             report['ignored_boundary_items']+=len(data['items'])-len(accepted)
             for item in accepted:

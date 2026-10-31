@@ -151,6 +151,62 @@ def test_inventory_failures_are_explicit_and_cancellation_propagates(failure):
     assert sections==before
 
 
+def test_transient_inventory_failure_recovers_before_matching():
+    case=CASES[0]
+    lines,sections,_=setup_case(case)
+    calls=[]
+    respond=scripted(case,calls)
+    attempts=0
+    def intermittent(engine,system,payload,validate):
+        nonlocal attempts
+        if payload['phase']=='inventory':
+            attempts+=1
+            if attempts==1:raise TimeoutError('temporary provider timeout')
+        return respond(engine,system,payload,validate)
+    with patch('coverage_ledger.request',side_effect=intermittent):
+        result=audit(SimpleNamespace(),lines,sections)
+    assert attempts==2
+    assert result['status']=='model_reviewed'
+    assert result['inventory_failed_batches']==0
+    assert result['inventory_transport_retries']==1
+    assert result['inventory_recovered_batches']==1
+    assert result['covered_items']==1
+
+
+def test_persistent_inventory_timeout_is_bounded_and_never_certified():
+    lines,sections,_=setup_case(CASES[0])
+    before=copy.deepcopy(sections)
+    with patch('coverage_ledger.request',side_effect=TimeoutError()) as model:
+        result=audit(SimpleNamespace(),lines,sections)
+    assert model.call_count==2
+    assert result['status']=='unverified'
+    assert result['inventory_failed_batches']==1
+    assert result['inventory_recovered_batches']==0
+    assert sections==before
+
+
+def test_inventory_retry_does_not_repeat_successful_source_batches():
+    case=CASES[0]
+    lines,sections,_=setup_case(case)
+    attempts={}
+    calls=[]
+    respond=scripted(case,calls)
+    def intermittent(engine,system,payload,validate):
+        if payload['phase']=='inventory':
+            identity=payload['primary_source'][0]['id']
+            attempts[identity]=attempts.get(identity,0)+1
+            if len(attempts)==2 and attempts[identity]==1:
+                raise ConnectionError('transient disconnect')
+        return respond(engine,system,payload,validate)
+    with patch('coverage_ledger.SOURCE_LIMIT',100),patch('coverage_ledger.request',side_effect=intermittent):
+        result=audit(SimpleNamespace(),lines,sections)
+    assert len(attempts)>2
+    assert list(attempts.values()).count(2)==1
+    assert all(count in (1,2) for count in attempts.values())
+    assert result['inventory_failed_batches']==0
+    assert result['inventory_recovered_batches']==1
+
+
 @pytest.mark.parametrize('damage',['missing_item','duplicate_item','unknown_paragraph','raw_fallback'])
 def test_same_topic_or_invalid_receipts_cannot_certify_coverage(damage):
     items=[{'id':'C1'}];draft=[{'paragraphs':[{'id':'P1','text':'Internal reward helps.','raw':damage=='raw_fallback'}]}]
