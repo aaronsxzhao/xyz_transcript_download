@@ -3,6 +3,7 @@ Transcription service using faster-whisper (CTranslate2).
 Optimized for speed with batched inference and int8/fp16 support.
 """
 
+from reading_progress import MeasuredProgress
 import json
 import math
 import os
@@ -228,7 +229,7 @@ class FastLocalTranscriber:
                 # Update progress based on segment end time
                 if progress_callback and info.duration > 0:
                     progress = min(segment.end / info.duration, 1.0)
-                    progress_callback(progress)
+                    progress_callback(MeasuredProgress(min(segment.end, info.duration), info.duration))
 
             full_text = " ".join(full_text_parts)
 
@@ -401,27 +402,16 @@ class MLXTranscriber:
             )
             process.start()
 
-            # Report progress
-            audio_duration = self._get_audio_duration(audio_path)
-            estimated_seconds = audio_duration * 2 if audio_duration > 0 else 600
-
-            start_time = time.time()
+            # Report only progress captured from the worker.
             last_progress = 0
             last_reported = 0
 
             while process.is_alive() and not result_dict["done"]:
                 captured_progress = result_dict["progress"]
 
-                if captured_progress > last_progress:
-                    progress = captured_progress
-                    last_progress = captured_progress
-                else:
-                    elapsed = time.time() - start_time
-                    if estimated_seconds > 0:
-                        ratio = min(elapsed / estimated_seconds, 3.0)
-                        progress = 0.95 * (1 - 1 / (1 + ratio * 1.2))
-                    else:
-                        progress = min(elapsed / 600, 0.90)
+                # Only advance when the worker reports completed work.
+                progress = max(last_progress, min(captured_progress, 0.99))
+                last_progress = progress
 
                 # ALWAYS call progress_callback on every iteration
                 # This ensures cancellation is checked even if progress isn't advancing
@@ -606,7 +596,7 @@ class APITranscriber:
         language: str,
         progress_callback: Optional[Callable[[float], None]] = None,
     ) -> Optional[Transcript]:
-        """Transcribe a single audio file with simulated progress updates."""
+        """Transcribe a file, reporting work only when the provider responds."""
         import threading
         import time
 
@@ -614,11 +604,8 @@ class APITranscriber:
             self.last_error = ""
             file_size_mb = audio_path.stat().st_size / 1024 / 1024
 
-            # Estimate processing time: Groq processes ~1 min audio in 2-5 sec
-            # Assume ~10 sec per 25MB file as baseline, with minimum 5 sec
-            estimated_seconds = max(5, file_size_mb * 0.4)
-
-            logger.info(f"Sending audio to Whisper API ({file_size_mb:.1f} MB, est. {estimated_seconds:.0f}s)...")
+            start_time = time.time()
+            logger.info(f"Sending audio to Whisper API ({file_size_mb:.1f} MB)...")
 
             # Shared state for thread communication
             result_holder = {"response": None, "error": None, "done": False}
@@ -685,23 +672,11 @@ class APITranscriber:
             api_thread = threading.Thread(target=run_request, daemon=True)
             api_thread.start()
 
-            # Simulate smooth progress while waiting for API
-            # Progress goes from 0% to 85% during estimated time
-            start_time = time.time()
+            # This API does not expose intermediate work. Keep cancellation checks
+            # alive, but never turn elapsed time into purported completed work.
             last_progress = 0
-
             while not result_holder["done"]:
-                elapsed = time.time() - start_time
-
-                # Calculate progress: asymptotic curve that approaches 85%
-                # This ensures we never "complete" before the API returns
-                if estimated_seconds > 0:
-                    # Use logarithmic curve for natural feel
-                    ratio = min(elapsed / estimated_seconds, 2.0)  # Cap at 2x estimated time
-                    # Progress curve: starts fast, slows down as it approaches 85%
-                    progress = 0.85 * (1 - 1 / (1 + ratio * 1.5))
-                else:
-                    progress = 0.5
+                progress = 0.0
 
                 # ALWAYS call progress_callback on every iteration for cancellation check
                 if progress_callback:
@@ -814,7 +789,7 @@ class APITranscriber:
                     execution = CURRENT.get()
                     if execution: execution.check()
                     with progress_lock:
-                        progress_callback(sum(progresses)/num_chunks)
+                        progress_callback(MeasuredProgress(sum(p >= 1 for p in progresses), num_chunks, 'chunks'))
                 except Exception as e:
                     if "cancel" in str(e).lower() or "Cancel" in type(e).__name__:
                         cancelled[0] = True
@@ -833,7 +808,7 @@ class APITranscriber:
                 if progress_callback:
                     with progress_lock:
                         progresses[index] = max(progresses[index],value)
-                        progress_callback(min(sum(progresses) / num_chunks,0.95))
+                        progress_callback(MeasuredProgress(sum(p >= 1 for p in progresses), num_chunks, 'chunks'))
             def one_chunk(i):
                 import copy
                 worker = copy.copy(self)
@@ -843,7 +818,7 @@ class APITranscriber:
 
                 # Update progress and CHECK CANCELLATION before extraction
                 if progress_callback:
-                    report(i,0.02)
+                    report(i,0.0)
 
                 # Retry chunk extraction up to 3 times
                 chunk_extracted = False
