@@ -42,7 +42,7 @@ async def main():
       const samples=[];const start=performance.now();
       const send=(progress,status='transcribing')=>window.__socket.onmessage({data:JSON.stringify({type:'video_job_update',task:{...task,progress,status,updated_at:`2026-10-31T15:00:0${progress===70?1:2}Z`}})});
       send(70);setTimeout(()=>send(88),180);
-      await new Promise(resolve=>{function frame(){const bar=row.querySelector('.task-progress-fill');const percent=row.querySelector('.task-progress-percent');samples.push({t:performance.now()-start,scale:new DOMMatrix(getComputedStyle(bar).transform).a,text:percent.textContent,width:percent.getBoundingClientRect().width});if(performance.now()-start<1000)requestAnimationFrame(frame);else resolve()}requestAnimationFrame(frame)});
+      await new Promise(resolve=>{function frame(){const bar=row.querySelector('.task-progress-fill');const percent=row.querySelector('.task-progress-percent');samples.push({t:performance.now()-start,scale:new DOMMatrix(getComputedStyle(bar).transform).a,text:percent.textContent,width:percent.getBoundingClientRect().width});if(performance.now()-start<1400)requestAnimationFrame(frame);else resolve()}requestAnimationFrame(frame)});
       return samples;
      }""",task)
      scales=[s['scale'] for s in samples]

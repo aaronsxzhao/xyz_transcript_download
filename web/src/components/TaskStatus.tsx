@@ -62,12 +62,14 @@ export function TaskProgress({
   const stageLabel = status === "summarizing" ? ["Writing full-transcript summary", "Writing sections", "Checking source accuracy", "Building coverage checklist", "Checking coverage", "Filling missing details", "Verifying additions", "Preparing the final summary"].find(label => stageMessage.startsWith(label)) : undefined;
   const unchangedSeconds = Math.max(0, Math.floor((now - lastChange) / 1000));
   const stageHint = status === "summarizing"
-    ? "Summary steps can take a while. Progress updates as each result arrives."
+    ? "Writing and checking your summary. Progress follows completed steps."
     : status === "transcribing"
-      ? "Transcribing audio. Progress may arrive in batches."
+      ? "Working through the audio. Longer recordings finish in batches."
       : status === "saving"
-        ? "Saving and checking your notes before marking this complete."
-        : "Progress updates as results arrive.";
+        ? "Final checks and saving. Complete only when your notes are ready."
+        : status === "downloading"
+          ? "Fetching your media. Progress follows downloaded data."
+          : "Preparing your content. Progress updates as results arrive.";
   const active = isActiveStatus(status) && !waiting;
   return (
     <div className="task-progress" data-offline={!online || undefined}>
@@ -107,8 +109,8 @@ export function TaskProgress({
           {!online
             ? "You're offline. Reconnect to refresh progress."
             : unchangedSeconds >= 30
-              ? `No new progress for ${Math.floor(unchangedSeconds / 60)}m ${unchangedSeconds % 60}s. Waiting for the next update.`
-              : !compact ? stageHint : null}
+              ? `${stageHint} No new progress for ${Math.floor(unchangedSeconds / 60)}m ${Math.floor(unchangedSeconds % 60 / 5) * 5}s; waiting for the next result.`
+              : stageHint}
         </p>
       )}
       {startedAt > 0 && isActiveStatus(status) && status !== "pending" && (

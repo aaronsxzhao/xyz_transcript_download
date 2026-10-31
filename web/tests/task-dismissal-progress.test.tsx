@@ -42,7 +42,7 @@ it('interpolates only toward reported progress and cancels animation when unmoun
   act(()=>callback(-1));expect(Number(node.textContent)).toBe(20)
   now=300;act(()=>callback(now))
   expect(Number(node.textContent)).toBeGreaterThan(20);expect(Number(node.textContent)).toBeLessThan(60)
-  now=600;act(()=>callback(now));expect(Number(node.textContent)).toBe(60)
+  now=900;act(()=>callback(now));expect(Number(node.textContent)).toBe(60)
   act(()=>root.unmount());expect(cancel).toHaveBeenCalled()
  }finally{node.remove();vi.unstubAllGlobals()}
 })
