@@ -61,6 +61,11 @@ jobs:
           git archive "$BASE_REVISION" web/dist | tar -x -C /tmp/library-baseline
           pip install playwright
           python -m playwright install --with-deps chromium webkit
+      - name: Check Editorial Chinese font rendering
+        timeout-minutes: 3
+        run: |
+          python scripts/check_editorial_fonts.py --output appearance-checks/fonts-chromium
+          python scripts/check_editorial_fonts.py --webkit --output appearance-checks/fonts-webkit
       - name: Check appearance and retained state
         timeout-minutes: 5
         run: |
