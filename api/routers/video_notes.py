@@ -1564,7 +1564,7 @@ async def dismiss_task_notification(task_id: str, user: Optional[User] = Depends
 async def retry_coverage_review(task_id: str, user: Optional[User] = Depends(get_current_user)):
     """Queue only the coverage check; preserve the saved note and media."""
     from video_task_db import get_video_task_db
-    from saved_note_review import needs_review, snapshot_key
+    from saved_note_review import needs_review, snapshot_key, saved_transcript
     from execution_store import enabled, get_store
     db = get_video_task_db()
     owner = user.id if user else None
@@ -1576,7 +1576,7 @@ async def retry_coverage_review(task_id: str, user: Optional[User] = Depends(get
         active = await asyncio.to_thread(get_store().latest,owner,'video',task_id)
         if active and active['state'] in ('queued','running'):
             raise HTTPException(409,'A task is already queued or running for this note.')
-    if not needs_review(task.get('markdown')) or not task.get('transcript_json'):
+    if not needs_review(task.get('markdown')) or not saved_transcript(task):
         raise HTTPException(400,'This note needs an unfinished coverage review and a saved transcript.')
     await asyncio.to_thread(db.update_task,task_id,{'status':'pending','progress':0,
         'message':'Coverage review queued · saved note preserved','error':''})
