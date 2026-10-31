@@ -206,7 +206,9 @@ async def check(browser,origin,width,output):
   await page.get_by_role('button',name='Retry mind map',exact=True).click()
   await page.locator('svg.markmap foreignObject').first.wait_for()
   await page.wait_for_function('document.querySelector(".mindmap-canvas").getAttribute("aria-busy")==="false"')
-  task.update(markdown='',title='Empty saved note')
+  # A blank latest draft with historical versions intentionally recovers a saved
+  # note. Exercise the genuinely empty state only when no version is available.
+  task.update(markdown='',versions=[],title='Empty saved note')
   await page.reload()
   await page.get_by_role('heading',name='Empty saved note',exact=True).wait_for()
   await page.get_by_role('tab',name='Mind map',exact=True).click()
