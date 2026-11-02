@@ -149,7 +149,7 @@ def candidate_checkpoint(engine, source, title, options):
     """Keep unpublished work account-scoped, with settings/source invalidation."""
     from processing_execution import CURRENT
     execution = CURRENT.get()
-    identity = fingerprint({'version':'delivery-90-v1', 'source':source, 'title':title,
+    identity = fingerprint({'version':'delivery-final-90-v2', 'source':source, 'title':title,
         'options':options, 'model':engine.model, 'endpoint':str(engine.client.base_url),
         'model_options':getattr(engine,'model_options',{}), 'threshold':engine.quality_coverage_threshold})
     if not execution: return None, identity, None

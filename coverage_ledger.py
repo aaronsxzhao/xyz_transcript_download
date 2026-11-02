@@ -594,7 +594,7 @@ def efficient_audit(engine, lines, sections, overview='', progress=None, stage_c
 
     No threads mutate prose. Accepted appended repairs retain existing evidence;
     the delivery gate independently checks the final text for contradictions.
-    Stop at the configured material coverage threshold, never at a time quota.
+    Complete one bounded pass over initial gaps; the threshold is only for final acceptance.
     """
     from processing_parallel import bounded_map
     report, inventory = prepared_inventory if prepared_inventory is not None else build_inventory(engine, lines, progress, stage_callback)
@@ -629,7 +629,7 @@ def efficient_audit(engine, lines, sections, overview='', progress=None, stage_c
     threshold = engine.quality_coverage_threshold
     pending = {item['id'] for item in report['items'] if item['status'] not in RESOLVED}
     report['initial_unresolved_items'] = len(pending)
-    if allow_repairs and not coverage_acceptable(report, threshold) and not report['terminal_provider_failure']:
+    if allow_repairs and pending and not report['terminal_provider_failure']:
         report['recovery_rounds'] = 1
         gaps = [item for item in inventory if item['id'] in pending]
         for start in range(0, len(gaps), ITEM_LIMIT):
@@ -645,7 +645,7 @@ def efficient_audit(engine, lines, sections, overview='', progress=None, stage_c
                 item['status']=='unverified' for item in report['items'])
             changed = {item['id']:item for item in corrected}
             inventory = [changed.get(item['id'],item) for item in inventory]
-            if coverage_acceptable(report, threshold) or report['terminal_provider_failure']: break
+            if report['terminal_provider_failure']: break
     report['unresolved_items'] = sum(item['status'] not in RESOLVED for item in report['items'])
     report['covered_items'] = sum(item['status']=='covered' for item in report['items'])
     report['context_only_items'] = sum(item['status']=='context_only' for item in report['items'])

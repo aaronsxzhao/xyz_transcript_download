@@ -87,7 +87,7 @@ def test_rewritten_paragraph_requires_independent_recheck(final_pass):
     assert review.call_count==2
 
 
-def test_independent_matches_overlap_and_threshold_skips_repairs():
+def test_independent_matching_only_checks_overlap_without_mutating_draft():
     owner, edition = candidate(10)
     owner.quality_coverage_threshold=.9
     sections, lines=edition['sections'],edition['lines']
@@ -103,9 +103,35 @@ def test_independent_matches_overlap_and_threshold_skips_repairs():
             'grounded':True,'duplicate':False} for item in payload['items']]}
     before=copy.deepcopy(sections)
     with patch('coverage_ledger.request', side_effect=request):
-        result=efficient_audit(owner, lines, sections, prepared_inventory=(base,inventory))
+        result=efficient_audit(owner, lines, sections, prepared_inventory=(base,inventory), allow_repairs=False)
     assert result['coverage_ratio']==.9 and result['requests']==2
     assert result['status']=='acceptable' and sections==before
+
+
+@pytest.mark.parametrize('total,gaps', [(20, 2), (160, 17)])
+def test_repairs_complete_one_pass_even_when_initial_or_intermediate_coverage_passes(total, gaps):
+    owner, edition = candidate(10)
+    inventory = [{'id':f'C{i}', 'kind':'claim', 'source_ranges':[]}
+                 for i in range(total)]
+    base = {'failed_batches':0, 'inventory_failed_batches':0, 'terminal_provider_failure':False}
+    repaired = []
+    def audit(engine, lines, sections, *args, inventory, matching_only=False, **kwargs):
+        if not matching_only:
+            repaired.extend(item['id'] for item in inventory)
+        items = [{**item, 'status':'missing' if int(item['id'][1:]) < gaps else 'covered',
+                  'paragraph_ids':[]} for item in inventory]
+        # Leave one item unresolved: finish the pass without looping to 100%.
+        if not matching_only:
+            for item in items:
+                if item['id'] != 'C0': item['status'] = 'covered'
+        return ({**base, 'items':items, 'matching_rows':{}}, inventory)
+    with patch('coverage_ledger._audit', side_effect=audit):
+        result = efficient_audit(owner, edition['lines'], edition['sections'],
+                                prepared_inventory=(base, inventory))
+    assert repaired == [f'C{i}' for i in range(gaps)]
+    assert result['unresolved_items'] == 1
+    assert result['recovery_rounds'] == 1
+    assert result['status'] == 'acceptable'
 
 
 def test_fifo_waiter_is_admitted_before_newcomer_and_cancelled_waiter_is_removed():
