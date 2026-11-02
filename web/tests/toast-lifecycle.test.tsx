@@ -77,3 +77,27 @@ it('does not recreate a dismissed toast or its timer when a late update arrives'
   act(()=>api.updateToast(id,{type:'success',title:'Done'}))
   expect(vi.getTimerCount()).toBe(0);expect(node.textContent).not.toContain('Done')
 })
+it('coalesces identical active errors and renews their lifetime without suppressing distinct errors',()=>{
+ const error={type:'error' as const,title:'Failed to add podcast',message:'Please retry.'}
+ let first='',duplicate=''
+ act(()=>{first=api.addToast(error)})
+ act(()=>vi.advanceTimersByTime(4500))
+ act(()=>{duplicate=api.addToast(error)})
+ expect(duplicate).toBe(first)
+ expect(node.querySelectorAll('[role="alert"]')).toHaveLength(1)
+ act(()=>vi.advanceTimersByTime(500))
+ expect(node.querySelectorAll('[role="alert"]')).toHaveLength(1)
+ act(()=>api.addToast({...error,message:'A different failure'}))
+ expect(node.querySelectorAll('[role="alert"]')).toHaveLength(2)
+ act(()=>api.removeToast(first))
+ act(()=>api.addToast(error))
+ expect(node.querySelectorAll('[role="alert"]')).toHaveLength(2)
+ act(()=>vi.advanceTimersByTime(5000))
+ expect(node.querySelectorAll('[role="alert"]')).toHaveLength(0)
+})
+it('does not merge independent loading operations with identical labels',()=>{
+ let a='',b=''
+ act(()=>{a=api.addToast({type:'loading',title:'Working'});b=api.addToast({type:'loading',title:'Working'})})
+ expect(a).not.toBe(b)
+ expect(node.querySelectorAll('[role="status"]')).toHaveLength(2)
+})

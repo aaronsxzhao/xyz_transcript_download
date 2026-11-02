@@ -46,3 +46,26 @@ it('interpolates only toward reported progress and cancels animation when unmoun
   act(()=>root.unmount());expect(cancel).toHaveBeenCalled()
  }finally{node.remove();vi.unstubAllGlobals()}
 })
+it('keeps 45% when a poll omits the worker start time and a later event reports 19%',()=>{
+ const base={id:'v',status:'transcribing',progress:19,started_at:100,updated_at:'2026-11-02T10:00:00Z'} as any
+ useStore.getState().updateVideoTask(base)
+ useStore.getState().updateVideoTask({...base,progress:45,updated_at:'2026-11-02T10:00:01Z'})
+ useStore.getState().mergeVideoTasks([{...base,progress:19,started_at:0,updated_at:'2026-11-02T10:00:02Z'}])
+ useStore.getState().updateVideoTask({...base,updated_at:'2026-11-02T10:00:03Z'})
+ expect(useStore.getState().videoTasks[0]).toMatchObject({progress:45,started_at:100})
+})
+it('does not let stale start metadata contaminate a newer attempt',()=>{
+ const current={id:'v',status:'transcribing',progress:19,started_at:200,updated_at:'2026-11-02T10:00:03Z'} as any
+ const stale={...current,progress:45,started_at:100,updated_at:'2026-11-02T10:00:01Z'}
+ expect(mergeVideoTaskPair(current,stale)).toMatchObject({progress:19,started_at:200})
+ const later={...current,progress:30,updated_at:'2026-11-02T10:00:04Z'}
+ expect(mergeVideoTaskPair(mergeVideoTaskPair(current,stale),later)).toMatchObject({progress:30,started_at:200})
+})
+it('learning a previously missing start time is not a retry; actual retries reset',()=>{
+ const current={id:'v',status:'transcribing',progress:45,started_at:0,updated_at:'2026-11-02T10:00:00Z'} as any
+ const learned={...current,progress:19,started_at:100,updated_at:'2026-11-02T10:00:01Z'}
+ expect(mergeVideoTaskPair(current,learned)).toMatchObject({progress:45,started_at:100})
+ expect(mergeVideoTaskPair({...current,started_at:100},{...learned,started_at:200})).toMatchObject({progress:19,started_at:200})
+ const queued={...learned,status:'pending',progress:0,started_at:0}
+ expect(mergeVideoTaskPair(current,queued)).toMatchObject({progress:0,started_at:0})
+})

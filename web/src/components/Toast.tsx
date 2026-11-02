@@ -61,6 +61,15 @@ export function ToastProvider({ children }: { children: ReactNode }) {
 
   const addToast = useCallback((toast: Omit<Toast, 'id'>) => {
     if (!active.current || generation !== getAuthGeneration()) return ''
+    // Coalesce only identical visible errors. Loading operations retain their
+    // independent IDs so one request cannot update another request's toast.
+    const duplicate = toast.type === 'error' && [...records.current.values()].find(
+      item => item.type === toast.type && item.title === toast.title && item.message === toast.message && item.duration === toast.duration,
+    )
+    if (duplicate) {
+      schedule(duplicate)
+      return duplicate.id
+    }
     const id = Math.random().toString(36).substring(7)
     const newToast: Toast = { ...toast, id }
     setToasts((prev) => [...prev, newToast])

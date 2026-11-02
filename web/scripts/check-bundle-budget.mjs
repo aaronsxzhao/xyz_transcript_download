@@ -17,7 +17,8 @@ const paths = [...new Set(assets.map(([, path]) => path))]
 // Allow 0.5 KiB for durable task acknowledgement and truthful progress interpolation.
 // Allow 0.25 KiB for quiet-stage and offline progress feedback.
 // Allow 0.5 KiB for saved-note coverage retry and visible review progress.
-const budgetKiB = 197.25
+// Allow 0.25 KiB for attempt-consistent progress and duplicate error coalescing.
+const budgetKiB = 197.5
 const bytes = gzipSync(html).length + paths.reduce((sum, path) => sum + gzipSync(readFileSync(new URL('../dist' + path, import.meta.url))).length, 0)
 console.log(`Initial compressed document and external assets: ${(bytes / 1024).toFixed(1)} KiB (budget: ${budgetKiB} KiB)`)
 if (bytes > budgetKiB * 1024) throw new Error('Initial page assets exceed the loading budget. Keep rich formatting deferred.')
