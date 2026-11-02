@@ -13,7 +13,8 @@ from summary_errors import ProcessingCancelledError, SummaryOutputError
 def isolate_existing_generation_and_grounding_contract():
     # The independent ledger has its own integration tests with real validators
     # in test_coverage_ledger.py. These tests isolate the original pipeline stages.
-    with patch('coverage_ledger.audit', return_value={'status':'model_reviewed'}):
+    with patch('coverage_ledger.audit', return_value={'status':'model_reviewed'}), \
+         patch('coverage_ledger.build_inventory', return_value=({}, [])):
         yield
 
 

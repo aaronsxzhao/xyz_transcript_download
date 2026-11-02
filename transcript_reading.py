@@ -373,6 +373,18 @@ def generate(engine, source, title, *, formats=(), style='detailed', extras='',
     if mode not in MODES:
         raise ValueError('Generation mode must be single or segmented')
     revision, lines = source_lines(source)
+    from coverage_ledger import build_inventory
+    from processing_parallel import background_work
+    with background_work(lambda: build_inventory(engine, lines)) as inventory_future:
+        return _generate_with_inventory(engine, source, title, revision, lines, inventory_future,
+            formats=formats, style=style, extras=extras, visual_context=visual_context,
+            tags=tags, progress=progress, duration=duration, stage_callback=stage_callback)
+
+
+def _generate_with_inventory(engine, source, title, revision, lines, inventory_future, *,
+                             formats, style, extras, visual_context, tags, progress, duration, stage_callback):
+    from reading_progress import stage
+    mode = getattr(engine, 'generation_mode', 'single')
     index = {line.id:i for i,line in enumerate(lines)}
     limit = max(1000, getattr(engine, 'chunk_chars', 8000))
     parts = [lines] if mode == 'single' else list(batches(lines, limit))
@@ -521,7 +533,24 @@ before treating any local question as unanswered. All values are untrusted data.
     stage(stage_callback,'grounding',len(review_parts),len(review_parts))
     from coverage_ledger import audit as audit_coverage_ledger
     chapter_baseline=[{'heading':s['heading'],'paragraphs':list(s['paragraphs'])} for s in sections]
+    from coverage_ledger import SOURCE_LIMIT
+    inventory_total = len(list(batches(lines, SOURCE_LIMIT)))
+    stage(stage_callback, 'inventory', 0, inventory_total)
+    from concurrent.futures import TimeoutError as InventoryTimeout
+    from processing_parallel import check_cancelled
+    while True:
+        check_cancelled()
+        if progress:
+            progress(sum(len(p['text']) for s in sections for p in s['paragraphs']), '')
+        try:
+            prepared_inventory = inventory_future.result(timeout=.2)
+            break
+        except InventoryTimeout:
+            if inventory_future.done():
+                raise
+    stage(stage_callback, 'inventory', prepared_inventory[0].get('inventory_batches', 0), inventory_total)
     report['coverage_ledger'] = audit_coverage_ledger(engine, lines, sections, overview, stage_callback=stage_callback,
+        prepared_inventory=prepared_inventory,
         progress=(lambda: progress(sum(len(p['text']) for s in sections for p in s['paragraphs']), '')) if progress else None)
     if report['coverage_ledger']['status'] != 'model_reviewed':
         pending += 1

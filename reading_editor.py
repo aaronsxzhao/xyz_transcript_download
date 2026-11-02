@@ -131,9 +131,11 @@ def _call_editor(client, model, system, payload, timeout, *, output_tokens=None)
         options['max_completion_tokens'] = 32768
         if model in ('openai/gpt-oss-120b','openai/gpt-oss-20b'):
             options['reasoning_effort'] = 'medium'
-    response = client.with_options(timeout=timeout, max_retries=0).chat.completions.create(
-        model=model, messages=[{'role':'system','content':system}, {'role':'user','content':payload}],
-        response_format={'type':'json_object'}, temperature=0, **options)
+    from processing_parallel import model_slot
+    with model_slot():
+        response = client.with_options(timeout=timeout, max_retries=0).chat.completions.create(
+            model=model, messages=[{'role':'system','content':system}, {'role':'user','content':payload}],
+            response_format={'type':'json_object'}, temperature=0, **options)
     if not response.choices or response.choices[0].finish_reason not in (None, 'stop'):
         from summary_errors import SummaryOutputError
         raise SummaryOutputError(response.choices[0].finish_reason if response.choices else 'empty')

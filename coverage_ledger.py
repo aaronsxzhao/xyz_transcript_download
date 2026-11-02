@@ -214,9 +214,9 @@ def invalidate_support(report, paragraph_ids):
         report['unresolved_items']=sum(item['status'] not in RESOLVED for item in report['items'])
 
 
-def audit(engine, lines, sections, overview='', progress=None, stage_callback=None):
+def audit(engine, lines, sections, overview='', progress=None, stage_callback=None, *, prepared_inventory=None):
     """Run one bounded recovery of unresolved items against the final draft."""
-    report, inventory = _audit(engine, lines, sections, overview, progress, stage_callback)
+    report, inventory = _audit(engine, lines, sections, overview, progress, stage_callback, prepared_inventory=prepared_inventory)
     report['recovery_rounds'] = 0
     report.setdefault('corrected_inventory_items', [])
     report.setdefault('inventory_validation_failed_batches', 0)
@@ -306,7 +306,8 @@ def _correct_inventory(engine, lines, items, report, progress, stage_callback, m
     return corrected
 
 
-def _audit(engine, lines, sections, overview='', progress=None, stage_callback=None, *, inventory=None):
+def _audit(engine, lines, sections, overview='', progress=None, stage_callback=None, *, inventory=None,
+           prepared_inventory=None, inventory_only=False, inventory_parts=None):
     """Mutate only by appending independently accepted local repairs.
 
     Inventories see no draft. Matching sees the whole evolving draft. A failed
@@ -322,6 +323,12 @@ def _audit(engine, lines, sections, overview='', progress=None, stage_callback=N
             'corrected_inventory_items':[], 'inventory_validation_failed_batches':0,
             'inventory_transport_retries':0, 'inventory_recovered_batches':0,
             'inventory_split_retries':0, 'inventory_failures':[]}
+    if not inventory_only and inventory is None:
+        if prepared_inventory is None:
+            prepared_inventory = build_inventory(engine, lines, progress, stage_callback)
+        report, inventory = copy.deepcopy(prepared_inventory)
+        if report['terminal_provider_failure']:
+            return report, inventory
     supplied_inventory = inventory is not None
     inventory = list(inventory) if supplied_inventory else []
     language=source_language_lock(''.join(line.text for line in lines))
@@ -350,14 +357,14 @@ def _audit(engine, lines, sections, overview='', progress=None, stage_callback=N
         terminal = terminal_provider_failure(error)
         report['terminal_provider_failure'] |= terminal
         return terminal
-    parts=[] if supplied_inventory else list(batches(lines,SOURCE_LIMIT))
+    parts=[] if supplied_inventory or inventory_parts is not None else list(batches(lines,SOURCE_LIMIT))
     offset=0
-    for number,part in enumerate(parts):
+    work = inventory_parts if inventory_parts is not None else [(number, sum(len(p) for p in parts[:number]), part) for number,part in enumerate(parts)]
+    for number,offset,part in work:
         stage(stage_callback,'inventory',number,len(parts))
         report['inventory_batches']+=1
         payload={'phase':'inventory','primary_source':serialize(part),
                  'boundary_context':serialize(lines[max(0,offset-5):offset]+lines[offset+len(part):offset+len(part)+5])}
-        offset+=len(part)
         try:
             try:
                 data=call(INVENTORY,payload,lambda value:inventory_response(value,part))
@@ -403,11 +410,14 @@ def _audit(engine, lines, sections, overview='', progress=None, stage_callback=N
             report['inventory_failures'].append({'batch':number+1,'start':part[0].id,
                 'end':part[-1].id,'error_type':type(error).__name__})
             if fail(error):
-                report['failed_batches']+=len(parts)-number-1
+                if inventory_parts is None:
+                    report['failed_batches']+=len(parts)-number-1
                 report['inventory_failed_batches']=report['failed_batches']
                 return report, inventory
     report['inventory_failed_batches']=report['failed_batches']
     if not supplied_inventory:stage(stage_callback,'inventory',len(parts),len(parts))
+    if inventory_only:
+        return report, inventory
     index={line.id:i for i,line in enumerate(lines)}
     for start in range(0,len(inventory),ITEM_LIMIT):
         stage(stage_callback,'coverage',start,len(inventory))
@@ -551,4 +561,43 @@ def _audit(engine, lines, sections, overview='', progress=None, stage_callback=N
     report['unresolved_items']=sum(item['status'] not in RESOLVED for item in report['items'])
     if not report['failed_batches'] and not report['unresolved_items'] and not report['ignored_boundary_items']:
         report['status']='model_reviewed'
+    return report, inventory
+
+
+def build_inventory(engine, lines, progress=None, stage_callback=None):
+    """Source-only inventory; isolate per-batch counters and assign IDs in order."""
+    from processing_parallel import bounded_map
+    from transcript_reading import batches
+    from reading_progress import stage
+    parts = list(batches(lines, SOURCE_LIMIT))
+    offset = 0
+    work = []
+    for number, part in enumerate(parts):
+        work.append((number, offset, part))
+        offset += len(part)
+    if progress:
+        progress()
+    stage(stage_callback, 'inventory', 0, len(parts))
+    results = bounded_map(
+        lambda item: _audit(engine, lines, [], inventory_only=True, inventory_parts=[item]),
+        work, workers=2, stop_when=lambda result: result[0]['terminal_provider_failure'])
+    # Use the same report schema even for an empty source.
+    report, _ = _audit(engine, [], [], inventory_only=True, inventory_parts=[])
+    inventory = []
+    for local, items in results:
+        for key, value in local.items():
+            if isinstance(value, bool):
+                report[key] |= value
+            elif isinstance(value, int):
+                report[key] += value
+            elif isinstance(value, list):
+                report[key].extend(value)
+        for item in items:
+            prefix = item['id'].split('.')[0]
+            inventory.append({**item, 'id': f'{prefix}.{len(inventory)+1}'})
+    report['failed_batches'] += len(parts) - len(results)
+    report['inventory_failed_batches'] = report['failed_batches']
+    if progress:
+        progress()
+    stage(stage_callback, 'inventory', len(results), len(parts))
     return report, inventory
