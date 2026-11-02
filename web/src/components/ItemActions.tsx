@@ -1,4 +1,5 @@
-import type {ReactNode} from 'react'
+import {useRef,type ReactNode} from 'react'
+import {useOutsideInteraction} from '../lib/outsideInteraction'
 
 /** Keep destructive choices identical for episodes and videos. */
 export default function ItemActions({title, kind, busy, hasSummary, onDeleteSummary, onDeleteItem, children}: {
@@ -17,4 +18,15 @@ export default function ItemActions({title, kind, busy, hasSummary, onDeleteSumm
         onClick={onDeleteItem}>Delete {kind}</button>
     </div>
   </details>
+}
+
+/** One outside-interaction listener per list, regardless of its item count. */
+export function useItemActionList() {
+  const list=useRef<HTMLDivElement>(null)
+  useOutsideInteraction(target=>{
+    list.current?.querySelectorAll<HTMLDetailsElement>('details[open]').forEach(menu=>{
+      if(!menu.contains(target))menu.open=false
+    })
+  })
+  return list
 }

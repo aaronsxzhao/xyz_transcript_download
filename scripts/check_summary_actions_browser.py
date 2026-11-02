@@ -7,6 +7,17 @@ from scripts.check_appearance import context_for,choose
 from scripts.check_library_browser import serve,fixtures
 from playwright.async_api import async_playwright
 
+async def confirm_action(page, button, accept):
+ done=asyncio.get_running_loop().create_future()
+ async def handle(dialog):
+  try:
+   await (dialog.accept() if accept else dialog.dismiss())
+   done.set_result(dialog.message)
+  except Exception as error:done.set_exception(error)
+ page.once('dialog',handle)
+ await button.click()
+ return await done
+
 async def main():
  server=serve(Path('web/dist').resolve())
  try:
@@ -43,16 +54,15 @@ async def main():
       await page.get_by_role('button',name='Delete summary only',exact=True).wait_for()
       assert await page.get_by_role('button',name='Delete '+kind,exact=True).is_visible()
       assert await page.evaluate('document.documentElement.scrollWidth<=innerWidth+1')
+      await page.get_by_role('combobox',name='Interface style').focus()
+      assert not await page.get_by_role('button',name='Delete summary only',exact=True).is_visible()
+      await menu.click()
       await menu.press('Escape')
      await menu.click()
-     async with page.expect_event('dialog') as dialog:
-      await page.get_by_role('button',name='Delete summary only',exact=True).click()
-     await (await dialog.value).dismiss()
+     await confirm_action(page,page.get_by_role('button',name='Delete summary only',exact=True),False)
      await page.wait_for_function("[...document.querySelectorAll('button')].some(b=>b.textContent==='Delete summary only'&&!b.disabled)")
      assert not calls
-     async with page.expect_event('dialog') as dialog:
-      await page.get_by_role('button',name='Delete summary only',exact=True).click()
-     await (await dialog.value).accept()
+     await confirm_action(page,page.get_by_role('button',name='Delete summary only',exact=True),True)
      await page.wait_for_function("[...document.querySelectorAll('button')].some(b=>b.textContent==='Delete summary only'&&b.disabled)")
      await page.get_by_role('button',name='Process',exact=True).wait_for()
      assert calls==(['/api/summaries/bench'] if kind=='episode' else ['/api/video-notes/tasks/bench/summary'])
@@ -61,8 +71,7 @@ async def main():
      await page.reload()
      await page.get_by_label('More actions for '+title,exact=True).click()
      assert await page.get_by_role('button',name='Delete summary only',exact=True).is_disabled()
-     page.once('dialog',lambda d:d.accept())
-     await page.get_by_role('button',name='Delete '+kind,exact=True).click()
+     await confirm_action(page,page.get_by_role('button',name='Delete '+kind,exact=True),True)
      await page.get_by_role('heading',name=title,exact=True).wait_for(state='detached')
      assert len(calls)==2 and removed
      assert not errors,errors

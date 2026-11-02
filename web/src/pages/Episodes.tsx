@@ -1,4 +1,4 @@
-import ItemActions from '../components/ItemActions'
+import ItemActions,{useItemActionList} from '../components/ItemActions'
 import {TaskProgress} from '../components/TaskStatus'
 import ContentDates from '../components/ContentDates'
 import SourceAccessNotice,{sourceBlocked} from '../components/SourceAccessNotice'
@@ -23,6 +23,7 @@ function cachedHasMore(rows:Episode[],count?:number) {
 }
 
 export default function Episodes() {
+  const actionList=useItemActionList()
   const { pid } = useParams<{ pid: string }>()
   const cachedPodcast = () => getCache<Podcast>(CacheKeys.PODCAST(pid!))
     || getCache<Podcast[]>(CacheKeys.PODCASTS)?.find(item => item.pid === pid) || null
@@ -297,7 +298,7 @@ export default function Episodes() {
       </div>}
       {!loading && !error && episodes.length === 0 && <p className="text-gray-400">No episodes saved yet.</p>}
       {/* Episodes list */}
-      <div className="space-y-3">
+      <div ref={actionList} className="space-y-3">
         {episodes.map((episode) => (
           <div
             key={episode.eid}

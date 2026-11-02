@@ -1,5 +1,4 @@
-import ItemActions from '../components/ItemActions'
-import {useOutsideInteraction} from '../lib/outsideInteraction'
+import ItemActions,{useItemActionList} from '../components/ItemActions'
 import { videoFailureHint } from '../lib/videoFailure'
 import {sourceAction,TaskProgress} from '../components/TaskStatus'
 import ContentDates from '../components/ContentDates'
@@ -569,7 +568,6 @@ export default function Videos() {
           <><VideoList
             videos={sortedChannelTasks}
             onDelete={handleDelete}
-            onDeleteSummary={id=>handleDelete(id,true)}
             onRetry={handleRetry}
             onCancel={handleCancel}
           />{channelCursor && <button disabled={channelRefreshing || search !== channelQuery || loadedChannelFilter !== channelFilter} className="block mx-auto mt-4 px-4 py-2 bg-dark-surface rounded" onClick={()=>void loadChannelTasks(view.platform,view.channel,{cursor:channelCursor})}>{channelRefreshing ? 'Loading videos…' : 'Show more videos'}</button>}</>
@@ -731,20 +729,14 @@ function getDisplayTitle(task: VideoTask): string {
 }
 
 
-function VideoList({ videos, onDelete, onDeleteSummary, onRetry, onCancel }: {
+function VideoList({ videos, onDelete, onRetry, onCancel }: {
   videos: VideoTask[]
-  onDeleteSummary: (id: string) => Promise<void>
-  onDelete: (id: string) => Promise<void>
+  onDelete: (id: string, summaryOnly?:boolean) => Promise<void>
   onRetry: (id: string) => Promise<void>
   onCancel: (id: string) => Promise<void>
 }) {
   const navigate = useNavigate()
-  const list = useRef<HTMLDivElement>(null)
-  useOutsideInteraction(target => {
-    for (const menu of list.current?.querySelectorAll<HTMLDetailsElement>('.task-more[open]') || []) {
-      if (!menu.contains(target)) menu.open = false
-    }
-  })
+  const actionList=useItemActionList()
   const activeActions = useRef(new Set<string>())
   const [pending, setPending] = useState(new Set<string>())
   const runAction = async (id:string, action:(id:string)=>Promise<void>) => {
@@ -780,7 +772,7 @@ function VideoList({ videos, onDelete, onDeleteSummary, onRetry, onCancel }: {
   }
 
   return (
-    <div ref={list} className="space-y-3 video-task-list">
+    <div ref={actionList} className="space-y-3 video-task-list">
       {videos.map((task,index) => {
         const isFailed = task.status === 'failed'
         const errorMsg = task.message && task.message !== 'Failed' ? task.message : task.error || ''
@@ -942,7 +934,7 @@ function VideoList({ videos, onDelete, onDeleteSummary, onRetry, onCancel }: {
 
               <ItemActions title={displayTitle} kind="video" busy={pending.has(task.id)}
                 hasSummary={task.status!=='discovered' && !isProcessing(task.status)}
-                onDeleteSummary={()=>void runAction(task.id,onDeleteSummary)} onDeleteItem={()=>void runAction(task.id,onDelete)}>
+                onDeleteSummary={()=>void runAction(task.id,id=>onDelete(id,true))} onDeleteItem={()=>void runAction(task.id,onDelete)}>
                     {task.status === 'success' && (
                       <button
                         disabled={pending.has(task.id)} aria-busy={pending.has(task.id)} onClick={() => void runAction(task.id, onRetry)}
