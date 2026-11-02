@@ -109,9 +109,10 @@ def test_video_database_flush_preserves_the_progress_event_version():
     from api.supabase_db import SupabaseDatabase
     from unittest.mock import Mock
     db=SupabaseDatabase.__new__(SupabaseDatabase);db.client=Mock()
+    db.client.rpc.return_value.execute.return_value.data='applied'
     timestamp='2026-10-26T15:46:28.948908+00:00'
     db.update_video_task('video',{'status':'summarizing','updated_at':timestamp})
-    assert db.client.table.return_value.update.call_args.args[0]['updated_at']==timestamp
+    assert db.client.rpc.call_args.args[1]['p_patch']['updated_at']==timestamp
 
 
 @pytest.mark.asyncio

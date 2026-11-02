@@ -1766,7 +1766,11 @@ def cancel_task(
         _cancelled_tasks.add(task_id)
 
     next_status = "cancelled" if task["status"] == "pending" else "cancelling"
-    db.update_task(task_id, {"status": next_status, "message": "Cancelled" if next_status == "cancelled" else "Stopping safely…"})
+    outcome = db.update_task(task_id, {"status": next_status, "message": "Cancelled" if next_status == "cancelled" else "Stopping safely…"})
+    if outcome in ('stale', 'terminal'):
+        latest = db.get_task(task_id, user_id)
+        if latest:
+            next_status = latest['status']
     _invalidate_list_cache(user_id)
     logger.info(f"Cancel requested for video task: {task_id}")
     return {"message": "Cancel requested", "task_id": task_id, "status": next_status}

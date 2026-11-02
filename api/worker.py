@@ -205,7 +205,19 @@ class Worker:
             processing.update_job_status(row['task_id'],state,0,message)
         else:
             from video_task_db import get_video_task_db
-            get_video_task_db().update_task(row['task_id'],{'status':state,'message':message})
+            # Terminal recovery must carry the same work identity as ordinary
+            # progress; an expired attempt cannot fail a newer retry.
+            recovery = Execution(row['user_id'], row.get('source_id', row['task_id']), self.store,
+                                 queue_id=row['id'], lease_owner=self.ident)
+            try:
+                with bind(recovery):
+                    from summary_errors import ProcessingCancelledError
+                    try:
+                        get_video_task_db().update_task(row['task_id'],{'status':state,'message':message})
+                    except ProcessingCancelledError:
+                        get_video_task_db().update_task(row['task_id'],{'status':'cancelled','message':'Cancelled'})
+            except ProcessingPaused:
+                pass  # A newer worker owns the task now.
 
 
 if __name__=='__main__':
