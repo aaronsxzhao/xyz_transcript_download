@@ -16,3 +16,11 @@
 }
 .app-shell .bilibili-parts .ui-button-primary:not(:disabled) { background:var(--ui-accent-fill,#4f46e5); border-color:var(--ui-accent-fill,#4f46e5); color:#fff; }
 .app-shell .bilibili-parts .ui-button-primary:hover:not(:disabled) { filter:brightness(1.08); }
+.bilibili-collection-title { margin-top:10px; font-weight:600; overflow-wrap:anywhere; }
+.bilibili-part-navigation { display:flex; justify-content:space-between; gap:8px; margin:12px 0; }
+.bilibili-part-navigation > * { min-width:0; max-width:50%; white-space:normal; overflow-wrap:anywhere; }
+.bilibili-part-navigation [aria-disabled] { opacity:.5; }
+.bilibili-directory > summary { cursor:pointer; padding:10px 0; font-weight:600; }
+.bilibili-part-number { display:block; color:var(--ui-muted); font-size:12px; font-weight:600; margin-bottom:4px; }
+.bilibili-part-row[data-unavailable] .bilibili-part-label { color:inherit; opacity:1; }
+.bilibili-part-row[data-current] { box-shadow:inset 3px 0 var(--ui-accent,#a5b4fc); background:var(--ui-tint,#818cf824); }
