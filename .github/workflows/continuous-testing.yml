@@ -61,6 +61,11 @@ jobs:
           git archive "$BASE_REVISION" web/dist | tar -x -C /tmp/library-baseline
           pip install playwright
           python -m playwright install --with-deps chromium webkit
+      - name: Check multipart reader horizontal bounds
+        timeout-minutes: 5
+        run: |
+          python scripts/check_bilibili_parts_browser.py
+          python scripts/check_bilibili_parts_browser.py --webkit
       - name: Check Editorial Chinese font rendering
         timeout-minutes: 3
         run: |

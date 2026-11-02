@@ -532,3 +532,7 @@ html[data-design][data-theme] .dashboard-page .dashboard-recent-notes .reading-h
   background:transparent;
   border-radius:0;
 }
+
+/* Keep horizontal gestures inside wide reading content, including on touch. */
+.app-shell>main:has(.unified-reader) { overflow-x:hidden; overscroll-behavior-x:none; }
+.unified-reader :is(.markdown-table,pre,.summary-code) { overscroll-behavior-x:contain; }

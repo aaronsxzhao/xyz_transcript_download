@@ -19,3 +19,7 @@
 .note-prose .markdown-table { max-width:100%; min-width:0; }
 .note-prose .markdown-table table { display:table; width:100%; min-width:480px; max-width:none; }
 .note-prose .markdown-table:focus-visible { outline:2px solid var(--ui-accent,#818cf8); outline-offset:2px; }
+
+/* Wide math belongs to its own scroller, never the page's reading column. */
+.note-prose .katex-display { max-width:100%; overflow-x:auto; overflow-y:hidden; overscroll-behavior-x:contain; }
+.note-prose .katex-display>.katex { width:max-content; min-width:100%; }
