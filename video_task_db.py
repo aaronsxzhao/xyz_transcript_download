@@ -15,6 +15,7 @@ from typing import List, Optional, Generator
 
 from config import DATABASE_PATH, USE_SUPABASE
 from logger import get_logger
+from video_write_order import serialized_video_write
 
 logger = get_logger("video_task_db")
 UNKNOWN_CHANNEL_SENTINEL = "__unknown__"
@@ -251,6 +252,7 @@ class _SQLiteVideoTaskDB:
                 ).fetchall()
             return [self._row_to_dict(r) for r in rows]
 
+    @serialized_video_write
     def update_task(self, task_id: str, updates: dict):
         allowed = {
             "status", "progress", "message", "markdown", "transcript_json", "task_dismissed",
@@ -505,13 +507,15 @@ class _SupabaseVideoTaskDB:
             return True
         return False
 
+    @serialized_video_write
     def _flush(self, task_id: str, strict: bool = False):
         import time
         with self._lock:
             pending = self._dirty.pop(task_id, None)
         if pending:
+            outcome = None
             try:
-                self._sb.update_video_task(task_id, pending)
+                outcome = self._sb.update_video_task(task_id, pending)
             except Exception as e:
                 logger.warning(f"Supabase flush failed for {task_id}: {e}")
                 with self._lock:
@@ -520,7 +524,23 @@ class _SupabaseVideoTaskDB:
                     self._dirty[task_id] = pending
                 if strict:
                     raise RuntimeError('Your notes could not be saved. Please retry.') from e
+            else:
+                if outcome in ('stale', 'terminal', 'not_found', 'lease_rejected', 'cancel_requested'):
+                    # A rejected old event is not retryable transport work.
+                    with self._lock:
+                        self._cache.pop(task_id, None)
+                    if outcome == 'cancel_requested':
+                        from processing_execution import CURRENT
+                        from summary_errors import ProcessingCancelledError
+                        execution = CURRENT.get()
+                        if execution: execution.cancelled = True
+                        raise ProcessingCancelledError('Cancelled')
+                    if outcome == 'lease_rejected':
+                        from processing_execution import ProcessingPaused
+                        raise ProcessingPaused()
+                    return outcome
             self._last_flush[task_id] = time.monotonic()
+            return outcome
 
     def create_task(self, task_data: dict) -> str:
         task_id = task_data.get("id") or str(uuid.uuid4())[:12]
@@ -532,6 +552,7 @@ class _SupabaseVideoTaskDB:
             self._cache[task_id] = dict(task_data, id=task_id, user_id=user_id)
         return result
 
+    @serialized_video_write
     def update_task(self, task_id: str, updates: dict):
         # Version every in-memory progress event, not only the later DB flush.
         # Otherwise cached progress overwrites the DB's fresh timestamp and
@@ -549,7 +570,7 @@ class _SupabaseVideoTaskDB:
             self._dirty[task_id] = dirty
 
         if self._should_flush(task_id, updates):
-            self._flush(task_id)
+            return self._flush(task_id)
 
     def get_task(self, task_id: str, user_id: str = None, include_transcript: bool = True) -> Optional[dict]:
         if not user_id:
@@ -829,8 +850,9 @@ class VideoTaskDB:
         from api.source_discovery import save_discoveries
         return save_discoveries(self._backend, rows, user_id)
 
+    @serialized_video_write
     def update_task(self, task_id: str, updates: dict):
-        self._backend.update_task(task_id, updates)
+        return self._backend.update_task(task_id, updates)
 
     def get_task(self, task_id: str, user_id: str = None, include_transcript: bool = True) -> Optional[dict]:
         from article_markdown import readable_article_task
@@ -956,6 +978,7 @@ class VideoTaskDB:
     def get_version(self, task_id: str, version_id: str) -> Optional[dict]:
         return self._backend.get_version(task_id, version_id)
 
+    @serialized_video_write
     def complete_task(self, task_id: str, content: str, style: str, model: str, user_id: str = None, warning: str = '', version_id: str = None):
         """Persist the final note and its version together before exposing success."""
         version_id = version_id or str(uuid.uuid4())

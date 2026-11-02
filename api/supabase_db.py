@@ -1014,7 +1014,16 @@ class SupabaseDatabase:
             except (json.JSONDecodeError, TypeError):
                 fields["formats"] = []
         fields["updated_at"] = updates.get('updated_at') or datetime.now(timezone.utc).isoformat()
-        self.client.table("video_tasks").update(fields).eq("id", task_id).execute()
+        from processing_execution import CURRENT
+        execution = CURRENT.get()
+        params = {'p_task': task_id, 'p_patch': fields}
+        if execution and execution.queue_id:
+            params.update(p_work=execution.queue_id, p_worker=execution.lease_owner,
+                          p_user=execution.owner)
+        outcome = self.client.rpc('update_video_task_ordered', params).execute().data
+        if outcome not in {'applied', 'stale', 'terminal', 'not_found', 'lease_rejected', 'cancel_requested'}:
+            raise RuntimeError('Task write was not confirmed')
+        return outcome
 
     def get_video_task(self, task_id: str, user_id: str = None, include_transcript: bool = True) -> Optional[dict]:
         """Get a video task by ID."""
