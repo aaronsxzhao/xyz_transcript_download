@@ -1,0 +1,18 @@
+
+> podcast-transcript-web@1.0.0 test
+> vitest run tests/video-reader-state.test.tsx
+
+
+ RUN  v5.0.5 /workspace/xyz-audit-nov02/web
+
+
+ Test Files  1 passed (1)
+      Tests  33 passed (33)
+   Start at  10:01:48
+   Duration  1.16s (tests 40%, environment 32%, transform 18%, import 10%)
+
+npm notice
+npm notice New major version of npm available! 11.9.0 -> 12.2.1
+npm notice Changelog: https://github.com/npm/cli/releases/tag/v12.2.1
+npm notice To update run: npm install -g npm@12.2.1
+npm notice

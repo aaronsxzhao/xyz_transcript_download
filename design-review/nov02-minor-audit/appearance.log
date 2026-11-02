@@ -1,0 +1,30 @@
+{"width": 390, "path": "/", "appearances": 4, "round_trip": "passed"}
+{"width": 390, "path": "/library", "appearances": 4, "round_trip": "passed"}
+{"width": 390, "path": "/settings", "appearances": 4, "round_trip": "passed"}
+{"width": 390, "path": "/podcasts?platform=xiaoyuzhou", "appearances": 4, "round_trip": "passed"}
+{"width": 390, "path": "/podcasts/show/episodes", "appearances": 4, "round_trip": "passed"}
+{"width": 390, "path": "/videos", "appearances": 4, "round_trip": "passed"}
+{"width": 390, "path": "/videos/bench", "appearances": 4, "round_trip": "passed"}
+{"width": 390, "path": "/viewer/bench", "appearances": 4, "round_trip": "passed"}
+{"width": 390, "auth_draft_focus_layout": "passed"}
+{"width": 820, "path": "/", "appearances": 4, "round_trip": "passed"}
+{"width": 820, "path": "/library", "appearances": 4, "round_trip": "passed"}
+{"width": 820, "path": "/settings", "appearances": 4, "round_trip": "passed"}
+{"width": 820, "path": "/podcasts?platform=xiaoyuzhou", "appearances": 4, "round_trip": "passed"}
+{"width": 820, "path": "/podcasts/show/episodes", "appearances": 4, "round_trip": "passed"}
+{"width": 820, "path": "/videos", "appearances": 4, "round_trip": "passed"}
+{"width": 820, "path": "/videos/bench", "appearances": 4, "round_trip": "passed"}
+{"width": 820, "path": "/viewer/bench", "appearances": 4, "round_trip": "passed"}
+{"width": 820, "auth_draft_focus_layout": "passed"}
+{"width": 1440, "path": "/", "appearances": 4, "round_trip": "passed"}
+{"width": 1440, "path": "/library", "appearances": 4, "round_trip": "passed"}
+{"width": 1440, "path": "/settings", "appearances": 4, "round_trip": "passed"}
+{"width": 1440, "path": "/podcasts?platform=xiaoyuzhou", "appearances": 4, "round_trip": "passed"}
+{"width": 1440, "path": "/podcasts/show/episodes", "appearances": 4, "round_trip": "passed"}
+{"width": 1440, "path": "/videos", "appearances": 4, "round_trip": "passed"}
+{"width": 1440, "path": "/videos/bench", "appearances": 4, "round_trip": "passed"}
+{"width": 1440, "path": "/viewer/bench", "appearances": 4, "round_trip": "passed"}
+{"width": 1440, "auth_draft_focus_layout": "passed"}
+{"blocked": "keeps usable Classic"}
+{"stalled-switch": "keeps usable Classic"}
+{"stalled-startup": "keeps usable Classic"}

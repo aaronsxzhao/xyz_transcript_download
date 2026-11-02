@@ -1,0 +1,12 @@
+{"design": "classic", "theme": "dark", "width": 320, "page": true, "main": true, "panel": true, "list": true, "stable": true, "selection_feedback": true}
+{"design": "classic", "theme": "dark", "width": 390, "page": true, "main": true, "panel": true, "list": true, "stable": true, "selection_feedback": true}
+{"design": "classic", "theme": "dark", "width": 820, "page": true, "main": true, "panel": true, "list": true, "stable": true, "selection_feedback": true}
+{"design": "classic", "theme": "light", "width": 320, "page": true, "main": true, "panel": true, "list": true, "stable": true, "selection_feedback": true}
+{"design": "classic", "theme": "light", "width": 390, "page": true, "main": true, "panel": true, "list": true, "stable": true, "selection_feedback": true}
+{"design": "classic", "theme": "light", "width": 820, "page": true, "main": true, "panel": true, "list": true, "stable": true, "selection_feedback": true}
+{"design": "editorial", "theme": "light", "width": 320, "page": true, "main": true, "panel": true, "list": true, "stable": true, "selection_feedback": true}
+{"design": "editorial", "theme": "light", "width": 390, "page": true, "main": true, "panel": true, "list": true, "stable": true, "selection_feedback": true}
+{"design": "editorial", "theme": "light", "width": 820, "page": true, "main": true, "panel": true, "list": true, "stable": true, "selection_feedback": true}
+{"design": "editorial", "theme": "dark", "width": 320, "page": true, "main": true, "panel": true, "list": true, "stable": true, "selection_feedback": true}
+{"design": "editorial", "theme": "dark", "width": 390, "page": true, "main": true, "panel": true, "list": true, "stable": true, "selection_feedback": true}
+{"design": "editorial", "theme": "dark", "width": 820, "page": true, "main": true, "panel": true, "list": true, "stable": true, "selection_feedback": true}
