@@ -9,7 +9,7 @@ from summary_errors import is_cancellation
 
 VERSION = 'coverage-ledger-v12-meaning-first'
 SOURCE_LIMIT = 12000
-ITEM_LIMIT = 8
+ITEM_LIMIT = 16
 KINDS = {'claim', 'experiment', 'counterexample', 'condition', 'disagreement', 'procedure', 'example'}
 RESOLVED = {'covered', 'context_only'}
 INVENTORY = '''Read every primary source line BEFORE seeing any summary. Extract a
@@ -116,6 +116,8 @@ def request(engine, system, payload, validate):
     from reading_editor import call_editor
     # Copyediting instructions over-constrain semantic matching into literal recall.
     contract = '' if payload.get('phase') in {'match','validate_inventory'} else SOURCE_FIDELITY
+    if getattr(engine, '_quality_attempt', 0) and payload.get('phase') != 'inventory':
+        payload = {**payload, 'review_attempt':engine._quality_attempt}
     return call_editor(engine.client, engine.model, contract + '\nReturn valid JSON only.\n' + system,
                        # Matching reads the whole evolving draft. Long-source
                        # reviews need more headroom than source-local calls.
@@ -216,6 +218,9 @@ def invalidate_support(report, paragraph_ids):
 
 def audit(engine, lines, sections, overview='', progress=None, stage_callback=None, *, prepared_inventory=None):
     """Run one bounded recovery of unresolved items against the final draft."""
+    if getattr(engine, 'quality_coverage_threshold', None) is not None:
+        return efficient_audit(engine, lines, sections, overview, progress, stage_callback,
+                               prepared_inventory=prepared_inventory)
     report, inventory = _audit(engine, lines, sections, overview, progress, stage_callback, prepared_inventory=prepared_inventory)
     report['recovery_rounds'] = 0
     report.setdefault('corrected_inventory_items', [])
@@ -307,7 +312,8 @@ def _correct_inventory(engine, lines, items, report, progress, stage_callback, m
 
 
 def _audit(engine, lines, sections, overview='', progress=None, stage_callback=None, *, inventory=None,
-           prepared_inventory=None, inventory_only=False, inventory_parts=None):
+           prepared_inventory=None, inventory_only=False, inventory_parts=None,
+           matching_only=False, initial_rows=None):
     """Mutate only by appending independently accepted local repairs.
 
     Inventories see no draft. Matching sees the whole evolving draft. A failed
@@ -447,10 +453,12 @@ def _audit(engine, lines, sections, overview='', progress=None, stage_callback=N
             return result['matches']+contextual
         rows=[]
         try:
-            rows=match(sections)
+            rows=([copy.deepcopy(initial_rows[item['id']]) for item in items]
+                  if initial_rows is not None and all(item['id'] in initial_rows for item in items)
+                  else match(sections))
             by_id={row['item_id']:row for row in rows}
             gaps=[item for item in items if by_id[item['id']]['status'] in {'partial','missing'}]
-            if gaps:
+            if gaps and not matching_only:
                 failed_before=report['inventory_validation_failed_batches']
                 corrections=_correct_inventory(engine,lines,gaps,report,progress,stage_callback,rows)
                 if report['inventory_validation_failed_batches']!=failed_before:
@@ -468,7 +476,7 @@ def _audit(engine, lines, sections, overview='', progress=None, stage_callback=N
                     rows=match(sections)
                     by_id={row['item_id']:row for row in rows}
                     gaps=[item for item in items if by_id[item['id']]['status'] in {'partial','missing'}]
-            if gaps:
+            if gaps and not matching_only:
                 stage(stage_callback,'repair',start,len(inventory),fraction=(start+len(items)*.35)/len(inventory))
                 payload={'phase':'repair','items':gaps,'matches':rows,
                          'primary_source':serialize(evidence),'global_draft':draft_of(sections)}
@@ -549,6 +557,8 @@ def _audit(engine, lines, sections, overview='', progress=None, stage_callback=N
                                         'status':'unverified','paragraph_ids':[]} for item in inventory[start:])
                 break
         lookup={row['item_id']:row for row in rows}
+        if matching_only:
+            report.setdefault('matching_rows', {}).update(lookup)
         for item in items:
             row=lookup.get(item['id'],{})
             status=row.get('status','unverified')
@@ -562,6 +572,89 @@ def _audit(engine, lines, sections, overview='', progress=None, stage_callback=N
     if not report['failed_batches'] and not report['unresolved_items'] and not report['ignored_boundary_items']:
         report['status']='model_reviewed'
     return report, inventory
+
+
+def coverage_ratio(report):
+    """Exclude independently classified incidental context from the denominator."""
+    items = [item for item in report.get('items', []) if item['status'] != 'context_only']
+    return sum(item['status'] == 'covered' for item in items) / len(items) if items else 1.0
+
+
+def coverage_acceptable(report, threshold=.9):
+    return (not report.get('failed_batches') and not report.get('inventory_failed_batches')
+            and not report.get('inventory_validation_failed_batches')
+            and not report.get('ignored_boundary_items') and not report.get('terminal_provider_failure')
+            and not any(item['status'] == 'contradicted' for item in report.get('items', []))
+            and coverage_ratio(report) >= threshold)
+
+
+def efficient_audit(engine, lines, sections, overview='', progress=None, stage_callback=None,
+                    *, prepared_inventory=None, allow_repairs=True):
+    """Match an immutable draft in parallel, then repair only unresolved items.
+
+    No threads mutate prose. Accepted appended repairs retain existing evidence;
+    the delivery gate independently checks the final text for contradictions.
+    Stop at the configured material coverage threshold, never at a time quota.
+    """
+    from processing_parallel import bounded_map
+    report, inventory = prepared_inventory if prepared_inventory is not None else build_inventory(engine, lines, progress, stage_callback)
+    report, inventory = copy.deepcopy(report), copy.deepcopy(inventory)
+    inventory_report = copy.deepcopy(report)
+    report.update(items=[], recovery_rounds=0, corrected_inventory_items=[])
+    snapshot = copy.deepcopy(sections)
+    from reading_progress import stage
+    stage(stage_callback, 'coverage', 0, len(inventory))
+    chunks = [inventory[i:i+ITEM_LIMIT] for i in range(0, len(inventory), ITEM_LIMIT)]
+    results = bounded_map(lambda chunk: _audit(engine, lines, snapshot, overview,
+        inventory=chunk, matching_only=True), chunks, workers=2,
+        stop_when=lambda result: result[0]['terminal_provider_failure'])
+    receipts = {}
+    def add_counters(local):
+        for key in ('requests', 'repairs_accepted', 'repairs_rejected', 'validation_retries',
+                    'inventory_validation_failed_batches'):
+            report[key] = report.get(key, 0) + local.get(key, 0)
+        report['terminal_provider_failure'] |= local['terminal_provider_failure']
+        report['corrected_inventory_items'].extend(local.get('corrected_inventory_items', []))
+    lookup = {}
+    for local, _ in results:
+        add_counters(local)
+        receipts.update(local.get('matching_rows', {}))
+        lookup.update({item['id']:item for item in local['items']})
+    stage(stage_callback, 'coverage', len(lookup), len(inventory))
+    for item in inventory:
+        report['items'].append(lookup.get(item['id'], {'id':item['id'], 'kind':item['kind'],
+            'source_ranges':item['source_ranges'], 'status':'unverified', 'paragraph_ids':[]}))
+    report['grounding_concerns'] = any(not row.get('grounded') for row in receipts.values())
+    report['failed_batches'] += sum(local['failed_batches'] for local, _ in results) + len(chunks)-len(results)
+    threshold = engine.quality_coverage_threshold
+    pending = {item['id'] for item in report['items'] if item['status'] not in RESOLVED}
+    report['initial_unresolved_items'] = len(pending)
+    if allow_repairs and not coverage_acceptable(report, threshold) and not report['terminal_provider_failure']:
+        report['recovery_rounds'] = 1
+        gaps = [item for item in inventory if item['id'] in pending]
+        for start in range(0, len(gaps), ITEM_LIMIT):
+            if progress: progress()
+            # Receipts refer to the immutable initial draft. The repair sees the
+            # current draft and its additions require independent novelty checks.
+            local, corrected = _audit(engine, lines, sections, overview, progress, stage_callback,
+                inventory=gaps[start:start+ITEM_LIMIT], initial_rows=receipts)
+            add_counters(local)
+            updates = {item['id']:item for item in local['items']}
+            report['items'] = [updates.get(item['id'], item) for item in report['items']]
+            report['failed_batches'] = report['inventory_failed_batches'] + sum(
+                item['status']=='unverified' for item in report['items'])
+            changed = {item['id']:item for item in corrected}
+            inventory = [changed.get(item['id'],item) for item in inventory]
+            if coverage_acceptable(report, threshold) or report['terminal_provider_failure']: break
+    report['unresolved_items'] = sum(item['status'] not in RESOLVED for item in report['items'])
+    report['covered_items'] = sum(item['status']=='covered' for item in report['items'])
+    report['context_only_items'] = sum(item['status']=='context_only' for item in report['items'])
+    report['coverage_ratio'] = coverage_ratio(report)
+    report['threshold'] = threshold
+    report['status'] = ('model_reviewed' if not report['unresolved_items'] else 'acceptable') if coverage_acceptable(report, threshold) else 'unverified'
+    # Reuse source inventory, never extract it again when prose changes later.
+    engine._quality_inventory = (inventory_report, inventory)
+    return report
 
 
 def build_inventory(engine, lines, progress=None, stage_callback=None):

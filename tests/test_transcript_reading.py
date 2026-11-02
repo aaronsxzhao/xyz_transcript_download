@@ -351,9 +351,11 @@ def test_invalid_review_is_retried_while_completed_generation_is_reused():
     with bind(Execution('owner','source',store)):
         first=owner.generate_note('Title','Actual evidence.')
         second=owner.generate_note('Title','Actual evidence.')
-    assert 'Completeness is unverified' in first
+    assert 'Completeness is unverified' not in first
     assert 'Completeness is unverified' not in second
-    assert len(calls)==3 and len(reviews)==2 and len(store.values)==2
+    assert first == second
+    assert sum('mode' in call for call in calls) == 1
+    assert len(reviews) == 3 and len(store.values) == 3
 
 
 def test_podcast_disjoint_evidence_is_not_spliced_into_one_verbatim_quote():

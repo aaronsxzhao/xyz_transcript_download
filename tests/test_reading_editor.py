@@ -185,7 +185,9 @@ def test_new_short_and_long_generations_use_the_source_linked_pipeline(video,lon
     engine.chunk_chars=1 if long else 10000
     source='Complete source transcript. '* (1000 if long else 1)
     calls=[]
-    with patch('transcript_reading.call_json',side_effect=provider(calls)),patch.object(engine,'_edit_reading') as edit:
+    with patch('transcript_reading.call_json',side_effect=provider(calls)),patch.object(engine,'_edit_reading') as edit, \
+         patch('coverage_ledger.build_inventory',return_value=({},[])), \
+         patch('coverage_ledger.audit',return_value={'status':'model_reviewed'}):
         if video:result=engine.generate_note('Title',source)
         else:
             with patch('transcript_quality.validate_transcript'):

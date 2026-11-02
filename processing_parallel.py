@@ -1,11 +1,48 @@
 """Bounded independent work with inherited execution and cooperative cancellation."""
 import contextvars
 import threading
+import time
+from collections import deque
 from concurrent.futures import ThreadPoolExecutor, wait, FIRST_COMPLETED
 from contextlib import contextmanager
 
 _STOPS = contextvars.ContextVar('parallel_stops', default=())
-_MODEL_SLOTS = threading.BoundedSemaphore(4)
+class FairSemaphore:
+    """FIFO admission; a caller retains its place until acquired or cancelled."""
+    def __init__(self, capacity):
+        self.capacity = capacity
+        self.available = capacity
+        self.condition = threading.Condition()
+        self.waiters = deque()
+
+    def acquire(self):
+        ticket = object()
+        with self.condition:
+            self.waiters.append(ticket)
+            self.condition.notify_all()
+            try:
+                while True:
+                    check_cancelled()
+                    if self.waiters[0] is ticket and self.available:
+                        self.waiters.popleft()
+                        self.available -= 1
+                        self.condition.notify_all()
+                        return
+                    self.condition.wait(.1)
+            except BaseException:
+                self.waiters.remove(ticket)
+                self.condition.notify_all()
+                raise
+
+    def release(self):
+        with self.condition:
+            if self.available >= self.capacity:
+                raise ValueError('Slot released without acquisition')
+            self.available += 1
+            self.condition.notify_all()
+
+
+_MODEL_SLOTS = FairSemaphore(4)
 _OWNER_LOCK = threading.Lock()
 _OWNER_SLOTS = {}
 
@@ -86,15 +123,20 @@ def model_slot():
     execution = CURRENT.get()
     owner = execution.owner if execution else 'local'
     with _OWNER_LOCK:
-        entry = _OWNER_SLOTS.setdefault(owner, [threading.BoundedSemaphore(3), 0])
+        entry = _OWNER_SLOTS.setdefault(owner, [FairSemaphore(3), 0])
         entry[1] += 1
     acquired = []
+    started = time.monotonic()
     try:
         for semaphore in (entry[0], _MODEL_SLOTS):
-            while not semaphore.acquire(timeout=.1):
-                check_cancelled()
+            semaphore.acquire()
             acquired.append(semaphore)
             check_cancelled()
+        if execution:
+            with execution.lock:
+                metric = execution.metrics.setdefault('model.queue', {'seconds':0, 'calls':0})
+                metric['seconds'] += round(time.monotonic()-started, 3)
+                metric['calls'] += 1
         yield
     finally:
         for semaphore in reversed(acquired):

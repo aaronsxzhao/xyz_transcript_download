@@ -117,15 +117,14 @@ def main():
     (args.output_dir / 'report.json').write_text(json.dumps(dict(runs=results, requests=tracker.rows,
         peak_in_flight=tracker.peak, wall_seconds=time.monotonic()-tracker.started), ensure_ascii=False, indent=2))
     print(json.dumps([dict(part=r['part'], completed=r['completed'], seconds=r['seconds'],
+        delivery=r['generation'].get('delivery'),
         verification=r['generation'].get('verification', {}).get('status'),
         unresolved_items=r['generation'].get('coverage_ledger', {}).get('unresolved_items')) for r in results]))
     if not all(r['completed'] for r in results):
         raise SystemExit(1)
     # A saved note with review warnings is a completed generation, not a passed
     # quality check. Keep these outcomes distinct for future benchmark runners.
-    if not all(r['generation'].get('verification', {}).get('status') == 'model_reviewed'
-               and r['generation'].get('coverage_ledger', {}).get('status') == 'model_reviewed'
-               for r in results):
+    if not all(r['generation'].get('delivery', {}).get('status') == 'accepted' for r in results):
         raise SystemExit(2)
 
 

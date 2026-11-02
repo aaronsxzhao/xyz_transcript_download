@@ -133,9 +133,32 @@ def _call_editor(client, model, system, payload, timeout, *, output_tokens=None)
             options['reasoning_effort'] = 'medium'
     from processing_parallel import model_slot
     with model_slot():
-        response = client.with_options(timeout=timeout, max_retries=0).chat.completions.create(
-            model=model, messages=[{'role':'system','content':system}, {'role':'user','content':payload}],
-            response_format={'type':'json_object'}, temperature=0, **options)
+        import time
+        from processing_execution import CURRENT
+        execution = CURRENT.get()
+        try:
+            request_data = json.loads(payload)
+            phase = request_data.get('phase') or ('draft' if 'mode' in request_data else 'grounding')
+        except (ValueError, TypeError, AttributeError):
+            phase = 'other'
+        if phase not in {'draft','grounding','inventory','match','repair','validate_inventory','repair_grounding'}:
+            phase = 'other'
+        started = time.monotonic()
+        failed = False
+        try:
+            response = client.with_options(timeout=timeout, max_retries=0).chat.completions.create(
+                model=model, messages=[{'role':'system','content':system}, {'role':'user','content':payload}],
+                response_format={'type':'json_object'}, temperature=0, **options)
+        except BaseException:
+            failed = True
+            raise
+        finally:
+            if execution:
+                with execution.lock:
+                    metric = execution.metrics.setdefault('model.phase.'+phase, {'seconds':0,'calls':0})
+                    metric['seconds'] += round(time.monotonic()-started, 3)
+                    metric['calls'] += 1
+                    if failed: metric['failed_calls'] = metric.get('failed_calls',0)+1
     if not response.choices or response.choices[0].finish_reason not in (None, 'stop'):
         from summary_errors import SummaryOutputError
         raise SummaryOutputError(response.choices[0].finish_reason if response.choices else 'empty')

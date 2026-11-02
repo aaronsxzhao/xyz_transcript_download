@@ -34,9 +34,11 @@ async def test_new_generation_retains_quotes_through_save_read_and_export(client
         if 'mode' in data:
             result['sections']=[section([row],spoken_source(row['text']).strip()) for row in data['primary_source']]
         return result
-    # Mock only provider output: source association, persistence, APIs and exports
-    # run through their real code in both explicit generation modes.
-    with patch('transcript_reading.call_json',side_effect=response):
+    # Isolate the separately tested ledger; source association, persistence,
+    # APIs and exports run through real code in both generation modes.
+    with patch('transcript_reading.call_json',side_effect=response), \
+         patch('coverage_ledger.build_inventory',return_value=({},[])), \
+         patch('coverage_ledger.audit',return_value={'status':'model_reviewed'}):
         note=s.summarize(transcript,episode_title='New note')
     expected=[(first,'00:00:00'),(second,'00:00:31')]
     assert note is not None

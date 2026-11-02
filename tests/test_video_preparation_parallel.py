@@ -7,8 +7,9 @@ from processing_execution import Execution, bind
 
 
 @pytest.mark.parametrize('platform', ['youtube', 'douyin'])
-@pytest.mark.parametrize('cancel', [False, True])
-def test_visual_preparation_overlaps_transcription_and_joins_before_summary(monkeypatch, tmp_path, platform, cancel):
+@pytest.mark.parametrize('outcome', ['success', 'cancel', 'quality_blocked'])
+def test_visual_preparation_overlaps_transcription_and_joins_before_summary(monkeypatch, tmp_path, platform, outcome):
+    cancel = outcome == 'cancel'
     from api.routers import video_notes as routes
     from video_task_db import VideoTaskDB
     db = VideoTaskDB(tmp_path / 'video.db')
@@ -53,13 +54,20 @@ def test_visual_preparation_overlaps_transcription_and_joins_before_summary(monk
     summarizer = Mock()
     def summary(**kwargs):
         assert transcribed.is_set() and kwargs['visual_context'] == 'Visual evidence'
+        if outcome == 'quality_blocked':
+            from summary_errors import SummaryOutputError
+            raise SummaryOutputError('quality')
         return '# Complete notes\n\nGrounded content.'
     summarizer.generate_note.side_effect = summary
     monkeypatch.setattr('note_summarizer.get_note_summarizer', lambda **kwargs: summarizer)
     with bind(Execution('owner', 'source', Mock())):
         routes.process_video_note_sync(ident, 'https://www.youtube.com/watch?v=example', platform, 'detailed', ['summary'], 'medium', '', '', True, 4, 3, 3, 'owner')
     result = db.get_task(ident, 'owner')
-    assert result['status'] == ('cancelled' if cancel else 'success'), result['message']
+    expected = {'success':'success', 'cancel':'cancelled', 'quality_blocked':'failed'}[outcome]
+    assert result['status'] == expected, result['message']
+    if outcome == 'quality_blocked':
+        assert not result.get('markdown')
+        assert 'quality threshold' in result['error']
     if cancel:
         summarizer.generate_note.assert_not_called()
     assert factory.call_count == (2 if platform == 'youtube' else 1)
