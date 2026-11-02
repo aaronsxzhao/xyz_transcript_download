@@ -22,7 +22,7 @@ async def main():
      async def api(route):
       path=urlparse(route.request.url).path
       if path in ['/api/video-notes/tasks/bench','/api/video-notes/tasks/p2']:
-       current={**task,'id':path.rsplit('/',1)[-1]};await route.fulfill(json=current)
+       current={**task,'id':path.rsplit('/',1)[-1]};current['title']=task['title']+(' · P2' if current['id']=='p2' else '');await route.fulfill(json=current)
       elif path in ['/api/video-notes/collections/bench/parts','/api/video-notes/collections/p2/parts']:await route.fulfill(json={'parts':parts})
       else:await route.fallback()
      await context.route('**/api/**',api)
@@ -58,6 +58,8 @@ async def main():
       assert await scroller.evaluate('e=>{e.scrollLeft=100;return e.scrollWidth>e.clientWidth&&e.scrollLeft>0}'),selector
      await panel.locator('a[href="/videos/p2"]').click()
      await page.wait_for_url('**/videos/p2')
+     await page.get_by_role('heading',name=task['title']+' · P2',exact=True).wait_for()
+     await panel.locator('.bilibili-part-row').last.wait_for(state='attached')
      await page.locator('.katex-display').wait_for()
      assert await page.evaluate('()=>{const m=document.querySelector("main");m.scrollLeft=100;return m.scrollWidth<=m.clientWidth+1&&m.scrollLeft===0}'), 'Part navigation shifted the reading page'
      await panel.scroll_into_view_if_needed()
