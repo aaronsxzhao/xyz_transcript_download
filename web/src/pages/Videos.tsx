@@ -1,3 +1,4 @@
+import ItemActions from '../components/ItemActions'
 import {useOutsideInteraction} from '../lib/outsideInteraction'
 import { videoFailureHint } from '../lib/videoFailure'
 import {sourceAction,TaskProgress} from '../components/TaskStatus'
@@ -27,7 +28,7 @@ import { useToast } from '../components/Toast'
 import { markSeen, isNewItem } from '../lib/seen'
 import {
   fetchVideoChannels, fetchVideoTasksByChannel,
-  deleteVideoTask, deleteVideoChannel, retryVideoTask, cancelVideoTask,
+  deleteVideoChannel, retryVideoTask, cancelVideoTask,
   checkVideoChannelsForUpdates,
   type VideoTask, type VideoChannelStat,
 } from '../lib/api'
@@ -302,15 +303,14 @@ export default function Videos() {
     if(view.type==='videos')void loadChannelTasks(view.platform,view.channel,{preserveExisting:true})
   }
 
-  const handleDelete = async (taskId: string) => {
-    const title = channelTasks.find(task => task.id === taskId)?.title || 'this saved item'
-    if (!window.confirm(`Delete “${title}”? This removes the saved item and cannot be undone.`)) return
-    try {
-      await deleteVideoTask(taskId)
-      removeVideoTask(taskId)
-      setChannelTasks(prev => prev.filter(t => t.id !== taskId))
+  const handleDelete = async (taskId:string,summaryOnly=false) => {
+    const actions=await import('../lib/taskActions')
+    await (summaryOnly?actions.deleteSavedSummary:actions.deleteSavedItem)('video',taskId,channelTasks.find(task=>task.id===taskId)?.title || 'this video',addToast,(task?:VideoTask)=>{
+      if(task)useStore.getState().updateVideoTask(task)
+      else removeVideoTask(taskId)
+      setChannelTasks(rows=>task?rows.map(row=>row.id===taskId?task:row):rows.filter(row=>row.id!==taskId))
       loadChannels()
-    } catch (e) { addToast({ type: 'error', title: 'Could not delete video', message: e instanceof Error ? e.message : 'Please retry.' }) }
+    })
   }
   const handleRetry = async (taskId: string) => {
     try {
@@ -569,6 +569,7 @@ export default function Videos() {
           <><VideoList
             videos={sortedChannelTasks}
             onDelete={handleDelete}
+            onDeleteSummary={id=>handleDelete(id,true)}
             onRetry={handleRetry}
             onCancel={handleCancel}
           />{channelCursor && <button disabled={channelRefreshing || search !== channelQuery || loadedChannelFilter !== channelFilter} className="block mx-auto mt-4 px-4 py-2 bg-dark-surface rounded" onClick={()=>void loadChannelTasks(view.platform,view.channel,{cursor:channelCursor})}>{channelRefreshing ? 'Loading videos…' : 'Show more videos'}</button>}</>
@@ -730,8 +731,9 @@ function getDisplayTitle(task: VideoTask): string {
 }
 
 
-function VideoList({ videos, onDelete, onRetry, onCancel }: {
+function VideoList({ videos, onDelete, onDeleteSummary, onRetry, onCancel }: {
   videos: VideoTask[]
+  onDeleteSummary: (id: string) => Promise<void>
   onDelete: (id: string) => Promise<void>
   onRetry: (id: string) => Promise<void>
   onCancel: (id: string) => Promise<void>
@@ -938,15 +940,9 @@ function VideoList({ videos, onDelete, onRetry, onCancel }: {
                 </a>
               )}
 
-              {!isProcessing(task.status) && (
-                <details className="task-more" onKeyDown={event => {
-                  if (event.key === 'Escape') {
-                    event.currentTarget.open = false
-                    event.currentTarget.querySelector('summary')?.focus()
-                  }
-                }}>
-                  <summary className="ui-button" aria-label={`More actions for ${displayTitle}`}>More</summary>
-                  <div>
+              <ItemActions title={displayTitle} kind="video" busy={pending.has(task.id)}
+                hasSummary={task.status!=='discovered' && !isProcessing(task.status)}
+                onDeleteSummary={()=>void runAction(task.id,onDeleteSummary)} onDeleteItem={()=>void runAction(task.id,onDelete)}>
                     {task.status === 'success' && (
                       <button
                         disabled={pending.has(task.id)} aria-busy={pending.has(task.id)} onClick={() => void runAction(task.id, onRetry)}
@@ -956,16 +952,7 @@ function VideoList({ videos, onDelete, onRetry, onCancel }: {
                         <RefreshCw size={16} /><span>Re-Process</span>
                       </button>
                     )}
-                    <button
-                      disabled={pending.has(task.id)} aria-busy={pending.has(task.id)} onClick={() => void runAction(task.id, onDelete)}
-                      className="ui-button ui-button-danger"
-                      title="Delete video"
-                    >
-                      <Trash2 size={16} /><span>Delete video</span>
-                    </button>
-                  </div>
-                </details>
-              )}
+              </ItemActions>
 
               {isProcessing(task.status) && task.status !== 'cancelling' && (
                 <button

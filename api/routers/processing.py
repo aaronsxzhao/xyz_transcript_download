@@ -105,7 +105,7 @@ def _save_jobs_to_file():
 async def _persist_new_job(job):
     from api.job_persistence import save_job
     try:
-        await asyncio.to_thread(save_job, job)
+        await asyncio.to_thread(save_job, job, create=True)
         from execution_store import enabled, get_store
         if enabled() and job.source_url:
             from api.worker import podcast_payload
@@ -264,9 +264,17 @@ def _episode_url_from_db_episode(db_ep) -> str:
 def update_job_status(job_id: str, status: str, progress: float = 0, message: str = "",
                       episode_id: str = None, episode_title: str = None):
     """Update job status, persist to file, and notify clients."""
+    from processing_execution import CURRENT
+    execution = CURRENT.get()
+    if execution and status != 'cancelled': execution.check()
     checkpoint = None
     with _jobs_lock:
         if job_id in jobs:
+            previous = jobs[job_id].status
+            if previous in ('completed', 'failed', 'cancelled') and status != previous:
+                return
+            if previous == 'cancelling' and status not in ('cancelling', 'cancelled'):
+                return
             if not jobs[job_id].started_at and status not in ("pending","cancelling","completed","failed","cancelled"):
                 jobs[job_id].started_at = time.time()
             jobs[job_id].status = status
@@ -280,7 +288,7 @@ def update_job_status(job_id: str, status: str, progress: float = 0, message: st
             
             # Persist terminal/milestone states outside the request response;
             # cloud job history survives container filesystem replacement.
-            if status in ("completed", "failed", "cancelled") or progress % 10 < 1:
+            if status != previous or status in ("completed", "failed", "cancelled") or progress % 10 < 1:
                 _save_jobs_to_file_unlocked()
                 checkpoint = jobs[job_id].model_copy(deep=True)
         
@@ -291,6 +299,8 @@ def update_job_status(job_id: str, status: str, progress: float = 0, message: st
         from api.job_persistence import save_job
         try:
             save_job(checkpoint)
+        except ProcessingCancelledError:
+            raise
         except Exception:
             logger.warning("Cloud job-history update failed; local recovery record retained")
 
@@ -1155,7 +1165,7 @@ async def process_episode(
 
 def _refresh_worker_jobs(user_id, job_id=None):
     from execution_store import enabled, role
-    if not (USE_SUPABASE and enabled() and role() == 'api' and user_id): return
+    if not (USE_SUPABASE and enabled() and role() != 'worker' and user_id): return
     from api.job_persistence import client
     query=client().table('processing_jobs').select('payload').eq('user_id',user_id)
     query=query.eq('id',job_id) if job_id else query.order('updated_at',desc=True).limit(500)
@@ -1287,7 +1297,10 @@ async def cancel_job(job_id: str, user: Optional[User] = Depends(get_current_use
     # Broadcast update
     await broadcast_status(job_id)
     
-    return {"message": "Cancellation requested", "job_id": job_id, "status": next_status}
+    with _jobs_lock:
+        current = jobs.get(job_id)
+        winning_status = current.status if current else next_status
+    return {"message": "Cancellation requested", "job_id": job_id, "status": winning_status}
 
 
 @router.post("/jobs/{job_id}/retry")
@@ -1722,7 +1735,7 @@ async def batch_process(
     from api.job_persistence import save_jobs
     batch = [jobs[job_id] for job_id in job_ids]
     try:
-        await asyncio.to_thread(save_jobs, batch)
+        await asyncio.to_thread(save_jobs, batch, create=True)
     except Exception:
         with _jobs_lock:
             for job in batch:

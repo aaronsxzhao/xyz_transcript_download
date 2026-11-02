@@ -210,9 +210,20 @@ async def delete_summary(eid: str, user: Optional[User] = Depends(get_current_us
     if not has_summary:
         raise HTTPException(status_code=404, detail="Summary not found")
     
-    if not await run_sync(db.delete_summary, eid):
+    from api.routers import processing
+    with processing._jobs_lock:
+        busy = any(job.episode_id == eid and job.user_id == (user.id if user else None)
+                   and job.status not in ('completed','failed','cancelled') for job in processing.jobs.values())
+    from config import USE_SUPABASE
+    if busy and not USE_SUPABASE:
+        raise HTTPException(status_code=409, detail="Wait for processing to finish or cancel it before deleting the summary.")
+    try:
+        deleted = await run_sync(db.delete_summary, eid)
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    if not deleted:
         raise HTTPException(status_code=503, detail="Could not confirm summary deletion. Refresh before retrying.")
-    
+
     return {"message": "Summary deleted"}
 
 

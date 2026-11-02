@@ -367,6 +367,19 @@ class _SQLiteVideoTaskDB:
                 ).fetchone()
             return row[0] if row else 0
 
+    @serialized_video_write
+    def delete_summary(self, task_id: str, user_id: str = None) -> str:
+        with self._conn() as conn:
+            conn.execute('BEGIN IMMEDIATE')
+            row = conn.execute('SELECT status FROM video_tasks WHERE id=? AND user_id IS ?', (task_id,user_id)).fetchone()
+            if not row: return 'not_found'
+            if row[0] not in ('success','failed','cancelled','discovered'): return 'busy'
+            conn.execute('DELETE FROM video_task_versions WHERE task_id=?', (task_id,))
+            conn.execute("UPDATE video_tasks SET markdown='',status='discovered',progress=0,message='',error='',updated_at=? WHERE id=?",
+                         (datetime.now(timezone.utc).isoformat(),task_id))
+            conn.commit()
+            return 'applied'
+
     def delete_task(self, task_id: str, user_id: str = None) -> bool:
         with self._conn() as conn:
             if user_id:
@@ -747,6 +760,16 @@ class _SupabaseVideoTaskDB:
             predicate=lambda task: task.get("channel") == channel and task.get("platform") == platform,
         )
 
+    @serialized_video_write
+    def delete_summary(self, task_id: str, user_id: str = None) -> str:
+        outcome = self._sb.client.rpc('delete_user_video_summary', {'p_user':user_id,'p_task':task_id}).execute().data
+        if outcome == 'applied':
+            with self._lock:
+                self._cache.pop(task_id, None)
+                self._dirty.pop(task_id, None)
+                self._last_flush.pop(task_id, None)
+        return outcome
+
     def delete_task(self, task_id: str, user_id: str = None) -> bool:
         with self._lock:
             self._cache.pop(task_id, None)
@@ -962,6 +985,10 @@ class VideoTaskDB:
         # Fallback
         tasks = self._backend.list_tasks(user_id)
         return [t for t in tasks if t.get("channel") == channel and t.get("platform") == platform]
+
+    @serialized_video_write
+    def delete_summary(self, task_id: str, user_id: str = None) -> str:
+        return self._backend.delete_summary(task_id, user_id)
 
     def delete_task(self, task_id: str, user_id: str = None) -> bool:
         return self._backend.delete_task(task_id, user_id)

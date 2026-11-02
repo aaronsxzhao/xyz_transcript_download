@@ -1,3 +1,4 @@
+import ItemActions from '../components/ItemActions'
 import {TaskProgress} from '../components/TaskStatus'
 import ContentDates from '../components/ContentDates'
 import SourceAccessNotice,{sourceBlocked} from '../components/SourceAccessNotice'
@@ -5,8 +6,8 @@ import { lazy, useState, useEffect, useRef } from 'react'
 import {OptionalTool} from '../components/DeferredView'
 const LocalPodcastUpload=lazy(()=>import('../components/LocalPodcastUpload'))
 import { useParams, useNavigate, Link } from 'react-router-dom'
-import { ArrowLeft, Play, FileText, MessageSquare, Loader2, CheckCircle, Trash2, RefreshCw, Tag, Sparkles } from 'lucide-react'
-import { ApiError, fetchPodcast, fetchPodcasts, fetchEpisodes, processEpisode, deleteEpisode, resummarizeEpisode, type Podcast, type Episode } from '../lib/api'
+import { ArrowLeft, Play, FileText, MessageSquare, Loader2, CheckCircle, RefreshCw, Tag, Sparkles } from 'lucide-react'
+import { ApiError, fetchPodcast, fetchPodcasts, fetchEpisodes, getReadRevision, processEpisode, resummarizeEpisode, type Podcast, type Episode } from '../lib/api'
 import { useToast } from '../components/Toast'
 import { useStore } from '../lib/store'
 import { markSeen, isNewItem } from '../lib/seen'
@@ -218,9 +219,9 @@ export default function Episodes() {
       if (job.status !== 'completed' || !job.episode_id || completedJobsRef.current.has(job.job_id)) continue
       if (!episodes.some(episode => episode.eid === job.episode_id)) continue
       completedJobsRef.current.add(job.job_id)
-      const owner=getAccountId(),requestedPid=pid
+      const owner=getAccountId(),requestedPid=pid,revision=getReadRevision()
       void fetchEpisode(job.episode_id).then(fresh => {
-        if(owner===getAccountId()&&currentPid.current===requestedPid)
+        if(owner===getAccountId()&&currentPid.current===requestedPid&&revision===getReadRevision())
           changeEpisodes(previous => previous.map(episode => episode.eid === fresh.eid ? fresh : episode))
       }).catch(() => completedJobsRef.current.delete(job.job_id))
     }
@@ -244,37 +245,20 @@ export default function Episodes() {
     } finally {finishAction(episode.eid)}
   }
 
-  async function handleDelete(episode: Episode) {
-    if(actionLocks.current.has(episode.eid))return
-    if (!confirm(`Delete "${episode.title}"?\n\nThis will also delete any transcript and summary.`)) {
-      return
-    }
-    
+  async function handleDelete(episode:Episode,summaryOnly=false) {
     if(!beginAction(episode.eid,'delete'))return
-    const owner=getAccountId(),requestedPid=pid
+    const requestedPid=pid
     try {
-      await deleteEpisode(episode.eid)
-      if(owner!==getAccountId())return
-      removedEpisodes.current.add(episode.eid)
-      if(currentPid.current===requestedPid)changeEpisodes(previous => previous.filter(e => e.eid !== episode.eid))
-      addToast({
-        type: 'success',
-        title: 'Episode deleted',
-        message: episode.title,
+      const actions=await import('../lib/taskActions')
+      await (summaryOnly?actions.deleteSavedSummary:actions.deleteSavedItem)('episode',episode.eid,episode.title,addToast,()=>{
+        if(!summaryOnly)removedEpisodes.current.add(episode.eid)
+        if(currentPid.current===requestedPid)changeEpisodes(rows=>summaryOnly
+          ? rows.map(row=>row.eid===episode.eid?{...row,has_summary:false,key_points_count:0}:row)
+          : rows.filter(row=>row.eid!==episode.eid))
       })
-    } catch (err) {
-      if(owner!==getAccountId())return
-      console.error('Failed to delete episode:', err)
-      addToast({
-        type: 'error',
-        title: 'Failed to delete episode',
-        message: err instanceof Error ? err.message : undefined,
-      })
-    } finally {
-      finishAction(episode.eid)
-    }
+    } finally {finishAction(episode.eid)}
   }
-  
+
   function formatDuration(seconds: number): string {
     const mins = Math.floor(seconds / 60)
     return `${mins} min`
@@ -414,19 +398,9 @@ export default function Episodes() {
                   )
                 })()}
                 
-                {/* Delete button */}
-                <button
-                  onClick={() => handleDelete(episode)}
-                  disabled={!!pendingActions[episode.eid]}
-                  className="ui-button ui-button-icon ui-button-danger"
-                  title="Delete episode"
-                >
-                  {pendingActions[episode.eid] === 'delete' ? (
-                    <Loader2 size={16} className="animate-spin" />
-                  ) : (
-                    <Trash2 size={16} />
-                  )}
-                </button>
+                <ItemActions title={episode.title} kind="episode" busy={!!pendingActions[episode.eid]}
+                  hasSummary={episode.has_summary && !getActiveJob(episode.eid)}
+                  onDeleteSummary={()=>void handleDelete(episode,true)} onDeleteItem={()=>void handleDelete(episode)}/>
               </div>
             </div>
           </div>

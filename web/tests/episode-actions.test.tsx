@@ -4,10 +4,10 @@ import {createRoot} from 'react-dom/client'
 import {MemoryRouter,Routes,Route} from 'react-router-dom'
 import {beforeEach,afterEach,it,expect,vi} from 'vitest'
 import Episodes from '../src/pages/Episodes'
-import {fetchPodcast,fetchPodcasts,fetchEpisodes,fetchEpisode,processEpisode,deleteEpisode,ApiError,type Episode,type Podcast} from '../src/lib/api'
+import {fetchPodcast,fetchPodcasts,fetchEpisodes,fetchEpisode,processEpisode,deleteEpisode,authFetch,getReadRevision,ApiError,type Episode,type Podcast} from '../src/lib/api'
 import {CacheKeys,setCache,getCache,clearCache} from '../src/lib/cache'
 import {useStore} from '../src/lib/store'
-vi.mock('../src/lib/api',async load=>({...await load<object>(),fetchPodcast:vi.fn(),fetchPodcasts:vi.fn(),fetchEpisodes:vi.fn(),fetchEpisode:vi.fn(),processEpisode:vi.fn(),deleteEpisode:vi.fn()}))
+vi.mock('../src/lib/api',async load=>({...await load<object>(),fetchPodcast:vi.fn(),fetchPodcasts:vi.fn(),fetchEpisodes:vi.fn(),fetchEpisode:vi.fn(),processEpisode:vi.fn(),deleteEpisode:vi.fn(),authFetch:vi.fn(),getReadRevision:vi.fn(()=>0)}))
 const notify=vi.hoisted(()=>vi.fn())
 vi.mock('../src/components/Toast',()=>({useToast:()=>({addToast:notify})}))
 vi.mock('../src/components/LocalPodcastUpload',()=>({default:({onUploaded}:any)=><button onClick={()=>onUploaded({podcast:show('local'),episode:episode('uploaded')})}>Complete synthetic upload</button>}))
@@ -73,6 +73,7 @@ it('does not resurrect a confirmed deletion when an older episode snapshot arriv
  vi.mocked(fetchEpisodes).mockImplementationOnce(()=>new Promise(resolve=>{finish=resolve}))
  vi.mocked(deleteEpisode).mockResolvedValueOnce({message:'Deleted'})
  await mount();await act(async()=>card('one').querySelector<HTMLButtonElement>('[title="Delete episode"]')!.click())
+ await vi.waitFor(()=>expect(deleteEpisode).toHaveBeenCalledWith('one'))
  await act(async()=>finish([episode('one'),episode('two')]))
  expect(node.textContent).not.toContain('Episode one');expect(node.textContent).toContain('Episode two')
  expect(getCache<Episode[]>(CacheKeys.EPISODES('show'))?.map(row=>row.eid)).toEqual(['two'])
@@ -90,6 +91,7 @@ it('keeps pagination available after deleting a row while source counts are stal
  await mount()
  expect(node.textContent).toContain('Load more episodes')
  await act(async()=>card('0').querySelector<HTMLButtonElement>('[title="Delete episode"]')!.click())
+ await vi.waitFor(()=>expect(deleteEpisode).toHaveBeenCalledWith('0'))
  expect(node.textContent).toContain('Load more episodes')
 })
 it('keeps a full cached page pageable even when source counts are older',async()=>{
@@ -126,4 +128,25 @@ it('retains a new local upload when a pre-upload list snapshot arrives',async()=
  expect(node.textContent).toContain('Episode uploaded')
  expect(node.textContent).toContain('Episode two')
  expect(getCache<Episode[]>(CacheKeys.EPISODES('show'))?.map(row=>row.eid)).toEqual(['uploaded','one','two'])
+})
+
+it('keeps the episode after summary deletion and ignores an older completion read',async()=>{
+ vi.mocked(fetchEpisodes).mockResolvedValueOnce([{...episode('one'),has_summary:true,has_transcript:true}])
+ vi.mocked(getReadRevision).mockReturnValue(0)
+ let finish!:(value:Episode)=>void
+ vi.mocked(fetchEpisode).mockImplementationOnce(()=>new Promise(resolve=>{finish=resolve}))
+ vi.mocked(authFetch).mockImplementationOnce(async()=>{
+  vi.mocked(getReadRevision).mockReturnValue(1)
+  return new Response(JSON.stringify({message:'Summary deleted'}),{status:200})
+ })
+ await mount()
+ await act(async()=>useStore.getState().updateJob({job_id:'done',episode_id:'one',status:'completed',progress:100,message:'Complete'}))
+ await act(async()=>[...card('one').querySelectorAll('button')].find(button=>button.textContent==='Delete summary only')!.click())
+ await act(async()=>vi.dynamicImportSettled())
+ await vi.waitFor(()=>expect(authFetch).toHaveBeenCalledWith('/api/summaries/one',{method:'DELETE'}))
+ await act(async()=>finish({...episode('one'),has_summary:true,has_transcript:true}))
+ const saved=getCache<Episode[]>(CacheKeys.EPISODES('show'))!
+ expect(saved).toHaveLength(1);expect(saved[0].has_summary).toBe(false);expect(saved[0].has_transcript).toBe(true)
+ expect(deleteEpisode).not.toHaveBeenCalled()
+ expect(card('one').textContent).not.toContain('View')
 })

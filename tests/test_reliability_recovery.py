@@ -184,7 +184,8 @@ async def test_cloud_history_failure_keeps_new_job_retryable_without_blocking_lo
     import asyncio
     loop_thread = threading.get_ident()
     observed = []
-    def fail(job):
+    def fail(job, *, create=False):
+        assert create
         observed.append(threading.get_ident())
         raise RuntimeError('Cloud unavailable')
     monkeypatch.setattr('api.job_persistence.save_job', fail)

@@ -59,15 +59,17 @@ async def check(browser, origin, width, output):
                     result=await button.evaluate(CONTROL)
                     assert result['ratio']>=4.5,(design,theme,result)
                 await page.screenshot(path=str(output/f'{width}-{design}-{theme}-actions.png'))
-        async def cancel(dialog):
-            assert 'A saved video to keep' in dialog.message
-            await dialog.dismiss()
-        page.once('dialog',cancel)
-        await page.get_by_title('Delete video',exact=True).click()
+        async with page.expect_event('dialog') as dialog:
+            await page.get_by_title('Delete video',exact=True).click()
+        confirmation=await dialog.value
+        assert 'A saved video to keep' in confirmation.message
+        await confirmation.dismiss()
+        await page.wait_for_function("!document.querySelector('[title=\"Delete video\"]').disabled")
         assert not requests
         assert await page.locator('.video-task-list h3').count()==1
-        page.once('dialog',lambda d:d.accept())
-        await page.get_by_title('Delete video',exact=True).click()
+        async with page.expect_event('dialog') as dialog:
+            await page.get_by_title('Delete video',exact=True).click()
+        await (await dialog.value).accept()
         await page.locator('.video-task-list h3').wait_for(state='detached')
         assert requests==['DELETE'],requests
         await page.goto(origin+'/settings')

@@ -19,12 +19,13 @@ def client():
     return get_supabase_admin_client()
 
 
-def save_jobs(jobs):
+def save_jobs(jobs, *, create=False):
     from processing_execution import CURRENT
     execution = CURRENT.get()
     if execution and execution.deleted: return
     if not USE_SUPABASE:
         return
+    jobs = [job.model_copy(deep=True) for job in jobs]
     with ExitStack() as stack:
         for job_id in sorted({job.job_id for job in jobs}):
             stack.enter_context(_job_lock(job_id))
@@ -32,11 +33,41 @@ def save_jobs(jobs):
                  'updated_at': datetime.now(timezone.utc).isoformat()} for job in jobs
                 if job.user_id and job.job_id not in _deleted]
         if rows:
-            client().table('processing_jobs').upsert(rows).execute()
+            params = {'p_rows': rows, 'p_create': create}
+            if execution and execution.queue_id:
+                params.update(p_work=execution.queue_id, p_worker=execution.lease_owner)
+            receipts = client().rpc('save_processing_jobs_ordered', params).execute().data
+            for receipt in receipts:
+                outcome = receipt['outcome']
+                if outcome == 'lease_rejected':
+                    from processing_execution import ProcessingPaused
+                    if execution: execution.lease_lost = True
+                    raise ProcessingPaused()
+                if outcome == 'cancel_requested':
+                    from summary_errors import ProcessingCancelledError
+                    if execution: execution.cancelled = True
+                    raise ProcessingCancelledError('Cancelled')
+                if outcome in ('stale', 'terminal', 'not_found'):
+                    from api.routers import processing
+                    from api.schemas import ProcessingStatus
+                    with processing._jobs_lock:
+                        current = processing.jobs.get(receipt['id'])
+                        payload = receipt.get('payload')
+                        if outcome == 'not_found':
+                            processing.jobs.pop(receipt['id'], None)
+                        elif payload and (not current or payload.get('revision', 0) >= current.revision):
+                            processing.jobs[receipt['id']] = ProcessingStatus(**payload)
+                        processing._jobs_cache.clear()
+                    if outcome == 'not_found' and execution:
+                        from processing_execution import ProcessingPaused
+                        execution.deleted = True
+                        raise ProcessingPaused()
+                elif outcome != 'applied':
+                    raise RuntimeError('Unexpected job write receipt')
 
 
-def save_job(job):
-    save_jobs([job])
+def save_job(job, *, create=False):
+    save_jobs([job], create=create)
 
 
 def restore_jobs():

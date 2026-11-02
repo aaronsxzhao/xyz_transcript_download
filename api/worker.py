@@ -202,7 +202,17 @@ class Worker:
             if row['task_id'] not in processing.jobs:
                 saved=next((job for job in restore_jobs() if job['job_id']==row['task_id'] and job.get('user_id')==row['user_id']),None)
                 if saved: processing.jobs[row['task_id']]=ProcessingStatus(**saved)
-            processing.update_job_status(row['task_id'],state,0,message)
+            recovery = Execution(row['user_id'], row.get('source_id', row['task_id']), self.store,
+                                 queue_id=row['id'], lease_owner=self.ident)
+            try:
+                with bind(recovery):
+                    from summary_errors import ProcessingCancelledError
+                    try:
+                        processing.update_job_status(row['task_id'],state,0,message)
+                    except ProcessingCancelledError:
+                        processing.update_job_status(row['task_id'],'cancelled',0,'Cancelled')
+            except ProcessingPaused:
+                pass
         else:
             from video_task_db import get_video_task_db
             # Terminal recovery must carry the same work identity as ordinary

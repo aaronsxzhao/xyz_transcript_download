@@ -74,6 +74,7 @@ it('keeps the next page when a pending episode deletion finishes after paginatio
  vi.mocked(deleteEpisode).mockImplementationOnce(()=>new Promise(resolve=>{finish=resolve}))
  const node=await mount()
  await act(async()=>node.querySelector<HTMLButtonElement>('button[title="Delete episode"]')!.click())
+ await act(async()=>vi.dynamicImportSettled())
  await act(async()=>Array.from(node.querySelectorAll('button')).find(b=>b.textContent==='Load more episodes')!.click())
  expect(node.textContent).toContain('Episode 50')
  await act(async()=>finish())
