@@ -94,6 +94,7 @@ class Summarizer:
         if generation_mode not in MODES:
             raise ValueError("Generation mode must be single or segmented")
         self.generation_mode = generation_mode
+        self.quality_coverage_threshold = .9
         self.model_options = dict(model_options or {})
         self._groq = self.base_url.rstrip('/') == "https://api.groq.com/openai/v1"
         # Retained as the explicit segmented path's bounded source size.

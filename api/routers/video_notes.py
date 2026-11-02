@@ -569,6 +569,61 @@ def process_video_note_sync(
         audio_path = None
         video_path = None
         media_warning = ''
+        visual_context = ''
+        video_prepared = False
+
+        def start_video_preparation(independent_download=False):
+            nonlocal video_download_future
+            from processing_execution import CURRENT
+            if video_download_future is not None or not CURRENT.get() or not ('screenshot' in formats or video_understanding):
+                return
+            # Some sources derive audio from the same video file. Start those
+            # only after audio extraction; independent platforms use a separate
+            # downloader to avoid racing mutable metadata/cookie state.
+            media_downloader = get_downloader(platform, cookie_mgr.get_cookie(platform)) if independent_download else downloader
+            if media_downloader is None:
+                media_downloader = get_downloader(platform, cookie_mgr.get_cookie(platform))
+            media_title = title
+            def check_media(*_):
+                from processing_parallel import check_cancelled
+                check_cancelled()
+                if download_stop.is_set() or is_video_task_cancelled(task_id) or (attempt_id is not None and attempt_id != _video_attempts.get(task_id)):
+                    raise VideoCancelledException('Cancelled during video preparation')
+            def prepare():
+                check_media()
+                path = media_downloader.download_video(url, task_id, video_quality=video_quality, progress_callback=check_media)
+                check_media()
+                context = ''
+                if path and video_understanding:
+                    try:
+                        from video_understanding import extract_frame_grids, analyze_grids
+                        grids = extract_frame_grids(str(path), task_id, interval=video_interval,
+                            grid_cols=grid_cols, grid_rows=grid_rows, check_cancel=check_media)
+                        check_media()
+                        if grids:
+                            context = analyze_grids(grids, title=media_title, **llm_settings)
+                    except Exception as error:
+                        from summary_errors import is_cancellation
+                        if is_cancellation(error):
+                            raise
+                        logger.warning('Optional visual analysis failed: %s', type(error).__name__)
+                check_media()
+                return path, context
+            import contextvars
+            from resource_scheduler import NETWORK_EXECUTOR
+            video_download_future = NETWORK_EXECUTOR.submit(contextvars.copy_context().run, prepare)
+
+        def finish_video_preparation():
+            nonlocal video_path, visual_context, video_prepared, media_warning
+            if video_prepared or video_download_future is None:
+                return
+            try:
+                video_path, visual_context = video_download_future.result(timeout=300)
+            except (VideoDownloadError, SocialSourceError, FutureTimeout):
+                download_stop.set()
+                video_path = None
+                media_warning = 'Notes are ready. Screenshot media is unavailable; use Repair screenshots to retry it.'
+            video_prepared = True
 
         if has_saved_transcript:
             logger.info(f"Reusing saved transcript for {task_id} ({len(existing_transcript['text'])} chars), skipping download+transcribe")
@@ -659,6 +714,9 @@ def process_video_note_sync(
                 _clear_cancelled(task_id)
                 return
 
+            if platform in ('bilibili', 'youtube'):
+                start_video_preparation(independent_download=True)
+
             # Phase 2: Check for subtitles first (avoids downloading audio entirely)
             _update_task_status(db, task_id, "downloading", 12, "Checking for existing subtitles on platform...", user_id)
             subtitles = downloader.get_subtitles(url, task_id)
@@ -730,6 +788,8 @@ def process_video_note_sync(
                 _clear_cancelled(task_id)
                 return
 
+            start_video_preparation()
+
             # Phase 3: Transcribe (42-60%) — only if subtitles weren't found
             if not transcript_text:
                 _update_task_status(db, task_id, "transcribing", 42, "Transcribing audio with Whisper...", user_id)
@@ -789,8 +849,9 @@ def process_video_note_sync(
 
         # Download video whenever screenshots or video understanding are requested.
         # This must also run for retry/re-process paths that reuse an existing transcript.
+        start_video_preparation()
         needs_video = "screenshot" in formats or video_understanding
-        if needs_video and not video_path:
+        if needs_video and not video_path and video_download_future is None:
             _update_task_status(db, task_id, "downloading", 26, "Downloading video for screenshots...", user_id)
 
             last_video_update = [0.0]
@@ -816,19 +877,16 @@ def process_video_note_sync(
                     cookies = cookie_mgr.get_cookie(platform)
                     downloader = get_downloader(platform, cookies)
                 if downloader:
-                    from processing_execution import CURRENT
-                    if CURRENT.get() is not None and not video_understanding:
-                        import contextvars
-                        from resource_scheduler import NETWORK_EXECUTOR
-                        context = contextvars.copy_context()
-                        video_download_future = NETWORK_EXECUTOR.submit(context.run,downloader.download_video,
-                            url,task_id,video_quality=video_quality,progress_callback=video_progress)
-                    else:
-                        video_path = downloader.download_video(url,task_id,video_quality=video_quality,progress_callback=video_progress)
+                    video_path = downloader.download_video(url,task_id,video_quality=video_quality,progress_callback=video_progress)
             except (VideoDownloadError, SocialSourceError) as e:
                 logger.warning(f"Optional video download failed, continuing with transcript: {e}")
                 media_warning = 'Screenshots could not be downloaded. Check the original media link or platform connection and retry screenshots.'
                 video_path = None
+
+        if video_download_future is not None and (video_understanding or video_download_future.done()):
+            if video_understanding:
+                _update_task_status(db, task_id, 'transcribing', 62, 'Waiting for video analysis…', user_id)
+            finish_video_preparation()
 
         # Thumbnail fallback: extract first frame if no thumbnail was fetched
         if not thumbnail:
@@ -840,8 +898,7 @@ def process_video_note_sync(
                     db.update_task(task_id, {"thumbnail": thumbnail})
                     logger.info(f"[{task_id}] Thumbnail fallback from local file succeeded")
         # Phase 3b: Video understanding (60-70%)
-        visual_context = ""
-        if video_understanding and video_path:
+        if video_understanding and video_path and not video_prepared:
             _update_task_status(db, task_id, "transcribing", 62, "Analyzing video frames...", user_id)
             try:
                 from video_understanding import extract_frame_grids, analyze_grids
@@ -915,16 +972,12 @@ def process_video_note_sync(
                                 error="LLM failed")
             return
 
-        if video_download_future is not None:
+        if video_download_future is not None and not video_prepared:
             _update_task_status(db, task_id, "saving", 94, "Notes generated — waiting for screenshot media...", user_id)
-            try:
-                video_path = video_download_future.result(timeout=300)
-                if video_path and not thumbnail:
-                    thumbnail = extract_first_frame_thumbnail(str(video_path),task_id)
-                    if thumbnail: db.update_task(task_id,{'thumbnail':thumbnail})
-            except (VideoDownloadError,SocialSourceError,FutureTimeout):
-                video_path = None
-                media_warning = 'Notes are ready. Screenshot media is unavailable; use Repair screenshots to retry it.'
+            finish_video_preparation()
+            if video_path and not thumbnail:
+                thumbnail = extract_first_frame_thumbnail(str(video_path),task_id)
+                if thumbnail: db.update_task(task_id,{'thumbnail':thumbnail})
 
         # Phase 5: Post-processing (94-100%)
         _update_task_status(db, task_id, "saving", 94, "Notes generated — adding links and screenshots...", user_id)
@@ -988,8 +1041,14 @@ def process_video_note_sync(
             logger.error(f"[Video {task_id}] Failed during error handling: {e}")
     finally:
         download_stop.set()
-        if video_download_future is not None and not video_download_future.done():
+        if video_download_future is not None:
             video_download_future.cancel()
+            # A running request cannot be force-killed. Drain its current bounded
+            # operation before releasing this attempt or cleaning its files.
+            try:
+                video_download_future.result()
+            except BaseException:
+                pass
         if platform == 'web' and downloader is not None:
             cleanup = getattr(downloader, 'cleanup', None)
             if cleanup:

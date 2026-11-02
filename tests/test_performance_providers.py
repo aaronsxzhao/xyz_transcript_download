@@ -127,7 +127,7 @@ def test_groq_full_source_capacity_failure_does_not_silently_chunk():
     assert summarizer.generation_report['actual_mode']=='single'
 
 
-def test_segmented_video_failure_keeps_available_notes_and_labels_original_source():
+def test_segmented_video_failure_never_delivers_raw_source_as_finished_notes():
     from note_summarizer import NoteSummarizer
     from tests.test_transcript_reading import provider
     summarizer=NoteSummarizer(api_key='fixture',generation_mode='segmented')
@@ -137,10 +137,14 @@ def test_segmented_video_failure_keeps_available_notes_and_labels_original_sourc
         request=json.loads(payload)
         if request.get('part')==2:raise RuntimeError('temporary outage')
         return provider(calls)(owner,system,payload,timeout)
-    with patch('transcript_reading.call_json',side_effect=response):
-        result=summarizer.generate_note('Title','Original source.\n'*150)
-    assert 'complete claim' in result and 'Original transcript' in result
-    assert 'Some sections could not be summarized' in result
+    from summary_errors import SummaryOutputError
+    with patch('transcript_reading.call_json',side_effect=response), \
+         patch('coverage_ledger.build_inventory',return_value=({},[])), \
+         patch('coverage_ledger.audit',return_value={'status':'model_reviewed'}), \
+         patch('reading_delivery.repair_unsupported',side_effect=TimeoutError('Synthetic outage')):
+        with pytest.raises(SummaryOutputError) as error:
+            summarizer.generate_note('Title','Original source.\n'*150)
+    assert error.value.code=='quality'
 
 
 @pytest.mark.asyncio

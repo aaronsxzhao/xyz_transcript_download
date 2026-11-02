@@ -3,7 +3,7 @@ import time
 STAGES = {
     'draft': (0.0, .30), 'grounding': (.30, .42),
     'inventory': (.42, .68), 'coverage': (.68, .98),
-    'repair': (.68, .98), 'recheck': (.68, .98), 'render': (.98, 1.0),
+    'repair': (.68, .98), 'recheck': (.68, .98), 'quality': (.98, .995), 'render': (.995, 1.0),
 }
 
 
@@ -22,6 +22,7 @@ def stage(callback, name, completed=0, total=1, *, mode='single', fraction=None)
         'repair': f'Filling missing details · {completed}/{total} items checked',
         'recheck': f'Verifying additions · {completed}/{total} items checked',
         'render': 'Preparing the final summary',
+        'quality': f'Checking final text · {completed}/{total} checks finished',
     }
     callback({'stage':name,'completed':completed,'total':total,
               'fraction':lo+(hi-lo)*ratio,'message':labels[name]})

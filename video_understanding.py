@@ -7,7 +7,6 @@ import base64
 import io
 import math
 import re
-import subprocess
 from pathlib import Path
 from typing import List, Optional, Tuple
 
@@ -31,6 +30,7 @@ def extract_frames(
     video_path: str,
     interval: int = 4,
     max_frames: int = 200,
+    check_cancel=lambda: None,
 ) -> List[Tuple[float, Path]]:
     """
     Extract frames from a video at regular intervals.
@@ -50,8 +50,12 @@ def extract_frames(
         logger.error(f"Could not determine video duration: {video_path}")
         return []
 
-    frames_dir = GRIDS_DIR / "frames"
-    frames_dir.mkdir(exist_ok=True)
+    import hashlib
+    source = Path(video_path).resolve()
+    stat = source.stat()
+    identity = hashlib.sha256(f'{source}:{stat.st_size}:{stat.st_mtime_ns}'.encode()).hexdigest()[:24]
+    frames_dir = GRIDS_DIR / 'frames' / identity
+    frames_dir.mkdir(parents=True, exist_ok=True)
 
     timestamps = []
     t = 0.0
@@ -61,6 +65,7 @@ def extract_frames(
 
     results = []
     for ts in timestamps:
+        check_cancel()
         h = int(ts // 3600)
         m = int((ts % 3600) // 60)
         s = ts % 60
@@ -79,7 +84,8 @@ def extract_frames(
                     "-y",
                     str(frame_path),
                 ]
-                subprocess.run(cmd, capture_output=True, timeout=15)
+                from resource_scheduler import run_media_process
+                run_media_process(cmd, capture_output=True, timeout=15)
             except Exception:
                 continue
 
@@ -164,6 +170,7 @@ def extract_frame_grids(
     interval: int = 4,
     grid_cols: int = 3,
     grid_rows: int = 3,
+    check_cancel=lambda: None,
 ) -> List[Path]:
     """
     Extract frames and create grid images from a video.
@@ -172,12 +179,13 @@ def extract_frame_grids(
         List of paths to grid images.
     """
     cells_per_grid = grid_cols * grid_rows
-    frames = extract_frames(video_path, interval)
+    frames = extract_frames(video_path, interval, check_cancel=check_cancel)
     if not frames:
         return []
 
     grids = []
     for i in range(0, len(frames), cells_per_grid):
+        check_cancel()
         batch = frames[i:i + cells_per_grid]
         grid_path = create_grid_image(
             batch,
@@ -258,14 +266,19 @@ def analyze_grids(
         })
 
     try:
-        response = client.chat.completions.create(
-            model=model,
-            messages=[{"role": "user", "content": content_parts}],
-            temperature=0.3,
-        )
+        from processing_parallel import model_slot
+        with model_slot():
+            response = client.chat.completions.create(
+                model=model,
+                messages=[{"role": "user", "content": content_parts}],
+                temperature=0.3,
+            )
         result = response.choices[0].message.content or ""
         logger.info(f"Vision analysis completed: {len(result)} chars")
         return result
     except Exception as e:
+        from summary_errors import is_cancellation
+        if is_cancellation(e):
+            raise
         logger.error(f"Vision analysis failed: {e}")
         return ""
