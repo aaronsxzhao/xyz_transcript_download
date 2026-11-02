@@ -18,7 +18,7 @@ async def main():
         async with async_playwright() as p:
             browser=await p.chromium.launch(executable_path='/usr/bin/chromium',args=['--no-sandbox'])
             for design,theme in [('classic','dark'),('classic','light'),('editorial','light'),('editorial','dark')]:
-                for width in [390,820]:
+                for width in [390,820,1440]:
                     task,_=fixtures()
                     task.update(platform='youtube',markdown=_EN_NOTICES['audit']+'\n\n# Saved course\n\nExisting argument remains readable during review.')
                     count=[0]
@@ -35,12 +35,16 @@ async def main():
                     page=await context.new_page()
                     await page.goto(f'http://127.0.0.1:{server.server_port}/videos/bench')
                     await choose(page,design,theme)
-                    await page.get_by_role('button',name='Retry coverage review',exact=True).click()
+                    action=page.get_by_role('button',name='Retry coverage review',exact=True)
+                    before=await action.evaluate('e=>getComputedStyle(e).backgroundColor')
+                    await action.click()
                     button=page.get_by_role('button',name='Review in progress…',exact=True)
                     await button.wait_for()
                     assert await button.is_disabled() and count[0]==1
+                    await page.wait_for_function("before=>getComputedStyle(document.querySelector('.reader-coverage-review button')).backgroundColor!==before",arg=before)
                     await page.reload()
                     await button.wait_for()
+                    assert await button.evaluate('e=>getComputedStyle(e).backgroundColor')!=before
                     assert await page.locator('.reader-body').inner_text()
                     assert 'Existing argument remains readable' in await page.locator('.reader-body').inner_text()
                     assert await page.get_by_role('progressbar').count()>0

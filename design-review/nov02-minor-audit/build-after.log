@@ -1,0 +1,233 @@
+
+> podcast-transcript-web@1.0.0 build
+> tsc && vite build && node scripts/prepare-assets.mjs && node scripts/check-bundle-budget.mjs
+
+vite v8.3.4 building client environment for production...
+transforming...
+✓ 3168 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/index.html                                         3.81 kB │ gzip:   1.54 kB
+dist/assets/noto-serif-sc-075-Cb4Ymdjf.woff2            4.37 kB
+dist/assets/KaTeX_Size3-Regular-CTq5MqoE.woff           4.42 kB
+dist/assets/noto-serif-sc-000-POi_Urbq.woff2            4.64 kB
+dist/assets/KaTeX_Size4-Regular-Dl5lxZxV.woff2          4.92 kB
+dist/assets/KaTeX_Size2-Regular-Dy4dx90m.woff2          5.20 kB
+dist/assets/KaTeX_Size1-Regular-mCD8mA8B.woff2          5.46 kB
+dist/assets/KaTeX_Size4-Regular-BF-4gkZK.woff           5.98 kB
+dist/assets/KaTeX_Size2-Regular-oD1tc_U0.woff           6.18 kB
+dist/assets/KaTeX_Size1-Regular-C195tn64.woff           6.49 kB
+dist/assets/noto-serif-sc-070-4sUXZiL0.woff2            6.89 kB
+dist/assets/KaTeX_Caligraphic-Regular-Di6jR-x-.woff2    6.90 kB
+dist/assets/KaTeX_Caligraphic-Bold-Dq_IR9rO.woff2       6.91 kB
+dist/assets/noto-serif-sc-069-DYrIOgtA.woff2            7.40 kB
+dist/assets/KaTeX_Size3-Regular-DgpXs0kz.ttf            7.58 kB
+dist/assets/KaTeX_Caligraphic-Regular-CTRA-rTL.woff     7.65 kB
+dist/assets/KaTeX_Caligraphic-Bold-BEiXGLvX.woff        7.71 kB
+dist/assets/KaTeX_Script-Regular-D3wIWfF6.woff2         9.64 kB
+dist/assets/noto-serif-sc-072-CAN9aOBC.woff2            9.73 kB
+dist/assets/noto-serif-sc-099-B_BpesqA.woff2           10.33 kB
+dist/assets/KaTeX_SansSerif-Regular-DDBCnlJ7.woff2     10.34 kB
+dist/assets/KaTeX_Size4-Regular-DWFBv043.ttf           10.36 kB
+dist/assets/KaTeX_Script-Regular-D5yQViql.woff         10.58 kB
+dist/assets/noto-serif-sc-073-CxdyChGp.woff2           10.64 kB
+dist/assets/noto-serif-sc-098-BDuesHz7.woff2           10.92 kB
+dist/assets/KaTeX_Fraktur-Regular-CTYiF6lA.woff2       11.31 kB
+dist/assets/KaTeX_Fraktur-Bold-CL6g_b3V.woff2          11.34 kB
+dist/assets/KaTeX_Size2-Regular-B7gKUWhC.ttf           11.50 kB
+dist/assets/KaTeX_SansSerif-Italic-C3H0VqGB.woff2      12.02 kB
+dist/assets/KaTeX_SansSerif-Bold-D1sUS0GD.woff2        12.21 kB
+dist/assets/KaTeX_Size1-Regular-Dbsnue_I.ttf           12.22 kB
+dist/assets/noto-serif-sc-071-BHbmppex.woff2           12.28 kB
+dist/assets/KaTeX_SansSerif-Regular-CS6fqUqJ.woff      12.31 kB
+dist/assets/noto-serif-sc-076-Dxrjm0os.woff2           12.32 kB
+dist/assets/KaTeX_Caligraphic-Regular-wX97UBjC.ttf     12.34 kB
+dist/assets/KaTeX_Caligraphic-Bold-ATXxdsX0.ttf        12.36 kB
+dist/assets/KaTeX_Fraktur-Regular-Dxdc4cR9.woff        13.20 kB
+dist/assets/KaTeX_Fraktur-Bold-BsDP51OF.woff           13.29 kB
+dist/assets/KaTeX_Typewriter-Regular-CO6r4hn1.woff2    13.56 kB
+dist/assets/KaTeX_SansSerif-Italic-DN2j7dab.woff       14.11 kB
+dist/assets/KaTeX_SansSerif-Bold-DbIhKOiC.woff         14.40 kB
+dist/assets/noto-serif-sc-097-CEncxE_U.woff2           14.47 kB
+dist/assets/noto-serif-sc-002-zG9mG1jB.woff2           15.67 kB
+dist/assets/KaTeX_Typewriter-Regular-C0xS9mPB.woff     16.02 kB
+dist/assets/KaTeX_Math-BoldItalic-CZnvNsCZ.woff2       16.40 kB
+dist/assets/KaTeX_Math-Italic-t53AETM-.woff2           16.44 kB
+dist/assets/KaTeX_Script-Regular-C5JkGWo-.ttf          16.64 kB
+dist/assets/KaTeX_Main-BoldItalic-DxDJ3AOS.woff2       16.78 kB
+dist/assets/KaTeX_Main-Italic-NWA7e6Wa.woff2           16.98 kB
+dist/assets/KaTeX_Math-BoldItalic-iY-2wyZ7.woff        18.66 kB
+dist/assets/KaTeX_Math-Italic-DA0__PXp.woff            18.74 kB
+dist/assets/KaTeX_Main-BoldItalic-SpSLRI95.woff        19.41 kB
+dist/assets/KaTeX_SansSerif-Regular-BNo7hRIc.ttf       19.43 kB
+dist/assets/KaTeX_Fraktur-Regular-CB_wures.ttf         19.57 kB
+dist/assets/KaTeX_Fraktur-Bold-BdnERNNW.ttf            19.58 kB
+dist/assets/KaTeX_Main-Italic-BMLOBm91.woff            19.67 kB
+dist/assets/KaTeX_SansSerif-Italic-YYjJ1zSn.ttf        22.36 kB
+dist/assets/KaTeX_SansSerif-Bold-CFMepnvq.ttf          24.50 kB
+dist/assets/KaTeX_Main-Bold-Cx986IdX.woff2             25.32 kB
+dist/assets/noto-serif-sc-003-BWgIT3u9.woff2           26.04 kB
+dist/assets/KaTeX_Main-Regular-B22Nviop.woff2          26.27 kB
+dist/assets/KaTeX_Typewriter-Regular-D3Ib7_Hf.ttf      27.55 kB
+dist/assets/noto-serif-sc-001-DfKSWjAL.woff2           27.56 kB
+dist/assets/KaTeX_AMS-Regular-BQhdFMY1.woff2           28.07 kB
+dist/assets/KaTeX_Main-Bold-Jm3AIy58.woff              29.91 kB
+dist/assets/KaTeX_Main-Regular-Dr94JaBh.woff           30.77 kB
+dist/assets/KaTeX_Math-BoldItalic-B3XSjfu4.ttf         31.19 kB
+dist/assets/KaTeX_Math-Italic-flOr_0UB.ttf             31.30 kB
+dist/assets/noto-serif-sc-100-CynOf1RS.woff2           32.96 kB
+dist/assets/KaTeX_Main-BoldItalic-DzxPMmG6.ttf         32.96 kB
+dist/assets/KaTeX_AMS-Regular-DMm9YOAa.woff            33.51 kB
+dist/assets/KaTeX_Main-Italic-3WenGoN9.ttf             33.58 kB
+dist/assets/noto-serif-sc-067-zDA9V0-4.woff2           40.44 kB
+dist/assets/mindmap.worker-mbteHpYQ.js                 42.63 kB
+dist/assets/noto-serif-sc-066-BqNanTR7.woff2           42.65 kB
+dist/manifest.json                                     44.95 kB │ gzip:   5.04 kB
+dist/assets/noto-serif-sc-062-7mf1Dpmj.woff2           45.18 kB
+dist/assets/noto-serif-sc-068-BcoK5poM.woff2           47.82 kB
+dist/assets/noto-serif-sc-046-CjrUC92N.woff2           51.01 kB
+dist/assets/KaTeX_Main-Bold-waoOVXN0.ttf               51.33 kB
+dist/assets/noto-serif-sc-023-CVBLXKlt.woff2           51.51 kB
+dist/assets/noto-serif-sc-059-Ba02t4uH.woff2           51.78 kB
+dist/assets/noto-serif-sc-052-C1ivJfo6.woff2           53.06 kB
+dist/assets/KaTeX_Main-Regular-ypZvNtVU.ttf            53.58 kB
+dist/assets/noto-serif-sc-035-CVEOz2md.woff2           53.85 kB
+dist/assets/noto-serif-sc-050-DgVKmqhJ.woff2           54.19 kB
+dist/assets/noto-serif-sc-055-CVaZwasb.woff2           56.04 kB
+dist/assets/noto-serif-sc-033-D9iT-1TR.woff2           57.32 kB
+dist/assets/noto-serif-sc-057-93ee-1qL.woff2           57.82 kB
+dist/assets/noto-serif-sc-018-mA1onJjc.woff2           57.84 kB
+dist/assets/noto-serif-sc-095-DxZkDLxk.woff2           58.22 kB
+dist/assets/noto-serif-sc-025-C2AfGZIw.woff2           58.34 kB
+dist/assets/noto-serif-sc-047-BQWoNL84.woff2           58.57 kB
+dist/assets/noto-serif-sc-061-3DZZprJd.woff2           58.80 kB
+dist/assets/noto-serif-sc-065-DxCiS-H8.woff2           58.81 kB
+dist/assets/noto-serif-sc-063-C7zVck8N.woff2           60.57 kB
+dist/assets/noto-serif-sc-043-DsFqK1wo.woff2           61.31 kB
+dist/assets/noto-serif-sc-042-DAKYpn8o.woff2           61.37 kB
+dist/assets/noto-serif-sc-037-CHCeRIrg.woff2           61.53 kB
+dist/assets/noto-serif-sc-064-BCQNdhXI.woff2           62.12 kB
+dist/assets/noto-serif-sc-024-BuqGeHAE.woff2           62.74 kB
+dist/assets/noto-serif-sc-053-CvXxbzcf.woff2           62.88 kB
+dist/assets/KaTeX_AMS-Regular-DRggAlZN.ttf             63.63 kB
+dist/assets/noto-serif-sc-017-DvRk4hqy.woff2           63.76 kB
+dist/assets/noto-serif-sc-045-CMtD-Kgv.woff2           63.93 kB
+dist/assets/noto-serif-sc-013-6gH0-Plj.woff2           64.26 kB
+dist/assets/noto-serif-sc-032-zkdyL1V0.woff2           64.52 kB
+dist/assets/noto-serif-sc-030-DdYwMBaW.woff2           64.61 kB
+dist/assets/noto-serif-sc-009-B9lzzaTa.woff2           64.66 kB
+dist/assets/noto-serif-sc-016-DnkERd2u.woff2           64.72 kB
+dist/assets/noto-serif-sc-054-cGdTpPsV.woff2           65.72 kB
+dist/assets/noto-serif-sc-058-BLbVMqvY.woff2           65.74 kB
+dist/assets/noto-serif-sc-015-imYNTNMM.woff2           66.08 kB
+dist/assets/noto-serif-sc-022-BjlpL5UW.woff2           66.14 kB
+dist/assets/noto-serif-sc-094-Bqk8ynpC.woff2           66.65 kB
+dist/assets/noto-serif-sc-093-jvQETSjD.woff2           67.30 kB
+dist/assets/noto-serif-sc-019-LC1yyc7m.woff2           67.82 kB
+dist/assets/noto-serif-sc-034-BLDAvkY6.woff2           67.82 kB
+dist/assets/noto-serif-sc-010-DpNoKRQu.woff2           67.93 kB
+dist/assets/noto-serif-sc-014-BWmx-AcC.woff2           68.00 kB
+dist/assets/noto-serif-sc-048-C5lNsScf.woff2           69.20 kB
+dist/assets/noto-serif-sc-036-DPWdAwq4.woff2           69.31 kB
+dist/assets/noto-serif-sc-041-DuU0uqw2.woff2           69.52 kB
+dist/assets/noto-serif-sc-038-eKWz93j7.woff2           69.65 kB
+dist/assets/noto-serif-sc-031-Cke2kJyu.woff2           70.31 kB
+dist/assets/noto-serif-sc-060-8sP0MgyD.woff2           71.04 kB
+dist/assets/noto-serif-sc-008-CUJJnivC.woff2           71.35 kB
+dist/assets/noto-serif-sc-049-YN-qC7HW.woff2           71.68 kB
+dist/assets/noto-serif-sc-021-C_Pfsj-f.woff2           72.28 kB
+dist/assets/noto-serif-sc-026-Ce6e62F2.woff2           72.50 kB
+dist/assets/noto-serif-sc-092-DeHFJEcQ.woff2           72.50 kB
+dist/assets/noto-serif-sc-011-GaECcatV.woff2           72.78 kB
+dist/assets/noto-serif-sc-051-CYLESW-L.woff2           73.58 kB
+dist/assets/noto-serif-sc-005-PFb7vc5T.woff2           73.87 kB
+dist/assets/noto-serif-sc-029-C0d1RTo9.woff2           74.00 kB
+dist/assets/noto-serif-sc-039-Cor1Tvn4.woff2           74.03 kB
+dist/assets/noto-serif-sc-056-BbF3qCor.woff2           74.57 kB
+dist/assets/noto-serif-sc-091-rN6TP-iN.woff2           74.74 kB
+dist/assets/noto-serif-sc-020-Da_NFf6-.woff2           75.30 kB
+dist/assets/noto-serif-sc-090-DyuoesZ9.woff2           75.87 kB
+dist/assets/noto-serif-sc-089-MAZT2qqq.woff2           75.99 kB
+dist/assets/noto-serif-sc-012-BthB64Y2.woff2           76.90 kB
+dist/assets/noto-serif-sc-028-zC517Lyl.woff2           77.58 kB
+dist/assets/noto-serif-sc-078-D4leHYe5.woff2           77.78 kB
+dist/assets/noto-serif-sc-007-CO_UFAdV.woff2           77.94 kB
+dist/assets/noto-serif-sc-086-C2E3CL5Z.woff2           79.04 kB
+dist/assets/noto-serif-sc-044-BetEYZyP.woff2           79.49 kB
+dist/assets/noto-serif-sc-087-BIfR76rH.woff2           79.54 kB
+dist/assets/noto-serif-sc-079-DaB8ctDw.woff2           79.68 kB
+dist/assets/noto-serif-sc-084-ytdOPBny.woff2           79.80 kB
+dist/assets/noto-serif-sc-081-DMBVgoWu.woff2           81.04 kB
+dist/assets/noto-serif-sc-088-DOsFafg3.woff2           81.14 kB
+dist/assets/noto-serif-sc-082-BgSod39R.woff2           81.51 kB
+dist/assets/noto-serif-sc-083-BiXwOyn5.woff2           81.65 kB
+dist/assets/noto-serif-sc-040-kpJ7mHnK.woff2           82.55 kB
+dist/assets/noto-serif-sc-006-CLtoVuTx.woff2           82.66 kB
+dist/assets/noto-serif-sc-085-BmakWj8P.woff2           83.48 kB
+dist/assets/noto-serif-sc-080-BnNqUpIy.woff2           84.08 kB
+dist/assets/noto-serif-sc-077-ByBOhv3z.woff2           84.69 kB
+dist/assets/noto-serif-sc-004-n_9gzBdK.woff2           85.28 kB
+dist/assets/noto-serif-sc-027-CXgjcdJT.woff2           91.67 kB
+dist/assets/noto-serif-sc-096-ihm0qo8T.woff2          104.96 kB
+dist/assets/BilibiliParts-C8GOIhn8.css                  1.35 kB │ gzip:   0.57 kB
+dist/assets/ArticleNote-BBmfbIHt.css                    2.25 kB │ gzip:   0.68 kB
+dist/assets/classic-light-QMGRgE7z.css                 14.48 kB │ gzip:   2.16 kB
+dist/assets/katex-Ngnvt50Q.css                         29.80 kB │ gzip:   7.97 kB
+dist/assets/reader-typography-CiGFqBeX.css             66.78 kB │ gzip:  10.60 kB
+dist/assets/workspace-D3x0CE9s.css                     90.55 kB │ gzip:  17.94 kB
+dist/assets/editorial-DxojRx0F.css                    142.66 kB │ gzip:  44.03 kB
+dist/assets/RegenerateDialog-DPvu4MMO.js                0.80 kB │ gzip:   0.43 kB
+dist/assets/rolldown-runtime-CNOWq4Kh.js                0.81 kB │ gzip:   0.47 kB
+dist/assets/index-Tl32ARx1.js                           0.85 kB │ gzip:   0.48 kB
+dist/assets/podcastMarkdown-CZtJeHnI.js                 0.94 kB │ gzip:   0.58 kB
+dist/assets/SourceUpdateStatus-D5b5HDLx.js              0.95 kB │ gzip:   0.52 kB
+dist/assets/ReaderAppearance-CBE3dOzT.js                1.14 kB │ gzip:   0.49 kB
+dist/assets/TranscriptPanel-BXq-SQmP.js                 1.14 kB │ gzip:   0.59 kB
+dist/assets/preload-helper-DzCYNvzR.js                  1.62 kB │ gzip:   0.87 kB
+dist/assets/sourceUpdateCheck-Bmj-QqKX.js               1.71 kB │ gzip:   0.86 kB
+dist/assets/podcastPrint-Bih6oSBs.js                    1.75 kB │ gzip:   0.90 kB
+dist/assets/DashboardDialog-BtCuWDlU.js                 1.85 kB │ gzip:   0.93 kB
+dist/assets/notionExport-CT5oQHYY.js                    1.92 kB │ gzip:   1.06 kB
+dist/assets/markdownDownload-LP7dhPM9.js                2.03 kB │ gzip:   1.05 kB
+dist/assets/taskActions-BAUdtBVS.js                     2.31 kB │ gzip:   0.95 kB
+dist/assets/esm-0YdTaOdg.js                             2.43 kB │ gzip:   1.09 kB
+dist/assets/videoPrint-Bd0AiV6-.js                      2.63 kB │ gzip:   1.12 kB
+dist/assets/ModelExecutionFields-DL3kkTnD.js            2.65 kB │ gzip:   1.37 kB
+dist/assets/LocalPodcastUpload-3JKKhdP3.js              2.67 kB │ gzip:   1.20 kB
+dist/assets/PerformancePanel-DwJfGjq2.js                2.84 kB │ gzip:   1.28 kB
+dist/assets/PodcastUploadForm-DcgDtORx.js               2.88 kB │ gzip:   1.12 kB
+dist/assets/ReaderDetails-B8_USo1G.js                   3.06 kB │ gzip:   1.41 kB
+dist/assets/lib-4L5G6m8Q.js                             3.10 kB │ gzip:   1.45 kB
+dist/assets/ProcessingPanel-B5QzDWaW.js                 3.71 kB │ gzip:   1.60 kB
+dist/assets/ScreenshotGallery-CqCMPqPW.js               4.08 kB │ gzip:   1.81 kB
+dist/assets/TranscriptMaintenance-B17guzRP.js           4.72 kB │ gzip:   1.81 kB
+dist/assets/ArticleNote-BpuEGVQy.js                     5.06 kB │ gzip:   2.32 kB
+dist/assets/legacyModelOptions-DhHDgBIq.js              5.65 kB │ gzip:   1.06 kB
+dist/assets/remark-math-Ck6WmGMV.js                     6.09 kB │ gzip:   2.23 kB
+dist/assets/BilibiliFavorites-6QmipB2F.js               6.16 kB │ gzip:   2.50 kB
+dist/assets/MindMapView-Dnm5ivKo.js                     6.18 kB │ gzip:   2.64 kB
+dist/assets/CustomModelFields-ge8oJj7B.js               6.21 kB │ gzip:   2.36 kB
+dist/assets/BilibiliParts-B7DMbBGX.js                   6.37 kB │ gzip:   2.54 kB
+dist/assets/PodcastNotionExport-Ca06fDfc.js             7.11 kB │ gzip:   2.71 kB
+dist/assets/DataRecovery-BpMOaGXN.js                    7.54 kB │ gzip:   2.97 kB
+dist/assets/videoUpload-BjmrelUo.js                     8.52 kB │ gzip:   3.07 kB
+dist/assets/esm-DaaJ_tyL.js                            16.26 kB │ gzip:   6.06 kB
+dist/assets/VideoCreation-BJHUZMH6.js                  22.66 kB │ gzip:   6.73 kB
+dist/assets/dist-CqwM0LWB.js                           24.76 kB │ gzip:   8.97 kB
+dist/assets/purify.es-B-iXX0Fb.js                      29.28 kB │ gzip:  11.69 kB
+dist/assets/TranscriptSegments-CrNg8RTL.js             35.40 kB │ gzip:  10.82 kB
+dist/assets/marked.esm-BiA0SdJP.js                     40.71 kB │ gzip:  12.59 kB
+dist/assets/HighlightedCode-BrWnrfDf.js                41.32 kB │ gzip:  14.97 kB
+dist/assets/lib-_55bG7xm.js                            58.27 kB │ gzip:  16.27 kB
+dist/assets/MarkdownPreview-Di8jLB_T.js               108.52 kB │ gzip:  34.54 kB
+dist/assets/rehype-katex-B_pdopUx.js                  266.65 kB │ gzip:  81.35 kB
+dist/assets/workspace-D0QIL6Xb.js                     541.40 kB │ gzip: 165.95 kB
+
+[plugin builtin:vite-reporter] 
+(!) Some chunks are larger than 500 kB after minification. Consider:
+- Using dynamic import() to code-split the application
+- Use build.rolldownOptions.output.codeSplitting to improve chunking: https://rolldown.rs/reference/OutputOptions.codeSplitting
+- Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.
+✓ built in 669ms
+Prepared Brotli/gzip assets: 1695436 raw bytes → 470537 Brotli bytes
+Initial compressed document and external assets: 197.2 KiB (budget: 197.25 KiB)

@@ -614,7 +614,7 @@ export default function VideoViewer() {
       {!selectedVersion && /^(?:>\s*)?.*(?:full-source coverage review did not complete|全文覆盖核对未完成)/m.test(rawContent.slice(0,1600)) && (
         <div className="reader-coverage-review mb-4" role="status">
           <p className="text-sm text-gray-400 mb-2">The coverage check is unfinished. Retry checks the saved transcript while keeping this note and its screenshots.</p>
-          <button className="ui-button ui-button-primary" disabled={regenerating || !['success','failed','cancelled'].includes(uiTask.status)} onClick={() => void handleRegenerate(true)}>
+          <button className={`ui-button${regenerating || !['success','failed','cancelled'].includes(uiTask.status) ? "" : " ui-button-primary"}`} disabled={regenerating || !['success','failed','cancelled'].includes(uiTask.status)} onClick={() => void handleRegenerate(true)}>
             {regenerating ? 'Submitting…' : !['success','failed','cancelled'].includes(uiTask.status) ? 'Review in progress…' : 'Retry coverage review'}
           </button>
         </div>

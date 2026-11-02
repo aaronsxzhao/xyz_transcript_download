@@ -1,0 +1,26 @@
+/workspace/xyz-audit-nov02/scripts/check_podcast_forms.py:57: SyntaxWarning: invalid escape sequence '\d'
+  const lum = c => {const v=c.match(/[\d.]+/g).slice(0,3).map(Number).map(n=>n/255).map(n=>n<=.04045?n/12.92:((n+.055)/1.055)**2.4);return v[0]*.2126+v[1]*.7152+v[2]*.0722};
+{"width": 390, "design": "classic", "theme": "dark", "upload": false, "result": "passed"}
+{"width": 390, "design": "classic", "theme": "dark", "upload": true, "result": "passed"}
+{"width": 390, "design": "classic", "theme": "light", "upload": false, "result": "passed"}
+{"width": 390, "design": "classic", "theme": "light", "upload": true, "result": "passed"}
+{"width": 390, "design": "editorial", "theme": "dark", "upload": false, "result": "passed"}
+{"width": 390, "design": "editorial", "theme": "dark", "upload": true, "result": "passed"}
+{"width": 390, "design": "editorial", "theme": "light", "upload": false, "result": "passed"}
+{"width": 390, "design": "editorial", "theme": "light", "upload": true, "result": "passed"}
+{"width": 820, "design": "classic", "theme": "dark", "upload": false, "result": "passed"}
+{"width": 820, "design": "classic", "theme": "dark", "upload": true, "result": "passed"}
+{"width": 820, "design": "classic", "theme": "light", "upload": false, "result": "passed"}
+{"width": 820, "design": "classic", "theme": "light", "upload": true, "result": "passed"}
+{"width": 820, "design": "editorial", "theme": "dark", "upload": false, "result": "passed"}
+{"width": 820, "design": "editorial", "theme": "dark", "upload": true, "result": "passed"}
+{"width": 820, "design": "editorial", "theme": "light", "upload": false, "result": "passed"}
+{"width": 820, "design": "editorial", "theme": "light", "upload": true, "result": "passed"}
+{"width": 1440, "design": "classic", "theme": "dark", "upload": false, "result": "passed"}
+{"width": 1440, "design": "classic", "theme": "dark", "upload": true, "result": "passed"}
+{"width": 1440, "design": "classic", "theme": "light", "upload": false, "result": "passed"}
+{"width": 1440, "design": "classic", "theme": "light", "upload": true, "result": "passed"}
+{"width": 1440, "design": "editorial", "theme": "dark", "upload": false, "result": "passed"}
+{"width": 1440, "design": "editorial", "theme": "dark", "upload": true, "result": "passed"}
+{"width": 1440, "design": "editorial", "theme": "light", "upload": false, "result": "passed"}
+{"width": 1440, "design": "editorial", "theme": "light", "upload": true, "result": "passed"}
