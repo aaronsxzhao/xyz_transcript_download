@@ -33,7 +33,7 @@ clock skew, nor redesign the podcast task state machine.
 
 ## Deployment and rollback
 
-Apply `20261102132316_ordered_video_task_writes.sql` before deploying Python.
+Apply `20261102133402_ordered_video_task_writes.sql` before deploying Python.
 It adds a function only, rewrites no user records, and leaves old application
 versions compatible. Validate function definition/grants after applying it.
 Then use the existing PR CI, merge, Oracle deployment, and exact-revision health

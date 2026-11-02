@@ -17,7 +17,7 @@ def main():
         raise RuntimeError('Refusing a non-test database')
     root = Path(__file__).resolve().parents[1]
     for path in ('tests/sql/video_write_order_schema.sql',
-                 'supabase/migrations/20261102132316_ordered_video_task_writes.sql',
+                 'supabase/migrations/20261102133402_ordered_video_task_writes.sql',
                  'tests/sql/video_write_order.sql'):
         sql((root / path).read_text())
     sql("insert into video_tasks(id,status,updated_at) values ('race','pending','2026-01-01');")
