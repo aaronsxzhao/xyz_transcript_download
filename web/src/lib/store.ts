@@ -24,15 +24,26 @@ function mergeProcessingJobPair(existing: ProcessingJob | undefined, incoming: P
     ...existing,
     ...incoming,
     progress: sameAttemptProgress(existing, incoming),
+    started_at: mergeStartedAt(existing, incoming),
     episode_title: incoming.episode_title || existing.episode_title,
     episode_id: incoming.episode_id || existing.episode_id,
   }
 }
 
-function sameAttemptProgress(existing: {progress?:number;status:string;started_at?:number}, incoming: {progress?:number;status:string;started_at?:number}) {
-  const terminal = ['completed','success','failed','cancelled'];
+type ProgressSnapshot = {progress?:number;status:string;started_at?:number}
+const terminalStatuses = ['completed','success','failed','cancelled']
+
+function mergeStartedAt(existing: ProgressSnapshot, incoming: ProgressSnapshot) {
+  if (incoming.status === 'pending' || terminalStatuses.includes(existing.status)) return incoming.started_at ?? 0
+  // The HTTP process can lack the worker's in-memory start time. Missing/zero
+  // metadata is not a new attempt and must not erase a known start time.
+  return Math.max(existing.started_at || 0, incoming.started_at || 0)
+}
+
+function sameAttemptProgress(existing: ProgressSnapshot, incoming: ProgressSnapshot) {
+  const terminal = terminalStatuses;
   const restart = incoming.status === 'pending' || terminal.includes(existing.status) ||
-    (!!incoming.started_at && incoming.started_at !== existing.started_at);
+    (!!existing.started_at && !!incoming.started_at && incoming.started_at > existing.started_at);
   return !restart && !terminal.includes(incoming.status)
     ? Math.max(existing.progress || 0, incoming.progress || 0) : (incoming.progress ?? 0);
 }
@@ -81,6 +92,7 @@ export function mergeVideoTaskPair(existing: VideoTask | undefined, incoming: Vi
     created_at: normalizedIncoming.created_at || existing.created_at,
     updated_at: keepExistingProgress ? existing.updated_at : (normalizedIncoming.updated_at || existing.updated_at),
     progress: keepExistingProgress ? existing.progress : sameAttemptProgress(existing, normalizedIncoming),
+    started_at: keepExistingProgress ? existing.started_at : mergeStartedAt(existing, normalizedIncoming),
     task_dismissed: keepExistingProgress ? existing.task_dismissed : (normalizedIncoming.task_dismissed ?? existing.task_dismissed),
     status: keepExistingProgress ? existing.status : normalizedIncoming.status,
     message: keepExistingProgress ? existing.message : normalizedIncoming.message,

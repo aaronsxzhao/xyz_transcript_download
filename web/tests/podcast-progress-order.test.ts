@@ -52,3 +52,14 @@ it('starts a retried job with its own revision instead of the failed job revisio
     vi.resetModules()
   }
 })
+
+it('keeps progress and elapsed time across incomplete start-time snapshots', () => {
+  const state=useStore.getState()
+  state.updateJob({...job('transcribing',19,1),started_at:100})
+  state.updateJob({...job('transcribing',45,2),started_at:100})
+  state.mergeJobs([{...job('transcribing',19,3),started_at:0}])
+  state.updateJob({...job('transcribing',19,4),started_at:100})
+  expect(useStore.getState().jobs[0]).toMatchObject({progress:45,started_at:100})
+  state.updateJob({...job('transcribing',5,5),started_at:200})
+  expect(useStore.getState().jobs[0]).toMatchObject({progress:5,started_at:200})
+})

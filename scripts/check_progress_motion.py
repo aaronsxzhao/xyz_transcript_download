@@ -51,6 +51,25 @@ async def main():
      assert max(s['width'] for s in samples)-min(s['width'] for s in samples)<.1
      if not reduced:assert any(.23<s<.69 for s in scales),scales
      else:assert all(any(abs(s-v)<.001 for v in [.22,.70,.88]) for s in scales),scales
+     regression=await page.evaluate("""async task=>{
+      const row=()=>document.querySelector('[role=dialog] [data-task-id=motion]');
+      const started=Math.floor(Date.now()/1000)-60;
+      const send=(progress,started_at,status,second)=>window.__socket.onmessage({data:JSON.stringify({type:'video_job_update',task:{...task,progress,started_at,status,updated_at:`2026-10-31T15:00:${second}Z`}})});
+      send(0,0,'pending','03');await new Promise(r=>setTimeout(r,50));
+      send(19,started,'transcribing','04');await new Promise(r=>setTimeout(r,1000));
+      const initial=row().querySelector('.task-progress-percent').textContent;
+      send(45,started,'transcribing','05');
+      await new Promise(r=>setTimeout(r,1000));
+      const peak=row().querySelector('.task-progress-percent').textContent;
+      send(19,0,'transcribing','06');await new Promise(r=>setTimeout(r,80));
+      send(19,started,'transcribing','07');await new Promise(r=>setTimeout(r,1000));
+      return {initial,peak,final:row().querySelector('.task-progress-percent').textContent,
+        scale:new DOMMatrix(getComputedStyle(row().querySelector('.task-progress-fill')).transform).a,
+        accessible:row().querySelector('[role=progressbar]').getAttribute('aria-valuenow')};
+     }""",task)
+     assert regression == {'initial':'~19%','peak':'~45%','final':'~45%','scale':.45,'accessible':'45'},regression
+     # Keep the subsequent HTTP reconciliation in this same attempt.
+     task.update(progress=19,started_at=0,updated_at='2026-10-31T15:00:08Z')
      sheen=await page.locator('[role=dialog] .task-progress-fill').evaluate("e=>getComputedStyle(e,'::after').animationName")
      assert sheen == ('none' if reduced else 'task-sheen'),sheen
      await context.set_offline(True)
@@ -62,7 +81,7 @@ async def main():
      assert not errors,errors
      assert not await page.evaluate('document.documentElement.scrollWidth>innerWidth')
      await page.screenshot(path=f'/tmp/progress-motion-{os.environ.get("SMOOTH_DESIGN","classic")}-{width}-{reduced}.png')
-     print(json.dumps({'width':width,'reduced_motion':reduced,'samples':len(samples),'final':samples[-1]['text'],'monotonic':True,'stable_percent_width':True}),flush=True)
+     print(json.dumps({'width':width,'reduced_motion':reduced,'samples':len(samples),'final':samples[-1]['text'],'monotonic':True,'stable_percent_width':True,'regression':regression}),flush=True)
      await context.close()
    await browser.close()
  finally:server.shutdown()

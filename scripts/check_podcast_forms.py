@@ -70,6 +70,8 @@ async def check(browser, origin, width, design, theme, output):
             await page.wait_for_function('document.querySelector("form").getAttribute("aria-busy")==="false"')
             assert len(requests) == 2
             await page.wait_for_timeout(400)
+            await page.wait_for_timeout(100)
+            assert await page.get_by_text('Synthetic failure. Please retry.', exact=True).count() == 1
             await page.screenshot(path=str(output/f'{width}-{design}-{theme}-{upload}-retry.png'), full_page=True)
             assert not await page.evaluate('document.documentElement.scrollWidth>innerWidth+1')
             print(json.dumps({'width':width,'design':design,'theme':theme,'upload':upload,'result':'passed'}), flush=True)
