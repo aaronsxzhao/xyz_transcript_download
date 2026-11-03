@@ -904,6 +904,31 @@ class VideoTaskDB:
                     params = [*batch, *([user_id] if user_id else [])]
                     rows.extend(dict(row) for row in conn.execute(
                         f"SELECT {columns} FROM video_tasks WHERE url IN ({','.join('?' for _ in batch)}) AND {scope}", params))
+        # Legacy short-link imports must also be reachable from another part's
+        # directory. Resolve only missing URLs, and never replace exact matches.
+        missing = list(dict.fromkeys(url for url in urls if url not in {row['url'] for row in rows}))
+        from api.bilibili_identity import video_source_url
+        for offset in range(0, len(missing), 100):
+            batch = missing[offset:offset+100]
+            if isinstance(self._backend, _SupabaseVideoTaskDB):
+                aliases = (self._backend._sb.client.table('video_tasks')
+                           .select(columns + ',source_metadata->bilibili_part')
+                           .eq('user_id', user_id).eq('platform', 'bilibili')
+                           .in_('source_metadata->bilibili_part->>url', batch).execute().data or [])
+            else:
+                with self._backend._conn() as conn:
+                    scope = 'user_id = ?' if user_id else 'user_id IS NULL'
+                    aliases = [dict(row) for row in conn.execute(
+                        f"SELECT {columns}, json_extract(source_metadata, '$.bilibili_part') AS bilibili_part FROM video_tasks WHERE json_extract(source_metadata, '$.bilibili_part.url') IN ({','.join('?' for _ in batch)}) AND platform = 'bilibili' AND {scope}",
+                        [*batch, *([user_id] if user_id else [])])]
+            for row in aliases:
+                if isinstance(row.get('bilibili_part'), str):
+                    try: row['bilibili_part'] = json.loads(row['bilibili_part'])
+                    except ValueError: row['bilibili_part'] = None
+                resolved = video_source_url(row)
+                row.pop('bilibili_part', None)
+                if resolved in batch and resolved not in {existing['url'] for existing in rows}:
+                    rows.append({**row, 'url': resolved})
         return rows
 
     def list_progress_tasks(self, user_id: str = None, known_ids: list[str] = ()) -> List[dict]:

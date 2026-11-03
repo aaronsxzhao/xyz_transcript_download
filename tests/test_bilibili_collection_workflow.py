@@ -81,3 +81,39 @@ def test_current_part_uses_resolved_identity_even_when_saved_url_is_short(collec
     assert parts[1]['task_id']==short
     assert parts[1]['status']=='success'
     assert parts[0]['status']=='not_started'
+
+
+def test_other_part_directory_finds_legacy_short_link_p1_and_keeps_owner_scope(collection):
+    db,task,user,_=collection
+    metadata=db.get_task(task,'owner')['source_metadata']
+    first={**metadata,'bilibili_part':metadata['bilibili_parts'][0]}
+    private=db.create_task({'url':'https://b23.tv/private','user_id':'other','platform':'bilibili','status':'success'})
+    db.update_task(private,{'source_metadata':first})
+    assert routes.collection_parts(task,user)['parts'][0]['task_id'] is None
+    short=db.create_task({'url':'https://b23.tv/legacy','user_id':'owner','platform':'bilibili','status':'success'})
+    db.update_task(short,{'source_metadata':first})
+    row=routes.collection_parts(task,user)['parts'][0]
+    assert row['task_id']==short and row['status']=='success'
+    assert db.get_task(short,'owner')['url']=='https://b23.tv/legacy'
+    exact=db.create_task({'url':BASE+'?p=1','user_id':'owner','platform':'bilibili','status':'pending'})
+    assert routes.collection_parts(task,user)['parts'][0]['task_id']==exact
+
+
+def test_cloud_part_status_alias_lookup_is_owner_scoped_and_omits_metadata():
+    from unittest.mock import MagicMock
+    from video_task_db import _SupabaseVideoTaskDB
+    backend=_SupabaseVideoTaskDB.__new__(_SupabaseVideoTaskDB)
+    query=MagicMock()
+    query.select.return_value=query.eq.return_value=query.in_.return_value=query
+    query.execute.side_effect=[SimpleNamespace(data=[]),SimpleNamespace(data=[{
+        'id':'short','url':'https://b23.tv/legacy','status':'success','progress':100,'error':'',
+        'bilibili_part':{'url':BASE+'?p=1','page':1}}])]
+    backend._sb=SimpleNamespace(client=SimpleNamespace(table=lambda _:query))
+    db=VideoTaskDB.__new__(VideoTaskDB);db._backend=backend
+    rows=db.part_statuses([BASE+'?p=1'],'owner')
+    assert rows==[{'id':'short','url':BASE+'?p=1','status':'success','progress':100,'error':''}]
+    assert query.eq.call_args_list.count((('user_id','owner'),{}))==2
+    query.in_.assert_any_call('source_metadata->bilibili_part->>url',[BASE+'?p=1'])
+    query.reset_mock()
+    assert db.part_statuses([BASE+'?p=1'],None)==[]
+    query.select.assert_not_called()
