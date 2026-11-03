@@ -434,3 +434,7 @@ Detailed processing-stage feedback integrated with Editorial control states brin
 Rich-summary theme regression: `python scripts/check_summary_theme.py` (or `--webkit`) switches Classic/Editorial light/dark on a mounted reader, checks code-token/table/placeholder text contrast, narrow-screen overflow, screenshot zoom/Escape, and original-article link/player interactions. Requests use synthetic fixtures. Classic dark retains the existing Prism palette; Editorial and Classic light use themed code colors.
 
 Original article imports escape literal paragraph-leading Markdown markers, including years such as `2018.`. Structured source lists retain their start value and continuation indentation. Reader lists with three or more marker digits keep markers inside the content box; ordinary list indentation is unchanged. Article tables scroll in a keyboard-focusable container. `scripts/check_summary_theme.py` covers 320/390/820 widths, large markers, 18/28px text and keyboard table scrolling.
+
+## UI design and regression agreements
+
+For frontend changes, read [the design contract](docs/ui-design-contract.md), [regression requirements](docs/ui-regression-contract.md), and [review report template](docs/ui-review-template.md). Repository working agreements are in [AGENTS.md](AGENTS.md).
