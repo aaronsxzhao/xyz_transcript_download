@@ -38,7 +38,7 @@ it('shows a unified twelve-item page and pages without losing or duplicating rec
  await act(async()=>button('Load more').click())
  expect(titles()).toHaveLength(15)
  expect(fetchLibrary).toHaveBeenLastCalledWith(expect.any(String),'next',expect.any(AbortSignal))
- expect(node.textContent).toContain('15 loaded')
+ expect(node.textContent).toContain('15 titles · 15 notes loaded')
  expect([...node.querySelectorAll('button')].some(b=>b.textContent==='Load more')).toBe(false)
 })
 it('queries article membership on the server and labels original text as an article',async()=>{
@@ -61,7 +61,7 @@ it('aborts an older filter read and prevents its late response from overwriting 
  await act(async()=>button('Articles').click())
  expect(signal.aborted).toBe(true)
  await act(async()=>finish({items:[item('stale')],next_cursor:null}))
- expect(titles()).toEqual(['Saved article']);expect(getCache('library_page:dashboard_recent:v1:')).toBeNull()
+ expect(titles()).toEqual(['Saved article']);expect(getCache('library_page:dashboard_recent:v2:')).toBeNull()
 })
 it('retains the loaded page when loading more fails and retries that cursor',async()=>{
  vi.mocked(fetchLibrary).mockResolvedValueOnce({items:[item('existing')],next_cursor:'next'})
@@ -75,7 +75,7 @@ it('retains the loaded page when loading more fails and retries that cursor',asy
  expect(titles()).toEqual(['Saved existing','Saved new'])
 })
 it('keeps a cached page visible during refresh and distinguishes failures from empty content',async()=>{
- setCache('library_page:dashboard_recent:v1:',{items:[item('cached')],next_cursor:null})
+ setCache('library_page:dashboard_recent:v2:',{items:[item('cached')],next_cursor:null})
  vi.mocked(fetchLibrary).mockRejectedValueOnce(new Error('Page read failed'))
  await mount()
  expect(titles()).toEqual(['Saved cached']);expect(node.textContent).not.toContain('No saved content yet')
@@ -128,7 +128,7 @@ it('does not let an old dashboard instance overwrite newer notification cache af
 })
 
 it.each(['/api/video-notes/tasks/removed','/api/episodes/removed'])('invalidates recent saved-content cache after %s changes',async url=>{
- setCache('library_page:dashboard_recent:v1:',{items:[item('removed')],next_cursor:null})
+ setCache('library_page:dashboard_recent:v2:',{items:[item('removed')],next_cursor:null})
  invalidateForMutation(url)
  let finish!:(value:any)=>void
  vi.mocked(fetchLibrary).mockImplementationOnce(()=>new Promise(resolve=>{finish=resolve}))
