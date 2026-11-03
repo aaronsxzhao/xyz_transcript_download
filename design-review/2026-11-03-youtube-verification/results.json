@@ -1,0 +1,156 @@
+{
+  "application_commit": "1176c4a8e5033bdee7add5b7272986a07520ebc1",
+  "baseline": "a011c539797eb402d65e0f319f34c8981a3f238a",
+  "fixture_only": true,
+  "cold_start_reload": true,
+  "results": {
+    "Chromium": [
+      {
+        "design": "classic",
+        "theme": "light",
+        "width": 390,
+        "verification_ui": "passed"
+      },
+      {
+        "design": "classic",
+        "theme": "light",
+        "width": 820,
+        "verification_ui": "passed"
+      },
+      {
+        "design": "classic",
+        "theme": "light",
+        "width": 1440,
+        "verification_ui": "passed"
+      },
+      {
+        "design": "classic",
+        "theme": "dark",
+        "width": 390,
+        "verification_ui": "passed"
+      },
+      {
+        "design": "classic",
+        "theme": "dark",
+        "width": 820,
+        "verification_ui": "passed"
+      },
+      {
+        "design": "classic",
+        "theme": "dark",
+        "width": 1440,
+        "verification_ui": "passed"
+      },
+      {
+        "design": "editorial",
+        "theme": "light",
+        "width": 390,
+        "verification_ui": "passed"
+      },
+      {
+        "design": "editorial",
+        "theme": "light",
+        "width": 820,
+        "verification_ui": "passed"
+      },
+      {
+        "design": "editorial",
+        "theme": "light",
+        "width": 1440,
+        "verification_ui": "passed"
+      },
+      {
+        "design": "editorial",
+        "theme": "dark",
+        "width": 390,
+        "verification_ui": "passed"
+      },
+      {
+        "design": "editorial",
+        "theme": "dark",
+        "width": 820,
+        "verification_ui": "passed"
+      },
+      {
+        "design": "editorial",
+        "theme": "dark",
+        "width": 1440,
+        "verification_ui": "passed"
+      }
+    ],
+    "WebKit": [
+      {
+        "design": "classic",
+        "theme": "light",
+        "width": 390,
+        "verification_ui": "passed"
+      },
+      {
+        "design": "classic",
+        "theme": "light",
+        "width": 820,
+        "verification_ui": "passed"
+      },
+      {
+        "design": "classic",
+        "theme": "light",
+        "width": 1440,
+        "verification_ui": "passed"
+      },
+      {
+        "design": "classic",
+        "theme": "dark",
+        "width": 390,
+        "verification_ui": "passed"
+      },
+      {
+        "design": "classic",
+        "theme": "dark",
+        "width": 820,
+        "verification_ui": "passed"
+      },
+      {
+        "design": "classic",
+        "theme": "dark",
+        "width": 1440,
+        "verification_ui": "passed"
+      },
+      {
+        "design": "editorial",
+        "theme": "light",
+        "width": 390,
+        "verification_ui": "passed"
+      },
+      {
+        "design": "editorial",
+        "theme": "light",
+        "width": 820,
+        "verification_ui": "passed"
+      },
+      {
+        "design": "editorial",
+        "theme": "light",
+        "width": 1440,
+        "verification_ui": "passed"
+      },
+      {
+        "design": "editorial",
+        "theme": "dark",
+        "width": 390,
+        "verification_ui": "passed"
+      },
+      {
+        "design": "editorial",
+        "theme": "dark",
+        "width": 820,
+        "verification_ui": "passed"
+      },
+      {
+        "design": "editorial",
+        "theme": "dark",
+        "width": 1440,
+        "verification_ui": "passed"
+      }
+    ]
+  }
+}

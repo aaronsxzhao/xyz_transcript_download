@@ -108,3 +108,14 @@ def test_platform_account_diagnostics_count_statuses_without_login_keys():
     assert counts['/api/cookies/bilibili/qr/poll']['200']==1
     assert counts['/api/cookies/upload-file']['200']==1
     assert 'private-' not in str(report)
+
+
+def test_youtube_verification_reports_are_whitelisted_and_bounded():
+    import json
+    payload={'reference':'550e8400-e29b-41d4-a716-446655440000','code':'forbidden','stage':'media','cookie_present':True,'metadata_ok':True,'download_ok':False,'sample_bytes':0,'revision':'a'*40,'message':'secret-cookie','url':'https://private.example','runtime':{'key':'secret-key'}}
+    report=safe_log_summary(('YouTube verification '+json.dumps(payload)+'\n')*8)
+    assert len(report['youtube_verifications'])==5
+    assert report['youtube_verifications'][0]['code']=='forbidden'
+    assert 'secret' not in json.dumps(report) and 'private.example' not in json.dumps(report)
+    payload.update(code='secret-token')
+    assert safe_log_summary('YouTube verification '+json.dumps(payload))['youtube_verifications']==[]
