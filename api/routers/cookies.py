@@ -5,7 +5,7 @@ from typing import Optional
 
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form
-from pydantic import BaseModel
+from pydantic import BaseModel, Field, ConfigDict
 
 from api.auth import get_current_user, User
 from logger import get_logger
@@ -803,3 +803,37 @@ def list_cookies(user: Optional[User] = Depends(get_current_user)):
         return {"cookies": mgr.list_cookies()}
     except Exception:
         raise HTTPException(status_code=503, detail="Cannot read saved platform accounts. Please retry.")
+
+
+# Diagnostics share normal login/ownership checks; no admin token or cookie export.
+import threading
+_youtube_probe_slots = threading.BoundedSemaphore(2)
+_youtube_probe_lock = threading.Lock()
+_youtube_probe_accounts: dict[str, float] = {}
+
+
+class YouTubeVerifyRequest(BaseModel):
+    model_config = ConfigDict(extra='forbid')
+    video_url: str = Field(default='', max_length=2048)
+
+
+@router.post('/youtube/verify')
+def verify_youtube(data: YouTubeVerifyRequest, user: Optional[User] = Depends(get_current_user)):
+    from api.youtube_diagnostics import video_url, verify_saved_cookie
+    try: target = video_url(data.video_url)
+    except ValueError as error: raise HTTPException(422, detail=str(error)) from None
+    owner = user.id if user else None
+    account = owner or '__local__'
+    now = time.monotonic()
+    with _youtube_probe_lock:
+        for key in [key for key, deadline in _youtube_probe_accounts.items() if deadline <= now]:
+            _youtube_probe_accounts.pop(key, None)
+        if account in _youtube_probe_accounts or not _youtube_probe_slots.acquire(blocking=False):
+            raise HTTPException(429, detail='A verification is running or was recently requested. Wait one minute before retrying.')
+        _youtube_probe_accounts[account] = float('inf')
+    try:
+        return verify_saved_cookie(owner, target)
+    finally:
+        with _youtube_probe_lock:
+            _youtube_probe_accounts[account] = time.monotonic() + 30
+        _youtube_probe_slots.release()

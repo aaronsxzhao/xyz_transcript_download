@@ -42,7 +42,7 @@ class _SQLiteCookieManager:
         finally:
             conn.close()
 
-    def get_cookie(self, platform: str) -> str:
+    def get_cookie(self, platform: str, *, strict: bool = False) -> str:
         with self._conn() as conn:
             row = conn.execute(
                 "SELECT cookie_data FROM platform_cookies WHERE platform = ?",
@@ -97,7 +97,7 @@ class _SupabaseCookieManager:
             raise RuntimeError("Supabase admin client not available for cookie storage")
         logger.info("CookieManager using Supabase backend")
 
-    def get_cookie(self, platform: str) -> str:
+    def get_cookie(self, platform: str, *, strict: bool = False) -> str:
         try:
             result = (
                 self.client.table("user_platform_cookies")
@@ -111,7 +111,9 @@ class _SupabaseCookieManager:
                 return result.data.get("cookie_data", "")
             return ""
         except Exception as e:
-            logger.error(f"Supabase get_cookie failed for {platform}: {e}")
+            logger.error("Supabase cookie read failed")
+            if strict:
+                raise RuntimeError("Platform account storage unavailable") from e
             return ""
 
     def set_cookie(self, platform: str, cookie_data: str):
@@ -179,8 +181,12 @@ class CookieManager:
             self._backend = _SQLiteCookieManager(db_path)
             logger.info("CookieManager using SQLite backend")
 
-    def get_cookie(self, platform: str) -> str:
-        return self._backend.get_cookie(platform) if self._backend else ""
+    def get_cookie(self, platform: str, *, strict: bool = False) -> str:
+        if not self._backend:
+            return ""
+        if strict:
+            return self._backend.get_cookie(platform, strict=True)
+        return self._backend.get_cookie(platform)
 
     def set_cookie(self, platform: str, cookie_data: str):
         if not self._backend:

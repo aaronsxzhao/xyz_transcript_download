@@ -11,6 +11,8 @@ import subprocess
 from resource_scheduler import run_media_process
 from summary_errors import ProcessingCancelledError
 import uuid
+import tempfile
+from contextlib import contextmanager
 from urllib.parse import parse_qs, urlparse
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, asdict
@@ -24,6 +26,21 @@ from publication_dates import publication_date
 from logger import get_logger
 
 logger = get_logger("video_downloader")
+
+
+@contextmanager
+def account_youtube_dl(options):
+    """Give each extraction/download its own 0600 cookie file and remove it."""
+    options = dict(options)
+    cookies = options.pop('_account_cookies', '')
+    with tempfile.TemporaryDirectory(prefix='platform-session-') as directory:
+        if cookies:
+            path = Path(directory) / 'cookies.txt'
+            path.touch(mode=0o600)
+            path.write_text(cookies, encoding='utf-8')
+            options['cookiefile'] = str(path)
+        with yt_dlp.YoutubeDL(options) as downloader:
+            yield downloader
 
 VIDEO_DIR = DATA_DIR / "videos"
 UPLOAD_DIR = DATA_DIR / "uploads"
@@ -460,16 +477,14 @@ def list_channel_videos(
     }
 
     if cookies:
-        cookie_file = DATA_DIR / f"{platform}_cookies.txt"
-        cookie_file.write_text(cookies, encoding="utf-8")
-        opts["cookiefile"] = str(cookie_file)
+        opts['_account_cookies'] = cookies
 
     if platform == "youtube":
         opts["js_runtimes"] = {"deno": {}, "node": {}, "bun": {}}
         opts["remote_components"] = {"ejs:github"}
 
     try:
-        with yt_dlp.YoutubeDL(opts) as ydl:
+        with account_youtube_dl(opts) as ydl:
             info = ydl.extract_info(listing_url, download=False)
         if not info:
             if strict: raise ValueError('The source returned no channel listing')
@@ -737,9 +752,7 @@ class YtdlpDownloader(BaseDownloader):
                 pass
 
         if cookie_str:
-            cookie_file = DATA_DIR / f"{self.platform}_cookies.txt"
-            cookie_file.write_text(cookie_str, encoding="utf-8")
-            opts["cookiefile"] = str(cookie_file)
+            opts['_account_cookies'] = cookie_str
             lines = [l for l in cookie_str.strip().splitlines() if l.strip() and not l.startswith("#")]
             cookie_names = [l.split("\t")[-2] if "\t" in l else "?" for l in lines[:20]]
             logger.info(f"Using saved cookies for {self.platform}: {len(lines)} entries, keys={cookie_names}")
@@ -766,7 +779,7 @@ class YtdlpDownloader(BaseDownloader):
                 opts["quiet"] = False
                 opts["no_warnings"] = False
                 logger.info(f"[yt-dlp] Extracting YouTube metadata for {url}")
-            with yt_dlp.YoutubeDL(opts) as ydl:
+            with account_youtube_dl(opts) as ydl:
                 info = ydl.extract_info(url, download=False)
             if not info:
                 return None
@@ -858,7 +871,7 @@ class YtdlpDownloader(BaseDownloader):
                     'outtmpl': str(attempt_dir / Path(opts['outtmpl']).name),
                 })
             try:
-                with yt_dlp.YoutubeDL(attempt_opts) as ydl:
+                with account_youtube_dl(attempt_opts) as ydl:
                     info = ydl.extract_info(url, download=True) if audio else ydl.download([url])
                 if transport == 'aria2c':
                     # Publish only completed media; control/part files stay isolated.
@@ -1016,7 +1029,7 @@ class YtdlpDownloader(BaseDownloader):
                 "skip_download": True,
                 "outtmpl": str(sub_dir / f"{task_id}.%(ext)s"),
             })
-            with yt_dlp.YoutubeDL(opts) as ydl:
+            with account_youtube_dl(opts) as ydl:
                 info = ydl.extract_info(url, download=True)
 
             subtitles = info.get("requested_subtitles") or {}
@@ -1695,7 +1708,7 @@ class DouyinDownloader(BaseDownloader):
             cookiefile = self._cookiefile_path()
             if cookiefile:
                 opts["cookiefile"] = cookiefile
-            with yt_dlp.YoutubeDL(opts) as ydl:
+            with account_youtube_dl(opts) as ydl:
                 ydl.download([url])
             if output_path.exists():
                 if self._has_usable_cached_video(output_path):
@@ -1806,7 +1819,7 @@ class KuaishouDownloader(BaseDownloader):
                 "noplaylist": True,
                 "quiet": True,
             }
-            with yt_dlp.YoutubeDL(opts) as ydl:
+            with account_youtube_dl(opts) as ydl:
                 ydl.download([url])
             if output_path.exists():
                 return output_path

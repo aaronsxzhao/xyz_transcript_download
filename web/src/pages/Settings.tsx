@@ -1,6 +1,7 @@
 import type { ExecutionOptions } from '../components/ModelExecutionFields'
 const ModelExecutionFields = lazy(() => import('../components/ModelExecutionFields'))
 import { OptionalTool } from '../components/DeferredView'
+const YouTubeVerification = lazy(() => import('../components/YouTubeVerification'))
 const PerformancePanel = lazy(() => import('../components/PerformancePanel'))
 const CustomModelFields = lazy(() => import('../components/CustomModelFields'))
 import type {ConnectionDraft} from '../components/CustomModelFields'
@@ -1379,7 +1380,7 @@ function YouTubeLoginSection({
       {loggedIn ? (
         <div className="flex items-center gap-2 p-3 bg-green-500/10 border border-green-500/30 rounded-lg">
           <CheckCircle size={16} className="text-green-400" />
-          <span className="text-sm text-green-400">YouTube connection saved — verified when a video is accessed</span>
+          <span className="text-sm text-green-400">YouTube cookies saved</span>
         </div>
       ) : (
         <div className="p-3 bg-amber-500/10 border border-amber-500/30 rounded-lg">
@@ -1388,12 +1389,14 @@ function YouTubeLoginSection({
             <div className="text-xs text-gray-300">
               <p className="font-medium text-amber-300">YouTube cookies recommended</p>
               <p className="mt-0.5 text-gray-400">
-                YouTube may block requests from servers. Upload cookies to ensure all videos work.
+                YouTube may block requests from servers. Fresh cookies can help; some videos or server networks may still be restricted.
               </p>
             </div>
           </div>
         </div>
       )}
+
+      <OptionalTool fallback={<p role="status">Loading YouTube verification…</p>}><YouTubeVerification disabled={cookieLoading || pasteSaving} /></OptionalTool>
 
       {/* Method tabs */}
       <div className="flex gap-1 p-0.5 bg-dark-hover rounded-lg">

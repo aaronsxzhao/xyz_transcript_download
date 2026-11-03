@@ -9,6 +9,29 @@ import urllib.request
 from pathlib import Path
 
 
+def safe_youtube_reports(text: str) -> list:
+    reports = []
+    codes = {'ok','missing_cookie','invalid_cookie','cookie_expired','sign_in_or_bot_challenge',
+             'rate_limited','forbidden','unavailable','runtime_missing','timeout','network_error',
+             'no_media','invalid_media','storage_unavailable','extractor_error'}
+    for payload in re.findall(r'YouTube verification (\{[^\n]+\})', text):
+        try: source = json.loads(payload)
+        except ValueError: continue
+        if not isinstance(source, dict) or not isinstance(source.get('code'), str) or source['code'] not in codes: continue
+        reference = source.get('reference')
+        if not isinstance(reference, str) or not re.fullmatch(r'[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}', reference): continue
+        row = {'reference':reference, 'code':source['code']}
+        for field in ('cookie_present', 'metadata_ok', 'download_ok'):
+            if type(source.get(field)) is bool: row[field] = source[field]
+        if type(source.get('sample_bytes')) is int and 0 <= source['sample_bytes'] <= 65536:
+            row['sample_bytes'] = source['sample_bytes']
+        if isinstance(source.get('stage'), str) and source['stage'] in {'cookie','startup','metadata','media','complete'}: row['stage'] = source['stage']
+        revision = source.get('revision')
+        if isinstance(revision, str) and re.fullmatch(r'[0-9a-f]{40}', revision): row['revision'] = revision
+        reports.append(row)
+    return reports[-5:]
+
+
 def safe_log_summary(text: str) -> dict:
     exceptions = [name for name in (
         "ModuleNotFoundError", "ImportError", "SyntaxError", "IndentationError",
@@ -21,6 +44,7 @@ def safe_log_summary(text: str) -> dict:
     missing = [name for name in missing if not name.startswith(("eyJ", "sb_", "ghp_"))]
     frames = re.findall(r'File "(/app/[A-Za-z0-9_./-]+\.py)", line ([0-9]+)', text)
     return {
+        "youtube_verifications": safe_youtube_reports(text),
         "exception_types": exceptions,
         "missing_modules": sorted(set(missing)),
         "source_frames": [{"file": path, "line": int(line)} for path, line in frames[-10:]],
