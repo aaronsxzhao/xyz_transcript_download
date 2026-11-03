@@ -4,6 +4,7 @@ import hashlib
 import logging
 import re
 from fastapi import HTTPException
+from starlette.routing import compile_path
 
 # Exact registered route templates: new endpoints are denied until reviewed.
 READ_ROUTES = frozenset({
@@ -32,6 +33,26 @@ MODEL_ROUTES = frozenset({
 TOKEN_PATTERN = re.compile(r'ptt_[A-Za-z0-9_-]{43}\Z')
 
 
+_ROUTE_PATTERNS = {
+    template: compile_path(template)[0]
+    for template in READ_ROUTES | MODEL_ROUTES | {path for _, path in DIAGNOSTIC_ROUTES}
+}
+
+
+def reviewed_route(request):
+    # FastAPI 0.143 keeps included routers lazy: scope.route.path is relative
+    # to its include prefix. Verify both the public path and the actual matched
+    # route shape, so a future static endpoint cannot inherit a parameter route's
+    # permissions merely because its URL fits that parameter pattern.
+    local_path = getattr(request.scope.get('route'), 'path', None)
+    if local_path is None:
+        return ''
+    for template, pattern in _ROUTE_PATTERNS.items():
+        if template.endswith(local_path) and pattern.fullmatch(request.url.path):
+            return template
+    return ''
+
+
 def _consume(token, scope, route):
     from api.supabase_client import get_supabase_admin_client
     database = get_supabase_admin_client()
@@ -47,7 +68,7 @@ async def authenticate_test_token(request, token):
     from api.auth import User
     if not TOKEN_PATTERN.fullmatch(token):
         raise HTTPException(401, 'Invalid test token')
-    route = getattr(request.scope.get('route'), 'path', '')
+    route = reviewed_route(request)
     method = request.method
     if method == 'GET' and route in READ_ROUTES:
         scope = 'content:read'

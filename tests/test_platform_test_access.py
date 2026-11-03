@@ -86,3 +86,44 @@ def test_token_file_is_private_and_matches_registered_digest(tmp_path, monkeypat
     assert metadata['token_digest']==hashlib.sha256(token.encode()).hexdigest()
     assert token not in str(metadata)
     with pytest.raises(FileExistsError): main()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize('prefix,path,method,payload', [
+    ('/api/podcasts','', 'GET', None),
+    ('/api/library','', 'GET', None),
+    ('/api/video-notes','/tasks', 'GET', None),
+    ('/api/video-notes','/tasks/{task_id}/versions/{version_id}', 'GET', None),
+    ('/api/settings','/models', 'POST', {'kind':'summary'}),
+    ('/api/cookies','/youtube/verify', 'POST', {}),
+])
+async def test_included_router_prefixes_use_canonical_reviewed_paths(prefix,path,method,payload):
+    from fastapi import APIRouter
+    app=FastAPI()
+    router=APIRouter()
+    async def endpoint(user=Depends(get_current_user)):
+        return {'owner':user.id}
+    router.add_api_route(path,endpoint,methods=[method])
+    app.include_router(router,prefix=prefix)
+    target=(prefix+path).replace('{task_id}','fixture').replace('{version_id}','version')
+    with patch('api.auth.USE_SUPABASE',True), patch('api.test_access._consume',return_value={'status':'ok','owner_id':OWNER}) as consume:
+        async with AsyncClient(transport=ASGITransport(app=app),base_url='http://test') as client:
+            response=await client.request(method,target,json=payload,headers={'Authorization':'Bearer '+TOKEN})
+    assert response.status_code==200, response.text
+    assert consume.call_args.args[2]==prefix+path
+
+
+@pytest.mark.asyncio
+async def test_future_static_route_does_not_inherit_dynamic_route_permission():
+    from fastapi import APIRouter
+    app=FastAPI()
+    router=APIRouter()
+    async def secret_endpoint(user=Depends(get_current_user)):
+        raise AssertionError('Unreviewed route must not execute')
+    router.add_api_route('/tasks/new-sensitive-endpoint',secret_endpoint,methods=['GET'])
+    app.include_router(router,prefix='/api/video-notes')
+    with patch('api.auth.USE_SUPABASE',True), patch('api.test_access._consume') as consume:
+        async with AsyncClient(transport=ASGITransport(app=app),base_url='http://test') as client:
+            response=await client.get('/api/video-notes/tasks/new-sensitive-endpoint',headers={'Authorization':'Bearer '+TOKEN})
+    assert response.status_code==403
+    consume.assert_not_called()
