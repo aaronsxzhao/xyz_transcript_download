@@ -111,7 +111,7 @@ async def test_connection_test_returns_useful_errors_without_secrets(client):
     error.status_code = 429
     with patch("api.llm_settings.test_summary_connection", side_effect=error):
         result = await client.post("/api/settings/test-llm", json={"llm_provider": "groq", "llm_model": "openai/gpt-oss-120b"})
-    assert result.status_code == 502
+    assert result.status_code == 429
     assert "quota" in result.json()["detail"]
     assert "private-key" not in result.text
 
