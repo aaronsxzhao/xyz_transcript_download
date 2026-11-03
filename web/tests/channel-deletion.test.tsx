@@ -23,7 +23,7 @@ beforeEach(()=>{
  node=document.createElement('div');document.body.append(node);root=createRoot(node)
 })
 afterEach(()=>{act(()=>root.unmount());node.remove();useStore.getState().reset();clearCache()})
-async function mount(){await act(async()=>root.render(<MemoryRouter initialEntries={['/videos?platform=youtube&channel=Example+channel']}><Videos/></MemoryRouter>))}
+async function mount(){await act(async()=>root.render(<MemoryRouter initialEntries={['/videos?platform=youtube&channel=Example+channel']}><Videos/></MemoryRouter>));await act(async()=>vi.dynamicImportSettled())}
 it('keeps a deleted video out of a late channel page and its saved cache',async()=>{
  let finish!:(value:any)=>void
  await mount()

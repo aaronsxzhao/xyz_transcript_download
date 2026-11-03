@@ -21,8 +21,10 @@ html = html.replace('</body>',()=>setup+`<script type="module" data-cfasync="fal
 const startup = await minify('startup.js', readFileSync(new URL('../src/startup.js', import.meta.url), 'utf8'))
 if (startup.errors?.length) throw new Error('Startup script minification failed')
 html = html.replace('<!-- xyz-startup -->', () => '<script data-cfasync="false">' + startup.code + '</script>')
+// Keep a disabled stylesheet marker: Vite detects links, not inline styles.
+// Without it, a lazy component re-adds base CSS after the selected skin.
 html = html.replace(/<link rel="stylesheet"[^>]*href="(\/assets\/[^\"]+\.css)"[^>]*>/g, (_, href) =>
-  `<style data-app-style data-asset="${href}">${readFileSync(new URL('../dist' + href, import.meta.url),'utf8')}</style>`)
+  `<link rel="stylesheet" href="${href}" disabled data-inlined-style><style data-app-style data-asset="${href}">${readFileSync(new URL('../dist' + href, import.meta.url),'utf8')}</style>`)
 html = html.replace(/<script type="module"([^>]+)>/g, '<script type="module"$1 onerror="window.__xyzEntryFailed=true;window.dispatchEvent(new Event(\'xyz:entry-error\'))">')
 html = html.replace(/^[ \t]+$/gm,'')
 writeFileSync(new URL('index.html', root), html)

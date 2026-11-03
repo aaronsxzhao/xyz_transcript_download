@@ -10,3 +10,9 @@
 .series-episodes li p{overflow-wrap:anywhere}.series-episodes li>a{grid-column:2;justify-self:end}.series-part-number{color:var(--ui-muted);font-variant-numeric:tabular-nums}
 .series-episodes [role=alert]{font-size:.85rem;margin:10px 0;color:var(--ui-muted)}
 @media(min-width:1024px){.series-episodes li{grid-template-columns:2.5em minmax(0,1fr) auto}.series-episodes li>a{grid-column:3;align-self:center}}
+/* Series belong to the same publication list as ordinary saved notes. */
+html[data-design='editorial'] .series-card{padding:20px 0;border:0;border-bottom:1px solid var(--ui-border);border-radius:0;background:transparent}
+html[data-design='editorial'] .series-cover{border-radius:0}
+html[data-design='editorial'] .series-copy h2{font-family:var(--publication-serif);font-size:21px;font-weight:600;line-height:1.45}
+html[data-design='editorial'] .series-copy button{border-radius:var(--ui-radius);margin-top:10px}
+@media(max-width:767px){html[data-design='editorial'] .series-cover{width:80px;flex-basis:80px}html[data-design='editorial'] .series-card-heading{gap:14px}html[data-design='editorial'] .series-copy h2{font-size:18px}}
