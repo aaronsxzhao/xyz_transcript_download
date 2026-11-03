@@ -129,3 +129,23 @@ async def test_articles_are_filtered_by_content_type_without_changing_reading_id
         articles=(await http.get('/library',params={'kind':'article'})).json()['items']
         assert [row['id'] for row in articles]==['article'] and articles[0]['kind']=='video'
         assert [row['id'] for row in (await http.get('/library',params={'kind':'video'})).json()['items']]==['video']
+
+@pytest.mark.asyncio
+async def test_bilibili_identity_enrichment_is_bounded_account_scoped_and_preserves_pagination(monkeypatch):
+    notes = [dict(user_id='a', id=str(i), kind='video', title=f'Course · P{i}/21 Lesson', source='Course',
+                  date='2026-01-01', status='completed', search_text='Course', sort_key=str(i),
+                  thumbnail='', platform='bilibili', duration=60, topics_count=0,
+                  published_at='', publication_sort_key=str(i)) for i in range(1,4)]
+    videos = [dict(id=str(i),user_id='a',url=f'https://www.bilibili.com/video/BVcourse?p={i}') for i in range(1,4)]
+    videos.append(dict(id='3',user_id='b',url='private-other-account'))
+    reads=[]
+    def table(name):
+        query=Query(notes if name=='library_items' else videos);reads.append((name,query));return query
+    monkeypatch.setattr(library,'get_db',lambda _:SimpleNamespace(use_supabase=True,db=SimpleNamespace(client=SimpleNamespace(table=table))))
+    app=FastAPI();app.include_router(library.router,prefix='/library')
+    app.dependency_overrides[get_current_user]=lambda:User('a','')
+    async with AsyncClient(transport=ASGITransport(app),base_url='http://test') as http:
+        result=(await http.get('/library',params={'limit':2})).json()
+    assert result['next_cursor']=='2'
+    assert [r['source_url'] for r in result['items']]==['https://www.bilibili.com/video/BVcourse?p=3','https://www.bilibili.com/video/BVcourse?p=2']
+    assert len(reads)==2 and reads[1][1].fields==['id','url'] and len(reads[1][1].rows)==2

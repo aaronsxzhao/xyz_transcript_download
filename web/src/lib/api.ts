@@ -917,7 +917,7 @@ export async function exportMarkdownToNotion(markdown: string, title: string, pa
   return submitNotionExport('export-markdown', {markdown,title,parent_page_id:parentPageId})
 }
 
-export interface LibraryItem { id:string; kind:'podcast'|'video'; content_type?:'article'|'audio'|'video'; title:string; source:string; date:string; published_at?:string; status:string; thumbnail?:string; platform?:string; duration?:number; topics_count?:number }
+export interface LibraryItem { source_url?:string; id:string; kind:'podcast'|'video'; content_type?:'article'|'audio'|'video'; title:string; source:string; date:string; published_at?:string; status:string; thumbnail?:string; platform?:string; duration?:number; topics_count?:number }
 export interface LibraryPage { items:LibraryItem[]; next_cursor:string|null }
 export interface LibrarySourcePage { sources:string[]; next_cursor:string|null }
 export function fetchLibrarySources(cursor = '', signal?: AbortSignal): Promise<LibrarySourcePage> {

@@ -1,3 +1,5 @@
+import SeriesCard from './SeriesCard'
+import {groupLibrarySeries} from '../lib/librarySeries'
 import {useAppearance} from '../lib/theme'
 import {useEffect, useRef, useState} from 'react'
 import {Link} from 'react-router-dom'
@@ -27,7 +29,7 @@ export default function DashboardRecent({revision}: {revision:number}) {
 function RecentFeed({kind,revision}: {kind:Kind;revision:number}) {
   const {design} = useAppearance()
   const featured = design === 'editorial' && kind === ''
-  const key='library_page:dashboard_recent:v1:'+kind
+  const key='library_page:dashboard_recent:v2:'+kind
   const [page,setPage]=useState<LibraryPage>(()=>getCache(key)||{items:[],next_cursor:null})
   const [loading,setLoading]=useState(true),[error,setError]=useState('')
   const controller=useRef<AbortController>(),confirmed=useRef(false),failedCursor=useRef('')
@@ -54,14 +56,16 @@ function RecentFeed({kind,revision}: {kind:Kind;revision:number}) {
     }
   }
   useEffect(()=>{void load();return()=>controller.current?.abort()},[revision])
+  const groups=groupLibrarySeries(page.items)
+  const card=(group:typeof groups[number],index:number)=>group.series?<SeriesCard key={group.key} group={group} priority={index===0}/>:<NoteCard key={group.key} item={group.items[0]} priority={index===0} featured={featured&&index===0}/>
   return <>
     <div className="dashboard-recent-status">
-      <span role="status">{loading?'Updating…':`${page.items.length} loaded${page.next_cursor?' · More available':''}`} · Saved content, newest first</span>
+      <span role="status">{loading?'Updating…':`${groups.length} ${groups.length===1?'title':'titles'} · ${page.items.length} notes loaded${page.next_cursor?' · More available':''}`} · Saved content, newest first</span>
       <button className="reader-action reader-action-icon" aria-label="Refresh recent content" disabled={loading} onClick={()=>void load()}><RefreshCw size={16} className={loading?'animate-spin':''}/></button>
     </div>
     {error&&<LoadError message={error} onRetry={()=>void load(failedCursor.current)}/>}
-    {featured && page.items[0] && <NoteCard item={page.items[0]} featured priority />}
-    <div className="dashboard-recent-notes" aria-busy={loading}>{(featured ? page.items.slice(1) : page.items).map((item,index)=><NoteCard key={item.kind+':'+item.id} item={item} priority={index===0}/>)}</div>
+    {featured && groups[0] && card(groups[0],0)}
+    <div className="dashboard-recent-notes" aria-busy={loading}>{(featured ? groups.slice(1) : groups).map((group,index)=>card(group,index+(featured?1:0)))}</div>
     {!page.items.length&&!error&&!loading&&<p className="text-sm text-gray-400">No saved {kind==='article'?'articles':kind==='podcast'?'podcast summaries':kind==='video'?'video notes':'content'} yet.</p>}
     {page.next_cursor&&<div className="dashboard-recent-more"><button className="ui-button" disabled={loading} onClick={()=>void load(page.next_cursor!)}>{loading?'Loading…':'Load more'}</button></div>}
   </>

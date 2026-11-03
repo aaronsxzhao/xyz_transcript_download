@@ -32,7 +32,7 @@ async def main():
      await choose(page,design,theme)
      panel=page.get_by_role('region',name='Bilibili collection parts')
      await panel.locator('.bilibili-part-row').last.wait_for(state='attached')
-     await panel.locator('.bilibili-directory > summary').click()
+     assert await panel.locator('.bilibili-directory').evaluate('e=>e.open')
      for i in [0,1,2]:
       assert await panel.locator('.bilibili-part-row').nth(i).get_attribute('data-unavailable')=='true'
       assert await panel.locator('input').nth(i).is_disabled()

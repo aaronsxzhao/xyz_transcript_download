@@ -69,7 +69,7 @@ it('does not let a late cache notification replace confirmed paginated results',
  api.fetchLibrary.mockResolvedValueOnce({items:[{id:'two',kind:'video',title:'Older note',source:'Channel',status:'completed',date:'2026-10-24'}],next_cursor:null})
  await click('Show more notes')
  await vi.waitFor(()=>expect(node.textContent).toContain('Older note'))
- await act(async()=>setCache('library_page:v6:'+new URLSearchParams({q:'',kind:'',status:'completed',source:'',sort:'newest'}),{items:[],next_cursor:null}))
+ await act(async()=>setCache('library_page:v7:'+new URLSearchParams({q:'',kind:'',status:'completed',source:'',sort:'newest'}),{items:[],next_cursor:null}))
  expect(node.textContent).toContain('Older note')
  expect(node.textContent).toContain('Visible note')
  expect(node.textContent).not.toContain('No matching notes')
