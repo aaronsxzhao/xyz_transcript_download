@@ -1,8 +1,8 @@
 import {useRef,useState} from 'react'
 import {Link,useNavigate} from 'react-router-dom'
-import {CheckCircle,XCircle,Video,ChevronDown,Square,Sparkles,Play,RotateCcw,ExternalLink,RefreshCw,Trash2} from 'lucide-react'
+import {CheckCircle,XCircle,Video,ChevronDown,Square,Sparkles,Play,RotateCcw,ExternalLink,RefreshCw} from 'lucide-react'
 import {groupVideoCollections,partLabel,collectionIdentity} from '../../lib/bilibiliCollection'
-import {useOutsideInteraction} from '../../lib/outsideInteraction'
+import ItemActions,{useItemActionList} from '../ItemActions'
 import {videoFailureHint} from '../../lib/videoFailure'
 import {sourceAction,TaskProgress} from '../TaskStatus'
 import ContentDates from '../ContentDates'
@@ -35,17 +35,12 @@ function getDisplayTitle(task: VideoTask): string {
 
 export default function VideoList({ videos, onDelete, onRetry, onCancel }: {
   videos: VideoTask[]
-  onDelete: (id: string) => Promise<void>
+  onDelete: (id: string, summaryOnly?:boolean) => Promise<void>
   onRetry: (id: string) => Promise<void>
   onCancel: (id: string) => Promise<void>
 }) {
   const navigate = useNavigate()
-  const list = useRef<HTMLDivElement>(null)
-  useOutsideInteraction(target => {
-    for (const menu of list.current?.querySelectorAll<HTMLDetailsElement>('.task-more[open]') || []) {
-      if (!menu.contains(target)) menu.open = false
-    }
-  })
+  const list=useItemActionList()
   const activeActions = useRef(new Set<string>())
   const [pending, setPending] = useState(new Set<string>())
   const runAction = async (id:string, action:(id:string)=>Promise<void>) => {
@@ -240,15 +235,9 @@ export default function VideoList({ videos, onDelete, onRetry, onCancel }: {
                 </a>
               )}
 
-              {!isProcessing(task.status) && (
-                <details className="task-more" onKeyDown={event => {
-                  if (event.key === 'Escape') {
-                    event.currentTarget.open = false
-                    event.currentTarget.querySelector('summary')?.focus()
-                  }
-                }}>
-                  <summary className="ui-button" aria-label={`More actions for ${displayTitle}`}>More</summary>
-                  <div>
+              <ItemActions title={displayTitle} kind="video" busy={pending.has(task.id)}
+                hasSummary={task.status!=='discovered' && !isProcessing(task.status)}
+                onDeleteSummary={()=>void runAction(task.id,id=>onDelete(id,true))} onDeleteItem={()=>void runAction(task.id,onDelete)}>
                     {task.status === 'success' && (
                       <button
                         disabled={pending.has(task.id)} aria-busy={pending.has(task.id)} onClick={() => void runAction(task.id, onRetry)}
@@ -258,16 +247,7 @@ export default function VideoList({ videos, onDelete, onRetry, onCancel }: {
                         <RefreshCw size={16} /><span>Re-Process</span>
                       </button>
                     )}
-                    <button
-                      disabled={pending.has(task.id)} aria-busy={pending.has(task.id)} onClick={() => void runAction(task.id, onDelete)}
-                      className="ui-button ui-button-danger"
-                      title="Delete video"
-                    >
-                      <Trash2 size={16} /><span>Delete video</span>
-                    </button>
-                  </div>
-                </details>
-              )}
+              </ItemActions>
 
               {isProcessing(task.status) && task.status !== 'cancelling' && (
                 <button

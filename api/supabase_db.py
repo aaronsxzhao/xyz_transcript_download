@@ -691,20 +691,11 @@ class SupabaseDatabase:
         if not self.client:
             return False
         
-        # Get summary ID first
-        result = self.client.table("summaries").select("id").eq("user_id", user_id).eq("episode_id", episode_id).execute()
-        if not result.data:
-            return False
-        
-        summary_id = result.data[0]["id"]
-        
-        # Delete key points first (foreign key constraint)
-        self.client.table("summary_key_points").delete().eq("summary_id", summary_id).execute()
-        
-        # Delete summary
-        self.client.table("summaries").delete().eq("id", summary_id).execute()
-        return True
-    
+        outcome = self.client.rpc('delete_user_podcast_summary', {'p_user':user_id,'p_episode':episode_id}).execute().data
+        if outcome == 'busy':
+            raise ValueError('Wait for processing to finish or cancel it before deleting the summary.')
+        return outcome == 'applied'
+
     # ==================== Stats ====================
     
     def get_stats(self, user_id: str) -> Dict[str, int]:

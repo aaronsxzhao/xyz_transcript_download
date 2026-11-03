@@ -8,6 +8,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from scripts.check_appearance import context_for, choose
 from scripts.check_library_browser import serve, fixtures
 from scripts.check_editorial_components import CONTROL
+from scripts.check_summary_actions_browser import confirm_action
 
 async def check(browser, origin, width, output):
     context = await context_for(browser, width, touch=True)
@@ -59,15 +60,12 @@ async def check(browser, origin, width, output):
                     result=await button.evaluate(CONTROL)
                     assert result['ratio']>=4.5,(design,theme,result)
                 await page.screenshot(path=str(output/f'{width}-{design}-{theme}-actions.png'))
-        async def cancel(dialog):
-            assert 'A saved video to keep' in dialog.message
-            await dialog.dismiss()
-        page.once('dialog',cancel)
-        await page.get_by_title('Delete video',exact=True).click()
+        message=await confirm_action(page,page.get_by_title('Delete video',exact=True),False)
+        assert 'A saved video to keep' in message
+        await page.wait_for_function("!document.querySelector('[title=\"Delete video\"]').disabled")
         assert not requests
         assert await page.locator('.video-task-list h3').count()==1
-        page.once('dialog',lambda d:d.accept())
-        await page.get_by_title('Delete video',exact=True).click()
+        await confirm_action(page,page.get_by_title('Delete video',exact=True),True)
         await page.locator('.video-task-list h3').wait_for(state='detached')
         assert requests==['DELETE'],requests
         await page.goto(origin+'/settings')

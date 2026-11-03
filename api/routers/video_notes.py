@@ -1552,6 +1552,21 @@ def get_task_version(task_id: str, version_id: str, user: User = Depends(get_cur
     return sign_media_urls(version, task_id)
 
 
+@router.delete("/tasks/{task_id}/summary")
+def delete_task_summary(task_id: str, user: Optional[User] = Depends(get_current_user)):
+    """Delete generated notes/versions, retaining source, transcript and list entry."""
+    from video_task_db import get_video_task_db
+    db = get_video_task_db()
+    user_id = user.id if user else None
+    outcome = db.delete_summary(task_id, user_id)
+    if outcome == 'busy':
+        raise HTTPException(status_code=409, detail="Wait for processing to finish or cancel it before deleting the summary.")
+    if outcome == 'not_found': raise HTTPException(status_code=404, detail="Task not found")
+    if outcome != 'applied': raise HTTPException(status_code=503, detail="Could not confirm summary deletion")
+    _invalidate_list_cache(user_id)
+    return {"message": "Summary deleted"}
+
+
 @router.delete("/tasks/{task_id}")
 def delete_task(task_id: str, user: Optional[User] = Depends(get_current_user)):
     """Delete a video note task and cancel any in-progress processing."""

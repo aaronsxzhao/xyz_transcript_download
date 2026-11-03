@@ -23,7 +23,7 @@ import { useToast } from '../components/Toast'
 import { markSeen } from '../lib/seen'
 import {
   fetchVideoChannels, fetchVideoTasksByChannel,
-  deleteVideoTask, deleteVideoChannel, retryVideoTask, cancelVideoTask,
+  deleteVideoChannel, retryVideoTask, cancelVideoTask,
   checkVideoChannelsForUpdates,
   type VideoTask, type VideoChannelStat,
 } from '../lib/api'
@@ -298,15 +298,14 @@ export default function Videos() {
     if(view.type==='videos')void loadChannelTasks(view.platform,view.channel,{preserveExisting:true})
   }
 
-  const handleDelete = async (taskId: string) => {
-    const title = channelTasks.find(task => task.id === taskId)?.title || 'this saved item'
-    if (!window.confirm(`Delete “${title}”? This removes the saved item and cannot be undone.`)) return
-    try {
-      await deleteVideoTask(taskId)
-      removeVideoTask(taskId)
-      setChannelTasks(prev => prev.filter(t => t.id !== taskId))
+  const handleDelete = async (taskId:string,summaryOnly=false) => {
+    const actions=await import('../lib/taskActions')
+    await (summaryOnly?actions.deleteSavedSummary:actions.deleteSavedItem)('video',taskId,channelTasks.find(task=>task.id===taskId)?.title || 'this video',addToast,(task?:VideoTask)=>{
+      if(task)useStore.getState().updateVideoTask(task)
+      else removeVideoTask(taskId)
+      setChannelTasks(rows=>task?rows.map(row=>row.id===taskId?task:row):rows.filter(row=>row.id!==taskId))
       loadChannels()
-    } catch (e) { addToast({ type: 'error', title: 'Could not delete video', message: e instanceof Error ? e.message : 'Please retry.' }) }
+    })
   }
   const handleRetry = async (taskId: string) => {
     try {

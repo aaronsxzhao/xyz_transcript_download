@@ -11,7 +11,7 @@ vi.mock('../src/components/Toast',()=>({useToast:()=>({addToast:vi.fn()})}))
 vi.mock('../src/lib/cache',()=>({getCache:()=>null,getCacheAge:()=>null,setCache:vi.fn(),useWarmCache:()=>{},CacheKeys:{PODCAST:(id:string)=>id,EPISODES:(id:string)=>id,PODCASTS:'podcasts'}}))
 vi.mock('../src/lib/pageTiming',()=>({usePageTiming:vi.fn()}))
 vi.mock('../src/lib/seen',()=>({markSeen:vi.fn(),isNewItem:()=>false}))
-vi.mock('../src/lib/summaryPrefetch',()=>({prefetchSummary:vi.fn()}))
+vi.mock('../src/lib/summaryPrefetch',()=>({cancelPrefetch:vi.fn(),prefetchSummary:vi.fn()}))
 const row=(n=0)=>({eid:`ep-${n}`,pid:'test',title:`Episode ${n}`,pub_date:'',duration:10,status:'pending',has_summary:false,has_transcript:false})
 let cleanup:()=>void
 beforeEach(()=>{
@@ -74,6 +74,7 @@ it('keeps the next page when a pending episode deletion finishes after paginatio
  vi.mocked(deleteEpisode).mockImplementationOnce(()=>new Promise(resolve=>{finish=resolve}))
  const node=await mount()
  await act(async()=>node.querySelector<HTMLButtonElement>('button[title="Delete episode"]')!.click())
+ await act(async()=>vi.dynamicImportSettled())
  await act(async()=>Array.from(node.querySelectorAll('button')).find(b=>b.textContent==='Load more episodes')!.click())
  expect(node.textContent).toContain('Episode 50')
  await act(async()=>finish())

@@ -1,4 +1,5 @@
 import {
+  authFetch, parseApiResponseAsJson, fetchVideoTask, deleteEpisode, deleteVideoTask, type VideoTask,
   cancelJob,
   dismissVideoTask,
   cancelVideoTask,
@@ -110,5 +111,39 @@ export async function retryTask(job: ProcessingJob, kind: Kind) {
           useStore.getState().updateJob(current);
       })
       .catch(() => {});
+  }
+}
+
+import type {useToast} from '../components/Toast'
+
+export async function deleteSavedSummary(kind:'episode'|'video',id:string,title:string,
+  toast:ReturnType<typeof useToast>['addToast'],onDeleted:(task?:VideoTask)=>void) {
+  const owner=getAccountId()
+  if(!window.confirm(`Delete only the summary for “${title}”${kind==='video'?', including saved summary versions':''}? The ${kind} and transcript stay in your list.`))return
+  let deleted=false
+  try {
+    const path=kind==='video'?`video-notes/tasks/${encodeURIComponent(id)}/summary`:`summaries/${encodeURIComponent(id)}`
+    await parseApiResponseAsJson(await authFetch(`/api/${path}`,{method:'DELETE'}),'Could not delete summary')
+    deleted=true
+    const task=kind==='video'?await fetchVideoTask(id):undefined
+    if(owner!==getAccountId())return
+    onDeleted(task)
+    toast({type:'success',title:'Summary deleted',message:`The ${kind} and transcript were retained.`})
+  } catch(error) {
+    if(owner===getAccountId())toast({type:'error',title:deleted?'Summary deleted; refresh the list':'Could not delete summary',message:error instanceof Error?error.message:'Please retry.'})
+  }
+}
+
+export async function deleteSavedItem(kind:'episode'|'video',id:string,title:string,
+  toast:ReturnType<typeof useToast>['addToast'],onDeleted:()=>void) {
+  const owner=getAccountId()
+  if(!window.confirm(`Delete “${title}”? This removes the ${kind}, transcript and summary and cannot be undone.`))return
+  try {
+    await (kind==='video'?deleteVideoTask(id):deleteEpisode(id))
+    if(owner!==getAccountId())return
+    onDeleted()
+    toast({type:'success',title:`${kind==='video'?'Video':'Episode'} deleted`})
+  } catch(error) {
+    if(owner===getAccountId())toast({type:'error',title:`Could not delete ${kind}`,message:error instanceof Error?error.message:'Please retry.'})
   }
 }
