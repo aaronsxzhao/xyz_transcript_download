@@ -1,4 +1,5 @@
 import {useRef,type ReactNode} from 'react'
+import {cancelPrefetch} from '../lib/summaryPrefetch'
 import {useOutsideInteraction} from '../lib/outsideInteraction'
 
 /** Keep destructive choices identical for episodes and videos. */
@@ -6,7 +7,10 @@ export default function ItemActions({title, kind, busy, hasSummary, onDeleteSumm
   title:string; kind:'episode'|'video'; busy:boolean; hasSummary:boolean
   onDeleteSummary:()=>void; onDeleteItem:()=>void; children?:ReactNode
 }) {
-  return <details className="task-more" onKeyDown={event=>{
+  return <details className="task-more"
+    onPointerEnter={cancelPrefetch} onFocus={cancelPrefetch}
+    onTouchStart={event=>{event.stopPropagation();cancelPrefetch()}}
+    onKeyDown={event=>{
     if(event.key==='Escape'){event.currentTarget.open=false;event.currentTarget.querySelector('summary')?.focus()}
   }}>
     <summary className="ui-button" aria-label={`More actions for ${title}`}>More</summary>

@@ -28,7 +28,7 @@ async def main():
      context=await context_for(browser,width,touch=True)
      task,_=fixtures();task.update(channel='Fixture',updated_at='2026-11-01T00:00:00Z')
      episode={'eid':'bench','pid':'show','title':'Synthetic episode','has_summary':True,'has_transcript':True,'duration':1200}
-     removed=False;calls=[]
+     removed=False;calls=[];summary_reads=[]
      async def api(route):
       nonlocal removed
       path=urlparse(route.request.url).path
@@ -38,6 +38,9 @@ async def main():
        elif path=='/api/video-notes/tasks/bench/summary':task.update(status='discovered',markdown='',versions=[],progress=0,updated_at='2026-11-02T00:00:00Z')
        else:removed=True
        await route.fulfill(json={'message':'Deleted'})
+      elif path=='/api/summaries/bench':
+       summary_reads.append(path)
+       await route.fulfill(status=200 if episode['has_summary'] else 404,json={'episode_id':'bench','key_points':[]} if episode['has_summary'] else {'detail':'Summary not found'})
       elif path=='/api/video-notes/tasks/by-channel':await route.fulfill(json={'tasks':[] if removed else [task],'next_cursor':None})
       elif path=='/api/video-notes/tasks/bench':await route.fulfill(json=task)
       elif path=='/api/podcasts/content':await route.fulfill(json=[] if removed else [episode])
@@ -75,6 +78,7 @@ async def main():
      await confirm_action(page,page.get_by_role('button',name='Delete '+kind,exact=True),True)
      await page.get_by_role('heading',name=title,exact=True).wait_for(state='detached')
      assert len(calls)==2 and removed
+     assert not summary_reads,summary_reads
      assert not errors,errors
      print(f'{width} {kind}: cancel, summary-only, retain source, reload, full deletion passed',flush=True)
      await context.close()

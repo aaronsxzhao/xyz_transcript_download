@@ -11,7 +11,7 @@ vi.mock('../src/components/Toast',()=>({useToast:()=>({addToast:vi.fn()})}))
 vi.mock('../src/lib/cache',()=>({getCache:()=>null,getCacheAge:()=>null,setCache:vi.fn(),useWarmCache:()=>{},CacheKeys:{PODCAST:(id:string)=>id,EPISODES:(id:string)=>id,PODCASTS:'podcasts'}}))
 vi.mock('../src/lib/pageTiming',()=>({usePageTiming:vi.fn()}))
 vi.mock('../src/lib/seen',()=>({markSeen:vi.fn(),isNewItem:()=>false}))
-vi.mock('../src/lib/summaryPrefetch',()=>({prefetchSummary:vi.fn()}))
+vi.mock('../src/lib/summaryPrefetch',()=>({cancelPrefetch:vi.fn(),prefetchSummary:vi.fn()}))
 const row=(n=0)=>({eid:`ep-${n}`,pid:'test',title:`Episode ${n}`,pub_date:'',duration:10,status:'pending',has_summary:false,has_transcript:false})
 let cleanup:()=>void
 beforeEach(()=>{

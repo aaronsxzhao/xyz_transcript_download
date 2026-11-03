@@ -13,7 +13,7 @@ vi.mock('../src/components/Toast',()=>({useToast:()=>({addToast:notify})}))
 vi.mock('../src/components/LocalPodcastUpload',()=>({default:({onUploaded}:any)=><button onClick={()=>onUploaded({podcast:show('local'),episode:episode('uploaded')})}>Complete synthetic upload</button>}))
 vi.mock('../src/lib/pageTiming',()=>({usePageTiming:()=>{}}))
 vi.mock('../src/lib/seen',()=>({markSeen:()=>{},isNewItem:()=>false}))
-vi.mock('../src/lib/summaryPrefetch',()=>({prefetchSummary:()=>{}}))
+vi.mock('../src/lib/summaryPrefetch',()=>({cancelPrefetch:vi.fn(),prefetchSummary:()=>{}}))
 const show=(platform='apple'):Podcast=>({pid:'show',title:'Saved source',platform,author:'Author',description:'',cover_url:'',feed_url:'',episode_count:2,summarized_count:0})
 const episode=(eid:string):Episode=>({eid,pid:'show',title:'Episode '+eid,description:'',duration:60,pub_date:'',created_at:'',audio_url:'',cover_url:'',status:'pending',has_summary:false,has_transcript:false,topics_count:0,key_points_count:0})
 let node:HTMLDivElement,root:ReturnType<typeof createRoot>
