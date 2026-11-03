@@ -219,16 +219,6 @@ def inspect_containers() -> None:
             image = image.rsplit("@", 1)[-1]
         container["image"] = image
         print(json.dumps({"container": container}))
-        settings = oci_json([
-            "container-instances", "container", "get", "--container-id", container_id,
-        ], 'data."environment-variables"') or {}
-        print(json.dumps({"provider_configuration": {
-            name: bool(settings.get(name)) for name in (
-                "GROQ_API_KEY", "LLM_API_KEY", "LLM_BASE_URL", "SUPABASE_JWT_SECRET",
-            )
-        }}))
-        if settings.get("GROQ_API_KEY"):
-            probe_groq_summary(settings["GROQ_API_KEY"])
         for previous in (False, True):
             with tempfile.TemporaryDirectory() as directory:
                 path = Path(directory) / "container.log"
@@ -244,17 +234,17 @@ def inspect_containers() -> None:
                     result["logs_available"] = False
                 print(json.dumps(result))
 
-        profile_library(settings)
+    from scripts.platform_diagnostics import run
+    if not run():
+        raise RuntimeError("Scoped platform diagnostics did not pass")
 
 
 def profile_library(settings: dict) -> None:
-    bindings = {key: value for key, value in settings.items() if key.startswith("SUPABASE_") or key in {
-        "GROQ_API_KEY", "LLM_API_KEY", "LLM_BASE_URL", "LLM_MODEL", "USE_SUPABASE",
-    }}
+    # Compatibility helper for historical callers; never export runtime keys.
     with tempfile.TemporaryDirectory() as directory:
-        environment = {**os.environ, **bindings, "XYZ_DATA_DIR": directory,
-                       "DISCORD_WEBHOOK_URL": "", "WHISPER_MODE": "api", "PYTHONPATH": "."}
-        result = subprocess.run(["python", "scripts/profile_library.py"], env=environment,
+        environment = {key: value for key, value in os.environ.items()
+                       if not key.startswith('SUPABASE_') and key not in {'GROQ_API_KEY', 'LLM_API_KEY'}}
+        result = subprocess.run(["python", "-m", "scripts.platform_diagnostics"], env=environment,
                                 capture_output=True, text=True, timeout=360)
         # Child output is still whitelisted so future logging cannot leak data.
         valid = False

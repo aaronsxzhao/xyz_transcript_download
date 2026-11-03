@@ -48,7 +48,7 @@ def test_public_probes_only_get_and_keep_credentials_out_of_arguments(monkeypatc
     from types import SimpleNamespace
     from scripts.profile_library import profile_public_routes
     calls = []
-    monkeypatch.setenv("SUPABASE_JWT_SECRET", "private-signing-secret-for-profiling-only")
+    monkeypatch.setenv("PLATFORM_TEST_TOKEN", "ptt_private-test-token")
     def run(command, **kwargs):
         calls.append((command, kwargs))
         if command[-1].endswith('/api/jobs'):

@@ -1,7 +1,7 @@
 """Authenticated probes and validation for per-account model settings."""
 from fastapi import APIRouter, Depends, HTTPException
 from api.auth import User, get_current_user
-from api.custom_models import ModelConfigurationError, normalize_base_url, probe_provider, public_model_error, resolve_custom
+from api.custom_models import ModelConfigurationError, model_probe_http_status, normalize_base_url, probe_provider, public_model_error, resolve_custom
 from api.user_settings import SETTING_KEYS, SECRET_KEYS, get_user_settings, save_user_settings, account_settings_lock
 
 router = APIRouter()
@@ -64,7 +64,7 @@ def list_models(payload: dict, user: User = Depends(get_current_user)):
     except ModelConfigurationError as error:
         raise HTTPException(422, detail=str(error))
     except Exception as error:
-        raise HTTPException(502, detail=public_model_error(error, "model listing") + " If this provider has no /models API, enter its documented model ID manually.")
+        raise HTTPException(model_probe_http_status(error), detail=public_model_error(error, "model listing") + " If this provider has no /models API, enter its documented model ID manually.")
 
 
 @router.post("/test-transcription")
@@ -78,7 +78,7 @@ def test_transcription(payload: dict, user: User = Depends(get_current_user)):
     except ModelConfigurationError as error:
         raise HTTPException(422, detail=str(error))
     except Exception as error:
-        raise HTTPException(502, detail=public_model_error(error, "audio transcription"))
+        raise HTTPException(model_probe_http_status(error), detail=public_model_error(error, "audio transcription"))
 
 
 @router.post('/model-options')

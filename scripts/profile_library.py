@@ -1,7 +1,6 @@
 """Read-only API profiling against production data in an isolated process.
 
-Authentication is overridden only on this in-process test app. The deployed app
-is untouched. Emit timings/sizes only: never identities, content, or credentials.
+Authentication uses a scoped platform test token. Emit timings/sizes only: never identities, content, or credentials.
 """
 import asyncio
 import contextlib
@@ -27,20 +26,11 @@ def restricted_summary_route(database, owner):
 
 
 def profile_public_routes(owner: str, routes: list[tuple[str, str]], local_video: str | None = None) -> list[dict]:
-    """Measure the deployed stack, including its auth and database connections.
-
-    A five-minute read probe uses the existing server signing secret. Its token
-    stays in memory/stdin, never command arguments, files, logs, or reports.
-    The only public requests this function can issue are GETs to fixed API paths.
-    """
-    secret = os.environ.get("SUPABASE_JWT_SECRET")
-    if not secret:
+    """Read deployed routes with a provisioned diagnostic token, never a signed JWT."""
+    token = os.environ.get("PLATFORM_TEST_TOKEN")
+    if not token:
         return [{"library_profile": "live_unavailable"}]
-    from jose import jwt
-    now = int(time.time())
-    token = jwt.encode({"sub": owner, "aud": "authenticated", "role": "authenticated",
-                        "iat": now, "exp": now + 300}, secret, algorithm="HS256")
-    selected = [("auth", "/api/auth/me"), *[(label, path) for label, path in routes
+    selected = [("auth", "/api/stats"), *[(label, path) for label, path in routes
                 if label in {"restricted_summary", "content_updates", "progress", "podcasts", "channels", "episodes", "summary", "transcript", "settings", "channel_videos", "podcast_index", "reported_episodes", "reported_episode_failure", "reported_summary", "reported_video_note", "reported_latest_summary", "completed_local_video"}]]
     reports = []
     # Inspect the running app's inventory, rather than this isolated process.
@@ -97,12 +87,6 @@ def profile_public_routes(owner: str, routes: list[tuple[str, str]], local_video
                     safe[target] = int(row[source])
             safe["bootstrap"] = int(row.get("stage") == "bootstrap")
             reports.append(safe)
-    from scripts.profile_cover_sources import profile_covers
-    reports.extend(profile_covers(owner))
-    if os.environ.get('XYZ_PROFILE_BROWSER') == '1':
-        from scripts.profile_live_browser import profile_browser
-        restricted=next((path.rsplit('/',1)[-1] for label,path in routes if label=='restricted_summary'),None)
-        reports.extend(asyncio.run(profile_browser(owner, token, local_video, restricted)))
     return reports
 
 
@@ -115,100 +99,6 @@ def settings_key_status(data: dict) -> dict:
     return result
 
 
-async def profile() -> list[dict]:
-    import httpx
-    from api.main import app
-    from api.auth import User, get_current_user
-    from api.supabase_client import get_supabase_admin_client
-
-    database = get_supabase_admin_client()
-    videos = database.table("video_tasks").select("id,user_id,channel,platform").eq("id", "bc2c988b-2b4").eq("status", "success").limit(1).execute().data or []
-    if not videos:
-        videos = database.table("video_tasks").select("id,user_id,channel,platform").eq("status", "success").limit(1).execute().data or []
-    owners = videos or database.table("podcasts").select("user_id").limit(1).execute().data or []
-    if not owners:
-        return [{"library_profile": "empty"}]
-    owner = owners[0]["user_id"]
-    app.dependency_overrides[get_current_user] = lambda: User(id=owner, email="profile@localhost")
-    podcasts = database.table("podcasts").select("pid").eq("user_id", owner).limit(1).execute().data or []
-    summaries = database.table("summaries").select("episode_id").eq("user_id", owner).limit(1).execute().data or []
-    routes = [("stats", "/api/stats"), ("podcasts", "/api/podcasts"),
-              ("podcast_index", "/api/podcasts?include_content=12"), ("content_updates", "/api/content-updates"), ("recent_summaries", "/api/summaries/recent"), ("channels", "/api/video-notes/channels"),
-              ("queue", "/api/video-notes/tasks"), ("progress", "/api/video-notes/progress"), ("settings", "/api/settings")]
-    # The original preview-only summary can legitimately have been deleted or
-    # regenerated. Probe its special reader only while that fixture still exists;
-    # an episode record alone is not evidence that /summaries/:id should be 200.
-    restricted = restricted_summary_route(database, owner)
-    if restricted: routes.append(('restricted_summary', restricted))
-    if podcasts:
-        pid = podcasts[0]["pid"]
-        routes.extend([("podcast_detail", f"/api/podcasts/{pid}"), ("episodes", f"/api/podcasts/{pid}/episodes")])
-        # These reported failures belong to this podcast owner. Check ownership
-        # before probing; diagnostics must never read another account's data.
-        reported = database.table("podcasts").select("pid").eq("user_id", owner).eq("pid", "62382c1103bea1ebfffa1c00").execute().data or []
-        if reported:
-            routes.extend([
-                ("reported_episodes", "/api/podcasts/62382c1103bea1ebfffa1c00/episodes"),
-                ("reported_summary", "/api/summaries/694b7d6d0b60b7bf752e007b"),
-                ("channel_videos", "/api/video-notes/tasks/by-channel?platform=youtube&channel=Brooks+Trading+Course"),
-                ("reported_video_note", "/api/video-notes/tasks/bc2c988b-2b4?view=note"),
-            ])
-    routes.append(("reported_episode_failure", "/api/podcasts/6540c81e9cb67569a2f99856/episodes?offset=0&limit=50"))
-    if summaries:
-        eid = summaries[0]["episode_id"]
-        routes.extend([("summary", f"/api/summaries/{eid}"), ("transcript", f"/api/transcripts/{eid}")])
-    if videos:
-        task = videos[0]
-        routes.extend([("video_note", f"/api/video-notes/tasks/{task['id']}?view=note"),
-                       ("video_detail", f"/api/video-notes/tasks/{task['id']}")])
-
-    latest = database.table("summaries").select("episode_id").eq("user_id", owner).eq("episode_id", "699acfb5de29766da924dee1").limit(1).execute().data or []
-    if latest:
-        routes.append(("reported_latest_summary", "/api/summaries/699acfb5de29766da924dee1"))
-    local = database.table("video_tasks").select("id").eq("user_id", owner).eq("platform", "local").eq("status", "success").limit(1).execute().data or []
-    local_video = local[0]["id"] if local else None
-    if local_video:
-        routes.append(("completed_local_video", f"/api/video-notes/tasks/{local_video}?view=note"))
-
-    calls = []
-    original = httpx.Client.send
-    def read_only(client, request, *args, **kwargs):
-        readonly_rpc = request.method == 'POST' and request.url.path == '/rest/v1/rpc/podcast_content_index'
-        if request.method not in {"GET", "HEAD"} and not readonly_rpc:
-            raise RuntimeError("Profiling permits only database reads")
-        started = time.perf_counter()
-        response = original(client, request, *args, **kwargs)
-        calls.append(time.perf_counter() - started)
-        return response
-    httpx.Client.send = read_only
-    reports = []
-    try:
-        async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://profile", timeout=30) as client:
-            for label, path in routes:
-                before = len(calls)
-                started = time.perf_counter()
-                response = await asyncio.wait_for(client.get(path), timeout=30)
-                reports.append({"library_profile": label, "status": response.status_code,
-                                "milliseconds": round((time.perf_counter() - started) * 1000),
-                                "database_requests": len(calls) - before,
-                                "response_bytes": len(response.content), "gzip_bytes": len(gzip.compress(response.content))})
-                if label == 'settings' and response.status_code == 200:
-                    reports[-1].update(settings_key_status(response.json()))
-    finally:
-        httpx.Client.send = original
-        app.dependency_overrides.clear()
-    reports.extend(await asyncio.to_thread(profile_public_routes, owner, routes, local_video))
-    from scripts.probe_summary_language import probe_summary_language
-    reports.extend(await asyncio.to_thread(probe_summary_language))
-    return reports
-
-
 if __name__ == "__main__":
-    logging.disable(logging.CRITICAL)
-    try:
-        with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
-            reports = asyncio.run(profile())
-    except Exception as error:
-        reports = [{"library_profile": "failed", "error_type": type(error).__name__}]
-    for report in reports:
-        print(json.dumps(report))
+    from scripts.platform_diagnostics import run
+    raise SystemExit(0 if run() else 1)

@@ -91,6 +91,20 @@ def public_model_error(error: Exception, kind: str) -> str:
     return f"Could not verify {kind}. Check provider compatibility and try again."
 
 
+def model_probe_http_status(error: Exception) -> int:
+    """Provider credential/configuration rejection is not a website gateway outage.
+
+    Do not propagate provider 401/403 as app authentication failures: that would
+    make clients refresh or discard a valid website session.
+    """
+    status = getattr(error, "status_code", None)
+    if isinstance(status, int) and 400 <= status < 500 and status not in (408, 429):
+        return 422
+    if status == 429:
+        return 429
+    return 502
+
+
 def probe_provider(preferences: dict, kind: str, *, models_only=False) -> dict:
     operation = "models" if models_only else "summary" if kind == "summary" else "transcription"
     try:

@@ -245,6 +245,9 @@ async def get_current_user(
         raise HTTPException(status_code=401, detail="Not authenticated", headers={"WWW-Authenticate": "Bearer"})
 
     token = credentials.credentials
+    if token.startswith('ptt_'):
+        from api.test_access import authenticate_test_token
+        return await authenticate_test_token(request, token)
     try:
         payload = await verify_jwt_token_async(token)
     except Exception:
@@ -318,6 +321,9 @@ async def get_user_from_token_param(
     
     # Try header first
     if credentials:
+        if credentials.credentials.startswith('ptt_'):
+            from api.test_access import authenticate_test_token
+            return await authenticate_test_token(request, credentials.credentials)
         payload = await verify_jwt_token_async(credentials.credentials)
         if payload and payload.get("sub"):
             return User(id=payload.get("sub", ""), email=payload.get("email", ""))

@@ -47,6 +47,10 @@ jobs:
         env:
           PGHOST: 127.0.0.1
         run: python scripts/check_video_write_order.py
+      - name: Verify scoped diagnostic token permissions and quotas
+        env:
+          PGHOST: 127.0.0.1
+        run: python scripts/check_platform_test_tokens.py
 
   frontend:
     name: Frontend Checks
