@@ -297,7 +297,14 @@ def retry_save(task_id: str, user: User = Depends(get_current_user)):
         raise HTTPException(status_code=404, detail='There is no pending saved copy for this note.')
     if task.get('status') == 'success' and task.get('markdown') != payload['content']:
         raise HTTPException(status_code=409, detail='A completed note already exists. Its content has been preserved.')
-    db.complete_task(**payload)
+    outcome = db.recover_note(task_id, user.id, task.get('updated_at'), payload)
+    if outcome == 'not_found': raise HTTPException(status_code=404, detail='Note not found')
+    if outcome in ('changed','superseded','busy','unverified'):
+        detail = ('This older recovery copy has no generation identity. It has been preserved, but cannot safely replace your current note.'
+                  if outcome == 'unverified' else 'A newer result or processing attempt exists. Your current note has been preserved. Refresh before continuing.')
+        raise HTTPException(status_code=409, detail=detail)
+    if outcome not in ('applied','already_saved'):
+        raise HTTPException(status_code=503, detail='Recovery was not confirmed. Refresh before retrying.')
     from api.routers.video_notes import _invalidate_list_cache
     _invalidate_list_cache(user.id)
     return {'saved': True}

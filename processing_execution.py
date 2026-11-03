@@ -22,6 +22,7 @@ class Execution:
     def __init__(self,owner,source,store,*,queue_id=None,lease_owner=None):
         self.owner=owner;self.source=source;self.store=store
         self.queue_id=queue_id;self.lease_owner=lease_owner
+        self.attempt=None
         self.lock=threading.RLock();self.metrics={};self.hits=0
         self.started=time.monotonic();self.previous_wall=0
         self.cancelled=False;self.pause_requested=False;self.lease_lost=False;self.deleted=False

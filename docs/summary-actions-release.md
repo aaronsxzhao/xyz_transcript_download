@@ -19,7 +19,7 @@ Embedded API processes refresh durable podcast state as video readers do.
 
 ## Release sequence
 
-1. Apply `supabase/migrations/20261102142210_consistent_summary_actions.sql`.
+1. Apply `supabase/migrations/20261103041517_consistent_summary_actions.sql`.
    This adds three SECURITY INVOKER functions, executable only by service_role:
    `save_processing_jobs_ordered`, `delete_user_video_summary`, and
    `delete_user_podcast_summary`. No table changes, historical rewrites, RLS
@@ -29,9 +29,11 @@ Embedded API processes refresh durable podcast state as video readers do.
 3. Verify the deployed revision and ordinary health/read paths. Do not delete
    user content as a deployment smoke test.
 
-The production migration attempt was rejected by automatic approval review,
-which requires explicit authorization overriding the earlier no-migration audit
-boundary. No production migration or application deployment has occurred.
+The user explicitly authorized release on 2026-11-03. The summary-actions and
+ordered-recovery migrations are installed; the four functions are invoker-rights
+and callable only by service_role. Application deployment follows full CI.
+PR #210's multipart grouping is integrated into this branch with its ancestry
+preserved, including the shared deletion menu within grouped part rows.
 
 Rollback: revert the application commit using the normal protected workflow and
 redeploy. Leave the additive unused functions installed. A rollback does not

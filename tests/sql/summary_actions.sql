@@ -28,7 +28,7 @@ begin
   assert not exists(select from processing_jobs where id='pod');
 
   insert into video_tasks(id,user_id,status,markdown,transcript_json) values('summary-delete',owner,'success','notes','transcript');
-  insert into video_task_versions values('version','summary-delete','old notes');
+  insert into video_task_versions(id,task_id,content) values('version','summary-delete','old notes');
   assert delete_user_video_summary('10000000-0000-0000-0000-000000000002','summary-delete')='not_found';
   update video_tasks set status='summarizing' where id='summary-delete';
   assert delete_user_video_summary(owner,'summary-delete')='busy';

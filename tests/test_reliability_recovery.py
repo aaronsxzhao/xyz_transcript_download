@@ -67,7 +67,7 @@ def test_cloud_failed_rpc_never_exposes_success(tmp_path, monkeypatch):
     backend._lock = threading.Lock()
     backend._cache = {'task': {'status': 'saving', 'markdown': 'old'}}
     backend.flush_task = Mock()
-    backend._sb = SimpleNamespace(client=Mock())
+    backend._sb = SimpleNamespace(client=Mock(),get_video_task_versions=Mock(return_value=[]))
     backend._sb.client.rpc.return_value.execute.side_effect = RuntimeError('Unavailable')
     db = VideoTaskDB.__new__(VideoTaskDB); db._backend = backend
     with pytest.raises(RuntimeError):
@@ -101,7 +101,7 @@ async def test_portable_zip_contains_only_owned_frames_and_reports_missing(clien
 @pytest.mark.asyncio
 async def test_retry_save_recovers_without_model_call(client, note_db):
     from api.save_outbox import retain
-    retain(dict(task_id='note-one', content='recovered note', style='detailed', model='model', user_id='local', warning='', version_id='stable-retry'))
+    retain(dict(task_id='note-one', content='recovered note', style='detailed', model='model', user_id='local', warning='', version_id='stable-retry',recovery_order={'base_versions':[],'work_id':None}))
     note_db.update_task('note-one', {'status': 'failed'})
     r = await client.post('/api/maintenance/notes/note-one/retry-save')
     assert r.status_code == 200

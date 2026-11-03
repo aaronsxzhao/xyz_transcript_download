@@ -154,6 +154,7 @@ class Worker:
             self.stop_event.wait(3)
 
     def run(self,row,execution):
+        execution.attempt = row.get('attempts')
         state='failed'
         task=row['task_id'];kind=row['kind'];owner=row['user_id']
         try:

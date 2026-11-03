@@ -1010,6 +1010,22 @@ class VideoTaskDB:
         """Persist the final note and its version together before exposing success."""
         version_id = version_id or str(uuid.uuid4())
         payload = dict(task_id=task_id, content=content, style=style, model=model, user_id=user_id, warning=warning, version_id=version_id)
+        from processing_execution import CURRENT
+        execution = CURRENT.get()
+        if execution: execution.check()
+        # Capture the generation's predecessor versions before any backup I/O.
+        # Recovery cannot promote this output over a version saved afterwards.
+        try:
+            payload['recovery_order'] = {
+                'base_versions': sorted(v['id'] for v in self.get_versions(task_id, include_content=False) if v['id'] != version_id),
+                'work_id': execution.queue_id if execution else None,
+                'work_attempt': execution.attempt if execution else None,
+            }
+        except Exception:
+            # Retain the generated output even when the ordering read fails.
+            # An unverified copy must never be automatically promoted later.
+            payload['recovery_order'] = None
+            logger.warning('Recovery ordering could not be captured; retaining an unverified copy')
         from api.save_outbox import retain, clear
         retain(payload)
         backend = self._backend
@@ -1050,6 +1066,56 @@ class VideoTaskDB:
                 conn.commit()
 
         clear(payload)
+
+    @serialized_video_write
+    def recover_note(self, task_id: str, user_id: str, expected: str, payload: dict) -> str:
+        """Promote a recovery copy only while its observed generation is current."""
+        if payload.get('task_id') != task_id or payload.get('user_id') != user_id:
+            return 'not_found'
+        backend = self._backend
+        if isinstance(backend, _SupabaseVideoTaskDB):
+            outcome = backend._sb.client.rpc('recover_video_note_ordered', {
+                'p_user':user_id,'p_task':task_id,'p_expected':expected,'p_payload':payload,
+            }).execute().data
+            if outcome in ('applied','already_saved','changed','superseded'):
+                with backend._lock:
+                    backend._cache.pop(task_id, None)
+                    backend._dirty.pop(task_id, None)
+                    backend._last_flush.pop(task_id, None)
+            return outcome
+        # Local durable queue and notes share the database in normal operation.
+        # BEGIN IMMEDIATE excludes both admission and final saves on that DB.
+        with backend._conn() as conn:
+            conn.execute('BEGIN IMMEDIATE')
+            task = conn.execute('SELECT * FROM video_tasks WHERE id=? AND user_id IS ?', (task_id,user_id)).fetchone()
+            if not task: return 'not_found'
+            work = None
+            if conn.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='processing_work'").fetchone():
+                if conn.execute("SELECT 1 FROM processing_work WHERE user_id=? AND kind='video' AND task_id=? AND state IN ('queued','running')", (user_id or 'local',task_id)).fetchone():
+                    return 'busy'
+                work = conn.execute("SELECT id,attempts FROM processing_work WHERE user_id=? AND kind='video' AND task_id=? ORDER BY created_at DESC,id DESC LIMIT 1", (user_id or 'local',task_id)).fetchone()
+            if task['status'] not in ('failed','cancelled','success'): return 'busy'
+            if task['updated_at'] != expected: return 'changed'
+            version = conn.execute('SELECT task_id,content FROM video_task_versions WHERE id=?', (payload['version_id'],)).fetchone()
+            if version and version['task_id'] != task_id: return 'superseded'
+            if task['status']=='success' and task['markdown']==payload['content'] and version and version['content']==payload['content']:
+                return 'already_saved'
+            order = payload.get('recovery_order') or {}
+            if not isinstance(order.get('base_versions'), list): return 'unverified'
+            if (work['id'] if work else None) != order.get('work_id'): return 'superseded'
+            if work and work['attempts'] != order.get('work_attempt'): return 'superseded'
+            baseline = [r['id'] for r in conn.execute('SELECT id FROM video_task_versions WHERE task_id=? AND id<>? ORDER BY id', (task_id,payload['version_id']))]
+            if baseline != order['base_versions']: return 'superseded'
+            if task['status']=='success' and task['markdown']!=payload['content']: return 'superseded'
+            if version and version['content']!=payload['content']: return 'superseded'
+            conn.execute('INSERT OR IGNORE INTO video_task_versions (id,task_id,content,style,model_name) VALUES (?,?,?,?,?)',
+                         (payload['version_id'],task_id,payload['content'],payload['style'],payload['model']))
+            conn.execute("UPDATE video_tasks SET markdown=?,status='success',progress=100,error=?,message='Notes saved',updated_at=? WHERE id=?",
+                         (payload['content'],payload.get('warning',''),datetime.now(timezone.utc).isoformat(),task_id))
+            conn.commit()
+            return 'applied'
+        # Keep the backup: deleting a shared outbox key could erase a newer
+        # generation's backup. Repeated recovery is an idempotent no-op.
 
     def flush_task(self, task_id: str, strict: bool = False):
         """Flush pending writes (Supabase cache). No-op for SQLite."""
