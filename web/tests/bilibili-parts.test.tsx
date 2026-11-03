@@ -37,8 +37,8 @@ it('shows all parts, skips the current part and submits only selected other part
  await act(async()=>button('Process selected').click())
  expect(posts().map(([url])=>url)).toEqual([1,3,4].map(page=>`/api/video-notes/collections/current/parts/${page}/process`))
  expect(node.textContent).toContain('3 of 3 confirmed')
- expect(node.querySelector('a[href="/videos/part-3"]')?.textContent).toBe('View progress')
- expect(node.querySelector('a[href="/videos/current"]')?.textContent).toBe('Read summary')
+ expect(node.querySelector('.bilibili-parts-list a[href="/videos/part-3"]')?.textContent).toBe('View progress')
+ expect(node.querySelector('.bilibili-parts-list a[href="/videos/current"]')?.textContent).toBe('Read summary')
 })
 it('stops on uncertain acknowledgement and retains only unconfirmed selections for retry',async()=>{
  const original=mocks.fetch.getMockImplementation()!
@@ -116,4 +116,13 @@ it('mutes current, ready and running parts and highlights selected rows and the 
  act(()=>button('Clear selection').click())
  expect(rows[3].hasAttribute('data-selected')).toBe(false)
  expect(button('Process selected').disabled).toBe(true)
+})
+
+it('orders the directory and links adjacent admitted parts without skipping unprocessed chapters',async()=>{
+ parts[0].task_id='part-1';parts[2].task_id='part-3';parts.reverse()
+ await mount()
+ expect([...node.querySelectorAll('.bilibili-part-number')].map(e=>e.textContent)).toEqual(['P1','P2','P3','P4'])
+ expect(node.querySelector('nav a')?.getAttribute('href')).toBe('/videos/part-1')
+ expect(node.querySelectorAll('nav a')[1]?.getAttribute('href')).toBe('/videos/part-3')
+ expect(node.querySelector('[aria-current=page]')?.getAttribute('href')).toBe('/videos/current')
 })

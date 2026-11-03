@@ -22,7 +22,8 @@ async def main():
      async def api(route):
       path=urlparse(route.request.url).path
       if path in ['/api/video-notes/tasks/bench','/api/video-notes/tasks/p2']:
-       current={**task,'id':path.rsplit('/',1)[-1]};current['title']=task['title']+(' · P2' if current['id']=='p2' else '');await route.fulfill(json=current)
+       current={**task,'id':path.rsplit('/',1)[-1]};current['title']=task['title']+(' · P2' if current['id']=='p2' else '');current['source_metadata']={**task['source_metadata'],'bilibili_part':parts[1] if current['id']=='p2' else parts[0]};await route.fulfill(json=current)
+      elif path == '/api/video-notes/tasks/by-channel':await route.fulfill(json={'tasks':[{**{key:value for key,value in task.items() if key not in {'transcript','markdown','versions'}},'id':f'part-{part["page"]}','url':part['url'],'title':part['title'],'status':part['status'],'channel':'Stanford','source_metadata':{'bilibili_part':part,'bilibili_parts':parts}} for part in reversed(parts)],'next_cursor':None})
       elif path in ['/api/video-notes/collections/bench/parts','/api/video-notes/collections/p2/parts']:await route.fulfill(json={'parts':parts})
       else:await route.fallback()
      await context.route('**/api/**',api)
@@ -31,6 +32,7 @@ async def main():
      await choose(page,design,theme)
      panel=page.get_by_role('region',name='Bilibili collection parts')
      await panel.locator('.bilibili-part-row').last.wait_for(state='attached')
+     await panel.locator('.bilibili-directory > summary').click()
      for i in [0,1,2]:
       assert await panel.locator('.bilibili-part-row').nth(i).get_attribute('data-unavailable')=='true'
       assert await panel.locator('input').nth(i).is_disabled()
@@ -56,14 +58,27 @@ async def main():
       if selector=='.markdown-table' and width>=480:continue
       scroller=page.locator(selector).first
       assert await scroller.evaluate('e=>{e.scrollLeft=100;return e.scrollWidth>e.clientWidth&&e.scrollLeft>0}'),selector
-     await panel.locator('a[href="/videos/p2"]').click()
+     await panel.get_by_role('navigation',name='Part navigation').get_by_role('link',name='Next').click()
      await page.wait_for_url('**/videos/p2')
      await page.get_by_role('heading',name=task['title']+' · P2',exact=True).wait_for()
      await panel.locator('.bilibili-part-row').last.wait_for(state='attached')
      await page.locator('.katex-display').wait_for()
      assert await page.evaluate('()=>{const m=document.querySelector("main");m.scrollLeft=100;return m.scrollWidth<=m.clientWidth+1&&m.scrollLeft===0}'), 'Part navigation shifted the reading page'
+     if not await panel.locator('.bilibili-directory').evaluate('e=>e.open'):await panel.locator('.bilibili-directory > summary').click()
      await panel.scroll_into_view_if_needed()
      if width==390:await page.screenshot(path=f'/tmp/bilibili-parts-{design}-{theme}.png')
+     await page.goto(f'http://127.0.0.1:{server.server_port}/videos?platform=bilibili&channel=Stanford')
+     collection=page.locator('.video-collection')
+     try:await collection.wait_for()
+     except Exception:
+      await page.screenshot(path='/tmp/collection-failure.png');print(await page.locator('body').inner_text(),errors,flush=True);raise
+     assert await collection.count()==1
+     assert not await collection.evaluate('e=>e.open')
+     await collection.locator(':scope > summary').click()
+     titles=await collection.locator('h3').all_text_contents()
+     assert len(titles)==21 and titles[0].startswith('P1 ·') and titles[9].startswith('P10 ·'),titles
+     assert await page.evaluate('()=>document.documentElement.scrollWidth<=innerWidth+1')
+     if width==390:await page.screenshot(path=f'/tmp/bilibili-collection-{design}-{theme}.png')
      assert not errors,errors
      print(json.dumps({'design':design,'theme':theme,'width':width,**geometry,'selection_feedback':True}),flush=True)
      await context.close()

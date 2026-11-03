@@ -19,12 +19,12 @@ export default defineConfig({
         strictExecutionOrder: true,
         codeSplitting: {
           // Keep every page controller (including Settings) in the document.
-          // Only explicit tools may require another request.
+          // Tools and the channel video list load when opened; page controllers stay inline.
           includeDependenciesRecursively: false,
           groups: [
             {name:'VideoCreation',priority:20,test:/\/src\/components\/video\/(VideoNoteForm|YouTubeCookieGuide)\./},
             {name:'workspace',priority:10,test:(id) => {
-              if(id.includes('/src/') && !/\/(editorial|classic-light|reader-typography)\.css/.test(id) && !/\/lib\/(noteHeadingPlugin|videoUpload|sourceUpdateCheck|taskActions|notionExport|podcastMarkdown|podcastPrint|videoPrint|mindmapCache|mindmapOutline|bilibiliFavorites|markdownDownload|legacyModelOptions)\./.test(id) && !/\/components\/(SourceUpdateStatus|ArticleNote|ModelExecutionFields|CustomModelFields|DashboardDialog|ReaderAppearance|RegenerateDialog|PodcastNotionExport|ProcessingPanel|FormattedSummary|TranscriptSegments|ScreenshotGallery|PerformancePanel|DataRecovery|TranscriptMaintenance|LocalPodcastUpload|PodcastUploadForm)\.|\/components\/video\/(ReaderDetails|MindMapView|MarkdownPreview|HighlightedCode|TranscriptPanel|VideoNoteForm|YouTubeCookieGuide|BilibiliFavorites|BilibiliParts)\./.test(id)) return true
+              if(id.includes('/src/') && !/\/(editorial|classic-light|reader-typography)\.css/.test(id) && !/\/lib\/(noteHeadingPlugin|videoUpload|sourceUpdateCheck|taskActions|notionExport|podcastMarkdown|podcastPrint|videoPrint|mindmapCache|mindmapOutline|bilibiliCollection|bilibiliFavorites|markdownDownload|legacyModelOptions)\./.test(id) && !/\/components\/(SourceUpdateStatus|ArticleNote|ModelExecutionFields|CustomModelFields|DashboardDialog|ReaderAppearance|RegenerateDialog|PodcastNotionExport|ProcessingPanel|FormattedSummary|TranscriptSegments|ScreenshotGallery|PerformancePanel|DataRecovery|TranscriptMaintenance|LocalPodcastUpload|PodcastUploadForm)\.|\/components\/video\/(VideoList|ReaderDetails|MindMapView|MarkdownPreview|HighlightedCode|TranscriptPanel|VideoNoteForm|YouTubeCookieGuide|BilibiliFavorites|BilibiliParts)\./.test(id)) return true
               return id.includes('/node_modules/lucide-react/') || id.includes('commonjsHelpers') || /\/node_modules\/(react|react-dom|react-router|react-router-dom|scheduler)\//.test(id)
             }},
           ],

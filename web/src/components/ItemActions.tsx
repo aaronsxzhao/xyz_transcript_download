@@ -24,7 +24,7 @@ export default function ItemActions({title, kind, busy, hasSummary, onDeleteSumm
 export function useItemActionList() {
   const list=useRef<HTMLDivElement>(null)
   useOutsideInteraction(target=>{
-    list.current?.querySelectorAll<HTMLDetailsElement>('details[open]').forEach(menu=>{
+    list.current?.querySelectorAll<HTMLDetailsElement>('.task-more[open]').forEach(menu=>{
       if(!menu.contains(target))menu.open=false
     })
   })
