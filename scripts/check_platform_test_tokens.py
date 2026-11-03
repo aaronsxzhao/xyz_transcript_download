@@ -20,7 +20,7 @@ def main():
             "IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname='anon') THEN CREATE ROLE anon; END IF; "
             "IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname='authenticated') THEN CREATE ROLE authenticated; END IF; "
             "IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname='service_role') THEN CREATE ROLE service_role; END IF; END $$; ALTER ROLE service_role BYPASSRLS;")
-        sql((Path(__file__).resolve().parents[1]/'supabase/migrations/20261103164329_scoped_platform_test_tokens.sql').read_text())
+        sql((Path(__file__).resolve().parents[1]/'supabase/migrations/20261103164856_scoped_platform_test_tokens.sql').read_text())
         sql("insert into auth.users values ('10000000-0000-0000-0000-000000000001'); "
             "insert into platform_test_tokens(token_digest,owner_id,scopes,expires_at) values "
             "(repeat('a',64),'10000000-0000-0000-0000-000000000001',array['content:read','models:probe'],now()+interval '1 day');")
