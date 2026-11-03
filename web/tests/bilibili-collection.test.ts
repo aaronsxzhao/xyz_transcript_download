@@ -20,3 +20,19 @@ it('keeps ordinary single videos standalone and recognizes parts before metadata
  const parts=[1,2].map(page=>({...task(`p${page}`,page),title:'Course'}))
  expect(groupVideoCollections(parts)[0].collection).toBe(true)
 })
+
+it('groups a legacy short-link P1 with the canonical remaining parts',()=>{
+ const first={...task('p1',1),url:'https://b23.tv/legacy',source_metadata:{bilibili_part:{page:1,url:'https://www.bilibili.com/video/BVexample?p=1'}}} as VideoTask
+ const groups=groupVideoCollections([task('p2',2),first])
+ expect(groups).toHaveLength(1)
+ expect(groups[0].tasks.map(t=>t.id)).toEqual(['p1','p2'])
+ expect(first.url).toBe('https://b23.tv/legacy')
+})
+it('does not infer short-link identity from titles or untrusted metadata hosts',()=>{
+ const first={...task('p1',1),url:'https://b23.tv/legacy'}
+ expect(groupVideoCollections([task('p2',2),first])).toHaveLength(2)
+ const bad={...first,source_metadata:{bilibili_part:{page:1,url:'https://bilibili.com.evil.example/video/BVexample?p=1'}}} as VideoTask
+ expect(groupVideoCollections([task('p2',2),bad])).toHaveLength(2)
+ const canonical={...task('other',1,'BVother'),source_metadata:{bilibili_part:{page:1,url:'https://www.bilibili.com/video/BVexample?p=1'}}} as VideoTask
+ expect(groupVideoCollections([task('p2',2),canonical])).toHaveLength(2)
+})

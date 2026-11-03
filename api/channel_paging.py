@@ -2,6 +2,7 @@
 import base64
 import json
 import re
+from api.bilibili_identity import video_source_url
 
 FIELDS = 'id,url,platform,title,thumbnail,status,progress,message,style,duration,error,channel,channel_url,channel_avatar,published_at,created_at,updated_at'
 
@@ -22,7 +23,7 @@ def page(backend, channel, platform, owner, limit=40, cursor='', q='', status=''
     direction = 'DESC' if descending else 'ASC'
     if hasattr(backend, '_sb'):
         if not owner: return {'tasks': [], 'next_cursor': None}
-        query = backend._sb.client.table('video_tasks').select(FIELDS).eq('user_id', owner).eq('channel', channel).eq('platform', platform)
+        query = backend._sb.client.table('video_tasks').select(FIELDS + ',source_metadata->bilibili_part').eq('user_id', owner).eq('channel', channel).eq('platform', platform)
         if q: query = query.ilike('title', '%' + q.replace('\\', '\\\\').replace('%', '\\%').replace('_', '\\_') + '%')
         if status: query = query.eq('status', status)
         if after:
@@ -38,7 +39,14 @@ def page(backend, channel, platform, owner, limit=40, cursor='', q='', status=''
         if after:
             clauses.append(f'(created_at {op} ? OR (created_at = ? AND id {op} ?))'); args.extend([after[0], after[0], after[1]])
         with backend._conn() as conn:
-            rows = [dict(r) for r in conn.execute(f'SELECT {FIELDS} FROM video_tasks WHERE {" AND ".join(clauses)} ORDER BY created_at {direction}, id {direction} LIMIT ?', args + [limit + 1])]
+            rows = [dict(r) for r in conn.execute(f'''SELECT {FIELDS}, json_extract(source_metadata, '$.bilibili_part') AS bilibili_part FROM video_tasks WHERE {" AND ".join(clauses)} ORDER BY created_at {direction}, id {direction} LIMIT ?''', args + [limit + 1])]
+    for row in rows:
+        part = row.pop('bilibili_part', None)
+        if isinstance(part, str):
+            try: part = json.loads(part)
+            except ValueError: part = None
+        if row.get('platform') == 'bilibili':
+            row['url'] = video_source_url({**row, 'bilibili_part': part})
     visible = rows[:limit]
     next_cursor = base64.urlsafe_b64encode(json.dumps([visible[-1]['created_at'], visible[-1]['id']]).encode()).decode().rstrip('=') if len(rows) > limit else None
     return {'tasks': visible, 'next_cursor': next_cursor}
