@@ -3,6 +3,7 @@ from typing import Literal
 from fastapi import APIRouter, Depends, Query, HTTPException
 from api.auth import User, get_current_user
 from api.db import get_db
+from api.bilibili_identity import video_source_url as _video_source_url
 
 router = APIRouter()
 
@@ -88,24 +89,6 @@ def library(q: str = Query('', max_length=200), kind: Literal['', 'podcast', 'vi
     rows.sort(key=lambda r: r['sort_key'], reverse=descending)
     return page_rows(rows, limit)
 
-
-def _video_source_url(task):
-    """Use an already resolved Bilibili identity for legacy short-link imports."""
-    from urllib.parse import urlparse
-    import re
-    original = task.get('url') or ''
-    try:
-        if urlparse(original).hostname not in ('b23.tv', 'www.b23.tv'):
-            return original
-        metadata = task.get('source_metadata') or {}
-        part = task.get('bilibili_part') or metadata.get('bilibili_part') or {}
-        resolved = part.get('url') or ''
-        parsed = urlparse(resolved)
-        if parsed.scheme in ('http', 'https') and parsed.hostname in ('bilibili.com', 'www.bilibili.com', 'm.bilibili.com') and re.fullmatch(r'/video/(?:BV[\w]+|av\d+)/?', parsed.path):
-            return resolved
-    except (ValueError, AttributeError, TypeError):
-        pass
-    return original
 
 
 def _matches_kind(row, kind):

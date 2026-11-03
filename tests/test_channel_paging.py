@@ -42,3 +42,30 @@ async def test_channel_http_contract_bounds_requests(client):
     response=await client.get('/api/video-notes/tasks/by-channel',params={'channel':'Big','platform':'youtube','cursor':result['next_cursor']})
     assert len(response.json()['tasks'])==5 and response.json()['next_cursor'] is None
     assert (await client.get('/api/video-notes/tasks/by-channel',params={'channel':'Big','platform':'youtube','limit':1000})).status_code==422
+
+
+def test_channel_resolves_legacy_short_link_without_returning_source_payload(tmp_path):
+    db = _SQLiteVideoTaskDB(tmp_path/'short-link.db')
+    ident = db.create_task({'user_id':'owner','platform':'bilibili','channel':'Course','title':'Course · P1/21 Lesson','url':'https://b23.tv/legacy'})
+    db.update_task(ident, {'source_metadata':{'bilibili_part':{'page':1,'url':'https://www.bilibili.com/video/BVcourse?p=1'},'description':'Private source description'}, 'markdown':'Private summary'})
+    rows = page(db,'Course','bilibili','owner')['tasks']
+    assert len(rows) == 1
+    assert rows[0]['url'] == 'https://www.bilibili.com/video/BVcourse?p=1'
+    assert 'Private' not in str(rows)
+    assert 'source_metadata' not in rows[0] and 'bilibili_part' not in rows[0]
+    assert db.get_task(ident, 'owner')['url'] == 'https://b23.tv/legacy'
+
+
+def test_cloud_channel_resolves_short_link_with_bounded_owner_scoped_projection():
+    from unittest.mock import MagicMock
+    from types import SimpleNamespace
+    query = MagicMock()
+    query.select.return_value = query.eq.return_value = query.order.return_value = query.limit.return_value = query
+    query.execute.return_value = SimpleNamespace(data=[{'id':'p1','url':'https://b23.tv/legacy','platform':'bilibili','bilibili_part':{'url':'https://www.bilibili.com/video/BVcourse?p=1'}}])
+    client = SimpleNamespace(table=lambda _:query)
+    rows = page(SimpleNamespace(_sb=SimpleNamespace(client=client)), 'Course', 'bilibili', 'owner')['tasks']
+    assert rows[0]['url'] == 'https://www.bilibili.com/video/BVcourse?p=1'
+    assert 'bilibili_part' not in rows[0]
+    assert 'source_metadata->bilibili_part' in query.select.call_args.args[0]
+    query.eq.assert_any_call('user_id','owner')
+    query.limit.assert_called_once_with(41)
