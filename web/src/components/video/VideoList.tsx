@@ -1,3 +1,4 @@
+import '../SeriesCard.css'
 import {useRef,useState} from 'react'
 import {Link,useNavigate} from 'react-router-dom'
 import {CheckCircle,XCircle,Video,ChevronDown,Square,Sparkles,Play,RotateCcw,ExternalLink,RefreshCw} from 'lucide-react'
@@ -265,9 +266,11 @@ export default function VideoList({ videos, onDelete, onRetry, onCancel }: {
   }
   return <div ref={list} className="space-y-3 video-task-list">
     {groupVideoCollections(videos).map(group=>group.collection ? <details key={group.key} className="video-collection rounded-xl border border-dark-border bg-dark-surface p-3">
-      <summary className="cursor-pointer break-words p-2">
-        <span className="font-semibold">{group.title}</span>
-        <span className="mt-1 block text-sm text-gray-400">Collection{group.total>1?` · ${group.total} parts`:''} · {group.tasks.length} shown · {group.tasks.filter(task=>task.status==='success').length} ready in this list</span>
+      <summary>
+        <CachedImage src={group.tasks.find(task=>task.thumbnail)?.thumbnail||''} alt="" fit="contain" className="series-channel-cover" fallback={<span className="cached-image-fallback" aria-hidden="true"><Video size={32}/></span>}/>
+        <span className="series-channel-copy"><span className="series-meta">Bilibili</span><strong>{group.title}</strong><span className="series-meta">{group.tasks[0].channel}</span>
+          <span className="series-channel-footer"><span>{group.total>1?`${group.total} episodes`:'Series'} · {group.tasks.filter(task=>task.status==='success').length} ready in this list</span><span className="series-channel-toggle"><span className="series-show">View episodes ⌄</span><span className="series-hide">Hide episodes ⌃</span></span></span>
+        </span>
       </summary>
       <div className="mt-3 space-y-3">{group.tasks.map(renderTask)}</div>
     </details> : group.tasks.map(renderTask))}
