@@ -94,7 +94,7 @@ async def check(browser, origin, width):
     await recent.locator('.reading-history-card').nth(17).wait_for()
     assert await recent.locator('.reading-history-card').count()==18
     await recent.get_by_role('button',name='Articles',exact=True).click()
-    await recent.get_by_role('status').filter(has_text='6 loaded').wait_for()
+    await recent.get_by_role('status').filter(has_text='6 titles · 6 notes loaded').wait_for()
     assert await recent.locator('.reading-history-card').count()==6
     assert await recent.get_by_text('Read article →',exact=True).count()==6
     assert any(q.get('kind')==['article'] for q in state['library_calls'])
