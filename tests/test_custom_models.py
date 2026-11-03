@@ -135,7 +135,7 @@ async def test_provider_failure_never_echoes_key_and_listing_allows_manual_model
     error=RuntimeError('private-summary-key echoed by provider');error.status_code=404
     with patch('api.model_settings.probe_provider',side_effect=error):
         result=await client.post('/api/settings/models',json={**PATCH,'kind':'summary'})
-    assert result.status_code==502
+    assert result.status_code==422
     assert 'manually' in result.text
     assert 'private-summary-key' not in result.text
 
@@ -158,3 +158,17 @@ def test_concurrent_first_local_saves_share_one_complete_encryption_seed(monkeyp
         tokens=list(pool.map(lambda i:credentials.encrypt_key('owner','llm_api_key',str(i)),range(16)))
     assert [credentials.decrypt_key('owner','llm_api_key',token) for token in tokens]==[str(i) for i in range(16)]
     assert len((tmp_path/'.model-credential-key').read_bytes())==32
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize('path', ['/api/settings/models', '/api/settings/test-transcription', '/api/settings/test-llm'])
+@pytest.mark.parametrize('upstream,expected', [(401,422), (403,422), (402,422), (404,422), (429,429), (502,502)])
+async def test_provider_rejection_is_not_website_auth_or_gateway_failure(client, path, upstream, expected):
+    error = RuntimeError('private-provider-body private-api-key')
+    error.status_code = upstream
+    with patch('api.custom_models._probe_provider', side_effect=error):
+        response = await client.post(path, json={**PATCH, 'kind':'summary'})
+    assert response.status_code == expected
+    assert response.headers['content-type'].startswith('application/json')
+    assert 'private-' not in response.text
+    assert 'detail' in response.json()

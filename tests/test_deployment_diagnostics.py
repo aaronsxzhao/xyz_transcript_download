@@ -48,7 +48,7 @@ def test_public_probes_only_get_and_keep_credentials_out_of_arguments(monkeypatc
     from types import SimpleNamespace
     from scripts.profile_library import profile_public_routes
     calls = []
-    monkeypatch.setenv("SUPABASE_JWT_SECRET", "private-signing-secret-for-profiling-only")
+    monkeypatch.setenv("PLATFORM_TEST_TOKEN", "ptt_private-test-token")
     def run(command, **kwargs):
         calls.append((command, kwargs))
         if command[-1].endswith('/api/jobs'):
@@ -119,3 +119,12 @@ def test_youtube_verification_reports_are_whitelisted_and_bounded():
     assert 'secret' not in json.dumps(report) and 'private.example' not in json.dumps(report)
     payload.update(code='secret-token')
     assert safe_log_summary('YouTube verification '+json.dumps(payload))['youtube_verifications']==[]
+
+
+def test_model_error_types_are_fixed_labels_only():
+    report = safe_log_summary("Custom model probe failed: operation=models error_type=AttributeError upstream_status=0\n"
+                              "Custom model probe failed: operation=models error_type=secret-value upstream_status=0\n"
+                              '\"POST /api/settings/models HTTP/1.1\" 502 Bad Gateway')
+    assert report['custom_model_error_types']['models']['AttributeError'] == 1
+    assert report['model_http_statuses']['502'] == 1
+    assert 'secret-value' not in str(report)

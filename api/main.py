@@ -698,7 +698,7 @@ def test_llm_connection(settings: dict, user: User = Depends(get_current_user)):
     from api.llm_settings import test_summary_connection, safe_provider_error
     from api.user_settings import get_user_settings
     from api.model_settings import prepared_settings
-    from api.custom_models import ModelConfigurationError, public_model_error
+    from api.custom_models import ModelConfigurationError, public_model_error, model_probe_http_status
     try:
         preferences, _ = prepared_settings(user.id, settings)
         return test_summary_connection(preferences)
@@ -706,7 +706,7 @@ def test_llm_connection(settings: dict, user: User = Depends(get_current_user)):
         raise HTTPException(422, detail=str(error))
     except Exception as error:
         detail = public_model_error(error, "summary JSON output") if settings.get("llm_provider") == "custom" else safe_provider_error(error)
-        raise HTTPException(status_code=502, detail=detail)
+        raise HTTPException(status_code=model_probe_http_status(error), detail=detail)
 
 
 from api.model_settings import router as model_settings_router
