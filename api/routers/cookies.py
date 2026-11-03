@@ -62,7 +62,7 @@ async def bilibili_qr_generate(user: Optional[User] = Depends(get_current_user))
     qr_url, qrcode_key = qr_data.get('url'), qr_data.get('qrcode_key')
     from urllib.parse import urlparse
     if (not isinstance(qr_url, str) or urlparse(qr_url).scheme != 'https'
-            or urlparse(qr_url).hostname != 'passport.bilibili.com'
+            or urlparse(qr_url).hostname not in {'passport.bilibili.com', 'account.bilibili.com'}
             or not isinstance(qrcode_key, str) or not qrcode_key):
         raise HTTPException(502, detail='Bilibili returned incomplete QR data. Please generate a new code.')
 

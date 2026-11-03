@@ -37,6 +37,12 @@ def safe_log_summary(text: str) -> dict:
         "http2_terminated": text.count("ConnectionTerminated"),
         "http2_stream_reset": text.count("StreamReset"),
         "episode_http_statuses": {status:len(re.findall(r'"GET /api/podcasts/[^/\s]+/episodes[^"\n]* HTTP/[^"\n]+" '+status+r'\b',text)) for status in ('200','401','403','404','500','502','503','504')},
+        "platform_account_http_statuses": {
+            path: {status: len(re.findall(r'"(?:GET|POST) ' + re.escape(path) + r'(?:\?[^"\s]*)? HTTP/[^"\n]+" ' + status + r'\b', text))
+                   for status in ('200','400','401','403','404','500','502','503','504')}
+            for path in ('/api/cookies/bilibili/qr/generate','/api/cookies/bilibili/qr/poll',
+                         '/api/cookies/youtube','/api/cookies/upload-file','/api/cookies/save-simple')
+        },
         "summary_failures": {
             "output_limit": text.count("Summary response was incomplete (length)") + text.count("The model reached its summary output limit."),
             "empty_key_points": text.count("Summary contains no key points"),

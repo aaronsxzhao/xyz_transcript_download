@@ -93,3 +93,18 @@ def test_partial_review_diagnostics_count_only_whitelisted_reasons():
     assert report['summary_audit_issues']['invalid_addition']==1
     assert 'private source' not in str(report)
     assert 'secret-token' not in str(report)
+
+
+def test_platform_account_diagnostics_count_statuses_without_login_keys():
+    text = '\n'.join([
+        '"GET /api/cookies/bilibili/qr/generate HTTP/1.1" 502 Bad Gateway',
+        '"GET /api/cookies/bilibili/qr/poll?qrcode_key=private-key HTTP/1.1" 200 OK',
+        '"POST /api/cookies/upload-file HTTP/1.1" 200 OK',
+        'Cookie: SID=private-value',
+    ])
+    report=safe_log_summary(text)
+    counts=report['platform_account_http_statuses']
+    assert counts['/api/cookies/bilibili/qr/generate']['502']==1
+    assert counts['/api/cookies/bilibili/qr/poll']['200']==1
+    assert counts['/api/cookies/upload-file']['200']==1
+    assert 'private-' not in str(report)

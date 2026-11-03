@@ -21,12 +21,14 @@ def sessions():
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize('qr_host',['passport.bilibili.com','account.bilibili.com'])
 @respx.mock
-async def test_valid_qr_response_returns_a_session_before_browser_deadline(client):
-    route=respx.get(BASE+'generate').mock(return_value=httpx.Response(200,json={'code':0,'data':{'url':'https://passport.bilibili.com/h5-app/passport/login/scan?qrcode_key=fixture','qrcode_key':'fixture'}}))
+async def test_valid_qr_response_returns_a_session_before_browser_deadline(client,qr_host):
+    route=respx.get(BASE+'generate').mock(return_value=httpx.Response(200,json={'code':0,'data':{'url':f'https://{qr_host}/h5-app/passport/login/scan?qrcode_key=fixture','qrcode_key':'fixture'}}))
     response=await client.get('/api/cookies/bilibili/qr/generate')
     assert response.status_code==200
     assert response.json()['qrcode_key']=='fixture'
+    assert response.json()['qr_url'].startswith(f'https://{qr_host}/')
     assert cookies._qr_sessions['fixture']['user_id']=='local'
     assert route.calls[0].request.extensions['timeout']['connect']<15
     assert route.calls[0].request.extensions['timeout']['read']<15
@@ -48,7 +50,7 @@ async def test_failed_upstream_qr_requests_explain_the_next_action_without_provi
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize('data',[None,{}, {'url':'','qrcode_key':'fixture'}, {'url':'https://elsewhere.example/login','qrcode_key':'fixture'}])
+@pytest.mark.parametrize('data',[None,{}, {'url':'','qrcode_key':'fixture'}, {'url':'https://elsewhere.example/login','qrcode_key':'fixture'}, {'url':'https://account.bilibili.com.attacker.example/login','qrcode_key':'fixture'}, {'url':'http://account.bilibili.com/login','qrcode_key':'fixture'}])
 @respx.mock
 async def test_incomplete_qr_payload_does_not_crash_or_display_a_blank_code(client,data):
     respx.get(BASE+'generate').mock(return_value=httpx.Response(200,json={'code':0,'data':data}))
