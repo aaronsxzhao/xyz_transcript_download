@@ -14,7 +14,7 @@ async def main():
     try:
         async with async_playwright() as p:
             browser=await p.webkit.launch() if '--webkit' in sys.argv else await p.chromium.launch(executable_path='/usr/bin/chromium' if Path('/usr/bin/chromium').exists() else None,args=['--no-sandbox'])
-            for design,theme,width in [('editorial','dark',390),('editorial','light',390),('classic','dark',320),('classic','light',820)]:
+            for design,theme,width in [(design,theme,width) for design in ['classic','editorial'] for theme in ['light','dark'] for width in [390,820,1440]]:
                 context=await context_for(browser,width,touch=True)
                 await context.route('**/api/cookies',lambda r:r.fulfill(json={'cookies':[{'platform':'youtube','has_cookie':True}]}))
                 mode=['ok'];calls=[]
@@ -27,6 +27,8 @@ async def main():
                 page=await context.new_page();errors=[];page.on('pageerror',lambda e:errors.append(str(e)))
                 await page.goto(f'http://127.0.0.1:{server.server_port}/settings')
                 await choose(page,design,theme)
+                await page.reload()
+                await page.wait_for_function('([design,theme])=>document.documentElement.dataset.design===design && document.documentElement.dataset.theme===theme',arg=[design,theme])
                 await page.get_by_role('button',name='Platform Accounts',exact=True).click()
                 await page.get_by_role('button',name='YouTube',exact=True).click()
                 panel=page.get_by_role('region',name='YouTube verification')
