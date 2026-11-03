@@ -38,7 +38,7 @@ it('shows a unified twelve-item page and pages without losing or duplicating rec
  await act(async()=>button('Load more').click())
  expect(titles()).toHaveLength(15)
  expect(fetchLibrary).toHaveBeenLastCalledWith(expect.any(String),'next',expect.any(AbortSignal))
- expect(node.textContent).toContain('15 loaded')
+ expect(node.textContent).toContain('15 titles · 15 notes loaded')
  expect([...node.querySelectorAll('button')].some(b=>b.textContent==='Load more')).toBe(false)
 })
 it('queries article membership on the server and labels original text as an article',async()=>{

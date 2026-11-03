@@ -1,3 +1,4 @@
+import {getStatusText} from '../lib/statusUtils'
 import {useEffect,useRef,useState} from 'react'
 import {Link} from 'react-router-dom'
 import CachedImage from './CachedImage'
@@ -30,7 +31,7 @@ export default function SeriesCard({group,priority=false}:{group:LibrarySeries;p
  const unique=[...new Map(episodes.map(p=>[p.page,p])).values()].sort((a,b)=>a.page-b.page)
  return <article className="series-card" data-series={group.key}>
   <div className="series-card-heading">
-   <CachedImage priority={priority} src={item.thumbnail||''} alt="" className="series-cover" fit="contain" fallback={<span aria-hidden="true">Series</span>}/>
+   <CachedImage priority={priority} src={item.thumbnail||''} alt="" className="series-cover" fit="contain" fallback={<span className="cached-image-fallback" aria-hidden="true">Series</span>}/>
    <div className="series-copy"><p className="series-meta">Series{group.total>1?` · ${group.total} episodes`:''}</p><h2>{group.title}</h2><p className="series-meta">{item.source}</p>
     <button className="ui-button" aria-expanded={open} onClick={()=>setOpen(value=>!value)}>{open?'Hide episodes':'View episodes'}</button>
    </div>
@@ -40,7 +41,7 @@ export default function SeriesCard({group,priority=false}:{group:LibrarySeries;p
    {error&&<p role="alert">{error}</p>}
    <ol>{unique.map(part=>{
     const saved=available.get(part.page),id=part.task_id||saved?.id,ready=part.status==='success'||!!saved
-    return <li key={part.page}><span className="series-part-number">P{part.page}</span><div><p>{part.title}</p><span className="series-meta">{ready?'Ready to read':part.status==='not_started'?'Not processed':part.status}</span></div>{id&&<Link className="reader-action" to={`/videos/${id}`}>{ready?'Read summary':'View progress'} →</Link>}</li>
+    return <li key={part.page}><span className="series-part-number">P{part.page}</span><div><p>{part.title.replace(/^.*? · P\d+\/\d+\s*/, '') || part.title}</p><span className="series-meta">{ready?'Ready to read':part.status==='not_started'?'Not processed':getStatusText(part.status)}</span></div>{id&&<Link className="reader-action" to={`/videos/${id}`}>{ready?'Read summary':'View progress'} →</Link>}</li>
    })}</ol>
   </div>}
  </article>

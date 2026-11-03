@@ -60,7 +60,7 @@ function RecentFeed({kind,revision}: {kind:Kind;revision:number}) {
   const card=(group:typeof groups[number],index:number)=>group.series?<SeriesCard key={group.key} group={group} priority={index===0}/>:<NoteCard key={group.key} item={group.items[0]} priority={index===0} featured={featured&&index===0}/>
   return <>
     <div className="dashboard-recent-status">
-      <span role="status">{loading?'Updating…':`${groups.length} titles · ${page.items.length} notes loaded${page.next_cursor?' · More available':''}`} · Saved content, newest first</span>
+      <span role="status">{loading?'Updating…':`${groups.length} ${groups.length===1?'title':'titles'} · ${page.items.length} notes loaded${page.next_cursor?' · More available':''}`} · Saved content, newest first</span>
       <button className="reader-action reader-action-icon" aria-label="Refresh recent content" disabled={loading} onClick={()=>void load()}><RefreshCw size={16} className={loading?'animate-spin':''}/></button>
     </div>
     {error&&<LoadError message={error} onRetry={()=>void load(failedCursor.current)}/>}
