@@ -58,6 +58,7 @@ function RecentFeed({kind,revision}: {kind:Kind;revision:number}) {
   }
   useEffect(()=>{void load();return()=>controller.current?.abort()},[revision])
   const groups=groupLibrarySeries(page.items)
+  const hasFeature=featured && groups[0] && !groups[0].series
   const card=(group:typeof groups[number],index:number)=>group.series?<SeriesCard key={group.key} group={group} priority={index===0}/>:<NoteCard key={group.key} item={group.items[0]} priority={index===0} featured={featured&&index===0}/>
   return <>
     <div className="dashboard-recent-status">
@@ -65,8 +66,8 @@ function RecentFeed({kind,revision}: {kind:Kind;revision:number}) {
       <button className="reader-action reader-action-icon" aria-label="Refresh recent content" disabled={loading} onClick={()=>void load()}><RefreshCw size={16} className={loading?'animate-spin':''}/></button>
     </div>
     {error&&<LoadError message={error} onRetry={()=>void load(failedCursor.current)}/>}
-    {featured && groups[0] && card(groups[0],0)}
-    <div className="dashboard-recent-notes" aria-busy={loading}>{(featured ? groups.slice(1) : groups).map((group,index)=>card(group,index+(featured?1:0)))}</div>
+    {hasFeature && card(groups[0],0)}
+    <div className="dashboard-recent-notes" aria-busy={loading}>{(hasFeature ? groups.slice(1) : groups).map((group,index)=>card(group,index+(hasFeature?1:0)))}</div>
     {!page.items.length&&!error&&!loading&&<p className="text-sm text-gray-400">No saved {kind==='article'?'articles':kind==='podcast'?'podcast summaries':kind==='video'?'video notes':'content'} yet.</p>}
     {page.next_cursor&&<div className="dashboard-recent-more"><button className="ui-button" disabled={loading} onClick={()=>void load(page.next_cursor!)}>{loading?'Loading…':'Load more'}</button></div>}
   </>

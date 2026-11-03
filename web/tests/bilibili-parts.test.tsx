@@ -29,7 +29,7 @@ const button=(text:string)=>[...node.querySelectorAll('button')].find(button=>bu
 const posts=()=>mocks.fetch.mock.calls.filter(([,options])=>options?.method==='POST')
 it('shows all parts, skips the current part and submits only selected other parts',async()=>{
  await mount()
- expect(node.textContent).toContain('Collection · 4 parts')
+ expect(node.textContent).toContain('Series · 4 episodes')
  expect(node.querySelectorAll('input[type=checkbox]')).toHaveLength(4)
  expect((node.querySelectorAll('input')[1] as HTMLInputElement).disabled).toBe(true)
  act(()=>button('Select unprocessed').click())

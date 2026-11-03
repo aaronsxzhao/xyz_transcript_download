@@ -39,6 +39,17 @@ async def main():
         assert await page.locator('.series-card').evaluate("e=>getComputedStyle(e).borderRadius")=='0px'
        if path=='/library':
         await page.get_by_role('button',name='list layout',exact=True).click()
+        assert await page.locator('.series-card [data-layout=list]').count()==1
+        geometry=await page.evaluate('''() => {
+         const series=document.querySelector('.series-card .library-card');
+         const ordinary=document.querySelector('a.library-card');
+         return [series,ordinary].map(card=>({
+          art:card.querySelector('.library-artwork').getBoundingClientRect().width,
+          font:getComputedStyle(card.querySelector('h2')).fontSize,
+          body:card.querySelector('.library-card-body').getBoundingClientRect().x
+         }));
+        }''')
+        assert geometry[0]==geometry[1],geometry
         await page.locator('.library-card').first.hover()
         if design=='editorial':assert await page.locator('.library-card').first.evaluate("e=>getComputedStyle(e).backgroundColor")=='rgba(0, 0, 0, 0)'
       await page.screenshot(path=f'/tmp/series-fixed-{design}-{theme}-{width}-'+('home' if path=='/' else 'library')+'.png',full_page=True)
