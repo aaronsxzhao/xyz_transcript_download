@@ -205,7 +205,7 @@ class SettingsUpdate(BaseModel):
 
 # Import subscriptions schemas
 class ImportSubscriptionsRequest(BaseModel):
-    username: str  # Xiaoyuzhou username or user ID
+    username: str  # Legacy field name: Xiaoyuzhou user ID or profile share URL
 
 
 class ImportSubscriptionsResponse(BaseModel):

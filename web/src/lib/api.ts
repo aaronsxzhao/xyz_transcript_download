@@ -542,11 +542,7 @@ export async function importUserSubscriptions(username: string): Promise<ImportS
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ username }),
   })
-  if (!res.ok) {
-    const error = await res.json()
-    throw new Error(error.detail || 'Failed to import subscriptions')
-  }
-  return res.json()
+  return parseApiResponseAsJson<ImportSubscriptionsResult>(res, 'Could not import Xiaoyuzhou subscriptions')
 }
 
 

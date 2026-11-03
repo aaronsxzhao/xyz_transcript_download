@@ -1244,16 +1244,16 @@ export default function Settings() {
               Import Xiaoyuzhou Subscriptions
             </h2>
             <p className="text-sm text-gray-400 mb-3">
-              Import podcasts from Xiaoyuzhou (小宇宙). <span className="text-yellow-400">Profile must be public.</span>
+              Public profiles may show counts but omit subscription lists.
             </p>
-            <label htmlFor="subscription-profile" className="block text-sm text-gray-400 mb-2">Xiaoyuzhou username or profile URL</label>
+            <label htmlFor="subscription-profile" className="block text-sm text-gray-400 mb-2">Xiaoyuzhou user ID or profile URL</label>
             <div className="flex flex-col sm:flex-row gap-3 mb-3">
               <input
                 id="subscription-profile"
                 type="text"
                 value={importUsername}
                 onChange={e => setImportUsername(e.target.value)}
-                placeholder="Username or profile URL"
+                placeholder="Profile URL or user ID"
                 className="min-w-0 flex-1 bg-dark-hover border border-dark-border text-white text-sm rounded-lg px-3 py-2 focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
                 onKeyDown={e => e.key === 'Enter' && !importing && handleImportSubscriptions()}
               />
@@ -1315,7 +1315,7 @@ export default function Settings() {
               </div>
             )}
             <p className="text-xs text-gray-500 mt-3">
-              Find your username in your profile URL (xiaoyuzhoufm.com/user/<span className="text-cyan-400">username</span>)
+              Nicknames are not supported. Try <a href="/podcasts" className="underline">Podcasts → Add Podcast</a> instead.
             </p>
           </section>
         </div>

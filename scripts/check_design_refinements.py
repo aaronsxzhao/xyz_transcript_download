@@ -78,7 +78,7 @@ async def check(browser, origin, width, output):
         await page.get_by_role('button',name='Upload File',exact=True).click()
         assert await paste.get_attribute('aria-pressed')=='false'
         await page.get_by_role('button',name='Tools & Data',exact=True).click()
-        await page.get_by_label('Xiaoyuzhou username or profile URL',exact=True).wait_for()
+        await page.get_by_label('Xiaoyuzhou user ID or profile URL',exact=True).wait_for()
         assert not errors,errors
         print(f'{width}: statistics, placeholder contrast, deletion, settings passed',flush=True)
     finally:

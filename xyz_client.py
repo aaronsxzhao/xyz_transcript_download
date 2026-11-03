@@ -8,6 +8,7 @@ import re
 import json
 from dataclasses import dataclass
 from typing import Optional, List
+from urllib.parse import urlparse
 
 import requests
 from bs4 import BeautifulSoup
@@ -18,6 +19,13 @@ from retry_utils import RetryableSession, get_request_timeout
 from logger import get_logger
 
 logger = get_logger("client")
+
+
+class SubscriptionSourceError(RuntimeError):
+    """A bounded, public error; never expose upstream HTML or exception bodies."""
+    def __init__(self, message: str, status_code: int = 422):
+        super().__init__(message)
+        self.status_code = status_code
 
 
 @dataclass
@@ -481,147 +489,92 @@ class XyzClient:
         return None
 
     def get_user_subscriptions(self, user_id: str) -> List[Podcast]:
-        """
-        Fetch all podcasts a user is subscribed to.
-        Requires the user's profile to be public on Xiaoyuzhou.
-        
-        Args:
-            user_id: The Xiaoyuzhou user ID (from profile URL)
-            
-        Returns:
-            List of Podcast objects the user subscribes to
-            
-        Note:
-            This only works if the user has set their profile to public.
-            Private profiles will return an empty list.
-        """
-        url = f"https://www.xiaoyuzhoufm.com/user/{user_id}"
-        podcasts = []
-        
+        """Read explicit subscription data, never owned/recent/recommended podcasts."""
         try:
-            logger.info(f"Fetching user subscriptions from: {url}")
-            response = self.session.get(url)
+            response = self.session.get(f"https://www.xiaoyuzhoufm.com/user/{user_id}")
             response.raise_for_status()
-            soup = BeautifulSoup(response.content, 'html.parser')
-            
-            # Check if profile is private or not found
-            page_text = soup.get_text().lower()
-            if "用户不存在" in page_text or "页面不存在" in page_text:
-                logger.warning(f"User not found: {user_id}")
-                return []
-            
-            if "私密" in page_text or "隐私" in page_text:
-                logger.warning(f"User profile is private: {user_id}")
-                return []
-            
-            # Try to extract subscription data from __NEXT_DATA__ JSON
-            script_tag = soup.find('script', {'id': '__NEXT_DATA__'})
-            if script_tag and script_tag.string:
-                try:
-                    data = json.loads(script_tag.string)
-                    props = data.get('props', {}).get('pageProps', {})
-                    
-                    # Look for subscriptions in various possible locations
-                    subscriptions = (
-                        props.get('subscriptions') or 
-                        props.get('subscribedPodcasts') or
-                        props.get('user', {}).get('subscriptions') or
-                        props.get('podcasts') or
-                        []
-                    )
-                    
-                    for sub in subscriptions:
-                        if isinstance(sub, dict):
-                            podcast = sub.get('podcast') or sub
-                            pid = podcast.get('pid') or podcast.get('id') or ''
-                            if pid:
-                                podcasts.append(Podcast(
-                                    pid=pid,
-                                    title=podcast.get('title', ''),
-                                    author=podcast.get('author', '') or podcast.get('nickname', ''),
-                                    description=podcast.get('description', '') or podcast.get('brief', ''),
-                                    cover_url=podcast.get('image', {}).get('picUrl', '') if isinstance(podcast.get('image'), dict) else podcast.get('coverUrl', ''),
-                                    episode_count=podcast.get('episodeCount', 0) or podcast.get('latestEpisodeCount', 0),
-                                ))
-                    
-                    if podcasts:
-                        logger.info(f"Found {len(podcasts)} subscribed podcasts from JSON data")
-                        return podcasts
-                        
-                except (json.JSONDecodeError, KeyError, TypeError) as e:
-                    logger.debug(f"Failed to parse __NEXT_DATA__: {e}")
-            
-            # Fallback: scrape podcast links from the page
-            podcast_links = soup.find_all('a', href=re.compile(r'/podcast/[a-zA-Z0-9]+'))
-            seen_pids = set()
-            
-            for link in podcast_links:
-                href = link.get('href', '')
-                pid = self._extract_id_from_url(href, "podcast")
-                
-                if pid and pid not in seen_pids:
-                    seen_pids.add(pid)
-                    
-                    # Try to get title from link content or nearby elements
-                    title = link.get_text(strip=True)
-                    if not title:
-                        # Look for title in parent or sibling elements
-                        parent = link.find_parent()
-                        if parent:
-                            title_elem = parent.find(['h2', 'h3', 'h4', 'span', 'div'], class_=re.compile(r'title|name', re.I))
-                            if title_elem:
-                                title = title_elem.get_text(strip=True)
-                    
-                    # Try to get cover image
-                    cover_url = ''
-                    img = link.find('img') or (link.find_parent() and link.find_parent().find('img'))
-                    if img:
-                        cover_url = img.get('src', '') or img.get('data-src', '')
-                    
-                    podcasts.append(Podcast(
-                        pid=pid,
-                        title=title or f"Podcast {pid}",
-                        author='',
-                        description='',
-                        cover_url=cover_url,
-                        episode_count=0,
-                    ))
-            
-            if podcasts:
-                logger.info(f"Found {len(podcasts)} podcasts from page scraping")
-            else:
-                logger.warning(f"No subscribed podcasts found for user: {user_id}")
-                
-        except requests.exceptions.HTTPError as e:
-            if e.response.status_code == 404:
-                logger.warning(f"User not found: {user_id}")
-            else:
-                logger.error(f"HTTP error fetching user subscriptions: {e}")
-        except Exception as e:
-            logger.error(f"Failed to fetch user subscriptions: {e}")
-        
+        except requests.exceptions.HTTPError as error:
+            status = error.response.status_code if error.response is not None else 0
+            if status == 404:
+                raise SubscriptionSourceError("Xiaoyuzhou could not find this profile. Check the user ID or profile link.", 404) from None
+            if status in (401, 403):
+                raise SubscriptionSourceError("Xiaoyuzhou requires access to this profile. A public link alone cannot read its subscriptions.", 403) from None
+            if status == 429:
+                raise SubscriptionSourceError("Xiaoyuzhou is rate-limiting requests. Wait before trying again.", 429) from None
+            raise SubscriptionSourceError("Xiaoyuzhou could not load this profile. Retry later and check the profile link in Xiaoyuzhou.", 503) from None
+        except requests.exceptions.RequestException:
+            raise SubscriptionSourceError("Could not reach Xiaoyuzhou. Retry later; no subscriptions were imported.", 503) from None
+
+        soup = BeautifulSoup(response.content, 'html.parser')
+        script = soup.find('script', {'id': '__NEXT_DATA__'})
+        try:
+            data = json.loads(script.string) if script and script.string else {}
+            props = data.get('props', {}).get('pageProps', {})
+            if not isinstance(props, dict):
+                raise ValueError()
+        except (ValueError, AttributeError, TypeError):
+            raise SubscriptionSourceError("Xiaoyuzhou returned an unreadable profile. No subscriptions were imported.") from None
+
+        # Public profiles currently expose counts, ownedPodcasts and recent plays,
+        # but not the subscribed list. None of those is a subscription fallback.
+        containers = [props, props.get('user'), props.get('profile')]
+        profile = props.get('profile')
+        if isinstance(profile, dict):
+            containers.append(profile.get('user'))
+        subscriptions = None
+        for container in containers:
+            if isinstance(container, dict):
+                for field in ('subscriptions', 'subscribedPodcasts'):
+                    if field in container:
+                        subscriptions = container[field]
+                        break
+                if subscriptions is not None:
+                    break
+        if not isinstance(subscriptions, list):
+            raise SubscriptionSourceError(
+                "This Xiaoyuzhou public page does not expose its subscription list. "
+                "A public profile or subscription count is not enough to import it. "
+                "You can add individual podcast share links in Podcasts > Add Podcast. "
+                "No subscriptions were imported."
+            )
+        podcasts = []
+        seen = set()
+        for item in subscriptions:
+            podcast = item.get('podcast', item) if isinstance(item, dict) else None
+            if not isinstance(podcast, dict):
+                raise SubscriptionSourceError("Xiaoyuzhou returned an incomplete subscription list. No subscriptions were imported.")
+            pid = podcast.get('pid') or podcast.get('id')
+            if not isinstance(pid, str) or not re.fullmatch(r'[a-fA-F0-9]{24}', pid):
+                raise SubscriptionSourceError("Xiaoyuzhou returned an incomplete subscription list. No subscriptions were imported.")
+            if pid in seen:
+                continue
+            seen.add(pid)
+            image = podcast.get('image')
+            podcasts.append(Podcast(
+                pid=pid, title=podcast.get('title') or '',
+                author=podcast.get('author') or podcast.get('nickname') or '',
+                description=podcast.get('description') or podcast.get('brief') or '',
+                cover_url=image.get('picUrl', '') if isinstance(image, dict) else podcast.get('coverUrl', ''),
+                episode_count=podcast.get('episodeCount') or podcast.get('latestEpisodeCount') or 0,
+            ))
         return podcasts
 
     def extract_user_id(self, input_str: str) -> Optional[str]:
-        """
-        Extract user ID from various input formats.
-        
-        Args:
-            input_str: Could be a profile URL, username, or user ID
-            
-        Returns:
-            User ID or the input if it looks like an ID
-        """
-        # If it's a URL, extract the user ID
-        if "xiaoyuzhoufm.com/user/" in input_str:
-            match = re.search(r'/user/([a-zA-Z0-9]+)', input_str)
-            if match:
-                return match.group(1)
-        
-        # If it looks like an ID (alphanumeric, reasonable length)
-        if re.match(r'^[a-zA-Z0-9_-]+$', input_str) and 5 <= len(input_str) <= 50:
-            return input_str
-        
+        """Accept an actual user ID or a Xiaoyuzhou profile share URL, not a nickname."""
+        value = input_str.strip()
+        if re.fullmatch(r'[a-fA-F0-9]{24}', value):
+            return value.lower()
+        # Sharing from the app may include surrounding text. Only exact official
+        # hostnames are accepted; the request itself always uses our fixed host.
+        for match in re.finditer(r'(?:https?://)?(?:www\.)?xiaoyuzhoufm\.com/user/[a-fA-F0-9]{24}(?=[/?#\s]|$)[^\s]*', value):
+            candidate = match.group(0)
+            if match.start() and value[match.start()-1] in '.@/abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_-':
+                continue
+            parsed = urlparse(candidate if '://' in candidate else 'https://' + candidate)
+            if parsed.hostname in {'www.xiaoyuzhoufm.com', 'xiaoyuzhoufm.com'}:
+                uid = parsed.path.split('/')[2]
+                if re.fullmatch(r'[a-fA-F0-9]{24}', uid):
+                    return uid.lower()
         return None
 
 
