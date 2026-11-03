@@ -83,6 +83,20 @@ def safe_log_summary(text: str) -> dict:
             operation: len(re.findall(r"Custom model probe failed: operation=" + operation + r"\b", text))
             for operation in ("models", "summary", "transcription")
         },
+        "custom_model_error_types": {
+            operation: {
+                name: len(re.findall(r"Custom model probe failed: operation=" + operation +
+                                     r" error_type=" + name + r" upstream_status=[0-9]{1,3}\b", text))
+                for name in ("APIConnectionError", "APITimeoutError", "AuthenticationError",
+                             "PermissionDeniedError", "NotFoundError", "RateLimitError",
+                             "InternalServerError", "APIStatusError", "ModelConfigurationError",
+                             "AttributeError", "TypeError", "ValueError", "JSONDecodeError")
+            } for operation in ("models", "summary", "transcription")
+        },
+        "model_http_statuses": {
+            status: len(re.findall(r'"POST /api/settings/models HTTP/[^"\n]+" ' + status + r'\b', text))
+            for status in ('200', '401', '403', '422', '500', '502', '503', '504')
+        },
         "custom_model_upstream_5xx": len(re.findall(r"Custom model probe failed: [^\r\n]*\bupstream_status=5[0-9]{2}\b", text)),
     }
 
