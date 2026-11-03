@@ -21,7 +21,7 @@ class Query:
     def limit(self, count):
         assert count <= 61
         self.rows = self.rows[:count]; return self
-    def execute(self): return SimpleNamespace(data=[{k:r[k] for k in self.fields} for r in self.rows])
+    def execute(self): return SimpleNamespace(data=[{k.split('->')[-1]:(r.get('source_metadata') or {}).get('bilibili_part') if k=='source_metadata->bilibili_part' else r[k] for k in self.fields} for r in self.rows])
 
 
 @pytest.mark.asyncio
@@ -137,6 +137,7 @@ async def test_bilibili_identity_enrichment_is_bounded_account_scoped_and_preser
                   thumbnail='', platform='bilibili', duration=60, topics_count=0,
                   published_at='', publication_sort_key=str(i)) for i in range(1,4)]
     videos = [dict(id=str(i),user_id='a',url=f'https://www.bilibili.com/video/BVcourse?p={i}') for i in range(1,4)]
+    videos[2].update(url='https://b23.tv/legacy',source_metadata={'bilibili_part':{'url':'https://www.bilibili.com/video/BVcourse?p=3'}})
     videos.append(dict(id='3',user_id='b',url='private-other-account'))
     reads=[]
     def table(name):
@@ -148,4 +149,13 @@ async def test_bilibili_identity_enrichment_is_bounded_account_scoped_and_preser
         result=(await http.get('/library',params={'limit':2})).json()
     assert result['next_cursor']=='2'
     assert [r['source_url'] for r in result['items']]==['https://www.bilibili.com/video/BVcourse?p=3','https://www.bilibili.com/video/BVcourse?p=2']
-    assert len(reads)==2 and reads[1][1].fields==['id','url'] and len(reads[1][1].rows)==2
+    assert len(reads)==2 and reads[1][1].fields==['id','url','source_metadata->bilibili_part'] and len(reads[1][1].rows)==2
+
+@pytest.mark.parametrize('url,part,expected', [
+    ('https://b23.tv/legacy', 'https://www.bilibili.com/video/BVcourse?p=1', 'https://www.bilibili.com/video/BVcourse?p=1'),
+    ('https://b23.tv/legacy', 'https://evil.example/video/BVcourse?p=1', 'https://b23.tv/legacy'),
+    ('https://b23.tv/legacy', 'https://www.bilibili.com/not-a-video', 'https://b23.tv/legacy'),
+    ('https://www.bilibili.com/video/BVother?p=1', 'https://www.bilibili.com/video/BVcourse?p=1', 'https://www.bilibili.com/video/BVother?p=1'),
+])
+def test_short_link_identity_uses_only_resolved_bilibili_video_urls(url, part, expected):
+    assert library._video_source_url({'url':url,'source_metadata':{'bilibili_part':{'url':part}}}) == expected

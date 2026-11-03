@@ -71,8 +71,8 @@ def library(q: str = Query('', max_length=200), kind: Literal['', 'podcast', 'vi
         # Bounded, account-scoped identity enrichment; never fetch note bodies.
         video_ids = [r['id'] for r in rows[:limit] if r['kind'] == 'video' and r.get('platform') == 'bilibili']
         if video_ids:
-            identities = db.db.client.table('video_tasks').select('id,url').eq('user_id', user.id).in_('id', video_ids).limit(limit).execute().data or []
-            urls = {r['id']: r.get('url', '') for r in identities}
+            identities = db.db.client.table('video_tasks').select('id,url,source_metadata->bilibili_part').eq('user_id', user.id).in_('id', video_ids).limit(limit).execute().data or []
+            urls = {r['id']: _video_source_url(r) for r in identities}
             for row in rows[:limit]:
                 if row['kind'] == 'video' and row['id'] in urls:
                     row['source_url'] = urls[row['id']]
@@ -87,6 +87,25 @@ def library(q: str = Query('', max_length=200), kind: Literal['', 'podcast', 'vi
     if requested: rows=[r for r in rows if r['kind']+':'+r['id'] in requested]
     rows.sort(key=lambda r: r['sort_key'], reverse=descending)
     return page_rows(rows, limit)
+
+
+def _video_source_url(task):
+    """Use an already resolved Bilibili identity for legacy short-link imports."""
+    from urllib.parse import urlparse
+    import re
+    original = task.get('url') or ''
+    try:
+        if urlparse(original).hostname not in ('b23.tv', 'www.b23.tv'):
+            return original
+        metadata = task.get('source_metadata') or {}
+        part = task.get('bilibili_part') or metadata.get('bilibili_part') or {}
+        resolved = part.get('url') or ''
+        parsed = urlparse(resolved)
+        if parsed.scheme in ('http', 'https') and parsed.hostname in ('bilibili.com', 'www.bilibili.com', 'm.bilibili.com') and re.fullmatch(r'/video/(?:BV[\w]+|av\d+)/?', parsed.path):
+            return resolved
+    except (ValueError, AttributeError, TypeError):
+        pass
+    return original
 
 
 def _matches_kind(row, kind):
@@ -118,5 +137,5 @@ def _local_library_rows(db, user_id):
         # Regeneration can fail while the previous saved note remains readable.
         # Streaming text without a saved version must stay out of the library.
         return bool(task.get('has_saved_note'))
-    rows += [dict(id=t['id'], source_url=t.get('url') or '', kind='video', content_type='article' if t.get('style') == 'original' else (t.get('source_type') or 'video'), title=t.get('title') or 'Untitled video', source=t.get('channel') or t.get('platform') or 'Video', date=t.get('updated_at') or t.get('created_at') or '', published_at=t.get('published_at') or '', status='completed', thumbnail=t.get('thumbnail') or '', platform=t.get('platform') or '', duration=t.get('duration') or 0, topics_count=0) for t in videos if readable_video(t)]
+    rows += [dict(id=t['id'], source_url=_video_source_url(t), kind='video', content_type='article' if t.get('style') == 'original' else (t.get('source_type') or 'video'), title=t.get('title') or 'Untitled video', source=t.get('channel') or t.get('platform') or 'Video', date=t.get('updated_at') or t.get('created_at') or '', published_at=t.get('published_at') or '', status='completed', thumbnail=t.get('thumbnail') or '', platform=t.get('platform') or '', duration=t.get('duration') or 0, topics_count=0) for t in videos if readable_video(t)]
     return rows

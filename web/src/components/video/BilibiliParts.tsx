@@ -97,7 +97,7 @@ export default function BilibiliParts({metadata}: {metadata:NonNullable<VideoTas
     <nav className="bilibili-part-navigation" aria-label="Part navigation">
       {[previous,next].map((part,index)=>part?.task_id ? <Link key={index} className="reader-action" to={`/videos/${part.task_id}`}>{index===0?'← Previous':'Next →'} · P{part.page}</Link> : <span key={index} className="reader-action" aria-disabled="true">{index===0?'← Previous':'Next →'}{part?` · P${part.page} not processed`:''}</span>)}
     </nav>
-    <details className="bilibili-directory" open>
+    <details className="bilibili-directory">
     <summary>Episodes · {metadata.bilibili_parts?.length}</summary>
     {loading&&<p role="status">Loading part statuses…</p>}
     {error&&<p role="alert" className="mt-2 mb-2 text-red-300">{error}</p>}

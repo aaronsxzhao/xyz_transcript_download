@@ -4,7 +4,12 @@ import type {VideoTask} from './api'
 export function collectionIdentity(task: VideoTask) {
   if (task.platform !== 'bilibili') return null
   try {
-    const url = new URL(task.url)
+    let url = new URL(task.url)
+    // Older imports retain the short link; extraction already resolved its identity.
+    if (['b23.tv', 'www.b23.tv'].includes(url.hostname) && task.source_metadata?.bilibili_part?.url) {
+      url = new URL(task.source_metadata.bilibili_part.url)
+      if (!['http:', 'https:'].includes(url.protocol)) return null
+    }
     if (!['www.bilibili.com','bilibili.com','m.bilibili.com'].includes(url.hostname)) return null
     const id = url.pathname.match(/^\/video\/((?:BV[\w]+)|(?:av\d+))\/?$/)?.[1]
     if (!id) return null
