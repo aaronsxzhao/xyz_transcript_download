@@ -88,6 +88,16 @@ jobs:
         run: |
           python scripts/check_youtube_verification_browser.py
           python scripts/check_youtube_verification_browser.py --webkit
+      - name: Capture cold-start page matrix
+        timeout-minutes: 5
+        run: python scripts/check_ui_page_matrix.py --output appearance-checks/page-matrix
+      - name: Upload page matrix evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ui-page-matrix
+          path: appearance-checks/page-matrix/
+          if-no-files-found: ignore
       - name: Check persisted series themes and grouped pagination
         run: |
           python scripts/check_series_theme_browser.py
