@@ -43,7 +43,8 @@ async def main():
       elif path=='/api/podcasts/content':await route.fulfill(json=[] if removed else [episode])
       else:await route.fallback()
      await context.route('**/api/**',api)
-     page=await context.new_page();errors=[];page.on('pageerror',lambda e:errors.append(str(e)))
+     page=await context.new_page();errors=[]
+     page.on('pageerror',lambda e:errors.append({'message':str(e),'stack':e.stack,'url':page.url}))
      url='/podcasts/show/episodes' if kind=='episode' else '/videos?platform=youtube&channel=Fixture'
      await page.goto(f'http://127.0.0.1:{server.server_port}'+url)
      title=episode['title'] if kind=='episode' else task['title']
