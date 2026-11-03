@@ -15,7 +15,7 @@ READ_CHECKS = {
 
 
 def run(probe=None):
-    token = os.environ.get('PLATFORM_TEST_TOKEN', '')
+    token = os.environ.get('PLATFORM_TEST_TOKEN', '').strip()
     if not token.startswith('ptt_'):
         print(json.dumps({'diagnostics':'unavailable', 'reason':'test_token_not_configured'}))
         return False

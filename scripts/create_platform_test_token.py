@@ -18,7 +18,7 @@ def main():
     if not 1 <= args.days <= 90: parser.error('--days must be between 1 and 90')
     token='ptt_'+secrets.token_urlsafe(32)
     fd=os.open(args.output,os.O_WRONLY|os.O_CREAT|os.O_EXCL,0o600)
-    with os.fdopen(fd,'w') as output: output.write(token+'\n')
+    with os.fdopen(fd,'w') as output: output.write(token)
     print(json.dumps({'token_digest':hashlib.sha256(token.encode()).hexdigest(),
         'owner_id':str(args.owner),'expires_at':(datetime.now(timezone.utc)+timedelta(days=args.days)).isoformat(),
         'scopes':['content:read','diagnostics:run','models:probe']}))

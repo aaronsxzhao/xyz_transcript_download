@@ -27,7 +27,7 @@ def restricted_summary_route(database, owner):
 
 def profile_public_routes(owner: str, routes: list[tuple[str, str]], local_video: str | None = None) -> list[dict]:
     """Read deployed routes with a provisioned diagnostic token, never a signed JWT."""
-    token = os.environ.get("PLATFORM_TEST_TOKEN")
+    token = os.environ.get("PLATFORM_TEST_TOKEN", "").strip()
     if not token:
         return [{"library_profile": "live_unavailable"}]
     selected = [("auth", "/api/stats"), *[(label, path) for label, path in routes

@@ -70,3 +70,19 @@ async def test_normal_session_still_uses_jwt():
             response=await client.get('/api/stats',headers={'Authorization':'Bearer ordinary-session'})
     assert response.status_code==200
     consume.assert_not_called()
+
+
+def test_token_file_is_private_and_matches_registered_digest(tmp_path, monkeypatch, capsys):
+    import hashlib
+    import json
+    from scripts.create_platform_test_token import main
+    path=tmp_path/'credential'
+    monkeypatch.setattr('sys.argv',['create-token','--owner',OWNER,'--output',str(path)])
+    main()
+    metadata=json.loads(capsys.readouterr().out)
+    token=path.read_text()
+    assert token.startswith('ptt_') and len(token)==47
+    assert path.stat().st_mode & 0o777 == 0o600
+    assert metadata['token_digest']==hashlib.sha256(token.encode()).hexdigest()
+    assert token not in str(metadata)
+    with pytest.raises(FileExistsError): main()
