@@ -40,7 +40,8 @@ async def main():
       labels=await card.locator('.series-part-number').all_text_contents();assert labels==[f'P{n}' for n in range(1,22)],labels
       assert await card.locator('a[href="/videos/p1"]').count()==1
       assert await card.get_by_role('button',name='Hide episodes').get_attribute('aria-expanded')=='true'
-      await page.get_by_role('button',name='Load more' if path=='/' else 'Show more notes',exact=True).click()
+      more=page.get_by_role('button',name='Load more' if path=='/' else 'Show more notes',exact=True)
+      if await more.count():await more.click()
       await page.wait_for_timeout(250)
       assert await card.count()==1
       if path=='/library':

@@ -1,10 +1,11 @@
+import {fetchGroupedLibraryPage} from '../lib/groupedLibraryPage'
 import SeriesCard from './SeriesCard'
 import {groupLibrarySeries} from '../lib/librarySeries'
 import {useAppearance} from '../lib/theme'
 import {useEffect, useRef, useState} from 'react'
 import {Link} from 'react-router-dom'
 import {RefreshCw} from 'lucide-react'
-import {fetchLibrary, type LibraryPage} from '../lib/api'
+import {type LibraryPage} from '../lib/api'
 import {getCache, setCache, useWarmCache} from '../lib/cache'
 import {getAccountId} from '../lib/preferences'
 import LoadError from './LoadError'
@@ -42,7 +43,7 @@ function RecentFeed({kind,revision}: {kind:Kind;revision:number}) {
     const current=()=>controller.current===request && !request.signal.aborted && owner===getAccountId()
     setLoading(true);setError('')
     try {
-      const result=await fetchLibrary(new URLSearchParams({limit:'12',sort:'newest',status:'completed',...(kind?{kind}:{})}).toString(),cursor,request.signal)
+      const result=await fetchGroupedLibraryPage(new URLSearchParams({limit:'12',sort:'newest',status:'completed',...(kind?{kind}:{})}).toString(),cursor,request.signal)
       if(!current())return
       if(!Array.isArray(result.items))throw new Error('Cannot load recent content')
       result.items=result.items.filter(item=>item.status==='completed')

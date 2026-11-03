@@ -1,3 +1,4 @@
+import {fetchGroupedLibraryPage} from '../lib/groupedLibraryPage'
 import SeriesCard from '../components/SeriesCard'
 import {groupLibrarySeries} from '../lib/librarySeries'
 import Button from '../components/ui/Button'
@@ -19,7 +20,7 @@ import {useConnectionRecovery} from '../lib/connectionRecovery'
 import { platformLabel } from '../lib/platformLabels'
 
 import type { LibraryItem as Item, LibraryPage } from '../lib/api'
-import { fetchLibrary, fetchLibrarySources } from '../lib/api'
+import { fetchLibrarySources } from '../lib/api'
 export default function Library() {
   const history=useReadingHistory()
   const [params, setParams] = useSearchParams()
@@ -73,7 +74,7 @@ export default function Library() {
     controller.current?.abort(); controller.current = new AbortController()
     setError(''); setRefreshing(true)
     try {
-      const result = await fetchLibrary(filterKey, nextCursor, controller.current.signal)
+      const result = await fetchGroupedLibraryPage(filterKey, nextCursor, controller.current.signal)
       if (owner !== getAccountId() || attempt !== request.current) return
       // Network results take precedence over later cache subscription updates.
       confirmedFilter.current = filterKey

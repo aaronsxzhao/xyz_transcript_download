@@ -2,7 +2,8 @@ import { readFileSync } from 'node:fs'
 import { gzipSync } from 'node:zlib'
 
 const html = readFileSync(new URL('../dist/index.html', import.meta.url), 'utf8')
-const assets = [...html.matchAll(/(?:src|href)="(\/assets\/[^"<>]+\.(?:js|css))"/g)]
+const externalHtml = html.replace(/<link[^>]*data-inlined-style[^>]*>/g, '')
+const assets = [...externalHtml.matchAll(/(?:src|href)="(\/assets\/[^"<>]+\.(?:js|css))"/g)]
 const paths = [...new Set(assets.map(([, path]) => path))]
 // Count the complete document, including embedded code, CSS and bootstrap.
 // Include the small shared connection-feedback state and read-recovery hooks.
