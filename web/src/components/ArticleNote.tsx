@@ -1,4 +1,5 @@
 import {useEffect, useState} from 'react'
+import {Lexer, walkTokens} from 'marked'
 import ReadableMarkdown, {hasImage} from './ReadableMarkdown'
 import {inlineNoteText} from '../lib/noteMarkdown'
 import {Link} from 'react-router-dom'
@@ -26,16 +27,41 @@ export function articleEmbed(href:string):{src:string;name:string;audio?:boolean
   return null
 }
 
+export function articleMediaKind(href:string):'video'|'audio'|'image'|null {
+  try {
+    const url=new URL(href)
+    if(url.protocol!=='https:'||url.username||url.password||url.port)return null
+    const path=url.pathname.toLowerCase()
+    if(/\.(mp4|webm|ogv|mov)$/.test(path))return 'video'
+    if(/\.(mp3|m4a|ogg|wav)$/.test(path))return 'audio'
+    if(/\.gif$/.test(path))return 'image'
+  } catch { /* Unsupported destinations remain source links. */ }
+  return null
+}
+
+function ArticleMedia({href,label,kind}:{href:string;label:string;kind:'video'|'audio'|'image'}) {
+  const [failed,setFailed]=useState(false)
+  return <figure className="article-native-media">
+    {kind==='video'?<video src={href} controls playsInline preload="metadata" aria-label={label} onError={()=>setFailed(true)}/>:
+     kind==='audio'?<audio src={href} controls preload="none" aria-label={label} onError={()=>setFailed(true)}/>:
+     <img src={href} alt={label} loading="lazy" onError={()=>setFailed(true)}/>}
+    {failed&&<p role="status">This media could not load. Open the original below.</p>}
+    <figcaption><a href={href} target="_blank" rel="noopener noreferrer">{label} ↗</a></figcaption>
+  </figure>
+}
+
 function ArticleLink({href,label}:{href:string;label:string}) {
   const [loaded,setLoaded]=useState(false)
   const [pending,setPending]=useState(false)
   const [slow,setSlow]=useState(false)
   const embed=articleEmbed(href)
+  const media=articleMediaKind(href)
   let host='',path=''
   try {const url=new URL(href);host=url.hostname;path=decodeURIComponent(url.pathname).replace(/[-_]/g,' ').slice(0,100)} catch { /* Keep original label. */ }
   const title=label===href||!label?path&&path!=='/'?path:host:label
   useEffect(()=>{setLoaded(false);setPending(false);setSlow(false)},[href])
   useEffect(()=>{if(!pending)return;const timer=setTimeout(()=>setSlow(true),12000);return()=>clearTimeout(timer)},[pending])
+  if(media)return <ArticleMedia key={href} href={href} label={label||title} kind={media}/>
   return <section className="article-link-card" aria-label={`${embed?.name||'Linked source'}: ${title}`}>
     <a className="article-link-target" href={href} target="_blank" rel="noopener noreferrer">
       <span className="article-link-host">{embed?.name||host}</span>
@@ -66,8 +92,16 @@ export function articleImageSources(raw:string):{preview:string;original:string}
 
 /** Keep original prose and inline citations; enhance only standalone links. */
 export default function ArticleNote({markdown,attachments=[],readerTitle,readerMeta}:{markdown:string;readerTitle?:string;readerMeta?:{author?:string;published?:string};attachments?:{url:string;kind:string;title:string}[]}) {
+  const inlineMedia=new Set<string>()
+  walkTokens(Lexer.lex(markdown),token=>{
+    if(token.type==='paragraph'&&token.tokens?.length===1){
+      const link=token.tokens[0]
+      if(link.type==='link'&&!hasImage(link.tokens||[])&&articleMediaKind(link.href))inlineMedia.add(link.href)
+    }
+  })
+  const remaining=attachments.filter(item=>!inlineMedia.has(item.url))
   return <>
-    {attachments.length>0&&<section aria-label="Article media" className="reader-utility-panel mb-4"><h2>Media in this article</h2><p className="text-sm text-gray-400">The complete article is retained below. Process a recording separately when you want its transcript and notes.</p>{attachments.map((item,index)=><div key={item.url+index} className="flex flex-wrap items-center gap-3 mt-3"><a href={item.url} target="_blank" rel="noopener noreferrer">{item.title||'Open media'} ↗</a>{(item.kind==='audio'||item.kind==='video'||['youtube','bilibili','douyin','kuaishou'].includes(detectContentPlatform(item.url)))&&<Link className="reader-action" to={'/videos?import='+encodeURIComponent(item.url)}>Process {item.kind==='audio'?'audio':'video'}</Link>}</div>)}</section>}
+    {remaining.length>0&&<section aria-label="Article media" className="reader-utility-panel mb-4"><h2>Media in this article</h2><p className="text-sm text-gray-400">The complete article is retained below. Process a recording separately when you want its transcript and notes.</p>{remaining.map((item,index)=>articleMediaKind(item.url)?<ArticleLink key={item.url+index} href={item.url} label={item.title||'Article media'}/>:<div key={item.url+index} className="flex flex-wrap items-center gap-3 mt-3"><a href={item.url} target="_blank" rel="noopener noreferrer">{item.title||'Open media'} ↗</a>{(item.kind==='audio'||item.kind==='video'||['youtube','bilibili','douyin','kuaishou'].includes(detectContentPlatform(item.url)))&&<Link className="reader-action" to={'/videos?import='+encodeURIComponent(item.url)}>Process {item.kind==='audio'?'audio':'video'}</Link>}</div>)}</section>}
     <article data-rendering="plain" aria-label="Readable note" className="note-prose prose prose-invert max-w-none"><ReadableMarkdown markdown={markdown} readerTitle={readerTitle} readerMeta={readerMeta} imageSources={articleImageSources} renderParagraph={(paragraph,index)=>{const link=paragraph.tokens.length===1?paragraph.tokens[0]:null;return link?.type==='link'&&link.tokens&&/^https?:\/\//i.test(link.href)&&!hasImage(link.tokens)?<ArticleLink key={index+link.href} href={link.href} label={inlineNoteText(link.tokens)}/>:null}}/></article>
   </>
 }

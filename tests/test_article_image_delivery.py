@@ -65,3 +65,28 @@ async def test_signed_images_reuse_cache_but_tampered_unsigned_and_private_targe
     assert (await client.get('/api/article-image',params={k:v[0] for k,v in query.items()})).status_code==403
     assert fetch.call_count==1
     media._signing_key.cache_clear()
+
+
+@pytest.mark.parametrize('variant', ['article', 'original', 'cover'])
+def test_article_gif_preserves_animation_while_library_cover_remains_static(variant):
+    output=io.BytesIO()
+    Image.new('RGB',(24,16),'red').save(output,format='GIF',save_all=True,
+        append_images=[Image.new('RGB',(24,16),'blue')],duration=[120,240],loop=2)
+    result=covers.make_thumbnail(output.getvalue(),variant)
+    with Image.open(io.BytesIO(result)) as image:
+        assert image.n_frames == (1 if variant=='cover' else 2)
+        if variant!='cover':
+            assert image.info['loop']==2
+            durations=[]
+            for index in range(2):
+                image.seek(index);image.load();durations.append(image.info['duration'])
+            assert durations==[120,240]
+
+
+def test_animation_without_repeat_extension_does_not_become_an_infinite_loop():
+    output=io.BytesIO()
+    Image.new('RGB',(24,16),'red').save(output,format='GIF',save_all=True,
+        append_images=[Image.new('RGB',(24,16),'blue')],duration=100)
+    with Image.open(io.BytesIO(covers.make_thumbnail(output.getvalue(),'article'))) as image:
+        assert image.n_frames == 2
+        assert image.info['loop'] == 1
