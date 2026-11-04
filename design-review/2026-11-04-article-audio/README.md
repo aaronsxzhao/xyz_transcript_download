@@ -25,3 +25,9 @@ Keep responsive auto-height for images/video only; audio retains the browser's n
 ## Report-only
 
 No additional confirmed flow issue or major redesign recommendation from this run. Real production latency, authenticated live content and physical iOS behavior remain unverified due the access/environment limits above. No speculative optimization or workflow patch was made.
+
+## CI follow-up
+
+The initial media test assumed a 32px minimum; WebKit native controls are 31px. The regression now compares against a fresh, unstyled native audio control in the same engine. Chromium and WebKit both passed on the second run.
+
+That run also exposed an immediate layout-sampling failure in the existing update-banner test. Local screenshots measured y=71.5px and the complete connection/reload/rollback scenario passed. Keep its original y<100 requirement, but await the layout condition (5s maximum) before asserting. No update-banner product behavior was changed. Both focused checks run early in CI for prompt feedback.
