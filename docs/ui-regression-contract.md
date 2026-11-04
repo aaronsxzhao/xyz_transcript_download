@@ -10,7 +10,7 @@ Record current main SHA, relevant open PRs and the last report. Use an isolated 
 | --- | --- | --- |
 | All page presentation | `check_ui_page_matrix.py`, `check_appearance.py`, `check_editorial_components.py` | Cold starts, page bounds, saved themes, retained state, controls and composited contrast |
 | Header, toolbar, responsive spacing | `check_mobile_controls.py`, `check_tablet_controls.py`, `check_editorial_fonts.py` | Touch targets, mobile title, fonts, narrow layouts |
-| Dashboard / Library / series | `check_dashboard_recent.py`, `check_series_theme_browser.py`, `check_series_browser.py`, `check_library_browser.py` | Grouping, pagination, search, list/grid alignment, fallback and no duplicate base CSS |
+| Dashboard / Library / series | `check_dashboard_recent.py`, `check_series_theme_browser.py`, `check_series_browser.py`, `check_series_spacing.py`, `check_library_browser.py` | Grouping, pagination, search, list/grid alignment, matched-title row/footer height and disclosure hit targets, fallback and no duplicate base CSS |
 | Channel / multipart reader | `check_bilibili_parts_browser.py` and relevant collection unit/API tests | Source identity, numeric order, current/ready/selected states, expanded reader directory, legacy parts |
 | Summary / article / Transcript | `check_summary_theme.py`, `check_unified_readers.py`, `check_reader_themes.py`, `check_reader_layout.py`, `check_reader_interactions.py` | Original article vs summary, tabs, lists, images, copy/export, retained reading position |
 | Task progress and notifications | `check_processing_progress.py`, `check_progress_motion.py`, `check_global_feedback.py` | Parallel updates, late snapshots, completion, motion, duplicate feedback and keyboard dismissal |

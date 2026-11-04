@@ -42,9 +42,9 @@ export default function SeriesCard({group,priority=false,layout='recent'}:{group
    <div className={library?'series-copy library-card-body':'series-copy note-card-copy min-w-0 flex-1'}>
     {library&&<div className="library-card-meta"><span>{platformLabel(item.platform,'Video')}</span><time dateTime={item.published_at||saved}>{item.published_at?`Published ${item.published_at.slice(0,10)}`:saved?`Saved ${new Date(saved).toLocaleDateString()}`:''}</time></div>}
     <h2 className="font-semibold leading-snug line-clamp-2" title={group.title}>{group.title}</h2>
-    <p className="mt-2 text-sm text-gray-400 truncate">{item.source}</p>
+    <p className={`${library?'mt-2':'mt-1'} text-sm text-gray-400 truncate`}>{item.source}</p>
     {!library&&<p className="note-card-meta"><span>{platformLabel(item.platform,'Video')}</span>{item.published_at&&<time dateTime={item.published_at}>Published {item.published_at.slice(0,10)}</time>}{saved&&<time dateTime={saved}>Saved {new Date(saved).toLocaleDateString()}</time>}</p>}
-    <div className="series-footer library-card-footer"><span>{group.total>1?`${group.total} episodes`:'Series'}</span><button className="series-toggle" aria-expanded={open} onClick={()=>setOpen(value=>!value)}>{open?'Hide episodes':'View episodes'} <ChevronDown size={14}/></button></div>
+    <div className={library?'series-footer library-card-footer':'series-footer flex items-center justify-between text-xs text-indigo-300 mt-2'}><span>{group.total>1?`${group.total} episodes`:'Series'}</span><button className="series-toggle" aria-expanded={open} onClick={()=>setOpen(value=>!value)}>{open?'Hide episodes':'View episodes'} <ChevronDown size={14}/></button></div>
    </div>
   </div>
   {open&&<div className="series-episodes" aria-label={`${group.title} episodes`}>

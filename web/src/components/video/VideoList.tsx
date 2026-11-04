@@ -268,9 +268,10 @@ export default function VideoList({ videos, onDelete, onRetry, onCancel }: {
     {groupVideoCollections(videos).map(group=>group.collection ? <details key={group.key} className="video-collection rounded-xl border border-dark-border bg-dark-surface p-3 md:p-4">
       <summary className="video-task-content flex flex-col sm:flex-row sm:items-start gap-3 md:gap-4">
         <CachedImage src={group.tasks.find(task=>task.thumbnail)?.thumbnail||''} alt="" fit="contain" className="video-thumbnail w-full sm:w-40 md:w-48 h-24 sm:h-24 md:h-28 rounded-lg object-cover flex-shrink-0 bg-dark-hover" fallback={<span className="cached-image-fallback" aria-hidden="true"><Video size={32}/></span>}/>
-        <span className="series-channel-copy"><strong className="font-medium text-white mb-1 line-clamp-2 text-sm md:text-base">{group.title}</strong><span className="series-meta">{group.tasks[0].channel}</span>
-          <span className="series-channel-footer"><span>{group.total>1?`${group.total} episodes`:'Series'} · {group.tasks.filter(task=>task.status==='success').length} ready in this list</span><span className="series-channel-toggle"><span className="series-show">View episodes ⌄</span><span className="series-hide">Hide episodes ⌃</span></span></span>
+        <span className="series-channel-copy"><strong className="font-medium text-white mb-1 line-clamp-2 text-sm md:text-base">{group.title}</strong>
+          <span className="flex flex-wrap items-center gap-2 md:gap-4 text-xs md:text-sm text-gray-400"><span>{group.tasks[0].channel}</span><span>{group.total>1?`${group.total} episodes`:'Series'} · {group.tasks.filter(task=>task.status==='success').length} ready in this list</span></span>
         </span>
+        <span className="collection-actions"><span className="series-channel-toggle"><span className="series-show">View episodes ⌄</span><span className="series-hide">Hide episodes ⌃</span></span></span>
       </summary>
       <div className="mt-3 space-y-3">{group.tasks.map(renderTask)}</div>
     </details> : group.tasks.map(renderTask))}
