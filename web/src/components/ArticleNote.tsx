@@ -96,7 +96,7 @@ export default function ArticleNote({markdown,attachments=[],readerTitle,readerM
   walkTokens(Lexer.lex(markdown),token=>{
     if(token.type==='paragraph'&&token.tokens?.length===1){
       const link=token.tokens[0]
-      if(link.type==='link'&&articleMediaKind(link.href))inlineMedia.add(link.href)
+      if(link.type==='link'&&!hasImage(link.tokens||[])&&articleMediaKind(link.href))inlineMedia.add(link.href)
     }
   })
   const remaining=attachments.filter(item=>!inlineMedia.has(item.url))

@@ -109,3 +109,10 @@ it('leaves inline media citations and unsafe destinations as links',async()=>{
  expect(node.querySelector('video')).toBeNull()
  expect(node.textContent).toContain('alongside the text.')
 })
+
+it('keeps an attachment player when the body has only a linked poster',async()=>{
+ const url='https://example.com/demo.mp4'
+ await act(async()=>root.render(<ArticleNote markdown={'[![Poster](https://example.com/poster.jpg)]('+url+')'} attachments={[{url,kind:'video',title:'Demonstration'}]}/>))
+ expect(node.querySelectorAll('video')).toHaveLength(1)
+ expect(node.querySelector('img')?.src).toBe('https://example.com/poster.jpg')
+})
