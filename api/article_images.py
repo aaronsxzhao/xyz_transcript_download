@@ -98,7 +98,7 @@ async def article_image(request: Request, url: str, expires: int, signature: str
                     raise ValueError('Source is not an image')
                 return make_thumbnail(response.content, size)
             return await asyncio.to_thread(fetch)
-        key = hashlib.sha256(('web-image-v1:' + size + ':' + url).encode()).hexdigest()
+        key = hashlib.sha256(('web-image-v2:' + size + ':' + url).encode()).hexdigest()
         content, source = await _cached_image(url, key, variant=size, fetcher=origin)
     except (HTTPException, SocialSourceError) as error:
         return Response(status_code=error.status_code if isinstance(error,HTTPException) else 502,

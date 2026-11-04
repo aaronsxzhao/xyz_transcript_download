@@ -80,3 +80,32 @@ it('keeps an escaped year as prose while containing real large list numbers',asy
  expect(lists[0].children).toHaveLength(2)
  expect(lists[1].classList.contains('wide-number-list')).toBe(false)
 })
+
+it('plays original article demonstrations inline without processing or duplicate attachments',async()=>{
+ const url='https://claude.dev/media/demo.mp4?version=1'
+ await act(async()=>root.render(<ArticleNote markdown={'Before the demonstration.\n\n[Embedded media]('+url+')\n\nAfter the demonstration.'} attachments={[{url,kind:'video',title:'Embedded media'}]}/>))
+ const video=node.querySelector('video')!
+ expect(video.getAttribute('src')).toBe(url)
+ expect(video.controls).toBe(true)
+ expect(video.playsInline).toBe(true)
+ expect(video.autoplay).toBe(false)
+ expect(node.querySelectorAll('video')).toHaveLength(1)
+ expect(node.textContent).not.toContain('Process video')
+ expect(node.textContent).toContain('After the demonstration.')
+ await act(async()=>video.dispatchEvent(new Event('error')))
+ expect(node.textContent).toContain('This media could not load')
+ expect(node.querySelector('a')?.href).toBe(url)
+})
+
+it('shows attachment-only demonstrations and GIF links without queueing processing',async()=>{
+ await act(async()=>root.render(<ArticleNote markdown={'[Animation](https://example.com/demo.gif)'} attachments={[{url:'https://example.com/demo.webm',kind:'video',title:'Demonstration'}]}/>))
+ expect(node.querySelector('img')?.src).toBe('https://example.com/demo.gif')
+ expect(node.querySelector('video')?.src).toBe('https://example.com/demo.webm')
+ expect(node.textContent).not.toContain('Process video')
+})
+
+it('leaves inline media citations and unsafe destinations as links',async()=>{
+ await act(async()=>root.render(<ArticleNote markdown={'Read [this video](https://example.com/demo.mp4) alongside the text.\n\n[Untrusted](https://user:secret@example.com/demo.mp4)'}/>))
+ expect(node.querySelector('video')).toBeNull()
+ expect(node.textContent).toContain('alongside the text.')
+})

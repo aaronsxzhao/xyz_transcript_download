@@ -43,7 +43,7 @@ def cache_key(url, variant='cover'):
     validate_url(url)
     if variant not in VARIANTS:
         raise HTTPException(422, 'Unknown image size')
-    namespace = 'cover-v1:' if variant == 'cover' else f'article-v1:{variant}:'
+    namespace = 'cover-v1:' if variant == 'cover' else f'article-v2:{variant}:'
     return hashlib.sha256((namespace + url).encode()).hexdigest()
 
 
@@ -51,6 +51,28 @@ def make_thumbnail(content, variant='cover'):
     with Image.open(io.BytesIO(content)) as source:
         if source.width * source.height > 20_000_000:
             raise ValueError('Artwork dimensions exceed limit')
+        if variant != 'cover' and getattr(source, 'is_animated', False):
+            frames, durations = [], []
+            loop = source.info.get('loop', 0)
+            # Bound decoded work as well as compressed input/output size.
+            pixels = 0
+            for index in range(source.n_frames):
+                source.seek(index)
+                pixels += source.width * source.height
+                if index >= 300 or pixels > 100_000_000:
+                    raise ValueError('Animated artwork exceeds frame budget')
+                frame = source.convert('RGBA')
+                if VARIANTS[variant]:
+                    frame.thumbnail((VARIANTS[variant], VARIANTS[variant]), Image.Resampling.LANCZOS)
+                frames.append(frame)
+                durations.append(source.info.get('duration', 100))
+            output = io.BytesIO()
+            frames[0].save(output, format='WEBP', save_all=True, append_images=frames[1:],
+                           duration=durations, loop=loop, quality=90, method=4)
+            result = output.getvalue()
+            if len(result) > MAX_STORED:
+                raise ValueError('Converted artwork exceeds size limit')
+            return result
         source.seek(0)
         image = ImageOps.exif_transpose(source).convert('RGB')
         size = VARIANTS[variant]
