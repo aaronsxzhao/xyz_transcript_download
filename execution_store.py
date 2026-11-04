@@ -118,19 +118,16 @@ class Store:
 
     def cancel(self,owner,kind,task,deleted=False):
         if self.cloud:
-            rows=self.client.table('processing_work').select('id,state,payload').eq('user_id',owner).eq('kind',kind).eq('task_id',task).in_('state',['queued','running']).execute().data or []
-            for row in rows:
-                patch={'cancel_requested':True}
-                if row['state']=='queued':patch['state']='cancelled'
-                if deleted:patch['payload']={**row['payload'],'deleted':True}
-                self.client.table('processing_work').update(patch).eq('id',row['id']).eq('user_id',owner).execute()
+            self.client.rpc('cancel_processing_work', {'p_user':owner,'p_kind':kind,
+                'p_task':task,'p_deleted':deleted}).execute()
             return
         with self.connection() as db:
-            rows=db.execute("select id,state,payload from processing_work where user_id=? and kind=? and task_id=? and state in ('queued','running')",(owner or 'local',kind,task)).fetchall()
-            for row in rows:
-                payload=json.loads(row['payload'])
-                if deleted:payload['deleted']=True
-                db.execute('update processing_work set cancel_requested=1,state=?,payload=? where id=?',('cancelled' if row['state']=='queued' else 'running',json.dumps(payload),row['id']))
+            db.execute("""update processing_work set cancel_requested=1,
+                state=case when state='queued' then 'cancelled' else state end,
+                payload=case when ? then json_set(payload,'$.deleted',json('true')) else payload end,
+                updated_at=? where user_id=? and kind=? and task_id=?
+                and state in ('queued','running')""",
+                (deleted,datetime.now(timezone.utc).timestamp(),owner or 'local',kind,task))
 
     def control(self):
         if self.cloud:
