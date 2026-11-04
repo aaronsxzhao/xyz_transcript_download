@@ -53,7 +53,7 @@ def make_thumbnail(content, variant='cover'):
             raise ValueError('Artwork dimensions exceed limit')
         if variant != 'cover' and getattr(source, 'is_animated', False):
             frames, durations = [], []
-            loop = source.info.get('loop', 0)
+            loop = source.info.get('loop', 1)
             # Bound decoded work as well as compressed input/output size.
             pixels = 0
             for index in range(source.n_frames):

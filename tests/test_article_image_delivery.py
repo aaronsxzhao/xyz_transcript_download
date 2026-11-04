@@ -81,3 +81,12 @@ def test_article_gif_preserves_animation_while_library_cover_remains_static(vari
             for index in range(2):
                 image.seek(index);image.load();durations.append(image.info['duration'])
             assert durations==[120,240]
+
+
+def test_animation_without_repeat_extension_does_not_become_an_infinite_loop():
+    output=io.BytesIO()
+    Image.new('RGB',(24,16),'red').save(output,format='GIF',save_all=True,
+        append_images=[Image.new('RGB',(24,16),'blue')],duration=100)
+    with Image.open(io.BytesIO(covers.make_thumbnail(output.getvalue(),'article'))) as image:
+        assert image.n_frames == 2
+        assert image.info['loop'] == 1
