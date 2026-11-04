@@ -30,14 +30,17 @@ async def main():
       page=await context.new_page();errors=[];page.on('pageerror',lambda e:errors.append(str(e)))
       await page.goto(f'http://127.0.0.1:{server.server_port}/videos/article');players=page.locator('.article-native-media audio');await players.first.wait_for(state='attached');await page.wait_for_timeout(150)
       await page.screenshot(path=str(args.output/f'{design}-{theme}-{width}-initial.png'),full_page=True)
+      # Match each engine's native controls, rather than assuming Chromium dimensions.
+      native_height=await page.evaluate("""()=>{const e=document.createElement('audio');e.controls=true;e.style.cssText='all:revert;display:block';document.body.append(e);const h=e.getBoundingClientRect().height;e.remove();return h;}""")
+      assert native_height>0,native_height
       geometry=await players.evaluate_all('(els)=>els.map(e=>({height:e.getBoundingClientRect().height,width:e.getBoundingClientRect().width,controls:e.controls,preload:e.preload}))')
-      assert len(geometry)==2 and all(v['height']>=32 and v['width']>200 and v['controls'] and v['preload']=='none' for v in geometry),geometry
+      assert len(geometry)==2 and all(v['height']>=native_height and v['width']>200 and v['controls'] and v['preload']=='none' for v in geometry),geometry
       assert not any(url.endswith('.wav') for url in reads),reads
       await players.first.focus();assert await players.first.evaluate('e=>document.activeElement===e')
       await players.first.evaluate('e=>e.load()');await page.wait_for_function("document.querySelector('audio').readyState>=1")
-      assert await players.first.evaluate('e=>e.getBoundingClientRect().height')>=32
+      assert await players.first.evaluate('e=>e.getBoundingClientRect().height')>=native_height
       await players.nth(1).evaluate('e=>e.load()');await players.nth(1).locator('..').get_by_role('status').wait_for()
-      assert await players.nth(1).evaluate('e=>e.getBoundingClientRect().height')>=32
+      assert await players.nth(1).evaluate('e=>e.getBoundingClientRect().height')>=native_height
       assert not await page.evaluate('document.documentElement.scrollWidth>innerWidth+1')
       await page.screenshot(path=str(args.output/f'{design}-{theme}-{width}-loaded-error.png'),full_page=True)
       assert not errors,errors

@@ -87,6 +87,11 @@ jobs:
           git archive "$BASE_REVISION" web/dist | tar -x -C /tmp/library-baseline
           pip install playwright
           python -m playwright install --with-deps chromium webkit
+      - name: Check native article media controls
+        timeout-minutes: 3
+        run: |
+          python scripts/check_article_media_controls.py
+          python scripts/check_article_media_controls.py --webkit
       - name: Check YouTube verification UI
         timeout-minutes: 3
         run: |
@@ -176,11 +181,6 @@ jobs:
         run: |
           python scripts/check_global_feedback.py
           python scripts/check_global_feedback.py --webkit --output /tmp/global-feedback-webkit
-      - name: Check native article media controls
-        timeout-minutes: 3
-        run: |
-          python scripts/check_article_media_controls.py
-          python scripts/check_article_media_controls.py --webkit
       - name: Check rich summary themes and article interactions
         timeout-minutes: 5
         run: |
