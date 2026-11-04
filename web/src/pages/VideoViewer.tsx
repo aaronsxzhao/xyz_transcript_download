@@ -374,6 +374,7 @@ export default function VideoViewer() {
     }
   };
 
+  const sourceAuthor = task?.source_metadata?.author;
   const rawContent = !task ? "" : selectedVersion ? versionContents[selectedVersion] || "" : task.markdown || "";
   const selectedStyle = selectedVersion ? task?.versions?.find(version=>version.id===selectedVersion)?.style : task?.style;
   const isOriginal = selectedStyle === 'original' && ['twitter','substack','web'].includes(task?.platform||'');
@@ -464,6 +465,9 @@ export default function VideoViewer() {
       metadata={
         <>
           <span>{task.channel || task.platform || "Video"}</span>
+          {sourceAuthor && sourceAuthor !== task.channel && (
+            <span>By {sourceAuthor}</span>
+          )}
           {task.published_at && (
             <span>
               Published {new Date(task.published_at).toLocaleDateString()}
@@ -740,7 +744,7 @@ export default function VideoViewer() {
               ) : !content.trim() ? (
                 <LoadError message="No summary content. Retry loading or choose a saved version." onRetry={retryRead}/>
               ) : (
-                isOriginal ? <ArticleNote markdown={content} readerTitle={title} readerMeta={{author:task.channel,published:task.published_at}} attachments={selectedVersion ? [] : task.source_metadata?.attachments} fallback={<PlainNote markdown={content} preserveSource readerTitle={title} readerMeta={{author:task.channel,published:task.published_at}}/>}/> : <MarkdownPreview
+                isOriginal ? <ArticleNote markdown={content} readerTitle={title} readerMeta={{author:sourceAuthor ?? task.channel,published:task.published_at}} attachments={selectedVersion ? [] : task.source_metadata?.attachments} fallback={<PlainNote markdown={content} preserveSource readerTitle={title} readerMeta={{author:sourceAuthor ?? task.channel,published:task.published_at}}/>}/> : <MarkdownPreview
                   markdown={content}
                   readerTitle={title}
                   fallback={<PlainNote markdown={content} readerTitle={title}/>}

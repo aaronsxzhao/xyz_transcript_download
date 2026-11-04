@@ -30,7 +30,9 @@ class ContentDocument(SocialContent):
 
     def metadata(self):
         result = {'type': self.content_type, 'canonical_url': self.canonical_url or self.url,
-                'attachments': self.attachments, 'access': 'complete', 'extractor': EXTRACTION_VERSION}
+                'attachments': self.attachments, 'access': 'complete', 'extractor': EXTRACTION_VERSION,
+                **super().metadata()}
+        if self.author == urlsplit(self.url).hostname: result['author'] = ''
         if self.media:
             result.update(media=self.media, source_body=self.body)
         return result
@@ -59,7 +61,9 @@ def saved_web_media(task):
         media = [dict(item, url=normalize_public_url(item['url'])) for item in media]
         return ContentDocument('web', url, task.get('title') or urlsplit(url).hostname,
             meta.get('source_body') or f'[Original media]({_link(media[0]["url"], url)})',
-            author=task.get('channel') or '', published=task.get('published_at') or '',
+            author=meta.get('author') or (urlsplit(url).hostname if meta.get('publication') else task.get('channel')) or '',
+            publication=meta.get('publication') or '',
+            published=task.get('published_at') or '',
             thumbnail=task.get('thumbnail') or '', media=media, content_type=meta['type'],
             canonical_url=meta.get('canonical_url') or url)
     except (SocialSourceError, KeyError, TypeError, AttributeError):
@@ -120,6 +124,8 @@ def extract_public_article(raw, url, content_type='text/html'):
     author = data.get('author') or meta('author')
     if not isinstance(author, list): author = [author]
     author = ', '.join(str(item.get('name') or '') if isinstance(item, dict) else str(item or '') for item in author).strip(', ')
+    from article_publication import publication_name
+    publication = publication_name(soup, data)
     canonical = soup.find('link', rel='canonical')
     canonical = _link(canonical.get('href'), base) if canonical else url
     cover = data.get('image') or meta('og:image', 'twitter:image')
@@ -174,7 +180,7 @@ def extract_public_article(raw, url, content_type='text/html'):
         body = f'![Article cover]({cover})\n\n' + body
     if not body.strip(): raise SocialSourceError('The website did not expose readable original content.')
     return ContentDocument('web', url, title, body, author or host, published, cover,
-                           canonical_url=canonical, attachments=attachments)
+                           canonical_url=canonical, attachments=attachments, publication=publication)
 
 
 def resolve_content(url):

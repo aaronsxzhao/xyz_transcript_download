@@ -31,3 +31,7 @@ No additional confirmed flow issue or major redesign recommendation from this ru
 The initial media test assumed a 32px minimum; WebKit native controls are 31px. The regression now compares against a fresh, unstyled native audio control in the same engine. Chromium and WebKit both passed on the second run.
 
 That run also exposed an immediate layout-sampling failure in the existing update-banner test. Local screenshots measured y=71.5px and the complete connection/reload/rollback scenario passed. Keep its original y<100 requirement, but await the layout condition (5s maximum) before asserting. No update-banner product behavior was changed. Both focused checks run early in CI for prompt feedback.
+
+## Latest-main integration
+
+While CI ran, PR #236 merged (`9d33436e7408b5ecce4502d645c4f559e816054d`), adding article publication display. Preserve those changes. The combined build exceeded the existing entry budget. Minify the existing inline theme bootstrap using the same Vite minifier already used for startup; no theme logic changes. The combined production build is now 202,477 compressed bytes (budget 202,496). This is a small payload reduction, not evidence of a perceptible whole-site speedup. Rechecked cold themes/page bounds, first paint and offline/update/reload recovery on the integrated build.
