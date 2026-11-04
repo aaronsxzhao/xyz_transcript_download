@@ -1,4 +1,4 @@
-# Measurement rules for this project
+# Measurement rules
 
 ## Baseline validity
 
@@ -22,7 +22,7 @@ A reduced count is only a useful proxy if the same scenario also improves end-to
 
 For each proven budget, store metric name/unit, exact start/end, fixture/version and size, runtime/browser, baseline/candidate SHAs, raw evidence location, allowed ceiling or range, calibration variance and rationale. Reduce ceilings only after repeated validated improvement. Runtime or fixture upgrades need an explicit recalibration record, not an unexplained baseline overwrite.
 
-Use the existing bundle and correctness gates immediately. New call-count/render/layout budgets require measurement first; this skill deliberately contains no fabricated target counts. Do not increase request volume, polling frequency, background CPU or memory merely to improve a visible latency metric.
+Use existing bundle and correctness gates where available; establish a measured baseline first if the project has none. New call-count/render/layout budgets require measurement first; this skill deliberately contains no fabricated target counts. Do not increase request volume, polling frequency, background CPU or memory merely to improve a visible latency metric.
 
 ## Stop conditions
 

@@ -1,13 +1,15 @@
 ---
 name: measured-web-performance
-description: Diagnose and improve this website's loading speed, interaction latency, reader responsiveness, list rendering, or progress smoothness using reproducible measurements and regression budgets. Use for performance audits, slow-page investigations, and measured optimizations; not for visual redesigns or speculative rewrites.
+description: Diagnose and improve a website's loading speed, interaction latency, reader responsiveness, list rendering, or progress smoothness using reproducible measurements and regression budgets. Use for performance audits, slow-page investigations, and measured optimizations; not for visual redesigns or speculative rewrites.
 ---
 
 # Measured web performance
 
 ## Start here
 
-Read repository `AGENTS.md`, `docs/ui-design-contract.md`, `docs/ui-regression-contract.md` and the latest performance review. Then read [repository map](references/repository-map.md) for current instrumentation and executable checks. This skill is a procedure, not permission to modify product workflows or deploy outside the user's authorized scope.
+This skill works across repositories. Resolve the current project root and read its `AGENTS.md` plus existing design, test and performance guidance when present. Missing project-specific documentation is not a blocker. Discover the actual stack, build commands, test runners, instrumentation and release process before issuing commands; do not assume React, Python or any particular provider.
+
+Only when working in `aaronsxzhao/xyz_transcript_download`, read [repository map](references/repository-map.md) and its design/regression contracts. In other projects, treat that file as an example, not applicable instructions. Map the user's journeys to the current project's components and tests. Resolve bundled reference/template links relative to this skill directory, and project paths relative to the current repository. This skill is a procedure, not permission to modify product workflows or deploy outside the user's authorized scope.
 
 For a request to **create or install this skill**, deliver the skill only. Do not silently start an optimization campaign, schedule monitoring, install paid telemetry, or publish product changes.
 
@@ -40,7 +42,7 @@ See [measurement rules](references/measurement-rules.md) for paired runs, proxy 
 
 ## Validate and retain the result
 
-Run the affected lanes from the regression contract; include persisted-theme cold load/reload for lazy asset changes. Check Classic/Editorial × light/dark × phone/tablet/desktop for affected presentation. Add narrow widths where relevant. Confirm keyboard/touch access, reduced motion, error/retry and stale-event behavior where affected.
+Run the affected checks from the current project's test guidance; include persisted-theme cold load/reload for lazy asset changes. Cover the project's supported themes and phone/tablet/desktop sizes for affected presentation. For xyz_transcript_download this includes Classic/Editorial × light/dark. Add narrow widths where relevant. Confirm keyboard/touch access, reduced motion, error/retry and stale-event behavior where affected.
 
 Show before/after traces and user-visible results. Keep valid improvements behind a tested budget with fixture and runtime provenance. Do not raise an existing ceiling to pass the new code. A legitimate new requirement needs a separately explained budget change and user authorization where applicable.
 
