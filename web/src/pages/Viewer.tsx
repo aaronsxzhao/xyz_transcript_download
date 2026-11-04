@@ -194,7 +194,7 @@ export default function Viewer() {
 
 
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const { updateJob } = useStore();
+  const updateJob = useStore(state => state.updateJob);
 
   useEffect(() => {
     return () => {
