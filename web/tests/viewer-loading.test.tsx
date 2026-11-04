@@ -98,3 +98,17 @@ it('renders the complete chapter structure by default with opening conclusions a
  await act(async()=>expand.click())
  expect(node.querySelectorAll('.topic-content').length).toBe(2)
 })
+
+it('does not rerender saved podcast content when unrelated video progress changes', async()=>{
+ const {useStore}=await import('../src/lib/store')
+ const {usePageTiming}=await import('../src/lib/pageTiming')
+ vi.mocked(fetchSummary).mockResolvedValueOnce(summary)
+ const node=await mount()
+ expect(node.textContent).toContain('Saved content')
+ vi.mocked(usePageTiming).mockClear()
+ for(let revision=1;revision<=5;revision++) {
+  await act(async()=>useStore.getState().updateVideoTask({id:'unrelated-progress',status:'summarizing',progress:revision,revision} as any))
+ }
+ expect(usePageTiming).not.toHaveBeenCalled()
+ expect(node.textContent).toContain('Saved content')
+})

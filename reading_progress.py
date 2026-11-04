@@ -7,7 +7,7 @@ STAGES = {
 }
 
 
-def stage(callback, name, completed=0, total=1, *, mode='single', fraction=None):
+def stage(callback, name, completed=0, total=1, *, mode='single', fraction=None, batch_size=None):
     if callback is None:
         return
     total=max(1,total)
@@ -19,8 +19,8 @@ def stage(callback, name, completed=0, total=1, *, mode='single', fraction=None)
         'grounding': f'Checking source accuracy · {completed}/{total} checks finished',
         'inventory': f'Building coverage checklist · {completed}/{total} source sections checked',
         'coverage': f'Checking coverage · {completed}/{total} items checked',
-        'repair': f'Filling missing details · {completed}/{total} items checked',
-        'recheck': f'Verifying additions · {completed}/{total} items checked',
+        'repair': f'Filling missing details · processing a batch of {(total-completed if batch_size is None else batch_size)} items',
+        'recheck': f'Verifying additions · processing a batch of {(total-completed if batch_size is None else batch_size)} items',
         'render': 'Preparing the final summary',
         'quality': f'Checking final text · {completed}/{total} checks finished',
     }

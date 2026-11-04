@@ -477,7 +477,7 @@ def _audit(engine, lines, sections, overview='', progress=None, stage_callback=N
                     by_id={row['item_id']:row for row in rows}
                     gaps=[item for item in items if by_id[item['id']]['status'] in {'partial','missing'}]
             if gaps and not matching_only:
-                stage(stage_callback,'repair',start,len(inventory),fraction=(start+len(items)*.35)/len(inventory))
+                stage(stage_callback,'repair',start,len(inventory),batch_size=len(gaps),fraction=(start+len(items)*.35)/len(inventory))
                 payload={'phase':'repair','items':gaps,'matches':rows,
                          'primary_source':serialize(evidence),'global_draft':draft_of(sections)}
                 allowed={line.id for line in evidence}
@@ -505,7 +505,7 @@ def _audit(engine, lines, sections, overview='', progress=None, stage_callback=N
                         p['frame']=None
                         proposed.append(p['id'])
                     candidate.append(s)
-                stage(stage_callback,'recheck',start,len(inventory),fraction=(start+len(items)*.7)/len(inventory))
+                stage(stage_callback,'recheck',start,len(inventory),batch_size=len(items),fraction=(start+len(items)*.7)/len(inventory))
                 rechecked=match(candidate,proposed)
                 # Accept independently verified paragraphs, not all-or-nothing
                 # batches: one still-missing condition must not discard a valid
@@ -567,7 +567,7 @@ def _audit(engine, lines, sections, overview='', progress=None, stage_callback=N
                                     'status':status,'paragraph_ids':[p['paragraph_id'] for p in row.get('support',[])],
                                     **({'context_overlap':True} if row.get('context_overlap') else {}),
                                     **({'compression_reason':item['material_reason']} if status=='context_only' else {})})
-    stage(stage_callback,'coverage',len(inventory),len(inventory))
+    stage(stage_callback,'coverage',sum(item['status'] != 'unverified' for item in report['items']),len(inventory))
     report['unresolved_items']=sum(item['status'] not in RESOLVED for item in report['items'])
     if not report['failed_batches'] and not report['unresolved_items'] and not report['ignored_boundary_items']:
         report['status']='model_reviewed'
@@ -605,9 +605,13 @@ def efficient_audit(engine, lines, sections, overview='', progress=None, stage_c
     from reading_progress import stage
     stage(stage_callback, 'coverage', 0, len(inventory))
     chunks = [inventory[i:i+ITEM_LIMIT] for i in range(0, len(inventory), ITEM_LIMIT)]
+    checked = set()
+    def matched_batch(index, result):
+        checked.update(item['id'] for item in result[0]['items'] if item['status'] != 'unverified')
+        stage(stage_callback, 'coverage', len(checked), len(inventory))
     results = bounded_map(lambda chunk: _audit(engine, lines, snapshot, overview,
         inventory=chunk, matching_only=True), chunks, workers=2,
-        stop_when=lambda result: result[0]['terminal_provider_failure'])
+        stop_when=lambda result: result[0]['terminal_provider_failure'], on_complete=matched_batch)
     receipts = {}
     def add_counters(local):
         for key in ('requests', 'repairs_accepted', 'repairs_rejected', 'validation_retries',
@@ -620,7 +624,7 @@ def efficient_audit(engine, lines, sections, overview='', progress=None, stage_c
         add_counters(local)
         receipts.update(local.get('matching_rows', {}))
         lookup.update({item['id']:item for item in local['items']})
-    stage(stage_callback, 'coverage', len(lookup), len(inventory))
+    stage(stage_callback, 'coverage', len(checked), len(inventory))
     for item in inventory:
         report['items'].append(lookup.get(item['id'], {'id':item['id'], 'kind':item['kind'],
             'source_ranges':item['source_ranges'], 'status':'unverified', 'paragraph_ids':[]}))
@@ -671,9 +675,16 @@ def build_inventory(engine, lines, progress=None, stage_callback=None):
     if progress:
         progress()
     stage(stage_callback, 'inventory', 0, len(parts))
+    checked = 0
+    def inventory_batch(index, result):
+        nonlocal checked
+        if not result[0]['inventory_failed_batches']:
+            checked += 1
+        stage(stage_callback, 'inventory', checked, len(parts))
     results = bounded_map(
         lambda item: _audit(engine, lines, [], inventory_only=True, inventory_parts=[item]),
-        work, workers=2, stop_when=lambda result: result[0]['terminal_provider_failure'])
+        work, workers=2, stop_when=lambda result: result[0]['terminal_provider_failure'],
+        on_complete=inventory_batch)
     # Use the same report schema even for an empty source.
     report, _ = _audit(engine, [], [], inventory_only=True, inventory_parts=[])
     inventory = []
@@ -692,5 +703,5 @@ def build_inventory(engine, lines, progress=None, stage_callback=None):
     report['inventory_failed_batches'] = report['failed_batches']
     if progress:
         progress()
-    stage(stage_callback, 'inventory', len(results), len(parts))
+    stage(stage_callback, 'inventory', checked, len(parts))
     return report, inventory

@@ -84,3 +84,50 @@ def test_streaming_output_updates_activity_without_inventing_a_percentage():
     assert '1/4 finished' in updates[-1][1]
     bridge.stream(256)
     assert '1/4 finished' in updates[-1][1]
+
+
+def test_inflight_batch_labels_do_not_claim_individual_items_have_been_checked():
+    events = []
+    for name in ('repair', 'recheck'):
+        stage(events.append, name, 0, 16, batch_size=16)
+    assert all('processing a batch of 16 items' in e['message'] for e in events)
+    assert all('items checked' not in e['message'] and e['completed'] == 0 for e in events)
+
+
+def test_failed_matching_does_not_publish_every_item_as_checked():
+    from coverage_ledger import _audit
+    from tests.test_coverage_ledger import CASES, setup_case
+    lines, sections, ranges = setup_case(CASES[0])
+    item = {'id':'C1.1', 'kind':'claim', 'statement':'Synthetic claim', 'source_ranges':ranges}
+    events = []
+    with patch('coverage_ledger.request', side_effect=RuntimeError('Synthetic provider failure')):
+        report, _ = _audit(SimpleNamespace(), lines, sections, inventory=[item], stage_callback=events.append)
+    assert report['items'][0]['status'] == 'unverified'
+    assert events[-1]['stage'] == 'coverage' and events[-1]['completed'] == 0
+
+
+def test_main_pipeline_publishes_inventory_progress_before_background_future_returns(monkeypatch):
+    import threading
+    import coverage_ledger as ledger
+    from transcript_reading import generate
+    from tests.test_transcript_reading import provider
+    from tests.test_coverage_ledger import CASES, scripted
+    original = ledger.build_inventory
+    release = threading.Event()
+    coordinator = threading.get_ident()
+    events = []
+    def build(engine, lines, **kwargs):
+        result = original(engine, lines, **kwargs)
+        assert release.wait(2), 'Inventory progress was withheld until future completion'
+        return result
+    def publish(event):
+        assert threading.get_ident() == coordinator
+        events.append(event)
+        if event['stage'] == 'inventory' and event['completed'] > 0:
+            release.set()
+    monkeypatch.setattr(ledger, 'build_inventory', build)
+    engine = SimpleNamespace(generation_mode='single', chunk_chars=1000, generation_report={})
+    case = CASES[0]
+    with patch('transcript_reading.call_json', side_effect=provider([])), patch('coverage_ledger.request', side_effect=scripted(case, [])):
+        generate(engine, case['source'], 'Title', stage_callback=publish)
+    assert release.is_set() and events[-1]['stage'] == 'render'

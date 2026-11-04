@@ -151,3 +151,51 @@ def test_real_generation_reuses_parallel_inventory_checkpoints(monkeypatch):
     assert first == second and len(calls) == count == 5
     assert resumed.snapshot()['checkpoint_hits'] == 5
     assert owner.generation_report['coverage_ledger']['status'] == 'model_reviewed'
+
+
+def test_completion_is_reported_before_other_batch_finishes_and_results_keep_order():
+    release = threading.Event()
+    events = []
+    def work(index):
+        if index == 0:
+            assert release.wait(2), 'Progress was withheld until all batches finished'
+        return index
+    def completed(index, value):
+        events.append((index, value))
+        if index == 1:
+            release.set()
+    assert bounded_map(work, [0, 1], on_complete=completed) == [0, 1]
+    assert events == [(1, 1), (0, 0)]
+
+
+def test_failed_batch_never_reports_completion():
+    events = []
+    def fail(index):
+        raise ValueError('Synthetic failure')
+    with pytest.raises(ValueError):
+        bounded_map(fail, [0], on_complete=lambda *args: events.append(args))
+    assert events == []
+
+
+def test_inventory_reports_first_finished_batch_while_second_is_still_waiting(monkeypatch):
+    import coverage_ledger as ledger
+    from transcript_reading import source_lines
+    _, lines = source_lines('First claim.\nSecond claim.')
+    monkeypatch.setattr(ledger, 'SOURCE_LIMIT', 1)
+    release = threading.Event()
+    events = []
+    def request(engine, system, payload, validator):
+        rows = payload['primary_source']
+        if rows[0]['id'] == lines[1].id:
+            assert release.wait(2), 'First batch did not publish incremental progress'
+        spans = [{'start': rows[0]['id'], 'end': rows[-1]['id']}]
+        return {'checked_source_ranges': spans, 'items': [{'kind': 'claim', 'statement': rows[0]['text'], 'source_ranges': spans}]}
+    def stage(event):
+        events.append(event)
+        if event['stage'] == 'inventory' and event['completed'] == 1:
+            release.set()
+    monkeypatch.setattr(ledger, 'request', request)
+    report, items = ledger.build_inventory(SimpleNamespace(), lines, stage_callback=stage)
+    assert report['failed_batches'] == 0
+    assert [item['id'] for item in items] == ['C1.1', 'C2.2']
+    assert [event['completed'] for event in events] == [0, 1, 2, 2]

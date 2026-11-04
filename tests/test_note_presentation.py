@@ -158,3 +158,21 @@ def test_embedded_durable_api_reads_finished_note_instead_of_stale_pending_cache
     assert result['status'] == 'success'
     assert result['markdown'] == 'Saved summary'
     backend._sb.get_video_task.assert_called_once_with('note', 'owner', include_transcript=include_transcript)
+
+
+def test_progress_reads_accepted_state_without_fetching_transcript(monkeypatch):
+    from unittest.mock import Mock, call
+    from api.routers import video_notes as routes
+    db = Mock()
+    before = {'id': 'progress-only', 'status': 'summarizing', 'progress': 80}
+    accepted = {**before, 'status': 'cancelled', 'message': 'Cancelled'}
+    db.get_task.side_effect = [before, accepted]
+    db.update_task.return_value = 'terminal'
+    monkeypatch.setattr(routes, '_attempt_superseded', lambda task: False)
+    monkeypatch.setattr(routes, 'is_video_task_cancelled', lambda task: False)
+    broadcast = Mock()
+    monkeypatch.setattr(routes, '_broadcast_from_thread', broadcast)
+    routes._update_task_status(db, 'progress-only', 'summarizing', 75, 'Checking', 'owner')
+    assert db.get_task.call_args_list == [call('progress-only', 'owner', include_transcript=False)] * 2
+    assert db.update_task.call_args.args[1]['progress'] == 80
+    broadcast.assert_called_once_with('progress-only', accepted, 'owner')
