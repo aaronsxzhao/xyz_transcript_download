@@ -14,6 +14,10 @@ def fingerprint(value):
     return hashlib.sha256(json.dumps(value,sort_keys=True,ensure_ascii=False,default=str).encode()).hexdigest()
 
 
+class ProcessingStopped(BaseException):
+    """Storage rejected this attempt because its domain task ended or disappeared."""
+
+
 class ProcessingPaused(BaseException):
     """Deployment pause at a successfully saved boundary, not user cancellation."""
 

@@ -265,3 +265,31 @@ async def test_health_requires_a_live_dispatcher_in_embedded_mode(monkeypatch,al
     response=Response();body=await main.health_check(response)
     assert response.status_code==expected
     assert body['status']==('ok' if expected==200 else 'processing_unavailable')
+
+
+def test_adoption_does_not_finalize_cancellation_owned_by_live_workers(store, monkeypatch):
+    from api.worker import Worker
+    from api.routers import processing
+    from api.schemas import ProcessingStatus
+    monkeypatch.setattr('config.USE_SUPABASE', False)
+    monkeypatch.setattr('api.job_persistence.restore_jobs', lambda: [])
+    job = ProcessingStatus(job_id='podcast', user_id='alice', status='cancelling')
+    monkeypatch.setattr(processing, 'jobs', {'podcast':job})
+    update_job = Mock()
+    monkeypatch.setattr(processing, 'update_job_status', update_job)
+    db = Mock()
+    db.list_tasks.return_value = [{'id':'video', 'user_id':'alice', 'status':'cancelling'}]
+    monkeypatch.setattr('video_task_db.get_video_task_db', lambda: db)
+    store.enqueue('alice','podcast','podcast','podcast:one',{})
+    store.enqueue('alice','video','video','video:one',{})
+    worker = Worker(store=store)
+    try:
+        store.claim(worker.ident)
+        store.claim(worker.ident)
+        worker.adopt()
+    finally:
+        worker.stop()
+    update_job.assert_not_called()
+    db.update_task.assert_not_called()
+    assert store.latest('alice','video','video')['state']=='running'
+    assert job.status=='cancelling'

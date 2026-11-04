@@ -107,11 +107,13 @@ def accept_edition(engine, edition, title, source, formats, duration, stage_call
                         report['coverage_ledger'] = efficient_audit(engine, lines, sections, overview,
                             prepared_inventory=engine._quality_inventory, allow_repairs=False)
                         continue
-                    raise SummaryOutputError('quality')
+                    report['verification'].update(status='unverified',
+                        unsupported_paragraph_ids=sorted(unsupported))
+                    raise SummaryOutputError('quality', reason='grounding')
                 report['grounded_draft_identity'] = identity
             ledger = report['coverage_ledger']
             if not coverage_acceptable(ledger, threshold):
-                raise SummaryOutputError('quality')
+                raise SummaryOutputError('quality', reason='coverage')
             sections = organize_sections(sections, baseline)
             report['delivery'] = {'status':'accepted', 'coverage_ratio':coverage_ratio(ledger),
                 'coverage_threshold':threshold, 'grounded':True, 'semantic_proof':False,
@@ -140,9 +142,11 @@ def accept_edition(engine, edition, title, source, formats, duration, stage_call
             # remain reusable. Never regenerate the source or whole draft.
     report['delivery'] = {'status':'blocked', 'coverage_threshold':threshold,
                           'coverage_ratio':coverage_ratio(report.get('coverage_ledger',{})),
-                          'reason':type(last_error).__name__}
+                          'reason':getattr(last_error, 'reason', None) or type(last_error).__name__}
     edition.update(sections=sections, overview=overview)
-    raise SummaryOutputError('quality') from last_error
+    if isinstance(last_error, SummaryOutputError) and last_error.code == 'quality':
+        raise last_error
+    raise SummaryOutputError('quality', reason='review') from last_error
 
 
 def candidate_checkpoint(engine, source, title, options):

@@ -815,15 +815,21 @@ class YtdlpDownloader(BaseDownloader):
         if not progress_callback:
             return []
         last_pct = [-1.0]
+        last_callback = [None]
 
         def hook(d):
+            # The callback also carries cancellation. Slow or unknown-length
+            # downloads must not wait for another 2% before observing a stop.
+            import time
+            now = time.monotonic()
             if d.get("status") == "downloading":
                 total = d.get("total_bytes") or d.get("total_bytes_estimate") or 0
                 downloaded = d.get("downloaded_bytes", 0)
                 if total > 0:
                     pct = downloaded / total
-                    if pct - last_pct[0] >= 0.02:
+                    if pct - last_pct[0] >= 0.02 or last_callback[0] is None or now - last_callback[0] >= 1:
                         last_pct[0] = pct
+                        last_callback[0] = now
                         speed = d.get("speed")
                         eta = d.get("eta")
                         parts = [f"{label}... {pct:.0%}"]
@@ -832,6 +838,9 @@ class YtdlpDownloader(BaseDownloader):
                         if eta and eta > 0:
                             parts.append(f"ETA {eta}s")
                         progress_callback(pct, " | ".join(parts))
+                elif last_callback[0] is None or now - last_callback[0] >= 1:
+                    last_callback[0] = now
+                    progress_callback(0, f"{label}... {downloaded / 1024 / 1024:.1f} MB")
             elif d.get("status") == "finished":
                 progress_callback(1.0, f"{label} complete, processing...")
 

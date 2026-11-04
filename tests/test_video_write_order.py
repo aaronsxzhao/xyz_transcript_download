@@ -134,3 +134,36 @@ def test_cancellation_during_terminal_recovery_saves_cancelled(monkeypatch):
     monkeypatch.setattr('video_task_db.get_video_task_db', lambda: db)
     worker.sync_terminal({'id':'work', 'user_id':'owner', 'kind':'video', 'task_id':'task', 'payload':{}}, 'failed')
     assert db.update_task.call_args.args[1]['status'] == 'cancelled'
+
+
+@pytest.mark.parametrize('outcome', ['terminal', 'not_found'])
+def test_terminal_domain_rejection_releases_worker_without_overwriting_notes(monkeypatch, outcome):
+    from api.worker import Worker
+    from processing_execution import ProcessingStopped
+    db = backend()
+    db._sb.update_video_task.return_value = outcome
+    worker = Worker(store=Mock())
+    execution = Execution('owner', 'source', worker.store, queue_id='work', lease_owner=worker.ident)
+    work_after_rejection = Mock()
+    def process(task, **kwargs):
+        db.update_task(task, {'status':'summarizing'})
+        work_after_rejection()
+    monkeypatch.setattr('api.routers.video_notes.process_video_note_sync', process)
+    worker.sync_terminal = Mock()
+    try:
+        worker.run({'id':'work', 'task_id':'task', 'user_id':'owner', 'kind':'video',
+                    'state':'running', 'payload':{}, 'attempts':1}, execution)
+    finally:
+        worker.pool.shutdown()
+    work_after_rejection.assert_not_called()
+    worker.sync_terminal.assert_not_called()
+    assert worker.store.finish.call_args.args[2] == 'cancelled'
+    assert not db._cache and not db._dirty
+
+
+def test_stale_progress_does_not_stop_valid_worker():
+    db = backend()
+    db._sb.update_video_task.return_value = 'stale'
+    execution = Execution('owner','source',Mock(),queue_id='work',lease_owner='worker')
+    with bind(execution):
+        assert db.update_task('task', {'status':'summarizing'}) == 'stale'

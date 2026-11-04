@@ -11,7 +11,7 @@ import uuid
 from concurrent.futures import ThreadPoolExecutor
 
 from execution_store import get_store
-from processing_execution import Execution, ProcessingPaused, bind
+from processing_execution import Execution, ProcessingPaused, ProcessingStopped, bind
 from logger import get_logger
 
 logger = get_logger('processing_worker')
@@ -67,11 +67,11 @@ class Worker:
                 processing.update_job_status(job.job_id,'failed',0,
                     'This older task has no saved account. Open the original source and process it again.')
                 continue
-            if job.status == 'cancelling':
+            existing=self.store.latest(job.user_id,'podcast',job.job_id)
+            if job.status == 'cancelling' and not existing:
                 processing.jobs[job.job_id]=job
                 processing.update_job_status(job.job_id,'cancelled',0,'Cancelled')
                 continue
-            existing=self.store.latest(job.user_id,'podcast',job.job_id)
             # A terminal durable record must never be automatically re-enqueued.
             if existing: continue
             processing.jobs[job.job_id]=job
@@ -91,11 +91,11 @@ class Worker:
             from video_task_db import get_video_task_db
             tasks=[t for t in get_video_task_db().list_tasks() if t['status'] not in TERMINAL and t['status']!='discovered']
         for task in tasks:
-            if task['status']=='cancelling':
+            existing=self.store.latest(task['user_id'],'video',task['id'])
+            if task['status']=='cancelling' and not existing:
                 from video_task_db import get_video_task_db
                 get_video_task_db().update_task(task['id'],{'status':'cancelled','message':'Cancelled'})
                 continue
-            existing=self.store.latest(task['user_id'],'video',task['id'])
             if existing:
                 # A request can die after resetting the domain row but before
                 # enqueueing its new attempt. Only a newer explicit pending
@@ -182,6 +182,9 @@ class Worker:
                     current=get_video_task_db().get_task(task,owner)
                     state=current['status'] if current else 'cancelled'
                 state='completed' if state in ('success','completed') else 'cancelled' if execution.cancelled or state=='cancelled' else 'failed'
+        except ProcessingStopped:
+            # Do not retry or rewrite an already terminal/deleted domain row.
+            state='cancelled'
         except ProcessingPaused:
             state='queued'
         except Exception as error:
@@ -212,7 +215,7 @@ class Worker:
                         processing.update_job_status(row['task_id'],state,0,message)
                     except ProcessingCancelledError:
                         processing.update_job_status(row['task_id'],'cancelled',0,'Cancelled')
-            except ProcessingPaused:
+            except (ProcessingPaused, ProcessingStopped):
                 pass
         else:
             from video_task_db import get_video_task_db
@@ -227,7 +230,7 @@ class Worker:
                         get_video_task_db().update_task(row['task_id'],{'status':state,'message':message})
                     except ProcessingCancelledError:
                         get_video_task_db().update_task(row['task_id'],{'status':'cancelled','message':'Cancelled'})
-            except ProcessingPaused:
+            except (ProcessingPaused, ProcessingStopped):
                 pass  # A newer worker owns the task now.
 
 
