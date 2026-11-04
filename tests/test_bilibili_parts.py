@@ -3,7 +3,7 @@ from unittest.mock import Mock
 
 import pytest
 
-from bilibili_parts import find_task, part_manifest, prepare_parts, selected_part
+from bilibili_parts import find_task, part_manifest, prepare_parts, selected_part, same_part_source
 from video_downloader import BilibiliDownloader, VideoDownloadError, normalize_video_url
 
 BASE = 'https://www.bilibili.com/video/BV1zZrCBoEie'
@@ -12,6 +12,28 @@ BASE = 'https://www.bilibili.com/video/BV1zZrCBoEie'
 def manifest():
     return part_manifest({'title':'Collection', 'videos':3, 'pages':[
         {'page':i, 'cid':100+i, 'duration':i*60, 'part':f'Chapter {i}'} for i in range(1,4)]}, BASE)
+
+
+@pytest.mark.parametrize('part_title', ['Video', 'Different page label', ''])
+def test_single_part_keeps_original_title_through_admission(part_title):
+    parts = part_manifest({'title':'Video', 'videos':1, 'pages':[
+        {'page':1, 'cid':101, 'duration':60, 'part':part_title}]}, BASE)
+    db = Mock()
+    submit = Mock()
+    current = prepare_parts(db, {'id':'task', 'user_id':'owner'}, parts, BASE, {}, submit)
+    assert current['title'] == 'Video'
+    assert db.update_task.call_args.args[1]['title'] == 'Video'
+    assert current['cid'] == '101' and current['url'] == BASE+'?p=1'
+    submit.assert_not_called()
+
+
+def test_title_correction_preserves_source_identity_but_changed_media_does_not():
+    part = manifest()[0]
+    assert same_part_source({**part, 'title':'Old repeated title'}, part)
+    for field, value in [('cid','999'), ('duration',999), ('page',2), ('url',BASE+'?p=2')]:
+        assert not same_part_source({**part, field:value}, part)
+    assert not same_part_source(None, part)
+    assert not same_part_source({}, {})
 
 
 @pytest.mark.parametrize('page', [1,2,30])

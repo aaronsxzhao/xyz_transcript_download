@@ -492,7 +492,7 @@ def process_video_note_sync(
             return
         bilibili_part = None
         if platform == 'bilibili':
-            from bilibili_parts import prepare_parts
+            from bilibili_parts import prepare_parts, same_part_source
             from resource_scheduler import NETWORK_EXECUTOR
             downloader = get_downloader(platform, cookie_mgr.get_cookie(platform))
             _update_task_status(db, task_id, 'parsing', 3, 'Checking Bilibili parts before processing…', user_id)
@@ -549,7 +549,7 @@ def process_video_note_sync(
             existing_transcript
             and existing_transcript.get("text")
             and len(existing_transcript["text"]) > 50
-            and (bilibili_part is None or existing_transcript.get('bilibili_part') == bilibili_part)
+            and (bilibili_part is None or same_part_source(existing_transcript.get('bilibili_part'), bilibili_part))
         )
 
         if social_source:
