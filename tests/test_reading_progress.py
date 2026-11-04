@@ -84,3 +84,11 @@ def test_streaming_output_updates_activity_without_inventing_a_percentage():
     assert '1/4 finished' in updates[-1][1]
     bridge.stream(256)
     assert '1/4 finished' in updates[-1][1]
+
+
+def test_inflight_batch_labels_do_not_claim_individual_items_have_been_checked():
+    events = []
+    for name in ('repair', 'recheck'):
+        stage(events.append, name, 0, 16, batch_size=16)
+    assert all('processing a batch of 16 items' in e['message'] for e in events)
+    assert all('items checked' not in e['message'] and e['completed'] == 0 for e in events)

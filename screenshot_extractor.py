@@ -81,8 +81,8 @@ def _upload_to_supabase(local_path: Path, bucket: str, remote_name: str) -> Opti
         return None
 
 
-def _iter_bucket_objects(client, bucket: str, limit: int = 100):
-    """Yield all top-level objects from a bucket."""
+def _iter_bucket_objects(client, bucket: str, limit: int = 100, *, search: str = ""):
+    """Yield top-level objects, optionally filtered server-side before pagination."""
     offset = 0
     while True:
         page = client.storage.from_(bucket).list(
@@ -91,6 +91,7 @@ def _iter_bucket_objects(client, bucket: str, limit: int = 100):
                 "limit": limit,
                 "offset": offset,
                 "sortBy": {"column": "name", "order": "asc"},
+                **({"search": search} if search else {}),
             },
         )
         if not page:
@@ -147,7 +148,7 @@ def delete_task_assets(task_id: str) -> dict:
         try:
             screenshot_names = [
                 item.get("name", "")
-                for item in _iter_bucket_objects(client, _SUPABASE_BUCKET)
+                for item in _iter_bucket_objects(client, _SUPABASE_BUCKET, search=f"{task_id}_")
                 if str(item.get("name", "")).startswith(f"{task_id}_")
             ]
             remote_deleted += _delete_supabase_objects(client, _SUPABASE_BUCKET, screenshot_names)
@@ -158,7 +159,7 @@ def delete_task_assets(task_id: str) -> dict:
             thumbnail_names = {f"{task_id}.jpg", f"{task_id}_cover.jpg"}
             matches = [
                 item.get("name", "")
-                for item in _iter_bucket_objects(client, _SUPABASE_THUMB_BUCKET)
+                for item in _iter_bucket_objects(client, _SUPABASE_THUMB_BUCKET, search=task_id)
                 if item.get("name") in thumbnail_names
             ]
             remote_deleted += _delete_supabase_objects(client, _SUPABASE_THUMB_BUCKET, matches)

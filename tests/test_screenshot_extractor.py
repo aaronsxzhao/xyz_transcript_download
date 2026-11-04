@@ -134,3 +134,36 @@ def test_cleanup_deletes_nothing_if_saved_notes_cannot_be_checked(tmp_path, monk
         cleanup_expired_assets(21)
     assert path.exists()
     storage.storage.from_.assert_not_called()
+
+
+def test_task_cleanup_filters_storage_before_pagination_and_checks_ownership(tmp_path, monkeypatch):
+    from unittest.mock import Mock
+    monkeypatch.setattr('screenshot_extractor.SCREENSHOTS_DIR', tmp_path)
+    monkeypatch.setattr('screenshot_extractor.THUMBNAILS_DIR', tmp_path)
+    client = Mock()
+    monkeypatch.setattr('screenshot_extractor._get_supabase_storage_client', lambda: client)
+    buckets = {name: Mock() for name in ('screenshots', 'thumbnails')}
+    import screenshot_extractor as storage
+    monkeypatch.setattr(storage, '_SUPABASE_BUCKET', 'screenshots')
+    monkeypatch.setattr(storage, '_SUPABASE_THUMB_BUCKET', 'thumbnails')
+    client.storage.from_.side_effect = buckets.__getitem__
+    objects = {
+        'screenshots': ['unrelated_%s.jpg' % i for i in range(5000)] +
+                       ['task123_%03d.jpg' % i for i in range(101)] + ['other_task123_001.jpg'],
+        'thumbnails': ['task123.jpg', 'task123_cover.jpg', 'other_task123.jpg'],
+    }
+    requests = []
+    def listing(bucket):
+        def get(path, options):
+            assert options['search'] == ('task123_' if bucket == 'screenshots' else 'task123')
+            requests.append((bucket, options['offset']))
+            matches = sorted(name for name in objects[bucket] if options['search'] in name)
+            return [{'name': name} for name in matches[options['offset']:options['offset']+options['limit']]]
+        return get
+    for name, bucket in buckets.items():
+        bucket.list.side_effect = listing(name)
+    result = delete_task_assets('task123')
+    assert result['remote_deleted'] == 103
+    assert requests == [('screenshots', 0), ('screenshots', 100), ('thumbnails', 0)]
+    removed = [name for bucket in buckets.values() for args in bucket.remove.call_args_list for name in args.args[0]]
+    assert not any('other_' in name or 'unrelated_' in name for name in removed)

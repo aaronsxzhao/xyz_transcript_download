@@ -73,7 +73,7 @@ def background_work(function):
         _STOPS.reset(token)
 
 
-def bounded_map(function, items, workers=2, stop_when=None):
+def bounded_map(function, items, workers=2, stop_when=None, on_complete=None):
     """At most workers submitted; completion order never changes source order."""
     items = iter(enumerate(items))
     results = {}
@@ -98,6 +98,8 @@ def bounded_map(function, items, workers=2, stop_when=None):
                 index = pending.pop(future)
                 value = future.result()
                 results[index] = value
+                if on_complete:
+                    on_complete(index, value)
                 halted |= bool(stop_when and stop_when(value))
             if not halted:
                 for _ in completed:
