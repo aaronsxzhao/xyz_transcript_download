@@ -92,3 +92,15 @@ def test_inflight_batch_labels_do_not_claim_individual_items_have_been_checked()
         stage(events.append, name, 0, 16, batch_size=16)
     assert all('processing a batch of 16 items' in e['message'] for e in events)
     assert all('items checked' not in e['message'] and e['completed'] == 0 for e in events)
+
+
+def test_failed_matching_does_not_publish_every_item_as_checked():
+    from coverage_ledger import _audit
+    from tests.test_coverage_ledger import CASES, setup_case
+    lines, sections, ranges = setup_case(CASES[0])
+    item = {'id':'C1.1', 'kind':'claim', 'statement':'Synthetic claim', 'source_ranges':ranges}
+    events = []
+    with patch('coverage_ledger.request', side_effect=RuntimeError('Synthetic provider failure')):
+        report, _ = _audit(SimpleNamespace(), lines, sections, inventory=[item], stage_callback=events.append)
+    assert report['items'][0]['status'] == 'unverified'
+    assert events[-1]['stage'] == 'coverage' and events[-1]['completed'] == 0

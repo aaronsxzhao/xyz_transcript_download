@@ -567,7 +567,7 @@ def _audit(engine, lines, sections, overview='', progress=None, stage_callback=N
                                     'status':status,'paragraph_ids':[p['paragraph_id'] for p in row.get('support',[])],
                                     **({'context_overlap':True} if row.get('context_overlap') else {}),
                                     **({'compression_reason':item['material_reason']} if status=='context_only' else {})})
-    stage(stage_callback,'coverage',len(inventory),len(inventory))
+    stage(stage_callback,'coverage',sum(item['status'] != 'unverified' for item in report['items']),len(inventory))
     report['unresolved_items']=sum(item['status'] not in RESOLVED for item in report['items'])
     if not report['failed_batches'] and not report['unresolved_items'] and not report['ignored_boundary_items']:
         report['status']='model_reviewed'
