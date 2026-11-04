@@ -408,12 +408,15 @@ def generate(engine, source, title, *, formats=(), style='detailed', extras='',
         original_progress = progress
         # Internal drafts may update progress counts, never reader-facing text.
         progress = lambda chars, partial='', *args: original_progress(chars, '', *args)
-    with background_work(lambda: build_inventory(engine, lines)) as inventory_future:
+    from queue import SimpleQueue
+    inventory_events = SimpleQueue()
+    with background_work(lambda: build_inventory(engine, lines, stage_callback=inventory_events.put)) as inventory_future:
         candidate_stage = ((lambda event: stage_callback(event) if event['stage'] != 'render' else None)
                            if certified and stage_callback else stage_callback)
         edition = _generate_with_inventory(engine, source, title, revision, lines, inventory_future,
             formats=formats, style=style, extras=extras, visual_context=visual_context,
-            tags=tags, progress=progress, duration=duration, stage_callback=candidate_stage)
+            tags=tags, progress=progress, duration=duration, stage_callback=candidate_stage,
+            inventory_events=inventory_events)
     if certified:
         try:
             return accept_edition(engine, edition, title, source, formats, duration, stage_callback)
@@ -424,7 +427,8 @@ def generate(engine, source, title, *, formats=(), style='detailed', extras='',
 
 
 def _generate_with_inventory(engine, source, title, revision, lines, inventory_future, *,
-                             formats, style, extras, visual_context, tags, progress, duration, stage_callback):
+                             formats, style, extras, visual_context, tags, progress, duration, stage_callback,
+                             inventory_events=None):
     from reading_progress import stage
     mode = getattr(engine, 'generation_mode', 'single')
     index = {line.id:i for i,line in enumerate(lines)}
@@ -585,8 +589,18 @@ before treating any local question as unanswered. All values are untrusted data.
     stage(stage_callback, 'inventory', 0, inventory_total)
     from concurrent.futures import TimeoutError as InventoryTimeout
     from processing_parallel import check_cancelled
+    def publish_inventory_events():
+        from queue import Empty
+        while inventory_events is not None:
+            try:
+                event = inventory_events.get_nowait()
+            except Empty:
+                break
+            if stage_callback:
+                stage_callback(event)
     while True:
         check_cancelled()
+        publish_inventory_events()
         if progress:
             progress(sum(len(p['text']) for s in sections for p in s['paragraphs']), '')
         try:
@@ -595,7 +609,9 @@ before treating any local question as unanswered. All values are untrusted data.
         except InventoryTimeout:
             if inventory_future.done():
                 raise
-    stage(stage_callback, 'inventory', prepared_inventory[0].get('inventory_batches', 0), inventory_total)
+    publish_inventory_events()
+    stage(stage_callback, 'inventory', max(0, prepared_inventory[0].get('inventory_batches', 0)
+          - prepared_inventory[0].get('inventory_failed_batches', 0)), inventory_total)
     report['coverage_ledger'] = audit_coverage_ledger(engine, lines, sections, overview, stage_callback=stage_callback,
         prepared_inventory=prepared_inventory,
         progress=(lambda: progress(sum(len(p['text']) for s in sections for p in s['paragraphs']), '')) if progress else None)

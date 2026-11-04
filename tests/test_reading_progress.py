@@ -104,3 +104,30 @@ def test_failed_matching_does_not_publish_every_item_as_checked():
         report, _ = _audit(SimpleNamespace(), lines, sections, inventory=[item], stage_callback=events.append)
     assert report['items'][0]['status'] == 'unverified'
     assert events[-1]['stage'] == 'coverage' and events[-1]['completed'] == 0
+
+
+def test_main_pipeline_publishes_inventory_progress_before_background_future_returns(monkeypatch):
+    import threading
+    import coverage_ledger as ledger
+    from transcript_reading import generate
+    from tests.test_transcript_reading import provider
+    from tests.test_coverage_ledger import CASES, scripted
+    original = ledger.build_inventory
+    release = threading.Event()
+    coordinator = threading.get_ident()
+    events = []
+    def build(engine, lines, **kwargs):
+        result = original(engine, lines, **kwargs)
+        assert release.wait(2), 'Inventory progress was withheld until future completion'
+        return result
+    def publish(event):
+        assert threading.get_ident() == coordinator
+        events.append(event)
+        if event['stage'] == 'inventory' and event['completed'] > 0:
+            release.set()
+    monkeypatch.setattr(ledger, 'build_inventory', build)
+    engine = SimpleNamespace(generation_mode='single', chunk_chars=1000, generation_report={})
+    case = CASES[0]
+    with patch('transcript_reading.call_json', side_effect=provider([])), patch('coverage_ledger.request', side_effect=scripted(case, [])):
+        generate(engine, case['source'], 'Title', stage_callback=publish)
+    assert release.is_set() and events[-1]['stage'] == 'render'
