@@ -69,6 +69,13 @@ class SummaryOutputError(RuntimeError):
         'content_filter': 'The model declined to generate this summary. Try another summary model.',
         'capacity': 'The full transcript exceeds the model context capacity. Choose segmented generation or a larger-context model, then retry.',
     }
-    def __init__(self, code):
+    QUALITY_MESSAGES = {
+        'grounding': 'Some summary passages could not be verified against the source. No unfinished summary was published. Retry to resume saved work.',
+        'coverage': 'The summary has not reached the required source coverage. No unfinished summary was published. Retry to resume saved work.',
+        'review': 'The final summary check could not finish. No unfinished summary was published. Retry to resume saved work.',
+    }
+
+    def __init__(self, code, *, reason=None):
+        self.reason = reason
         self.code = code if code in self.MESSAGES else 'invalid'
-        super().__init__(self.MESSAGES[self.code])
+        super().__init__(self.QUALITY_MESSAGES.get(reason, self.MESSAGES[self.code]) if self.code == 'quality' else self.MESSAGES[self.code])

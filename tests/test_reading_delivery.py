@@ -203,3 +203,25 @@ def test_blocked_candidate_resumes_without_redrafting_or_streaming_partial_text(
             assert calls==['draft']
     finally:
         owner.client.close()
+
+
+def test_coverage_failure_explains_cause_without_changing_threshold():
+    owner, edition = candidate(8)
+    with pytest.raises(SummaryOutputError) as error:
+        accept_edition(owner, edition, 'Title', 'Source', [], 0)
+    assert error.value.reason == 'coverage'
+    assert owner.generation_report['delivery']['coverage_ratio'] == .8
+    assert owner.generation_report['delivery']['reason'] == 'coverage'
+
+
+def test_review_transport_failure_is_not_reported_as_low_coverage():
+    owner, edition = candidate(10)
+    owner.generation_report.pop('grounded_draft_identity')
+    with patch('transcript_reading.call_json', side_effect=TimeoutError('private provider response')):
+        with pytest.raises(SummaryOutputError) as error:
+            accept_edition(owner, edition, 'Title', 'Source', [], 0)
+    assert error.value.reason == 'review'
+    assert isinstance(error.value.__cause__, TimeoutError)
+    assert 'private' not in str(error.value)
+    assert owner.generation_report['delivery']['coverage_ratio'] == 1
+    assert owner.generation_report['delivery']['status'] == 'blocked'

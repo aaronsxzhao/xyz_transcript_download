@@ -542,6 +542,11 @@ class _SupabaseVideoTaskDB:
                     # A rejected old event is not retryable transport work.
                     with self._lock:
                         self._cache.pop(task_id, None)
+                    if outcome in ('terminal', 'not_found'):
+                        from processing_execution import CURRENT, ProcessingStopped
+                        execution = CURRENT.get()
+                        if execution and execution.queue_id:
+                            raise ProcessingStopped()
                     if outcome == 'cancel_requested':
                         from processing_execution import CURRENT
                         from summary_errors import ProcessingCancelledError
