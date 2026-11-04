@@ -31,8 +31,11 @@ def part_manifest(data, url):
         cid = str(page.get('cid') or '')
         if page.get('page') != index or not cid.isdigit() or int(cid) <= 0 or not math.isfinite(duration) or duration <= 0:
             raise ValueError('Bilibili returned invalid part metadata')
+        title = data.get('title') or page.get('part') or 'Bilibili'
+        if len(pages) > 1:
+            title = f"{title} · P{index}/{len(pages)} {page.get('part') or ''}".strip()
         result.append({'page': index, 'cid': cid, 'duration': duration,
-                       'title': f"{data.get('title') or 'Bilibili'} · P{index}/{len(pages)} {page.get('part') or ''}".strip(),
+                       'title': title,
                        'url': f'{base}?p={index}'})
     return result
 
@@ -43,6 +46,15 @@ def find_task(db, url, owner):
         # A collection's first-part task retains the bare URL for repeat imports.
         task = db.get_task_by_url(url.split('?')[0], owner)
     return task
+
+
+def same_part_source(saved, current):
+    """A presentation-only title correction does not invalidate saved audio text."""
+    if not isinstance(saved, dict) or not isinstance(current, dict):
+        return False
+    if not saved.get('cid') or not current.get('cid'):
+        return False
+    return {k:v for k,v in saved.items() if k != 'title'} == {k:v for k,v in current.items() if k != 'title'}
 
 
 def ensure_part_task(db, parent, part, options):
@@ -89,7 +101,7 @@ def prepare_parts(db, task, parts, url, options, submit, check_cancel=lambda: No
                     child_id = child['id']
                 transcript = (child or {}).get('transcript') or {}
                 if (not child or child.get('status') != 'success' or not child.get('markdown')
-                        or transcript.get('bilibili_part') != part):
+                        or not same_part_source(transcript.get('bilibili_part'), part)):
                     pending.append((child_id, part['url']))
         links.append({**part, 'task_id':child_id})
     metadata = {'type':'video', 'bilibili_part':current,
