@@ -293,6 +293,10 @@ class SocialContent:
     thumbnail: str = ''
     media: list[dict] = field(default_factory=list)
     author_url: str = ''
+    publication: str = ''
+
+    def metadata(self):
+        return {'author': self.author, **({'publication': self.publication} if self.publication else {})}
 
     def __post_init__(self):
         if self.published:
@@ -515,7 +519,9 @@ def _substack(url: str, deadline: float) -> SocialContent:
         attachments.append({'url':_media_url(post['podcast_url'], 'substack'), 'kind':'audio','duration':post.get('podcast_duration') or 0})
     if not body.strip() and not attachments: raise SocialSourceError('Substack returned an empty article. Check access to the original post.')
     authors = post.get('publishedBylines') or []
-    return SocialContent('substack', url, post['title'], body, ', '.join(str(a.get('name','')) for a in authors), post.get('post_date') or '', post.get('cover_image') or '', attachments,author_url='https://'+p.hostname)
+    from article_publication import substack_publication
+    publication = substack_publication(data, post, url, deadline)
+    return SocialContent('substack', url, post['title'], body, ', '.join(str(a.get('name','')) for a in authors), post.get('post_date') or '', post.get('cover_image') or '', attachments,author_url='https://'+p.hostname,publication=publication)
 
 
 def resolve_social_content(url: str) -> SocialContent:
