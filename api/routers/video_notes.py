@@ -277,12 +277,12 @@ def _update_task_status(db, task_id: str, status: str, progress: float = 0,
                         message: str = "", user_id: Optional[str] = None, **kwargs):
     """Update task in DB and broadcast.
 
-    Uses the in-memory cache (get_task reads from cache first in Supabase
-    mode) so the WebSocket broadcast never blocks on an extra HTTP call.
+    Durable embedded readers consult storage. Progress needs no transcript;
+    keep authoritative state reads without repeatedly downloading source text.
     """
     if _attempt_superseded(task_id) or (status not in ("cancelled", "failed") and is_video_task_cancelled(task_id)):
         return
-    current_task = db.get_task(task_id, user_id)
+    current_task = db.get_task(task_id, user_id, include_transcript=False)
     current_progress = 0.0
     if current_task:
         try:
@@ -299,9 +299,9 @@ def _update_task_status(db, task_id: str, status: str, progress: float = 0,
     db.update_task(task_id, updates)
     if status in ("success", "failed", "cancelled"):
         _invalidate_list_cache(user_id)
-    # get_task now returns from in-memory cache on Supabase backend,
-    # so this is essentially free (no extra HTTP round-trip).
-    task = db.get_task(task_id, user_id)
+    # Read the accepted state after ordered writes; rejected events must not
+    # be broadcast as though they were persisted.
+    task = db.get_task(task_id, user_id, include_transcript=False)
     if task:
         _broadcast_from_thread(task_id, task, user_id)
 
