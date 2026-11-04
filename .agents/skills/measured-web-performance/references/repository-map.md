@@ -5,7 +5,7 @@ Verified against main `d415f1676d60bd166a874aa5d04b7955982de82b` on 2026-11-04. 
 ## Stack and evidence already available
 
 - React 18, Vite, TypeScript, Zustand, React Router; Python API.
-- `PERFORMANCE_REVIEW.md`: read prior findings before proposing work.
+- `PERFORMANCE_REVIEW.md`: read prior findings before proposing work. It explicitly distinguishes US-runner results from the user's company network in China. Record network geography and test the relevant route when available; do not substitute a fast US fixture run for that experience.
 - `web/src/startup.js`, `web/src/lib/startupReads.ts`: startup and read coordination.
 - `api/routers/performance.py`, `api/performance_store.py`: account-scoped page timings. Existing fields include page, stage, navigation, cached, elapsed/document/API/server time, first paint, errors and module counts. Inspect collection semantics and retention before trusting aggregates.
 - Existing percentile helper reports **p50 and p95**, not p75. Do not relabel p95 or average per-page percentiles. Computing p75 requires suitable raw samples or an explicitly scoped telemetry change.
