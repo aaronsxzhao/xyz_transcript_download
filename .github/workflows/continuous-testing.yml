@@ -106,6 +106,8 @@ jobs:
         run: |
           python scripts/check_series_theme_browser.py
           python scripts/check_series_theme_browser.py --webkit
+          python scripts/check_series_spacing.py
+          python scripts/check_series_spacing.py --webkit
 
       - name: Check multipart reader horizontal bounds
         timeout-minutes: 5
