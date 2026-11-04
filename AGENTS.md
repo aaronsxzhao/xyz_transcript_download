@@ -10,7 +10,3 @@ For frontend, visual or interaction work, read [the UI design contract](docs/ui-
 - Use synthetic or explicitly controlled data for write interactions. Do not trigger real payment, deletion, subscription or content reprocessing during an audit.
 - Record the tested commit, surfaces, viewport/theme/browser coverage, evidence and limitations. Local fixtures, CI WebKit, live-site checks and physical-device checks are distinct claims.
 - Run the relevant regression lanes documented below. Do not weaken assertions or raise budgets just to make a change pass. Deploy only within the user's authorization and verify the deployed revision and health, not merely a merged PR.
-
-## Performance work
-
-For loading speed, interaction latency, rendering or progress smoothness work, use the repository skill [measured-web-performance](.agents/skills/measured-web-performance/SKILL.md). It reuses the design/regression contracts, requires measured evidence, and does not expand the user's authorization. Invoke explicitly with `$measured-web-performance` or ask the agent to read that file.
