@@ -440,9 +440,12 @@ def process_video_note_sync(
             if social_source is None:
                 social_source = resolve_content(url) if generic else resolve_social_content(url)
             platform = social_source.platform
+            if not social_source.publication and platform in ('web', 'substack'):
+                from article_publication import clean_publication
+                social_source.publication = clean_publication((saved_task.get('source_metadata') or {}).get('publication'))
             db.update_task(task_id, {'platform':platform,'title':social_source.title,'thumbnail':social_source.thumbnail,
-                'channel':social_source.author or platform,'channel_url':social_source.author_url or social_source.url,'published_at':social_source.published})
-            if platform == 'web':
+                'channel':social_source.publication or social_source.author or platform,'channel_url':social_source.author_url or social_source.url,'published_at':social_source.published})
+            if platform in ('web', 'substack'):
                 db.update_task(task_id, {'source_metadata':social_source.metadata()})
             if not social_source.media:
                 if is_video_task_cancelled(task_id):
