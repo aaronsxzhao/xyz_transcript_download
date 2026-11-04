@@ -1,0 +1,37 @@
+# UI / loading audit — 2026-11-04
+
+- Baseline: `545dbdeedc263f91635518d966e0d666dc4cb163`; isolated `audit/ui-loading-nov04`; no open PRs at start or pre-delivery check.
+- Scope: minor presentation and loading regressions only; existing layouts, entry points, processing and media-loading behavior retained.
+- Evidence: local production build, Chromium, controlled API/media fixtures. Production CONNECT is rejected with HTTP 403 by the environment proxy; no live visual acceptance or physical-device testing is claimed.
+
+## Confirmed and fixed
+
+Native article audio controls had height **0px**: the shared image/video/audio CSS applied `height:auto` to audio. Reproduced across Classic/Editorial, light/dark and 390/820/1440px. The new browser regression fails on baseline before media is loaded.
+
+Keep responsive auto-height for images/video only; audio retains the browser's native controls height. No new player, loading rule, retry or navigation change. Regression covers keyboard focus, no audio download before explicit loading, valid WAV metadata, unavailable-media feedback, and page bounds. Added Chromium/WebKit runs to CI and the regression contract.
+
+## Verification
+
+- Production build and unchanged compressed entry budget: 197.7 KiB / 197.75 KiB.
+- Frontend unit tests: 79 files, 539 tests passed.
+- Baseline broad scan: 108 page/theme/viewport combinations; Dashboard, Library, videos, summary, article, subscriptions, tasks, settings, login. No overflow or JS exceptions.
+- Classic and Editorial component/contrast sweeps: both light/dark, 2,126 controls per theme. Separate auth and subscription fixtures at 390/820/1440px passed; no real writes/payments/reprocessing.
+- Series spacing across Dashboard/Library/videos, multipart selection/overflow, progress at 390/820/1440px passed. Same synthetic series geometry compared with ordinary rows.
+- Patched native-media regression: all 12 theme/viewport combinations passed including deferred loading, loaded and error states.
+- Loading/backlog checks: bounded channel pages (40 then 80), server filtering, persisted IndexedDB and failure-cache expiry passed. First-paint and document-startup recovery checks passed. Timing samples are local fixture measurements, not an overall speedup or production benchmark.
+- Screenshots/logs: `/workspace/reviews/ui-20261104-loading-audit/`. Manually inspected Editorial light mobile audio before/after and Editorial dark mobile Dashboard; additional screenshots captured with geometry/contrast assertions, not individually visually reviewed.
+- Local WebKit unavailable; CI runs Chromium and WebKit. Deployment/revision results are recorded in the PR/workflow and final report.
+
+## Report-only
+
+No additional confirmed flow issue or major redesign recommendation from this run. Real production latency, authenticated live content and physical iOS behavior remain unverified due the access/environment limits above. No speculative optimization or workflow patch was made.
+
+## CI follow-up
+
+The initial media test assumed a 32px minimum; WebKit native controls are 31px. The regression now compares against a fresh, unstyled native audio control in the same engine. Chromium and WebKit both passed on the second run.
+
+That run also exposed an immediate layout-sampling failure in the existing update-banner test. Local screenshots measured y=71.5px and the complete connection/reload/rollback scenario passed. Keep its original y<100 requirement, but await the layout condition (5s maximum) before asserting. No update-banner product behavior was changed. Both focused checks run early in CI for prompt feedback.
+
+## Latest-main integration
+
+While CI ran, PR #236 merged (`9d33436e7408b5ecce4502d645c4f559e816054d`), adding article publication display. Preserve those changes. The combined build exceeded the existing entry budget. Minify the existing inline theme bootstrap using the same Vite minifier already used for startup; no theme logic changes. The combined production build is now 202,477 compressed bytes (budget 202,496). This is a small payload reduction, not evidence of a perceptible whole-site speedup. Rechecked cold themes/page bounds, first paint and offline/update/reload recovery on the integrated build.

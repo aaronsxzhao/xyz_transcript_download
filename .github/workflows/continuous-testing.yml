@@ -87,6 +87,16 @@ jobs:
           git archive "$BASE_REVISION" web/dist | tar -x -C /tmp/library-baseline
           pip install playwright
           python -m playwright install --with-deps chromium webkit
+      - name: Check native article media controls
+        timeout-minutes: 3
+        run: |
+          python scripts/check_article_media_controls.py
+          python scripts/check_article_media_controls.py --webkit
+      - name: Check first paint and connection recovery
+        timeout-minutes: 5
+        run: |
+          python scripts/check_first_paint.py
+          python scripts/check_network_resilience.py --baseline-dist /tmp/library-baseline/web/dist
       - name: Check YouTube verification UI
         timeout-minutes: 3
         run: |
@@ -238,11 +248,6 @@ jobs:
         run: |
           python scripts/check_collection_lists.py --output appearance-checks/collection-lists/chromium
           python scripts/check_collection_lists.py --webkit --output appearance-checks/collection-lists/webkit
-      - name: Check first paint and connection recovery
-        timeout-minutes: 5
-        run: |
-          python scripts/check_first_paint.py
-          python scripts/check_network_resilience.py --baseline-dist /tmp/library-baseline/web/dist
 
   appearance-monitor:
     name: Scheduled Appearance Checks

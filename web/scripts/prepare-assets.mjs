@@ -5,6 +5,13 @@ import { minify } from 'vite'
 import { documentProgram } from './document-program.mjs'
 const root = new URL('../dist/', import.meta.url)
 let html = readFileSync(new URL('index.html', root), 'utf8')
+// Minify the existing pre-paint theme bootstrap, just like the startup shell.
+const themeBootstrap = html.match(/<script>([\s\S]*?)<\/script>/)
+if (themeBootstrap) {
+  const theme = await minify('theme.js', themeBootstrap[1])
+  if (theme.errors?.length) throw new Error('Theme bootstrap minification failed')
+  html = html.replace(themeBootstrap[0], () => '<script>' + theme.code + '</script>')
+}
 const manifest = JSON.parse(readFileSync(new URL('manifest.json',root),'utf8'))
 const program = await documentProgram(root,manifest)
 const payload = JSON.stringify(program.modules).replace(/</g,'\\u003c')

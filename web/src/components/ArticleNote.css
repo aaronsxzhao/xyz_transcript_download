@@ -22,6 +22,8 @@ html:is([data-design='editorial'],[data-theme='light']) .article-link-card .arti
 html:is([data-design='editorial'],[data-theme='light']) .article-link-card iframe { background:var(--ui-surface,#fff); }
 
 .article-native-media{margin:1.2rem 0;min-width:0;max-width:100%}
-.article-native-media :is(video,audio,img){display:block;width:100%;max-width:100%;height:auto;border-radius:var(--ui-radius,8px)}
+.article-native-media :is(video,audio,img){display:block;width:100%;max-width:100%;border-radius:var(--ui-radius,8px)}
+/* Audio controls retain their browser-defined height, even before metadata loads. */
+.article-native-media :is(video,img){height:auto}
 .article-native-media video{background:#111;min-height:160px}
 .article-native-media figcaption,.article-native-media p{font-size:.875rem;color:var(--ui-secondary,#94a3b8);overflow-wrap:anywhere}

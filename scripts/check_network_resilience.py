@@ -125,6 +125,9 @@ async def check(browser, dist, label, rollback_dist=None):
             report['update_available_without_forced_reload']=True
             banner=page.locator('header [role=status]')
             assert await banner.is_visible()
+            # The update can arrive before the deferred workspace CSS settles.
+            # Keep the same position requirement, but await the resulting layout.
+            await page.wait_for_function("document.querySelector('header [role=status]')?.getBoundingClientRect().y < 100",timeout=5000)
             assert (await banner.bounding_box())['y']<100
             await page.get_by_role('button',name='Reload',exact=True).click()
             await page.locator('select[aria-label="Summary provider"]').wait_for(timeout=15000)
