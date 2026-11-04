@@ -16,7 +16,7 @@ def main():
         "if not exists(select from pg_roles where rolname='authenticated') then create role authenticated;end if;"
         "if not exists(select from pg_roles where rolname='service_role') then create role service_role bypassrls;end if;end $$;")
     sql((root/'supabase/migrations/20261026064154_durable_processing.sql').read_text())
-    sql((root/'supabase/migrations/20261104134319_atomic_processing_cancel.sql').read_text())
+    sql((root/'supabase/migrations/20261104134945_atomic_processing_cancel.sql').read_text())
     owner='10000000-0000-0000-0000-000000000001';other='10000000-0000-0000-0000-000000000002'
     sql(f"insert into auth.users values ('{owner}'),('{other}');")
     for kind in ['video','podcast']:
