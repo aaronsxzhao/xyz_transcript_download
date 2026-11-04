@@ -47,6 +47,12 @@ jobs:
         env:
           PGHOST: 127.0.0.1
         run: python scripts/check_video_write_order.py
+      - name: Verify atomic queue cancellation races
+        env:
+          PGHOST: 127.0.0.1
+        run: |
+          createdb -U postgres queue_cancel_test
+          python scripts/check_atomic_queue_cancel.py
       - name: Verify scoped diagnostic token permissions and quotas
         env:
           PGHOST: 127.0.0.1
