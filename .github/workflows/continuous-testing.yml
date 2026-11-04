@@ -149,6 +149,11 @@ jobs:
         run: |
           python scripts/check_podcast_forms.py
           python scripts/check_podcast_forms.py --webkit --widths 390
+      - name: Check Xiaoyuzhou subscription import feedback
+        timeout-minutes: 3
+        run: |
+          python scripts/check_subscription_import.py
+          python scripts/check_subscription_import.py --webkit
       - name: Check concurrent podcast actions and navigation
         timeout-minutes: 3
         run: python scripts/check_podcast_actions.py

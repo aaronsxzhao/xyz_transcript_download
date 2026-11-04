@@ -809,7 +809,7 @@ async def import_user_subscriptions(
 ):
     """
     Import all podcasts from a Xiaoyuzhou user's subscription list.
-    The target user's profile must be public.
+    Requires explicit subscription data; a public profile alone is insufficient.
     
     This will:
     1. Fetch the user's subscribed podcasts from their public profile
@@ -817,7 +817,7 @@ async def import_user_subscriptions(
     3. Fetch up to 20 recent episodes for each new podcast
     4. Return a summary of the import results
     """
-    from xyz_client import get_client
+    from xyz_client import get_client, SubscriptionSourceError
     
     if USE_SUPABASE and not user:
         raise HTTPException(status_code=401, detail="Authentication required")
@@ -832,26 +832,22 @@ async def import_user_subscriptions(
     # Extract user ID from input (could be URL or username)
     user_id = client.extract_user_id(username)
     if not user_id:
-        raise HTTPException(status_code=400, detail="Invalid username or user URL")
+        raise HTTPException(status_code=400, detail="Enter the 24-character Xiaoyuzhou user ID or profile share URL. Nicknames cannot be searched.")
     
     logger.info(f"Importing subscriptions for user: {user_id}")
     
     # Fetch user's subscribed podcasts
     try:
         subscribed_podcasts = await run_sync(client.get_user_subscriptions, user_id)
-    except Exception as e:
-        err_msg = str(e)
-        if "500" in err_msg or "error responses" in err_msg.lower():
-            raise HTTPException(
-                status_code=502,
-                detail="Xiaoyuzhou servers are currently unavailable (HTTP 500). Please try again later."
-            )
-        raise HTTPException(status_code=502, detail=f"Failed to reach Xiaoyuzhou: {err_msg}")
-    
+    except SubscriptionSourceError as error:
+        raise HTTPException(status_code=error.status_code, detail=str(error)) from None
+    except Exception:
+        raise HTTPException(status_code=503, detail="Could not read Xiaoyuzhou subscriptions. No subscriptions were imported. Please retry later.") from None
+
     if not subscribed_podcasts:
         raise HTTPException(
             status_code=404, 
-            detail="No podcasts found. The user profile may be private or the username may be incorrect."
+            detail="The shared profile returned an empty subscription list. No subscriptions were imported."
         )
     
     total_found = len(subscribed_podcasts)
