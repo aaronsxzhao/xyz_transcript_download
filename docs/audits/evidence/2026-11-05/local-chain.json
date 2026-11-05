@@ -1,0 +1,33 @@
+{
+  "fixture_count": 60,
+  "pagination": [
+    40,
+    60
+  ],
+  "times": {
+    "initial_list_ms": 451,
+    "search_ms": 320,
+    "delete_summary_ms": 1683
+  },
+  "errors": [],
+  "failed_requests": [],
+  "steps": [
+    "channel pagination",
+    "search",
+    "read summary",
+    "read transcript",
+    "read previous version",
+    "return latest",
+    "reload",
+    "delete summary only",
+    "reload; source and transcript retained; versions removed",
+    "second tab reload reflects removed summary",
+    "delete synthetic source",
+    "reload absence"
+  ],
+  "environment": "real local API/SQLite; no mocked responses; existing local auth mode",
+  "viewport": [
+    1440,
+    1000
+  ]
+}

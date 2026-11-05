@@ -1,0 +1,147 @@
+{
+  "date": "2026-11-05",
+  "timezone": "Asia/Shanghai",
+  "tested_commit": "95b2712bd7da8102c829ccdfebeaf4a4aab0d444",
+  "discovery": {
+    "local": {
+      "fixture_count": 60,
+      "pagination": [
+        40,
+        60
+      ],
+      "times": {
+        "initial_list_ms": 451,
+        "search_ms": 320,
+        "delete_summary_ms": 1683
+      },
+      "errors": [],
+      "failed_requests": [],
+      "steps": [
+        "channel pagination",
+        "search",
+        "read summary",
+        "read transcript",
+        "read previous version",
+        "return latest",
+        "reload",
+        "delete summary only",
+        "reload; source and transcript retained; versions removed",
+        "second tab reload reflects removed summary",
+        "delete synthetic source",
+        "reload absence"
+      ],
+      "environment": "real local API/SQLite; no mocked responses; existing local auth mode",
+      "viewport": [
+        1440,
+        1000
+      ]
+    },
+    "production_browser": {
+      "result": "anonymous entry only; authenticated flows blocked",
+      "observed": "/videos redirected to rendered /login",
+      "page_errors": [],
+      "http_failures": [],
+      "navigation_ms": 999,
+      "tls_limitation": "Chromium accepted only the known managed-environment proxy CA SPKI; not independent public TLS-chain validation"
+    },
+    "limits": [
+      "Seeded data, not import or generation",
+      "No real worker concurrency, paid calls or production writes",
+      "Single desktop viewport and theme",
+      "One-run local timings are not production performance benchmarks",
+      "No confirmed new application defect; user-reported production latency remains unverified"
+    ]
+  },
+  "regressions": {
+    "pytest": {
+      "files": [
+        "tests/test_library_saved_versions.py",
+        "tests/test_note_presentation.py"
+      ],
+      "passed": 28,
+      "seconds": 1.38
+    },
+    "build": "TypeScript/Vite passed; initial compressed assets 197.7 KiB <= unchanged 197.75 KiB budget",
+    "baseline_ci": "https://github.com/aaronsxzhao/xyz_transcript_download/actions/runs/41847114156",
+    "baseline_deploy": "https://github.com/aaronsxzhao/xyz_transcript_download/actions/runs/41847114350"
+  },
+  "prior_records_reviewed": [
+    "technical-audit-20261105.json",
+    "technical-audit-20261104-afternoon.json",
+    "atomic-queue-cancel-review-20261104.json",
+    "blog-publication-review-20261104.json",
+    "article-inline-media-review-20261104.json",
+    "responsive-performance-review-20261104.json"
+  ],
+  "existing_fix": {
+    "pr": 237,
+    "status": "already merged; do not duplicate atomic cancellation fix"
+  },
+  "open_prs_at_start": [],
+  "changes": "Shared coverage inventory and evidence only; no application fix or deployment",
+  "large_issues": [],
+  "next_priorities": [
+    "Authorized logged-in production read-only flows",
+    "Isolated retry/cancel and concurrent browsing with real worker",
+    "Multi-P and podcast operation chains; article publication/media"
+  ],
+  "persistence": "Committed repository records; see PR/commit for publication state",
+  "production_read_only_diagnostics": [
+    {
+      "diagnostics": "stats",
+      "status": 200,
+      "json_response": true,
+      "milliseconds": 376
+    },
+    {
+      "diagnostics": "podcasts",
+      "status": 200,
+      "json_response": true,
+      "milliseconds": 245
+    },
+    {
+      "diagnostics": "library",
+      "status": 200,
+      "json_response": true,
+      "milliseconds": 200
+    },
+    {
+      "diagnostics": "video_tasks",
+      "status": 200,
+      "json_response": true,
+      "milliseconds": 431
+    },
+    {
+      "diagnostics": "jobs",
+      "status": 200,
+      "json_response": true,
+      "milliseconds": 177
+    },
+    {
+      "diagnostics": "summaries",
+      "status": 200,
+      "json_response": true,
+      "milliseconds": 242
+    },
+    {
+      "diagnostics": "settings",
+      "status": 200,
+      "json_response": true,
+      "milliseconds": 120
+    },
+    {
+      "diagnostics": "platform_accounts",
+      "status": 200,
+      "json_response": true,
+      "milliseconds": 132
+    },
+    {
+      "health_status": 200,
+      "health": {
+        "status": "ok",
+        "revision": "95b2712bd7da8102c829ccdfebeaf4a4aab0d444"
+      }
+    }
+  ],
+  "production_diagnostic_scope": "Availability and deployed revision only, not authenticated browser acceptance"
+}
