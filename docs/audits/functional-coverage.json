@@ -1,0 +1,355 @@
+{
+  "schema_version": 1,
+  "site": "https://aipodcastsummary.online",
+  "repository": "aaronsxzhao/xyz_transcript_download",
+  "updated_at": "2026-11-05T21:19:41.713041+08:00",
+  "tested_commit": "95b2712bd7da8102c829ccdfebeaf4a4aab0d444",
+  "current_report": "2026-11-05-technical-functional.json",
+  "inventory_basis": [
+    "web/src/App.tsx routes",
+    "current repository feature components and prior audit records",
+    "user-reported operation chains"
+  ],
+  "rules": [
+    "A related unit test does not count as functional acceptance",
+    "Update per environment; never promote local success to production success",
+    "Read shared record and open PRs before modifying; preserve ongoing work",
+    "Append audit evidence and update last_actual_check only after performing recorded steps"
+  ],
+  "features": [
+    {
+      "id": "login-entry",
+      "operation_chain": "Anonymous entry → login page; login/reset-password not exercised",
+      "responsibility": {
+        "technical": "implementation, state correctness, performance and full operation-chain acceptance",
+        "interaction": "design audit; shared evidence, coordinate changes",
+        "quality": "summary quality audit for semantic coverage where applicable"
+      },
+      "risk": "high",
+      "last_actual_check": "2026-11-05T21:19:41.713041+08:00",
+      "environment": "production anonymous Chromium",
+      "account_type": "anonymous",
+      "data_scale": null,
+      "steps": [
+        "Open /videos, observe redirect to /login and rendered login page"
+      ],
+      "evidence": [
+        "evidence/2026-11-05/live-videos.png"
+      ],
+      "result": "passed",
+      "production_result": "passed_anonymous_entry_only",
+      "gaps": [
+        "No authorized signed-in production browser session; read-only diagnostic token is not browser authentication"
+      ],
+      "issues": [],
+      "in_progress_prs": [],
+      "next_check": "Authorized isolated browser login and reset flow"
+    },
+    {
+      "id": "video-library-reader-delete",
+      "operation_chain": "Video channel list → pagination 40 to 60 → search → summary/transcript → old/latest version → reload → delete summary only → reload second tab → delete source → reload",
+      "responsibility": {
+        "technical": "implementation, state correctness, performance and full operation-chain acceptance",
+        "interaction": "design audit; shared evidence, coordinate changes",
+        "quality": "summary quality audit for semantic coverage where applicable"
+      },
+      "risk": "high",
+      "last_actual_check": "2026-11-05T21:19:41.713041+08:00",
+      "environment": "local production frontend + FastAPI + isolated SQLite; Chromium 1440x1000 Classic dark",
+      "account_type": "existing local development identity",
+      "data_scale": "60 synthetic videos, two historical failed states, one saved old version",
+      "steps": [
+        "channel pagination",
+        "search",
+        "read summary",
+        "read transcript",
+        "read previous version",
+        "return latest",
+        "reload",
+        "delete summary only",
+        "reload; source and transcript retained; versions removed",
+        "second tab reload reflects removed summary",
+        "delete synthetic source",
+        "reload absence"
+      ],
+      "evidence": [
+        "evidence/2026-11-05/local-chain.json",
+        "evidence/2026-11-05/local-version.png",
+        "evidence/2026-11-05/local-summary-deleted.png"
+      ],
+      "result": "passed",
+      "production_result": "blocked",
+      "gaps": [
+        "No authorized signed-in production browser session; read-only diagnostic token is not browser authentication",
+        "No real worker, model call, import, mobile/theme matrix, offline recovery or load benchmark"
+      ],
+      "issues": [],
+      "in_progress_prs": [],
+      "next_check": "Repeat on authorized isolated hosted test account; then concurrent processing and reading"
+    },
+    {
+      "id": "dashboard-library",
+      "operation_chain": "Dashboard → statistics/recent content → library → search/filter → open content",
+      "responsibility": {
+        "technical": "implementation, state correctness, performance and full operation-chain acceptance",
+        "interaction": "design audit; shared evidence, coordinate changes",
+        "quality": "summary quality audit for semantic coverage where applicable"
+      },
+      "risk": "medium",
+      "last_actual_check": null,
+      "environment": null,
+      "account_type": null,
+      "data_scale": null,
+      "steps": [],
+      "evidence": [],
+      "result": "not_checked",
+      "production_result": "blocked",
+      "gaps": [
+        "No authorized signed-in production browser session; read-only diagnostic token is not browser authentication"
+      ],
+      "issues": [],
+      "in_progress_prs": [],
+      "next_check": "Check large lists and refresh consistency"
+    },
+    {
+      "id": "multipart-series",
+      "operation_chain": "Import multi-P → series grouping including P1 → part selection → reader navigation",
+      "responsibility": {
+        "technical": "implementation, state correctness, performance and full operation-chain acceptance",
+        "interaction": "design audit; shared evidence, coordinate changes",
+        "quality": "summary quality audit for semantic coverage where applicable"
+      },
+      "risk": "high",
+      "last_actual_check": null,
+      "environment": null,
+      "account_type": null,
+      "data_scale": null,
+      "steps": [],
+      "evidence": [],
+      "result": "not_checked",
+      "production_result": "blocked",
+      "gaps": [
+        "No authorized signed-in production browser session; read-only diagnostic token is not browser authentication"
+      ],
+      "issues": [],
+      "in_progress_prs": [],
+      "next_check": "Inspect Stanford P1 grouping and multi-P switching using authorized data"
+    },
+    {
+      "id": "podcast-subscriptions",
+      "operation_chain": "Subscribe/import subscriptions → episodes → search/page → open episode",
+      "responsibility": {
+        "technical": "implementation, state correctness, performance and full operation-chain acceptance",
+        "interaction": "design audit; shared evidence, coordinate changes",
+        "quality": "summary quality audit for semantic coverage where applicable"
+      },
+      "risk": "high",
+      "last_actual_check": null,
+      "environment": null,
+      "account_type": null,
+      "data_scale": null,
+      "steps": [],
+      "evidence": [],
+      "result": "not_checked",
+      "production_result": "blocked",
+      "gaps": [
+        "No authorized signed-in production browser session; read-only diagnostic token is not browser authentication"
+      ],
+      "issues": [],
+      "in_progress_prs": [],
+      "next_check": "Investigate Xiaoyuzhou import feasibility read-only; no development"
+    },
+    {
+      "id": "podcast-processing-delete",
+      "operation_chain": "Test episode → process → read/version → delete summary retaining episode → delete test source",
+      "responsibility": {
+        "technical": "implementation, state correctness, performance and full operation-chain acceptance",
+        "interaction": "design audit; shared evidence, coordinate changes",
+        "quality": "summary quality audit for semantic coverage where applicable"
+      },
+      "risk": "high",
+      "last_actual_check": null,
+      "environment": null,
+      "account_type": null,
+      "data_scale": null,
+      "steps": [],
+      "evidence": [],
+      "result": "not_checked",
+      "production_result": "blocked",
+      "gaps": [
+        "No authorized signed-in production browser session; read-only diagnostic token is not browser authentication"
+      ],
+      "issues": [],
+      "in_progress_prs": [],
+      "next_check": "Use isolated account and synthetic episode; compare video semantics"
+    },
+    {
+      "id": "article-import-media",
+      "operation_chain": "Import article → source publication/author → inline video/GIF → read/export",
+      "responsibility": {
+        "technical": "implementation, state correctness, performance and full operation-chain acceptance",
+        "interaction": "design audit; shared evidence, coordinate changes",
+        "quality": "summary quality audit for semantic coverage where applicable"
+      },
+      "risk": "medium",
+      "last_actual_check": null,
+      "environment": null,
+      "account_type": null,
+      "data_scale": null,
+      "steps": [],
+      "evidence": [],
+      "result": "not_checked",
+      "production_result": "blocked",
+      "gaps": [
+        "No authorized signed-in production browser session; read-only diagnostic token is not browser authentication"
+      ],
+      "issues": [],
+      "in_progress_prs": [],
+      "next_check": "Use controlled article and inspect saved source attribution/media"
+    },
+    {
+      "id": "processing-retry-cancel",
+      "operation_chain": "Create/import → queued → processing → cancel/retry after timeout → completed → reopen",
+      "responsibility": {
+        "technical": "implementation, state correctness, performance and full operation-chain acceptance",
+        "interaction": "design audit; shared evidence, coordinate changes",
+        "quality": "summary quality audit for semantic coverage where applicable"
+      },
+      "risk": "high",
+      "last_actual_check": null,
+      "environment": null,
+      "account_type": null,
+      "data_scale": null,
+      "steps": [],
+      "evidence": [],
+      "result": "not_checked",
+      "production_result": "blocked",
+      "gaps": [
+        "No authorized signed-in production browser session; read-only diagnostic token is not browser authentication"
+      ],
+      "issues": [],
+      "in_progress_prs": [],
+      "next_check": "Validate retry cannot remain queued with no worker; authorized isolated model budget required"
+    },
+    {
+      "id": "parallel-progress",
+      "operation_chain": "Process while browsing/searching/reading/deleting other test content → disconnect/reconnect → refresh/multiple tabs",
+      "responsibility": {
+        "technical": "implementation, state correctness, performance and full operation-chain acceptance",
+        "interaction": "design audit; shared evidence, coordinate changes",
+        "quality": "summary quality audit for semantic coverage where applicable"
+      },
+      "risk": "high",
+      "last_actual_check": null,
+      "environment": null,
+      "account_type": null,
+      "data_scale": null,
+      "steps": [],
+      "evidence": [],
+      "result": "not_checked",
+      "production_result": "blocked",
+      "gaps": [
+        "No authorized signed-in production browser session; read-only diagnostic token is not browser authentication"
+      ],
+      "issues": [],
+      "in_progress_prs": [],
+      "next_check": "Measure interaction and request times with actual workers; verify intermediate progress"
+    },
+    {
+      "id": "recovery",
+      "operation_chain": "Saved unpublished backup/history → restore → concurrent new completion → newest content",
+      "responsibility": {
+        "technical": "implementation, state correctness, performance and full operation-chain acceptance",
+        "interaction": "design audit; shared evidence, coordinate changes",
+        "quality": "summary quality audit for semantic coverage where applicable"
+      },
+      "risk": "high",
+      "last_actual_check": null,
+      "environment": null,
+      "account_type": null,
+      "data_scale": null,
+      "steps": [],
+      "evidence": [],
+      "result": "not_checked",
+      "production_result": "blocked",
+      "gaps": [
+        "No authorized signed-in production browser session; read-only diagnostic token is not browser authentication"
+      ],
+      "issues": [],
+      "in_progress_prs": [],
+      "next_check": "Isolated real database concurrent restore/write; no production mutation"
+    },
+    {
+      "id": "settings-platforms",
+      "operation_chain": "Settings/model listing → save → platform connection → reload",
+      "responsibility": {
+        "technical": "implementation, state correctness, performance and full operation-chain acceptance",
+        "interaction": "design audit; shared evidence, coordinate changes",
+        "quality": "summary quality audit for semantic coverage where applicable"
+      },
+      "risk": "high",
+      "last_actual_check": null,
+      "environment": null,
+      "account_type": null,
+      "data_scale": null,
+      "steps": [],
+      "evidence": [],
+      "result": "not_checked",
+      "production_result": "blocked",
+      "gaps": [
+        "No authorized signed-in production browser session; read-only diagnostic token is not browser authentication"
+      ],
+      "issues": [],
+      "in_progress_prs": [],
+      "next_check": "Check cookie ownership and persistence with authorized isolated credentials"
+    },
+    {
+      "id": "export",
+      "operation_chain": "Summary → copy/download/print/Notion export → verify output",
+      "responsibility": {
+        "technical": "implementation, state correctness, performance and full operation-chain acceptance",
+        "interaction": "design audit; shared evidence, coordinate changes",
+        "quality": "summary quality audit for semantic coverage where applicable"
+      },
+      "risk": "medium",
+      "last_actual_check": null,
+      "environment": null,
+      "account_type": null,
+      "data_scale": null,
+      "steps": [],
+      "evidence": [],
+      "result": "not_checked",
+      "production_result": "blocked",
+      "gaps": [
+        "No authorized signed-in production browser session; read-only diagnostic token is not browser authentication"
+      ],
+      "issues": [],
+      "in_progress_prs": [],
+      "next_check": "Synthetic content only; external writes need destination authorization"
+    },
+    {
+      "id": "auth-account",
+      "operation_chain": "Sign in/out → account boundary → expired session → password reset",
+      "responsibility": {
+        "technical": "implementation, state correctness, performance and full operation-chain acceptance",
+        "interaction": "design audit; shared evidence, coordinate changes",
+        "quality": "summary quality audit for semantic coverage where applicable"
+      },
+      "risk": "high",
+      "last_actual_check": null,
+      "environment": null,
+      "account_type": null,
+      "data_scale": null,
+      "steps": [],
+      "evidence": [],
+      "result": "not_checked",
+      "production_result": "blocked",
+      "gaps": [
+        "No authorized signed-in production browser session; read-only diagnostic token is not browser authentication"
+      ],
+      "issues": [],
+      "in_progress_prs": [],
+      "next_check": "Authorized test identities; no forged tokens"
+    }
+  ]
+}
