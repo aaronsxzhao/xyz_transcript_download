@@ -57,3 +57,11 @@ For each affected component, exercise normal, hover, keyboard focus, selected, d
 7. Repeated failure notifications and dismissed messages needed state-aware behavior; test the implemented semantics without silently changing them.
 
 These are regression scenarios, not claims that all possible production cases are solved.
+
+## Managed cloud browser capability
+
+Use `python scripts/check_cloud_browser.py --output appearance-checks/cloud-browser/RUN-ID/anonymous`
+for the secure shell Chromium capability and anonymous responsive smoke lane.
+See [cloud browser inspection](cloud-browser-inspection.md) for host permissions,
+explicit authenticated coverage, private artifacts and mandatory separate image
+inspection. Missing built-in Browser tools alone is not a browser-test blocker.

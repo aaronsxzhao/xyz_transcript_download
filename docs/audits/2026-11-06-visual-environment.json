@@ -1,0 +1,89 @@
+{
+  "checked_at": "2026-11-06T12:20:09.421676+08:00",
+  "tested_commit": "906393581ce23ef5bbf1594070834a1bcf8a9f19",
+  "kind": "visual-interaction-preflight",
+  "result": "blocked_before_browser_capture",
+  "environment": {
+    "config_id": "cecfg_6ad393188adc819db89d4628d0f79658",
+    "same_as_user_named_old_config": true,
+    "network_policy": "unrestricted/enforced",
+    "proxy_preserved": true,
+    "vpn_configured": false,
+    "remote_desktop_declared": true,
+    "remote_desktop_state": "unknown",
+    "callable_browser_or_desktop_tools": false
+  },
+  "A_actual_exploration": {
+    "browser_open": "not_performed",
+    "dom_read": "not_performed",
+    "safe_control_click": "not_performed",
+    "screenshot": "not_captured",
+    "manual_visual_acceptance": "not_performed",
+    "production_anonymous": "HTTP only; not browser acceptance",
+    "production_signed_in": "not_checked; no controllable browser for manual test-account login",
+    "local_isolated": "not_checked; no controllable browser"
+  },
+  "B_machine_checks": {
+    "production_root_http": 200,
+    "health_status": "ok",
+    "deployed_revision": "95b2712bd7da8102c829ccdfebeaf4a4aab0d444",
+    "new_test_suites_run": [],
+    "scope": "HTTP reachability and health only"
+  },
+  "prior_work_reviewed": {
+    "pr_239": {
+      "state": "OPEN",
+      "url": "https://github.com/aaronsxzhao/xyz_transcript_download/pull/239",
+      "required_ci": "success",
+      "scope": "local Classic dark Chromium 1440x1000; synthetic podcast/multipart and durable-worker configuration errors",
+      "not_current_visual_acceptance": true
+    },
+    "records": [
+      "AGENTS.md",
+      "docs/ui-design-contract.md",
+      "docs/ui-regression-contract.md",
+      "docs/audits/functional-coverage.json",
+      "docs/audits/2026-11-05-technical-functional.json",
+      "PR239 original docs/audits/2026-11-06-technical-functional.json"
+    ]
+  },
+  "C_gaps": {
+    "matrix": "All Classic/Editorial x light/dark x 390/820/1440 browser checks unperformed this run",
+    "chains": [
+      "Dashboard \u2192 Library search/filter/sort/page \u2192 series \u2192 reader \u2192 back/reload",
+      "Task entry \u2192 progress/details \u2192 back/reload/background recovery and stale updates",
+      "Test-account forms \u2192 validation/loading/failure/recovery, focus/drafts/duplicate feedback"
+    ],
+    "other": [
+      "HTTP524 recovery",
+      "sustained inference/media-load browser performance"
+    ],
+    "next_requirement": "Expose a supported browser control tool in this chat/environment; then perform open/DOM/safe-click/screenshot/manual-view preflight before any acceptance. Request manual test-account login only after browser control works."
+  },
+  "findings": [],
+  "product_changes": [],
+  "production_writes": false,
+  "deployment": "No new deployment; no confirmed defect; main newer than deployed revision through documentation-only PR238 per original report",
+  "publication": "Local isolated worktree only; not merged or shared on main",
+  "follow_up": {
+    "result": "shell_browser_validated",
+    "workflow": "../cloud-browser-inspection.md",
+    "correction": "Missing built-in browser tools did not prevent secure shell Playwright automation. Initial limitation superseded for anonymous headless testing. Shared desktop still unavailable.",
+    "anonymous_viewports": [
+      [
+        1440,
+        900
+      ],
+      [
+        768,
+        1024
+      ],
+      [
+        390,
+        844
+      ]
+    ],
+    "actual_image_inspection": true,
+    "authenticated_coverage": false
+  }
+}
