@@ -351,5 +351,14 @@
       "in_progress_prs": [],
       "next_check": "Authorized test identities; no forged tokens"
     }
+  ],
+  "environment_readiness_checks": [
+    {
+      "checked_at": "2026-11-06T12:22:39.787760+08:00",
+      "report": "2026-11-06-environment-readiness.json",
+      "scope": "discovery only; no feature acceptance promoted",
+      "pending_feature_evidence_pr": 239,
+      "pending_feature_evidence_head": "50592a175ec2639491ef7f7155cce058bb7b1986"
+    }
   ]
 }
