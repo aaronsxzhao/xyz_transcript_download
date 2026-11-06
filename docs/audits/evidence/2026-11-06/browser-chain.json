@@ -1,0 +1,21 @@
+{
+  "steps": [
+    "podcast pagination 50 to 54",
+    "read podcast summary",
+    "read podcast transcript",
+    "delete summary then refresh: episode and transcript retained",
+    "delete episode and refresh absence",
+    "multi-P series: all 21 parts including P1 in numeric order",
+    "open P1 summary",
+    "open P21 summary"
+  ],
+  "timings": {
+    "delete_summary_ms": 1897
+  },
+  "errors": [],
+  "failed_requests": [],
+  "data_scale": {
+    "podcast_episodes": 55,
+    "video_parts": 21
+  }
+}

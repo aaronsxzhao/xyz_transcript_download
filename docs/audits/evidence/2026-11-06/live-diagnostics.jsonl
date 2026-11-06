@@ -1,0 +1,9 @@
+{"diagnostics": "stats", "status": 200, "json_response": true, "milliseconds": 796}
+{"diagnostics": "podcasts", "status": 200, "json_response": true, "milliseconds": 347}
+{"diagnostics": "library", "status": 200, "json_response": true, "milliseconds": 285}
+{"diagnostics": "video_tasks", "status": 200, "json_response": true, "milliseconds": 433}
+{"diagnostics": "jobs", "status": 200, "json_response": true, "milliseconds": 166}
+{"diagnostics": "summaries", "status": 200, "json_response": true, "milliseconds": 163}
+{"diagnostics": "settings", "status": 200, "json_response": true, "milliseconds": 276}
+{"diagnostics": "platform_accounts", "status": 200, "json_response": true, "milliseconds": 192}
+{"health_status": 200, "health": {"status": "ok", "revision": "95b2712bd7da8102c829ccdfebeaf4a4aab0d444"}}
