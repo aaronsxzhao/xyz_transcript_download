@@ -2,9 +2,9 @@
   "schema_version": 1,
   "site": "https://aipodcastsummary.online",
   "repository": "aaronsxzhao/xyz_transcript_download",
-  "updated_at": "2026-11-05T21:19:41.713041+08:00",
-  "tested_commit": "95b2712bd7da8102c829ccdfebeaf4a4aab0d444",
-  "current_report": "2026-11-05-technical-functional.json",
+  "updated_at": "2026-11-06T09:13:07.098694+08:00",
+  "tested_commit": "906393581ce23ef5bbf1594070834a1bcf8a9f19",
+  "current_report": "2026-11-06-technical-functional.json",
   "inventory_basis": [
     "web/src/App.tsx routes",
     "current repository feature components and prior audit records",
@@ -26,7 +26,7 @@
         "quality": "summary quality audit for semantic coverage where applicable"
       },
       "risk": "high",
-      "last_actual_check": "2026-11-05T21:19:41.713041+08:00",
+      "last_actual_check": "2026-11-06T09:13:07.098694+08:00",
       "environment": "production anonymous Chromium",
       "account_type": "anonymous",
       "data_scale": null,
@@ -34,7 +34,8 @@
         "Open /videos, observe redirect to /login and rendered login page"
       ],
       "evidence": [
-        "evidence/2026-11-05/live-videos.png"
+        "evidence/2026-11-06/live-videos.png",
+        "evidence/2026-11-06/live-browser.jsonl"
       ],
       "result": "passed",
       "production_result": "passed_anonymous_entry_only",
@@ -120,16 +121,26 @@
         "quality": "summary quality audit for semantic coverage where applicable"
       },
       "risk": "high",
-      "last_actual_check": null,
-      "environment": null,
-      "account_type": null,
-      "data_scale": null,
-      "steps": [],
-      "evidence": [],
-      "result": "not_checked",
+      "last_actual_check": "2026-11-06T09:13:07.098694+08:00",
+      "environment": "Local production build + real FastAPI/SQLite durable Worker; Chromium 1440x1000 Classic dark",
+      "account_type": "Existing local development identity; isolated synthetic data",
+      "data_scale": "21 synthetic parts",
+      "steps": [
+        "Seed 21 synthetic parts",
+        "Channel list numeric order includes P1",
+        "Read P1/P21",
+        "Reader next P1→P2 and current-part state",
+        "Expand/collapse 21-part directory"
+      ],
+      "evidence": [
+        "evidence/2026-11-06/extra-chain.json",
+        "2026-11-06-technical-functional.json"
+      ],
+      "result": "partial",
       "production_result": "blocked",
       "gaps": [
-        "No authorized signed-in production browser session; read-only diagnostic token is not browser authentication"
+        "No authorized signed-in production browser/test account",
+        "Production Stanford data and external import not verified"
       ],
       "issues": [],
       "in_progress_prs": [],
@@ -168,16 +179,31 @@
         "quality": "summary quality audit for semantic coverage where applicable"
       },
       "risk": "high",
-      "last_actual_check": null,
-      "environment": null,
-      "account_type": null,
-      "data_scale": null,
-      "steps": [],
-      "evidence": [],
-      "result": "not_checked",
+      "last_actual_check": "2026-11-06T09:13:07.098694+08:00",
+      "environment": "Local production build + real FastAPI/SQLite durable Worker; Chromium 1440x1000 Classic dark",
+      "account_type": "Existing local development identity; isolated synthetic data",
+      "data_scale": "55 seeded episodes plus one uploaded 1-second WAV",
+      "steps": [
+        "Seed 55 podcast episodes",
+        "Paginate 50→55; repeat 50→54 after one deletion",
+        "Read summary and transcript",
+        "Delete only summary, reload; source/transcript retained",
+        "Reload second tab",
+        "Delete episode and refresh absence",
+        "Upload synthetic WAV",
+        "Process fails with missing provider",
+        "API retry/cancel",
+        "Delete uploaded test episode and refresh"
+      ],
+      "evidence": [
+        "evidence/2026-11-06/browser-chain.json",
+        "2026-11-06-technical-functional.json"
+      ],
+      "result": "partial",
       "production_result": "blocked",
       "gaps": [
-        "No authorized signed-in production browser session; read-only diagnostic token is not browser authentication"
+        "No authorized signed-in production browser/test account",
+        "Generation and version switching not exercised; notes were seeded"
       ],
       "issues": [],
       "in_progress_prs": [],
@@ -216,16 +242,27 @@
         "quality": "summary quality audit for semantic coverage where applicable"
       },
       "risk": "high",
-      "last_actual_check": null,
-      "environment": null,
-      "account_type": null,
-      "data_scale": null,
-      "steps": [],
-      "evidence": [],
-      "result": "not_checked",
+      "last_actual_check": "2026-11-06T09:13:07.098694+08:00",
+      "environment": "Local production build + real FastAPI/SQLite durable Worker; Chromium 1440x1000 Classic dark",
+      "account_type": "Existing local development identity; isolated synthetic data",
+      "data_scale": "7 queued worker attempts plus uploaded source failure/retry-cancel",
+      "steps": [
+        "Real SQLite durable dispatcher, two slots",
+        "Three admitted tasks fail on missing model configuration",
+        "Retry all three; all leave queued state",
+        "One transcript-only task completes using retained transcript",
+        "Retry/cancel uploaded test task; cancelled",
+        "No queued/running work remains after first seven tasks"
+      ],
+      "evidence": [
+        "evidence/2026-11-06/queue.json",
+        "2026-11-06-technical-functional.json"
+      ],
+      "result": "partial",
       "production_result": "blocked",
       "gaps": [
-        "No authorized signed-in production browser session; read-only diagnostic token is not browser authentication"
+        "No authorized signed-in production browser/test account",
+        "Not a 524 or slow-inference reproduction; no Supabase hosted-queue acceptance"
       ],
       "issues": [],
       "in_progress_prs": [],
@@ -245,11 +282,14 @@
       "account_type": null,
       "data_scale": null,
       "steps": [],
-      "evidence": [],
+      "evidence": [
+        "evidence/2026-11-06/queue.json"
+      ],
       "result": "not_checked",
       "production_result": "blocked",
       "gaps": [
-        "No authorized signed-in production browser session; read-only diagnostic token is not browser authentication"
+        "Long-running model/media work with concurrent browser interactions remains untested. Short failure-path list polling measured 5–8 ms; not performance acceptance.",
+        "No authorized production browser/test account or isolated hosted load-test budget"
       ],
       "issues": [],
       "in_progress_prs": [],

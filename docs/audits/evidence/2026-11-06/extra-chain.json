@@ -1,0 +1,15 @@
+{
+  "steps": [
+    "P1 to P2 through reader next navigation; current status correct",
+    "21 part directory expands and collapses",
+    "upload 1 second synthetic WAV via browser",
+    "uploaded source persists after reload",
+    "Process via browser: real worker rejects unconfigured model",
+    "retry via API then cancel via API",
+    "delete uploaded test episode via browser and reload absence"
+  ],
+  "upload_ms": 644,
+  "retry_terminal": "cancelled",
+  "errors": [],
+  "limits": "No transcription/model generation; success reading uses separately seeded notes; cancellation may race with immediate configuration failure"
+}
