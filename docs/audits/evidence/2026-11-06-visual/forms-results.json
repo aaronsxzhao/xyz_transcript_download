@@ -1,0 +1,14 @@
+[
+  {
+    "chain": "keyboard focus \u2192 light theme \u2192 draft retained \u2192 reload theme retained",
+    "status": "PASS"
+  },
+  {
+    "chain": "recovery \u2192 invalid email native validation \u2192 correct without submitting \u2192 return sign-in",
+    "status": "PASS"
+  },
+  {
+    "chain": "sign-in \u2192 sign-up \u2192 confirm-password field \u2192 return sign-in",
+    "status": "PASS"
+  }
+]

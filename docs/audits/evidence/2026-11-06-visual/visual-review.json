@@ -1,0 +1,21 @@
+{
+  "checked_at": "2026-11-06T10:10:50.808586+00:00",
+  "reviewed_images": [
+    "anonymous-1440x900.png",
+    "anonymous-768x1024.png",
+    "anonymous-390x844.png",
+    "recovery-mobile.png",
+    "signup-mobile.png",
+    "login-light-stable.png",
+    "recovery-light-corrected.png",
+    "classic-light-390-library.png",
+    "editorial-dark-820-summary.png",
+    "editorial-light-390-home.png"
+  ],
+  "observations": "Anonymous login/recovery/signup forms are visible at inspected sizes; light-mode email/password focus rings visible. Local samples show light Classic Library and Editorial home/reader without visible control overlap. Reader extends vertically beyond viewport, not fully inspected.",
+  "rejected": [
+    "login-light-focus.png captured theme loading; replaced by login-light-stable.png",
+    "first local-matrix images used old checked-in dist, excluded from current-source theme acceptance"
+  ],
+  "not_reviewed": "Remaining local matrix screenshots were captured/asserted only."
+}

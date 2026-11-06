@@ -1,0 +1,65 @@
+{
+  "checked_at": "2026-11-06T10:10:50.808586+00:00",
+  "main_sha": "906393581ce23ef5bbf1594070834a1bcf8a9f19",
+  "browser_script_sha": "7daefe1",
+  "deployed_revision": "95b2712bd7da8102c829ccdfebeaf4a4aab0d444",
+  "open_prs": [
+    239,
+    240,
+    241,
+    242
+  ],
+  "browser": "Chromium154/Python3.12/Playwright1.62",
+  "security": "Sandbox and TLS enabled; inherited proxy; supported escalated host execution; production writes blocked",
+  "A": {
+    "anonymous_chains": [
+      {
+        "chain": "keyboard focus → light theme → draft retained → reload theme retained",
+        "status": "PASS"
+      },
+      {
+        "chain": "recovery → invalid email native validation → correct without submitting → return sign-in",
+        "status": "PASS"
+      },
+      {
+        "chain": "sign-in → sign-up → confirm-password field → return sign-in",
+        "status": "PASS"
+      }
+    ],
+    "visual_review": "evidence/2026-11-06-visual/visual-review.json",
+    "confirmed_product_defects": [],
+    "authenticated_session_verified": false
+  },
+  "B": {
+    "anonymous_smoke": "3 viewport PASS, real checkbox toggles, protected navigation/reload",
+    "local_current_build": "TypeScript/Vite passed; 197.7 KiB within unchanged197.75 budget",
+    "local_matrix": "108 states across 9 pages x 2 designs x 2 themes x 3 widths, no horizontal overflow or JS errors; synthetic API fixtures, not production authenticated data",
+    "matrix_widths": [
+      390,
+      820,
+      1440
+    ],
+    "command": "python scripts/_audit_secure_matrix.py --browser-path /usr/bin/chromium --output /workspace/browser-validation/inspection-20261106/built-matrix",
+    "launch_only_adaptation": "Replaced existing --no-sandbox with chromium_sandbox=True; assertions unchanged; source copy in evidence"
+  },
+  "C": {
+    "blocker": "BROWSER_TEST_EMAIL and BROWSER_TEST_PASSWORD not bound; no supported shared manual-login browser established",
+    "not_checked": [
+      "Authenticated Dashboard → Library search/filter/pagination → series → reader → return",
+      "Task progress/background/old updates and cross-region consistency",
+      "Production settings/subscription writes, actual provider524 recovery and sustained processing performance",
+      "Full manual screenshot matrix, large mixed series lists, physical devices, WebKit"
+    ],
+    "next": [
+      "Bind authorized credentials securely then verify server session",
+      "Deeply explore authenticated library/reader and task progress chains",
+      "Inspect full local theme screenshots with large/missing-data fixtures"
+    ]
+  },
+  "harness_issues": [
+    "Theme entry is summary[aria-label=\"Appearance settings\"], not button; corrected selector",
+    "Rebuilt current main before accepting theme matrix",
+    "Waited for theme completion before accepting screenshot"
+  ],
+  "delivery": "Evidence-only branch; no product changes, new PR or deployment"
+}

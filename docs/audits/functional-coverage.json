@@ -351,5 +351,15 @@
       "in_progress_prs": [],
       "next_check": "Authorized test identities; no forged tokens"
     }
+  ],
+  "visual_inspection_runs": [
+    {
+      "checked_at": "2026-11-06T10:10:50.808586+00:00",
+      "report": "2026-11-06-visual-inspection.json",
+      "anonymous": "passed_limited_forms",
+      "local": "synthetic_matrix_passed_with_sampled_visual_review",
+      "authenticated": "blocked_missing_secure_credentials",
+      "product_defects": 0
+    }
   ]
 }

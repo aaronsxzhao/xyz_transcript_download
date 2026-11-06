@@ -1,0 +1,40 @@
+"""Persisted-theme page bounds and screenshot matrix; all API responses are fixtures."""
+import sys,asyncio,json,argparse
+from pathlib import Path
+sys.path.insert(0,str(Path(__file__).resolve().parents[1]))
+from scripts.check_appearance import context_for
+from scripts.check_library_browser import serve,fixtures
+from playwright.async_api import async_playwright
+async def main():
+ parser=argparse.ArgumentParser(description='Read-only synthetic page matrix; not live-site acceptance.')
+ parser.add_argument('--browser-path');parser.add_argument('--webkit',action='store_true')
+ parser.add_argument('--widths',type=int,nargs='+',default=[390,820,1440])
+ parser.add_argument('--output',type=Path,default=Path('appearance-checks/page-matrix'))
+ args=parser.parse_args();out=args.output;out.mkdir(parents=True,exist_ok=True)
+ results=[]
+ server=serve(Path(__file__).resolve().parents[1]/'web/dist')
+ async with async_playwright() as p:
+  b=await p.webkit.launch() if args.webkit else await p.chromium.launch(executable_path=args.browser_path,chromium_sandbox=True)
+  for width in args.widths:
+   for design in ['classic','editorial']:
+    for theme in ['light','dark']:
+     c=await context_for(b,width);await c.add_init_script(f"localStorage.setItem('xyz:design','{design}');localStorage.setItem('xyz:color-theme','{theme}')")
+     task,_=fixtures();task.update(id='article',platform='web',style='original',title='Article title with a year: 2018',error='',source_metadata={'type':'article'},markdown='# Article title\n\n2018 was an important year.\n\n## Reading notes\n\n1. First idea\n2. Second idea\n\nLongwordwithoutspacesandwithmanycharactersforwrapping.')
+     await c.route('**/api/video-notes/tasks/article**',lambda r:r.fulfill(json=task))
+     page=await c.new_page();errors=[];page.on('pageerror',lambda e:errors.append(str(e)))
+     for name,path in [('home','/'),('library','/library'),('channels','/videos'),('subscriptions','/podcasts'),('episodes','/podcasts/show/episodes'),('settings','/settings'),('summary','/videos/bench'),('article','/videos/article'),('transcript','/videos/bench')]:
+      await page.goto(f'http://127.0.0.1:{server.server_port}'+path);await page.locator('h1').first.wait_for()
+      if name in ['summary','article']:await page.locator('article').first.wait_for()
+      if name=='transcript':await page.get_by_role('tab',name='Transcript',exact=True).click();await page.get_by_role('region',name='Transcript segments',exact=True).wait_for()
+      await page.wait_for_timeout(200)
+      await page.screenshot(path=str(out/f'{design}-{theme}-{width}-{name}.png'))
+      assert not await page.evaluate('document.documentElement.scrollWidth>innerWidth+1'),(name,width,design,theme)
+      assert not errors,(name,width,design,theme,errors)
+     assert not errors,errors
+     result={'design':design,'theme':theme,'width':width,'pages':9,'overflow':False,'js_errors':0};results.append(result)
+     print(json.dumps(result),flush=True)
+     await c.close()
+  await b.close()
+ server.shutdown()
+ (out/'results.json').write_text(json.dumps({'engine':'webkit' if args.webkit else 'chromium','data':'synthetic','results':results},indent=2))
+if __name__=='__main__':asyncio.run(main())
