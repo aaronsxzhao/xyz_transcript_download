@@ -1,12 +1,14 @@
 """Read-only cloud Chromium smoke checks; screenshots require separate human review."""
 import argparse
+import getpass
 import json
 import os
+import sys
 from datetime import datetime, timezone
 from pathlib import Path
 from urllib.parse import urlsplit
 
-from playwright.sync_api import sync_playwright
+from playwright.sync_api import sync_playwright, expect
 
 VIEWPORTS = [(1440, 900), (768, 1024), (390, 844)]
 
@@ -17,7 +19,7 @@ def main():
     parser.add_argument('--browser-path', default='/usr/bin/chromium')
     parser.add_argument('--output', type=Path, default=Path('appearance-checks/cloud-browser'))
     parser.add_argument('--authenticated', action='store_true',
-                        help='Explicitly sign in using UI and BROWSER_TEST_EMAIL/PASSWORD environment variables')
+                        help='Sign in through UI using optional environment bindings or a no-echo terminal prompt')
     args = parser.parse_args()
     origin = args.origin.rstrip('/')
     parsed = urlsplit(origin)
@@ -25,7 +27,12 @@ def main():
         parser.error('--origin must be an HTTP(S) origin without credentials, path or query')
     email, password = os.environ.get('BROWSER_TEST_EMAIL'), os.environ.get('BROWSER_TEST_PASSWORD')
     if args.authenticated and not (email and password):
-        parser.error('Authenticated mode requires BROWSER_TEST_EMAIL and BROWSER_TEST_PASSWORD; do not pass secrets as CLI arguments')
+        if not sys.stdin.isatty():
+            parser.error('Use a private interactive terminal or secure runtime bindings; never pass credentials as CLI arguments')
+        email = email or getpass.getpass('Authorized test email (hidden): ')
+        password = password or getpass.getpass('Authorized test password (hidden): ')
+        if not (email and password):
+            parser.error('Authorized test credentials are empty')
     if (args.output / 'results.json').exists():
         parser.error('Use a fresh --output directory so evidence from previous runs cannot be mixed')
     os.umask(0o077)
@@ -95,9 +102,14 @@ def main():
                     if args.authenticated:
                         assert urlsplit(page.url).path != '/login', 'Session lost'
                         control = page.locator('a[href="/library"]').first
+                        if not control.is_visible():
+                            page.get_by_role('button', name='Open navigation', exact=True).click()
+                            control = page.locator('a[href="/library"]:visible').first
                         control.click()
                         page.wait_for_url('**/library')
                         assert page.locator('main').is_visible(), 'Library main content missing'
+                        expect(page.get_by_role('button', name='Refresh library', exact=True)).to_be_enabled(timeout=60000)
+                        expect(page.locator('.library-results-bar [role="status"]')).not_to_contain_text('Loading your notes')
                         interaction = 'Library navigation link clicked'
                     else:
                         assert urlsplit(page.url).path == '/login', 'Anonymous entry did not reach login'

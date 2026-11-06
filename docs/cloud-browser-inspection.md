@@ -50,6 +50,11 @@ No scheduler or automatic production job is installed by this change.
 Only use an authorized test account. Supply `BROWSER_TEST_EMAIL` and
 `BROWSER_TEST_PASSWORD` through a secure execution environment or a private
 interactive prompt; never put values in commands, source, reports or commits.
+Environment variables are optional. With an interactive terminal, the script
+prompts without echo for missing values. Previously authorized credentials can
+be entered this way; missing environment bindings alone are not a blocker.
+Unattended runs require an available confidential credential channel; never copy
+credentials into the scheduled instruction text or saved evidence.
 The browser process must have access to actual runtime values: an HTTP proxy
 placeholder is not necessarily usable as a UI password.
 

@@ -19,7 +19,7 @@
   "features": [
     {
       "id": "login-entry",
-      "operation_chain": "Anonymous entry \u2192 login page; login/reset-password not exercised",
+      "operation_chain": "Anonymous entry → login page; login/reset-password not exercised",
       "responsibility": {
         "technical": "implementation, state correctness, performance and full operation-chain acceptance",
         "interaction": "design audit; shared evidence, coordinate changes",
@@ -47,7 +47,7 @@
     },
     {
       "id": "video-library-reader-delete",
-      "operation_chain": "Video channel list \u2192 pagination 40 to 60 \u2192 search \u2192 summary/transcript \u2192 old/latest version \u2192 reload \u2192 delete summary only \u2192 reload second tab \u2192 delete source \u2192 reload",
+      "operation_chain": "Video channel list → pagination 40 to 60 → search → summary/transcript → old/latest version → reload → delete summary only → reload second tab → delete source → reload",
       "responsibility": {
         "technical": "implementation, state correctness, performance and full operation-chain acceptance",
         "interaction": "design audit; shared evidence, coordinate changes",
@@ -89,7 +89,7 @@
     },
     {
       "id": "dashboard-library",
-      "operation_chain": "Dashboard \u2192 statistics/recent content \u2192 library \u2192 search/filter \u2192 open content",
+      "operation_chain": "Dashboard → statistics/recent content → library → search/filter → open content",
       "responsibility": {
         "technical": "implementation, state correctness, performance and full operation-chain acceptance",
         "interaction": "design audit; shared evidence, coordinate changes",
@@ -113,7 +113,7 @@
     },
     {
       "id": "multipart-series",
-      "operation_chain": "Import multi-P \u2192 series grouping including P1 \u2192 part selection \u2192 reader navigation",
+      "operation_chain": "Import multi-P → series grouping including P1 → part selection → reader navigation",
       "responsibility": {
         "technical": "implementation, state correctness, performance and full operation-chain acceptance",
         "interaction": "design audit; shared evidence, coordinate changes",
@@ -137,7 +137,7 @@
     },
     {
       "id": "podcast-subscriptions",
-      "operation_chain": "Subscribe/import subscriptions \u2192 episodes \u2192 search/page \u2192 open episode",
+      "operation_chain": "Subscribe/import subscriptions → episodes → search/page → open episode",
       "responsibility": {
         "technical": "implementation, state correctness, performance and full operation-chain acceptance",
         "interaction": "design audit; shared evidence, coordinate changes",
@@ -161,7 +161,7 @@
     },
     {
       "id": "podcast-processing-delete",
-      "operation_chain": "Test episode \u2192 process \u2192 read/version \u2192 delete summary retaining episode \u2192 delete test source",
+      "operation_chain": "Test episode → process → read/version → delete summary retaining episode → delete test source",
       "responsibility": {
         "technical": "implementation, state correctness, performance and full operation-chain acceptance",
         "interaction": "design audit; shared evidence, coordinate changes",
@@ -185,7 +185,7 @@
     },
     {
       "id": "article-import-media",
-      "operation_chain": "Import article \u2192 source publication/author \u2192 inline video/GIF \u2192 read/export",
+      "operation_chain": "Import article → source publication/author → inline video/GIF → read/export",
       "responsibility": {
         "technical": "implementation, state correctness, performance and full operation-chain acceptance",
         "interaction": "design audit; shared evidence, coordinate changes",
@@ -209,7 +209,7 @@
     },
     {
       "id": "processing-retry-cancel",
-      "operation_chain": "Create/import \u2192 queued \u2192 processing \u2192 cancel/retry after timeout \u2192 completed \u2192 reopen",
+      "operation_chain": "Create/import → queued → processing → cancel/retry after timeout → completed → reopen",
       "responsibility": {
         "technical": "implementation, state correctness, performance and full operation-chain acceptance",
         "interaction": "design audit; shared evidence, coordinate changes",
@@ -233,7 +233,7 @@
     },
     {
       "id": "parallel-progress",
-      "operation_chain": "Process while browsing/searching/reading/deleting other test content \u2192 disconnect/reconnect \u2192 refresh/multiple tabs",
+      "operation_chain": "Process while browsing/searching/reading/deleting other test content → disconnect/reconnect → refresh/multiple tabs",
       "responsibility": {
         "technical": "implementation, state correctness, performance and full operation-chain acceptance",
         "interaction": "design audit; shared evidence, coordinate changes",
@@ -257,7 +257,7 @@
     },
     {
       "id": "recovery",
-      "operation_chain": "Saved unpublished backup/history \u2192 restore \u2192 concurrent new completion \u2192 newest content",
+      "operation_chain": "Saved unpublished backup/history → restore → concurrent new completion → newest content",
       "responsibility": {
         "technical": "implementation, state correctness, performance and full operation-chain acceptance",
         "interaction": "design audit; shared evidence, coordinate changes",
@@ -281,7 +281,7 @@
     },
     {
       "id": "settings-platforms",
-      "operation_chain": "Settings/model listing \u2192 save \u2192 platform connection \u2192 reload",
+      "operation_chain": "Settings/model listing → save → platform connection → reload",
       "responsibility": {
         "technical": "implementation, state correctness, performance and full operation-chain acceptance",
         "interaction": "design audit; shared evidence, coordinate changes",
@@ -305,7 +305,7 @@
     },
     {
       "id": "export",
-      "operation_chain": "Summary \u2192 copy/download/print/Notion export \u2192 verify output",
+      "operation_chain": "Summary → copy/download/print/Notion export → verify output",
       "responsibility": {
         "technical": "implementation, state correctness, performance and full operation-chain acceptance",
         "interaction": "design audit; shared evidence, coordinate changes",
@@ -329,7 +329,7 @@
     },
     {
       "id": "auth-account",
-      "operation_chain": "Sign in/out \u2192 account boundary \u2192 expired session \u2192 password reset",
+      "operation_chain": "Sign in/out → account boundary → expired session → password reset",
       "responsibility": {
         "technical": "implementation, state correctness, performance and full operation-chain acceptance",
         "interaction": "design audit; shared evidence, coordinate changes",
@@ -372,6 +372,16 @@
       "actual_image_inspection": true,
       "authenticated_coverage": false,
       "workflow": "../cloud-browser-inspection.md"
+    }
+  ],
+  "visual_inspection_runs": [
+    {
+      "id": "20261106-authenticated-followup",
+      "report": "2026-11-06-authenticated-visual-followup.json",
+      "environment": "production authorized test account",
+      "status": "partial; authenticated verification passed; two observations need investigation",
+      "evidence_private": "/workspace/browser-validation/auth-exploration-20261106",
+      "next_focus": "Series directory response and historical image availability; expand theme/page coverage"
     }
   ]
 }
