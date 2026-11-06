@@ -229,7 +229,16 @@
       ],
       "issues": [],
       "in_progress_prs": [],
-      "next_check": "Validate retry cannot remain queued with no worker; authorized isolated model budget required"
+      "next_check": "Validate retry cannot remain queued with no worker; authorized isolated model budget required",
+      "supplementary_checks": [
+        {
+          "checked_at": "2026-11-06T12:33:08.553319+08:00",
+          "environment": "isolated local HTTP/SQLite, synthetic fixtures",
+          "result": "passed_lower_level_only",
+          "evidence": "2026-11-06-manual-technical.json",
+          "limitation": "Not full API/UI operation-chain or production acceptance; preserve previous main feature result and pending PR239 evidence"
+        }
+      ]
     },
     {
       "id": "parallel-progress",
@@ -277,7 +286,16 @@
       ],
       "issues": [],
       "in_progress_prs": [],
-      "next_check": "Isolated real database concurrent restore/write; no production mutation"
+      "next_check": "Isolated real database concurrent restore/write; no production mutation",
+      "supplementary_checks": [
+        {
+          "checked_at": "2026-11-06T12:33:08.553319+08:00",
+          "environment": "isolated local HTTP/SQLite, synthetic fixtures",
+          "result": "passed_lower_level_only",
+          "evidence": "2026-11-06-manual-technical.json",
+          "limitation": "Not full API/UI operation-chain or production acceptance; preserve previous main feature result and pending PR239 evidence"
+        }
+      ]
     },
     {
       "id": "settings-platforms",
@@ -350,6 +368,18 @@
       "issues": [],
       "in_progress_prs": [],
       "next_check": "Authorized test identities; no forged tokens"
+    }
+  ],
+  "supplementary_audit_runs": [
+    {
+      "checked_at": "2026-11-06T12:33:08.553319+08:00",
+      "report": "2026-11-06-manual-technical.json",
+      "result": "partial",
+      "scope": "Isolated injected HTTP524, process death and local save recovery; no feature promoted to production acceptance",
+      "related_pending_prs": [
+        239,
+        240
+      ]
     }
   ]
 }
