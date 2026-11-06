@@ -1,0 +1,184 @@
+{
+  "checked_at": "2026-11-06T21:09:30.640432+08:00",
+  "scope": "Scheduled technical and PM audit; authenticated read-only discovery",
+  "tested_source": "906393581ce23ef5bbf1594070834a1bcf8a9f19",
+  "production_revision": "95b2712bd7da8102c829ccdfebeaf4a4aab0d444",
+  "baseline": {
+    "main_application_changes": "none since last audit; latest main documentation only",
+    "open_prs": [
+      239,
+      240,
+      241,
+      242
+    ],
+    "reviewed": "AGENTS.md, UI contracts, shared coverage, prior Nov05/Nov06 reports, PR239/240/241 states and PR242 authenticated follow-up",
+    "coordination": "Reused PR242 secure browser harness. No duplicate browser-tool implementation or application patch. Supplement existing audit PR241 with findings."
+  },
+  "environment": {
+    "runtime": "current observations ready; unrestricted HTTP enforced, no VPN",
+    "browser": "system Chromium154.0.8037.57 + Python Playwright1.64.0; shell require_escalated; Chromium sandbox and TLS verification enabled",
+    "credentials": "Normal UI sign-in from confidential terminal input; protected /api/stats response confirmed. No credential or cookie values persisted. Model binding unchanged from previous HTTP401 probe; no new paid call.",
+    "account": "User-authorized account with two Library titles; existing content read-only",
+    "write_guard": "Allow GET/HEAD/OPTIONS and initial normal signin only; performance telemetry locally suppressed. Other writes aborted; local preference/reading changes may occur but server mutation not accepted. Therefore cross-device read-progress sync is not tested."
+  },
+  "discovery": {
+    "library": {
+      "steps": [
+        "Normal login",
+        "Dashboard to Library link, including mobile navigation",
+        "Reload on desktop/tablet/mobile",
+        "Search unique no-match query",
+        "Clear search and restore 2 titles"
+      ],
+      "titles": 2,
+      "pagination": "No Show more control; large-list pagination not tested",
+      "viewports": [
+        [
+          1440,
+          900
+        ],
+        [
+          768,
+          1024
+        ],
+        [
+          390,
+          844
+        ]
+      ],
+      "horizontal_overflow": false
+    },
+    "series": {
+      "steps": [
+        "Expand existing series",
+        "Observe fallback saved episode",
+        "Refresh directory"
+      ],
+      "http_statuses": [
+        409,
+        409
+      ],
+      "initial_response_ms": 257,
+      "returned_parts": 0,
+      "fallback_saved_episodes": 1,
+      "fallback_read_link_available": true,
+      "backend_detail_matched_missing_manifest": true
+    },
+    "reader": {
+      "steps": [
+        "Open one ordinary saved summary",
+        "Read nonempty summary",
+        "Select Transcript and observe nonempty panel",
+        "Reload and read saved note response",
+        "Open More summary actions and Version history",
+        "Select one saved version",
+        "Return to latest",
+        "Open Dashboard task history"
+      ],
+      "summary_read": true,
+      "transcript_nonempty": true,
+      "version_choices_including_latest": 2,
+      "historical_version_http": 200,
+      "historical_version_nonempty": true,
+      "task_history_opened": true,
+      "saved_markdown_hash_unchanged_across_reload": true,
+      "saved_status_before_after": [
+        "success",
+        "success"
+      ],
+      "dom_text_equality": false,
+      "interpretation": "API Markdown and saved status stable. Whole-reader DOM text equality did not pass, even after excluding some dynamic media elements; loader/media timing versus reader rendering difference remains unresolved. Not accepted as complete UI refresh/version consistency."
+    },
+    "console": "No uncaught pageerror events recorded; full console-message collection not performed. HTTP asset failures explicitly retained. Guard-aborted background writes are harness-induced, not counted as product failures."
+  },
+  "visual_review": {
+    "method": "All three authenticated Library screenshots opened and inspected via view_image",
+    "observations": [
+      "Desktop/tablet layouts show two cards with readable controls; no visible horizontal collision",
+      "Mobile is a single-column layout; second card continues below the fold",
+      "Desktop screenshot still contains Loading sources and fallback artwork; not final source-filter or artwork acceptance",
+      "Tablet/mobile screenshots contain loaded artwork"
+    ],
+    "private_paths": [
+      "/workspace/technical-pm-evidence-20261106/authenticated-1440x900.png",
+      "/workspace/technical-pm-evidence-20261106/authenticated-768x1024.png",
+      "/workspace/technical-pm-evidence-20261106/authenticated-390x844.png"
+    ],
+    "privacy": "Private account screenshots remain only in workspace, not committed to repository. Sanitized request categories, counts and hashes persisted; no source text or title included."
+  },
+  "findings": [
+    {
+      "id": "series-partial-load",
+      "priority": "P2",
+      "severity": "medium",
+      "reproduction": "Library -> View episodes -> Refresh on existing series",
+      "expected": "Discover and select full source collection without blindly regenerating saved content",
+      "actual": "Both directory requests HTTP409; saved episode remains readable",
+      "cause": "Immediate cause confirmed: _owned_collection requires source_metadata.bilibili_parts, otherwise returns the exact observed409 detail. Why historical manifest was never saved or is absent is not established.",
+      "confidence": "high for immediate API condition; low for historical provenance",
+      "affected": "One inspected legacy series; wider frequency unknown",
+      "recommendation": "Design metadata-only directory discovery/backfill separately from model regeneration; review ownership, source availability and preservation of saved notes before implementation. Do not auto-reprocess existing content.",
+      "acceptance": "Authorized isolated fixture missing manifest can discover all valid parts without changing saved summaries/history, and failure has a clear next step",
+      "rollback": "Any proposed backfill must use per-row metadata backups and a reversible rollout; no change made",
+      "owner": "technical + PM, shared with design PR242",
+      "modified": false
+    },
+    {
+      "id": "historical-image-missing",
+      "priority": "P2",
+      "severity": "medium for affected reader; occurrence breadth unknown",
+      "reproduction": "Open one ordinary saved summary and load associated screenshots",
+      "actual": "Repeated screenshot resource HTTP404; previous design audit saw missing-image fallback",
+      "cause": "Resource unavailable at requested endpoint; file loss, old references and storage routing not distinguished",
+      "confidence": "high for404; low for underlying cause",
+      "recommendation": "Read-only inventory of affected references and backup availability before any approved recovery; no model regeneration or content mutation",
+      "acceptance": "All expected historical images render or accurately identify which cannot be recovered; note/version text remains unchanged",
+      "modified": false
+    },
+    {
+      "id": "reader-dom-refresh-comparison",
+      "priority": "investigation",
+      "severity": "unconfirmed",
+      "actual": "Whole reader DOM hashes differ while server Markdown hash and success state match",
+      "confidence": "insufficient to classify product defect",
+      "recommendation": "Next pass use render-ready markers, await image/error resolution and compare semantic content nodes; keep transient UI apart from persisted source text",
+      "modified": false
+    }
+  ],
+  "pm": {
+    "user_goal_result": "Find and read a saved note, transcript and a historical version achieved on one item. Full series exploration blocked; images incomplete; full rendered refresh consistency unresolved.",
+    "top_priorities": [
+      "P2 legacy directory discovery without unnecessary reprocessing",
+      "P2 historical media availability investigation",
+      "Resolve DOM comparison before asserting UI consistency"
+    ],
+    "business_metrics": "No analytics/user-study evidence; usage, impact frequency and conversion unknown"
+  },
+  "regressions": {
+    "files": [
+      "tests/test_bilibili_collection_workflow.py",
+      "tests/test_library_paging.py"
+    ],
+    "result": "16 passed in0.81s",
+    "limits": "Existing tests use controlled data/mocks; not acceptance of missing production metadata. No assertions weakened.",
+    "build": "Not rerun; no application/frontend changes; latest baseline CI successful"
+  },
+  "harness_limits": [
+    "First reader pass used nonexistent role=region locator; corrected to existing #video-content-scroll",
+    "Second pass timed out at reader reload; not enough evidence to call an application failure",
+    "A later pass captured initial card count before library loaded; removed completed search steps from targeted reader follow-up",
+    "Raw per-run status PASS means script completed; false consistency booleans remain explicit failures of those checks, not overridden by aggregate status"
+  ],
+  "blocked_or_unchecked": [
+    "Real long inference concurrent with browsing/search/reading/deleting synthetic data: last model probe401 and no configured working path this round",
+    "Real provider524 and hosted Supabase queue/service restart: independent staging not provisioned",
+    "Large-list pagination: only2 titles in inspected account",
+    "Full podcast import/process/version/delete chain and subscription checks",
+    "Cross-device task/read-state synchronization; guarded writes were blocked",
+    "Physical mobile/tablet, other theme combinations, full console collection"
+  ],
+  "evidence_directory": "evidence/2026-11-06-pm",
+  "application_changes": [],
+  "deployment": "none; no confirmed authorized small code repair",
+  "next_check": "Resolve saved-reader semantic rendering comparison and metadata-only collection discovery proposal; then complete unaccepted model/staging workflows."
+}
