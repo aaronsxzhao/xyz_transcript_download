@@ -351,5 +351,14 @@
       "in_progress_prs": [],
       "next_check": "Authorized test identities; no forged tokens"
     }
+  ],
+  "visual_inspection_runs": [
+    {
+      "id": "20261107-pm-remediation",
+      "report": "2026-11-07-visual-remediation.json",
+      "status": "reader false-positive closed; local gaps tested; data/grouping changes need decision",
+      "owner": "visual audit; data recovery coordinated with technical PR241",
+      "evidence": "/workspace/browser-validation/20261107-pm"
+    }
   ]
 }

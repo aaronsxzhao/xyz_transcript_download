@@ -1,0 +1,116 @@
+{
+  "run": "20261107-pm-remediation",
+  "main_sha": "906393581ce23ef5bbf1594070834a1bcf8a9f19",
+  "production_sha": "95b2712bd7da8102c829ccdfebeaf4a4aab0d444",
+  "health": "ok",
+  "harness": "PR242 fa139da reviewed before reuse; docs now0bb92d6",
+  "technical_review": "PR241 c6bb7b4 remediation follow-up; PR239/240/241/242 remain open",
+  "environment": {
+    "config": "cecfg_6ad393188adc819db89d4628d0f79658",
+    "chromium": "154.0.8037.57",
+    "python": "3.12.14",
+    "playwright": "1.62.0",
+    "libs": "no missing dynamic libraries",
+    "network": "inherited proxy/CA retained; policy unrestricted enforced",
+    "security": "chromium_sandbox=True; ignore_https_errors=False; supported elevated shell",
+    "setup": "npm ci --ignore-scripts in isolated worktree; no dependency version changes",
+    "desktop": "not exercised; headless automation independently verified"
+  },
+  "issue_disposition": [
+    {
+      "id": "reader-refresh-wait",
+      "state": "verified_no_product_fix_needed; harness corrected",
+      "severity": "test false positive",
+      "reproduction": "Library ordinary reader >Transcript >Summary >reload",
+      "root_cause": "networkidle navigation timeout while Summary remains selected and formatted article visible; failing operation captured before_reload",
+      "confidence": "high for waiting-condition misclassification; exact outstanding network request not isolated",
+      "verification": "Fresh normal sign-in/protected API; reload domcontentloaded plus protected note200, selected Summary, same heading, visible formatted article with >1000 chars; PASS",
+      "persistent_fix": "PR242 docs/cloud-browser-inspection.md Reader refresh readiness; bounded verified.py saved as regression evidence"
+    },
+    {
+      "id": "videos-library-count",
+      "state": "requires_product_decision",
+      "severity": "P2 discoverability/data grouping",
+      "reproduction": "Same account Library2 saved titles, Videos0; wait actual channels response",
+      "root_cause": "GET channels200 with empty array; both saved note responses have missing channel metadata; aggregation excludes empty/null channels",
+      "confidence": "high for samples and matching implementation",
+      "proposal": "Define Unknown Channel grouping and its navigation/count behavior, or recover verified channel metadata. Do not silently invent channel identity.",
+      "acceptance": "Two existing saved notes discoverable through intended Videos grouping, counts and back/reload consistent, ordinary/series regression passes",
+      "boundary": "Changes grouping/navigation/data; outside minor presentation authorization"
+    },
+    {
+      "id": "series-partial-load",
+      "state": "requires_metadata_recovery_decision",
+      "severity": "P2",
+      "root_cause": "Prior technical authenticated409 matched missing legacy manifest; existing saved episode remains readable",
+      "confidence": "high based on PR241 original evidence; no claim new independent409 capture this run",
+      "attempted": "Read implementation and latest technical result; navigated saved series episode successfully in verified probe",
+      "remaining": "Choose metadata-only discovery/backfill with preserved summaries; verify ordered complete parts and saved/current statuses",
+      "required": "Authorization for metadata write and safe source access; existing-content read-only remains in effect"
+    },
+    {
+      "id": "historical-image-missing",
+      "state": "external_data_recovery_blocked",
+      "severity": "P2",
+      "root_cause": "PR241 read-only integrity inventory found13 missing image references across2 notes; current reader shows missing-image fallback",
+      "confidence": "high for missing assets; source of loss not established",
+      "attempted": "Read latest integrity evidence; live reader refresh and actual screenshot inspection; no regeneration",
+      "remaining": "Obtain backup inventory or authorize scoped existing screenshot repair from original source; preserve saved text/versions",
+      "required": "Readable backup/original source plus permission for production media restoration",
+      "acceptance": "13 references load successfully, two notes and saved versions unchanged"
+    },
+    {
+      "id": "hosted-ci",
+      "state": "verified_current_green",
+      "attempted": "gh pr checks241 on current c6bb7b4",
+      "run": 42356096455,
+      "result": "Frontend/Python/PostgreSQL/Test Summary pass; optional health/appearance jobs skipped",
+      "limit": "Older failure root cause unknown; latest green is not proof of a code repair"
+    },
+    {
+      "id": "large-list-and-form-gaps",
+      "state": "local_acceptance_completed; live_limits_remain",
+      "result": "Dashboard12->18 pagination, article filter, keyboard channel navigation pass320/390/1440;48 form cases pass;108 page bounds cases pass",
+      "limit": "Synthetic local responses; live account has2 titles and cannot establish production pagination/provider recovery"
+    }
+  ],
+  "A_live": [
+    "Anonymous reversible checkbox, protected navigation/reload at1440x900,768x1024,390x844;3 images inspected",
+    "Verified normal sign-in and protected API; Videos actual API result and empty-state",
+    "Library ordinary note >Transcript >Summary >refresh; explicit content readiness passed",
+    "Library series >saved episode readable; no content writes"
+  ],
+  "B_local": {
+    "build": "TypeScript/Vite/bundle budget PASS197.7KiB <=197.75KiB",
+    "auth": "48 cases:4 modes x4 appearances x3 widths390/820/1440; pending disabled, duplicate-submit suppression, draft preservation, error/retry, feedback contrast assertions",
+    "matrix": "108 checks:9 pages x4 appearances x3 widths390/820/1440; bounds and JS error assertions",
+    "dashboard": "3 widths320/390/1440:12->18 pagination, filter, admission and keyboard navigation",
+    "launch_delta": "Temporary copies change only args=[--no-sandbox] to chromium_sandbox=True; assertions unchanged",
+    "manual_review": "3 matrix and2 form screenshots sampled; remaining screenshots not visually accepted"
+  },
+  "C_remaining": [
+    "Actual production media restoration and metadata recovery need scoped data-write authorization",
+    "Real long-inference/processing and provider failure recovery not run; PR241 reports normalized model endpoint401, no paid call attempted",
+    "Cross-device read/dismiss sync not tested: non-login writes blocked",
+    "Physical devices and shared desktop not tested",
+    "All page/control hover/focus/slow-network states not exhaustively visually inspected; local matrix is partial protection, not full manual acceptance"
+  ],
+  "security_review": {
+    "rejected": "Interactive authenticated exec(command,scope) driver",
+    "reason": "Automatic approval review rejected arbitrary-code access to authenticated context/environment/network",
+    "resolution": "Did not execute it; fixed, bounded read-only probe approved and completed. No unresolved need for arbitrary driver."
+  },
+  "application_changes": [],
+  "deployment": "none; no eligible confirmed minor presentation defect",
+  "private_evidence": "/workspace/browser-validation/20261107-pm",
+  "commands": [
+    "python scripts/check_cloud_browser.py --output appearance-checks/cloud-browser/20261107-pm/anonymous",
+    "python /workspace/browser-validation/20261107-pm/probe.py --authenticated --output /workspace/browser-validation/20261107-pm/fixed-probe",
+    "python /workspace/browser-validation/20261107-pm/diagnose.py --authenticated --output /workspace/browser-validation/20261107-pm/diagnostic",
+    "python /workspace/browser-validation/20261107-pm/verified.py --authenticated --output /workspace/browser-validation/20261107-pm/verified",
+    "npm --prefix web ci --ignore-scripts && npm --prefix web run build",
+    "python scripts/_secure_check_auth_forms.py --browser-path /usr/bin/chromium --widths 390 820 1440 --output /workspace/browser-validation/20261107-pm/local-auth",
+    "python scripts/_secure_check_ui_page_matrix.py --browser-path /usr/bin/chromium --output <private>/local-matrix",
+    "python scripts/_secure_check_dashboard_recent.py --browser-path /usr/bin/chromium"
+  ]
+}

@@ -1,0 +1,39 @@
+{
+  "channels": {
+    "http": 200,
+    "count": 0,
+    "total": 0
+  },
+  "videos_empty_visible": true,
+  "library_cards": 2,
+  "initial_formatted": true,
+  "protected_note_reload_200": true,
+  "same_title_after_reload": true,
+  "after_reload": {
+    "summary_selected": "true",
+    "article_count": 1,
+    "formatted_count": 1,
+    "plain_count": 0,
+    "formatted_visible": true,
+    "main_scroll": 0,
+    "summary_panel_hidden": null
+  },
+  "refresh_assertion": "PASS",
+  "task_metadata": [
+    {
+      "channel_missing": true,
+      "has_markdown": true,
+      "status": "success"
+    },
+    {
+      "channel_missing": true,
+      "has_markdown": true,
+      "status": "success"
+    },
+    {
+      "channel_missing": true,
+      "has_markdown": true,
+      "status": "success"
+    }
+  ]
+}

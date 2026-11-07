@@ -1,0 +1,32 @@
+{
+  "channels": {
+    "http": 200,
+    "count": 0,
+    "total": 0
+  },
+  "videos_empty_visible": true,
+  "library_cards": 2,
+  "initial_formatted": true,
+  "last_step": "failure_at_before_reload",
+  "tabs": [
+    {
+      "name": "Summary",
+      "selected": "true"
+    },
+    {
+      "name": "Transcript",
+      "selected": "false"
+    },
+    {
+      "name": "Mind map",
+      "selected": "false"
+    }
+  ],
+  "articles": [
+    {
+      "rendering": "formatted",
+      "visible": true
+    }
+  ],
+  "error_type": "TimeoutError"
+}

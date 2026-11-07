@@ -1,0 +1,35 @@
+{
+  "method": "view_image; actual image content inspected",
+  "reviewed": {
+    "anonymous": [
+      "anonymous-1440x900.png",
+      "anonymous-768x1024.png",
+      "anonymous-390x844.png"
+    ],
+    "diagnostic": [
+      "diagnostic-failure.png"
+    ],
+    "verified": [
+      "videos-ready.png",
+      "reader-initial.png",
+      "reader-reloaded.png"
+    ],
+    "local-matrix": [
+      "classic-light-390-article.png",
+      "editorial-dark-820-settings.png",
+      "editorial-light-390-transcript.png"
+    ],
+    "local-auth": [
+      "classic-light-390-signin-result.png",
+      "editorial-light-820-recovery-result.png"
+    ]
+  },
+  "observations": [
+    "Anonymous login form fits3 viewports.",
+    "Reader remains readable after refresh; missing screenshot feedback is separate from content acceptance.",
+    "Videos empty-state is real API/data outcome, not a loading screenshot.",
+    "Local original article wraps unbroken text; transcript wraps at390px; selected settings tab visible.",
+    "Synthetic form failure/success feedback readable; fixture values are not real credentials."
+  ],
+  "not_reviewed": "All other captured local matrix/form images; automation results only."
+}
