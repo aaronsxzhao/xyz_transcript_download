@@ -106,6 +106,13 @@
           "account_type": "authorized account, existing data read-only",
           "data_scale": "2 Library titles;1 ordinary reader and1 series",
           "responsibility": "technical + PM, coordinated with design PR242"
+        },
+        {
+          "checked_at": "2026-11-07T09:04:12.403725+08:00",
+          "report": "2026-11-07-technical-pm.json",
+          "result": "partial",
+          "scope": "Formatted reader reload/latest restore stable on1 item; empty podcast search/clear/reload; Library2 titles, no pagination",
+          "remaining": "No deletion/import/generation or sustained concurrent work accepted"
         }
       ]
     },
@@ -141,6 +148,13 @@
           "account_type": "authorized account, existing data read-only",
           "data_scale": "2 Library titles;1 ordinary reader and1 series",
           "responsibility": "technical + PM, coordinated with design PR242"
+        },
+        {
+          "checked_at": "2026-11-07T09:04:12.403725+08:00",
+          "report": "2026-11-07-technical-pm.json",
+          "result": "partial",
+          "scope": "Formatted reader reload/latest restore stable on1 item; empty podcast search/clear/reload; Library2 titles, no pagination",
+          "remaining": "No deletion/import/generation or sustained concurrent work accepted"
         }
       ]
     },
@@ -201,7 +215,16 @@
       ],
       "issues": [],
       "in_progress_prs": [],
-      "next_check": "Investigate Xiaoyuzhou import feasibility read-only; no development"
+      "next_check": "Investigate Xiaoyuzhou import feasibility read-only; no development",
+      "production_followups": [
+        {
+          "checked_at": "2026-11-07T09:04:12.403725+08:00",
+          "report": "2026-11-07-technical-pm.json",
+          "result": "partial",
+          "scope": "Formatted reader reload/latest restore stable on1 item; empty podcast search/clear/reload; Library2 titles, no pagination",
+          "remaining": "No deletion/import/generation or sustained concurrent work accepted"
+        }
+      ]
     },
     {
       "id": "podcast-processing-delete",
@@ -443,6 +466,19 @@
       "report": "2026-11-06-evening-technical-pm.json",
       "environment": "authenticated production Chromium, read-only guard",
       "result": "partial; two reproduced issues and unresolved DOM consistency",
+      "related_prs": [
+        239,
+        240,
+        241,
+        242
+      ]
+    },
+    {
+      "checked_at": "2026-11-07T09:04:12.403725+08:00",
+      "report": "2026-11-07-technical-pm.json",
+      "result": "partial",
+      "scope": "Authenticated2-title Library;1 formatted reader refresh/history; empty podcast search/reload",
+      "issues": "Historical media404; model-list401; hosted frontend CI failure unresolved",
       "related_prs": [
         239,
         240,

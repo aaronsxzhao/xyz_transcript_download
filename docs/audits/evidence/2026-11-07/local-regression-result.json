@@ -1,0 +1,17 @@
+{
+  "exit_code": 0,
+  "design": "editorial",
+  "browser": "Chromium154",
+  "themes": {
+    "light": {
+      "records": 2126,
+      "result": "passed"
+    },
+    "dark": {
+      "records": 2126,
+      "result": "passed"
+    }
+  },
+  "assertions": "unchanged",
+  "scope": "Synthetic local API; not production or CI Classic/WebKit"
+}
