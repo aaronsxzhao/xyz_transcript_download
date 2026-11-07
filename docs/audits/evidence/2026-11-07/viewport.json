@@ -1,0 +1,55 @@
+{
+  "started_at": "2026-11-07T01:01:07.641897+00:00",
+  "origin": "https://aipodcastsummary.online",
+  "mode": "authenticated",
+  "authenticated_session_verified": true,
+  "visual_inspection": "Three screenshots opened via view_image; Classic dark, no horizontal clipping; desktop source/artwork still loading, not fully stabilized image/filter acceptance.",
+  "sandbox_enabled": true,
+  "tls_verification": true,
+  "checks": [
+    {
+      "viewport": [
+        1440,
+        900
+      ],
+      "status": "PASS",
+      "interaction": "Library navigation link clicked",
+      "reload": "PASS",
+      "screenshot": "authenticated-1440x900.png",
+      "horizontal_overflow": false
+    },
+    {
+      "viewport": [
+        768,
+        1024
+      ],
+      "status": "PASS",
+      "interaction": "Library navigation link clicked",
+      "reload": "PASS",
+      "screenshot": "authenticated-768x1024.png",
+      "horizontal_overflow": false
+    },
+    {
+      "viewport": [
+        390,
+        844
+      ],
+      "status": "PASS",
+      "interaction": "Library navigation link clicked",
+      "reload": "PASS",
+      "screenshot": "authenticated-390x844.png",
+      "horizontal_overflow": false
+    }
+  ],
+  "blocked_write_requests": 18,
+  "browser_version": "154.0.8037.57",
+  "note_reads": [],
+  "page_error_count": 0,
+  "discovery": {},
+  "timeout_at": "setup",
+  "status": "FAIL",
+  "failure_category": "application",
+  "error_type": "AssertionError",
+  "failure_signature": "See failing stage; raw exception omitted to protect credentials",
+  "network_error_counts": []
+}
