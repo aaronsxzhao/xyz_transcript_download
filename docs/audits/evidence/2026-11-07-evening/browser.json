@@ -1,0 +1,112 @@
+{
+  "started_at": "2026-11-07T13:07:07.633944+00:00",
+  "origin": "https://aipodcastsummary.online",
+  "mode": "authenticated",
+  "authenticated_session_verified": true,
+  "visual_inspection": "Three viewport Library and YouTube diagnostic screenshots opened with view_image",
+  "sandbox_enabled": true,
+  "tls_verification": true,
+  "checks": [
+    {
+      "viewport": [
+        1440,
+        900
+      ],
+      "status": "PASS",
+      "interaction": "Library navigation link clicked",
+      "reload": "PASS",
+      "screenshot": "authenticated-1440x900.png",
+      "horizontal_overflow": false
+    },
+    {
+      "viewport": [
+        768,
+        1024
+      ],
+      "status": "PASS",
+      "interaction": "Library navigation link clicked",
+      "reload": "PASS",
+      "screenshot": "authenticated-768x1024.png",
+      "horizontal_overflow": false
+    },
+    {
+      "viewport": [
+        390,
+        844
+      ],
+      "status": "PASS",
+      "interaction": "Library navigation link clicked",
+      "reload": "PASS",
+      "screenshot": "authenticated-390x844.png",
+      "horizontal_overflow": false
+    }
+  ],
+  "blocked_write_requests": 24,
+  "browser_version": "154.0.8037.57",
+  "note_reads": [
+    {
+      "markdown_sha256": "768f58d228a650147f431c4609b8e58f55195eac72ba44110bb938950b816685",
+      "status": "success",
+      "versions": 1
+    },
+    {
+      "markdown_sha256": "768f58d228a650147f431c4609b8e58f55195eac72ba44110bb938950b816685",
+      "status": "success",
+      "versions": 1
+    }
+  ],
+  "page_error_count": 0,
+  "console_error_count": 58,
+  "discovery": {
+    "search": {
+      "title_count": 2,
+      "cleared": true,
+      "pagination_available": false
+    },
+    "reader": {
+      "summary_nonempty": true,
+      "transcript_empty_message": false,
+      "transcript_panel_nonempty": true,
+      "summary_same_after_reload": false,
+      "more_actions_available": true,
+      "history_control_available": true,
+      "version_choices": 2,
+      "historical_version_http": 200,
+      "historical_note_nonempty": true,
+      "latest_restored": false
+    },
+    "task_history_available": true,
+    "task_history_opened": true,
+    "podcast_search": {
+      "no_match_visible": true,
+      "clear_succeeded": true,
+      "empty_account": true,
+      "reload_succeeded": true
+    },
+    "youtube_verification": {
+      "reference": "709f9aac-2a99-459d-9d3a-c2b581ee82b9",
+      "code": "storage_unavailable",
+      "stage": "cookie",
+      "cookie_present": false,
+      "metadata_ok": false,
+      "download_ok": false,
+      "sample_bytes": 0,
+      "runtime": {},
+      "http_status": 200,
+      "observed_seconds": 0.17,
+      "retry_available": true,
+      "report_clears_on_input": true
+    },
+    "settings_reload_logged_in": true
+  },
+  "discovery_stage": "task_history",
+  "saved_markdown_unchanged_across_reads": true,
+  "status": "PARTIAL: core interactions succeeded; initial semantic comparisons false; diagnostic failed before upstream access",
+  "network_summary": [
+    {
+      "status": 404,
+      "kind": "screenshot",
+      "count": 34
+    }
+  ]
+}
