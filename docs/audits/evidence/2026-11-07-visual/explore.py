@@ -191,7 +191,7 @@ def main():
             page.get_by_text('Task history',exact=False).first.click()
             expect(page.get_by_role('dialog')).to_be_visible()
             capture('task-history')
-            page.get_by_role('dialog').get_by_role('link',name='Read summary',exact=True).first.click()
+            page.get_by_role('dialog').get_by_role('button',name='Read summary',exact=True).first.click()
             expect(page.locator('article[data-rendering="formatted"]')).to_be_visible(timeout=60000)
             capture('task-reader')
             page.reload(wait_until='networkidle')
