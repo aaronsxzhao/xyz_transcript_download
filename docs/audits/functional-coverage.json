@@ -351,5 +351,15 @@
       "in_progress_prs": [],
       "next_check": "Authorized test identities; no forged tokens"
     }
+  ],
+  "remediation_followups": [
+    {
+      "date": "2026-11-07 evening",
+      "report": "docs/audits/2026-11-07-evening-technical-pm.json",
+      "issue": "empty-cookie lookup misclassified as storage outage",
+      "pr": 243,
+      "state": "local fixed; CI pending",
+      "prior_evidence": "PR241 c6bb7b4; preserved on its branch"
+    }
   ]
 }

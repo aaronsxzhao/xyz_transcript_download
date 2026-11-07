@@ -1,0 +1,48 @@
+{
+  "checked_at": "2026-11-07T13:18:00Z",
+  "baseline": "906393581ce23ef5bbf1594070834a1bcf8a9f19",
+  "production_before": "95b2712bd7da8102c829ccdfebeaf4a4aab0d444",
+  "scope": "Authenticated read-only core flows plus platform verification error recovery; synthetic cookie storage/UI regressions",
+  "environment": {
+    "state": "current connected, network enforced unrestricted; GH and model bindings ready",
+    "versions": "Python3.11.17, Playwright1.64.0, Chromium154.0.8037.57",
+    "launch": "supported elevated shell; Chromium sandbox and TLS verification enabled; no missing dynamic libraries"
+  },
+  "discovery": {
+    "account_scale": "2 titles; one summary/transcript/version reader; no podcast subscriptions",
+    "core": "Library search/clear, three viewport navigation/reload, summary/transcript/history/task panel checked",
+    "reader": "Initial formatted DOM comparison differed; separately timed settled samples matched (3055 chars,8 math nodes each) with stable API Markdown. Timing hypothesis remains; no product content repair.",
+    "platform": "Settings -> Platform Accounts -> YouTube -> bounded verify -> failure -> retry available -> clear report -> reload. Response storage_unavailable at cookie stage,0.17s; upstream YouTube never reached.",
+    "errors": "0 pageerror;58 console error events including34 screenshot404 and harness-aborted mutations; not a clean console claim"
+  },
+  "fix": {
+    "pr": 243,
+    "problem": "PostgREST maybe_single returns None for zero rows; unguarded result.data causes AttributeError converted to storage_unavailable",
+    "reproduction": "Original function + synthetic empty response raises RuntimeError caused by AttributeError; new end-to-end diagnostic regression verifies missing_cookie and no probe call",
+    "change": "Guard None; show cookie presence unknown when storage_unavailable; preserve ownership filters and actual storage failure handling",
+    "scope": "No auth policy/schema/credential handling change; no existing data writes",
+    "status": "local validated; CI pending"
+  },
+  "regression": {
+    "python": "38 diagnostic/redaction tests passed",
+    "frontend": "539 tests passed",
+    "build": "TypeScript/Vite passed,197.1KiB <=197.75KiB unchanged budget",
+    "browser": "12 Classic/Editorial light/dark 390/820/1440 combinations; Chromium with sandbox; success/forbidden/storage/missing states. Focused mobile screenshot opened.",
+    "initial_failure": "Default restricted-shell pytest hung at async route; interrupted only duplicate processes; supported elevated run passed",
+    "ci": "Safe CI annotation confirmed sandbox unavailable (TargetClosedError) before browser interactions. Prefer installed system Chromium/Chrome with sandbox enabled; pending new CI."
+  },
+  "pm": {
+    "goal": "Understand whether saved platform connection works and how to recover",
+    "actual": "Upstream access blocked at cookie read; failure retry and report clearing work. Misleading missing-vs-unreadable label reproduced and fixed locally",
+    "priority": "P2 incorrect platform connection diagnosis",
+    "acceptance": "No-cookie account reports missing_cookie; genuine read failure says unknown; no authenticated upstream success claim until cookie present and metadata/media pass"
+  },
+  "remaining": {
+    "models": "Normalized /v1/models still401; no generation; secure SUMMARY_TEST_API_KEY binding needs provider acceptance",
+    "historical_media": "prior authenticated inventory13 missing assets in2notes; actual404 reproduced; no recovery write under read-only boundary",
+    "series": "prior409 directory gap; not rechecked",
+    "isolated_tests": "long inference/full podcast generation require working test model; hosted fault/restart recovery needs isolated hosting; current2title account cannot accept large-list pagination"
+  },
+  "visual": "Actual Library screenshots at1440x900,768x1024,390x844 and production YouTube error opened; no horizontal overflow; private account screenshots not committed",
+  "evidence": "docs/audits/evidence/2026-11-07-evening/"
+}

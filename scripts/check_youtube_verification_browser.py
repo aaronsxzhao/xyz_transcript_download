@@ -2,6 +2,7 @@
 import asyncio
 import json
 import sys
+import shutil
 from pathlib import Path
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]))
 from scripts.check_appearance import context_for,choose
@@ -13,7 +14,11 @@ async def main():
     server=serve(Path('web/dist').resolve())
     try:
         async with async_playwright() as p:
-            browser=await p.webkit.launch() if '--webkit' in sys.argv else await p.chromium.launch(executable_path='/usr/bin/chromium' if Path('/usr/bin/chromium').exists() else None,chromium_sandbox=True)
+            # Prefer a system browser whose sandbox is supported by the host
+            # (including Ubuntu AppArmor profiles for installed Chrome).
+            executable = next((path for name in ('chromium', 'google-chrome', 'google-chrome-stable')
+                               if (path := shutil.which(name))), None)
+            browser=await p.webkit.launch() if '--webkit' in sys.argv else await p.chromium.launch(executable_path=executable,chromium_sandbox=True)
             for design,theme,width in [(design,theme,width) for design in ['classic','editorial'] for theme in ['light','dark'] for width in [390,820,1440]]:
                 context=await context_for(browser,width,touch=True)
                 await context.route('**/api/cookies',lambda r:r.fulfill(json={'cookies':[{'platform':'youtube','has_cookie':True}]}))
