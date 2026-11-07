@@ -22,7 +22,7 @@ async def main():
                     calls.append(route.request.post_data_json)
                     await asyncio.sleep(.2)
                     success=mode[0]=='ok'
-                    await route.fulfill(json={'reference':'synthetic-safe-reference','checked_at':'2026-11-03','revision':'test','cookie_present':mode[0] not in ('storage_unavailable','missing_cookie'),'metadata_ok':mode[0] not in ('storage_unavailable','missing_cookie'),'download_ok':success,'sample_bytes':65536 if success else 0,'elapsed_seconds':2,'stage':'complete' if success else 'media','code':mode[0],'message':'Video information and media sample verified.' if success else 'YouTube refused the media request. Refresh cookies and retry.','runtime':{'node':True,'yt-dlp':'test'}})
+                    await route.fulfill(json={'reference':'synthetic-safe-reference','checked_at':'2026-11-03','revision':'test','cookie_present':mode[0] not in ('storage_unavailable','missing_cookie'),'metadata_ok':mode[0] not in ('storage_unavailable','missing_cookie'),'download_ok':success,'sample_bytes':65536 if success else 0,'elapsed_seconds':2,'stage':'complete' if success else 'media','code':mode[0],'message':{'ok':'Video information and media sample verified.','storage_unavailable':'Saved account credentials could not be read. Retry after account storage recovers.','missing_cookie':'No YouTube cookie is saved. Import cookies, then verify again.'}.get(mode[0],'YouTube refused the media request. Refresh cookies and retry.'),'runtime':{'node':True,'yt-dlp':'test'}})
                 await context.route('**/api/cookies/youtube/verify',verify)
                 page=await context.new_page();errors=[];page.on('pageerror',lambda e:errors.append(str(e)))
                 await page.goto(f'http://127.0.0.1:{server.server_port}/settings')
@@ -60,4 +60,17 @@ async def main():
     finally:server.shutdown()
 
 
-if __name__=='__main__':asyncio.run(main())
+if __name__=='__main__':
+    try:
+        asyncio.run(main())
+    except Exception as error:
+        # Fixed categories make CI launch failures visible even when log downloads
+        # are unavailable. Never include environment values or raw exception text.
+        message = str(error).lower()
+        category = ('sandbox unavailable' if any(term in message for term in
+                    ('no usable sandbox', 'failed to move to new namespace', 'operation not permitted', 'running as root without'))
+                    else 'browser executable missing' if "executable doesn't exist" in message
+                    else 'interaction timeout' if 'timeout' in type(error).__name__.lower()
+                    else 'assertion or browser failure')
+        print(f'::error title=YouTube verification regression::{category} ({type(error).__name__})', flush=True)
+        raise
