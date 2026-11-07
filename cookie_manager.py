@@ -107,7 +107,7 @@ class _SupabaseCookieManager:
                 .maybe_single()
                 .execute()
             )
-            if result.data:
+            if result is not None and result.data:
                 return result.data.get("cookie_data", "")
             return ""
         except Exception as e:
