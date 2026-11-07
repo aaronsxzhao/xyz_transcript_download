@@ -102,3 +102,23 @@ controlled data for write tests; confirmed presentation fixes only within the
 current authorization. No deployment follows automatically from a passing smoke
 test. Physical-device, authenticated, local-fixture and remote-desktop coverage
 remain separate claims.
+
+## Reader refresh readiness
+
+A successful document load can still time out waiting for `networkidle` while
+background or media requests continue. Do not classify that timeout alone as
+lost authentication or a broken reader. Record the failing operation separately
+from the page's actual state.
+
+For an authenticated reader refresh, use `domcontentloaded` and independently
+require the expected protected note response to return HTTP 200, the Summary tab
+to remain selected, a visible formatted article with nonempty content, and the
+same note title. Inspect a post-refresh screenshot. This replaces a generic
+network-idle signal with explicit acceptance assertions; it does not waive a
+failed content/API assertion. Missing images still remain separate defects.
+
+On 2026-11-07 this closed the reported reader-refresh timeout for the tested
+ordinary note. Both saved test-account notes had empty channel metadata; the
+channel aggregation excluded them while Library retained them. Treat that
+cross-surface behavior as a data/grouping decision, not a CSS defect. Neither
+observation authorizes changing saved metadata or restoring media automatically.
