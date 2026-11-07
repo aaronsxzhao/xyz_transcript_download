@@ -21,7 +21,7 @@
     "reproduction": "Original function + synthetic empty response raises RuntimeError caused by AttributeError; new end-to-end diagnostic regression verifies missing_cookie and no probe call",
     "change": "Guard None; show cookie presence unknown when storage_unavailable; preserve ownership filters and actual storage failure handling",
     "scope": "No auth policy/schema/credential handling change; no existing data writes",
-    "status": "local validated; CI pending"
+    "status": "Implemented and locally validated in PR243; NOT merged or deployed because hosted frontend CI cannot launch sandboxed browser"
   },
   "regression": {
     "python": "38 diagnostic/redaction tests passed",
@@ -29,7 +29,23 @@
     "build": "TypeScript/Vite passed,197.1KiB <=197.75KiB unchanged budget",
     "browser": "12 Classic/Editorial light/dark 390/820/1440 combinations; Chromium with sandbox; success/forbidden/storage/missing states. Focused mobile screenshot opened.",
     "initial_failure": "Default restricted-shell pytest hung at async route; interrupted only duplicate processes; supported elevated run passed",
-    "ci": "Safe CI annotation confirmed sandbox unavailable (TargetClosedError) before browser interactions. Prefer installed system Chromium/Chrome with sandbox enabled; pending new CI."
+    "ci": {
+      "run": 42376321851,
+      "tested_head": "8749414640b8b2f3bd1f6bf194aae31de2a5c0c4",
+      "python": "success",
+      "postgres": "success",
+      "frontend": "failed at Check YouTube verification UI",
+      "safe_annotation": "sandbox unavailable (TargetClosedError)",
+      "attempts": [
+        "Initial sandbox-enabled bundled/system Chromium launch failed",
+        "Added fixed redacted error category; confirmed sandbox failure",
+        "Prefer installed Chromium/Chrome; same failure persists"
+      ],
+      "blocked_log_access": "Detailed job-log redirect returned403; raw/signed log URLs not retained",
+      "next": "Identify exact runner sandbox denial and provision a supported sandboxed browser/runner; preserve browser security and all assertions; rerun full CI before merge",
+      "limitations": "Remaining hosted frontend steps did not execute after failure; local twelve-combination pass does not clear CI"
+    },
+    "browser_final": "Final system-browser selection repeated full12 Chromium combinations successfully; no local WebKit installation reused"
   },
   "pm": {
     "goal": "Understand whether saved platform connection works and how to recover",
@@ -44,5 +60,10 @@
     "isolated_tests": "long inference/full podcast generation require working test model; hosted fault/restart recovery needs isolated hosting; current2title account cannot accept large-list pagination"
   },
   "visual": "Actual Library screenshots at1440x900,768x1024,390x844 and production YouTube error opened; no horizontal overflow; private account screenshots not committed",
-  "evidence": "docs/audits/evidence/2026-11-07-evening/"
+  "evidence": "docs/audits/evidence/2026-11-07-evening/",
+  "publication": {
+    "merged": false,
+    "deployed": false,
+    "reason": "Required frontend CI failure; no override or security bypass"
+  }
 }
