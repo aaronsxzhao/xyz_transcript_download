@@ -486,5 +486,15 @@
         242
       ]
     }
+  ],
+  "remediation_followups": [
+    {
+      "date": "2026-11-07",
+      "report": "docs/audits/2026-11-07-remediation-followup.json",
+      "ci": "latest full hosted run success",
+      "media": "authenticated inventory:13/13 referenced assets missing across2 notes",
+      "model": "normalized /v1/models still401",
+      "state": "External credential and existing-data recovery boundaries remain; schedules updated to require execution"
+    }
   ]
 }
