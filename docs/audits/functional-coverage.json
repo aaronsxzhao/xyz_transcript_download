@@ -351,5 +351,37 @@
       "in_progress_prs": [],
       "next_check": "Authorized test identities; no forged tokens"
     }
+  ],
+  "audit_attempts": [
+    {
+      "checked_at": "2026-11-06T12:20:09.421676+08:00",
+      "type": "visual_interaction",
+      "result": "blocked_before_browser_capture",
+      "report": "2026-11-06-visual-environment.json",
+      "tested_commit": "906393581ce23ef5bbf1594070834a1bcf8a9f19",
+      "browser_tool_available": false,
+      "http_reachability": 200,
+      "production_acceptance": false,
+      "prior_open_pr": 239
+    },
+    {
+      "checked_at": "2026-11-06T04:58:58.781741+00:00",
+      "type": "shell_browser_validation",
+      "result": "passed_anonymous_only",
+      "report": "2026-11-06-visual-environment.json",
+      "actual_image_inspection": true,
+      "authenticated_coverage": false,
+      "workflow": "../cloud-browser-inspection.md"
+    }
+  ],
+  "visual_inspection_runs": [
+    {
+      "id": "20261106-authenticated-followup",
+      "report": "2026-11-06-authenticated-visual-followup.json",
+      "environment": "production authorized test account",
+      "status": "partial; authenticated verification passed; two observations need investigation",
+      "evidence_private": "/workspace/browser-validation/auth-exploration-20261106",
+      "next_focus": "Series directory response and historical image availability; expand theme/page coverage"
+    }
   ]
 }
