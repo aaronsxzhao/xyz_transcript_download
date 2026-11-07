@@ -1,0 +1,98 @@
+[
+  {
+    "design": "classic",
+    "theme": "light",
+    "width": 390,
+    "pages": 9,
+    "overflow": false,
+    "js_errors": 0
+  },
+  {
+    "design": "classic",
+    "theme": "dark",
+    "width": 390,
+    "pages": 9,
+    "overflow": false,
+    "js_errors": 0
+  },
+  {
+    "design": "editorial",
+    "theme": "light",
+    "width": 390,
+    "pages": 9,
+    "overflow": false,
+    "js_errors": 0
+  },
+  {
+    "design": "editorial",
+    "theme": "dark",
+    "width": 390,
+    "pages": 9,
+    "overflow": false,
+    "js_errors": 0
+  },
+  {
+    "design": "classic",
+    "theme": "light",
+    "width": 820,
+    "pages": 9,
+    "overflow": false,
+    "js_errors": 0
+  },
+  {
+    "design": "classic",
+    "theme": "dark",
+    "width": 820,
+    "pages": 9,
+    "overflow": false,
+    "js_errors": 0
+  },
+  {
+    "design": "editorial",
+    "theme": "light",
+    "width": 820,
+    "pages": 9,
+    "overflow": false,
+    "js_errors": 0
+  },
+  {
+    "design": "editorial",
+    "theme": "dark",
+    "width": 820,
+    "pages": 9,
+    "overflow": false,
+    "js_errors": 0
+  },
+  {
+    "design": "classic",
+    "theme": "light",
+    "width": 1440,
+    "pages": 9,
+    "overflow": false,
+    "js_errors": 0
+  },
+  {
+    "design": "classic",
+    "theme": "dark",
+    "width": 1440,
+    "pages": 9,
+    "overflow": false,
+    "js_errors": 0
+  },
+  {
+    "design": "editorial",
+    "theme": "light",
+    "width": 1440,
+    "pages": 9,
+    "overflow": false,
+    "js_errors": 0
+  },
+  {
+    "design": "editorial",
+    "theme": "dark",
+    "width": 1440,
+    "pages": 9,
+    "overflow": false,
+    "js_errors": 0
+  }
+]

@@ -1,0 +1,32 @@
+[
+  {
+    "width": 320,
+    "recent_first_page": 12,
+    "recent_more": 18,
+    "article_filter": true,
+    "discovered_start": true,
+    "keyboard_channel_navigation": true,
+    "geometry": true,
+    "errors": []
+  },
+  {
+    "width": 390,
+    "recent_first_page": 12,
+    "recent_more": 18,
+    "article_filter": true,
+    "discovered_start": true,
+    "keyboard_channel_navigation": true,
+    "geometry": true,
+    "errors": []
+  },
+  {
+    "width": 1440,
+    "recent_first_page": 12,
+    "recent_more": 18,
+    "article_filter": true,
+    "discovered_start": true,
+    "keyboard_channel_navigation": true,
+    "geometry": true,
+    "errors": []
+  }
+]
