@@ -1,0 +1,17 @@
+{
+  "reviewed_at": "2026-11-07T02:09:49.307139+00:00",
+  "method": "view_image; each listed screenshot actually opened",
+  "reviewed": [
+    "podcasts-empty.png",
+    "settings-general.png",
+    "settings-tab-1.png",
+    "settings-tab-2.png",
+    "videos.png"
+  ],
+  "limitations": [
+    "Visible viewport only; no physical-device or full accessibility acceptance.",
+    "Initial desktop authenticated image includes source loading; settled library matrix is separate.",
+    "Videos screenshot shows zero items despite two Library titles; timing versus data/API difference not resolved.",
+    "Settings inputs masked; no saves, provider tests, recovery or content processing."
+  ]
+}

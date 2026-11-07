@@ -1,0 +1,97 @@
+{
+  "started_at": "2026-11-07T02:07:17.680177+00:00",
+  "origin": "https://aipodcastsummary.online",
+  "mode": "authenticated",
+  "authenticated_session_verified": true,
+  "visual_inspection": "NOT_REVIEWED",
+  "sandbox_enabled": true,
+  "tls_verification": true,
+  "checks": [],
+  "blocked_write_requests": 8,
+  "browser_version": "154.0.8037.57",
+  "discovery": [
+    {
+      "name": "task-history",
+      "width": 1440,
+      "overflow": false,
+      "design": "classic",
+      "theme": "dark"
+    },
+    {
+      "name": "task-reader",
+      "width": 1440,
+      "overflow": false,
+      "design": "classic",
+      "theme": "dark"
+    },
+    {
+      "name": "task-transcript",
+      "width": 1440,
+      "overflow": false,
+      "design": "classic",
+      "theme": "dark"
+    }
+  ],
+  "response_statuses": [
+    {
+      "category": "historical_image",
+      "status": 404
+    },
+    {
+      "category": "historical_image",
+      "status": 404
+    },
+    {
+      "category": "historical_image",
+      "status": 404
+    },
+    {
+      "category": "historical_image",
+      "status": 404
+    },
+    {
+      "category": "historical_image",
+      "status": 404
+    },
+    {
+      "category": "historical_image",
+      "status": 404
+    },
+    {
+      "category": "historical_image",
+      "status": 404
+    },
+    {
+      "category": "historical_image",
+      "status": 404
+    },
+    {
+      "category": "historical_image",
+      "status": 404
+    },
+    {
+      "category": "historical_image",
+      "status": 404
+    },
+    {
+      "category": "historical_image",
+      "status": 404
+    },
+    {
+      "category": "historical_image",
+      "status": 404
+    },
+    {
+      "category": "historical_image",
+      "status": 404
+    },
+    {
+      "category": "historical_image",
+      "status": 404
+    }
+  ],
+  "status": "BLOCKED",
+  "failure_category": "authentication",
+  "error_type": "TimeoutError",
+  "failure_signature": "See failing stage; raw exception omitted to protect credentials"
+}

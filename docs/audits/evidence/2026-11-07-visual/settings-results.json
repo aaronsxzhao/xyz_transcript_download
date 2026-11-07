@@ -1,0 +1,47 @@
+{
+  "started_at": "2026-11-07T02:08:39.981888+00:00",
+  "origin": "https://aipodcastsummary.online",
+  "mode": "authenticated",
+  "authenticated_session_verified": true,
+  "visual_inspection": "NOT_REVIEWED",
+  "sandbox_enabled": true,
+  "tls_verification": true,
+  "checks": [],
+  "blocked_write_requests": 8,
+  "browser_version": "154.0.8037.57",
+  "discovery": [
+    {
+      "name": "settings-general",
+      "inputs_masked": true
+    },
+    {
+      "name": "settings-tab-1",
+      "inputs_masked": true
+    },
+    {
+      "name": "settings-tab-2",
+      "inputs_masked": true
+    },
+    {
+      "name": "podcasts-empty",
+      "width": 1440,
+      "overflow": false,
+      "design": "classic",
+      "theme": "dark"
+    },
+    {
+      "name": "videos",
+      "width": 1440,
+      "overflow": false,
+      "design": "classic",
+      "theme": "dark"
+    }
+  ],
+  "settings_tabs": [
+    "General",
+    "Platform Accounts",
+    "Tools & Data"
+  ],
+  "settings_tabs_reload": "PASS; no saves or connection tests",
+  "status": "PASS"
+}

@@ -1,0 +1,97 @@
+{
+  "run": "20261107-visual",
+  "source_main": "906393581ce23ef5bbf1594070834a1bcf8a9f19",
+  "harness": "PR242 fa139dafca916c57756129575bb6e4cb108363fa; reviewed unmerged script, separate exploratory extensions",
+  "production_revision": "95b2712bd7da8102c829ccdfebeaf4a4aab0d444",
+  "health": "ok",
+  "environment": {
+    "config": "cecfg_6ad393188adc819db89d4628d0f79658",
+    "network": "unrestricted enforced; inherited proxy and CA retained",
+    "chromium": "154.0.8037.57",
+    "python": "3.12.14",
+    "playwright": "1.62.0",
+    "dependencies": "no missing linked libraries; no installation",
+    "launch": "supported escalated shell; chromium_sandbox=True, ignore_https_errors=False",
+    "desktop": "declared available, not exercised; headless automation independently verified"
+  },
+  "authentication": "Authorized account via no-echo terminal prompt; normal UI login and protected /api/stats HTTP200 verified each authenticated run",
+  "data_scale": "2 saved Library titles: mixed ordinary video and series, one saved series episode; transcript3956 timed segments; no podcast subscriptions",
+  "A_actual": [
+    "Anonymous login at1440x900,768x1024,390x844: reversible checkbox, protected navigation, reload; images inspected",
+    "Library Classic/Editorial x light/dark x1440/768/390: persisted theme reload,12 actual screenshots inspected; no obvious collision or overflow in visible regions",
+    "Library series expand ->409 fallback ->saved episode summary ->back ->Library reload completed",
+    "Dashboard task history ->saved summary ->Transcript ->Summary; transcript image reviewed; subsequent refreshed formatted-summary wait timed out, not accepted",
+    "Settings General ->Platform Accounts ->Tools & Data ->reload completed; no save; masked input screenshots reviewed",
+    "Podcasts empty-state and Videos empty-state observed at1440x900"
+  ],
+  "B_automated": [
+    "Anonymous and authenticated3-viewport navigation/reload/bounds assertions passed",
+    "12 Library theme/viewport DOM theme and bounds observations recorded",
+    "Settings follow-up script exit0; assertion success not full page acceptance",
+    "No local fixture or build/test rerun this round: no product changes, prior technical checks remain historical"
+  ],
+  "issues": [
+    {
+      "id": "series-partial-load",
+      "severity": "P2",
+      "reproduction": "Library > View episodes on saved series",
+      "observed": "HTTP409; partial directory message, saved episode remains readable",
+      "confidence": "high for409 and fallback; prior technical report matched missing manifest",
+      "owner": "technical audit PR241",
+      "action": "report only; metadata discovery/recovery semantics require separate decision"
+    },
+    {
+      "id": "historical-image-missing",
+      "severity": "P2",
+      "reproduction": "Open saved series episode summary",
+      "observed": "historical screenshot GET404",
+      "confidence": "high for unavailable resource; low for storage loss versus routing/reference",
+      "owner": "technical audit PR241",
+      "action": "report only; no recovery/regeneration"
+    },
+    {
+      "id": "reader-refresh-wait",
+      "severity": "unconfirmed",
+      "reproduction": "Task history > summary > Transcript > Summary >reload",
+      "observed": "formatted article wait timeout; login had already succeeded",
+      "confidence": "low; render timing, remembered tab and locator assumptions need isolation",
+      "action": "not counted as app defect or authentication blocker"
+    },
+    {
+      "id": "videos-library-count",
+      "severity": "unconfirmed",
+      "reproduction": "Same verified account Library2 titles; direct Videos view captured0 saved items",
+      "observed": "empty-state screenshot; no API-ready assertion for Videos",
+      "confidence": "low; initial/loading state versus actual cross-surface mismatch unresolved",
+      "action": "next focused check; no patch"
+    }
+  ],
+  "C_unchecked": [
+    "Other pages across full12-combination matrix;820px regression-contract tablet width not run",
+    "Article reader, full channel/multipart remote directory and subscription creation/failure chain",
+    "Large-list pagination; dataset only2 titles",
+    "Active task progress regression, background recovery, real524 and long processing",
+    "Form failure/retry/draft/focus matrix; keyboard/hover/accessibility measurements",
+    "Cross-device sync (non-login writes blocked), real mobile devices, remote desktop",
+    "Local isolated fixtures not rerun"
+  ],
+  "harness_failures": [
+    "Initial exploration selected Read summary as button instead of link; corrected only in follow-up",
+    "Follow-up kept stale authentication stage after successful login; timeout classification overridden in this report; raw result preserved",
+    "No assertion weakened; screenshots/raw results retained, no credentials/storage state/HAR persisted"
+  ],
+  "reviewed_image_count": 29,
+  "private_evidence": [
+    "/workspace/xyz-ui-audit-20261107/appearance-checks/cloud-browser/20261107-visual/anonymous",
+    "/workspace/browser-validation/20261107"
+  ],
+  "coordination": "Read latest main shared coverage plus PR241 c142697 Nov07 report and Nov06 PM report. Preserved existing feature entries; append this run. PR239/240/241/242 all open.",
+  "application_changes": [],
+  "deployment": "none; no new PR or release",
+  "commands": [
+    "python scripts/check_cloud_browser.py --output appearance-checks/cloud-browser/20261107-visual/anonymous",
+    "python /workspace/browser-validation/20261107/explore.py --authenticated --output /workspace/browser-validation/20261107/authenticated",
+    "python /workspace/browser-validation/20261107/followup.py --authenticated --output /workspace/browser-validation/20261107/followup",
+    "python /workspace/browser-validation/20261107/settings.py --authenticated --output /workspace/browser-validation/20261107/settings"
+  ]
+}

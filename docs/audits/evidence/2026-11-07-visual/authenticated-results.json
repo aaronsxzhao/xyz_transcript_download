@@ -1,0 +1,192 @@
+{
+  "started_at": "2026-11-07T02:05:35.227594+00:00",
+  "origin": "https://aipodcastsummary.online",
+  "mode": "authenticated",
+  "authenticated_session_verified": true,
+  "visual_inspection": "NOT_REVIEWED",
+  "sandbox_enabled": true,
+  "tls_verification": true,
+  "checks": [
+    {
+      "viewport": [
+        1440,
+        900
+      ],
+      "status": "PASS",
+      "interaction": "Library navigation link clicked",
+      "reload": "PASS",
+      "screenshot": "authenticated-1440x900.png",
+      "horizontal_overflow": false
+    },
+    {
+      "viewport": [
+        768,
+        1024
+      ],
+      "status": "PASS",
+      "interaction": "Library navigation link clicked",
+      "reload": "PASS",
+      "screenshot": "authenticated-768x1024.png",
+      "horizontal_overflow": false
+    },
+    {
+      "viewport": [
+        390,
+        844
+      ],
+      "status": "PASS",
+      "interaction": "Library navigation link clicked",
+      "reload": "PASS",
+      "screenshot": "authenticated-390x844.png",
+      "horizontal_overflow": false
+    }
+  ],
+  "blocked_write_requests": 27,
+  "browser_version": "154.0.8037.57",
+  "discovery": [
+    {
+      "name": "library-classic-light-1440",
+      "width": 1440,
+      "overflow": false,
+      "design": "classic",
+      "theme": "light"
+    },
+    {
+      "name": "library-classic-light-768",
+      "width": 768,
+      "overflow": false,
+      "design": "classic",
+      "theme": "light"
+    },
+    {
+      "name": "library-classic-light-390",
+      "width": 390,
+      "overflow": false,
+      "design": "classic",
+      "theme": "light"
+    },
+    {
+      "name": "library-classic-dark-1440",
+      "width": 1440,
+      "overflow": false,
+      "design": "classic",
+      "theme": "dark"
+    },
+    {
+      "name": "library-classic-dark-768",
+      "width": 768,
+      "overflow": false,
+      "design": "classic",
+      "theme": "dark"
+    },
+    {
+      "name": "library-classic-dark-390",
+      "width": 390,
+      "overflow": false,
+      "design": "classic",
+      "theme": "dark"
+    },
+    {
+      "name": "library-editorial-light-1440",
+      "width": 1440,
+      "overflow": false,
+      "design": "editorial",
+      "theme": "light"
+    },
+    {
+      "name": "library-editorial-light-768",
+      "width": 768,
+      "overflow": false,
+      "design": "editorial",
+      "theme": "light"
+    },
+    {
+      "name": "library-editorial-light-390",
+      "width": 390,
+      "overflow": false,
+      "design": "editorial",
+      "theme": "light"
+    },
+    {
+      "name": "library-editorial-dark-1440",
+      "width": 1440,
+      "overflow": false,
+      "design": "editorial",
+      "theme": "dark"
+    },
+    {
+      "name": "library-editorial-dark-768",
+      "width": 768,
+      "overflow": false,
+      "design": "editorial",
+      "theme": "dark"
+    },
+    {
+      "name": "library-editorial-dark-390",
+      "width": 390,
+      "overflow": false,
+      "design": "editorial",
+      "theme": "dark"
+    },
+    {
+      "name": "series-error",
+      "width": 1440,
+      "overflow": false,
+      "design": "classic",
+      "theme": "dark"
+    },
+    {
+      "name": "episode-reader",
+      "width": 1440,
+      "overflow": false,
+      "design": "classic",
+      "theme": "dark"
+    },
+    {
+      "name": "task-history",
+      "width": 1440,
+      "overflow": false,
+      "design": "classic",
+      "theme": "dark"
+    }
+  ],
+  "response_statuses": [
+    {
+      "category": "series_parts",
+      "status": 409
+    },
+    {
+      "category": "historical_image",
+      "status": 404
+    },
+    {
+      "category": "historical_image",
+      "status": 404
+    },
+    {
+      "category": "historical_image",
+      "status": 404
+    },
+    {
+      "category": "historical_image",
+      "status": 404
+    },
+    {
+      "category": "historical_image",
+      "status": 404
+    },
+    {
+      "category": "historical_image",
+      "status": 404
+    },
+    {
+      "category": "historical_image",
+      "status": 404
+    }
+  ],
+  "series_reader_back_reload": "PASS",
+  "status": "FAIL",
+  "failure_category": "application",
+  "error_type": "TimeoutError",
+  "failure_signature": "See failing stage; raw exception omitted to protect credentials"
+}

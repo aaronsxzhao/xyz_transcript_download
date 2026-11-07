@@ -1,0 +1,30 @@
+{
+  "reviewed_at": "2026-11-07T02:09:49.306608+00:00",
+  "method": "view_image; each listed screenshot actually opened",
+  "reviewed": [
+    "authenticated-1440x900.png",
+    "authenticated-390x844.png",
+    "authenticated-768x1024.png",
+    "episode-reader.png",
+    "library-classic-dark-1440.png",
+    "library-classic-dark-390.png",
+    "library-classic-dark-768.png",
+    "library-classic-light-1440.png",
+    "library-classic-light-390.png",
+    "library-classic-light-768.png",
+    "library-editorial-dark-1440.png",
+    "library-editorial-dark-390.png",
+    "library-editorial-dark-768.png",
+    "library-editorial-light-1440.png",
+    "library-editorial-light-390.png",
+    "library-editorial-light-768.png",
+    "series-error.png",
+    "task-history.png"
+  ],
+  "limitations": [
+    "Visible viewport only; no physical-device or full accessibility acceptance.",
+    "Initial desktop authenticated image includes source loading; settled library matrix is separate.",
+    "Videos screenshot shows zero items despite two Library titles; timing versus data/API difference not resolved.",
+    "Settings inputs masked; no saves, provider tests, recovery or content processing."
+  ]
+}

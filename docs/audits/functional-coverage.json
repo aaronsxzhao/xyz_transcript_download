@@ -351,5 +351,20 @@
       "in_progress_prs": [],
       "next_check": "Authorized test identities; no forged tokens"
     }
+  ],
+  "visual_inspection_runs": [
+    {
+      "id": "20261107-visual",
+      "report": "2026-11-07-visual-inspection.json",
+      "environment": "production anonymous and verified authorized account",
+      "status": "partial; see per-chain results and remaining coverage",
+      "owner": "visual audit; existing backend issues coordinated with PR241",
+      "next_focus": [
+        "reader refresh wait",
+        "Videos versus Library ready-state counts",
+        "remaining theme/page and form-state matrix"
+      ],
+      "private_evidence": "/workspace/browser-validation/20261107"
+    }
   ]
 }
