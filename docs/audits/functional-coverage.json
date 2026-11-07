@@ -43,7 +43,18 @@
       ],
       "issues": [],
       "in_progress_prs": [],
-      "next_check": "Authorized isolated browser login and reset flow"
+      "next_check": "Authorized isolated browser login and reset flow",
+      "production_followups": [
+        {
+          "checked_at": "2026-11-06T21:09:30.640432+08:00",
+          "report": "2026-11-06-evening-technical-pm.json",
+          "scope": "Normal UI login and protected API verified; no reset/signout acceptance",
+          "result": "partial",
+          "account_type": "authorized account, existing data read-only",
+          "data_scale": "2 Library titles;1 ordinary reader and1 series",
+          "responsibility": "technical + PM, coordinated with design PR242"
+        }
+      ]
     },
     {
       "id": "video-library-reader-delete",
@@ -85,7 +96,25 @@
       ],
       "issues": [],
       "in_progress_prs": [],
-      "next_check": "Repeat on authorized isolated hosted test account; then concurrent processing and reading"
+      "next_check": "Repeat on authorized isolated hosted test account; then concurrent processing and reading",
+      "production_followups": [
+        {
+          "checked_at": "2026-11-06T21:09:30.640432+08:00",
+          "report": "2026-11-06-evening-technical-pm.json",
+          "scope": "Search/clear; one summary/transcript/history read; API text stable after reload. DOM equality unresolved. No deletion.",
+          "result": "partial",
+          "account_type": "authorized account, existing data read-only",
+          "data_scale": "2 Library titles;1 ordinary reader and1 series",
+          "responsibility": "technical + PM, coordinated with design PR242"
+        },
+        {
+          "checked_at": "2026-11-07T09:04:12.403725+08:00",
+          "report": "2026-11-07-technical-pm.json",
+          "result": "partial",
+          "scope": "Formatted reader reload/latest restore stable on1 item; empty podcast search/clear/reload; Library2 titles, no pagination",
+          "remaining": "No deletion/import/generation or sustained concurrent work accepted"
+        }
+      ]
     },
     {
       "id": "dashboard-library",
@@ -109,7 +138,25 @@
       ],
       "issues": [],
       "in_progress_prs": [],
-      "next_check": "Check large lists and refresh consistency"
+      "next_check": "Check large lists and refresh consistency",
+      "production_followups": [
+        {
+          "checked_at": "2026-11-06T21:09:30.640432+08:00",
+          "report": "2026-11-06-evening-technical-pm.json",
+          "scope": "Library navigation/reload at three sizes;2 titles, no pagination; task history opened.",
+          "result": "partial",
+          "account_type": "authorized account, existing data read-only",
+          "data_scale": "2 Library titles;1 ordinary reader and1 series",
+          "responsibility": "technical + PM, coordinated with design PR242"
+        },
+        {
+          "checked_at": "2026-11-07T09:04:12.403725+08:00",
+          "report": "2026-11-07-technical-pm.json",
+          "result": "partial",
+          "scope": "Formatted reader reload/latest restore stable on1 item; empty podcast search/clear/reload; Library2 titles, no pagination",
+          "remaining": "No deletion/import/generation or sustained concurrent work accepted"
+        }
+      ]
     },
     {
       "id": "multipart-series",
@@ -133,7 +180,18 @@
       ],
       "issues": [],
       "in_progress_prs": [],
-      "next_check": "Inspect Stanford P1 grouping and multi-P switching using authorized data"
+      "next_check": "Inspect Stanford P1 grouping and multi-P switching using authorized data",
+      "production_followups": [
+        {
+          "checked_at": "2026-11-06T21:09:30.640432+08:00",
+          "report": "2026-11-06-evening-technical-pm.json",
+          "scope": "Reproduced directory409 twice; missing manifest; fallback saved episode remains available.",
+          "result": "partial",
+          "account_type": "authorized account, existing data read-only",
+          "data_scale": "2 Library titles;1 ordinary reader and1 series",
+          "responsibility": "technical + PM, coordinated with design PR242"
+        }
+      ]
     },
     {
       "id": "podcast-subscriptions",
@@ -157,7 +215,16 @@
       ],
       "issues": [],
       "in_progress_prs": [],
-      "next_check": "Investigate Xiaoyuzhou import feasibility read-only; no development"
+      "next_check": "Investigate Xiaoyuzhou import feasibility read-only; no development",
+      "production_followups": [
+        {
+          "checked_at": "2026-11-07T09:04:12.403725+08:00",
+          "report": "2026-11-07-technical-pm.json",
+          "result": "partial",
+          "scope": "Formatted reader reload/latest restore stable on1 item; empty podcast search/clear/reload; Library2 titles, no pagination",
+          "remaining": "No deletion/import/generation or sustained concurrent work accepted"
+        }
+      ]
     },
     {
       "id": "podcast-processing-delete",
@@ -229,7 +296,16 @@
       ],
       "issues": [],
       "in_progress_prs": [],
-      "next_check": "Validate retry cannot remain queued with no worker; authorized isolated model budget required"
+      "next_check": "Validate retry cannot remain queued with no worker; authorized isolated model budget required",
+      "supplementary_checks": [
+        {
+          "checked_at": "2026-11-06T12:33:08.553319+08:00",
+          "environment": "isolated local HTTP/SQLite, synthetic fixtures",
+          "result": "passed_lower_level_only",
+          "evidence": "2026-11-06-manual-technical.json",
+          "limitation": "Not full API/UI operation-chain or production acceptance; preserve previous main feature result and pending PR239 evidence"
+        }
+      ]
     },
     {
       "id": "parallel-progress",
@@ -277,7 +353,16 @@
       ],
       "issues": [],
       "in_progress_prs": [],
-      "next_check": "Isolated real database concurrent restore/write; no production mutation"
+      "next_check": "Isolated real database concurrent restore/write; no production mutation",
+      "supplementary_checks": [
+        {
+          "checked_at": "2026-11-06T12:33:08.553319+08:00",
+          "environment": "isolated local HTTP/SQLite, synthetic fixtures",
+          "result": "passed_lower_level_only",
+          "evidence": "2026-11-06-manual-technical.json",
+          "limitation": "Not full API/UI operation-chain or production acceptance; preserve previous main feature result and pending PR239 evidence"
+        }
+      ]
     },
     {
       "id": "settings-platforms",
@@ -349,7 +434,67 @@
       ],
       "issues": [],
       "in_progress_prs": [],
-      "next_check": "Authorized test identities; no forged tokens"
+      "next_check": "Authorized test identities; no forged tokens",
+      "production_followups": [
+        {
+          "checked_at": "2026-11-06T21:09:30.640432+08:00",
+          "report": "2026-11-06-evening-technical-pm.json",
+          "scope": "Normal signin and protected API only; no account-isolation/expiry/reset acceptance",
+          "result": "partial",
+          "account_type": "authorized account, existing data read-only",
+          "data_scale": "2 Library titles;1 ordinary reader and1 series",
+          "responsibility": "technical + PM, coordinated with design PR242"
+        }
+      ]
+    }
+  ],
+  "supplementary_audit_runs": [
+    {
+      "checked_at": "2026-11-06T12:33:08.553319+08:00",
+      "report": "2026-11-06-manual-technical.json",
+      "result": "partial",
+      "scope": "Isolated injected HTTP524, process death and local save recovery; no feature promoted to production acceptance",
+      "related_pending_prs": [
+        239,
+        240
+      ]
+    }
+  ],
+  "production_audit_runs": [
+    {
+      "checked_at": "2026-11-06T21:09:30.640432+08:00",
+      "report": "2026-11-06-evening-technical-pm.json",
+      "environment": "authenticated production Chromium, read-only guard",
+      "result": "partial; two reproduced issues and unresolved DOM consistency",
+      "related_prs": [
+        239,
+        240,
+        241,
+        242
+      ]
+    },
+    {
+      "checked_at": "2026-11-07T09:04:12.403725+08:00",
+      "report": "2026-11-07-technical-pm.json",
+      "result": "partial",
+      "scope": "Authenticated2-title Library;1 formatted reader refresh/history; empty podcast search/reload",
+      "issues": "Historical media404; model-list401; hosted frontend CI failure unresolved",
+      "related_prs": [
+        239,
+        240,
+        241,
+        242
+      ]
+    }
+  ],
+  "remediation_followups": [
+    {
+      "date": "2026-11-07",
+      "report": "docs/audits/2026-11-07-remediation-followup.json",
+      "ci": "latest full hosted run success",
+      "media": "authenticated inventory:13/13 referenced assets missing across2 notes",
+      "model": "normalized /v1/models still401",
+      "state": "External credential and existing-data recovery boundaries remain; schedules updated to require execution"
     }
   ]
 }

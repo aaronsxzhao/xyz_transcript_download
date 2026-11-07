@@ -1,0 +1,117 @@
+{
+  "checked_at": "2026-11-06T12:33:08.553319+08:00",
+  "timezone": "Asia/Shanghai",
+  "task": "Manual execution of 技术与代码每日巡检, explicitly authorized in current chat",
+  "overall_result": "partial; required authenticated production and full-operation-chain acceptance remain blocked",
+  "tested_commit": "906393581ce23ef5bbf1594070834a1bcf8a9f19",
+  "repository_review": {
+    "main_changes": "No application changes since 95b2712; latest main is documentation PR238",
+    "open_prs": [
+      239,
+      240
+    ],
+    "pr239_head": "50592a175ec2639491ef7f7155cce058bb7b1986",
+    "pr239_ci": "success",
+    "pr240_head": "8508e437c240c201f9dec86be94b973f773f13ff",
+    "pr240_ci_at_start": "in_progress",
+    "prior_records": "AGENTS.md, regression contract, main functional coverage, Nov05 report, PR239 Nov06 report and coverage, PR240 environment report reviewed; no concurrent application repair found"
+  },
+  "discovery": {
+    "scope": "New isolated lower-level fault/recovery investigation; no end-to-end browser path accepted",
+    "data_scale": "Two synthetic queue tasks, one completed checkpoint, one saved note/version, one save-recovery note/version; local fixture HTTP endpoint",
+    "evidence": [
+      "evidence/2026-11-06-manual/probe.py",
+      "evidence/2026-11-06-manual/result.json"
+    ],
+    "results": {
+      "scope": "isolated synthetic local HTTP + real SQLite + killed child process; no API/UI or production Supabase acceptance",
+      "injected_http524": {
+        "statuses": [
+          524,
+          524,
+          524,
+          200
+        ],
+        "retry_limit": 3,
+        "failed_response_checkpointed": false,
+        "fresh_execution_recovered": true,
+        "replay_extra_requests": 0,
+        "seconds": 6.034,
+        "limit": "Actual local HTTP 524 through existing _call_llm; not real provider timeout, full generation, UI retry or worker dispatcher"
+      },
+      "process_death": {
+        "signal": "SIGKILL",
+        "exit_code": -9,
+        "lease_seconds": 2,
+        "reclaimed_attempt": 2,
+        "stale_worker_commit_rejected": true,
+        "saved_checkpoint_reused": true,
+        "next_queued_task_completed": true,
+        "saved_note_and_version_retained": true,
+        "limit": "Queue primitives driven explicitly; not application server restart or full dispatcher loop"
+      },
+      "save_recovery": {
+        "fault": "SQLite trigger abort on synthetic note update",
+        "original_retained": true,
+        "active_save_recovery_rejected": true,
+        "terminal_state_set_by_harness": true,
+        "partial_version_absent": true,
+        "reopened_database_recovery": "applied",
+        "repeat_recovery": "already_saved",
+        "versions": 1,
+        "limit": "Local storage facade; no browser or hosted RPC"
+      }
+    },
+    "harness_correction": "Initial probe expected recovery while task still had saving status; existing guard correctly returned busy. Revised fixture first asserts busy, then explicitly marks synthetic task failed before retrying recovery. No application change or assertion weakening; full server transition not tested.",
+    "cleanup": "Temporary SQLite databases/outbox and synthetic rows removed with TemporaryDirectory; child killed/reaped, local HTTP server closed; no production data accessed or mutated"
+  },
+  "existing_regressions": {
+    "files": [
+      "tests/test_retry_admission.py",
+      "tests/test_ordered_note_recovery.py",
+      "tests/test_reliability_recovery.py"
+    ],
+    "result": "29 passed in 1.36s",
+    "scope": "Existing automated tests include mocks and ASGI test clients; not production Supabase or browser acceptance",
+    "reason": "Focused verification of the newly explored retry and saved-content failure boundaries",
+    "build": "Not rerun: no frontend/application changes; prior build evidence not promoted to this run"
+  },
+  "online": {
+    "endpoint": "https://aipodcastsummary.online/api/health",
+    "status": "ok",
+    "revision": "95b2712bd7da8102c829ccdfebeaf4a4aab0d444",
+    "scope": "Public health/revision only; no authenticated content or browser operations"
+  },
+  "blocked": [
+    {
+      "scene": "Long actual inference with browsing/search/reading/deletion",
+      "reason": "Last real model probe returned HTTP401; same managed config revision remains; no browser control tool exposed. User authorized testing; authorization is not the blocker."
+    },
+    {
+      "scene": "Real provider HTTP524, automatic dispatcher progression, service restart and saved-content recovery in production-equivalent staging",
+      "reason": "Only labeled local HTTP injection, explicit queue primitives and killed child process verified. Independent Supabase/Oracle staging not provisioned; proposal in PR240."
+    },
+    {
+      "scene": "Production signed-in lists/search/pagination, summaries/articles, transcripts/history, task state and reload consistency",
+      "reason": "Test account supplied but no browser js/desktop-control tools available; normal browser login not performed."
+    },
+    {
+      "scene": "Production multipart data classification and full podcast import/process/read/version/delete chain",
+      "reason": "Authenticated browser and working model path unavailable; no new acceptance of prior seeded fixtures."
+    }
+  ],
+  "technical_findings": {
+    "confirmed_application_defects": [],
+    "large_changes_proposed": [],
+    "authentication_issue": "Current configured model request previously returned HTTP401; root cause not established, do not infer provider key alone is invalid. Not retried with unchanged configuration.",
+    "state_consistency_review": "Reviewed model retry classification, checkpoint failure behavior, lease fencing, restore guard and existing retry-admission regression; review is not live acceptance."
+  },
+  "application_changes": [],
+  "deployment": "None; no product defect confirmed",
+  "next_actions": [
+    "Verify model API key/base URL/model alignment in current Cloud Environment and re-probe once configuration changes",
+    "Expose supported Browser/desktop control tools and log in normally with supplied dedicated account",
+    "Review isolated staging proposal before infrastructure provisioning; then run full dispatcher/server restart and hosted queue tests",
+    "Repeat required production read-only chains and actual long-inference interaction measurements; preserve all existing gaps"
+  ]
+}
