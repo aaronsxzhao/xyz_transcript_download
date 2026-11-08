@@ -553,6 +553,12 @@
       "ci_run": 42432070935,
       "deploy_run": 42434515097,
       "remaining": "model401,13missingimages,legacydirectory409;no real long inference or hostedfault recovery acceptance"
+    },
+    {
+      "date": "2026-11-08",
+      "report": "docs/audits/2026-11-08-reader-collection.json",
+      "issue": "Legacy multipart directory 409 and reader DOM comparison",
+      "state": "Read-only manifest recovery implemented; focused regression passed; production rollout pending. Settled reader/history/refresh verified; delayed math can change raw text."
     }
   ]
 }

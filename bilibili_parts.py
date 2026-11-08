@@ -5,7 +5,45 @@ A collection import is never represented as one 113-minute first-part summary.
 """
 import math
 import uuid
+import re
 from urllib.parse import parse_qs, urlsplit
+
+
+def public_collection_metadata(url):
+    """Read a complete legacy directory without cookies, media or DB writes."""
+    import requests
+    from video_downloader import BilibiliDownloader
+    parsed = urlsplit(url)
+    if parsed.hostname in ('b23.tv', 'www.b23.tv'):
+        url = BilibiliDownloader._resolve_short_url(url)
+        parsed = urlsplit(url)
+    identity = re.fullmatch(r'/video/(BV\w+|av\d+)/?', parsed.path)
+    if (parsed.scheme not in ('http', 'https') or parsed.username or parsed.password
+            or parsed.port not in (None, 80, 443)
+            or parsed.hostname not in ('bilibili.com', 'www.bilibili.com', 'm.bilibili.com')
+            or not identity):
+        raise ValueError('No canonical Bilibili source identity')
+    video_id = identity.group(1)
+    params = {'bvid': video_id} if video_id.startswith('BV') else {'aid': video_id[2:]}
+    with requests.get('https://api.bilibili.com/x/web-interface/view', params=params,
+                      headers={'User-Agent': 'Mozilla/5.0', 'Referer': 'https://www.bilibili.com/'},
+                      timeout=15, allow_redirects=False) as response:
+        if response.status_code != 200:
+            raise ValueError(f'Public part metadata unavailable (HTTP {response.status_code})')
+        data = response.json()
+    if not isinstance(data, dict) or data.get('code') != 0:
+        raise ValueError('Public part metadata was rejected')
+    source = data.get('data')
+    if not isinstance(source, dict) or not isinstance(source.get('pages'), list) or not all(isinstance(page, dict) for page in source['pages']):
+        raise ValueError('Public part metadata is invalid')
+    try:
+        parts = part_manifest(source, url)
+    except TypeError as error:
+        raise ValueError('Public part metadata is invalid') from error
+    page = selected_part(url) or 1
+    if page > len(parts):
+        raise ValueError('Saved part is absent from the public directory')
+    return {'bilibili_parts': parts, 'bilibili_part': parts[page - 1]}
 
 
 def selected_part(url):
