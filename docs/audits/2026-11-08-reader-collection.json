@@ -44,33 +44,77 @@
     "build": "passed; initial compressed assets 197.7KiB within 197.75KiB budget",
     "browser": "24 synthetic Chromium combinations passed: multipart Classic/Editorial x light/dark x 320/390/820; series Classic/Editorial x light/dark x 390/820/1440. Browser sandbox enabled via temporary copies replacing existing --no-sandbox launch argument; assertions unchanged.",
     "production_screenshots": {
+      "actually_viewed": true,
       "viewports": [
         "1440x900",
         "768x1024",
         "390x844"
       ],
-      "location": "private workspace /workspace/reader-diff-v2-evidence",
-      "actually_viewed": true,
-      "observation": "Legacy directory error visible; existing P2 read link preserved; no visible horizontal overflow. Screenshots contain account content and are not committed."
+      "files": "Private workspace /workspace/public-parts-final-v2-evidence/library-{1440,768,390}.png and episodes-{1440,768,390}.png",
+      "observations": "Two episodes with distinct unprocessed P1 and readable P2. No observed horizontal overflow or overlapping controls. Mobile P2 is below initial fold and was inspected in episode-panel capture. Simulated viewports, not physical devices."
     },
     "commands": [
       "/workspace/xyz_transcript_download/venv/bin/python -m pytest tests/test_bilibili_collection_workflow.py tests/test_public_bilibili_directory.py tests/test_bilibili_parts.py -q --timeout=30",
       "npm --prefix web ci",
       "npm --prefix web run build",
       "/workspace/xyz_transcript_download/venv/bin/python /tmp/check_bilibili_parts_browser_secure.py",
-      "/workspace/xyz_transcript_download/venv/bin/python /tmp/check_series_browser_secure.py"
-    ]
+      "/workspace/xyz_transcript_download/venv/bin/python /tmp/check_series_browser_secure.py",
+      "EXPECTED_REVISION=d230bd366762dcd32ed1646c849fffdea22fa698 /workspace/xyz_transcript_download/venv/bin/python scripts/verify_deployment.py",
+      "/workspace/xyz_transcript_download/venv/bin/python docs/audits/evidence/2026-11-08-reader-collection/readonly-acceptance.py --authenticated --baseline-results docs/audits/evidence/2026-11-08-reader-collection/pre-release-source.json --output /workspace/new-private-evidence"
+    ],
+    "final_backend": "53 focused tests passed;full PR246 CI passed",
+    "production_final": "evidence/2026-11-08-reader-collection/final-production.json"
   },
   "pm": {
     "goal": "Open a legacy series and see all source parts while retaining existing P2 notes",
     "success_criteria": "Directory loads complete source manifest, identifies saved P2 correctly, opens saved note, survives refresh without reprocessing.",
-    "result": "Pre-fix failure reproduced; postdeployment acceptance pending."
+    "result": "Passed scoped goal:complete2part directory,P1 unprocessed,P2 readable,saved body hash unchanged,return and actual reload preserve part identity/status. One ordinary summary/transcript/history/latest/read-refresh sample passed. Directory click-response1.095s;not a performance benchmark."
   },
-  "release": "PR245; full CI and deployment pending",
+  "release": {
+    "pr245": {
+      "merged": true,
+      "ci_run": 42481638029,
+      "first_deployment": 42484002449,
+      "revision": "4c55659c81e430fbb6277ba89d8fd12b9eff174a",
+      "acceptance": "Failed directory503;continued to PR246"
+    },
+    "pr246": {
+      "url": "https://github.com/aaronsxzhao/xyz_transcript_download/pull/246",
+      "merged": true,
+      "ci_run": 42486536428,
+      "ci": "success",
+      "deploy_run": 42489072907,
+      "deployment": "success",
+      "revision": "d230bd366762dcd32ed1646c849fffdea22fa698",
+      "exact_health_verified": true,
+      "authenticated_acceptance": "PASS for scoped read-only chain"
+    },
+    "obsolete_release": {
+      "run": 42484000176,
+      "result": "Existing obsolete-release guard rejected intermediate79a;no bypass"
+    }
+  },
   "unrelated_remaining": [
-    "Historical screenshot 404",
-    "Model credentials 401 from earlier audit; not retested here",
-    "Long inference / upstream524 / podcast full chain not part of this repair"
+    {
+      "issue": "Historical screenshots",
+      "status": "needs scoped recovery plan;unchanged",
+      "evidence": "Authenticated inventory13/13 missing across2notes;current retention protects saved references. Original loss/backup availability unknown.",
+      "next": "Read-only backup/source inventory,identify recoverable originals and approve bounded recovery plan before modifying existing data.",
+      "acceptance": "All13 references recover or are explicitly classified unavailable;readers render recovered images."
+    },
+    {
+      "issue": "Test model readiness",
+      "status": "external configuration/pricing blocker",
+      "evidence": "Normalized /v1/models401;response does not identify expired credential. Public pricing200 contains ratios,not verified USD/cap.0 generation calls.",
+      "next": "Confirm key permits models-list and update SUMMARY_TEST_API_KEY/BASE_URL in current Cloud Environment Secrets/Variables if needed;verify billing price and cap. User clarification already pending.",
+      "acceptance": "Authorized endpoint succeeds;configured model price and US$2/12call ceiling enforceable."
+    },
+    {
+      "issue": "Coverage gaps",
+      "status": "not_checked",
+      "scope": "Real long inference concurrent browsing/deletion,complete podcast lifecycle,large production pagination,real upstream524,production Supabase queue. Isolated injected524/restart chain remains untested,not equivalent to real524.",
+      "next": "Prepare independent database/storage/runtime and synthetic data for recovery tests;no infrastructure created or fees incurred."
+    }
   ],
   "followup": {
     "trigger": "PR245 deployed in4c55659;production directory returned503 in0.712s. Cannot close directory acceptance.",
@@ -82,6 +126,20 @@
     "change": "Use the dedicated public full page-list endpoint. Preserve source part labels and currentP2; no saved content writes.",
     "regression": "53 focused tests passed; old implementation failed the pagelist contract regression. Empty/malformed/nonsequential manifests and missing selected part remain rejected.",
     "reader_postdeploy": "Assets tracked by URL;loaded transcript and saved historical version;restored latest and refreshed body equal;API Markdown unchanged.",
-    "limits": "Production endpoint success still requires next deployment;no claim that Cloud responses prove production source access."
+    "limits": "Production dedicated pagelist release now accepted on one legacy2part source;not complete import/generation/podcast/queue acceptance."
+  },
+  "updated_at": "2026-11-08T14:27:07.950316+00:00",
+  "tested_commit": "d230bd366762dcd32ed1646c849fffdea22fa698",
+  "environment": {
+    "id": "ccarenv_b64_Y2NhcmVudl8yZDc0NjllZjE1OWM4MTkxOGNmNWE0NGJhMjhlMTA4Ng",
+    "configuration": "bff92f3f-57f3-482f-8f2b-7beae698a60c~cecfg_6ad393188adc819db89d4628d0f79658",
+    "network": "unrestricted per current status",
+    "python": "3.11.17",
+    "playwright": "1.64.0",
+    "chromium": "154.0.8037.57",
+    "browser": "shell Python Playwright headless Chromium;approved elevated execution,sandbox enabled,TLS verified",
+    "remote_desktop": "not used or validated",
+    "credentials": "presence checked only;no values persisted",
+    "setup_changes": "Reused installed components;no browser installation or security bypass"
   }
 }

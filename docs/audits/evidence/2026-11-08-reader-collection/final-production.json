@@ -1,0 +1,110 @@
+{
+  "started_at": "2026-11-08T14:25:39.269378+00:00",
+  "origin": "https://aipodcastsummary.online",
+  "mode": "authenticated",
+  "authenticated_session_verified": true,
+  "visual_inspection": {
+    "actually_viewed": true,
+    "viewports": [
+      "1440x900",
+      "768x1024",
+      "390x844"
+    ],
+    "files": "Private workspace /workspace/public-parts-final-v2-evidence/library-{1440,768,390}.png and episodes-{1440,768,390}.png",
+    "observations": "Two episodes with distinct unprocessed P1 and readable P2. No observed horizontal overflow or overlapping controls. Mobile P2 is below initial fold and was inspected in episode-panel capture. Simulated viewports, not physical devices."
+  },
+  "sandbox_enabled": true,
+  "tls_verification": true,
+  "checks": [],
+  "blocked_write_requests": 17,
+  "browser_version": "154.0.8037.57",
+  "note_reads": [
+    {
+      "markdown_sha256": "eafb07f88c83de4274d06576415340a59c530119d857608d0c51225250f8d79a",
+      "status": "success",
+      "versions": 1
+    },
+    {
+      "markdown_sha256": "eafb07f88c83de4274d06576415340a59c530119d857608d0c51225250f8d79a",
+      "status": "success",
+      "versions": 1
+    },
+    {
+      "markdown_sha256": "7af237e297102d1fe129a6b767e9b85bcd14ce82509291c7564e25c51e698c11",
+      "status": "success",
+      "versions": 1
+    }
+  ],
+  "page_error_count": 0,
+  "console_error_count": 47,
+  "library": {
+    "titles": 2,
+    "search_and_clear": true,
+    "pagination_available": false
+  },
+  "transcript": {
+    "panel_nonempty": true,
+    "empty_message": false
+  },
+  "historical_version": {
+    "http_status": 200,
+    "saved_body_nonempty": true,
+    "rendered_body_nonempty": true
+  },
+  "version_restore": {
+    "equal": true,
+    "math_counts": [
+      0,
+      0
+    ],
+    "lengths": [
+      2921,
+      2921
+    ]
+  },
+  "reader_timing": {
+    "initial_math": 0,
+    "settled_math": 0,
+    "reload_math": 0,
+    "initial_equals_settled": true,
+    "settled_equals_reload": true,
+    "text_lengths": [
+      2921,
+      2921,
+      2921
+    ]
+  },
+  "collection_status": 200,
+  "collection_seconds": 1.095,
+  "collection_part_count": 2,
+  "saved_p2_markdown_unchanged": true,
+  "saved_p2_opened": true,
+  "collection_after_return": {
+    "http": 200,
+    "parts": 2,
+    "saved_p2_identity_unchanged": true
+  },
+  "collection_after_reload": {
+    "http": 200,
+    "parts": 2,
+    "statuses_unchanged": true
+  },
+  "task_history_opened": true,
+  "media_integrity": {
+    "http_status": 200,
+    "referenced": 13,
+    "missing": 13,
+    "affected_notes": 2
+  },
+  "status": "PASS",
+  "network_error_counts": [
+    {
+      "status": 404,
+      "resource_kind": "screenshot",
+      "category": "asset",
+      "count": 30
+    }
+  ],
+  "revision": "d230bd366762dcd32ed1646c849fffdea22fa698",
+  "console_note": "30 screenshot404 responses and17 intentionally aborted background writes;0 page JavaScript exceptions. Not a clean-console claim."
+}

@@ -2,9 +2,9 @@
   "schema_version": 1,
   "site": "https://aipodcastsummary.online",
   "repository": "aaronsxzhao/xyz_transcript_download",
-  "updated_at": "2026-11-08T01:44:46.200835+00:00",
-  "tested_commit": "37bcc192db81ff7227000b5c46b821f88cde07a7",
-  "current_report": "docs/audits/2026-11-08-technical-pm.json",
+  "updated_at": "2026-11-08T14:27:07.950316+00:00",
+  "tested_commit": "d230bd366762dcd32ed1646c849fffdea22fa698",
+  "current_report": "docs/audits/2026-11-08-reader-collection.json",
   "inventory_basis": [
     "web/src/App.tsx routes",
     "current repository feature components and prior audit records",
@@ -89,14 +89,14 @@
         "evidence/2026-11-05/local-summary-deleted.png"
       ],
       "result": "passed",
-      "production_result": "blocked",
+      "production_result": "partial",
       "gaps": [
-        "No authorized signed-in production browser session; read-only diagnostic token is not browser authentication",
-        "No real worker, model call, import, mobile/theme matrix, offline recovery or load benchmark"
+        "No real worker, model call, import, mobile/theme matrix, offline recovery or load benchmark",
+        "Read-only production sample accepted;full write/processing chain still unaccepted."
       ],
       "issues": [],
       "in_progress_prs": [],
-      "next_check": "Repeat on authorized isolated hosted test account; then concurrent processing and reading",
+      "next_check": "Isolated full processing chain and larger production read-only sample",
       "production_followups": [
         {
           "checked_at": "2026-11-06T21:09:30.640432+08:00",
@@ -118,6 +118,19 @@
           "checked_at": "2026-11-08T01:44:46.200835+00:00",
           "report": "docs/audits/2026-11-08-technical-pm.json",
           "scope": "Scoped production checks and release;see per-feature coverage_delta;does not promote earlier unit/local tests to full acceptance"
+        },
+        {
+          "checked_at": "2026-11-08T14:27:07.950316+00:00",
+          "report": "docs/audits/2026-11-08-reader-collection.json",
+          "scope": "2title Library no-match search/clear;1summary/transcript/historical/latest/reload;task history entry",
+          "result": "passed_scoped_read_only",
+          "environment": "production d230bd366762dcd32ed1646c849fffdea22fa698",
+          "account_type": "authorized account;existing data read-only",
+          "data_scale": "2titles;1ordinary reader,1history version,1two-part collection",
+          "evidence": [
+            "evidence/2026-11-08-reader-collection/final-production.json"
+          ],
+          "remaining": "No new import/generation/deletion,large pagination or active worker concurrency acceptance"
         }
       ]
     },
@@ -137,13 +150,13 @@
       "steps": [],
       "evidence": [],
       "result": "not_checked",
-      "production_result": "blocked",
+      "production_result": "partial",
       "gaps": [
-        "No authorized signed-in production browser session; read-only diagnostic token is not browser authentication"
+        "Read-only production sample accepted;full write/processing chain still unaccepted."
       ],
       "issues": [],
       "in_progress_prs": [],
-      "next_check": "Check large lists and refresh consistency",
+      "next_check": "Isolated full processing chain and larger production read-only sample",
       "production_followups": [
         {
           "checked_at": "2026-11-06T21:09:30.640432+08:00",
@@ -165,6 +178,19 @@
           "checked_at": "2026-11-08T01:44:46.200835+00:00",
           "report": "docs/audits/2026-11-08-technical-pm.json",
           "scope": "Scoped production checks and release;see per-feature coverage_delta;does not promote earlier unit/local tests to full acceptance"
+        },
+        {
+          "checked_at": "2026-11-08T14:27:07.950316+00:00",
+          "report": "docs/audits/2026-11-08-reader-collection.json",
+          "scope": "2title Library no-match search/clear;1summary/transcript/historical/latest/reload;task history entry",
+          "result": "passed_scoped_read_only",
+          "environment": "production d230bd366762dcd32ed1646c849fffdea22fa698",
+          "account_type": "authorized account;existing data read-only",
+          "data_scale": "2titles;1ordinary reader,1history version,1two-part collection",
+          "evidence": [
+            "evidence/2026-11-08-reader-collection/final-production.json"
+          ],
+          "remaining": "No new import/generation/deletion,large pagination or active worker concurrency acceptance"
         }
       ]
     },
@@ -184,13 +210,13 @@
       "steps": [],
       "evidence": [],
       "result": "not_checked",
-      "production_result": "blocked",
+      "production_result": "partial",
       "gaps": [
-        "No authorized signed-in production browser session; read-only diagnostic token is not browser authentication"
+        "Read-only production sample accepted;full write/processing chain still unaccepted."
       ],
       "issues": [],
       "in_progress_prs": [],
-      "next_check": "Inspect Stanford P1 grouping and multi-P switching using authorized data",
+      "next_check": "Isolated full processing chain and larger production read-only sample",
       "production_followups": [
         {
           "checked_at": "2026-11-06T21:09:30.640432+08:00",
@@ -205,6 +231,19 @@
           "checked_at": "2026-11-08T01:44:46.200835+00:00",
           "report": "docs/audits/2026-11-08-technical-pm.json",
           "scope": "Scoped production checks and release;see per-feature coverage_delta;does not promote earlier unit/local tests to full acceptance"
+        },
+        {
+          "checked_at": "2026-11-08T14:27:07.950316+00:00",
+          "report": "docs/audits/2026-11-08-reader-collection.json",
+          "scope": "Legacy2part directory→saved P2→return→reload;complete manifest and unchanged saved body",
+          "result": "passed_scoped_read_only",
+          "environment": "production d230bd366762dcd32ed1646c849fffdea22fa698",
+          "account_type": "authorized account;existing data read-only",
+          "data_scale": "2titles;1ordinary reader,1history version,1two-part collection",
+          "evidence": [
+            "evidence/2026-11-08-reader-collection/final-production.json"
+          ],
+          "remaining": "No new import/generation/deletion,large pagination or active worker concurrency acceptance"
         }
       ]
     },
@@ -525,6 +564,12 @@
       },
       "evidence": "docs/audits/evidence/2026-11-08/",
       "pr": 243
+    },
+    {
+      "checked_at": "2026-11-08T14:27:07.950316+00:00",
+      "report": "docs/audits/2026-11-08-reader-collection.json",
+      "result": "scoped fixes deployed and accepted;external blockers and untested chains retained",
+      "revision": "d230bd366762dcd32ed1646c849fffdea22fa698"
     }
   ],
   "remediation_followups": [
@@ -558,7 +603,10 @@
       "date": "2026-11-08",
       "report": "docs/audits/2026-11-08-reader-collection.json",
       "issue": "Legacy multipart directory 409 and reader DOM comparison",
-      "state": "Read-only manifest recovery implemented; focused regression passed; production rollout pending. Settled reader/history/refresh verified; delayed math can change raw text."
+      "state": "PR245+246 merged;PR246 fullCI/deploy successful;legacy directory and settled reader scoped production acceptance passed",
+      "revision": "d230bd366762dcd32ed1646c849fffdea22fa698",
+      "ci_run": 42486536428,
+      "deploy_run": 42489072907
     }
   ]
 }
