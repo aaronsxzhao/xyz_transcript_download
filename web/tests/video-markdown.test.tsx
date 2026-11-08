@@ -60,3 +60,31 @@ it('omits only the matching leading reader title and preserves later source head
  expect(node.querySelector('h2')?.textContent).toBe('Actual chapter')
  expect(node.textContent).toContain('Complete source content.')
 })
+
+it('keeps currency and emphasis intact after lazy math loads, including mixed formulas',async()=>{
+ const markdown='成本 **$100**，权利金 **$5**，目标 **$150**。\n\nFrom $10 to $20; fee $5 and formula $x^2$.\n\nMath: $2 + 2$, $100$, $$ x + y $$.\n\n```text\n$100 to $5\n```\n\nInline `$10 to $20`, escaped \\$30 and \\$40.'
+ await act(async()=>root.render(<MarkdownPreview markdown={markdown}/>))
+ await vi.waitFor(()=>expect(node.querySelectorAll('.katex')).toHaveLength(4))
+ expect([...node.querySelectorAll('strong')].map(e=>e.textContent)).toEqual(['$100','$5','$150'])
+ expect(node.textContent).toContain('From $10 to $20; fee $5 and formula')
+ expect(node.querySelector('pre')?.textContent).toContain('$100 to $5')
+ expect(node.textContent).toContain('Inline $10 to $20, escaped $30 and $40.')
+ expect(node.querySelectorAll('.katex-error')).toHaveLength(0)
+})
+
+it('keeps display math and LaTeX while treating spaced single dollars as prose',async()=>{
+ const markdown=String.raw`Literal $ x $ and $ y $.
+
+Inline $\frac{a}{b}$.
+
+$$
+E = mc^2
+$$
+
+Padded double-dollar math: $$ x + y $$.`
+ await act(async()=>root.render(<MarkdownPreview markdown={markdown}/>))
+ await vi.waitFor(()=>expect(node.querySelectorAll('.katex')).toHaveLength(3))
+ expect(node.textContent).toContain('Literal $ x $ and $ y $.')
+ expect(node.querySelectorAll('.katex-display')).toHaveLength(1)
+ expect(node.querySelectorAll('.katex-error')).toHaveLength(0)
+})

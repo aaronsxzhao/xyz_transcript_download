@@ -50,3 +50,13 @@ Progress presentation must reflect the current task/run, remain consistent betwe
 ## CSS loading is part of appearance
 
 Optional components must not reapply base CSS after the selected skin. The production build inlines base styles and retains disabled stylesheet markers for Vite dependency detection. Test persisted Editorial and Classic light on direct navigation, reload, lazy component load and theme round trips. A screenshot taken only after manually switching themes is insufficient.
+
+## Currency and math in saved-note readers
+
+Single-dollar inline formulas use tight delimiters (`$x^2$`, `$2 + 2$`): no
+whitespace immediately inside the delimiters, and no digit immediately after
+the closing dollar. This prevents prices such as `$100 … $5` from consuming
+prose and emphasis as a formula. Use `$$ … $$` for padded inline math or a
+separate `$$` block for display math. Escaped dollars and code remain literal.
+This is a display-only policy; saved Markdown is not rewritten. The user
+explicitly authorized the currency/math parsing fix on 2026-11-08.
