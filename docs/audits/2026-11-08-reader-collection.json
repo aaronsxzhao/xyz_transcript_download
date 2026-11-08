@@ -40,9 +40,9 @@
     "source_failure": "503, retain saved episode fallback; never treat an incomplete list as complete."
   },
   "validation": {
-    "backend": "47 focused tests passed; final expanded cases pending",
+    "backend": "48 focused tests passed",
     "build": "passed; initial compressed assets 197.7KiB within 197.75KiB budget",
-    "browser": "local secure multipart and series lanes running",
+    "browser": "24 synthetic Chromium combinations passed: multipart Classic/Editorial x light/dark x 320/390/820; series Classic/Editorial x light/dark x 390/820/1440. Browser sandbox enabled via temporary copies replacing existing --no-sandbox launch argument; assertions unchanged.",
     "production_screenshots": {
       "viewports": [
         "1440x900",
@@ -52,14 +52,21 @@
       "location": "private workspace /workspace/reader-diff-v2-evidence",
       "actually_viewed": true,
       "observation": "Legacy directory error visible; existing P2 read link preserved; no visible horizontal overflow. Screenshots contain account content and are not committed."
-    }
+    },
+    "commands": [
+      "/workspace/xyz_transcript_download/venv/bin/python -m pytest tests/test_bilibili_collection_workflow.py tests/test_public_bilibili_directory.py tests/test_bilibili_parts.py -q --timeout=30",
+      "npm --prefix web ci",
+      "npm --prefix web run build",
+      "/workspace/xyz_transcript_download/venv/bin/python /tmp/check_bilibili_parts_browser_secure.py",
+      "/workspace/xyz_transcript_download/venv/bin/python /tmp/check_series_browser_secure.py"
+    ]
   },
   "pm": {
     "goal": "Open a legacy series and see all source parts while retaining existing P2 notes",
     "success_criteria": "Directory loads complete source manifest, identifies saved P2 correctly, opens saved note, survives refresh without reprocessing.",
     "result": "Pre-fix failure reproduced; postdeployment acceptance pending."
   },
-  "release": "pending PR/CI/deployment",
+  "release": "PR245; full CI and deployment pending",
   "unrelated_remaining": [
     "Historical screenshot 404",
     "Model credentials 401 from earlier audit; not retested here",

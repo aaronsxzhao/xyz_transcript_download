@@ -1114,7 +1114,8 @@ def _owned_collection(task_id, user):
         from video_downloader import VideoDownloadError
         import requests
         try:
-            discovered = public_collection_metadata(task.get('url') or '')
+            current = ((task.get('source_metadata') or {}).get('bilibili_part') or {})
+            discovered = public_collection_metadata(current.get('url') or task.get('url') or '')
         except (ValueError, requests.RequestException, VideoDownloadError) as error:
             raise HTTPException(503, 'The source part list is temporarily unavailable. Retry later; your saved episodes are unchanged.') from error
         # Enrich this response only. Reading a legacy directory must never

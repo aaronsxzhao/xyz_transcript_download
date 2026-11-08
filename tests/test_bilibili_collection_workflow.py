@@ -182,3 +182,15 @@ async def test_legacy_selected_processing_uses_same_discovered_manifest(collecti
     assert submit.call_args.kwargs['url'] == BASE + '?p=3'
     assert db.get_task_by_url(BASE+'?p=1',user.id) is None
     assert db.get_task(task,user.id)['source_metadata'] == {}
+
+
+def test_discovery_preserves_known_resolved_part_of_legacy_share_url(collection, monkeypatch):
+    from unittest.mock import Mock
+    db, task, user, _ = collection
+    metadata = db.get_task(task,user.id)['source_metadata']
+    db.update_task(task, {'url':'https://b23.tv/legacy-share', 'source_metadata':{'bilibili_part':metadata['bilibili_part']}})
+    discover = Mock(return_value=metadata)
+    monkeypatch.setattr('bilibili_parts.public_collection_metadata',discover)
+    result = routes.collection_parts(task,user)['parts']
+    discover.assert_called_once_with(BASE+'?p=2')
+    assert result[1]['task_id'] == task
