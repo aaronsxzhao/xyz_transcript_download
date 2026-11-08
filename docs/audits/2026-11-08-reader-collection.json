@@ -1,0 +1,68 @@
+{
+  "date": "2026-11-08",
+  "base_revision": "37bcc192db81ff7227000b5c46b821f88cde07a7",
+  "scope": [
+    "legacy multipart directory 409",
+    "rendered reader consistency"
+  ],
+  "discovery": {
+    "environment": "Production normal account login; read-only browser and public source metadata",
+    "scale": {
+      "library_titles": 2,
+      "ordinary_reader": 1,
+      "historical_versions": 1,
+      "legacy_collection": 1,
+      "public_parts": 2
+    },
+    "before": {
+      "collection_http": 409,
+      "cause": "Owned legacy task lacks source_metadata.bilibili_parts; route rejects before reading available public manifest."
+    },
+    "reader": {
+      "initial_settled_reload_equal": true,
+      "history_latest_equal": true,
+      "math_nodes": 8,
+      "controlled_browser_only_chunk_delay": {
+        "held_rehype_katex_requests": 1,
+        "before_math": 0,
+        "after_math": 8,
+        "raw_text_equal": false
+      },
+      "conclusion": "data-rendering=formatted does not imply asynchronous math completion. Compare after math rendering; tested sample then stable. Does not prove every previous mismatch had the same cause.",
+      "separate_active_fix": "PR244 currency math; do not duplicate or conflate with persisted-body consistency."
+    },
+    "source_probe": "First public discovery returned complete 2-part manifest and selected P2; later repeat failed (upstream category not captured). No source writes or media/model calls."
+  },
+  "fix": {
+    "behavior": "Owned legacy collections obtain a complete public manifest on demand, with transient response enrichment only. Existing manifest remains preferred. Same discovery supports existing explicitly selected-part processing; no new queue/state behavior.",
+    "writes_during_get": false,
+    "credentials_sent_to_source": false,
+    "source_failure": "503, retain saved episode fallback; never treat an incomplete list as complete."
+  },
+  "validation": {
+    "backend": "47 focused tests passed; final expanded cases pending",
+    "build": "passed; initial compressed assets 197.7KiB within 197.75KiB budget",
+    "browser": "local secure multipart and series lanes running",
+    "production_screenshots": {
+      "viewports": [
+        "1440x900",
+        "768x1024",
+        "390x844"
+      ],
+      "location": "private workspace /workspace/reader-diff-v2-evidence",
+      "actually_viewed": true,
+      "observation": "Legacy directory error visible; existing P2 read link preserved; no visible horizontal overflow. Screenshots contain account content and are not committed."
+    }
+  },
+  "pm": {
+    "goal": "Open a legacy series and see all source parts while retaining existing P2 notes",
+    "success_criteria": "Directory loads complete source manifest, identifies saved P2 correctly, opens saved note, survives refresh without reprocessing.",
+    "result": "Pre-fix failure reproduced; postdeployment acceptance pending."
+  },
+  "release": "pending PR/CI/deployment",
+  "unrelated_remaining": [
+    "Historical screenshot 404",
+    "Model credentials 401 from earlier audit; not retested here",
+    "Long inference / upstream524 / podcast full chain not part of this repair"
+  ]
+}

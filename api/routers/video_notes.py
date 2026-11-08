@@ -1110,7 +1110,17 @@ def _owned_collection(task_id, user):
         raise HTTPException(404, 'Bilibili task not found')
     parts = (task.get('source_metadata') or {}).get('bilibili_parts')
     if not parts:
-        raise HTTPException(409, 'Part list is not available yet. Process this video to discover its collection.')
+        from bilibili_parts import public_collection_metadata
+        from video_downloader import VideoDownloadError
+        import requests
+        try:
+            discovered = public_collection_metadata(task.get('url') or '')
+        except (ValueError, requests.RequestException, VideoDownloadError) as error:
+            raise HTTPException(503, 'The source part list is temporarily unavailable. Retry later; your saved episodes are unchanged.') from error
+        # Enrich this response only. Reading a legacy directory must never
+        # backfill, regenerate or invalidate saved notes and transcripts.
+        task = {**task, 'source_metadata': {**(task.get('source_metadata') or {}), **discovered}}
+        parts = discovered['bilibili_parts']
     return db, task, parts
 
 
