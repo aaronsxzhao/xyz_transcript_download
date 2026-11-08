@@ -61,7 +61,9 @@ jobs:
   frontend:
     name: Frontend Checks
     timeout-minutes: 45
-    runs-on: ubuntu-latest
+    # Pin a supported runner for sandbox-enabled Chromium; never disable the
+    # browser sandbox or relax host security policy to accommodate latest-image drift.
+    runs-on: ubuntu-22.04
     if: github.event_name != 'schedule'
     steps:
       - uses: actions/checkout@v4
