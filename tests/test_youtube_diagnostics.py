@@ -1,7 +1,7 @@
 import json
 from pathlib import Path
 from types import SimpleNamespace
-from unittest.mock import Mock
+from unittest.mock import Mock, call
 
 import pytest
 from api import youtube_diagnostics as diagnostic
@@ -155,3 +155,22 @@ def test_strict_cookie_read_propagates_storage_failure_without_logging_secrets(c
     manager.client.table.side_effect=RuntimeError('secret-database-detail')
     with pytest.raises(RuntimeError,match='storage unavailable'):manager.get_cookie('youtube',strict=True)
     assert 'secret-database-detail' not in caplog.text
+
+
+@pytest.mark.parametrize('response', [None, SimpleNamespace(data=None), SimpleNamespace(data={})])
+def test_absent_cookie_row_is_missing_not_storage_failure(monkeypatch, response):
+    from cookie_manager import _SupabaseCookieManager
+    manager = object.__new__(_SupabaseCookieManager)
+    manager.user_id = 'owner'
+    manager.client = Mock()
+    query = manager.client.table.return_value.select.return_value
+    query.eq.return_value = query
+    query.maybe_single.return_value.execute.return_value = response
+    monkeypatch.setattr('cookie_manager.get_cookie_manager', lambda _: manager)
+    probe = Mock()
+    monkeypatch.setattr(diagnostic, 'run_probe', probe)
+    report = diagnostic.verify_saved_cookie('owner', diagnostic.DEFAULT_VIDEO)
+    assert report['code'] == 'missing_cookie'
+    assert report['cookie_present'] is False
+    probe.assert_not_called()
+    assert query.eq.call_args_list == [call('user_id', 'owner'), call('platform', 'youtube')]
