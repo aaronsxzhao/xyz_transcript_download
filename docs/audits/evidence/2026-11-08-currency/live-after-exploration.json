@@ -1,0 +1,12 @@
+[
+  {
+    "name": "production-currency",
+    "dollars_preserved": true,
+    "false_math_nodes": 0,
+    "bold_restored": true
+  },
+  {
+    "name": "production-reload",
+    "passed": true
+  }
+]

@@ -1,0 +1,146 @@
+[
+  {
+    "design": "classic",
+    "theme": "light",
+    "viewport": [
+      1440,
+      900
+    ],
+    "currency": "PASS",
+    "formulas": 4,
+    "cold_reload": "PASS",
+    "overflow": false
+  },
+  {
+    "design": "classic",
+    "theme": "dark",
+    "viewport": [
+      1440,
+      900
+    ],
+    "currency": "PASS",
+    "formulas": 4,
+    "cold_reload": "PASS",
+    "overflow": false
+  },
+  {
+    "design": "editorial",
+    "theme": "light",
+    "viewport": [
+      1440,
+      900
+    ],
+    "currency": "PASS",
+    "formulas": 4,
+    "cold_reload": "PASS",
+    "overflow": false
+  },
+  {
+    "design": "editorial",
+    "theme": "dark",
+    "viewport": [
+      1440,
+      900
+    ],
+    "currency": "PASS",
+    "formulas": 4,
+    "cold_reload": "PASS",
+    "overflow": false
+  },
+  {
+    "design": "classic",
+    "theme": "light",
+    "viewport": [
+      768,
+      1024
+    ],
+    "currency": "PASS",
+    "formulas": 4,
+    "cold_reload": "PASS",
+    "overflow": false
+  },
+  {
+    "design": "classic",
+    "theme": "dark",
+    "viewport": [
+      768,
+      1024
+    ],
+    "currency": "PASS",
+    "formulas": 4,
+    "cold_reload": "PASS",
+    "overflow": false
+  },
+  {
+    "design": "editorial",
+    "theme": "light",
+    "viewport": [
+      768,
+      1024
+    ],
+    "currency": "PASS",
+    "formulas": 4,
+    "cold_reload": "PASS",
+    "overflow": false
+  },
+  {
+    "design": "editorial",
+    "theme": "dark",
+    "viewport": [
+      768,
+      1024
+    ],
+    "currency": "PASS",
+    "formulas": 4,
+    "cold_reload": "PASS",
+    "overflow": false
+  },
+  {
+    "design": "classic",
+    "theme": "light",
+    "viewport": [
+      390,
+      844
+    ],
+    "currency": "PASS",
+    "formulas": 4,
+    "cold_reload": "PASS",
+    "overflow": false
+  },
+  {
+    "design": "classic",
+    "theme": "dark",
+    "viewport": [
+      390,
+      844
+    ],
+    "currency": "PASS",
+    "formulas": 4,
+    "cold_reload": "PASS",
+    "overflow": false
+  },
+  {
+    "design": "editorial",
+    "theme": "light",
+    "viewport": [
+      390,
+      844
+    ],
+    "currency": "PASS",
+    "formulas": 4,
+    "cold_reload": "PASS",
+    "overflow": false
+  },
+  {
+    "design": "editorial",
+    "theme": "dark",
+    "viewport": [
+      390,
+      844
+    ],
+    "currency": "PASS",
+    "formulas": 4,
+    "cold_reload": "PASS",
+    "overflow": false
+  }
+]

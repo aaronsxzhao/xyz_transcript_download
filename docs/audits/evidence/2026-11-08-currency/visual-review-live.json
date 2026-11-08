@@ -1,0 +1,36 @@
+{
+  "method": "view_image",
+  "privacy": "Screenshots remain private; desktop images include test account identity. No screenshots or auth state committed.",
+  "images": [
+    {
+      "path": "/workspace/browser-validation/currency-after-release/live-classic-dark-1440.png",
+      "sha256": "4c82926b3e1ac431e3845b942a4d028cb3849bac07bcdbc0ceb4d41c5671674f",
+      "result": "Dollar amounts preserved; bold profit/loss text restored; ordinary prose has no false math typography. Viewed this viewport only."
+    },
+    {
+      "path": "/workspace/browser-validation/currency-after-release/live-classic-dark-390.png",
+      "sha256": "940dd37629030b4fc5b86f1f720a79e3d2c69a6cd798d54ad63db2b0e129ede4",
+      "result": "Dollar amounts preserved; bold profit/loss text restored; ordinary prose has no false math typography. Viewed this viewport only."
+    },
+    {
+      "path": "/workspace/browser-validation/currency-after-release/live-classic-dark-768.png",
+      "sha256": "1183309fba505daf1244cc9aef19992e421c4b81d6aa364e20306a69742888ad",
+      "result": "Dollar amounts preserved; bold profit/loss text restored; ordinary prose has no false math typography. Viewed this viewport only."
+    },
+    {
+      "path": "/workspace/browser-validation/currency-after-release/live-editorial-light-1440.png",
+      "sha256": "272970d51a94db77bde2718e2cc0f78604437a0f4bcafd287e02f73d4b21060c",
+      "result": "Dollar amounts preserved; bold profit/loss text restored; ordinary prose has no false math typography. Viewed this viewport only."
+    },
+    {
+      "path": "/workspace/browser-validation/currency-after-release/live-editorial-light-390.png",
+      "sha256": "6eb7aaaa9631e9260fe2c5616203db2923a74e5037700be807d0102e98722676",
+      "result": "Dollar amounts preserved; bold profit/loss text restored; ordinary prose has no false math typography. Viewed this viewport only."
+    },
+    {
+      "path": "/workspace/browser-validation/currency-after-release/live-editorial-light-768.png",
+      "sha256": "6ea3f5a5cebd02fa5142338e0cc1c2e7e58a2ef2921219b209289fe667e93fa2",
+      "result": "Dollar amounts preserved; bold profit/loss text restored; ordinary prose has no false math typography. Viewed this viewport only."
+    }
+  ]
+}

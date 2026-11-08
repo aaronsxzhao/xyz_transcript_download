@@ -1,0 +1,14 @@
+{
+  "started_at": "2026-11-08T13:31:03.900682+00:00",
+  "origin": "https://aipodcastsummary.online",
+  "mode": "authenticated",
+  "authenticated_session_verified": true,
+  "visual_inspection": "NOT_REVIEWED",
+  "sandbox_enabled": true,
+  "tls_verification": true,
+  "checks": [],
+  "blocked_write_requests": 6,
+  "browser_version": "154.0.8037.57",
+  "production_revision": "4c55659c81e430fbb6277ba89d8fd12b9eff174a",
+  "status": "PASS"
+}

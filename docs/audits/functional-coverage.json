@@ -366,6 +366,16 @@
       "report": "docs/audits/2026-11-08-reader-collection.json",
       "issue": "Legacy multipart directory 409 and reader DOM comparison",
       "state": "Read-only manifest recovery implemented; focused regression passed; production rollout pending. Settled reader/history/refresh verified; delayed math can change raw text."
+    },
+    {
+      "date": "2026-11-08",
+      "issue": "currency-inline-math",
+      "pr": 244,
+      "state": "fixed_deployed_and_live_verified",
+      "report": "docs/audits/2026-11-08-currency-math-fix.json",
+      "revision": "4c55659c81e430fbb6277ba89d8fd12b9eff174a",
+      "owner": "visual inspection",
+      "verification": "541 frontend tests in CI;12 synthetic browser cases; real authenticated original-note before failure/after pass and6 inspected live screenshots; no historical note writes"
     }
   ]
 }

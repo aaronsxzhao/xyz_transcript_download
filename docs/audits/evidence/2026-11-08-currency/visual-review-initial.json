@@ -1,0 +1,18 @@
+{
+  "reviewed": [
+    "classic-light-1440.png",
+    "classic-light-390.png",
+    "classic-light-768.png",
+    "editorial-light-390.png",
+    "classic-dark-390.png",
+    "editorial-dark-1440.png",
+    "editorial-dark-768.png",
+    "editorial-light-768.png",
+    "classic-dark-768.png",
+    "classic-dark-1440.png",
+    "editorial-dark-390.png",
+    "editorial-light-1440.png"
+  ],
+  "method": "view_image",
+  "findings": "Currency signs and bold formatting preserved; four real formulas remain; no overflow in12 cold-reload combinations; local synthetic data only."
+}

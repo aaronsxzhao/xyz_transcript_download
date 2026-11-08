@@ -1,0 +1,46 @@
+{
+  "issue": "currency-inline-math",
+  "authorization": "User explicitly authorized this parser correction on2026-11-08",
+  "pr": 244,
+  "head": "6c3c623dcb8020860d37f0aa70e9eb033bc7f020",
+  "base": "37bcc192db81ff7227000b5c46b821f88cde07a7",
+  "change": "Tight single-dollar boundaries; closer cannot precede a digit; $$, code, escapes retained; rendering only",
+  "local": {
+    "full_unit_tests": 540,
+    "focused_final_tests": 8,
+    "browser_matrix": 12,
+    "visual_review_initial_fixed": 12,
+    "visual_review_final_bundle": 3,
+    "summary_regression": "PASS synthetic",
+    "reader_theme_regression": "PASS8 synthetic",
+    "node22_build_budget_kib": 197.1,
+    "budget_kib": 197.75
+  },
+  "ci_initial": "Build rejected197.9KiB; helper moved into lazy MarkdownPreview; no budget change",
+  "ci_latest": 42481381878,
+  "production_before": "Normal signin and protected API verified; original currency assertion failed before release",
+  "production_after": "PASS: normal signin and protected API200, exact health revision4c55659; original note currency paragraph and bold profit assertions pass; reload passes;6 real screenshots individually inspected.",
+  "private_evidence": "/workspace/browser-validation/currency-before-release",
+  "local_evidence": "/workspace/xyz-currency-fix/appearance-checks/currency-final",
+  "merge_sha": "4c55659c81e430fbb6277ba89d8fd12b9eff174a",
+  "ci_status": "PASS",
+  "ci_frontend_tests": 541,
+  "ci_initial_asset_kib": 197.7,
+  "deployment_run": 42484002449,
+  "deployment_status": "SUCCESS",
+  "scope": "User-authorized currency/math rendering correction. No saved note writes or regeneration.",
+  "compatibility": "Single-dollar inline math must have tight delimiters and cannot close immediately before a digit. Padded math uses double dollars.",
+  "reviewed_final_images": [
+    "classic-light-390.png",
+    "editorial-dark-768.png",
+    "classic-dark-1440.png"
+  ],
+  "coexisting_fix": "PR245 backend-only legacy directory fix included in main; not authored by this task.",
+  "evidence": "evidence/2026-11-08-currency",
+  "disposition": "fixed_deployed_and_live_verified",
+  "limitations": [
+    "Single-dollar formulas with padded whitespace now display literally; use tight single-dollar or double-dollar delimiters.",
+    "Real live verification covers one previously failing note, Classic dark and Editorial light at1440x900,768x1024,390x844. Four-theme full coverage is local/CI synthetic, not live all-note acceptance.",
+    "Missing source images visible in the same note are a separate issue and were not restored by this fix."
+  ]
+}
