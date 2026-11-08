@@ -25,7 +25,10 @@ def public_collection_metadata(url):
         raise ValueError('No canonical Bilibili source identity')
     video_id = identity.group(1)
     params = {'bvid': video_id} if video_id.startswith('BV') else {'aid': video_id[2:]}
-    with requests.get('https://api.bilibili.com/x/web-interface/view', params=params,
+    # The public page-list endpoint returns the complete collection directly.
+    # A directory does not need the separate video overview (which may reject
+    # an anonymous read even while the public page list remains available).
+    with requests.get('https://api.bilibili.com/x/player/pagelist', params=params,
                       headers={'User-Agent': 'Mozilla/5.0', 'Referer': 'https://www.bilibili.com/'},
                       timeout=15, allow_redirects=False) as response:
         if response.status_code != 200:
@@ -33,11 +36,13 @@ def public_collection_metadata(url):
         data = response.json()
     if not isinstance(data, dict) or data.get('code') != 0:
         raise ValueError('Public part metadata was rejected')
-    source = data.get('data')
-    if not isinstance(source, dict) or not isinstance(source.get('pages'), list) or not all(isinstance(page, dict) for page in source['pages']):
+    pages = data.get('data')
+    if not isinstance(pages, list) or not all(isinstance(page, dict) for page in pages):
         raise ValueError('Public part metadata is invalid')
     try:
-        parts = part_manifest(source, url)
+        # Do not invent an overview title or a source-reported total. Keep each
+        # public part label; the saved collection heading remains unchanged.
+        parts = part_manifest({'title': 'Bilibili', 'pages': pages}, url)
     except TypeError as error:
         raise ValueError('Public part metadata is invalid') from error
     page = selected_part(url) or 1
