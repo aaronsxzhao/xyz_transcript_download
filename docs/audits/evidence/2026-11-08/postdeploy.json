@@ -1,0 +1,30 @@
+{
+  "started_at": "2026-11-08T01:43:33.965864+00:00",
+  "origin": "https://aipodcastsummary.online",
+  "mode": "authenticated",
+  "authenticated_session_verified": true,
+  "visual_inspection": "view_image opened youtube-postdeploy.png; correct missing-cookie message and enabled retry observed; screenshot private",
+  "sandbox_enabled": true,
+  "tls_verification": true,
+  "checks": [],
+  "blocked_write_requests": 5,
+  "browser_version": "154.0.8037.57",
+  "network_errors": [],
+  "note_reads": [],
+  "page_error_count": 0,
+  "console_error_count": 5,
+  "verification": {
+    "reference": "65434edb-44ca-47cd-86ac-5a1315ab8144",
+    "revision": "37bcc192db81ff7227000b5c46b821f88cde07a7",
+    "code": "missing_cookie",
+    "stage": "cookie",
+    "cookie_present": false,
+    "metadata_ok": false,
+    "download_ok": false,
+    "sample_bytes": 0,
+    "elapsed_seconds": 0.02,
+    "retry_available": true,
+    "missing_label": true
+  },
+  "status": "PASS"
+}

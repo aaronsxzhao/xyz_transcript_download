@@ -2,9 +2,9 @@
   "schema_version": 1,
   "site": "https://aipodcastsummary.online",
   "repository": "aaronsxzhao/xyz_transcript_download",
-  "updated_at": "2026-11-05T21:19:41.713041+08:00",
-  "tested_commit": "95b2712bd7da8102c829ccdfebeaf4a4aab0d444",
-  "current_report": "2026-11-05-technical-functional.json",
+  "updated_at": "2026-11-08T01:44:46.200835+00:00",
+  "tested_commit": "37bcc192db81ff7227000b5c46b821f88cde07a7",
+  "current_report": "docs/audits/2026-11-08-technical-pm.json",
   "inventory_basis": [
     "web/src/App.tsx routes",
     "current repository feature components and prior audit records",
@@ -113,6 +113,11 @@
           "result": "partial",
           "scope": "Formatted reader reload/latest restore stable on1 item; empty podcast search/clear/reload; Library2 titles, no pagination",
           "remaining": "No deletion/import/generation or sustained concurrent work accepted"
+        },
+        {
+          "checked_at": "2026-11-08T01:44:46.200835+00:00",
+          "report": "docs/audits/2026-11-08-technical-pm.json",
+          "scope": "Scoped production checks and release;see per-feature coverage_delta;does not promote earlier unit/local tests to full acceptance"
         }
       ]
     },
@@ -155,6 +160,11 @@
           "result": "partial",
           "scope": "Formatted reader reload/latest restore stable on1 item; empty podcast search/clear/reload; Library2 titles, no pagination",
           "remaining": "No deletion/import/generation or sustained concurrent work accepted"
+        },
+        {
+          "checked_at": "2026-11-08T01:44:46.200835+00:00",
+          "report": "docs/audits/2026-11-08-technical-pm.json",
+          "scope": "Scoped production checks and release;see per-feature coverage_delta;does not promote earlier unit/local tests to full acceptance"
         }
       ]
     },
@@ -190,6 +200,11 @@
           "account_type": "authorized account, existing data read-only",
           "data_scale": "2 Library titles;1 ordinary reader and1 series",
           "responsibility": "technical + PM, coordinated with design PR242"
+        },
+        {
+          "checked_at": "2026-11-08T01:44:46.200835+00:00",
+          "report": "docs/audits/2026-11-08-technical-pm.json",
+          "scope": "Scoped production checks and release;see per-feature coverage_delta;does not promote earlier unit/local tests to full acceptance"
         }
       ]
     },
@@ -362,6 +377,13 @@
           "evidence": "2026-11-06-manual-technical.json",
           "limitation": "Not full API/UI operation-chain or production acceptance; preserve previous main feature result and pending PR239 evidence"
         }
+      ],
+      "production_followups": [
+        {
+          "checked_at": "2026-11-08T01:44:46.200835+00:00",
+          "report": "docs/audits/2026-11-08-technical-pm.json",
+          "scope": "Scoped production checks and release;see per-feature coverage_delta;does not promote earlier unit/local tests to full acceptance"
+        }
       ]
     },
     {
@@ -386,7 +408,14 @@
       ],
       "issues": [],
       "in_progress_prs": [],
-      "next_check": "Check cookie ownership and persistence with authorized isolated credentials"
+      "next_check": "Check cookie ownership and persistence with authorized isolated credentials",
+      "production_followups": [
+        {
+          "checked_at": "2026-11-08T01:44:46.200835+00:00",
+          "report": "docs/audits/2026-11-08-technical-pm.json",
+          "scope": "Scoped production checks and release;see per-feature coverage_delta;does not promote earlier unit/local tests to full acceptance"
+        }
+      ]
     },
     {
       "id": "export",
@@ -485,6 +514,17 @@
         241,
         242
       ]
+    },
+    {
+      "checked_at": "2026-11-08T01:44:46.200835+00:00",
+      "report": "docs/audits/2026-11-08-technical-pm.json",
+      "result": "partial site coverage;cookie classification fix deployed and verified",
+      "versions": {
+        "core_readonly": "95b2712",
+        "affected_postdeploy": "37bcc192db81ff7227000b5c46b821f88cde07a7"
+      },
+      "evidence": "docs/audits/evidence/2026-11-08/",
+      "pr": 243
     }
   ],
   "remediation_followups": [
@@ -503,6 +543,16 @@
       "pr": 243,
       "state": "PR243 local fix and regression complete; hosted sandbox launch failure blocks merge/deployment",
       "prior_evidence": "PR241 c6bb7b4; preserved on its branch"
+    },
+    {
+      "date": "2026-11-08",
+      "report": "docs/audits/2026-11-08-technical-pm.json",
+      "pr": 243,
+      "state": "resolved and deployed: absent-cookie misclassification;CI sandbox compatibility",
+      "revision": "37bcc192db81ff7227000b5c46b821f88cde07a7",
+      "ci_run": 42432070935,
+      "deploy_run": 42434515097,
+      "remaining": "model401,13missingimages,legacydirectory409;no real long inference or hostedfault recovery acceptance"
     }
   ]
 }
