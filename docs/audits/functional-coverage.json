@@ -2,9 +2,9 @@
   "schema_version": 1,
   "site": "https://aipodcastsummary.online",
   "repository": "aaronsxzhao/xyz_transcript_download",
-  "updated_at": "2026-11-08T14:27:07.950316+00:00",
+  "updated_at": "2026-11-08T14:33:58.060107+00:00",
   "tested_commit": "d230bd366762dcd32ed1646c849fffdea22fa698",
-  "current_report": "docs/audits/2026-11-08-reader-collection.json",
+  "current_report": "docs/audits/2026-11-08-model-recheck.json",
   "inventory_basis": [
     "web/src/App.tsx routes",
     "current repository feature components and prior audit records",
@@ -359,6 +359,22 @@
           "evidence": "2026-11-06-manual-technical.json",
           "limitation": "Not full API/UI operation-chain or production acceptance; preserve previous main feature result and pending PR239 evidence"
         }
+      ],
+      "component_followups": [
+        {
+          "checked_at": "2026-11-08T14:33:58.060107+00:00",
+          "report": "docs/audits/2026-11-08-model-recheck.json",
+          "environment": "isolated local SQLite+loopback HTTP,synthetic processor",
+          "result": "passed_scoped",
+          "scope": "524 failure→next task→explicit retry→fresh process restores completed jobs/checkpoints",
+          "limitations": [
+            "Not real upstream524",
+            "Not full API server restart or browser acceptance",
+            "Not full podcast acquisition/transcription/model pipeline",
+            "Not production Supabase",
+            "Not a killed-worker lease-expiry test"
+          ]
+        }
       ]
     },
     {
@@ -422,6 +438,22 @@
           "checked_at": "2026-11-08T01:44:46.200835+00:00",
           "report": "docs/audits/2026-11-08-technical-pm.json",
           "scope": "Scoped production checks and release;see per-feature coverage_delta;does not promote earlier unit/local tests to full acceptance"
+        }
+      ],
+      "component_followups": [
+        {
+          "checked_at": "2026-11-08T14:33:58.060107+00:00",
+          "report": "docs/audits/2026-11-08-model-recheck.json",
+          "environment": "isolated local SQLite+loopback HTTP,synthetic processor",
+          "result": "passed_scoped",
+          "scope": "524 failure→next task→explicit retry→fresh process restores completed jobs/checkpoints",
+          "limitations": [
+            "Not real upstream524",
+            "Not full API server restart or browser acceptance",
+            "Not full podcast acquisition/transcription/model pipeline",
+            "Not production Supabase",
+            "Not a killed-worker lease-expiry test"
+          ]
         }
       ]
     },
@@ -607,6 +639,25 @@
       "revision": "d230bd366762dcd32ed1646c849fffdea22fa698",
       "ci_run": 42486536428,
       "deploy_run": 42489072907
+    },
+    {
+      "date": "2026-11-08T14:33:58.060107+00:00",
+      "report": "docs/audits/2026-11-08-model-recheck.json",
+      "state": "Known2note media loss closed by user;provider explicitly reports key error;local injected524 component recovery passed;real model paths still external configuration blocked"
+    }
+  ],
+  "accepted_exclusions": [
+    {
+      "id": "accepted-legacy-upload-media-loss-20261108",
+      "confirmed_by": "User explicitly confirmed two historical local uploads lost screenshots due to storage space;no backup and no recovery requested.",
+      "scope": "Only the2notes/13missing screenshot references identified by2026-11-08 inventory",
+      "note_body_sha256": [
+        "7af237e297102d1fe129a6b767e9b85bcd14ce82509291c7564e25c51e698c11",
+        "eafb07f88c83de4274d06576415340a59c530119d857608d0c51225250f8d79a"
+      ],
+      "action": "Do not recheck or report these known missing files as actionable defects. Do not delete or alter notes. New missing media outside this scope remains actionable.",
+      "status": "closed_user_accepted",
+      "checked_at": "2026-11-08T14:33:58.060107+00:00"
     }
   ]
 }

@@ -97,10 +97,10 @@
   "unrelated_remaining": [
     {
       "issue": "Historical screenshots",
-      "status": "needs scoped recovery plan;unchanged",
+      "status": "closed_user_accepted",
       "evidence": "Authenticated inventory13/13 missing across2notes;current retention protects saved references. Original loss/backup availability unknown.",
-      "next": "Read-only backup/source inventory,identify recoverable originals and approve bounded recovery plan before modifying existing data.",
-      "acceptance": "All13 references recover or are explicitly classified unavailable;readers render recovered images."
+      "next": "No repeat check or recovery for these two historical uploads;see functional-coverage accepted_exclusions",
+      "acceptance": "User confirmed expected historical storage loss and no backup;no application/data mutation required."
     },
     {
       "issue": "Test model readiness",
@@ -141,5 +141,6 @@
     "remote_desktop": "not used or validated",
     "credentials": "presence checked only;no values persisted",
     "setup_changes": "Reused installed components;no browser installation or security bypass"
-  }
+  },
+  "followup_report": "docs/audits/2026-11-08-model-recheck.json"
 }
