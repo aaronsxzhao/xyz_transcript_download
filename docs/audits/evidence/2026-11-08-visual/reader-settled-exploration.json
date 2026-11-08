@@ -1,0 +1,17 @@
+[
+  {
+    "name": "reader-roundtrip",
+    "same_prose": true,
+    "before_chars": 3055,
+    "after_chars": 3055,
+    "protected_response": 200,
+    "initial_captions": {
+      "count": 8,
+      "chars": 152
+    }
+  },
+  {
+    "name": "reader-return-library",
+    "passed": true
+  }
+]

@@ -1,0 +1,115 @@
+{
+  "run": "20261108-visual",
+  "main_sha": "37bcc192db81ff7227000b5c46b821f88cde07a7",
+  "production_sha": "37bcc192db81ff7227000b5c46b821f88cde07a7",
+  "harness": "PR242 0bb92d6 reviewed and copied; remains unmerged; guidance updated to66f9b1b",
+  "environment": {
+    "config": "cecfg_6ad393188adc819db89d4628d0f79658",
+    "chromium": "154.0.8037.57",
+    "python": "3.12.14",
+    "playwright": "1.62.0",
+    "network": "unrestricted enforced; inherited proxy/CA; no missing linked libraries",
+    "launch": "approved require_escalated; sandbox true; TLS verified",
+    "desktop": "not exercised; separate from successful headless automation",
+    "dependencies": "none installed"
+  },
+  "auth": "Normal signin via confidential terminal prompt, verified protected /api/stats200; non-login writes blocked; no storage state/HAR/token responses persisted",
+  "A_actual": [
+    "Anonymous checkbox toggle/restore, navigation and reload at1440x900,768x1024,390x844",
+    "Library ordinary note ->Transcript ->Summary ->reload ->back to Library; protected note200",
+    "Settings ->Platform Accounts ->YouTube URL draft ->Classic/Editorial and light/dark ->1440/768/390 ->Tab to verify button ->clear draft ->General ->reload; no submit or save",
+    "18 images opened with view_image, including12 settings and2 settled-reader screenshots"
+  ],
+  "B_automated": [
+    "Anonymous3viewport bounds/navigation/reload passed",
+    "12settings combinations: draft retention, keyboard focus, no horizontal overflow",
+    "After equivalent math readiness: normalized prose3055==3055 and strict equality passes",
+    "Initial comparison3215!=3081; removing image captions alone3055!=2921; failed results retained",
+    "No local fixture suite repeated: previous48forms/108pages remain historical, not current acceptance"
+  ],
+  "dispositions": [
+    {
+      "id": "reader-dom-consistency",
+      "status": "verified_no_product_fix_needed_for_this_sample",
+      "root_cause": "Optional remark-math/KaTeX loads asynchronously. Comparing rich math text with pre-math text changes DOM text representation. Caption removal alone was insufficient.",
+      "confidence": "high: minimal delta localized to math/currency; both math-ready comparison exactly matches",
+      "resolution": "Explicit math readiness and consistent media-control exclusion; strict prose equality retained; PR242 guidance updated",
+      "limit": "Does not prove all notes, saved versions or concurrent generation stable"
+    },
+    {
+      "id": "currency-inline-math",
+      "status": "confirmed_needs_content_syntax_decision",
+      "severity": "P2 readability",
+      "reproduction": "Authorized Library ordinary financial video ->Summary ->section4.2 ->wait KaTeX; refresh reproduces",
+      "expected": "Dollar currency amounts and normal bold text remain readable as currency/prose",
+      "actual": "Dollar signs used as math delimiters; mixed Chinese/math typography and literal ** markers visible",
+      "confidence": "high: live screenshot, minimal text delta and MarkdownPreview.tsx remarkMath default parsing agree",
+      "scope": "Global markdown math parser shared by notes, not a local CSS issue",
+      "proposals": [
+        "Preserve existing single-dollar math; require explicit escaping of currency in authoring/generation and design a separately authorized repair for legacy notes.",
+        "Adopt explicit math delimiters instead of single-dollar inline syntax; requires compatibility review and migration for existing formulas."
+      ],
+      "boundary": "Do not disable existing math by default or rewrite saved user content under minor-only visual authorization",
+      "acceptance": "Currency sample displays dollar amounts and bold emphasis correctly; genuine inline/display math regressions pass; saved text/versions preserved according to chosen policy"
+    },
+    {
+      "id": "youtube-cookie-diagnostic",
+      "status": "already_fixed_and_deployed_by_technical_audit",
+      "pr": 243,
+      "ci_run": 42432070935,
+      "health": "ok at37bcc19",
+      "this_round": "Read latest technical report and current CI; inspected responsive input/focus states, not another upstream diagnostic request"
+    },
+    {
+      "id": "videos-library-count",
+      "status": "needs_grouping_decision",
+      "prior_cause": "Both existing notes lack channel metadata; channel aggregate excludes them",
+      "current_action": "Reviewed prior exact response evidence; no semantic grouping change",
+      "acceptance": "Agreed Unknown Channel/discovery behavior and consistent counts/back/reload"
+    },
+    {
+      "id": "series-missing-manifest",
+      "status": "data_write_boundary",
+      "current_action": "Reviewed Nov08 technical409/missing-manifest evidence; no duplicate reprocessing",
+      "required": "Metadata-only recovery scope and source access authorization",
+      "acceptance": "Complete ordered directory, saved/current statuses preserved"
+    },
+    {
+      "id": "historical-images",
+      "status": "external_recovery_blocked",
+      "current_action": "Missing-image behavior observed; technical integrity inventory still13missing/2notes",
+      "required": "Backup/original-media availability plus scoped restoration permission",
+      "acceptance": "13references load; note text and versions unchanged"
+    },
+    {
+      "id": "model-long-processing",
+      "status": "external_credential_blocker",
+      "basis": "Nov08 technical normalized models endpoint401; no new paid calls",
+      "required": "Provider-accepted credential via secure Cloud settings and isolated processing data",
+      "acceptance": "Models-list succeeds, then controlled long-processing/UI chain"
+    },
+    {
+      "id": "large-lists-cross-device-full-state-matrix",
+      "status": "not_fully_live_accepted",
+      "required": "Controlled larger dataset and independent authenticated devices; production account2titles",
+      "previous": "Local pagination/forms/page matrix passed Nov07; not promoted to current live acceptance"
+    }
+  ],
+  "coverage_remaining": [
+    "All pages across full theme matrix: this round targeted settings and reader; other scopes remain explicit gaps",
+    "Real task progress regression/background/524/provider recovery",
+    "Saved-version rich-text consistency beyond tested latest note",
+    "Physical devices and cross-device dismiss/read synchronization",
+    "Subscription/create/retry and broader hover/focus/error state combinations not repeated"
+  ],
+  "changes": "No product patch, no new PR, no release. Only existing PR242 guidance and this audit evidence updated.",
+  "coordination": "Read latest main shared coverage and technical PR241706032e. Preserve existing feature entries, append run; PR239/240/241/242 open.",
+  "private_evidence": "/workspace/browser-validation/20261108",
+  "commands": [
+    "python scripts/check_cloud_browser.py --output appearance-checks/cloud-browser/20261108/anonymous",
+    "python /workspace/browser-validation/20261108/explore.py --authenticated --output /workspace/browser-validation/20261108/live",
+    "python /workspace/browser-validation/20261108/reader_compare.py --authenticated --output /workspace/browser-validation/20261108/reader-compare",
+    "python /workspace/browser-validation/20261108/reader_delta.py --authenticated --output /workspace/browser-validation/20261108/reader-delta",
+    "python /workspace/browser-validation/20261108/reader_settled.py --authenticated --output /workspace/browser-validation/20261108/reader-settled"
+  ]
+}

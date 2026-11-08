@@ -1,0 +1,37 @@
+{
+  "method": "view_image; contents actually inspected",
+  "reviewed": {
+    "anonymous": [
+      "anonymous-1440x900.png",
+      "anonymous-768x1024.png",
+      "anonymous-390x844.png"
+    ],
+    "live": [
+      "settings-editorial-dark-1440.png",
+      "settings-editorial-light-390.png",
+      "settings-editorial-light-1440.png",
+      "settings-editorial-dark-768.png",
+      "settings-editorial-dark-390.png",
+      "settings-classic-dark-390.png",
+      "settings-classic-light-390.png",
+      "settings-classic-light-1440.png",
+      "settings-classic-dark-1440.png",
+      "settings-editorial-light-768.png",
+      "settings-classic-light-768.png",
+      "settings-classic-dark-768.png",
+      "reader-refresh.png"
+    ],
+    "reader-settled": [
+      "currency-math-rendering.png",
+      "reader-refresh.png"
+    ]
+  },
+  "observations": [
+    "Anonymous forms fit3 viewports.",
+    "Settings12 appearances/width combinations: focused verification button visible; draft retained; no horizontal overflow. Magenta input rectangles are privacy masks, not app rendering.",
+    "Settings screenshots include scrolled content under sticky savebar; no claim of whole-page acceptance.",
+    "Settled reader shows currency parsed as math, dollar symbols omitted and literal Markdown asterisks.",
+    "Reader media remains unavailable; images are not accepted as healthy."
+  ],
+  "unreviewed": "Intermediate reader-delta screenshots not accepted; text delta stays private."
+}

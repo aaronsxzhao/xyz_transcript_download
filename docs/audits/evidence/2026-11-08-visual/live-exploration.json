@@ -1,0 +1,91 @@
+[
+  {
+    "name": "reader-roundtrip",
+    "same_prose": false,
+    "before_chars": 3215,
+    "after_chars": 3081,
+    "protected_response": 200
+  },
+  {
+    "name": "reader-return-library",
+    "passed": true
+  },
+  {
+    "name": "settings-classic-light-1440",
+    "draft_retained": true,
+    "keyboard_focus": true,
+    "overflow": false
+  },
+  {
+    "name": "settings-classic-light-768",
+    "draft_retained": true,
+    "keyboard_focus": true,
+    "overflow": false
+  },
+  {
+    "name": "settings-classic-light-390",
+    "draft_retained": true,
+    "keyboard_focus": true,
+    "overflow": false
+  },
+  {
+    "name": "settings-classic-dark-1440",
+    "draft_retained": true,
+    "keyboard_focus": true,
+    "overflow": false
+  },
+  {
+    "name": "settings-classic-dark-768",
+    "draft_retained": true,
+    "keyboard_focus": true,
+    "overflow": false
+  },
+  {
+    "name": "settings-classic-dark-390",
+    "draft_retained": true,
+    "keyboard_focus": true,
+    "overflow": false
+  },
+  {
+    "name": "settings-editorial-light-1440",
+    "draft_retained": true,
+    "keyboard_focus": true,
+    "overflow": false
+  },
+  {
+    "name": "settings-editorial-light-768",
+    "draft_retained": true,
+    "keyboard_focus": true,
+    "overflow": false
+  },
+  {
+    "name": "settings-editorial-light-390",
+    "draft_retained": true,
+    "keyboard_focus": true,
+    "overflow": false
+  },
+  {
+    "name": "settings-editorial-dark-1440",
+    "draft_retained": true,
+    "keyboard_focus": true,
+    "overflow": false
+  },
+  {
+    "name": "settings-editorial-dark-768",
+    "draft_retained": true,
+    "keyboard_focus": true,
+    "overflow": false
+  },
+  {
+    "name": "settings-editorial-dark-390",
+    "draft_retained": true,
+    "keyboard_focus": true,
+    "overflow": false
+  },
+  {
+    "name": "settings-return-refresh",
+    "passed": true,
+    "no_save": true,
+    "no_verification_request": true
+  }
+]

@@ -1,0 +1,13 @@
+[
+  {
+    "name": "reader-roundtrip",
+    "same_prose": false,
+    "before_chars": 3055,
+    "after_chars": 2921,
+    "protected_response": 200,
+    "initial_captions": {
+      "count": 8,
+      "chars": 152
+    }
+  }
+]
