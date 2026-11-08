@@ -495,6 +495,14 @@
       "media": "authenticated inventory:13/13 referenced assets missing across2 notes",
       "model": "normalized /v1/models still401",
       "state": "External credential and existing-data recovery boundaries remain; schedules updated to require execution"
+    },
+    {
+      "date": "2026-11-07 evening",
+      "report": "docs/audits/2026-11-07-evening-technical-pm.json",
+      "issue": "empty-cookie lookup misclassified as storage outage",
+      "pr": 243,
+      "state": "PR243 local fix and regression complete; hosted sandbox launch failure blocks merge/deployment",
+      "prior_evidence": "PR241 c6bb7b4; preserved on its branch"
     }
   ]
 }

@@ -41,7 +41,7 @@ export default function YouTubeVerification({disabled=false}:{disabled?:boolean}
   {error&&<p role="alert" className="text-sm text-red-400">{error}</p>}
   {report&&<div role="status" className="space-y-2 text-sm text-gray-300">
    <p className={report.code==='ok'?'text-green-400':'text-amber-400'}>{report.message}</p>
-   <ul className="space-y-1"><li>Saved cookies: {report.cookie_present?'found':'missing'}</li><li>Video information: {report.metadata_ok?'passed':'not verified'}</li><li>Media sample: {report.download_ok?`passed (${report.sample_bytes} bytes)`:'not verified'}</li></ul>
+   <ul className="space-y-1"><li>Saved cookies: {report.code==='storage_unavailable'?'unknown (storage unavailable)':report.cookie_present?'found':'missing'}</li><li>Video information: {report.metadata_ok?'passed':'not verified'}</li><li>Media sample: {report.download_ok?`passed (${report.sample_bytes} bytes)`:'not verified'}</li></ul>
    <p className="text-xs text-gray-400">A public-video check confirms access for that video; it does not prove that all account-only videos are accessible.</p>
    <p className="text-xs text-gray-400 break-all">Reference: {report.reference} · {report.elapsed_seconds}s</p>
    <button type="button" className="ui-button" onClick={()=>void copy()}>{copied?'Copied':'Copy diagnostic report'}</button>
