@@ -5,6 +5,7 @@ import { prepareNoteMarkdown } from '../../lib/noteMarkdown'
 import { rehypeNoteHeadings } from '../../lib/noteHeadingPlugin'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
+import { remarkCurrencyMath } from '../../lib/remarkCurrencyMath'
 import type { PluggableList } from 'unified'
 import { Play, ExternalLink, ImageIcon } from 'lucide-react'
 
@@ -58,7 +59,7 @@ const NoteMarkdown = memo(function NoteMarkdown({ markdown,readerTitle }: { mark
   if (math) rehypePlugins.push([math.rehype, { throwOnError: false, errorColor: '#94a3b8' }])
   return (
             <ReactMarkdown
-              remarkPlugins={math ? [remarkGfm, math.remark] : [remarkGfm]}
+              remarkPlugins={math ? [remarkGfm, math.remark, remarkCurrencyMath] : [remarkGfm]}
               rehypePlugins={rehypePlugins}
               components={{
                 ol({ start, children }) {
