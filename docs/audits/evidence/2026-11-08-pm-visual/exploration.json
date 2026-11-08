@@ -1,0 +1,84 @@
+[
+  {
+    "name": "version-choices",
+    "count": 2
+  },
+  {
+    "name": "saved-version-latest",
+    "http": 200,
+    "latest_restored": true
+  },
+  {
+    "name": "latest-refresh",
+    "same_prose": true
+  },
+  {
+    "name": "reader-classic-light-1440",
+    "overflow": false,
+    "same_prose": true
+  },
+  {
+    "name": "reader-classic-light-768",
+    "overflow": false,
+    "same_prose": true
+  },
+  {
+    "name": "reader-classic-light-390",
+    "overflow": false,
+    "same_prose": true
+  },
+  {
+    "name": "reader-classic-dark-1440",
+    "overflow": false,
+    "same_prose": true
+  },
+  {
+    "name": "reader-classic-dark-768",
+    "overflow": false,
+    "same_prose": true
+  },
+  {
+    "name": "reader-classic-dark-390",
+    "overflow": false,
+    "same_prose": true
+  },
+  {
+    "name": "reader-editorial-light-1440",
+    "overflow": false,
+    "same_prose": true
+  },
+  {
+    "name": "reader-editorial-light-768",
+    "overflow": false,
+    "same_prose": true
+  },
+  {
+    "name": "reader-editorial-light-390",
+    "overflow": false,
+    "same_prose": true
+  },
+  {
+    "name": "reader-editorial-dark-1440",
+    "overflow": false,
+    "same_prose": true
+  },
+  {
+    "name": "reader-editorial-dark-768",
+    "overflow": false,
+    "same_prose": true
+  },
+  {
+    "name": "reader-editorial-dark-390",
+    "overflow": false,
+    "same_prose": true
+  },
+  {
+    "name": "appearance-restored",
+    "text_size": "16",
+    "width": "Comfortable"
+  },
+  {
+    "name": "transcript-mode-return",
+    "passed": true
+  }
+]

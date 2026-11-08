@@ -1,0 +1,120 @@
+{
+  "images": [
+    {
+      "path": "/workspace/xyz-ui-audit-20261108-pm/appearance-checks/cloud-browser/20261108-pm/anonymous/anonymous-1440x900.png",
+      "sha256": "054a440d7b90006601841dcc7b0e38d2179b8de21da2a3657b4469c5e4d37e59",
+      "method": "view_image",
+      "review": "已用 view_image 打开查看。当前视口内无横向溢出或操作栏遮挡；不代表整页、所有状态验收。"
+    },
+    {
+      "path": "/workspace/xyz-ui-audit-20261108-pm/appearance-checks/cloud-browser/20261108-pm/anonymous/anonymous-390x844.png",
+      "sha256": "774f6912b6c6e772570fda95d132c63639f2900e9b11df4d00f720815506d6b3",
+      "method": "view_image",
+      "review": "已用 view_image 打开查看。当前视口内无横向溢出或操作栏遮挡；不代表整页、所有状态验收。"
+    },
+    {
+      "path": "/workspace/xyz-ui-audit-20261108-pm/appearance-checks/cloud-browser/20261108-pm/anonymous/anonymous-768x1024.png",
+      "sha256": "18124479a7ba3e8837cac7e93db3299d35f7236d5ee79c9afb674df50180584f",
+      "method": "view_image",
+      "review": "已用 view_image 打开查看。当前视口内无横向溢出或操作栏遮挡；不代表整页、所有状态验收。"
+    },
+    {
+      "path": "/workspace/browser-validation/20261108-pm/live/appearance-controls.png",
+      "sha256": "d42b2091d483274353c3c409845675e5f30c40e56dca9fe845e3f8bda62be43a",
+      "method": "view_image",
+      "review": "瞬时截图的 Comfortable 选中反馈未稳定；后续 settled 截图和 aria-pressed 断言确认 Wide 正确，本图不作稳定选中状态验收。"
+    },
+    {
+      "path": "/workspace/browser-validation/20261108-pm/live/reader-classic-dark-1440.png",
+      "sha256": "fb6dda768cc6aa391b82079dcfb3a8cd94b067b2ead8fea91e95ee08c33a0624",
+      "method": "view_image",
+      "review": "已用 view_image 打开查看。当前视口内无横向溢出或操作栏遮挡；不代表整页、所有状态验收。"
+    },
+    {
+      "path": "/workspace/browser-validation/20261108-pm/live/reader-classic-dark-390.png",
+      "sha256": "28d2933f1c558876fb8add2d0f74745545ba5590b5289e3fdac9ebf61bb68b21",
+      "method": "view_image",
+      "review": "已用 view_image 打开查看。当前视口内无横向溢出或操作栏遮挡；不代表整页、所有状态验收。"
+    },
+    {
+      "path": "/workspace/browser-validation/20261108-pm/live/reader-classic-dark-768.png",
+      "sha256": "7ece39543c17c8a5b0c0ecd3392f51b512c193b4bf6cfa216f2c414409f4b703",
+      "method": "view_image",
+      "review": "已用 view_image 打开查看。当前视口内无横向溢出或操作栏遮挡；不代表整页、所有状态验收。"
+    },
+    {
+      "path": "/workspace/browser-validation/20261108-pm/live/reader-classic-light-1440.png",
+      "sha256": "cc63690b3f7ffab368acb77b663fce2d5c571978d8fe978b46666e76d0945e77",
+      "method": "view_image",
+      "review": "已用 view_image 打开查看。当前视口内无横向溢出或操作栏遮挡；不代表整页、所有状态验收。"
+    },
+    {
+      "path": "/workspace/browser-validation/20261108-pm/live/reader-classic-light-390.png",
+      "sha256": "b80b09e52893282ec19be71376e9fb79d3725123e8aa1618fa57bba4f2ecafc6",
+      "method": "view_image",
+      "review": "已用 view_image 打开查看。当前视口内无横向溢出或操作栏遮挡；不代表整页、所有状态验收。"
+    },
+    {
+      "path": "/workspace/browser-validation/20261108-pm/live/reader-classic-light-768.png",
+      "sha256": "13fa215fb77655e7e55d5c2b456ed213598f7eee97c163625d6c974e90929672",
+      "method": "view_image",
+      "review": "已用 view_image 打开查看。当前视口内无横向溢出或操作栏遮挡；不代表整页、所有状态验收。"
+    },
+    {
+      "path": "/workspace/browser-validation/20261108-pm/live/reader-editorial-dark-1440.png",
+      "sha256": "4c796a980780bf04177c9801e3b343ea5a44cfdaeeb8bf39fb82b5c34978d3d3",
+      "method": "view_image",
+      "review": "已用 view_image 打开查看。当前视口内无横向溢出或操作栏遮挡；不代表整页、所有状态验收。 封面在小视口有裁切，未确认偏离既有设计；当前截图不覆盖下方正文。"
+    },
+    {
+      "path": "/workspace/browser-validation/20261108-pm/live/reader-editorial-dark-390.png",
+      "sha256": "6a23b956c5b6d7eaf5e4f357347713ba7d367763bc14db4e0db03cfd39acd3c5",
+      "method": "view_image",
+      "review": "已用 view_image 打开查看。当前视口内无横向溢出或操作栏遮挡；不代表整页、所有状态验收。 封面在小视口有裁切，未确认偏离既有设计；当前截图不覆盖下方正文。"
+    },
+    {
+      "path": "/workspace/browser-validation/20261108-pm/live/reader-editorial-dark-768.png",
+      "sha256": "3f25bcf607b6555c25eb7faa3b8148217ef13614145e5e32d552b04602cf5aa2",
+      "method": "view_image",
+      "review": "已用 view_image 打开查看。当前视口内无横向溢出或操作栏遮挡；不代表整页、所有状态验收。 封面在小视口有裁切，未确认偏离既有设计；当前截图不覆盖下方正文。"
+    },
+    {
+      "path": "/workspace/browser-validation/20261108-pm/live/reader-editorial-light-1440.png",
+      "sha256": "d2b827aab612401b1eaeebff578803c8ef6363b23d7c3c7697c6174d1690e3cf",
+      "method": "view_image",
+      "review": "已用 view_image 打开查看。当前视口内无横向溢出或操作栏遮挡；不代表整页、所有状态验收。 封面在小视口有裁切，未确认偏离既有设计；当前截图不覆盖下方正文。"
+    },
+    {
+      "path": "/workspace/browser-validation/20261108-pm/live/reader-editorial-light-390.png",
+      "sha256": "24d1d45fe13a68f4d867425d76bfb894f622d9f8e7fca418bf08fa8b4cea6592",
+      "method": "view_image",
+      "review": "已用 view_image 打开查看。当前视口内无横向溢出或操作栏遮挡；不代表整页、所有状态验收。 封面在小视口有裁切，未确认偏离既有设计；当前截图不覆盖下方正文。"
+    },
+    {
+      "path": "/workspace/browser-validation/20261108-pm/live/reader-editorial-light-768.png",
+      "sha256": "ec4a7f1554aa0317a2ead2d7e7c39888c9a14f85666babcdbf47ddd20db30bab",
+      "method": "view_image",
+      "review": "已用 view_image 打开查看。当前视口内无横向溢出或操作栏遮挡；不代表整页、所有状态验收。 封面在小视口有裁切，未确认偏离既有设计；当前截图不覆盖下方正文。"
+    },
+    {
+      "path": "/workspace/browser-validation/20261108-pm/live/saved-version.png",
+      "sha256": "3faa6e75fdf76b2121c9267128636b0ada57844a94f573b620a6e214d5d84a4f",
+      "method": "view_image",
+      "review": "已用 view_image 打开查看。当前视口内无横向溢出或操作栏遮挡；不代表整页、所有状态验收。"
+    },
+    {
+      "path": "/workspace/browser-validation/20261108-pm/live/transcript-fulltext-mobile.png",
+      "sha256": "281a9ee9e4e49ac6a1085bcbe53bd72af0683c3d0c222c80192f8d44e278a5bf",
+      "method": "view_image",
+      "review": "已用 view_image 打开查看。当前视口内无横向溢出或操作栏遮挡；不代表整页、所有状态验收。"
+    },
+    {
+      "path": "/workspace/browser-validation/20261108-pm/settled/appearance-settled.png",
+      "sha256": "0db04e47ff6970f7419daeaa77cf363d41c8f138c71ad264df6ff80e3d7d1ab3",
+      "method": "view_image",
+      "review": "20px / Wide 明确选中，菜单布局清晰；随后恢复原值且断言通过。"
+    }
+  ],
+  "count": 19,
+  "privacy": "Screenshots private; account identity visible in desktop images; do not publish."
+}

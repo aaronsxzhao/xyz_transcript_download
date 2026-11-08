@@ -1,0 +1,103 @@
+{
+  "run": "20261108-pm-visual",
+  "main_sha": "37bcc192db81ff7227000b5c46b821f88cde07a7",
+  "production_health": {
+    "status": 200,
+    "response": {
+      "status": "ok",
+      "revision": "37bcc192db81ff7227000b5c46b821f88cde07a7"
+    }
+  },
+  "harness": "PR242 66f9b1b unmerged; reviewed and copied into independent worktree; not part of main",
+  "environment": {
+    "config": "cecfg_6ad393188adc819db89d4628d0f79658",
+    "chromium": "154.0.8037.57",
+    "python": "3.12.14",
+    "playwright": "1.62.0",
+    "dependencies_installed": [],
+    "launch": "require_escalated; chromium_sandbox=True; ignore_https_errors=False; inherited proxy and CA",
+    "network": "enforced unrestricted HTTP; missing libraries none",
+    "desktop": "not tested; headless shell automation verified"
+  },
+  "auth": "Normal authorized UI signin with no-echo prompt; signin200 and protected stats200 verified. No non-login writes allowed, no persisted auth state or raw auth responses.",
+  "A_actual": [
+    "Anonymous login controls toggled/restored and navigation/reload at1440x900,768x1024,390x844.",
+    "Library ordinary saved note ->Version history(two choices) ->saved v1 (API200) ->latest ->refresh; math-ready normalized latest prose equality.",
+    "Reading appearance20px/Wide ->Classic/Editorial light/dark across3viewports ->restore16px/Comfortable ->Transcript Full text ->Timed segments ->Summary.",
+    "19 screenshots individually opened with view_image. Initial selection screenshot transitional; dedicated follow-up confirms stable20/Wide and restoration."
+  ],
+  "B_automated": [
+    "3 anonymous viewport checks PASS.",
+    "12 reader combinations: no page horizontal overflow and normalized prose same. These text comparisons do not prove whole-page visual equivalence.",
+    "Saved-version response200, latest restore/refresh strict normalized equality PASS.",
+    "Dedicated settled selection and restored pressed-state assertions PASS.",
+    "Previous local48form/108page fixture results remain historical; no local suite repeated this run."
+  ],
+  "dispositions": [
+    {
+      "id": "saved-version-reader",
+      "status": "verified_no_fix_needed_in_sample",
+      "scope": "one ordinary note and one saved version; refresh latest with math ready"
+    },
+    {
+      "id": "reader-appearance-feedback",
+      "status": "verified_no_fix_needed_in_sample",
+      "evidence": "settled-selection.json; appearance-settled.png",
+      "root_cause": "First screenshot taken before selected-style transition settled; explicit pressed-state waits and500ms transition completion produce correct feedback.",
+      "confidence": "high"
+    },
+    {
+      "id": "missing-cookie-diagnostic",
+      "status": "already_fixed_and_deployed_by_technical_PR243",
+      "verification": "Production health revision37bcc19; no duplicate patch; missing-cookie UI chain not rerun here."
+    },
+    {
+      "id": "currency-inline-math",
+      "status": "needs_content_syntax_decision",
+      "severity": "P2 readability",
+      "confidence": "high from prior live reproduction and unchanged parser source",
+      "remaining": "Choose currency escaping vs explicit math delimiters and compatibility plan; no global parser changes or historical text writes authorized. Prior evidence remains on audit/visual-20261108."
+    },
+    {
+      "id": "empty-channel-grouping",
+      "status": "needs_product_metadata_decision",
+      "remaining": "Choose unknown-channel grouping or metadata repair policy; no navigation/default changes."
+    },
+    {
+      "id": "legacy-series409-and-missing-images",
+      "status": "external_data_authorization_blocker",
+      "attempted": "Rechecked latest technical PR241 and unchanged code; missing-source placeholder visible in current reader. No recovery/reprocess requests issued.",
+      "remaining": "Provide original media/backup and scoped metadata/media restoration authorization. Acceptance: saved series manifest resolves and referenced images load without rewriting notes. Counts13refs/2notes are prior technical findings, not new count this run."
+    },
+    {
+      "id": "long-running-failure-recovery",
+      "status": "external_test_environment_blocker",
+      "remaining": "Isolated hosted fault environment plus valid model provider credential; previous model401 is historical. Need controlled task to test524, stale progress, background restore without production processing."
+    },
+    {
+      "id": "urllib-health403",
+      "status": "client_specific_edge_rejection_browser_health_pass",
+      "attempted": "urllib returned403, server envoy, body error code1010; same inherited proxy Chromium navigation200 exact main revision.",
+      "confidence": "high on client-specific difference; exact edge policy not exposed",
+      "remaining": "No browser blocker; operator edge logs needed only if urllib health clients must be supported."
+    }
+  ],
+  "C_unchecked": [
+    "Full site base inventory not completed this run: Dashboard, channels/series, article, jobs/progress, settings/subscription and all error/hover/focus states remain not accepted this run.",
+    "Reader screenshots mainly top-of-page; long-body visual sweep and reader contents/mobile title design comparison remain next tasks.",
+    "524 recovery, long processing, cross-device state changes, physical iPad/iPhone remain untested.",
+    "No local isolated-data run this round."
+  ],
+  "commands": [
+    "python scripts/check_cloud_browser.py --output appearance-checks/cloud-browser/20261108-pm/anonymous",
+    "python /workspace/browser-validation/20261108-pm/explore.py --authenticated --output /workspace/browser-validation/20261108-pm/live",
+    "python /workspace/browser-validation/20261108-pm/settled.py --authenticated --output /workspace/browser-validation/20261108-pm/settled"
+  ],
+  "changes": "No product code change, no new PR, no deployment. Evidence-only branch; no screenshot/auth credentials committed.",
+  "evidence": "evidence/2026-11-08-pm-visual",
+  "next_focus": [
+    "Remaining full-page reading and contents interactions",
+    "Currency syntax decision",
+    "Authorized data restoration and isolated task fault test"
+  ]
+}

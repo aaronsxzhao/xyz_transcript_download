@@ -361,5 +361,52 @@
       "state": "PR243 local fix and regression complete; hosted sandbox launch failure blocks merge/deployment",
       "prior_evidence": "PR241 c6bb7b4; preserved on its branch"
     }
+  ],
+  "visual_inspection_runs": [
+    {
+      "id": "20261108-visual",
+      "report": "2026-11-08-visual-inspection.json",
+      "status": "partial; math-ready consistency verified, currency rendering defect needs syntax decision",
+      "owner": "visual audit; coordinate reader rendering with technical PR241",
+      "evidence_private": "/workspace/browser-validation/20261108",
+      "next_focus": [
+        "currency/math syntax policy",
+        "saved-version render-ready comparison",
+        "remaining live interaction states"
+      ]
+    },
+    {
+      "id": "20261108-pm-visual",
+      "report": "2026-11-08-pm-visual-inspection.json",
+      "status": "partial; saved-version and appearance paths verified; no new product patch",
+      "owner": "visual audit",
+      "evidence_private": "/workspace/browser-validation/20261108-pm",
+      "viewports": [
+        [
+          1440,
+          900
+        ],
+        [
+          768,
+          1024
+        ],
+        [
+          390,
+          844
+        ]
+      ],
+      "themes": [
+        "classic-light",
+        "classic-dark",
+        "editorial-light",
+        "editorial-dark"
+      ],
+      "data_scale": "one ordinary note, one saved version; transcript847 segments",
+      "next_focus": [
+        "Remaining full-page reading and contents interactions",
+        "Currency syntax decision",
+        "Authorized data restoration and isolated task fault test"
+      ]
+    }
   ]
 }
