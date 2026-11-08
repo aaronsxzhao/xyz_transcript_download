@@ -122,3 +122,18 @@ ordinary note. Both saved test-account notes had empty channel metadata; the
 channel aggregation excluded them while Library retained them. Treat that
 cross-surface behavior as a data/grouping decision, not a CSS defect. Neither
 observation authorizes changing saved metadata or restoring media automatically.
+
+## Stable prose comparison
+
+Wait for optional math rendering before comparing formatted articles that contain
+math delimiters. On Nov08, comparing a KaTeX-rendered article with its pre-KaTeX
+reload produced a 134-character mismatch; after both had math nodes, the same
+normalized prose matched (3055 characters in that sample). Exclude screenshot
+wrappers/captions and failure-status controls consistently on both sides, while
+retaining actual prose and math. Do not count an early mismatch as data loss or
+remove all math to force equality. Keep the failed comparison as evidence.
+
+Dollar-prefixed currency can also be interpreted as inline math: this is a
+separate observed rendering issue. Changing single-dollar math semantics or
+rewriting existing notes needs a scoped content-syntax decision, not a visual
+audit's blanket replacement.
