@@ -1,0 +1,21 @@
+{
+  "status": "failed",
+  "progress": 0.0,
+  "created_at": 1794205752.2552645,
+  "updated_at": null,
+  "http": 200,
+  "message_classification": [
+    "quality_coverage"
+  ],
+  "message_chars": 129,
+  "message_flags": {
+    "524": false,
+    "timeout": false,
+    "unauthorized": false,
+    "cancel": false,
+    "worker": false,
+    "lease": false,
+    "expired": false,
+    "invalid": false
+  }
+}

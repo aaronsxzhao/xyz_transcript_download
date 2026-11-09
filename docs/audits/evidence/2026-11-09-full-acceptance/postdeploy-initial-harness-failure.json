@@ -1,0 +1,22 @@
+{
+  "started_at": "2026-11-09T07:01:05.073688+00:00",
+  "origin": "https://aipodcastsummary.online",
+  "mode": "authenticated",
+  "authenticated_session_verified": true,
+  "visual_inspection": "NOT_REVIEWED",
+  "sandbox_enabled": true,
+  "tls_verification": true,
+  "checks": [],
+  "blocked_write_requests": 7,
+  "browser_version": "154.0.8037.57",
+  "network_errors": [],
+  "note_reads": [],
+  "page_error_count": 0,
+  "console_error_count": 7,
+  "harness_failure_line": 140,
+  "timeout_at": "setup",
+  "status": "FAIL",
+  "failure_category": "application",
+  "error_type": "AssertionError",
+  "failure_signature": "See failing stage; raw exception omitted to protect credentials"
+}

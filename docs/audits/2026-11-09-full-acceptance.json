@@ -3,7 +3,7 @@
   "tested_production_revision": "d230bd366762dcd32ed1646c849fffdea22fa698",
   "fix_commit": "0992847",
   "fix_pr": 248,
-  "release_status": "CI pending",
+  "release_status": "Merged, deployed and exact revision healthy; authenticated read-only regression passed",
   "account_type": "authorized dedicated test account; preexisting contents read-only",
   "environment": {
     "python": "3.11.17",
@@ -30,7 +30,8 @@
   "credentials": {
     "new_uploaded_key": "models probe 200 and real website generation succeeded; saved through normal test-account settings",
     "old_cloud_key": "401 remains; not substituted into future generation",
-    "secrets_in_repository": false
+    "secrets_in_repository": false,
+    "downloaded_key_copy": "Deleted after final budget check; no repository/log credential copy"
   },
   "budget": {
     "daily_usd": 50,
@@ -38,7 +39,8 @@
     "scope": "shared daily monitoring budget, not per-run; provider key unlimited and no provider hard cutoff configured",
     "observed_shared_key_delta_usd_at_060849_utc": 0.315494,
     "attribution": "quota delta can include other shared-key usage and asynchronous settlement",
-    "latest_snapshot": "evidence/2026-11-09-full-acceptance/budget.json"
+    "latest_snapshot": "evidence/2026-11-09-full-acceptance/budget-final.json",
+    "observed_final_shared_key_delta_usd": 2.54717
   },
   "discovery": [
     {
@@ -104,6 +106,27 @@
         "reader_including_wait": 1.567
       },
       "limits": "This parallel check did not delete content; deletion during ~30s synthetic inference tested separately."
+    },
+    {
+      "chain": "Public RSS import → real audio/transcription → >3minute model work → quality rejection → explicit retry → saved checkpoint reuse → quality rejection → cleanup",
+      "result": "failed_quality_acceptance",
+      "tasks": [
+        "5a4028a6-3967-4686-852e-5aa01deb911a",
+        "07295962-bda9-4281-a05d-af0911eb3d6b"
+      ],
+      "evidence": [
+        "rss-first-attempt.json",
+        "rss-retry-result.json",
+        "rss-work-diagnostics.json",
+        "rss-quality-diagnostics.json"
+      ],
+      "detail": "First work metrics448.903s, retry205.506s with1checkpoint hit. Both durable states failed and match authenticated API. First polling script lost exact non200 code; normal login resumed200 during independent PR247 deployment. No repeated task submitted until explicit quality retry. Elapsed arrays restart at each reader harness, not cumulative total."
+    },
+    {
+      "chain": "Attempt short public feed import; distinguish external catalog absence",
+      "result": "verified_unavailable_source_not_application_defect",
+      "evidence": "POSTimport404; independent itunes lookup for1214936755 returnedHTTP200/resultCount0/no feed; known working1200361736 returned1/feed present",
+      "cost": "No model generation for unavailable source"
     }
   ],
   "confirmed_small_fix": {
@@ -141,6 +164,11 @@
         "priority": "P2",
         "issue": "Explicit provider refusal mislabeled as formatting failure",
         "fix_pr": 248
+      },
+      {
+        "priority": "P1",
+        "issue": "Public RSS accepted summary blocked by coverage gate after retry; core diagnosis required",
+        "modified": false
       }
     ],
     "unknowns": "No user research, conversion rate or population frequency measured."
@@ -148,7 +176,7 @@
   "remaining": [
     {
       "scope": "Production Supabase crash/recovery",
-      "blocker": "No separately provisioned hosted test database/storage/deployment; production restart/fault injection prohibited.",
+      "blocker": "Connected Supabase project is production; list_branches returned[]. No isolated matching hosted database/storage/deployment. No production fault injection or infrastructure charges authorized.",
       "acceptance": "Create approved isolated matching deployment, run recovery with persisted article/results and lease reclaim."
     },
     {
@@ -157,16 +185,23 @@
       "acceptance": "Capture naturally occurring upstream524 or authorized isolated upstream failure; do not relabel injected524."
     },
     {
-      "scope": "Multi-minute inference and full RSS episode processing",
-      "status": "not accepted; observed model phase ~30s and RSS import only",
-      "next": "Budgeted longer controlled source and authorized public feed fixture, track full UI and saved-result chain."
+      "scope": "Full public RSS accepted-summary chain",
+      "status": "reproduced quality rejection twice; see large_change_report",
+      "next": "Diagnose private partial receipts, approve core solution only if needed; do not lower threshold."
+    },
+    {
+      "scope": "Provider hard daily cost cap",
+      "status": "not configured; monitoring budget only",
+      "evidence": "Provider reports unlimited quota. No supported Cloud secret setter exposed; website account key saved through normal settings.",
+      "next": "Use provider quota/billing controls for a hard50USD/day ceiling; do not mislabel agent monitoring as hard enforcement."
     }
   ],
   "cleanup": {
     "deleted_audio_sources": 56,
     "deleted_created_apple_subscription": true,
     "retained_synthetic_video": "ae03fe78-a58",
-    "preexisting_data_modified": false
+    "preexisting_data_modified": false,
+    "deleted_created_apple_subscriptions": 3
   },
   "coordination": {
     "other_active_fix_pr": 247,
@@ -201,5 +236,85 @@
       "result": "Existing FFmpeg flite used for synthetic speech; no TTS service cost; copy output and source into script evidence root before reproduction."
     }
   ],
-  "reproduction_notes": "Scripts retain original workspace paths as executed; copy to matching private directory or adapt roots. Provide synthetic fixtures and hidden normal login. Do not run write scripts blindly or against real-account data. Isolated recovery requires a fresh data directory and replaces only processor; no production credentials. Scripts do not contain secrets."
+  "reproduction_notes": "Scripts retain original workspace paths as executed; copy to matching private directory or adapt roots. Provide synthetic fixtures and hidden normal login. Do not run write scripts blindly or against real-account data. Isolated recovery requires a fresh data directory and replaces only processor; no production credentials. Scripts do not contain secrets.",
+  "large_change_report": {
+    "problem": "Public RSS sample cannot obtain accepted summary after bounded retry",
+    "priority": "P1 for this tested user goal",
+    "frequency": "2 attempts on1 episode; population frequency unknown",
+    "evidence": {
+      "coverage_check_ratio": [
+        0.7647058823529411,
+        0.7941176470588235
+      ],
+      "threshold": 0.9,
+      "partial_items": [
+        8,
+        7
+      ],
+      "covered_items": [
+        26,
+        27
+      ],
+      "context_only_items": 3,
+      "failed_batches": 0,
+      "inventory_failures": 0,
+      "terminal_provider_failure": false
+    },
+    "interpretation": "Model-derived coverage receipts, not independently proven semantic completeness. Quality gate prevented publication as designed. Missing material versus overly strict/incorrect receipts remains to be investigated.",
+    "root_confidence": "High for gating cause; limited for semantic cause.",
+    "code_path": [
+      "reading_delivery.py:accept_edition",
+      "coverage_ledger.py:coverage_acceptable",
+      "coverage_ledger.py:efficient_audit"
+    ],
+    "modified": false,
+    "proposal": "Use a private controlled fixture and inspect the7partial receipts against source/candidate; distinguish draft omission from incorrect review before proposing targeted generation/coverage repair. Preserve90% threshold, grounding checks, bounded retries and immutable final review. A core-algorithm change requires separate approved plan.",
+    "acceptance": "Same source achieves existing gate, candidate factual/coverage review passes, no repeated source/model work unnecessarily, successful summary/transcript/reload/delete lifecycle.",
+    "rollback": "If an approved algorithm change is later made, version checkpoint identity and retain previous release; no automatic reprocessing of existing user notes.",
+    "provider_error_conclusion": "No401,524,provider refusal or inventory/review batch failure recorded for these2RSS attempts; actual coverage-check acceptance failed."
+  },
+  "isolated_hosted_plan": {
+    "database": "Independent Supabase project or explicitly isolated branch with schema only, no production account rows",
+    "storage": "Separate private buckets; synthetic media only; same application adapters",
+    "deployment": "Same ARM container image and Oracle deployment topology, separate routing and credentials; no production config changes",
+    "model_budget": "Shares authorized50USD/day total; single task, account model concurrency<=3",
+    "infrastructure_budget": "Not quoted/authorized; determine selected organization and Oracle/Supabase cost before provisioning",
+    "test": "HTTP524 fixture, active task process stop/restart, real leases, queue advance and saved summary/transcript restore; verify isolation before fault injection"
+  },
+  "production_queue_readonly_confirmation": {
+    "source": "Connected Supabase SELECT restricted to this run task IDs; no payload/source/secret columns selected",
+    "podcast_and_video": "completed, attempts1",
+    "cancel_and_retry": "both cancelled, attempts0",
+    "crash_recovery": "Not inferred from normal job completion or independent deployment."
+  },
+  "release": {
+    "merge_commit": "960839aa1058b9574a2294229c772b0c968c753a",
+    "ci_run": 42572732933,
+    "ci_result": "success: backend, PostgreSQL write ordering, full frontend browser checks; standard scheduled/health lanes skipped by workflow design",
+    "deployment_run": 42576198402,
+    "online_verified": true,
+    "deployment_result": "success",
+    "online_revision": "960839aa1058b9574a2294229c772b0c968c753a",
+    "postdeploy_evidence": "evidence/2026-11-09-full-acceptance/postdeploy-core.json",
+    "limits": "Explicit refusal behavior covered by targeted/CI regression; no forced production refusal injected or new paid generation after deployment."
+  },
+  "postdeploy": {
+    "library_titles": 4,
+    "search_clear": true,
+    "summary_transcript_history_latest_reload": true,
+    "multipart_parts": 2,
+    "multipart_directory_seconds": 0.942,
+    "multipart_return_reload": true,
+    "task_history": true,
+    "page_error_count": 0,
+    "console_error_count": 51,
+    "errors_scope": "33screenshot404 responses and17intentionally blocked write requests observed; user-confirmed historical lost files excluded; no other HTTPerror recorded. Console error count not claimedzero.",
+    "harness_corrections": [
+      "Initial visible count3 was captured before network settled at4; wait for loading completion then preserve exact count assertion after search clear.",
+      "Offline same-P2 baseline hash equality verified; old cross-note first-entry comparison was invalid."
+    ],
+    "three_viewport_dom_bounds": "passed; separate predeployment synthetic screenshots were viewed",
+    "no_product_change_for_harness": true
+  },
+  "completed_at": "2026-11-09T07:06:20.715214+00:00"
 }

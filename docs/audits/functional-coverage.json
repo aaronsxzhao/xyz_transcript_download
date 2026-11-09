@@ -2,7 +2,7 @@
   "schema_version": 1,
   "site": "https://aipodcastsummary.online",
   "repository": "aaronsxzhao/xyz_transcript_download",
-  "updated_at": "2026-11-09T06:25:19.176223+00:00",
+  "updated_at": "2026-11-09T07:06:20.715214+00:00",
   "tested_commit": "d230bd366762dcd32ed1646c849fffdea22fa698",
   "current_report": "docs/audits/2026-11-09-full-acceptance.json",
   "inventory_basis": [
@@ -148,6 +148,14 @@
           "result": "passed",
           "limitations": "Only exact tested fixture chain accepted; see report.",
           "account_type": "authorized dedicated test account; preexisting contents read-only"
+        },
+        {
+          "checked_at": "2026-11-09T07:06:20.715214+00:00",
+          "report": "docs/audits/2026-11-09-full-acceptance.json",
+          "result": "passed_scoped_read_only_postdeploy",
+          "revision": "960839aa1058b9574a2294229c772b0c968c753a",
+          "scope": "4Librarycards search/clear;1existing summary/transcript/history/latest/reload;2partdirectory andsavedP2 return/reload;taskhistory",
+          "evidence": "evidence/2026-11-09-full-acceptance/postdeploy-core.json"
         }
       ]
     },
@@ -217,6 +225,14 @@
           "evidence": [
             "evidence/2026-11-09/production.json"
           ]
+        },
+        {
+          "checked_at": "2026-11-09T07:06:20.715214+00:00",
+          "report": "docs/audits/2026-11-09-full-acceptance.json",
+          "result": "passed_scoped_read_only_postdeploy",
+          "revision": "960839aa1058b9574a2294229c772b0c968c753a",
+          "scope": "4Librarycards search/clear;1existing summary/transcript/history/latest/reload;2partdirectory andsavedP2 return/reload;taskhistory",
+          "evidence": "evidence/2026-11-09-full-acceptance/postdeploy-core.json"
         }
       ]
     },
@@ -279,6 +295,14 @@
           "evidence": [
             "evidence/2026-11-09/production.json"
           ]
+        },
+        {
+          "checked_at": "2026-11-09T07:06:20.715214+00:00",
+          "report": "docs/audits/2026-11-09-full-acceptance.json",
+          "result": "passed_scoped_read_only_postdeploy",
+          "revision": "960839aa1058b9574a2294229c772b0c968c753a",
+          "scope": "4Librarycards search/clear;1existing summary/transcript/history/latest/reload;2partdirectory andsavedP2 return/reload;taskhistory",
+          "evidence": "evidence/2026-11-09-full-acceptance/postdeploy-core.json"
         }
       ]
     },
@@ -300,11 +324,11 @@
       "result": "not_checked",
       "production_result": "blocked",
       "gaps": [
-        "No authorized signed-in production browser session; read-only diagnostic token is not browser authentication"
+        "Public RSS accepted-summary chain failed quality gate; local upload lifecycle passed. Hosted isolated Supabase recovery and actual upstream524 remain unaccepted."
       ],
       "issues": [],
       "in_progress_prs": [],
-      "next_check": "Investigate Xiaoyuzhou import feasibility read-only; no development",
+      "next_check": "Diagnose7partial coverage receipts; source/candidate comparison under separate core-change plan if required",
       "production_followups": [
         {
           "checked_at": "2026-11-07T09:04:12.403725+08:00",
@@ -320,6 +344,12 @@
           "result": "passed_with_harness_correction",
           "limitations": "Initial cleanup locator searched platform root; corrected by entering Apple platform. No public RSS episode generation.",
           "account_type": "authorized dedicated test account; preexisting contents read-only"
+        },
+        {
+          "report": "docs/audits/2026-11-09-full-acceptance.json",
+          "scope": "Real public RSS >3minute summarizing with parallel reading/search; explicit retry restored checkpoint but both attempts failed unchanged coverage gate",
+          "result": "failed_quality_acceptance",
+          "issue": "P1 RSS quality acceptance; no core algorithm edit"
         }
       ]
     },
@@ -341,11 +371,11 @@
       "result": "not_checked",
       "production_result": "passed_scoped",
       "gaps": [
-        "See latest report: remaining wider scenarios are not promoted by this fixture acceptance."
+        "Public RSS accepted-summary chain failed quality gate; local upload lifecycle passed. Hosted isolated Supabase recovery and actual upstream524 remain unaccepted."
       ],
       "issues": [],
       "in_progress_prs": [],
-      "next_check": "Follow remaining acceptance conditions in docs/audits/2026-11-09-full-acceptance.json",
+      "next_check": "Diagnose7partial coverage receipts; source/candidate comparison under separate core-change plan if required",
       "production_followups": [
         {
           "checked_at": "2026-11-09T06:25:19.176223+00:00",
@@ -354,6 +384,12 @@
           "result": "passed",
           "limitations": "Offline toggle/online recovery passed; failed offline-network UX not established; no multi-minute benchmark.",
           "account_type": "authorized dedicated test account; preexisting contents read-only"
+        },
+        {
+          "report": "docs/audits/2026-11-09-full-acceptance.json",
+          "scope": "Real public RSS >3minute summarizing with parallel reading/search; explicit retry restored checkpoint but both attempts failed unchanged coverage gate",
+          "result": "failed_quality_acceptance",
+          "issue": "P1 RSS quality acceptance; no core algorithm edit"
         }
       ]
     },
@@ -399,11 +435,11 @@
       "result": "not_checked",
       "production_result": "blocked",
       "gaps": [
-        "No authorized signed-in production browser session; read-only diagnostic token is not browser authentication"
+        "Public RSS accepted-summary chain failed quality gate; local upload lifecycle passed. Hosted isolated Supabase recovery and actual upstream524 remain unaccepted."
       ],
       "issues": [],
       "in_progress_prs": [],
-      "next_check": "Hosted isolated Supabase recovery; actual upstream524 when available",
+      "next_check": "Diagnose7partial coverage receipts; source/candidate comparison under separate core-change plan if required",
       "supplementary_checks": [
         {
           "checked_at": "2026-11-06T12:33:08.553319+08:00",
@@ -437,6 +473,12 @@
           "result": "passed",
           "limitations": "Job actions used normal authenticated API; pagination was browser UI; moderate list, not stress test.",
           "account_type": "authorized dedicated test account; preexisting contents read-only"
+        },
+        {
+          "report": "docs/audits/2026-11-09-full-acceptance.json",
+          "scope": "Real public RSS >3minute summarizing with parallel reading/search; explicit retry restored checkpoint but both attempts failed unchanged coverage gate",
+          "result": "failed_quality_acceptance",
+          "issue": "P1 RSS quality acceptance; no core algorithm edit"
         }
       ]
     },
@@ -462,7 +504,7 @@
       ],
       "issues": [],
       "in_progress_prs": [],
-      "next_check": "Follow remaining acceptance conditions in docs/audits/2026-11-09-full-acceptance.json",
+      "next_check": "Diagnose7partial coverage receipts; source/candidate comparison under separate core-change plan if required",
       "production_followups": [
         {
           "checked_at": "2026-11-09T06:25:19.176223+00:00",
@@ -471,6 +513,12 @@
           "result": "passed",
           "limitations": "Offline toggle/online recovery passed; failed offline-network UX not established; no multi-minute benchmark.",
           "account_type": "authorized dedicated test account; preexisting contents read-only"
+        },
+        {
+          "report": "docs/audits/2026-11-09-full-acceptance.json",
+          "scope": "Real public RSS >3minute summarizing with parallel reading/search; explicit retry restored checkpoint but both attempts failed unchanged coverage gate",
+          "result": "passed_scoped_parallel_read",
+          "issue": "P1 RSS quality acceptance; no core algorithm edit"
         }
       ]
     },
@@ -756,6 +804,14 @@
       "date": "2026-11-08T14:33:58.060107+00:00",
       "report": "docs/audits/2026-11-08-model-recheck.json",
       "state": "Known2note media loss closed by user;provider explicitly reports key error;local injected524 component recovery passed;real model paths still external configuration blocked"
+    },
+    {
+      "checked_at": "2026-11-09T07:06:20.715214+00:00",
+      "pr": 248,
+      "commit": "960839aa1058b9574a2294229c772b0c968c753a",
+      "status": "deployed_verified",
+      "scope": "Explicit structured provider refusal classification;142targetedtests/fullPRCI/build; exactproductionhealth+readonlyregression",
+      "remaining": "RSS coverage quality gate failure is separate and not repaired by this change."
     }
   ],
   "accepted_exclusions": [
