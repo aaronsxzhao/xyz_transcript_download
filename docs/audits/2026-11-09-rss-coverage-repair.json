@@ -102,5 +102,16 @@
     "goal": "Find/import same RSS, understand processing, continue browsing, recover failed review, read saved summary/transcript consistently",
     "result": "Completed after one explicit candidate retry; parallel search/read/delete remained usable. First attempt did not complete in one shot.",
     "remaining": "4material items not fully covered; true upstream524 and isolated hosted Supabase recovery remain separate unaccepted scenarios."
+  },
+  "reproduction": {
+    "regression_command": "venv/bin/python -m pytest -q tests/test_coverage_ledger.py tests/test_reading_delivery.py tests/test_transcript_reading.py tests/test_reading_editor.py tests/test_durable_processing.py tests/test_reading_budget.py tests/test_reading_recovery.py tests/test_reading_progress.py tests/test_processing_parallel.py tests/test_podcast_reading.py",
+    "health_command": "EXPECTED_REVISION=99011578febe2a36bd039d8d1077dbe0a7c36f6b venv/bin/python scripts/verify_deployment.py",
+    "browser": "Python3.11.17 / Playwright1.64.0 / Chromium154.0.8037.57; executable_path=/usr/bin/chromium;chromium_sandbox=True;ignore_https_errors=False;proxy from runtime HTTPS_PROXY; supported shell escalation",
+    "browser_scripts_workspace_only": [
+      "/workspace/rss-fix-private/production-verify.py",
+      "/workspace/rss-fix-private/production-resume.py",
+      "/workspace/rss-fix-private/reader-viewports.py"
+    ],
+    "credentials": "UI login via hidden getpass; no stored login state or authentication data. Uploaded temporary Key file deleted after final usage check. Website encrypted test-account configuration remains the authorized source for future tests."
   }
 }
