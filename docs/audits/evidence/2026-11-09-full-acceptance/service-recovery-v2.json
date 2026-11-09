@@ -1,0 +1,14 @@
+{
+  "injected_524_failed_job": true,
+  "next_job_completed": true,
+  "explicit_retry_reached_upstream": true,
+  "actual_api_process_sigkill": true,
+  "completed_job_restored": true,
+  "retry_recovered_after_real_90_second_lease": true,
+  "prepared_source_not_repeated": true,
+  "fixture_calls": {
+    "/a": 3,
+    "/b": 1
+  },
+  "status": "PASS"
+}

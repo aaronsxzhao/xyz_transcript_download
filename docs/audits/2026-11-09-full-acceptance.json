@@ -1,0 +1,205 @@
+{
+  "checked_at": "2026-11-09T06:25:19.176223+00:00",
+  "tested_production_revision": "d230bd366762dcd32ed1646c849fffdea22fa698",
+  "fix_commit": "0992847",
+  "fix_pr": 248,
+  "release_status": "CI pending",
+  "account_type": "authorized dedicated test account; preexisting contents read-only",
+  "environment": {
+    "python": "3.11.17",
+    "playwright": "1.64.0",
+    "chromium": "154.0.8037.57",
+    "chromium_sandbox": true,
+    "ignore_https_errors": false,
+    "execution": "supported escalated shell; headless, no shared desktop",
+    "viewports": [
+      [
+        1440,
+        900
+      ],
+      [
+        768,
+        1024
+      ],
+      [
+        390,
+        844
+      ]
+    ]
+  },
+  "credentials": {
+    "new_uploaded_key": "models probe 200 and real website generation succeeded; saved through normal test-account settings",
+    "old_cloud_key": "401 remains; not substituted into future generation",
+    "secrets_in_repository": false
+  },
+  "budget": {
+    "daily_usd": 50,
+    "timezone": "Asia/Shanghai",
+    "scope": "shared daily monitoring budget, not per-run; provider key unlimited and no provider hard cutoff configured",
+    "observed_shared_key_delta_usd_at_060849_utc": 0.315494,
+    "attribution": "quota delta can include other shared-key usage and asynchronous settlement",
+    "latest_snapshot": "evidence/2026-11-09-full-acceptance/budget.json"
+  },
+  "discovery": [
+    {
+      "chain": "Synthetic podcast upload → real transcription/model → read/transcript → reload/multiple tabs → delete summary only → delete source → reload",
+      "result": "passed",
+      "scale": "2 software episodes; main processing 42.99s, observed summarizing ~30s",
+      "parallel_seconds": {
+        "search_clear": 0.957,
+        "open_reader": 0.889,
+        "delete_own_disposable": 0.498
+      },
+      "evidence": [
+        "software-result.json",
+        "cleanup-v3-result.json"
+      ],
+      "limits": "Offline toggle/online recovery passed; failed offline-network UX not established; no multi-minute benchmark."
+    },
+    {
+      "chain": "Synthetic MP4 upload → real processing → summary/transcript → refresh",
+      "result": "passed",
+      "scale": "1 ~108s synthetic video; processing 47.04s",
+      "retained_test_task": "ae03fe78-a58",
+      "evidence": [
+        "video-result.json"
+      ]
+    },
+    {
+      "chain": "52 synthetic podcast uploads → 50 to52 UI pagination → refresh → cancel → explicit retry/new job → cancel → cleanup",
+      "result": "passed",
+      "pagination_seconds": 0.252,
+      "limits": "Job actions used normal authenticated API; pagination was browser UI; moderate list, not stress test.",
+      "evidence": [
+        "pagination-result.json"
+      ]
+    },
+    {
+      "chain": "Public Apple podcast import → 50 episodes → refresh → remove created subscription",
+      "result": "passed_with_harness_correction",
+      "import_seconds": 2.295,
+      "limits": "Initial cleanup locator searched platform root; corrected by entering Apple platform. No public RSS episode generation.",
+      "evidence": [
+        "rss-result.json",
+        "rss-cleanup-result.json"
+      ]
+    },
+    {
+      "chain": "Local HTTP524 → failed job → next job completes → explicit retry → actual API SIGKILL → restart → real90s lease recovery → completed job/checkpoint restoration",
+      "result": "passed_isolated",
+      "environment": "real FastAPI/durable workers/SQLite with synthetic media/model processor and loopback HTTP fixture",
+      "limits": "Not real vendor524, not hosted Supabase restart, not saved article row restoration.",
+      "evidence": [
+        "service-recovery-v2.json"
+      ]
+    },
+    {
+      "chain": "While real public RSS job is summarizing → Library search/clear → synthetic video summary/transcript → refresh",
+      "result": "passed",
+      "evidence": [
+        "read-check-result.json"
+      ],
+      "timings_seconds": {
+        "search_clear": 0.921,
+        "reader_including_wait": 1.567
+      },
+      "limits": "This parallel check did not delete content; deletion during ~30s synthetic inference tested separately."
+    }
+  ],
+  "confirmed_small_fix": {
+    "problem": "Explicit SDK refusal or sole nonempty JSON refusal interpreted as malformed summary",
+    "reproduction": "Real garden-source provider replies contained refusal; local same-source pipeline reproduced refusal envelopes. Old adapter returned refusal dict; patched adapter raises existing content_filter. Production raw model reply not captured.",
+    "scope": "Only explicit structured refusal; ordinary prose, mixed schemas and quality gates unchanged",
+    "validation": "142 targeted tests passed; frontend build passed unchanged197.75KiB budget (197.7KiB)",
+    "priority": "P2",
+    "upstream_limit": "Natural-language refusals in other fields still follow existing validation; provider policy cannot be repaired in this app."
+  },
+  "visual": {
+    "actual_images_viewed": [
+      "software-1440.png",
+      "software-768.png",
+      "software-390.png",
+      "video-1440.png",
+      "video-768.png",
+      "video-390.png",
+      "production-pagination.png"
+    ],
+    "private_artifact_root": "/workspace/acceptance-nov09-private",
+    "finding": "Synthetic reader visible at all three simulated sizes; no observed horizontal overflow. Not physical-device or full-theme matrix.",
+    "privacy": "Account label replaced with TEST ACCOUNT in DOM before capture; screenshots contain only our synthetic video summary. All three new screenshots actually opened with view_image.",
+    "persisted_images": [
+      "evidence/2026-11-09-full-acceptance/verified-1440.png",
+      "evidence/2026-11-09-full-acceptance/verified-768.png",
+      "evidence/2026-11-09-full-acceptance/verified-390.png"
+    ]
+  },
+  "pm": {
+    "goal": "Import own audio/video, understand progress, read trustworthy saved summary/transcript, manage source without stale content",
+    "actual": "Software podcast/video goal achieved; summary-only deletion retained source/transcript, source deletion removed both and refresh showed absence.",
+    "issues": [
+      {
+        "priority": "P2",
+        "issue": "Explicit provider refusal mislabeled as formatting failure",
+        "fix_pr": 248
+      }
+    ],
+    "unknowns": "No user research, conversion rate or population frequency measured."
+  },
+  "remaining": [
+    {
+      "scope": "Production Supabase crash/recovery",
+      "blocker": "No separately provisioned hosted test database/storage/deployment; production restart/fault injection prohibited.",
+      "acceptance": "Create approved isolated matching deployment, run recovery with persisted article/results and lease reclaim."
+    },
+    {
+      "scope": "Actual upstream524",
+      "blocker": "No actual upstream524 observed; inducing it on production would violate isolation boundary.",
+      "acceptance": "Capture naturally occurring upstream524 or authorized isolated upstream failure; do not relabel injected524."
+    },
+    {
+      "scope": "Multi-minute inference and full RSS episode processing",
+      "status": "not accepted; observed model phase ~30s and RSS import only",
+      "next": "Budgeted longer controlled source and authorized public feed fixture, track full UI and saved-result chain."
+    }
+  ],
+  "cleanup": {
+    "deleted_audio_sources": 56,
+    "deleted_created_apple_subscription": true,
+    "retained_synthetic_video": "ae03fe78-a58",
+    "preexisting_data_modified": false
+  },
+  "coordination": {
+    "other_active_fix_pr": 247,
+    "do_not_duplicate": "unassigned-video grouping",
+    "report_pr": 241,
+    "accepted_exclusions": "User-confirmed2 historical notes/13lost screenshot files remain excluded."
+  },
+  "schedule": "Existing technical schedule updated with new credential source, test-account writes, shared dailyUS$50 budget and exclusions; timing unchanged.",
+  "commands": [
+    {
+      "command": "/workspace/xyz_transcript_download/venv/bin/python -m pytest tests/test_reading_editor.py tests/test_review_diagnostics.py tests/test_summary_stream.py",
+      "result": "69 passed"
+    },
+    {
+      "command": "/workspace/xyz_transcript_download/venv/bin/python -m pytest tests/test_transcript_reading.py tests/test_durable_processing.py",
+      "result": "73 passed"
+    },
+    {
+      "command": "npm --prefix web ci && npm --prefix web run build",
+      "result": "passed; initial compressed bytes197.7KiB/budget197.75KiB; generated dist restored, backend-only fix"
+    },
+    {
+      "command": "/workspace/xyz_transcript_download/venv/bin/python /workspace/acceptance-nov09-private/service-recovery-v2.py",
+      "result": "PASS; scripts persisted alongside JSON; local synthetic processor only"
+    },
+    {
+      "command": "/workspace/xyz_transcript_download/venv/bin/python /workspace/acceptance-nov09-private/software.py",
+      "result": "PASS; hidden interactive normal login; secret-free script persisted for reproducibility; creates controlled content"
+    },
+    {
+      "command": "ffmpeg -f lavfi -i flite=textfile=software-source.txt:voice=slt -ar 16000 -ac 1 audit-software.wav",
+      "result": "Existing FFmpeg flite used for synthetic speech; no TTS service cost; copy output and source into script evidence root before reproduction."
+    }
+  ],
+  "reproduction_notes": "Scripts retain original workspace paths as executed; copy to matching private directory or adapt roots. Provide synthetic fixtures and hidden normal login. Do not run write scripts blindly or against real-account data. Isolated recovery requires a fresh data directory and replaces only processor; no production credentials. Scripts do not contain secrets."
+}

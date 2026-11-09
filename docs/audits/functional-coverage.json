@@ -2,9 +2,9 @@
   "schema_version": 1,
   "site": "https://aipodcastsummary.online",
   "repository": "aaronsxzhao/xyz_transcript_download",
-  "updated_at": "2026-11-09T01:09:38.863782+00:00",
+  "updated_at": "2026-11-09T06:25:19.176223+00:00",
   "tested_commit": "d230bd366762dcd32ed1646c849fffdea22fa698",
-  "current_report": "docs/audits/2026-11-09-technical-pm.json",
+  "current_report": "docs/audits/2026-11-09-full-acceptance.json",
   "inventory_basis": [
     "web/src/App.tsx routes",
     "current repository feature components and prior audit records",
@@ -65,7 +65,7 @@
         "quality": "summary quality audit for semantic coverage where applicable"
       },
       "risk": "high",
-      "last_actual_check": "2026-11-05T21:19:41.713041+08:00",
+      "last_actual_check": "2026-11-09T06:25:19.176223+00:00",
       "environment": "local production frontend + FastAPI + isolated SQLite; Chromium 1440x1000 Classic dark",
       "account_type": "existing local development identity",
       "data_scale": "60 synthetic videos, two historical failed states, one saved old version",
@@ -140,6 +140,14 @@
           "evidence": [
             "evidence/2026-11-09/production.json"
           ]
+        },
+        {
+          "checked_at": "2026-11-09T06:25:19.176223+00:00",
+          "report": "docs/audits/2026-11-09-full-acceptance.json",
+          "scope": "Synthetic MP4 upload → real processing → summary/transcript → refresh",
+          "result": "passed",
+          "limitations": "Only exact tested fixture chain accepted; see report.",
+          "account_type": "authorized dedicated test account; preexisting contents read-only"
         }
       ]
     },
@@ -283,7 +291,7 @@
         "quality": "summary quality audit for semantic coverage where applicable"
       },
       "risk": "high",
-      "last_actual_check": null,
+      "last_actual_check": "2026-11-09T06:25:19.176223+00:00",
       "environment": null,
       "account_type": null,
       "data_scale": null,
@@ -304,6 +312,14 @@
           "result": "partial",
           "scope": "Formatted reader reload/latest restore stable on1 item; empty podcast search/clear/reload; Library2 titles, no pagination",
           "remaining": "No deletion/import/generation or sustained concurrent work accepted"
+        },
+        {
+          "checked_at": "2026-11-09T06:25:19.176223+00:00",
+          "report": "docs/audits/2026-11-09-full-acceptance.json",
+          "scope": "Public Apple podcast import → 50 episodes → refresh → remove created subscription",
+          "result": "passed_with_harness_correction",
+          "limitations": "Initial cleanup locator searched platform root; corrected by entering Apple platform. No public RSS episode generation.",
+          "account_type": "authorized dedicated test account; preexisting contents read-only"
         }
       ]
     },
@@ -316,20 +332,30 @@
         "quality": "summary quality audit for semantic coverage where applicable"
       },
       "risk": "high",
-      "last_actual_check": null,
+      "last_actual_check": "2026-11-09T06:25:19.176223+00:00",
       "environment": null,
       "account_type": null,
       "data_scale": null,
       "steps": [],
       "evidence": [],
       "result": "not_checked",
-      "production_result": "blocked",
+      "production_result": "passed_scoped",
       "gaps": [
-        "No authorized signed-in production browser session; read-only diagnostic token is not browser authentication"
+        "See latest report: remaining wider scenarios are not promoted by this fixture acceptance."
       ],
       "issues": [],
       "in_progress_prs": [],
-      "next_check": "Use isolated account and synthetic episode; compare video semantics"
+      "next_check": "Follow remaining acceptance conditions in docs/audits/2026-11-09-full-acceptance.json",
+      "production_followups": [
+        {
+          "checked_at": "2026-11-09T06:25:19.176223+00:00",
+          "report": "docs/audits/2026-11-09-full-acceptance.json",
+          "scope": "Synthetic podcast upload → real transcription/model → read/transcript → reload/multiple tabs → delete summary only → delete source → reload",
+          "result": "passed",
+          "limitations": "Offline toggle/online recovery passed; failed offline-network UX not established; no multi-minute benchmark.",
+          "account_type": "authorized dedicated test account; preexisting contents read-only"
+        }
+      ]
     },
     {
       "id": "article-import-media",
@@ -364,7 +390,7 @@
         "quality": "summary quality audit for semantic coverage where applicable"
       },
       "risk": "high",
-      "last_actual_check": null,
+      "last_actual_check": "2026-11-09T06:25:19.176223+00:00",
       "environment": null,
       "account_type": null,
       "data_scale": null,
@@ -377,7 +403,7 @@
       ],
       "issues": [],
       "in_progress_prs": [],
-      "next_check": "Validate retry cannot remain queued with no worker; authorized isolated model budget required",
+      "next_check": "Hosted isolated Supabase recovery; actual upstream524 when available",
       "supplementary_checks": [
         {
           "checked_at": "2026-11-06T12:33:08.553319+08:00",
@@ -402,6 +428,16 @@
             "Not a killed-worker lease-expiry test"
           ]
         }
+      ],
+      "production_followups": [
+        {
+          "checked_at": "2026-11-09T06:25:19.176223+00:00",
+          "report": "docs/audits/2026-11-09-full-acceptance.json",
+          "scope": "52 synthetic podcast uploads → 50 to52 UI pagination → refresh → cancel → explicit retry/new job → cancel → cleanup",
+          "result": "passed",
+          "limitations": "Job actions used normal authenticated API; pagination was browser UI; moderate list, not stress test.",
+          "account_type": "authorized dedicated test account; preexisting contents read-only"
+        }
       ]
     },
     {
@@ -413,20 +449,30 @@
         "quality": "summary quality audit for semantic coverage where applicable"
       },
       "risk": "high",
-      "last_actual_check": null,
+      "last_actual_check": "2026-11-09T06:25:19.176223+00:00",
       "environment": null,
       "account_type": null,
       "data_scale": null,
       "steps": [],
       "evidence": [],
       "result": "not_checked",
-      "production_result": "blocked",
+      "production_result": "passed_scoped",
       "gaps": [
-        "No authorized signed-in production browser session; read-only diagnostic token is not browser authentication"
+        "See latest report: remaining wider scenarios are not promoted by this fixture acceptance."
       ],
       "issues": [],
       "in_progress_prs": [],
-      "next_check": "Measure interaction and request times with actual workers; verify intermediate progress"
+      "next_check": "Follow remaining acceptance conditions in docs/audits/2026-11-09-full-acceptance.json",
+      "production_followups": [
+        {
+          "checked_at": "2026-11-09T06:25:19.176223+00:00",
+          "report": "docs/audits/2026-11-09-full-acceptance.json",
+          "scope": "Synthetic podcast upload → real transcription/model → read/transcript → reload/multiple tabs → delete summary only → delete source → reload",
+          "result": "passed",
+          "limitations": "Offline toggle/online recovery passed; failed offline-network UX not established; no multi-minute benchmark.",
+          "account_type": "authorized dedicated test account; preexisting contents read-only"
+        }
+      ]
     },
     {
       "id": "recovery",
@@ -437,7 +483,7 @@
         "quality": "summary quality audit for semantic coverage where applicable"
       },
       "risk": "high",
-      "last_actual_check": null,
+      "last_actual_check": "2026-11-09T06:25:19.176223+00:00",
       "environment": null,
       "account_type": null,
       "data_scale": null,
@@ -491,6 +537,16 @@
             "evidence/2026-11-09/crash.json"
           ]
         }
+      ],
+      "local_followups": [
+        {
+          "checked_at": "2026-11-09T06:25:19.176223+00:00",
+          "report": "docs/audits/2026-11-09-full-acceptance.json",
+          "scope": "Local HTTP524 → failed job → next job completes → explicit retry → actual API SIGKILL → restart → real90s lease recovery → completed job/checkpoint restoration",
+          "result": "passed_isolated",
+          "limitations": "Not real vendor524, not hosted Supabase restart, not saved article row restoration.",
+          "account_type": "authorized dedicated test account; preexisting contents read-only"
+        }
       ]
     },
     {
@@ -502,25 +558,33 @@
         "quality": "summary quality audit for semantic coverage where applicable"
       },
       "risk": "high",
-      "last_actual_check": null,
+      "last_actual_check": "2026-11-09T06:25:19.176223+00:00",
       "environment": null,
       "account_type": null,
       "data_scale": null,
       "steps": [],
       "evidence": [],
       "result": "not_checked",
-      "production_result": "blocked",
+      "production_result": "passed_scoped",
       "gaps": [
-        "No authorized signed-in production browser session; read-only diagnostic token is not browser authentication"
+        "See latest report: remaining wider scenarios are not promoted by this fixture acceptance."
       ],
       "issues": [],
       "in_progress_prs": [],
-      "next_check": "Check cookie ownership and persistence with authorized isolated credentials",
+      "next_check": "Follow remaining acceptance conditions in docs/audits/2026-11-09-full-acceptance.json",
       "production_followups": [
         {
           "checked_at": "2026-11-08T01:44:46.200835+00:00",
           "report": "docs/audits/2026-11-08-technical-pm.json",
           "scope": "Scoped production checks and release;see per-feature coverage_delta;does not promote earlier unit/local tests to full acceptance"
+        },
+        {
+          "checked_at": "2026-11-09T06:25:19.176223+00:00",
+          "report": "docs/audits/2026-11-09-full-acceptance.json",
+          "scope": "Normal account settings save custom key → refresh → real generation",
+          "result": "passed",
+          "limitations": "Cloud environment stale key not changed.",
+          "account_type": "authorized dedicated test account; preexisting contents read-only"
         }
       ]
     },
@@ -644,6 +708,12 @@
       "report": "docs/audits/2026-11-09-technical-pm.json",
       "result": "scoped productionread-only PASS;model401;new isolatedcrash recovery PASS",
       "revision": "d230bd366762dcd32ed1646c849fffdea22fa698"
+    },
+    {
+      "checked_at": "2026-11-09T06:25:19.176223+00:00",
+      "report": "docs/audits/2026-11-09-full-acceptance.json",
+      "result": "passed_scoped_with_small_fix",
+      "fix_pr": 248
     }
   ],
   "remediation_followups": [
