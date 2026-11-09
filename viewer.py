@@ -19,6 +19,8 @@ from markdown_it import MarkdownIt
 
 from config import DATA_DIR
 
+HTML_EXPORT_CSP = "default-src 'none'; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'"
+
 
 @dataclass
 class KeyPoint:
@@ -271,6 +273,8 @@ def export_html(summary: Summary) -> str:
 <html lang="zh">
 <head>
     <meta charset="UTF-8">
+    <meta http-equiv="Content-Security-Policy" content="{HTML_EXPORT_CSP}">
+    <meta name="referrer" content="no-referrer">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{escape(summary.title)}</title>
     <style>

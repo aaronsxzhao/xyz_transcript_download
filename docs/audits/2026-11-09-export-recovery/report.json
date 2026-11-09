@@ -1,0 +1,36 @@
+{
+  "checked_at": "2026-11-09T13:35:27.778123+00:00",
+  "base_revision": "9fd44ece234be16631feffbc397c127e072e672f",
+  "scope": "User-authorized export/auth maintenance and 524 recovery fixes; no hosted recovery infrastructure",
+  "fixes": [
+    "Retire five owner-JWT maintenance entry points and workflows, including two deployment-triggered entries; normal authenticated website repair remains available. Public health verification dependency moved to existing verify_deployment helper.",
+    "HTML export opens a content-ID-only protected route; Authorization header fetch, sandboxed document, per-tab session copy with opener severed before navigation, refresh and error retry. HTML and Markdown APIs no longer accept session query authentication.",
+    "Safe frontend reads reconnect once on HTTP524; mutations remain non-retryable to prevent duplicate processing/exports."
+  ],
+  "validation": {
+    "backend": "69 focused tests passed, including real loopback HTTP524 through OpenAI SDK, bounded retry and real SQLite checkpoint reopen",
+    "maintenance": "22 source/quote repair regression tests passed; privileged command tests assert fail-closed/no network",
+    "frontend": "22 focused tests passed",
+    "build": "passed; initial compressed assets196.7KiB, unchanged197.75KiB budget",
+    "browser": "scripts/check_secure_exports.py; real sandboxed Chromium154.0.8037.57, Playwright1.64.0/Python3.11.17; local production build with synthetic APIs/session, not production identity",
+    "visual": "All three HTML viewport screenshots and PDF first-page image actually opened with view_image: readable content, no horizontal overflow; PDF retains headings/table/quote.",
+    "pdf": "Actual PDF-button document rendered into Chromium PDF and text extracted; native OS Save dialog not exercised.",
+    "csp": "HTML document carries the same CSP as its response header, preserving the existing policy inside srcdoc;49 security/export/quote-roundtrip checks passed after this addition, and real browser export lane rechecked."
+  },
+  "notion": "Normal production login opened Notion configuration guidance without target pages. User explicitly paused Notion testing; no Notion page created. Existing partial-upload/uncertain outcome regressions passed.",
+  "limitations": [
+    "Local injected HTTP524 is not a genuine external provider incident. No production fault injection or paid model call.",
+    "Independent hosted queue recovery provision/testing explicitly paused by user.",
+    "CI, deployment and exact production behavior pending at commit time."
+  ],
+  "commands": [
+    "venv/bin/python -m pytest tests/test_http_524_recovery.py tests/test_retired_privileged_maintenance.py tests/test_security_regressions.py tests/test_api_summaries.py tests/test_notion_export_outcomes.py -q --timeout=60",
+    "venv/bin/python -m pytest tests/test_coverage_repair.py tests/test_quote_repair.py -q --timeout=30",
+    "npm --prefix web test -- tests/summary-export.test.tsx tests/connection-recovery.test.tsx tests/print.test.ts tests/notion-dialog.test.tsx",
+    "npm --prefix web run build",
+    "venv/bin/python scripts/check_secure_exports.py --output /workspace/export-validation/local",
+    "pdftotext synthetic-export.pdf synthetic-export.txt",
+    "pdftoppm -f 1 -singlefile -scale-to1200 -png synthetic-export.pdf pdf-first-page"
+  ],
+  "pm": "Local goal read→HTML export→quote expansion→refresh completed; PDF content preservation verified at renderer boundary. Notion and hosted recovery intentionally deferred by user, not marked passed."
+}

@@ -5,7 +5,7 @@ from fastapi import APIRouter, HTTPException, Depends, Query
 from fastapi.responses import HTMLResponse
 
 from api.schemas import SummaryResponse, SummaryListItem
-from api.auth import get_current_user, get_user_from_token_param, User
+from api.auth import get_current_user, User
 from api.db import get_db
 
 router = APIRouter()
@@ -113,11 +113,10 @@ async def get_summary(eid: str, user: Optional[User] = Depends(get_current_user)
 @router.get("/{eid}/html", response_class=HTMLResponse)
 async def get_summary_html(
     eid: str,
-    token: Optional[str] = Query(None, description="Auth token for browser access"),
-    user: Optional[User] = Depends(get_user_from_token_param)
+    user: Optional[User] = Depends(get_current_user)
 ):
-    """Get summary as HTML page. Accepts token via query param for browser tabs."""
-    from viewer import Summary, KeyPoint, export_html
+    """Get summary as HTML page. Requires the normal Authorization header."""
+    from viewer import Summary, KeyPoint, export_html, HTML_EXPORT_CSP
     
     db = get_db(user.id if user else None)
     summary_data = await run_sync(db.get_summary, eid)
@@ -152,18 +151,19 @@ async def get_summary_html(
     html_content = await run_sync(export_html, summary)
     
     return HTMLResponse(content=html_content, headers={
-        "Content-Security-Policy": "default-src 'none'; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'",
+        "Content-Security-Policy": HTML_EXPORT_CSP,
         "X-Content-Type-Options": "nosniff",
+        "Cache-Control": "private, no-store",
+        "Referrer-Policy": "no-referrer",
     })
 
 
 @router.get("/{eid}/markdown")
 async def get_summary_markdown(
     eid: str,
-    token: Optional[str] = Query(None, description="Auth token for browser access"),
-    user: Optional[User] = Depends(get_user_from_token_param)
+    user: Optional[User] = Depends(get_current_user)
 ):
-    """Get summary as Markdown. Accepts token via query param for browser tabs."""
+    """Get summary as Markdown. Requires the normal Authorization header."""
     from viewer import Summary, KeyPoint, export_markdown
     
     db = get_db(user.id if user else None)

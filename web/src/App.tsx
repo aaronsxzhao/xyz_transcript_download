@@ -12,6 +12,7 @@ import { markPageNavigation } from './lib/pageTiming'
 // after config/session verification has finished.
 preloadPage(window.location.pathname)
 void getAuthConfig().catch(() => {})
+const SummaryExport = lazy(pages.summaryExport)
 const ResetPassword = lazy(pages.resetPassword)
 const Library = lazy(pages.library)
 const Dashboard = lazy(pages.dashboard)
@@ -75,6 +76,7 @@ function AppRoutes() {
           }
         />
         <Route element={<ProtectedRoute />}>
+          <Route path="/exports/summaries/:eid" element={<SummaryExport />} />
           <Route element={<Layout />}>
             <Route path="/" element={<Dashboard />} />
             <Route path="/library" element={<Library />} />

@@ -170,9 +170,9 @@ def repair():
 
 def main(operation=None):
     from scripts.diagnose_deployment import oci_json
-    from scripts.repair_reported_transcript import request_json
+    from scripts.verify_deployment import verify_deployment
     expected = os.environ.get("EXPECTED_REVISION")
-    if expected and request_json("/api/health", "").get("revision") != expected:
+    if expected and not verify_deployment(expected, attempts=1):
         raise RuntimeError("Expected release is not live")
     containers = oci_json(["container-instances", "container-instance", "get", "--container-instance-id", os.environ["CONTAINER_INSTANCE_ID"]], 'data.containers[*]."container-id"')
     for container_id in containers or []:
