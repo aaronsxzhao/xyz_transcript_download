@@ -127,6 +127,9 @@ jobs:
           python scripts/check_series_spacing.py
           python scripts/check_series_spacing.py --webkit
 
+      - name: Check unassigned channel grouping and pagination
+        timeout-minutes: 4
+        run: python scripts/check_unassigned_channels.py
       - name: Check multipart reader horizontal bounds
         timeout-minutes: 5
         run: |
