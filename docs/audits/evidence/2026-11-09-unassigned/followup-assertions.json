@@ -1,0 +1,28 @@
+[
+  {
+    "name": "saved-attribution",
+    "http": 200,
+    "id": "fd375cec-8f3",
+    "status": "failed",
+    "channel": "",
+    "platform": "youtube",
+    "title": "",
+    "progress": 0,
+    "error_class": "other"
+  },
+  {
+    "name": "saved-attribution",
+    "http": 200,
+    "id": "19e17617-08e",
+    "status": "success",
+    "channel": "www.w3schools.com",
+    "platform": "web",
+    "title": "mov_bbb.mp4",
+    "progress": 100,
+    "error_class": null
+  },
+  {
+    "name": "real-source-channel-refresh",
+    "passed": true
+  }
+]

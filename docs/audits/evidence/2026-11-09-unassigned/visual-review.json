@@ -1,0 +1,136 @@
+{
+  "review_method": "Actual view_image inspection by assistant",
+  "reviewed": [
+    {
+      "path": "/workspace/xyz-unassigned-channel/appearance-checks/unassigned/group-classic-light-390.png",
+      "sha256": "979e7bf56f323c9009106006e6c489078f239631874648c95996a2eb5246f5ab"
+    },
+    {
+      "path": "/workspace/xyz-unassigned-channel/appearance-checks/unassigned/group-editorial-dark-768.png",
+      "sha256": "78b55eec04f042e8f5721bf6cd7f75d5c505a7d48393aae94a57d8078c2e0f80"
+    },
+    {
+      "path": "/workspace/xyz-unassigned-channel/appearance-checks/unassigned/videos-editorial-light-390.png",
+      "sha256": "bceddc83aaced9c484b3a296d41c57de0526a2120d4b001c626c69c550ad22cc"
+    },
+    {
+      "path": "/workspace/xyz-unassigned-channel/appearance-checks/unassigned/group-classic-light-1440.png",
+      "sha256": "5cf85e90831c9165b0d7baa211fb404cad48fdbc3301b8c59021c56163c23f0e"
+    },
+    {
+      "path": "/workspace/xyz-unassigned-channel/appearance-checks/unassigned/group-classic-light-768.png",
+      "sha256": "4712bd20928833445ebada2da9b6e4a0be300470a851993077c703c8b2818a55"
+    },
+    {
+      "path": "/workspace/xyz-unassigned-channel/appearance-checks/unassigned/group-classic-dark-390.png",
+      "sha256": "63e59ced750ca9611129fd5c78cd27f8c6bfcdf38b966ff17feb3dbfb98a07ea"
+    },
+    {
+      "path": "/workspace/xyz-unassigned-channel/appearance-checks/unassigned/group-editorial-light-1440.png",
+      "sha256": "b2aac2773c7857595c72eb032223a074c25f5c43475f6214f04a6b203649f393"
+    },
+    {
+      "path": "/workspace/xyz-unassigned-channel/appearance-checks/unassigned/group-editorial-light-390.png",
+      "sha256": "189831132c8dbc29da11e4ec0598bc7a32a2a24f99a2ebd427458d5368df4b30"
+    },
+    {
+      "path": "/workspace/xyz-unassigned-channel/appearance-checks/unassigned/videos-classic-dark-1440.png",
+      "sha256": "5d00ea6352bce382f2806b7138f3c7ec573b25331a4964f1fa91319902e58312"
+    },
+    {
+      "path": "/workspace/browser-validation/unassigned-20261109/import/import-final.png",
+      "sha256": "cfe9774cc141998b34f7c318e63a708a009f9fd867141b387b9ff9fc174c5dba"
+    },
+    {
+      "path": "/workspace/browser-validation/unassigned-20261109/public/before-import.png",
+      "sha256": "63024251f121f510dc5b7ceed9ef5497c2d91eb93c3a30ef0cde7a554ba969ff"
+    },
+    {
+      "path": "/workspace/browser-validation/unassigned-20261109/followup/task-19e17617-08e.png",
+      "sha256": "12b98f51ffc3f46f4b73475d51363f2c42064d9a5748a4bd05d8ffed3405a7f7"
+    },
+    {
+      "path": "/workspace/browser-validation/unassigned-20261109/followup/real-source-channel.png",
+      "sha256": "de91fa7aefc748a608ec9d82b39e74635b08f61f4fd1301b22693e1db5715665"
+    },
+    {
+      "path": "/workspace/xyz-unassigned-channel/appearance-checks/unassigned/group-editorial-dark-1440.png",
+      "sha256": "4fb871c56b561f07b6604f8b51bedd62867d23b38cc2a33f3254e3349d9ee662"
+    },
+    {
+      "path": "/workspace/xyz-unassigned-channel/appearance-checks/unassigned/group-editorial-dark-390.png",
+      "sha256": "97e8ca41edd4d2a0fd049482d9808ada204260520e9936c9e69a7ae239486d54"
+    },
+    {
+      "path": "/workspace/xyz-unassigned-channel/appearance-checks/unassigned/group-classic-dark-1440.png",
+      "sha256": "eea123389056a1490fd3d585ce131183fef4f001d4a9bdf94619790e4de878f0"
+    },
+    {
+      "path": "/workspace/xyz-unassigned-channel/appearance-checks/unassigned/group-editorial-light-768.png",
+      "sha256": "b00c4fa3d42072fe379a6cf1dd732f70e4b72a298d483f59af686b504f89fb8a"
+    },
+    {
+      "path": "/workspace/xyz-unassigned-channel/appearance-checks/unassigned/group-classic-dark-768.png",
+      "sha256": "9c7428a44118b27afda233275efdc15ddb2c70b48ab3be4d9f5e4c8dc4289f3e"
+    },
+    {
+      "path": "/workspace/browser-validation/unassigned-20261109/deployed/live-group-classic-dark-1440.png",
+      "sha256": "d8d2b8205022dd19f38b83ccab7392857e5ef1ee07add87071d6a1a2888212ab"
+    },
+    {
+      "path": "/workspace/browser-validation/unassigned-20261109/deployed/live-group-classic-dark-390.png",
+      "sha256": "5b52ade24abd7383e3b1409e6f7349fb3c9e94ddae7245c89d63c1e149f06b74"
+    },
+    {
+      "path": "/workspace/browser-validation/unassigned-20261109/deployed/live-group-classic-dark-768.png",
+      "sha256": "1db60b7552137d1a9904da7cd239b5476df031cded07e5852e7e0076de3a2c78"
+    },
+    {
+      "path": "/workspace/browser-validation/unassigned-20261109/deployed/live-group-classic-light-1440.png",
+      "sha256": "08daf3f86000aaecbe984bdb04b588b83dec11ae5ba56a88a2090e2a6ce0ca44"
+    },
+    {
+      "path": "/workspace/browser-validation/unassigned-20261109/deployed/live-group-classic-light-390.png",
+      "sha256": "55a110249a50463848cc67303de6a6645834e137acaadb08266d7534f844d76c"
+    },
+    {
+      "path": "/workspace/browser-validation/unassigned-20261109/deployed/live-group-classic-light-768.png",
+      "sha256": "43b5c71c5034c52ead0f2ce112bba8d416a405daa26a56f638f9b082e9cfeda4"
+    },
+    {
+      "path": "/workspace/browser-validation/unassigned-20261109/deployed/live-group-editorial-dark-1440.png",
+      "sha256": "359bbb6c9d0b580e1ec72c781b1ecb949ffd5be1181e04cedd302a7d5bfbd2e5"
+    },
+    {
+      "path": "/workspace/browser-validation/unassigned-20261109/deployed/live-group-editorial-dark-390.png",
+      "sha256": "95846ead30c960279dfd3535c4f57c6a308615bef9682ad7f2fc31fdff8d5cfc"
+    },
+    {
+      "path": "/workspace/browser-validation/unassigned-20261109/deployed/live-group-editorial-dark-768.png",
+      "sha256": "d6ea7131c9fa03056b402c2f67feb2fb41dcbcbfd9a7079a1791a928a02e9b68"
+    },
+    {
+      "path": "/workspace/browser-validation/unassigned-20261109/deployed/live-group-editorial-light-1440.png",
+      "sha256": "d7f3d653f33ef39d4e7f2df8b7db3385217fcc60d628587c78b65c0b2ab274af"
+    },
+    {
+      "path": "/workspace/browser-validation/unassigned-20261109/deployed/live-group-editorial-light-390.png",
+      "sha256": "898061bdb917abbe3afd6c067d54e35ff663d0461b48f789cf402106c8549a10"
+    },
+    {
+      "path": "/workspace/browser-validation/unassigned-20261109/deployed/live-group-editorial-light-768.png",
+      "sha256": "d62725e2a332b7bc29f300adc656b9d5995d4f4f99b1be6731d040d884fc418c"
+    },
+    {
+      "path": "/workspace/browser-validation/unassigned-20261109/deployed/live-unassigned-videos.png",
+      "sha256": "9d60d50fda8d99ee57ab15f6a3dd5730d455da855ba2e95b09a94276521d43e9"
+    }
+  ],
+  "findings": [
+    "Virtual channel and named channel remain channel cards; video rows appear only inside the group. Captured control alignment and wrapping remain readable.",
+    "YouTube source authentication failure is visible. No bypass or guessed channel.",
+    "Public MP4 summary and its attributed source channel are readable."
+  ],
+  "not_reviewed": "Remaining local video-list screenshots and 108 page-matrix screenshots are automated evidence only; all 12 channel-group screenshots were actually viewed.",
+  "deployed_findings": "All 13 deployed screenshots actually viewed. Virtual group contains no video rows until entered; live successful and failed rows remain inside the group. Three viewport sizes, both designs and color modes are readable."
+}

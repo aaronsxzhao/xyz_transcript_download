@@ -373,6 +373,39 @@
       "report": "docs/audits/2026-11-09-unassigned-channel.json",
       "state": "Authorized virtual group implemented; local regression passed; CI and deployment pending",
       "owner": "visual-interaction"
+    },
+    {
+      "date": "2026-11-09",
+      "issue": "Missing-channel videos excluded from Videos",
+      "pr": 247,
+      "state": "CLOSED: merged, CI passed, deployed3bdd11c and authenticated live group/reader checks passed",
+      "report": "docs/audits/2026-11-09-unassigned-channel.json"
+    }
+  ],
+  "inspection_runs": [
+    {
+      "date": "2026-11-09",
+      "owner": "visual-interaction",
+      "report": "docs/audits/2026-11-09-unassigned-channel.json",
+      "pr": 247,
+      "tested_commit": "3bdd11cf347d168b5ea14c71f0c0da38987c8b03",
+      "result": "fixed_deployed_live_verified",
+      "environment": "production authenticated; sandboxed Chromium154; Python3.12/Playwright1.62",
+      "scope": "Virtual unassigned group; two authorized imports; source attribution; reader summary/Transcript",
+      "data_scale": "Created2 tasks: public MP4 success, YouTube source-auth failed; unknown YouTube group contains2 rows. Local pagination43 fixtures.",
+      "themes": [
+        "classic light",
+        "classic dark",
+        "editorial light",
+        "editorial dark"
+      ],
+      "viewports": [
+        "1440x900",
+        "768x1024",
+        "390x844"
+      ],
+      "blocker": "YouTube has_cookie=false; configure valid platform login before retry",
+      "next_check": "After account-bound YouTube cookie setup, retry only the newly created test task and verify channel attribution; separately exercise controlled long-task/524 recovery."
     }
   ]
 }

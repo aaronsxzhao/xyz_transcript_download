@@ -30,16 +30,56 @@
       {
         "source": "W3Schools short public MP4",
         "task": "19e17617-08e",
-        "result": "Created; protected task API confirms channel www.w3schools.com, platform web, status summarizing at observation."
+        "result": "Completed successfully, progress100; correct source www.w3schools.com persists, real channel/summary/Transcript verified."
       }
+    ],
+    "focused_channel_and_security_tests": 39,
+    "local_page_matrix": {
+      "pages": 9,
+      "themes": 4,
+      "viewports": 3,
+      "cases": 108,
+      "result": "PASS; automated bounds/JS only"
+    },
+    "visually_viewed_manifest": "docs/audits/evidence/2026-11-09-unassigned/visual-review.json",
+    "live_authenticated_checks": [
+      "YouTube platform -> 未归属频道; group is a channel card, not inline videos.",
+      "Group API HTTP200: two tasks (success and failed), both with no source channel; normal reload retains group.",
+      "www.w3schools.com channel -> completed imported video -> formatted summary -> Transcript.",
+      "12 design/theme/viewport cold reload combinations plus one group detail screenshot actually viewed."
     ]
   },
   "limitations": [
-    "DOM tab presence in initial import harness is not proof of completed processing; protected API status is authoritative.",
-    "Public import first attempt used wrong button name and never submitted; corrected to actual Import content control.",
-    "Production rollout and after-deployment checks pending.",
-    "No real 524 or physical-device acceptance."
+    "YouTube task remains source-authentication blocked: normal authenticated GET /api/cookies/youtube returns HTTP200 has_cookie=false. UI import was attempted; valid account-bound YouTube cookies must be configured through Settings -> Platform Accounts -> YouTube, then that controlled task can be retried. No invented credentials or bypass.",
+    "No actual 524, long-running task completion or physical-device acceptance. Pagination was tested with43 local fixture rows; no claim of production multi-page acceptance.",
+    "A separate Local task appeared in this shared test account during deployment; it was not created or modified by this run. Its presence is not evidence of long-task recovery acceptance.",
+    "Initial import harness tab-presence flag was not a completion assertion; protected API status and followup establish actual success/failure.",
+    "Other generated page-matrix images were not visually reviewed. See explicit manifest."
   ],
   "evidence_private": "/workspace/browser-validation/unassigned-20261109",
-  "local_browser_evidence": "appearance-checks/unassigned"
+  "local_browser_evidence": "appearance-checks/unassigned",
+  "release": {
+    "pr": 247,
+    "head": "7bc6af6a3443628b73ddcb048fe00c3caa7dabdb",
+    "merged_deployed_sha": "3bdd11cf347d168b5ea14c71f0c0da38987c8b03",
+    "ci": {
+      "run": 42570424900,
+      "result": "success"
+    },
+    "deployment": {
+      "run": 42573447998,
+      "result": "success"
+    },
+    "health": "ok; exact revision matches",
+    "status": "fixed_and_deployed_and_live_verified"
+  },
+  "commands": [
+    "python scripts/check_unassigned_channels.py",
+    "/workspace/channel-test-venv/bin/python -m pytest tests/test_channel_paging.py tests/test_security_regressions.py -q --timeout=30",
+    "npm --prefix web test -- --run",
+    "npm --prefix web run build",
+    "check_ui_page_matrix.py executed unchanged except replacing args=[--no-sandbox] with chromium_sandbox=True in memory; /usr/bin/chromium; local fixtures only",
+    "python docs/audits/evidence/2026-11-09-unassigned/verify_live.py --authenticated --output <fresh-private-directory>"
+  ],
+  "remaining_code_fixes": []
 }
