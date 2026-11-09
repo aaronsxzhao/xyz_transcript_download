@@ -2,9 +2,9 @@
   "schema_version": 1,
   "site": "https://aipodcastsummary.online",
   "repository": "aaronsxzhao/xyz_transcript_download",
-  "updated_at": "2026-11-09T08:33:39.049066+00:00",
-  "tested_commit": "99011578febe2a36bd039d8d1077dbe0a7c36f6b",
-  "current_report": "docs/audits/2026-11-09-rss-coverage-repair.json",
+  "updated_at": "2026-11-09T13:47:49.428643+00:00",
+  "tested_commit": "d73019a76a84d570c1ae16bee462a1e73bb66269",
+  "current_report": "docs/audits/2026-11-09-grounding-recovery.json",
   "inventory_basis": [
     "web/src/App.tsx routes",
     "current repository feature components and prior audit records",
@@ -639,6 +639,21 @@
           "checked_at": "2026-11-09T08:33:39.049066+00:00",
           "report": "docs/audits/2026-11-09-rss-coverage-repair.json",
           "result": "passed_scoped_after_candidate_retry"
+        },
+        {
+          "checked_at": "2026-11-09T13:47:49.428643+00:00",
+          "report": "docs/audits/2026-11-09-grounding-recovery.json",
+          "pr": 250,
+          "commit": "d73019a76a84d570c1ae16bee462a1e73bb66269",
+          "scope": "Authorized production login and protected API; retry saved failed candidate; Library search/clear/reload during processing; completed summary and Transcript; refresh and Library return; actual view_image review at 1440x900,768x1024,390x844 in Classic dark.",
+          "result": "fixed_deployed_same_source_production_verified",
+          "responsibility": "generation quality + interaction verification",
+          "prior_jobs": [
+            "13734c15-314f-462f-8fdf-3367cb987edd",
+            "f89cc4b0-f763-432a-ac43-efd01dcd4437"
+          ],
+          "successful_job": "494de3f6-45f6-4d1b-b2bb-9a87691dbd67",
+          "limitations": "Repeated-source prefix-only rejection remains a separate sample; this change does not waive its quality guard. Natural upstream 524 not observed in production; isolated HTTP524 recovery evidence remains separate."
         }
       ],
       "current_scope": "Import same RSS; real processing339s initially blocked grounding; checkpoint retry285s accepted37/41; summary/transcript/reload/multitab passed. Search/read/delete at125s while firsttask summarizing. This scope does not claim every operation in the inventory chain was rerun.",
@@ -1066,6 +1081,21 @@
       "status": "merged_deployed_online_verified_after_candidate_retry",
       "report": "docs/audits/2026-11-09-rss-coverage-repair.json",
       "not_claimed": "universal one-shot success or100percentcoverage"
+    },
+    {
+      "checked_at": "2026-11-09T13:47:49.428643+00:00",
+      "report": "docs/audits/2026-11-09-grounding-recovery.json",
+      "pr": 250,
+      "commit": "d73019a76a84d570c1ae16bee462a1e73bb66269",
+      "scope": "Authorized production login and protected API; retry saved failed candidate; Library search/clear/reload during processing; completed summary and Transcript; refresh and Library return; actual view_image review at 1440x900,768x1024,390x844 in Classic dark.",
+      "result": "fixed_deployed_same_source_production_verified",
+      "responsibility": "generation quality + interaction verification",
+      "prior_jobs": [
+        "13734c15-314f-462f-8fdf-3367cb987edd",
+        "f89cc4b0-f763-432a-ac43-efd01dcd4437"
+      ],
+      "successful_job": "494de3f6-45f6-4d1b-b2bb-9a87691dbd67",
+      "limitations": "Repeated-source prefix-only rejection remains a separate sample; this change does not waive its quality guard. Natural upstream 524 not observed in production; isolated HTTP524 recovery evidence remains separate."
     }
   ],
   "audit_attempts": [

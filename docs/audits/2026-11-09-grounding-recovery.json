@@ -1,0 +1,66 @@
+{
+  "created_at": "2026-11-09T13:14:49.660009+00:00",
+  "base_sha": "8a660a41baa5cb21c4783fd3f90451b040e4f0d4",
+  "fix_sha": "6eceb2d9142451f461a7e0371cf67b349e95646e",
+  "pr": "https://github.com/aaronsxzhao/xyz_transcript_download/pull/250",
+  "ci_run": 42622025479,
+  "cause": "Grounding repair returned the exact rejected text and evidence; structurally valid no-op was cached and final independent review rejected it. Observed failures were quality failures, not a 300-second task deadline.",
+  "change": "Reject unchanged text/evidence before checkpointing; at most one additional targeted correction; keep final review and coverage threshold unchanged.",
+  "request_budgets_seconds": {
+    "generation": 600,
+    "review": 240,
+    "grounding_repair": 180
+  },
+  "local_tests": {
+    "command": "/workspace/xyz_transcript_download/venv/bin/python -m pytest tests/test_reading_delivery.py tests/test_transcript_reading.py tests/test_reading_editor.py -q",
+    "passed": 116
+  },
+  "ci": "PASS",
+  "deployment": "PASS",
+  "production_verification": "PASS",
+  "target_episode": "local_d82616dc95f74a8e",
+  "retry_from_job": "f89cc4b0-f763-432a-ac43-efd01dcd4437",
+  "limitations": [
+    "Does not establish every generation failure is fixed.",
+    "Repeated-source prefix-only failure is a separate retained case.",
+    "No real upstream 524 induced in production."
+  ],
+  "merge_sha": "d73019a76a84d570c1ae16bee462a1e73bb66269",
+  "deployment_run": 42627004594,
+  "exact_live_revision": "d73019a76a84d570c1ae16bee462a1e73bb66269",
+  "production_task_id": "494de3f6-45f6-4d1b-b2bb-9a87691dbd67",
+  "wall_seconds": 291.127,
+  "checkpoint_hits": 1,
+  "delivery": {
+    "status": "accepted",
+    "grounded": true,
+    "coverage_ratio": 1,
+    "coverage_threshold": 0.9,
+    "unresolved_items": 0,
+    "semantic_proof": false
+  },
+  "browser": {
+    "authenticated_session_verified": true,
+    "summary_transcript_refresh_library": "PASS",
+    "viewports": [
+      [
+        1440,
+        900
+      ],
+      [
+        768,
+        1024
+      ],
+      [
+        390,
+        844
+      ]
+    ],
+    "visual_review": "live/visual-review.json"
+  },
+  "checked_at": "2026-11-09T13:47:49.428643+00:00",
+  "actual_browser_scope": "Authorized production login and protected API; retry saved failed candidate; Library search/clear/reload during processing; completed summary and Transcript; refresh and Library return; actual view_image review at 1440x900,768x1024,390x844 in Classic dark.",
+  "visual_evidence": "Private /workspace/browser-validation/grounding-fix-20261109/live/visual-review.json",
+  "claims": "Observed same-source retry succeeded; model coverage metric 1.0 is not proof of universal semantic correctness. No 300-second task deadline caused the prior failure.",
+  "other_outstanding": "Repeated-source prefix-only rejection remains a separate sample; this change does not waive its quality guard. Natural upstream 524 not observed in production; isolated HTTP524 recovery evidence remains separate."
+}
