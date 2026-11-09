@@ -1,4 +1,4 @@
-const transientStatus = (status: number) => [408, 502, 503, 504].includes(status)
+const transientStatus = (status: number) => [408, 502, 503, 504, 524].includes(status)
 
 export async function bufferResponse(response: Response): Promise<Response> {
   // Authenticated endpoints also return ZIPs; text decoding corrupts binary bytes.

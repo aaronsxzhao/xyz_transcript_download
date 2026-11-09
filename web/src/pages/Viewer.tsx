@@ -50,7 +50,7 @@ import {
   type Summary,
   type Transcript,
 } from "../lib/api";
-import { getAccessToken } from "../lib/auth";
+import { openSummaryExport } from "../lib/summaryExport";
 import { useStore } from "../lib/store";
 import { getCache, setCache, CacheKeys } from "../lib/cache";
 import { getAccountId } from "../lib/preferences";
@@ -473,14 +473,12 @@ export default function Viewer() {
                   <ExternalLink size={16} />
                   Send to Notion
                 </button>
-                <a
-                  href={`/api/summaries/${eid}/html${getAccessToken() ? `?token=${getAccessToken()}` : ""}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
+                <button onClick={() => {
+                  if (eid && !openSummaryExport(eid)) setActionError("Allow pop-ups to open the HTML export, then try again.");
+                }}>
                   <ExternalLink size={16} />
                   Open as HTML
-                </a>
+                </button>
               </ReaderMenu>
             </>
           )}

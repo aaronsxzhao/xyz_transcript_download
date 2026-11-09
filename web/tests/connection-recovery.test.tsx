@@ -128,3 +128,17 @@ it('recovers when a mobile browser becomes visible, without reloading healthy or
     expect(state.fetch).toHaveBeenCalledTimes(recovered)
   } finally { delete (document as any).visibilityState }
 })
+
+it('reconnects once after HTTP 524 on safe reads, but never repeats an uncertain write', async () => {
+  const fetch = vi.fn().mockResolvedValueOnce(new Response('gateway timeout', {status:524}))
+    .mockResolvedValueOnce(Response.json({llm_provider:'groq'}))
+  vi.stubGlobal('fetch',fetch)
+  expect((await fetchSettings()).llm_provider).toBe('groq')
+  expect(fetch).toHaveBeenCalledTimes(2)
+  fetch.mockReset().mockImplementation(async()=>new Response('gateway timeout',{status:524}))
+  expect((await authFetch('/api/settings')).status).toBe(524)
+  expect(fetch).toHaveBeenCalledTimes(2)
+  fetch.mockClear()
+  expect((await authFetch('/api/process',{method:'POST'})).status).toBe(524)
+  expect(fetch).toHaveBeenCalledTimes(1)
+})

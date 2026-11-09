@@ -2,7 +2,7 @@
   "schema_version": 1,
   "site": "https://aipodcastsummary.online",
   "repository": "aaronsxzhao/xyz_transcript_download",
-  "updated_at": "2026-11-09T13:10:23.193726+00:00",
+  "updated_at": "2026-11-09T13:35:27.778123+00:00",
   "tested_commit": "8a660a41baa5cb21c4783fd3f90451b040e4f0d4",
   "current_report": "docs/audits/2026-11-09-evening-technical-pm.json",
   "inventory_basis": [
@@ -1099,6 +1099,14 @@
       "report": "docs/audits/2026-11-09-unassigned-channel.json",
       "state": "Authorized virtual group implemented; local regression passed; CI and deployment pending",
       "owner": "visual-interaction"
+    },
+    {
+      "checked_at": "2026-11-09T13:35:27.778123+00:00",
+      "report": "docs/audits/2026-11-09-export-recovery/report.json",
+      "status": "local fixes validated; CI and production pending",
+      "scope": "HTML token-free export; retired owner-JWT maintenance; bounded524 safe-read recovery",
+      "notion": "paused by user",
+      "hosted_recovery": "paused by user; no new infrastructure"
     }
   ],
   "accepted_exclusions": [

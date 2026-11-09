@@ -219,3 +219,28 @@ async def test_private_storage_image_links_survive_without_a_local_copy(client, 
     provider.storage.from_.assert_called_with("screenshots")
     provider.storage.from_.return_value.download.assert_called_once_with("owned-task_00-01.jpg")
     media._signing_key.cache_clear()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("format", ["html", "markdown"])
+async def test_export_rejects_query_session_even_if_valid(client, format):
+    verifier = AsyncMock(return_value={"sub": "owner"})
+    with patch("api.auth.USE_SUPABASE", True), patch("api.auth.verify_jwt_token_async", verifier):
+        response = await client.get(f"/api/summaries/example/{format}?token=valid-session")
+    assert response.status_code == 401
+    verifier.assert_not_called()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("format", ["html", "markdown"])
+async def test_export_header_session_selects_authenticated_owner(client, format, create_test_summary):
+    summary = create_test_summary()
+    db = Mock()
+    db.get_summary.return_value = SimpleNamespace(**summary)
+    with patch("api.auth.USE_SUPABASE", True), patch("api.auth.verify_jwt_token_async", AsyncMock(return_value={"sub": "owner"})), patch("api.routers.summaries.get_db", return_value=db) as scoped:
+        response = await client.get(f"/api/summaries/test-episode-456/{format}?token=another-owner", headers={"Authorization": "Bearer valid-session"})
+    assert response.status_code == 200
+    scoped.assert_called_with("owner")
+    if format == "html":
+        assert response.headers["cache-control"] == "private, no-store"
+        assert response.headers["referrer-policy"] == "no-referrer"

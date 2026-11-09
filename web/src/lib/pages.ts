@@ -1,6 +1,7 @@
 import {withStyleTimeout} from './styleLoading'
 // Notes remain readable with the core styles if optional rich typography cannot load.
 const pages = {
+  summaryExport: () => import('../pages/SummaryExport'),
   resetPassword: () => import('../pages/ResetPassword'),
   library: () => import('../pages/Library'),
   dashboard: () => import('../pages/Dashboard'),
@@ -16,7 +17,7 @@ const pages = {
 export default pages
 
 export function preloadPage(path: string) {
-  const load = path === '/library' ? pages.library : path.startsWith('/podcasts/') ? pages.episodes
+  const load = path.startsWith('/exports/summaries/') ? pages.summaryExport : path === '/library' ? pages.library : path.startsWith('/podcasts/') ? pages.episodes
     : path.startsWith('/viewer/') ? pages.viewer
     : path.startsWith('/videos/') ? pages.videoViewer
     : path === '/podcasts' ? pages.podcasts : path === '/videos' ? pages.videos

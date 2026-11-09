@@ -1,0 +1,17 @@
+{
+  "environment": "local synthetic APIs, production frontend build",
+  "screenshots": [
+    "html-1440x900.png",
+    "html-768x1024.png",
+    "html-390x844.png"
+  ],
+  "checks": {
+    "session_only_tab_refresh_opener_null": true,
+    "native_quote_expansion": true,
+    "html_error_retry": true,
+    "actual_pdf_button_document_rendered_by_chromium": true,
+    "os_save_dialog": "not exercised: headless Chromium",
+    "all_html_fetches_header_only": true
+  },
+  "status": "PASS"
+}
