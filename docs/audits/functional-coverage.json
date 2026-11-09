@@ -2,8 +2,8 @@
   "schema_version": 1,
   "site": "https://aipodcastsummary.online",
   "repository": "aaronsxzhao/xyz_transcript_download",
-  "updated_at": "2026-11-09T07:44:34.707727+00:00",
-  "tested_commit": "d230bd366762dcd32ed1646c849fffdea22fa698",
+  "updated_at": "2026-11-09T08:33:39.049066+00:00",
+  "tested_commit": "99011578febe2a36bd039d8d1077dbe0a7c36f6b",
   "current_report": "docs/audits/2026-11-09-rss-coverage-repair.json",
   "inventory_basis": [
     "web/src/App.tsx routes",
@@ -315,20 +315,31 @@
         "quality": "summary quality audit for semantic coverage where applicable"
       },
       "risk": "high",
-      "last_actual_check": "2026-11-09T06:25:19.176223+00:00",
-      "environment": null,
-      "account_type": null,
-      "data_scale": null,
-      "steps": [],
-      "evidence": [],
-      "result": "not_checked",
-      "production_result": "blocked",
+      "last_actual_check": "2026-11-09T08:33:39.049066+00:00",
+      "environment": "production9901157; real Python Playwright Chromium with sandbox/TLS",
+      "account_type": "authorized dedicated test account; existing data read-only",
+      "data_scale": "1publicRSS,1newdisposableaudio,1retainedcontrolledtestvideo",
+      "steps": [
+        "Normal UI RSS import",
+        "Normal failed-job retry",
+        "Parallel search/read/reload/delete only new disposable",
+        "Bounded checkpoint retry after grounding rejection",
+        "Read saved summary/transcript; reload and second-tab equality"
+      ],
+      "evidence": [
+        "docs/audits/2026-11-09-rss-coverage-repair.json"
+      ],
+      "result": "passed_scoped",
+      "production_result": "passed_scoped",
       "gaps": [
-        "Public RSS accepted-summary chain failed quality gate; local upload lifecycle passed. Hosted isolated Supabase recovery and actual upstream524 remain unaccepted."
+        "First new run required explicit candidate retry; no universal one-shot reliability established.",
+        "4of41 material items remain partial under unchanged90percent contract.",
+        "Current public RSS summary/source retained; summary-only deletion on this RSS not run.",
+        "Genuine upstream524 and isolated hosted Supabase recovery remain unaccepted."
       ],
       "issues": [],
       "in_progress_prs": [],
-      "next_check": "Diagnose7partial coverage receipts; source/candidate comparison under separate core-change plan if required",
+      "next_check": "Retained RSS read-only regression; expand source samples and first-attempt reliability; genuine524 and isolated hosted recovery remain unaccepted.",
       "production_followups": [
         {
           "checked_at": "2026-11-07T09:04:12.403725+08:00",
@@ -350,8 +361,14 @@
           "scope": "Real public RSS >3minute summarizing with parallel reading/search; explicit retry restored checkpoint but both attempts failed unchanged coverage gate",
           "result": "failed_quality_acceptance",
           "issue": "P1 RSS quality acceptance; no core algorithm edit"
+        },
+        {
+          "checked_at": "2026-11-09T08:33:39.049066+00:00",
+          "report": "docs/audits/2026-11-09-rss-coverage-repair.json",
+          "result": "passed_scoped_after_candidate_retry"
         }
-      ]
+      ],
+      "current_scope": "Import same RSS; real processing339s initially blocked grounding; checkpoint retry285s accepted37/41; summary/transcript/reload/multitab passed. Search/read/delete at125s while firsttask summarizing. This scope does not claim every operation in the inventory chain was rerun."
     },
     {
       "id": "podcast-processing-delete",
@@ -362,22 +379,31 @@
         "quality": "summary quality audit for semantic coverage where applicable"
       },
       "risk": "high",
-      "last_actual_check": "2026-11-09T06:25:19.176223+00:00",
-      "environment": null,
-      "account_type": null,
-      "data_scale": null,
-      "steps": [],
-      "evidence": [],
-      "result": "not_checked",
+      "last_actual_check": "2026-11-09T08:33:39.049066+00:00",
+      "environment": "production9901157; real Python Playwright Chromium with sandbox/TLS",
+      "account_type": "authorized dedicated test account; existing data read-only",
+      "data_scale": "1publicRSS,1newdisposableaudio,1retainedcontrolledtestvideo",
+      "steps": [
+        "Normal UI RSS import",
+        "Normal failed-job retry",
+        "Parallel search/read/reload/delete only new disposable",
+        "Bounded checkpoint retry after grounding rejection",
+        "Read saved summary/transcript; reload and second-tab equality"
+      ],
+      "evidence": [
+        "docs/audits/2026-11-09-rss-coverage-repair.json"
+      ],
+      "result": "passed_scoped",
       "production_result": "passed_scoped",
       "gaps": [
-        "Public RSS accepted-summary chain failed quality gate; local upload lifecycle passed. Hosted isolated Supabase recovery and actual upstream524 remain unaccepted."
+        "First new run required explicit candidate retry; no universal one-shot reliability established.",
+        "4of41 material items remain partial under unchanged90percent contract.",
+        "Current public RSS summary/source retained; summary-only deletion on this RSS not run.",
+        "Genuine upstream524 and isolated hosted Supabase recovery remain unaccepted."
       ],
       "issues": [],
-      "in_progress_prs": [
-        249
-      ],
-      "next_check": "Production verification ofPR249 on same RSS source; local34/34does not close online gap.",
+      "in_progress_prs": [],
+      "next_check": "Retained RSS read-only regression; expand source samples and first-attempt reliability; genuine524 and isolated hosted recovery remain unaccepted.",
       "production_followups": [
         {
           "checked_at": "2026-11-09T06:25:19.176223+00:00",
@@ -392,8 +418,16 @@
           "scope": "Real public RSS >3minute summarizing with parallel reading/search; explicit retry restored checkpoint but both attempts failed unchanged coverage gate",
           "result": "failed_quality_acceptance",
           "issue": "P1 RSS quality acceptance; no core algorithm edit"
+        },
+        {
+          "checked_at": "2026-11-09T08:33:39.049066+00:00",
+          "report": "docs/audits/2026-11-09-rss-coverage-repair.json",
+          "revision": "9901157",
+          "result": "same-source candidate retry accepted37/41;grounded;summary/transcript/reload/multitab passed;first run blocked grounding;long-running parallel search/read/delete passed",
+          "data_scale": "1 public RSS episode,1 disposable synthetic audio,1 existing controlled test video;3simulatedviewports"
         }
-      ]
+      ],
+      "current_scope": "Import same RSS; real processing339s initially blocked grounding; checkpoint retry285s accepted37/41; summary/transcript/reload/multitab passed. Search/read/delete at125s while firsttask summarizing. This scope does not claim every operation in the inventory chain was rerun."
     },
     {
       "id": "article-import-media",
@@ -428,20 +462,31 @@
         "quality": "summary quality audit for semantic coverage where applicable"
       },
       "risk": "high",
-      "last_actual_check": "2026-11-09T06:25:19.176223+00:00",
-      "environment": null,
-      "account_type": null,
-      "data_scale": null,
-      "steps": [],
-      "evidence": [],
-      "result": "not_checked",
-      "production_result": "blocked",
+      "last_actual_check": "2026-11-09T08:33:39.049066+00:00",
+      "environment": "production9901157; real Python Playwright Chromium with sandbox/TLS",
+      "account_type": "authorized dedicated test account; existing data read-only",
+      "data_scale": "1publicRSS,1newdisposableaudio,1retainedcontrolledtestvideo",
+      "steps": [
+        "Normal UI RSS import",
+        "Normal failed-job retry",
+        "Parallel search/read/reload/delete only new disposable",
+        "Bounded checkpoint retry after grounding rejection",
+        "Read saved summary/transcript; reload and second-tab equality"
+      ],
+      "evidence": [
+        "docs/audits/2026-11-09-rss-coverage-repair.json"
+      ],
+      "result": "passed_scoped",
+      "production_result": "passed_scoped",
       "gaps": [
-        "Public RSS accepted-summary chain failed quality gate; local upload lifecycle passed. Hosted isolated Supabase recovery and actual upstream524 remain unaccepted."
+        "First new run required explicit candidate retry; no universal one-shot reliability established.",
+        "4of41 material items remain partial under unchanged90percent contract.",
+        "Current public RSS summary/source retained; summary-only deletion on this RSS not run.",
+        "Genuine upstream524 and isolated hosted Supabase recovery remain unaccepted."
       ],
       "issues": [],
       "in_progress_prs": [],
-      "next_check": "Diagnose7partial coverage receipts; source/candidate comparison under separate core-change plan if required",
+      "next_check": "Retained RSS read-only regression; expand source samples and first-attempt reliability; genuine524 and isolated hosted recovery remain unaccepted.",
       "supplementary_checks": [
         {
           "checked_at": "2026-11-06T12:33:08.553319+08:00",
@@ -481,8 +526,14 @@
           "scope": "Real public RSS >3minute summarizing with parallel reading/search; explicit retry restored checkpoint but both attempts failed unchanged coverage gate",
           "result": "failed_quality_acceptance",
           "issue": "P1 RSS quality acceptance; no core algorithm edit"
+        },
+        {
+          "checked_at": "2026-11-09T08:33:39.049066+00:00",
+          "report": "docs/audits/2026-11-09-rss-coverage-repair.json",
+          "result": "passed_scoped_after_candidate_retry"
         }
-      ]
+      ],
+      "current_scope": "Import same RSS; real processing339s initially blocked grounding; checkpoint retry285s accepted37/41; summary/transcript/reload/multitab passed. Search/read/delete at125s while firsttask summarizing. This scope does not claim every operation in the inventory chain was rerun."
     },
     {
       "id": "parallel-progress",
@@ -493,20 +544,31 @@
         "quality": "summary quality audit for semantic coverage where applicable"
       },
       "risk": "high",
-      "last_actual_check": "2026-11-09T06:25:19.176223+00:00",
-      "environment": null,
-      "account_type": null,
-      "data_scale": null,
-      "steps": [],
-      "evidence": [],
-      "result": "not_checked",
+      "last_actual_check": "2026-11-09T08:33:39.049066+00:00",
+      "environment": "production9901157; real Python Playwright Chromium with sandbox/TLS",
+      "account_type": "authorized dedicated test account; existing data read-only",
+      "data_scale": "1publicRSS,1newdisposableaudio,1retainedcontrolledtestvideo",
+      "steps": [
+        "Normal UI RSS import",
+        "Normal failed-job retry",
+        "Parallel search/read/reload/delete only new disposable",
+        "Bounded checkpoint retry after grounding rejection",
+        "Read saved summary/transcript; reload and second-tab equality"
+      ],
+      "evidence": [
+        "docs/audits/2026-11-09-rss-coverage-repair.json"
+      ],
+      "result": "passed_scoped",
       "production_result": "passed_scoped",
       "gaps": [
-        "See latest report: remaining wider scenarios are not promoted by this fixture acceptance."
+        "First new run required explicit candidate retry; no universal one-shot reliability established.",
+        "4of41 material items remain partial under unchanged90percent contract.",
+        "Current public RSS summary/source retained; summary-only deletion on this RSS not run.",
+        "Genuine upstream524 and isolated hosted Supabase recovery remain unaccepted."
       ],
       "issues": [],
       "in_progress_prs": [],
-      "next_check": "Diagnose7partial coverage receipts; source/candidate comparison under separate core-change plan if required",
+      "next_check": "Retained RSS read-only regression; expand source samples and first-attempt reliability; genuine524 and isolated hosted recovery remain unaccepted.",
       "production_followups": [
         {
           "checked_at": "2026-11-09T06:25:19.176223+00:00",
@@ -521,8 +583,14 @@
           "scope": "Real public RSS >3minute summarizing with parallel reading/search; explicit retry restored checkpoint but both attempts failed unchanged coverage gate",
           "result": "passed_scoped_parallel_read",
           "issue": "P1 RSS quality acceptance; no core algorithm edit"
+        },
+        {
+          "checked_at": "2026-11-09T08:33:39.049066+00:00",
+          "report": "docs/audits/2026-11-09-rss-coverage-repair.json",
+          "result": "passed_scoped_after_candidate_retry"
         }
-      ]
+      ],
+      "current_scope": "Import same RSS; real processing339s initially blocked grounding; checkpoint retry285s accepted37/41; summary/transcript/reload/multitab passed. Search/read/delete at125s while firsttask summarizing. This scope does not claim every operation in the inventory chain was rerun."
     },
     {
       "id": "recovery",
@@ -842,6 +910,15 @@
       "status": "closed_user_accepted",
       "checked_at": "2026-11-08T14:33:58.060107+00:00",
       "fingerprint_note": "Recorded API body hashes are historical references,not stable identities:media signatures rotate daily. Scope remains the two user-confirmed historical uploads;do not reopen solely on changed transport hash."
+    }
+  ],
+  "repair_acceptance_followups": [
+    {
+      "checked_at": "2026-11-09T08:33:39.049066+00:00",
+      "pr": 249,
+      "status": "merged_deployed_online_verified_after_candidate_retry",
+      "report": "docs/audits/2026-11-09-rss-coverage-repair.json",
+      "not_claimed": "universal one-shot success or100percentcoverage"
     }
   ]
 }

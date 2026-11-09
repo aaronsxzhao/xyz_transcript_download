@@ -1,0 +1,21 @@
+{
+  "task_id": "de85336d-3ff2-4a22-aca3-8cadd2cc9c9a",
+  "state": "completed",
+  "wall_seconds": 284.855,
+  "checkpoint_hits": 1,
+  "delivery": {
+    "status": "accepted",
+    "grounded": true,
+    "coverage_ratio": 0.9024390243902439,
+    "coverage_threshold": 0.9,
+    "semantic_proof": false,
+    "unresolved_items": 4
+  },
+  "source_revision": "91762e81f705b9fed8d0c7f31d97fe77c20472aed2d63fcb39df7324c3c59140",
+  "ledger_version": "coverage-ledger-v13-verified-delta",
+  "covered_items": 37,
+  "context_only_items": 1,
+  "unresolved_items": 4,
+  "repairs_accepted": 0,
+  "final_coverage_repair_rounds": 0
+}
