@@ -73,13 +73,29 @@ def accept_edition(engine, edition, title, source, formats, duration, stage_call
             engine._quality_inventory = build_inventory(engine, lines)
         report['coverage_ledger'] = efficient_audit(engine, lines, sections, overview,
             prepared_inventory=engine._quality_inventory)
-    for attempt in range(2):
+    grounding_repaired = False
+    coverage_repaired = False
+    review_failures = 0
+    report['final_coverage_repair_rounds'] = 0
+    # At most one grounding replacement and one final coverage repair. Every
+    # prose mutation is followed by a fresh review of the whole immutable draft.
+    for attempt in range(3):
         try:
-            raw = [p['id'] for s in sections for p in s['paragraphs'] if p.get('raw')]
-            if raw:
-                repair_unsupported(engine, lines, sections, raw)
+            rejected = {p['id'] for s in sections for p in s['paragraphs'] if p.get('raw')}
+            rejected.update(pid for item in report.get('coverage_ledger', {}).get('items', [])
+                            if item['status']=='contradicted' for pid in item.get('paragraph_ids', []))
+            if rejected and (grounding_repaired or attempt >= 2):
+                raise SummaryOutputError('quality', reason='grounding')
+            if rejected and not grounding_repaired and attempt < 2:
+                grounding_repaired = True
+                if 'overview' in rejected:
+                    overview = ''
+                repair_unsupported(engine, lines, sections, rejected-{'overview'})
+                report.pop('grounded_draft_identity', None)
                 report['coverage_ledger'] = efficient_audit(engine, lines, sections, overview,
                     prepared_inventory=engine._quality_inventory, allow_repairs=False)
+                if any(p.get('raw') for s in sections for p in s['paragraphs']):
+                    raise SummaryOutputError('quality', reason='grounding')
             identity = draft_identity(sections, overview)
             if (report.get('grounded_draft_identity') != identity or
                     report.get('coverage_ledger', {}).get('grounding_concerns')):
@@ -100,10 +116,12 @@ def accept_edition(engine, edition, title, source, formats, duration, stage_call
                     grounded &= data.get('grounded') is True and not invalid
                     unsupported.update(invalid)
                 if not grounded:
-                    if attempt == 0 and unsupported:
+                    if not grounding_repaired and attempt < 2 and unsupported:
+                        grounding_repaired = True
                         if 'overview' in unsupported:
                             overview = ''
                         repair_unsupported(engine, lines, sections, unsupported-{'overview'})
+                        report.pop('grounded_draft_identity', None)
                         report['coverage_ledger'] = efficient_audit(engine, lines, sections, overview,
                             prepared_inventory=engine._quality_inventory, allow_repairs=False)
                         continue
@@ -113,6 +131,17 @@ def accept_edition(engine, edition, title, source, formats, duration, stage_call
                 report['grounded_draft_identity'] = identity
             ledger = report['coverage_ledger']
             if not coverage_acceptable(ledger, threshold):
+                hard_failure = (any(ledger.get(k) for k in ('failed_batches',
+                    'inventory_failed_batches', 'inventory_validation_failed_batches',
+                    'ignored_boundary_items', 'terminal_provider_failure')) or
+                    any(item['status']=='contradicted' for item in ledger.get('items', [])))
+                if (not hard_failure and not coverage_repaired and attempt < 2
+                        and hasattr(engine, '_quality_inventory')):
+                    coverage_repaired = True
+                    report['final_coverage_repair_rounds'] = 1
+                    report['coverage_ledger'] = efficient_audit(engine, lines, sections, overview,
+                        prepared_inventory=engine._quality_inventory)
+                    continue
                 raise SummaryOutputError('quality', reason='coverage')
             sections = organize_sections(sections, baseline)
             report['delivery'] = {'status':'accepted', 'coverage_ratio':coverage_ratio(ledger),
@@ -138,6 +167,8 @@ def accept_edition(engine, edition, title, source, formats, duration, stage_call
             last_error = error
             if terminal_provider_failure(error) or (isinstance(error,SummaryOutputError)
                     and error.code not in {'invalid','empty'}): break
+            review_failures += 1
+            if review_failures >= 2: break
             # Retry only the incomplete review; completed provider checkpoints
             # remain reusable. Never regenerate the source or whole draft.
     report['delivery'] = {'status':'blocked', 'coverage_threshold':threshold,
@@ -153,7 +184,7 @@ def candidate_checkpoint(engine, source, title, options):
     """Keep unpublished work account-scoped, with settings/source invalidation."""
     from processing_execution import CURRENT
     execution = CURRENT.get()
-    identity = fingerprint({'version':'delivery-final-90-v2', 'source':source, 'title':title,
+    identity = fingerprint({'version':'delivery-final-90-v3', 'source':source, 'title':title,
         'options':options, 'model':engine.model, 'endpoint':str(engine.client.base_url),
         'model_options':getattr(engine,'model_options',{}), 'threshold':engine.quality_coverage_threshold})
     if not execution: return None, identity, None

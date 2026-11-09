@@ -186,7 +186,8 @@ def test_blocked_candidate_resumes_without_redrafting_or_streaming_partial_text(
     source='A supported claim.\nA meaningful qualification.'
     try:
         with patch('coverage_ledger.build_inventory', return_value=({},[])), \
-             patch('transcript_reading._generate_with_inventory', side_effect=draft):
+             patch('transcript_reading._generate_with_inventory', side_effect=draft), \
+             patch('coverage_ledger.efficient_audit', return_value=copy.deepcopy(saved_owner.generation_report['coverage_ledger'])):
             with bind(Execution('owner','source',store)), pytest.raises(SummaryOutputError):
                 owner.generate_note('Title',source,progress_callback=lambda *args:previews.append(args))
             assert all(not event[1] for event in previews)
@@ -225,3 +226,71 @@ def test_review_transport_failure_is_not_reported_as_low_coverage():
     assert 'private' not in str(error.value)
     assert owner.generation_report['delivery']['coverage_ratio'] == 1
     assert owner.generation_report['delivery']['status'] == 'blocked'
+
+@pytest.mark.parametrize('repair_succeeds', [True,False])
+def test_final_coverage_gap_gets_one_bounded_repair_and_fresh_grounding(repair_succeeds):
+    owner,edition=candidate(8);owner._quality_inventory=({},[])
+    def repair(*args,**kwargs):
+        edition['sections'][0]['paragraphs'][0]['text']='A corrected and qualified claim.'
+        ledger=copy.deepcopy(owner.generation_report['coverage_ledger'])
+        if repair_succeeds:ledger['items'][8]['status']='covered'
+        return ledger
+    review={'checked_source_ids':[line.id for line in edition['lines']],
+            'complete':True,'grounded':True,'unsupported_paragraph_ids':[],'additions':[]}
+    with patch('coverage_ledger.efficient_audit',side_effect=repair) as audit, \
+         patch('transcript_reading.call_json',return_value=review) as check:
+        if repair_succeeds:
+            accept_edition(owner,edition,'Title','Source',[],0)
+            assert owner.generation_report['delivery']['coverage_ratio']==.9
+        else:
+            with pytest.raises(SummaryOutputError):accept_edition(owner,edition,'Title','Source',[],0)
+        assert audit.call_count==1
+        assert check.call_count==1
+
+
+def test_final_coverage_repair_cannot_publish_when_new_prose_fails_grounding():
+    owner,edition=candidate(8);owner._quality_inventory=({},[])
+    def repair(*args,**kwargs):
+        edition['sections'][0]['paragraphs'][0]['text']='Unverified new prose.'
+        ledger=copy.deepcopy(owner.generation_report['coverage_ledger'])
+        for item in ledger['items']:item['status']='covered'
+        return ledger
+    rejected={'checked_source_ids':[line.id for line in edition['lines']],
+              'complete':True,'grounded':False,'unsupported_paragraph_ids':[],'additions':[]}
+    with patch('coverage_ledger.efficient_audit',side_effect=repair) as audit, \
+         patch('transcript_reading.call_json',return_value=rejected) as check:
+        with pytest.raises(SummaryOutputError) as error:accept_edition(owner,edition,'Title','Source',[],0)
+    assert error.value.reason=='grounding' and audit.call_count==1 and check.call_count==1
+    assert owner.generation_report['delivery']['status']=='blocked'
+
+
+@pytest.mark.parametrize('flag',['inventory_failed_batches','terminal_provider_failure','inventory_validation_failed_batches'])
+def test_final_repair_never_masks_failed_source_or_provider_checks(flag):
+    owner,edition=candidate(8);owner._quality_inventory=({},[])
+    owner.generation_report['coverage_ledger'][flag]=1
+    with patch('coverage_ledger.efficient_audit',side_effect=AssertionError('Must not mask hard failure')):
+        with pytest.raises(SummaryOutputError):accept_edition(owner,edition,'Title','Source',[],0)
+
+
+def test_contradicted_saved_receipt_requires_source_replacement_not_append_or_stale_pass():
+    owner,edition=candidate(10);owner._quality_inventory=({},[])
+    owner.generation_report['coverage_ledger']['items'][0]['status']='contradicted'
+    repaired=copy.deepcopy(owner.generation_report['coverage_ledger']);repaired['items'][0]['status']='covered'
+    review={'checked_source_ids':[line.id for line in edition['lines']],
+            'complete':True,'grounded':True,'unsupported_paragraph_ids':[],'additions':[]}
+    with patch('reading_delivery.repair_unsupported') as rewrite, \
+         patch('coverage_ledger.efficient_audit',return_value=repaired) as audit, \
+         patch('transcript_reading.call_json',return_value=review) as check:
+        accept_edition(owner,edition,'Title','Source',[],0)
+    rewrite.assert_called_once();assert rewrite.call_args.args[-1]=={'P1'}
+    assert audit.call_args.kwargs['allow_repairs'] is False
+    assert check.call_count==1  # Even a no-op replacement cannot reuse a stale pass.
+
+
+def test_noop_grounding_repair_cannot_publish_raw_fallback_even_with_passing_ledger():
+    owner,edition=candidate(10);owner._quality_inventory=({},[])
+    edition['sections'][0]['paragraphs'][0]['raw']=True
+    with patch('reading_delivery.repair_unsupported'), \
+         patch('coverage_ledger.efficient_audit',return_value=owner.generation_report['coverage_ledger']):
+        with pytest.raises(SummaryOutputError) as error:accept_edition(owner,edition,'Title','Source',[],0)
+    assert error.value.reason=='grounding'

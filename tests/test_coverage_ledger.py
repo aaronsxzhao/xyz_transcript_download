@@ -597,3 +597,65 @@ def test_shared_context_does_not_discard_grounded_new_information(new_fact_groun
         assert report['items'][1]['context_overlap'] is True
     else:
         assert report['status']=='unverified' and len(sections)==1
+
+
+@pytest.mark.parametrize('novel,grounded,contradicts', [
+    (True,True,False), (False,True,False), (True,False,False), (True,True,True)])
+def test_joint_support_duplicate_flag_requires_independent_delta_verification(novel,grounded,contradicts):
+    case={'source':'[00:00] The program starts.\n[00:01] Approval is required in January.',
+          'missing_draft':'The program starts.',
+          'complete_draft':'Approval is required in January.', 'kind':'condition'}
+    lines,sections,ranges=setup_case(case);base=scripted(case,[]);verified=[]
+    def response(engine,system,payload,validator):
+        if payload['phase']=='verify_repair_delta':
+            verified.append(payload)
+            assert all(p['id']=='P1' for s in payload['existing_draft'] for p in s['paragraphs'])
+            data={'paragraphs':[{'id':p['id'],'grounded':grounded,
+                'adds_material_meaning':novel,'contradicts_existing':contradicts}
+                for p in payload['proposed_paragraphs']]}
+            validator(data)
+            return data
+        data=base(engine,system,payload,validator)
+        if payload['phase']=='match' and payload.get('proposed_paragraph_ids'):
+            for row in data['matches']:
+                row.update(duplicate=True,support=[{'paragraph_id':'P1'},
+                    {'paragraph_id':payload['proposed_paragraph_ids'][0]}])
+        return data
+    with patch('coverage_ledger.request',side_effect=response):report=audit(SimpleNamespace(),lines,sections)
+    assert verified
+    assert report['repairs_accepted']==int(novel and grounded and not contradicts)
+    assert (len(sections)>1)==(novel and grounded and not contradicts)
+
+
+def test_final_readonly_audit_source_checks_new_incidental_gap_without_adding_prose():
+    from coverage_ledger import efficient_audit
+    case={'source':'[00:00] An effective method, illustrated by another incidental biography.',
+          'missing_draft':'An effective method.', 'complete_draft':'An effective method.', 'kind':'example'}
+    lines,sections,ranges=setup_case(case);before=copy.deepcopy(sections);phases=[]
+    inventory=[{'id':'C1','kind':'example','statement':case['source'],'source_ranges':ranges}]
+    def response(engine,system,payload,validator):
+        phases.append(payload['phase'])
+        if payload['phase']=='validate_inventory':
+            assert payload['items'][0]['reported_gap']=='Another incidental biography.'
+            return {'items':[{'id':'C1','supported':True,'material':False,
+                'material_reason':'Interchangeable illustration; essential method is unchanged.'}]}
+        assert payload['phase']=='match'
+        return {'matches':[{'item_id':'C1','status':'partial','grounded':True,'duplicate':False,
+            'support':[{'paragraph_id':'P1'}],'missing_meaning':'Another incidental biography.'}]}
+    owner=SimpleNamespace(quality_coverage_threshold=.9)
+    with patch('coverage_ledger.request',side_effect=response):
+        report=efficient_audit(owner,lines,sections,prepared_inventory=({'failed_batches':0,'inventory_failed_batches':0,'terminal_provider_failure':False},inventory),allow_repairs=False)
+    assert 'validate_inventory' in phases and 'repair' not in phases
+    assert report['items'][0]['status']=='context_only' and sections==before
+
+@pytest.mark.parametrize('damage',['missing','extra','duplicate','non_boolean','unknown'])
+def test_delta_receipt_must_cover_exact_proposals_with_explicit_booleans(damage):
+    from coverage_ledger import delta_response
+    row={'id':'L1','grounded':True,'adds_material_meaning':True,'contradicts_existing':False}
+    rows=[row]
+    if damage=='missing':rows=[]
+    if damage=='extra':rows.append({**row,'id':'L2'})
+    if damage=='duplicate':rows.append(dict(row))
+    if damage=='non_boolean':row['adds_material_meaning']=1
+    if damage=='unknown':row['id']='P1'
+    with pytest.raises(ValueError):delta_response({'paragraphs':rows},[{'id':'L1'}])
