@@ -1,0 +1,79 @@
+{
+  "id": "20261109-cookie-followup",
+  "checked_at": "2026-11-09T10:17:04.542087+00:00",
+  "owner": "visual-interaction",
+  "tested_commit": "8a660a41baa5cb21c4783fd3f90451b040e4f0d4",
+  "production_revision": "8a660a41baa5cb21c4783fd3f90451b040e4f0d4",
+  "environment": {
+    "config": "cecfg_6ad393188adc819db89d4628d0f79658",
+    "network": "unrestricted enforced; existing proxy and CA retained",
+    "chromium": "154.0.8037.57",
+    "python": "3.12.14",
+    "playwright": "1.62.0",
+    "sandbox": true,
+    "tls_verify": true,
+    "shell": "require_escalated",
+    "dependency_changes": [],
+    "remote_desktop": "not used or validated"
+  },
+  "prior_prs": {
+    "239": "MERGED",
+    "240": "MERGED",
+    "241": "MERGED",
+    "242": "MERGED; browser script now on main",
+    "247": "previously deployed; real attribution transition verified this run",
+    "248/249": "technical records read; not counted as current visual acceptance"
+  },
+  "A_actual_visual": {
+    "authenticated_session": "normal UI signin and protected /api/stats HTTP200; no stored session",
+    "paths": [
+      "original controlled YouTube failure -> Retry -> queued -> parsing -> downloading -> summarizing -> success100 -> real jawed channel -> reader -> Transcript content -> refresh",
+      "Library search no-match -> clear -> filter/sort -> series expand -> P2 reader -> reload -> Transcript tab -> return -> same P1/P2 state",
+      "web source channel -> saved video -> channel refresh retains attribution"
+    ],
+    "views": 32,
+    "visual_review_private": "/workspace/browser-validation/20261109-cookie-followup/visual-review.json",
+    "series_matrix": "Classic/Editorial x light/dark x1440x900/768x1024/390x844; all12images opened",
+    "anonymous": "all3 viewport login screenshots opened; safe checkbox toggle restored and redirects/reload passed",
+    "closure": "fd375cec-8f3 no longer blocked by LOGIN_REQUIRED; success100 with title Me at the zoo, channel jawed. No repeated cookie upload needed.",
+    "new_confirmed_product_defects": []
+  },
+  "B_automation": {
+    "page_bounds": "60 checks across dashboard/library/videos/podcasts/settings, all4 appearances and3viewports: no horizontal overflow",
+    "series_bounds": "12 checks passed",
+    "progress": "sampled progress0,5,12,14,72,100; no sampled regression; not exhaustive event-order validation",
+    "transcript": "nonempty Transcript segments220characters and reload passed; original loading screenshot excluded from content acceptance",
+    "local_fixture_tests": "not rerun; no code changes",
+    "CI": "not triggered; no code changes"
+  },
+  "C_gaps": {
+    "Library_pagination": "six saved titles; no load-more boundary exercised. Requires additional controlled saved notes exceeding actual page threshold; existing technical synthetic pagination evidence remains separate.",
+    "long_tasks_and_524": "this run uses19-second source; real upstream524, long task performance and hosted recovery not reproduced. Isolated technical experiments remain distinct.",
+    "other_untested": [
+      "article-only reader",
+      "subscription form mutation and failures",
+      "all controls/keyboard/hover across every page",
+      "physical devices",
+      "cross-device notification dismiss"
+    ],
+    "environment_blockers": [],
+    "authentication_blockers": [],
+    "followup": "prioritize controlled pagination and longer-running task; never classify missing coverage as product defect"
+  },
+  "delivery": {
+    "code_changes": false,
+    "new_PR": null,
+    "new_deployment": false,
+    "health": "HTTP200 statusok matching testedSHA",
+    "status": "cookie blocker closed; existing grouping verified; no new confirmed defect requiring a patch"
+  },
+  "commands": [
+    "python scripts/check_cloud_browser.py --output appearance-checks/cloud-browser/20261109-cookie-followup/anonymous",
+    "python /workspace/browser-validation/unassigned-20261109/followup.py --authenticated --output /workspace/browser-validation/20261109-cookie-followup/authenticated",
+    "python /workspace/browser-validation/20261109-cookie-followup/explore.py --authenticated --output /workspace/browser-validation/20261109-cookie-followup/exploration",
+    "python /workspace/browser-validation/20261109-cookie-followup/readers.py --authenticated --output /workspace/browser-validation/20261109-cookie-followup/readers",
+    "python /workspace/browser-validation/20261109-cookie-followup/transcript.py --authenticated --output /workspace/browser-validation/20261109-cookie-followup/transcript"
+  ],
+  "evidence_private": "/workspace/browser-validation/20261109-cookie-followup",
+  "safety": "only normal login and explicit own-task retry allowed; other writes blocked; screenshots private, no credentials/session saved"
+}

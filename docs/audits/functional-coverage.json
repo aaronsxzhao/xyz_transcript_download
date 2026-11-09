@@ -1098,6 +1098,15 @@
       "status": "partial; authenticated verification passed; two observations need investigation",
       "evidence_private": "/workspace/browser-validation/auth-exploration-20261106",
       "next_focus": "Series directory response and historical image availability; expand theme/page coverage"
+    },
+    {
+      "id": "20261109-cookie-followup",
+      "report": "2026-11-09-cookie-followup.json",
+      "environment": "production authorized account",
+      "status": "cookie blocker closed; authenticated real source attribution and series flows passed; broad acceptance remains partial",
+      "tested_commit": "8a660a41baa5cb21c4783fd3f90451b040e4f0d4",
+      "evidence_private": "/workspace/browser-validation/20261109-cookie-followup",
+      "next_focus": "controlled Library pagination, longer task and upstream recovery; see explicit gaps"
     }
   ],
   "environment_readiness_checks": [
