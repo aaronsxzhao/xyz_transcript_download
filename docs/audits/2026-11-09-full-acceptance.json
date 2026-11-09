@@ -314,7 +314,8 @@
       "Offline same-P2 baseline hash equality verified; old cross-note first-entry comparison was invalid."
     ],
     "three_viewport_dom_bounds": "passed; separate predeployment synthetic screenshots were viewed",
-    "no_product_change_for_harness": true
+    "no_product_change_for_harness": true,
+    "reusable_harness": "evidence/2026-11-09-full-acceptance/postdeploy-core-reusable.py fixes corresponding-P2 baseline selection; executedv2 retained unchanged as evidence. Same-sample hashes verified offline, no repeat browser run needed for metric-only correction."
   },
   "completed_at": "2026-11-09T07:06:20.715214+00:00"
 }
