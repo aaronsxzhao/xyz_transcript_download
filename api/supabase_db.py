@@ -904,50 +904,19 @@ class SupabaseDatabase:
         """Return one row per channel with total/done counts and latest thumbnail."""
         if not self.client or not user_id:
             return []
-        cols = "channel, channel_url, channel_avatar, platform, thumbnail, status, updated_at"
-        try:
-            result = (
-                self.client.table("video_tasks")
-                .select(cols)
-                .eq("user_id", user_id)
-                .neq("channel", "")
-                .execute()
-            )
-        except Exception:
-            # A failed read must not replace a previously populated channel list
-            # with a successful-looking empty response.
-            raise
-        # Aggregate in Python (PostgREST doesn't expose GROUP BY)
-        channels: dict = {}
-        for r in (result.data or []):
-            ch = r.get("channel") or ""
-            pl = r.get("platform") or ""
-            if not ch:
-                continue
-            key = (ch, pl)
-            if key not in channels:
-                channels[key] = {
-                    "channel": ch,
-                    "platform": pl,
-                    "channel_url": r.get("channel_url", ""),
-                    "channel_avatar": r.get("channel_avatar", ""),
-                    "thumbnail": r.get("thumbnail", "") or "",
-                    "total": 0,
-                    "done": 0,
-                    "last_updated": r.get("updated_at", "") or "",
-                }
-            entry = channels[key]
-            entry["total"] += 1
-            if r.get("status") == "success":
-                entry["done"] += 1
-            if not entry["thumbnail"] and r.get("thumbnail"):
-                entry["thumbnail"] = r["thumbnail"]
-            if not entry["channel_avatar"] and r.get("channel_avatar"):
-                entry["channel_avatar"] = r["channel_avatar"]
-            upd = r.get("updated_at") or ""
-            if upd > (entry["last_updated"] or ""):
-                entry["last_updated"] = upd
-        return sorted(channels.values(), key=lambda x: x["last_updated"] or "", reverse=True)
+        from api.video_channels import aggregate_channels
+        cols = "channel,channel_url,channel_avatar,platform,thumbnail,status,updated_at"
+        rows = []
+        offset = 0
+        while True:
+            batch = (self.client.table("video_tasks").select(cols)
+                     .eq("user_id", user_id).order("id")
+                     .range(offset, offset + 999).execute().data or [])
+            rows.extend(batch)
+            if len(batch) < 1000:
+                break
+            offset += len(batch)
+        return aggregate_channels(rows)
 
     def list_video_tasks_by_channel(self, channel: str, platform: str, user_id: str) -> list:
         """Return all tasks for a specific channel+platform, ordered newest first."""

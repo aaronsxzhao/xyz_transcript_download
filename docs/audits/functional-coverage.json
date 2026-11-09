@@ -366,6 +366,13 @@
       "report": "docs/audits/2026-11-08-reader-collection.json",
       "issue": "Legacy multipart directory 409 and reader DOM comparison",
       "state": "Read-only manifest recovery implemented; focused regression passed; production rollout pending. Settled reader/history/refresh verified; delayed math can change raw text."
+    },
+    {
+      "date": "2026-11-09",
+      "issue": "Missing-channel videos excluded from Videos",
+      "report": "docs/audits/2026-11-09-unassigned-channel.json",
+      "state": "Authorized virtual group implemented; local regression passed; CI and deployment pending",
+      "owner": "visual-interaction"
     }
   ]
 }

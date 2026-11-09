@@ -60,3 +60,12 @@ prose and emphasis as a formula. Use `$$ … $$` for padded inline math or a
 separate `$$` block for display math. Escaped dollars and code remain literal.
 This is a display-only policy; saved Markdown is not rewritten. The user
 explicitly authorized the currency/math parsing fix on 2026-11-08.
+
+## Videos without source attribution
+
+Within each existing platform, saved tasks with an empty or null channel appear
+in one virtual **未归属频道** channel card. Only opening that card reveals its
+videos; do not mix video cards into the channel list. The internal `__unknown__`
+key is not displayed or written into source metadata. Real channel attribution
+continues to be saved normally. The virtual group has no upstream update or
+bulk-delete control. This grouping was explicitly authorized on 2026-11-09.

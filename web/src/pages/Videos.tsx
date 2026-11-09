@@ -1,4 +1,3 @@
-import CachedImage from '../components/CachedImage'
 import { useWarmCache } from '../lib/cache'
 import { useReadingPosition } from '../lib/reading'
 import LoadError from '../components/LoadError'
@@ -6,10 +5,10 @@ import { getCache, setCache, CacheKeys } from '../lib/cache'
 import { getAccountId } from '../lib/preferences'
 import { usePageTiming } from '../lib/pageTiming'
 import { useCallback, useEffect, useState, useMemo, useRef } from 'react'
-import { Link, useSearchParams } from 'react-router-dom'
+import { useSearchParams } from 'react-router-dom'
 import {
-  Plus, ChevronUp, Video, Search, Trash2, RefreshCw,
-  Loader2, ArrowLeft, ExternalLink,
+  Plus, ChevronUp, Video, Search, RefreshCw,
+  Loader2, ArrowLeft,
 } from 'lucide-react'
 import {lazy} from 'react'
 import {OptionalTool,deferView} from '../components/DeferredView'
@@ -38,6 +37,9 @@ const PLATFORM_META: Record<string, { label: string }> = {
   substack: { label: 'Substack' },
   web: { label: 'Web articles & media' },
 }
+
+import { UNKNOWN_CHANNEL, channelLabel } from '../lib/videoChannels'
+const ChannelList=deferView(()=>import('../components/video/ChannelList'))
 
 type View = { type: 'platforms' } | { type: 'channels'; platform: string } | { type: 'videos'; platform: string; channel: string }
 
@@ -176,7 +178,7 @@ export default function Videos() {
     if (view.type !== 'videos') return [] as VideoTask[]
     return videoTasks.filter(t =>
       t.platform === view.platform &&
-      (t.channel || 'Unknown Channel') === view.channel
+      (t.channel || UNKNOWN_CHANNEL) === view.channel
     )
   }, [videoTasks, view])
 
@@ -355,7 +357,7 @@ export default function Videos() {
     if (!search) return channels
     const q = search.toLowerCase()
     return channels.filter(c =>
-      c.channel.toLowerCase().includes(q) ||
+      channelLabel(c.channel).toLowerCase().includes(q) ||
       c.platform.toLowerCase().includes(q)
     )
   }, [channels, search])
@@ -411,7 +413,7 @@ export default function Videos() {
             <h1 className="page-title text-xl md:text-2xl font-bold text-white">
               {view.type === 'platforms' && 'Videos & articles'}
               {view.type === 'channels' && (PLATFORM_META[view.platform]?.label || view.platform)}
-              {view.type === 'videos' && view.channel}
+              {view.type === 'videos' && channelLabel(view.channel)}
             </h1>
             <p className="text-sm text-gray-400">
               {view.type === 'platforms' && `${totalVideos} saved item${totalVideos !== 1 ? 's' : ''}`}
@@ -424,11 +426,11 @@ export default function Videos() {
           {(view.type==='platforms'||view.platform==='bilibili')&&<button onClick={()=>setFavoritesOpen(value=>!value)} aria-expanded={favoritesOpen} className="rounded-lg border border-dark-border px-3 py-2 text-sm">Bilibili favorites</button>}
           {(view.type==='platforms'||['youtube','bilibili','douyin','twitter','substack'].includes(view.platform))&&<button
             onClick={handleCheckUpdates}
-            disabled={checking}
+            disabled={checking || (view.type === 'videos' && view.channel === UNKNOWN_CHANNEL)}
             aria-label="Check source updates"
             className="flex items-center gap-2 px-3 py-2 bg-dark-surface border border-dark-border rounded-lg hover:bg-dark-hover transition-colors text-sm text-gray-300"
             title={
-              view.type === 'videos' ? `Check ${view.channel} for new content`
+              view.type === 'videos' ? `Check ${channelLabel(view.channel)} for new content`
                 : view.type === 'channels' ? `Check ${PLATFORM_META[view.platform]?.label || view.platform} sources for new content`
                 : 'Check all sources for new content'
             }
@@ -547,7 +549,7 @@ export default function Videos() {
         </div>
       ) : view.type === 'channels' ? (
         /* Channel list for selected platform */
-        <ChannelList
+        <ChannelList fallback={<p role="status">Loading channels…</p>}
           channels={platformChannels}
           checkingUpdates={checking}
           onSelectChannel={(ch) => setView({ type: 'videos', platform: view.platform, channel: ch })}
@@ -569,135 +571,6 @@ export default function Videos() {
           />{channelCursor && <button disabled={channelRefreshing || search !== channelQuery || loadedChannelFilter !== channelFilter} className="block mx-auto mt-4 px-4 py-2 bg-dark-surface rounded" onClick={()=>void loadChannelTasks(view.platform,view.channel,{cursor:channelCursor})}>{channelRefreshing ? 'Loading videos…' : 'Show more videos'}</button>}</>
         )
       )}
-    </div>
-  )
-}
-
-
-function ChannelList({ channels, onSelectChannel, onDeleteChannel, onCheckUpdates, checkingUpdates = false }: {
-  channels: VideoChannelStat[]
-  onSelectChannel: (ch: string) => void
-  onDeleteChannel?: (ch: string) => Promise<void> | void
-  onCheckUpdates?: (ch: string) => Promise<void>
-  checkingUpdates?: boolean
-}) {
-  const [confirmDelete, setConfirmDelete] = useState<string | null>(null)
-  const [deleting, setDeleting] = useState(false)
-  const [refreshing, setRefreshing] = useState<string | null>(null)
-
-  if (channels.length === 0) {
-    return (
-      <div className="p-12 bg-dark-surface border border-dark-border rounded-xl text-center">
-        <Video className="w-16 h-16 text-gray-600 mx-auto mb-4" />
-        <p className="text-xl text-gray-400 mb-2">No channels found</p>
-        <p className="text-gray-500">Process some videos to see channels here</p>
-      </div>
-    )
-  }
-
-  return (
-    <div className="space-y-4">
-      {channels.map((ch,index) => {
-        const imgSrc = ch.channel_avatar || ch.thumbnail
-        return (
-          <div
-            key={ch.channel}
-            className="p-4 md:p-6 bg-dark-surface border border-dark-border rounded-xl hover:border-dark-hover transition-colors"
-          >
-            <div className="collection-row">
-              <Link className="flex items-start gap-3 sm:gap-4 flex-1 min-w-0" to={'/videos?'+new URLSearchParams({platform:ch.platform,channel:ch.channel})}>
-                {imgSrc ? (
-                  <CachedImage priority={index<3} src={imgSrc} alt="" className={`w-14 h-14 md:w-20 md:h-20 flex-shrink-0 bg-dark-hover object-cover ${ch.channel_avatar ? 'rounded-full' : 'rounded-lg'}`} />
-                ) : (
-                  <div className="w-14 h-14 md:w-20 md:h-20 rounded-full bg-dark-hover flex items-center justify-center flex-shrink-0">
-                    <Video className="w-6 h-6 md:w-8 md:h-8 text-gray-600" />
-                  </div>
-                )}
-
-                <div className="flex-1 min-w-0">
-                  <h3 className="text-base md:text-lg font-semibold text-white mb-1 line-clamp-2">
-                    {ch.channel}
-                  </h3>
-                  <p className="text-sm text-indigo-400 mt-1 md:mt-2">
-                    {ch.done > 0
-                      ? `${ch.done} / ${ch.total} completed`
-                      : `${ch.total} video${ch.total !== 1 ? 's' : ''}`
-                    }
-                  </p>
-                </div>
-              </Link>
-
-              <div className="channel-actions collection-actions">
-                <button
-                  onClick={() => onSelectChannel(ch.channel)}
-                  aria-label={`Open videos from ${ch.channel}`}
-                  className="ui-button ui-button-icon-mobile"
-                >
-                  <Video size={16} />
-                  <span className="hidden sm:inline">Videos</span>
-                </button>
-                {ch.channel_url && (
-                  <a
-                    href={ch.channel_url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="ui-button ui-button-icon"
-                    title="Open channel page"
-                  >
-                    <ExternalLink size={16} />
-                  </a>
-                )}
-                {onCheckUpdates && ch.channel_url && (
-                  <button
-                    onClick={async () => {
-                      setRefreshing(ch.channel)
-                      try { await onCheckUpdates(ch.channel) } finally { setRefreshing(null) }
-                    }}
-                    disabled={checkingUpdates || refreshing !== null} aria-busy={refreshing === ch.channel}
-                    className="ui-button ui-button-icon disabled:opacity-50"
-                    title="Check for new content"
-                    aria-label={`Check updates for ${ch.channel}`}
-                  >
-                    <RefreshCw size={16} className={refreshing === ch.channel ? 'animate-spin' : ''} />
-                  </button>
-                )}
-                {onDeleteChannel && (
-                  confirmDelete === ch.channel ? (
-                    <div className="flex items-center gap-1">
-                      <button
-                        onClick={async () => {
-                          setDeleting(true)
-                          try { await onDeleteChannel(ch.channel) } finally { setDeleting(false); setConfirmDelete(null) }
-                        }}
-                        disabled={deleting} aria-busy={deleting}
-                        className="ui-button ui-button-danger"
-                      >
-                        {deleting ? 'Deleting...' : 'Confirm'}
-                      </button>
-                      <button
-                        disabled={deleting}
-                        onClick={() => setConfirmDelete(null)}
-                        className="ui-button"
-                      >
-                        Cancel
-                      </button>
-                    </div>
-                  ) : (
-                    <button
-                      disabled={deleting}
-                      onClick={() => setConfirmDelete(ch.channel)}
-                      className="ui-button ui-button-icon ui-button-danger"
-                      title="Delete channel and all its videos"
-                    >
-                      <Trash2 size={16} />
-                    </button>
-                  )
-                )}
-              </div>
-            </div>
-          </div>
-        )
-      })}
     </div>
   )
 }

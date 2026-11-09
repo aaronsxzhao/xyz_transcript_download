@@ -3,6 +3,7 @@ import base64
 import json
 import re
 from api.bilibili_identity import video_source_url
+from api.video_channels import UNKNOWN_CHANNEL_SENTINEL
 
 FIELDS = 'id,url,platform,title,thumbnail,status,progress,message,style,duration,error,channel,channel_url,channel_avatar,published_at,created_at,updated_at'
 
@@ -23,16 +24,24 @@ def page(backend, channel, platform, owner, limit=40, cursor='', q='', status=''
     direction = 'DESC' if descending else 'ASC'
     if hasattr(backend, '_sb'):
         if not owner: return {'tasks': [], 'next_cursor': None}
-        query = backend._sb.client.table('video_tasks').select(FIELDS + ',source_metadata->bilibili_part').eq('user_id', owner).eq('channel', channel).eq('platform', platform)
+        query = backend._sb.client.table('video_tasks').select(FIELDS + ',source_metadata->bilibili_part').eq('user_id', owner).eq('platform', platform)
+        filters = []
+        if channel == UNKNOWN_CHANNEL_SENTINEL:
+            filters.append('or(channel.is.null,channel.eq.)')
+        else:
+            query = query.eq('channel', channel)
         if q: query = query.ilike('title', '%' + q.replace('\\', '\\\\').replace('%', '\\%').replace('_', '\\_') + '%')
         if status: query = query.eq('status', status)
         if after:
             stamp, ident = after; cmp = 'lt' if descending else 'gt'
-            query = query.or_(f'created_at.{cmp}.{stamp},and(created_at.eq.{stamp},id.{cmp}.{ident})')
+            filters.append(f'or(created_at.{cmp}.{stamp},and(created_at.eq.{stamp},id.{cmp}.{ident}))')
+        if filters:
+            query = query.or_('and(' + ','.join(filters) + ')')
         rows = query.order('created_at', desc=descending).order('id', desc=descending).limit(limit + 1).execute().data or []
     else:
-        clauses = ['channel = ?', 'platform = ?', 'user_id = ?' if owner else 'user_id IS NULL']
-        args = [channel, platform] + ([owner] if owner else [])
+        unknown = channel == UNKNOWN_CHANNEL_SENTINEL
+        clauses = ["(channel IS NULL OR channel = '')" if unknown else 'channel = ?', 'platform = ?', 'user_id = ?' if owner else 'user_id IS NULL']
+        args = ([] if unknown else [channel]) + [platform] + ([owner] if owner else [])
         if q:
             clauses.append("title LIKE ? ESCAPE '\\'"); args.append('%' + q.replace('\\', '\\\\').replace('%', '\\%').replace('_', '\\_') + '%')
         if status: clauses.append('status = ?'); args.append(status)

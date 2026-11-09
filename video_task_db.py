@@ -200,41 +200,15 @@ class _SQLiteVideoTaskDB:
 
     def list_channels_with_stats(self, user_id: str = None) -> List[dict]:
         """Return one row per channel with count, done count, and latest updated_at."""
+        from api.video_channels import aggregate_channels
         with self._conn() as conn:
-            if user_id:
-                rows = conn.execute(
-                    """SELECT channel, channel_url, channel_avatar, platform,
-                              COUNT(*) as total,
-                              SUM(CASE WHEN status='success' THEN 1 ELSE 0 END) as done,
-                              MAX(updated_at) as last_updated,
-                              (SELECT thumbnail FROM video_tasks vt2
-                               WHERE vt2.channel = vt.channel
-                               AND (vt2.user_id = ? OR (? IS NULL AND vt2.user_id IS NULL))
-                               AND vt2.thumbnail != '' AND vt2.thumbnail IS NOT NULL
-                               LIMIT 1) as thumbnail
-                       FROM video_tasks vt
-                       WHERE channel != '' AND channel IS NOT NULL AND user_id = ?
-                       GROUP BY channel, channel_url, channel_avatar, platform
-                       ORDER BY MAX(updated_at) DESC""",
-                    (user_id, user_id, user_id),
-                ).fetchall()
-            else:
-                rows = conn.execute(
-                    """SELECT channel, channel_url, channel_avatar, platform,
-                              COUNT(*) as total,
-                              SUM(CASE WHEN status='success' THEN 1 ELSE 0 END) as done,
-                              MAX(updated_at) as last_updated,
-                              (SELECT thumbnail FROM video_tasks vt2
-                               WHERE vt2.channel = vt.channel
-                               AND vt2.user_id IS NULL
-                               AND vt2.thumbnail != '' AND vt2.thumbnail IS NOT NULL
-                               LIMIT 1) as thumbnail
-                       FROM video_tasks vt
-                       WHERE channel != '' AND channel IS NOT NULL AND user_id IS NULL
-                       GROUP BY channel, channel_url, channel_avatar, platform
-                       ORDER BY MAX(updated_at) DESC""",
-                ).fetchall()
-            return [dict(r) for r in rows]
+            predicate = 'user_id = ?' if user_id else 'user_id IS NULL'
+            rows = conn.execute(
+                f"SELECT channel,channel_url,channel_avatar,platform,thumbnail,status,updated_at "
+                f"FROM video_tasks WHERE {predicate} ORDER BY id",
+                (user_id,) if user_id else (),
+            ).fetchall()
+        return aggregate_channels(dict(row) for row in rows)
 
     def list_tasks_by_channel(self, channel: str, platform: str, user_id: str = None) -> List[dict]:
         """Return all tasks for a specific channel+platform, ordered newest first."""
