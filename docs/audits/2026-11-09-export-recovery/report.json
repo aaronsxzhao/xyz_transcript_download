@@ -21,7 +21,8 @@
   "limitations": [
     "Local injected HTTP524 is not a genuine external provider incident. No production fault injection or paid model call.",
     "Independent hosted queue recovery provision/testing explicitly paused by user.",
-    "CI, deployment and exact production behavior pending at commit time."
+    "Native OS print/Save dialog remains untested; PDF-button source was rendered into an actual Chromium PDF. Production PDF text word-count retention99.926%, a transport/rendering check, not semantic acceptance.",
+    "Post-merge main CI may rerun automatically; release gate was the successful final PR test merge containing main d73019a."
   ],
   "commands": [
     "venv/bin/python -m pytest tests/test_http_524_recovery.py tests/test_retired_privileged_maintenance.py tests/test_security_regressions.py tests/test_api_summaries.py tests/test_notion_export_outcomes.py -q --timeout=60",
@@ -32,5 +33,50 @@
     "pdftotext synthetic-export.pdf synthetic-export.txt",
     "pdftoppm -f 1 -singlefile -scale-to1200 -png synthetic-export.pdf pdf-first-page"
   ],
-  "pm": "Local goal read→HTML export→quote expansion→refresh completed; PDF content preservation verified at renderer boundary. Notion and hosted recovery intentionally deferred by user, not marked passed."
+  "pm": "Production test-account RSS read→Markdown/HTML export→23quote disclosures→refresh achieved. PDF button source rendered successfully; native OS Save dialog unverified. No Notion target/configuration work or hosted recovery provisioning performed, per user update.",
+  "completed_at": "2026-11-09T14:18:16.332865+00:00",
+  "release": {
+    "pr": "https://github.com/aaronsxzhao/xyz_transcript_download/pull/251",
+    "head": "66e8ff0a84e1aa6f84babcb9ee187663d51e5482",
+    "merge_revision": "83307d55752d06fb1a917c6f5b98204a8abb603e",
+    "required_pr_ci": {
+      "run": 42627625723,
+      "result": "success",
+      "frontend_seconds": 1820,
+      "backend": "success",
+      "postgres": "success"
+    },
+    "deployment": {
+      "run": 42632334290,
+      "result": "success"
+    },
+    "public_health": "exact merge revision verified, status ok",
+    "production_evidence": "docs/audits/2026-11-09-export-recovery/online-acceptance.json"
+  },
+  "outcomes": {
+    "fixed_and_deployed": [
+      "legacy-deploy-owner-session",
+      "html-export-bearer-query",
+      "safe-read-http524-reconnect"
+    ],
+    "verified_without_product_fix": [
+      "PDF-button print-document rendering, Markdown download",
+      "existing bounded model HTTP524 retries and real SQLite checkpoint reopening"
+    ],
+    "deferred_by_user": [
+      "Notion external integration",
+      "new independent hosted recovery infrastructure"
+    ],
+    "not_reproduced": [
+      "genuine external-provider HTTP524 incident"
+    ]
+  },
+  "user_decisions": {
+    "date": "2026-11-09",
+    "source": "Explicit user instructions in this task",
+    "authorized": "Fix the reported owner-session issuance and export session-in-URL issues; similarly evidenced fixes may proceed with regression, CI and deployment verification. This does not authorize arbitrary architecture changes or bypass access control.",
+    "notion": "User paused Notion testing; primary workflow is Markdown export to Obsidian. Do not repeatedly request Notion setup.",
+    "hosted_recovery": "Do not add an independent database, storage or hosted recovery environment for now. No infrastructure cost authorization.",
+    "model_budget": "Existing shared Beijing-day US$50 monitoring budget remains; no paid model calls were made by this repair task."
+  }
 }

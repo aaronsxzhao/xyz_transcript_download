@@ -2,9 +2,9 @@
   "schema_version": 1,
   "site": "https://aipodcastsummary.online",
   "repository": "aaronsxzhao/xyz_transcript_download",
-  "updated_at": "2026-11-09T13:35:27.778123+00:00",
-  "tested_commit": "8a660a41baa5cb21c4783fd3f90451b040e4f0d4",
-  "current_report": "docs/audits/2026-11-09-evening-technical-pm.json",
+  "updated_at": "2026-11-09T14:18:16.332865+00:00",
+  "tested_commit": "83307d55752d06fb1a917c6f5b98204a8abb603e",
+  "current_report": "docs/audits/2026-11-09-export-recovery/report.json",
   "inventory_basis": [
     "web/src/App.tsx routes",
     "current repository feature components and prior audit records",
@@ -888,29 +888,33 @@
         "quality": "summary quality audit for semantic coverage where applicable"
       },
       "risk": "medium",
-      "last_actual_check": "2026-11-09T13:10:23.193726+00:00",
-      "environment": "production8a660a4; secureheadlessChromium",
-      "account_type": "authorized dedicatedtestaccount,readonly",
-      "data_scale": "1RSS,23keypoints/quotes",
+      "last_actual_check": "2026-11-09T14:18:16.332865+00:00",
+      "environment": "production83307d5; Python Playwright Chromium154 with sandbox and TLS verification",
+      "account_type": "authorized dedicated test account; existing content read-only",
+      "data_scale": "1RSS note;23quotes;39331-byte Markdown;84102-byte rendered PDF",
       "steps": [
-        "DownloadMarkdown",
-        "OpenHTMLnewtab",
-        "Expandnativequote",
-        "Returnandreload"
+        "Normal UI login with Remember me off",
+        "Markdown actual download, title/body sanity and digest",
+        "HTML new tab has content-ID-only URL and Authorization-header fetch; opener null; script-disabled document",
+        "Expand original quote;23quotes retained;reload text equal",
+        "Three simulated viewports screenshot capture and actual image inspection",
+        "PDF button document rendered to actual Chromium PDF;word-count retention99.926%;temporary PDF deleted",
+        "Query-only HTML/Markdown authentication returns401;reader refresh"
       ],
       "evidence": [
-        "docs/audits/evidence/2026-11-09-evening/browser.json"
+        "docs/audits/2026-11-09-export-recovery/online-acceptance.json",
+        "docs/audits/2026-11-09-export-recovery/report.json"
       ],
       "result": "passed_scoped",
       "production_result": "passed_scoped",
       "gaps": [
-        "PDFnativeprint/save nottested",
-        "ExternalNotionwrite notauthorized/tested",
-        "Reusable session token inHTMLquery requires design review"
+        "Native OS print/Save dialog not exercised",
+        "Notion external integration paused explicitly by user;do not request setup again without renewed intent",
+        "PDF token-count matching is a renderer check,not a proof of semantic completeness"
       ],
       "issues": [],
       "in_progress_prs": [],
-      "next_check": "Review credential-free export design; test native print/save in supported environment",
+      "next_check": "Continue normal Markdown export/readability acceptance; native print dialog only when a supported interactive desktop is available. Notion remains paused.",
       "production_followups": [
         {
           "checked_at": "2026-11-09T13:10:23.193726+00:00",
@@ -918,6 +922,13 @@
           "result": "passed_scoped",
           "scope": "Achieved in scoped samples; no confirmed product-flow defect. PDF/Notion and largeLibrary pagination remain untested.",
           "no_new_write_acceptance": true
+        },
+        {
+          "checked_at": "2026-11-09T14:18:16.332865+00:00",
+          "report": "docs/audits/2026-11-09-export-recovery/report.json",
+          "result": "passed_scoped",
+          "revision": "83307d55752d06fb1a917c6f5b98204a8abb603e",
+          "scope": "Credential-free HTML export,normal session-only newtab/reload,Markdown and actual PDF rendering;no production writes"
         }
       ]
     },
@@ -1023,6 +1034,13 @@
       "report": "docs/audits/2026-11-09-full-acceptance.json",
       "result": "passed_scoped_with_small_fix",
       "fix_pr": 248
+    },
+    {
+      "checked_at": "2026-11-09T14:18:16.332865+00:00",
+      "report": "docs/audits/2026-11-09-export-recovery/report.json",
+      "revision": "83307d55752d06fb1a917c6f5b98204a8abb603e",
+      "result": "passed_scoped",
+      "scope": "export security and renderer verification"
     }
   ],
   "remediation_followups": [
@@ -1107,6 +1125,14 @@
       "scope": "HTML token-free export; retired owner-JWT maintenance; bounded524 safe-read recovery",
       "notion": "paused by user",
       "hosted_recovery": "paused by user; no new infrastructure"
+    },
+    {
+      "checked_at": "2026-11-09T14:18:16.332865+00:00",
+      "report": "docs/audits/2026-11-09-export-recovery/report.json",
+      "status": "fixed_and_deployed",
+      "pr": 251,
+      "revision": "83307d55752d06fb1a917c6f5b98204a8abb603e",
+      "scope": "retired5privileged maintenance commands/workflows;HTML and Markdown header-only authentication;bounded HTTP524 safe-read reconnect"
     }
   ],
   "accepted_exclusions": [
@@ -1179,14 +1205,32 @@
     {
       "id": "legacy-deploy-owner-session",
       "report": "docs/audits/2026-11-09-evening-technical-pm.json",
-      "status": "plan_only_unmodified",
-      "priority": "P1 plan review"
+      "status": "fixed_and_deployed",
+      "priority": "P1 plan review",
+      "resolved_at": "2026-11-09T14:18:16.332865+00:00",
+      "resolution_report": "docs/audits/2026-11-09-export-recovery/report.json",
+      "pr": 251,
+      "revision": "83307d55752d06fb1a917c6f5b98204a8abb603e"
     },
     {
       "id": "html-export-bearer-query",
       "report": "docs/audits/2026-11-09-evening-technical-pm.json",
-      "status": "plan_only_unmodified",
-      "priority": "P2 design review"
+      "status": "fixed_and_deployed",
+      "priority": "P2 design review",
+      "resolved_at": "2026-11-09T14:18:16.332865+00:00",
+      "resolution_report": "docs/audits/2026-11-09-export-recovery/report.json",
+      "pr": 251,
+      "revision": "83307d55752d06fb1a917c6f5b98204a8abb603e"
+    }
+  ],
+  "user_authorization_updates": [
+    {
+      "date": "2026-11-09",
+      "source": "Explicit user instructions in this task",
+      "authorized": "Fix the reported owner-session issuance and export session-in-URL issues; similarly evidenced fixes may proceed with regression, CI and deployment verification. This does not authorize arbitrary architecture changes or bypass access control.",
+      "notion": "User paused Notion testing; primary workflow is Markdown export to Obsidian. Do not repeatedly request Notion setup.",
+      "hosted_recovery": "Do not add an independent database, storage or hosted recovery environment for now. No infrastructure cost authorization.",
+      "model_budget": "Existing shared Beijing-day US$50 monitoring budget remains; no paid model calls were made by this repair task."
     }
   ]
 }

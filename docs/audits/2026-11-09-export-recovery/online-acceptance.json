@@ -1,0 +1,55 @@
+{
+  "checks": {
+    "normal_session_only_login": true,
+    "markdown": {
+      "bytes": 39331,
+      "sha256": "6df213817b3c539124a543fc17f30382bfd94aa5e6310d45b3e3f91686fb072c"
+    },
+    "html": {
+      "new_tab": true,
+      "opener_null": true,
+      "query_empty": true,
+      "script_disabled": true,
+      "reload_equal": true,
+      "quotes": 23,
+      "native_quote_expansion": true
+    },
+    "html_header_requests": 2,
+    "pdf": {
+      "bytes": 84102,
+      "text_characters": 38550,
+      "word_count_retention_ratio": 0.99926,
+      "native_os_dialog": "not exercised",
+      "temporary_pdf_deleted": true
+    },
+    "query_only_export_rejected": true,
+    "reader_reload": true
+  },
+  "critical_http_errors": [],
+  "page_errors": 0,
+  "console_error_categories": {},
+  "screenshots": [
+    "/workspace/export-validation/online-html-1440x900.png",
+    "/workspace/export-validation/online-html-768x1024.png",
+    "/workspace/export-validation/online-html-390x844.png"
+  ],
+  "revision": "83307d55752d06fb1a917c6f5b98204a8abb603e",
+  "status": "PASS",
+  "checked_at": "2026-11-09T14:18:16.332865+00:00",
+  "visual_inspection": {
+    "tool": "view_image",
+    "actually_viewed": true,
+    "viewports": [
+      "1440x900",
+      "768x1024",
+      "390x844"
+    ],
+    "conclusion": "All three real production HTML screenshots readable, title/topics wrap on mobile, no observed horizontal overflow.",
+    "artifacts": "Screenshots contain saved user content, retained only in this workspace; not committed or assumed portable to another environment. Synthetic screenshots are persisted beside this report.",
+    "sha256": {
+      "online-html-1440x900.png": "f44b3fabe2d7b3e208862e57c0def1c90241e0651a6d182db8cf4b1c47f50ef8",
+      "online-html-768x1024.png": "269f433c9934575502c74c1ccbbf6681c5080581be12cafb7e773ddaf7831cfc",
+      "online-html-390x844.png": "4a2a68537c442b1edefcc83fd90ea5713bcabe57849cbd16d15e2d6336375dc7"
+    }
+  }
+}
