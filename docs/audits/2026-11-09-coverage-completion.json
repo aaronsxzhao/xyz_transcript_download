@@ -1,0 +1,261 @@
+{
+  "id": "20261109-coverage-completion",
+  "checked_at": "2026-11-09T12:55:23.473200+00:00",
+  "tested_commit": "8a660a41baa5cb21c4783fd3f90451b040e4f0d4",
+  "production_revision": "8a660a41baa5cb21c4783fd3f90451b040e4f0d4",
+  "environment": {
+    "config": "cecfg_6ad393188adc819db89d4628d0f79658",
+    "network": "unrestricted enforced, proxy/CA retained",
+    "browser": "Chromium154.0.8037.57",
+    "playwright": "1.62.0",
+    "python_browser": "3.12.14",
+    "python_backend_tests": "3.11.17 existing venv",
+    "sandbox": true,
+    "tls_verify": true,
+    "permission": "supported require_escalated",
+    "new_dependencies": [],
+    "desktop": "not used"
+  },
+  "A_actual_visual": {
+    "production_pagination": {
+      "status": "PASS",
+      "data": "85 clearly labelled synthetic saved notes, only authorized test account, existing Supabase data channel; NOT85 model generations",
+      "cases": [
+        {
+          "name": "pagination",
+          "case": "40-80-85 no duplicates end boundary",
+          "passed": true
+        },
+        {
+          "name": "pagination",
+          "case": "sort resets cursor then advances",
+          "passed": true
+        },
+        {
+          "name": "pagination",
+          "case": "article filter40-42 boundary",
+          "passed": true
+        },
+        {
+          "name": "pagination",
+          "case": "search clear restores expanded cached filter",
+          "passed": true
+        },
+        {
+          "name": "pagination",
+          "case": "reader back refresh retained filter",
+          "passed": true
+        }
+      ],
+      "viewport_sizes": [
+        "1440x900",
+        "768x1024",
+        "390x844"
+      ],
+      "appearance": "Classic dark; this focused follow-up does not repeat full theme matrix",
+      "cleanup": {
+        "inserted": 85,
+        "deleted_own_marked_rows": 85,
+        "remaining_video_rows": 0,
+        "remaining_library_rows": 0,
+        "preexisting_rows_modified": false
+      },
+      "screenshots_viewed": 4
+    },
+    "long_task_interaction": {
+      "source_seconds": 866.952,
+      "first_processing_seconds": 319.317,
+      "search_clear_seconds": 0.929,
+      "reader_seconds": 0.878,
+      "refresh_during_processing": true,
+      "remember_me_second_tab": true,
+      "late_interactions": [
+        {
+          "name": "late-search",
+          "round": 0,
+          "seconds": 2.128
+        },
+        {
+          "name": "late-reader",
+          "round": 0,
+          "seconds": 1.357
+        },
+        {
+          "name": "late-search",
+          "round": 1,
+          "seconds": 1.226
+        },
+        {
+          "name": "late-reader",
+          "round": 1,
+          "seconds": 1.032
+        },
+        {
+          "name": "late-search",
+          "round": 2,
+          "seconds": 1.217
+        },
+        {
+          "name": "late-reader",
+          "round": 2,
+          "seconds": 1.08
+        },
+        {
+          "name": "long-job-state-at-end",
+          "http": 200,
+          "status": "summarizing",
+          "progress": 75
+        }
+      ],
+      "status": "PASS for interaction during multiminute processing; FAIL for accepted summary generation"
+    },
+    "isolated_library_524": {
+      "status": "PASS",
+      "scope": "only loopback real API with one browser-local524 response",
+      "behavior": "error visible, existing notes retained, explicit Retry restores40notes and clears error",
+      "screenshots_opened": true
+    },
+    "private_visual_review": "/workspace/browser-validation/completion-20261109/visual-review.json"
+  },
+  "B_automation": {
+    "local_pagination": [
+      {
+        "case": "40-80-85 no duplicates end boundary",
+        "passed": true
+      },
+      {
+        "case": "sort resets cursor then advances",
+        "passed": true
+      },
+      {
+        "case": "article filter40-42 boundary",
+        "passed": true
+      },
+      {
+        "case": "search clear restores expanded cached filter",
+        "passed": true
+      },
+      {
+        "case": "reader back refresh retained filter",
+        "passed": true
+      },
+      {
+        "case": "isolated524 visible error then explicit retry content restored",
+        "passed": true
+      }
+    ],
+    "isolated_durable_recovery": {
+      "injected_524_failed_job": true,
+      "next_job_completed": true,
+      "explicit_retry_reached_upstream": true,
+      "actual_api_process_sigkill": true,
+      "completed_job_restored": true,
+      "retry_recovered_after_real_90_second_lease": true,
+      "prepared_source_not_repeated": true,
+      "fixture_calls": {
+        "/a": 3,
+        "/b": 1
+      },
+      "status": "PASS"
+    },
+    "isolation": "fresh local SQLite, real FastAPI/durable workers, synthetic processor and loopback HTTP fixture; no production process kill or upstream fault injection",
+    "build": "currentmain production build PASS;196.5KiB against197.75KiB budget",
+    "targeted_tests": "tests/test_transcript_reading.py -k prefix:2passed",
+    "old_dist": "initial checked-in dist was excluded; rebuilt and reran final pagination successfully",
+    "CI": "not triggered; no product source change"
+  },
+  "C_concrete_failure": {
+    "title": "Long-source accepted-summary generation remains blocked by quality verification",
+    "priority": "P1 for these tested generation goals; population frequency unknown",
+    "owner": "generation/verification pipeline; coordinate technical inspection",
+    "sources": [
+      {
+        "source": "14m28s repeated synthetic incident narrative",
+        "episode_id": "local_a71f0273fdbb4637",
+        "tasks": [
+          "e596ccd2-e95f-42d7-9990-a9161d3213a6",
+          "017edebe-b2f4-4b65-848c-718e0db8bb7e"
+        ],
+        "result": "both refused by prefix-only draft guard; no draft published"
+      },
+      {
+        "source": "14m27s nonrepeating design/regression training lecture",
+        "episode_id": "local_d82616dc95f74a8e",
+        "tasks": [
+          "13734c15-314f-462f-8fdf-3367cb987edd",
+          "f89cc4b0-f763-432a-ac43-efd01dcd4437"
+        ],
+        "first": {
+          "seconds": 319.317,
+          "checkpoint_hits": 0,
+          "unsupported": [
+            "P12"
+          ],
+          "reason": "checklist_unresolved"
+        },
+        "retry": {
+          "seconds": 248.775,
+          "checkpoint_hits": 1,
+          "unsupported": [
+            "L1.8"
+          ],
+          "reason": "checklist_unresolved"
+        },
+        "result": "both unverified; no unfinished summary published"
+      }
+    ],
+    "last_flagged_paragraph": {
+      "id": "L1.8",
+      "source_indices": [
+        138,
+        139
+      ],
+      "text": "The transcript mentions Python scripts, cloud-browser appearance checks, and “cloud browser / run id / anonymous”; it does not clearly specify an output path."
+    },
+    "root_confidence": "High for exact refusal gates and persisted states; insufficient to decide whether generated claim or verifier is wrong without source-span semantic adjudication. Not an environment/auth/524 failure.",
+    "attempted": [
+      "normal uploads and processing",
+      "repeat and nonrepeat sources",
+      "one explicit retry per source",
+      "authenticated API plus owner-scoped processing_work/checkpoint inspection",
+      "existing prefix safety tests"
+    ],
+    "fix_boundary": "Generation/grounding/coverage algorithm change is beyond minor presentation scope. No threshold lowered, no forced success, no guessed core fix.",
+    "concrete_next_steps": [
+      "Compare saved transcript spans138/139 with candidate L1.8 and first P12; distinguish unsupported statement from erroneous review.",
+      "Replay immutable saved candidate and verification receipts locally; design targeted repair of the disproven claim or incorrect receipt without weakening source-grounding and90percent coverage.",
+      "After approved core repair, rerun same retained source through final accepted summary, Transcript, refresh and return."
+    ],
+    "acceptance": "same long source yields accepted grounded summary under unchanged thresholds and readable persisted content",
+    "retained_controlled_data": "two audio sources and failed task/checkpoint evidence retained; no additional blind retries"
+  },
+  "explicit_exclusions": {
+    "natural_upstream524": "Not observed; isolated injected524 recovery is complete and separately labelled. Do not require damaging production to manufacture a natural incident.",
+    "hosted_process_crash": "No isolated equivalent hosted deployment; only fresh local process crash/restart verified.",
+    "loading_images": "distinct/long-1440,768,390 only loading state; not accepted result views.",
+    "initial_harness_errors": [
+      "large WAV upload did not match old direct-upload wait; smaller MP3 succeeded",
+      "new tab did not inherit nonremembered session; normal remember-me session passed",
+      "local search-clear expectation corrected to designed expanded-cache restoration",
+      "original article uses Readable note role, not formatted-summary selector",
+      "live reporting function argument corrected; final rerun passed"
+    ]
+  },
+  "delivery": {
+    "product_changes": false,
+    "PR": null,
+    "deployment": null,
+    "permission_blocker": false,
+    "status": "pagination and isolated recovery closed; long-task interaction verified; generation failure investigated and requires core solution, not untested"
+  },
+  "evidence_private": "/workspace/browser-validation/completion-20261109",
+  "commands": [
+    "npm --prefix web run build",
+    "/workspace/xyz_transcript_download/venv/bin/python /workspace/browser-validation/completion-20261109/service-recovery-v2.py",
+    "python /workspace/browser-validation/completion-20261109/pagination.py",
+    "python /workspace/browser-validation/completion-20261109/live-pagination.py --authenticated --output /workspace/browser-validation/completion-20261109/live-pagination-v2",
+    "python /workspace/browser-validation/completion-20261109/distinct/long.py",
+    "python /workspace/browser-validation/completion-20261109/distinct-retry.py --authenticated --output /workspace/browser-validation/completion-20261109/distinct-retry",
+    "/workspace/xyz_transcript_download/venv/bin/python -m pytest tests/test_transcript_reading.py -k prefix -q"
+  ]
+}

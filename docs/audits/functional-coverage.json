@@ -1098,6 +1098,15 @@
       "status": "partial; authenticated verification passed; two observations need investigation",
       "evidence_private": "/workspace/browser-validation/auth-exploration-20261106",
       "next_focus": "Series directory response and historical image availability; expand theme/page coverage"
+    },
+    {
+      "id": "20261109-coverage-completion",
+      "report": "2026-11-09-coverage-completion.json",
+      "environment": "production authorized account plus separately labelled isolated SQLite",
+      "status": "live85-note pagination PASS; isolated524/restart PASS; multi-minute interaction PASS; long-summary generation FAIL after bounded retries",
+      "tested_commit": "8a660a41baa5cb21c4783fd3f90451b040e4f0d4",
+      "evidence_private": "/workspace/browser-validation/completion-20261109",
+      "next_focus": "concrete generation/grounding investigation for P12/L1.8, not repeat generic untested list"
     }
   ],
   "environment_readiness_checks": [
