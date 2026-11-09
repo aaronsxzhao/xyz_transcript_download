@@ -1,0 +1,98 @@
+{
+  "date": "2026-11-09",
+  "tested_commit": "d230bd366762dcd32ed1646c849fffdea22fa698",
+  "production_health": {
+    "http": 200,
+    "revision": "d230bd366762dcd32ed1646c849fffdea22fa698"
+  },
+  "environment": {
+    "config": "cecfg_6ad393188adc819db89d4628d0f79658",
+    "chromium": "154.0.8037.57",
+    "python": "3.12.14",
+    "playwright": "1.62.0",
+    "missing_dynamic_libraries": false,
+    "dependency_changes": [],
+    "sandbox": true,
+    "tls_verification": true,
+    "proxy_preserved": true,
+    "shell": "require_escalated",
+    "remote_desktop": "not tested; independent of successful headless automation"
+  },
+  "source": {
+    "browser_harness_pr": 242,
+    "browser_harness_sha": "66f9b1bba6332db4d845f9c6b975a3ecdc868756",
+    "harness_on_main": false,
+    "related_pr_status": {
+      "239": "OPEN",
+      "240": "OPEN",
+      "241": "OPEN",
+      "242": "OPEN",
+      "243": "MERGED",
+      "244": "MERGED",
+      "245": "MERGED",
+      "246": "MERGED"
+    },
+    "technical_record_read": "PR241 6b7a5592a2670a48a9b707b425e8b6ce5e2f1097; 2026-11-09-technical-pm.json; not counted as current visual evidence"
+  },
+  "commands": [
+    "python scripts/check_cloud_browser.py --output appearance-checks/cloud-browser/20261109/anonymous",
+    "python /workspace/browser-validation/20261109/explore.py",
+    "python /workspace/browser-validation/20261109/history.py"
+  ],
+  "authentication": {
+    "normal_signin": true,
+    "protected_api_verified": true,
+    "secret_input": "no-echo runtime stdin",
+    "saved_auth_state": false,
+    "production_content_writes": false
+  },
+  "A_actual_and_visual": [
+    "Anonymous: real DOM, checkbox toggle and restore, navigation and reload at 1440x900/768x1024/390x844.",
+    "Signed-in Library search/no-match/clear, media filter/reset, oldest/newest sort, series expansion -> P2 reader -> reload -> Transcript/Summary -> return and reopen. Directory HTTP200, P1 unprocessed, P2 ready, same saved identity.",
+    "Task history open -> Escape -> focus returned -> reopen -> close button -> reload -> reopen. Empty history only.",
+    "Currency regression: existing financial summary amounts $100/$10/$100 remain literal, emphasis preserved, no erroneous KaTeX in paragraph.",
+    "22 screenshots individually viewed: anonymous 3, series 12, baseline mobile 4, reader 1, history 1, currency 1."
+  ],
+  "B_automated_only": [
+    "60 no-horizontal-overflow checks: Library series plus Dashboard/Videos/Podcasts/Settings, Classic/Editorial x light/dark x 3 widths. Selected screenshots do not visually accept all 60 states.",
+    "No new application code or local regression suite this round; previous CI is historical."
+  ],
+  "disposition": {
+    "fixed_and_deployed": [
+      "Currency parsing PR244: prior deployed fix reverified on current main.",
+      "Legacy multipart directory PR245/246: current sample now HTTP200 and actual P2 read/refresh/return verified."
+    ],
+    "fixed_pending_ci": [],
+    "verified_no_fix_needed": [
+      "Captured responsive layouts, Library controls and identity preservation, empty history close/focus/reopen"
+    ],
+    "new_minor_defects": [],
+    "report_only": [
+      {
+        "issue": "Dashboard/Library show two video notes but Videos channel page is empty",
+        "severity": "medium discoverability",
+        "reproduction": "With existing two unassigned-channel notes, navigate Dashboard -> Library -> Videos",
+        "impact": "Saved notes are not discoverable from channel-based Videos page",
+        "root_cause_confidence": "medium; matches prior empty-channel grouping investigation",
+        "decision": "Requires grouping/data behavior decision; no presentation-only patch applied."
+      }
+    ],
+    "external_blockers": []
+  },
+  "C_not_accepted": [
+    "No pagination boundary: live authorized dataset has only 2 titles. Needs controlled larger dataset.",
+    "No active or historical tasks: cannot accept progress regression, long processing, real 524 recovery, parallel/multi-tab state synchronization. Needs controlled running/failed tasks and usable provider. Prior provider401 is technical-owned and not retested here.",
+    "No subscribed podcasts or article fixture in this live account; no import/payment/delete/reprocess/cancel/dismiss operations.",
+    "No expired-session/reset-account or settings-save failure recovery coverage.",
+    "No actual iPad/iPhone hardware or remote desktop acceptance; widths are simulated.",
+    "No local isolated-data run this round; full baseline control-state matrix remains incomplete."
+  ],
+  "next_steps": [
+    "Use isolated larger dataset to cover pagination/mixed content and form failure recovery.",
+    "Coordinate controlled task/provider readiness with technical inspection, then verify real progress and recovery.",
+    "Resolve empty-channel grouping product behavior before changing navigation/data selection."
+  ],
+  "evidence": "docs/audits/evidence/2026-11-09-visual",
+  "new_pr": null,
+  "new_deployment": false
+}

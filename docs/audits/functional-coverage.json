@@ -367,5 +367,48 @@
       "issue": "Legacy multipart directory 409 and reader DOM comparison",
       "state": "Read-only manifest recovery implemented; focused regression passed; production rollout pending. Settled reader/history/refresh verified; delayed math can change raw text."
     }
+  ],
+  "inspection_runs": [
+    {
+      "date": "2026-11-09",
+      "owner": "visual-interaction",
+      "report": "docs/audits/2026-11-09-visual-inspection.json",
+      "environment": "production authenticated and anonymous; Chromium154",
+      "commit": "d230bd366762dcd32ed1646c849fffdea22fa698",
+      "data_scale": "2 titles, 2 series parts, no recent tasks",
+      "result": "partial_pass",
+      "themes": [
+        "classic light",
+        "classic dark",
+        "editorial light",
+        "editorial dark"
+      ],
+      "viewports": [
+        "1440x900",
+        "768x1024",
+        "390x844"
+      ],
+      "actual_chains": [
+        "Anonymous: real DOM, checkbox toggle and restore, navigation and reload at 1440x900/768x1024/390x844.",
+        "Signed-in Library search/no-match/clear, media filter/reset, oldest/newest sort, series expansion -> P2 reader -> reload -> Transcript/Summary -> return and reopen. Directory HTTP200, P1 unprocessed, P2 ready, same saved identity.",
+        "Task history open -> Escape -> focus returned -> reopen -> close button -> reload -> reopen. Empty history only.",
+        "Currency regression: existing financial summary amounts $100/$10/$100 remain literal, emphasis preserved, no erroneous KaTeX in paragraph.",
+        "22 screenshots individually viewed: anonymous 3, series 12, baseline mobile 4, reader 1, history 1, currency 1."
+      ],
+      "not_accepted": [
+        "No pagination boundary: live authorized dataset has only 2 titles. Needs controlled larger dataset.",
+        "No active or historical tasks: cannot accept progress regression, long processing, real 524 recovery, parallel/multi-tab state synchronization. Needs controlled running/failed tasks and usable provider. Prior provider401 is technical-owned and not retested here.",
+        "No subscribed podcasts or article fixture in this live account; no import/payment/delete/reprocess/cancel/dismiss operations.",
+        "No expired-session/reset-account or settings-save failure recovery coverage.",
+        "No actual iPad/iPhone hardware or remote desktop acceptance; widths are simulated.",
+        "No local isolated-data run this round; full baseline control-state matrix remains incomplete."
+      ],
+      "next_steps": [
+        "Use isolated larger dataset to cover pagination/mixed content and form failure recovery.",
+        "Coordinate controlled task/provider readiness with technical inspection, then verify real progress and recovery.",
+        "Resolve empty-channel grouping product behavior before changing navigation/data selection."
+      ],
+      "historical_records": "Existing feature records preserved; their missing-auth wording describes prior runs, not this verified authenticated run."
+    }
   ]
 }

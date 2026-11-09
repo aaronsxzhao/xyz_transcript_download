@@ -1,0 +1,15 @@
+[
+  {
+    "name": "task-history",
+    "rows": 0,
+    "empty": true
+  },
+  {
+    "name": "history-close-focus-reload",
+    "passed": true
+  },
+  {
+    "name": "currency-regression",
+    "passed": true
+  }
+]

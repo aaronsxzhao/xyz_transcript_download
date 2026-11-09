@@ -1,0 +1,143 @@
+{
+  "review_method": "Each image opened with view_image and visually inspected by assistant; no human-user approval implied",
+  "count": 22,
+  "images": [
+    {
+      "private_path": "/workspace/browser-validation/20261109/live/baseline-dashboard.png",
+      "sha256": "ff048212b3561e42da554fb6f387a7656906667d91567f996f723a212cc1dc71",
+      "viewed": true,
+      "finding": "Captured state readable; no confirmed presentation defect."
+    },
+    {
+      "private_path": "/workspace/browser-validation/20261109/live/baseline-podcasts.png",
+      "sha256": "b50450f468fda7e8541ab017fadb74c32233f38facd0d10bdf8958b41564d790",
+      "viewed": true,
+      "finding": "Captured state readable; no confirmed presentation defect."
+    },
+    {
+      "private_path": "/workspace/browser-validation/20261109/live/baseline-settings.png",
+      "sha256": "c365ffcc9215c73c1b5585968eb217dbe8c6d6c1c306778ba8c667cb3f66da47",
+      "viewed": true,
+      "finding": "Captured state readable; no confirmed presentation defect."
+    },
+    {
+      "private_path": "/workspace/browser-validation/20261109/live/baseline-videos.png",
+      "sha256": "b329ad99f0477d34d3d38f9fd70738794c38c8d474ffbefec0fec9b5667ef5b4",
+      "viewed": true,
+      "finding": "Captured state readable; no confirmed presentation defect."
+    },
+    {
+      "private_path": "/workspace/browser-validation/20261109/live/p2-reader-mobile.png",
+      "sha256": "b4c2a15ea4d2304d3c148f0a91ac92e931f1043328c2adad4f3ffd17268ef0ee",
+      "viewed": true,
+      "finding": "Captured state readable; no confirmed presentation defect."
+    },
+    {
+      "private_path": "/workspace/browser-validation/20261109/live/series-classic-dark-1440.png",
+      "sha256": "1c2c0056075a600985d02fd781d31a162c995c3c18e54642582c0819535053fe",
+      "viewed": true,
+      "finding": "No confirmed presentation defect in captured viewport. Mobile series images are scrolled; do not establish top-of-page acceptance."
+    },
+    {
+      "private_path": "/workspace/browser-validation/20261109/live/series-classic-dark-390.png",
+      "sha256": "edd686883135957f1aa99eb3f0426a682398e339e1e4cb0960eabd3bcc08f1d5",
+      "viewed": true,
+      "finding": "No confirmed presentation defect in captured viewport. Mobile series images are scrolled; do not establish top-of-page acceptance."
+    },
+    {
+      "private_path": "/workspace/browser-validation/20261109/live/series-classic-dark-768.png",
+      "sha256": "afff55e512de8bd50bbbc451a5be9a39af9843414b2f20943abef44654346897",
+      "viewed": true,
+      "finding": "No confirmed presentation defect in captured viewport. Mobile series images are scrolled; do not establish top-of-page acceptance."
+    },
+    {
+      "private_path": "/workspace/browser-validation/20261109/live/series-classic-light-1440.png",
+      "sha256": "d5256d1c1ec72dd9c0efb75adffda114c08d5dcc54dade9e2e3cb1017c5247fb",
+      "viewed": true,
+      "finding": "No confirmed presentation defect in captured viewport. Mobile series images are scrolled; do not establish top-of-page acceptance."
+    },
+    {
+      "private_path": "/workspace/browser-validation/20261109/live/series-classic-light-390.png",
+      "sha256": "1a6688f8cf72df34339304826f01659735a27cd7347b0f2edaf1a0456736657c",
+      "viewed": true,
+      "finding": "No confirmed presentation defect in captured viewport. Mobile series images are scrolled; do not establish top-of-page acceptance."
+    },
+    {
+      "private_path": "/workspace/browser-validation/20261109/live/series-classic-light-768.png",
+      "sha256": "cda9b68bec546e3198241248d46e88ab123e11ec8bf139cad235558e770071b3",
+      "viewed": true,
+      "finding": "No confirmed presentation defect in captured viewport. Mobile series images are scrolled; do not establish top-of-page acceptance."
+    },
+    {
+      "private_path": "/workspace/browser-validation/20261109/live/series-editorial-dark-1440.png",
+      "sha256": "cf6ecc39882bbdd3b2e42b6bc54f83796375d12463a322c82ab4bc1fa72e09d3",
+      "viewed": true,
+      "finding": "No confirmed presentation defect in captured viewport. Mobile series images are scrolled; do not establish top-of-page acceptance."
+    },
+    {
+      "private_path": "/workspace/browser-validation/20261109/live/series-editorial-dark-390.png",
+      "sha256": "acfcc2cc8b1fdc44ddeef07da9984876b80c5ad98d515473f4278af0612f4570",
+      "viewed": true,
+      "finding": "No confirmed presentation defect in captured viewport. Mobile series images are scrolled; do not establish top-of-page acceptance."
+    },
+    {
+      "private_path": "/workspace/browser-validation/20261109/live/series-editorial-dark-768.png",
+      "sha256": "dc8ade431263f83c9daf6281c87049b5877c2823a31091e446fd34a48c68055c",
+      "viewed": true,
+      "finding": "No confirmed presentation defect in captured viewport. Mobile series images are scrolled; do not establish top-of-page acceptance."
+    },
+    {
+      "private_path": "/workspace/browser-validation/20261109/live/series-editorial-light-1440.png",
+      "sha256": "64314c55b8e4860711b6e55f5152e3f9ad72d178c69bdd60b89e36ccc4d59ae3",
+      "viewed": true,
+      "finding": "No confirmed presentation defect in captured viewport. Mobile series images are scrolled; do not establish top-of-page acceptance."
+    },
+    {
+      "private_path": "/workspace/browser-validation/20261109/live/series-editorial-light-390.png",
+      "sha256": "abee2183925201649e5eb7bac528e7b9adb1b5d0d7aa93bdbe52b86f6d530de5",
+      "viewed": true,
+      "finding": "No confirmed presentation defect in captured viewport. Mobile series images are scrolled; do not establish top-of-page acceptance."
+    },
+    {
+      "private_path": "/workspace/browser-validation/20261109/live/series-editorial-light-768.png",
+      "sha256": "a90beb4fbffa748839d964e431fb10814e0252989ccfe38f18b2377543524f2a",
+      "viewed": true,
+      "finding": "No confirmed presentation defect in captured viewport. Mobile series images are scrolled; do not establish top-of-page acceptance."
+    },
+    {
+      "private_path": "/workspace/browser-validation/20261109/history/currency-followup-mobile.png",
+      "sha256": "4952730940750dc17ff7187350eb4c93193366aed194a9cc935f832868a6d56c",
+      "viewed": true,
+      "finding": "Captured state readable; no confirmed presentation defect."
+    },
+    {
+      "private_path": "/workspace/browser-validation/20261109/history/task-history-mobile.png",
+      "sha256": "92612ef47d5ab180ac473d7542e55868ce79bd2d4f00d9a8e5403921d0e60052",
+      "viewed": true,
+      "finding": "Captured state readable; no confirmed presentation defect."
+    },
+    {
+      "private_path": "/workspace/xyz-ui-audit-20261109/appearance-checks/cloud-browser/20261109/anonymous/anonymous-1440x900.png",
+      "sha256": "054a440d7b90006601841dcc7b0e38d2179b8de21da2a3657b4469c5e4d37e59",
+      "viewed": true,
+      "finding": "Captured state readable; no confirmed presentation defect."
+    },
+    {
+      "private_path": "/workspace/xyz-ui-audit-20261109/appearance-checks/cloud-browser/20261109/anonymous/anonymous-390x844.png",
+      "sha256": "774f6912b6c6e772570fda95d132c63639f2900e9b11df4d00f720815506d6b3",
+      "viewed": true,
+      "finding": "Captured state readable; no confirmed presentation defect."
+    },
+    {
+      "private_path": "/workspace/xyz-ui-audit-20261109/appearance-checks/cloud-browser/20261109/anonymous/anonymous-768x1024.png",
+      "sha256": "18124479a7ba3e8837cac7e93db3299d35f7236d5ee79c9afb674df50180584f",
+      "viewed": true,
+      "finding": "Captured state readable; no confirmed presentation defect."
+    }
+  ],
+  "limitations": [
+    "Task history screenshot shows empty state and reconnecting status, not active progress acceptance.",
+    "Screenshots contain authorized test-account content and remain private.",
+    "Automated results NOT_REVIEWED field is capture-time state; this separate manifest records subsequent inspection."
+  ]
+}
