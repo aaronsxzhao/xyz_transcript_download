@@ -18,13 +18,14 @@ from viewer import Summary, KeyPoint, export_html
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--output', type=Path, required=True)
+    parser.add_argument('--dist', type=Path, default=Path(__file__).resolve().parents[1] / 'web/dist')
     args = parser.parse_args(); args.output.mkdir(parents=True, exist_ok=True)
     _, summary = fixtures()
     summary['overview'] += '\n\n| Signal | Action |\n|---|---|\n| Test | Review |\n'
     summary['key_points'][0]['original_quote'] = 'Synthetic original quote.'
     html = export_html(Summary(**{**summary, 'key_points': [KeyPoint(**v) for v in summary['key_points']]}))
     markdown = '# Synthetic episode\n\n## Measured topic\n\nBenchmark key point\n\n> Synthetic original quote.\n\n| Signal | Action |\n|---|---|\n| Test | Review |\n'
-    server = serve(Path(__file__).resolve().parents[1] / 'web/dist')
+    server = serve(args.dist)
     origin = f'http://127.0.0.1:{server.server_port}'
     result = {'environment': 'local synthetic APIs, production frontend build', 'screenshots': [], 'checks': {}}
     requests = []
@@ -62,6 +63,7 @@ def main():
         assert exported.url == origin + '/exports/summaries/bench'
         assert exported.evaluate('window.opener === null')
         assert exported.locator('iframe').get_attribute('sandbox') == ''
+        assert "default-src 'none'" in frame.locator('meta[http-equiv="Content-Security-Policy"]').get_attribute('content')
         frame.locator('details summary').click(); expect(frame.locator('blockquote')).to_be_visible()
         exported.reload(); expect(frame.get_by_text('Benchmark key point', exact=True)).to_be_visible()
         result['checks']['session_only_tab_refresh_opener_null'] = True

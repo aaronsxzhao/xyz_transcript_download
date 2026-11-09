@@ -14,7 +14,8 @@
     "build": "passed; initial compressed assets196.7KiB, unchanged197.75KiB budget",
     "browser": "scripts/check_secure_exports.py; real sandboxed Chromium154.0.8037.57, Playwright1.64.0/Python3.11.17; local production build with synthetic APIs/session, not production identity",
     "visual": "All three HTML viewport screenshots and PDF first-page image actually opened with view_image: readable content, no horizontal overflow; PDF retains headings/table/quote.",
-    "pdf": "Actual PDF-button document rendered into Chromium PDF and text extracted; native OS Save dialog not exercised."
+    "pdf": "Actual PDF-button document rendered into Chromium PDF and text extracted; native OS Save dialog not exercised.",
+    "csp": "HTML document carries the same CSP as its response header, preserving the existing policy inside srcdoc;49 security/export/quote-roundtrip checks passed after this addition, and real browser export lane rechecked."
   },
   "notion": "Normal production login opened Notion configuration guidance without target pages. User explicitly paused Notion testing; no Notion page created. Existing partial-upload/uncertain outcome regressions passed.",
   "limitations": [

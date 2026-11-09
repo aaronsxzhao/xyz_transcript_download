@@ -97,6 +97,7 @@ async def test_summary_html_escapes_all_generated_fields(client, create_test_sum
     assert "<img" not in response.text
     assert "&lt;img" in response.text
     assert "default-src 'none'" in response.headers["content-security-policy"]
+    assert f'<meta http-equiv="Content-Security-Policy" content="{response.headers["content-security-policy"]}">' in response.text
 
 
 def test_supabase_delete_without_owner_never_executes_a_query():
