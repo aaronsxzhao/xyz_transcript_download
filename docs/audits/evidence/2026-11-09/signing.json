@@ -1,0 +1,1 @@
+{"synthetic_cross_day_raw_differs": true, "only_signature_query_differs": true, "production_historical_raw_payload_not_retained": true, "conclusion": "Raw API hashes are not a cross-day persisted-body oracle. Current reload remains independently asserted."}

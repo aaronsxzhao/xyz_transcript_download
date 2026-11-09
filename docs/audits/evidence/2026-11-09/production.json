@@ -1,0 +1,104 @@
+{
+  "started_at": "2026-11-09T01:07:48.020603+00:00",
+  "origin": "https://aipodcastsummary.online",
+  "mode": "authenticated",
+  "authenticated_session_verified": true,
+  "visual_inspection": {
+    "actually_viewed": true,
+    "paths": "Private /workspace/audit-nov09-private/browser-v2/library-{1440,768,390}.png plus episodes-390.png",
+    "observation": "No observed horizontal overflow/overlap;P1 unprocessed/P2 readable;mobileP2 below fold inspected in episode crop. Simulated viewports only."
+  },
+  "sandbox_enabled": true,
+  "tls_verification": true,
+  "checks": [],
+  "blocked_write_requests": 17,
+  "browser_version": "154.0.8037.57",
+  "note_reads": [
+    {
+      "markdown_sha256": "6de5ca88e31fa7d536658a9735ae46acffc4b0e6d2b31e3fc670928acdff050c",
+      "status": "success",
+      "versions": 1
+    },
+    {
+      "markdown_sha256": "6de5ca88e31fa7d536658a9735ae46acffc4b0e6d2b31e3fc670928acdff050c",
+      "status": "success",
+      "versions": 1
+    },
+    {
+      "markdown_sha256": "6b300c66230282826bc9e81183d65498de727597f4a9adb285ace643cc739eb9",
+      "status": "success",
+      "versions": 1
+    },
+    {
+      "markdown_sha256": "6b300c66230282826bc9e81183d65498de727597f4a9adb285ace643cc739eb9",
+      "status": "success",
+      "versions": 1
+    }
+  ],
+  "page_error_count": 0,
+  "console_error_count": 51,
+  "library": {
+    "titles": 2,
+    "search_and_clear": true,
+    "pagination_available": false
+  },
+  "transcript": {
+    "panel_nonempty": true,
+    "empty_message": false
+  },
+  "historical_version": {
+    "http_status": 200,
+    "saved_body_nonempty": true,
+    "rendered_body_nonempty": true
+  },
+  "version_restore": {
+    "equal": true,
+    "math_counts": [
+      0,
+      0
+    ],
+    "lengths": [
+      2921,
+      2921
+    ]
+  },
+  "reader_timing": {
+    "initial_math": 0,
+    "settled_math": 0,
+    "reload_math": 0,
+    "initial_equals_settled": true,
+    "settled_equals_reload": true,
+    "text_lengths": [
+      2921,
+      2921,
+      2921
+    ]
+  },
+  "collection_status": 200,
+  "collection_seconds": 1.265,
+  "collection_part_count": 2,
+  "saved_p2_matches_previous_day": false,
+  "saved_p2_current_reload_equal": true,
+  "saved_p2_opened": true,
+  "collection_after_return": {
+    "http": 200,
+    "parts": 2,
+    "saved_p2_identity_unchanged": true
+  },
+  "collection_after_reload": {
+    "http": 200,
+    "parts": 2,
+    "statuses_unchanged": true
+  },
+  "task_history_opened": true,
+  "legacy_media_inventory": "SKIPPED: user-accepted historical loss",
+  "status": "PASS",
+  "network_error_counts": [
+    {
+      "status": 404,
+      "kind": "screenshot",
+      "category": "asset",
+      "count": 34
+    }
+  ]
+}

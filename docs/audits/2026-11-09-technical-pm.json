@@ -1,0 +1,117 @@
+{
+  "date": "2026-11-09",
+  "checked_at": "2026-11-09T01:09:38.863782+00:00",
+  "tested_commit": "d230bd366762dcd32ed1646c849fffdea22fa698",
+  "environment": {
+    "id": "ccarenv_b64_Y2NhcmVudl8yZDc0NjllZjE1OWM4MTkxOGNmNWE0NGJhMjhlMTA4Ng",
+    "configuration": "bff92f3f-57f3-482f-8f2b-7beae698a60c~cecfg_6ad393188adc819db89d4628d0f79658",
+    "spec": 1,
+    "network": "unrestricted/enforced;observations current",
+    "credential_bindings": "GH_TOKEN/SUMMARY_TEST_API_KEY ready;values not retained",
+    "python": "3.11.17",
+    "playwright": "1.64.0",
+    "chromium": "154.0.8037.57",
+    "missing_dynamic_libraries": false,
+    "browser": "shell headless Chromium,sandbox=True,TLS validation=True,supported elevated exec",
+    "remote_desktop": "not tested",
+    "setup": "Reused components;pip module missing but importlib.metadata confirmed Playwright;no installation needed"
+  },
+  "coordination": {
+    "main": "unchanged since PR246",
+    "open_prs": [
+      239,
+      240,
+      241,
+      242
+    ],
+    "239_240_241_ci": "required jobs success;event-specific jobs skipped",
+    "main_latest_ci": 42530071691,
+    "main_ci": "success",
+    "scheduled_backup": {
+      "run": 42532707636,
+      "backup": "success",
+      "media_recovery": "skipped;no recovery triggered"
+    },
+    "latest_release": 42489072907,
+    "live_exact_revision_health": "verified"
+  },
+  "discovery": {
+    "new_chain": {
+      "goal": "Resume saved progress after worker process death without duplicate execution",
+      "preconditions": "Isolated SQLite/synthetic checkpoint;no production,model or credentials",
+      "steps": [
+        "Real child saves checkpoint and holds2second lease",
+        "SIGKILL child",
+        "Attempt claim before expiration rejected",
+        "Wait real expiry;new worker claims same work",
+        "Old worker finish/heartbeat rejected",
+        "Reuse checkpoint without generator call;persist completion"
+      ],
+      "result": "PASS scoped component experiment",
+      "evidence": "evidence/2026-11-09/crash.json",
+      "limits": "Short2second test lease vs production90seconds;not complete API restart,UI,provider or productionSupabase"
+    },
+    "production": {
+      "account": "authorized normal login;existing data read-only",
+      "scale": "2Library titles,1ordinary summary/transcript,1historical version,1two-part series",
+      "steps": [
+        "search no-match/clear",
+        "summary/transcript/history/latest",
+        "reader refresh stable",
+        "expand2parts",
+        "open savedP2 and refresh",
+        "return and reload collection",
+        "task-history dialog"
+      ],
+      "result": "PASS for current-run scoped checks",
+      "directory_interaction_seconds": 1.265,
+      "page_js_errors": 0,
+      "console": "Known accepted legacy screenshot404s and intentionally blocked writes retained in evidence;not a clean-console claim",
+      "pagination": "Not available with2titles;large pagination unaccepted",
+      "screenshots": "Three specified viewport captures actually viewed;private images not committed"
+    }
+  },
+  "harness_fix": {
+    "issue": "Previous-day rawMarkdown hash equality produced failure",
+    "root_cause": "API signs generated-media URLs using UTC-day expiry;raw transport text changes across days even for identical persisted text. Synthetic reproduction confirms this. Historical raw bodies not retained,so do not assert all observed cross-day differences are exclusively signatures.",
+    "resolution": "Preserve cross-day difference as observation,assert same-run P2 reload equality and independent rendered reader equality. No production logic/auth changes.",
+    "evidence": [
+      "evidence/2026-11-09/signing.json",
+      "evidence/2026-11-09/initial-cross-day-comparison.json",
+      "evidence/2026-11-09/production.json"
+    ]
+  },
+  "existing_regression": {
+    "command": "XYZ_DATA_DIR=/workspace/audit-nov09-private/media-regression /workspace/xyz_transcript_download/venv/bin/python -m pytest tests/test_media_cache.py -q --timeout=30",
+    "result": "9passed in3.03s",
+    "purpose": "Verify media signing/cache behavior implicated by discovery;not full-site acceptance"
+  },
+  "pm": {
+    "goal": "Find existing content,understand per-part readiness,read and refresh without misleading state",
+    "result": "Achieved for2title sample;P1 unprocessed/P2 readable,versions restore,refresh consistent",
+    "remaining": "Real long-wait experience and full new podcast/import lifecycle unaccepted",
+    "priority": "Restore test-model access then execute isolated full chain;do not invent product defect from untested scenario"
+  },
+  "blockers": [
+    {
+      "item": "Test model",
+      "evidence": "Fresh /v1/models401 with provider message 密钥错误，请登录平台重新创建",
+      "action_attempted": "Current environment status and real configured Bearer request verified;0generation calls",
+      "required": "Update/check SUMMARY_TEST_API_KEY in current Cloud Environment Secrets;BASE_URL/MODEL in Variables;apply then recheck. Price and US$2/12call cap must be verified before paid generation.",
+      "remaining": "Real long inference and full podcast model path blocked"
+    },
+    {
+      "item": "Coverage",
+      "remaining": "Real upstream524,productionSupabase queue,full APIrestart,largepagination,complete podcast pipeline remain unaccepted;local component crash test does not replace them"
+    }
+  ],
+  "accepted_exclusions": "Two historical uploaded notes13missing screenshots remain closed per user;no media integrity scan/recovery;incidental image failures during required reading not reopened",
+  "product_fixes": [],
+  "new_deployment": false,
+  "large_change": "None made",
+  "commands": [
+    "EXPECTED_REVISION=d230bd366762dcd32ed1646c849fffdea22fa698 /workspace/xyz_transcript_download/venv/bin/python scripts/verify_deployment.py",
+    "/workspace/xyz_transcript_download/venv/bin/python /workspace/audit-nov09-private/crash.py",
+    "/workspace/xyz_transcript_download/venv/bin/python /workspace/audit-nov09-private/browser-v2.py --authenticated --baseline-results /workspace/audit-manual/docs/audits/evidence/2026-11-08-reader-collection/pre-release-source.json --output /workspace/audit-nov09-private/browser-v2"
+  ]
+}

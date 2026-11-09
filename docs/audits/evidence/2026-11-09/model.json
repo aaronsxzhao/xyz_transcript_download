@@ -1,0 +1,14 @@
+{
+  "checked_at": "2026-11-09T01:05:44.400122+00:00",
+  "endpoint": "https://api.aipaibox.com/v1/models",
+  "status": 401,
+  "content_type": "application/json; charset=utf-8",
+  "error": {
+    "error": {
+      "code": "",
+      "message": "\u5bc6\u94a5\u9519\u8bef\uff0c\u8bf7\u767b\u5f55\u5e73\u53f0\u91cd\u65b0\u521b\u5efa (request id: 202611090105443798528128268d9d6er6FTx88)",
+      "type": "new_api_error"
+    }
+  },
+  "generation_calls": 0
+}
