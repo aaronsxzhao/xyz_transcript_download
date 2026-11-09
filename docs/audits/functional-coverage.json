@@ -2,9 +2,9 @@
   "schema_version": 1,
   "site": "https://aipodcastsummary.online",
   "repository": "aaronsxzhao/xyz_transcript_download",
-  "updated_at": "2026-11-05T21:19:41.713041+08:00",
-  "tested_commit": "95b2712bd7da8102c829ccdfebeaf4a4aab0d444",
-  "current_report": "2026-11-05-technical-functional.json",
+  "updated_at": "2026-11-09T08:33:39.049066+00:00",
+  "tested_commit": "99011578febe2a36bd039d8d1077dbe0a7c36f6b",
+  "current_report": "docs/audits/2026-11-09-rss-coverage-repair.json",
   "inventory_basis": [
     "web/src/App.tsx routes",
     "current repository feature components and prior audit records",
@@ -43,7 +43,38 @@
       ],
       "issues": [],
       "in_progress_prs": [],
-      "next_check": "Authorized isolated browser login and reset flow"
+      "next_check": "Authorized isolated browser login and reset flow",
+      "production_followups": [
+        {
+          "checked_at": "2026-11-06T21:09:30.640432+08:00",
+          "report": "2026-11-06-evening-technical-pm.json",
+          "scope": "Normal UI login and protected API verified; no reset/signout acceptance",
+          "result": "partial",
+          "account_type": "authorized account, existing data read-only",
+          "data_scale": "2 Library titles;1 ordinary reader and1 series",
+          "responsibility": "technical + PM, coordinated with design PR242"
+        }
+      ],
+      "prior_local_checks": [
+        {
+          "last_actual_check": "2026-11-06T09:13:07.098694+08:00",
+          "environment": "production anonymous Chromium",
+          "account_type": "anonymous",
+          "data_scale": null,
+          "steps": [
+            "Open /videos, observe redirect to /login and rendered login page"
+          ],
+          "evidence": [
+            "evidence/2026-11-06/live-videos.png",
+            "evidence/2026-11-06/live-browser.jsonl"
+          ],
+          "result": "passed",
+          "production_result": "passed_anonymous_entry_only",
+          "gaps": [
+            "No authorized signed-in production browser session; read-only diagnostic token is not browser authentication"
+          ]
+        }
+      ]
     },
     {
       "id": "video-library-reader-delete",
@@ -54,7 +85,7 @@
         "quality": "summary quality audit for semantic coverage where applicable"
       },
       "risk": "high",
-      "last_actual_check": "2026-11-05T21:19:41.713041+08:00",
+      "last_actual_check": "2026-11-09T06:25:19.176223+00:00",
       "environment": "local production frontend + FastAPI + isolated SQLite; Chromium 1440x1000 Classic dark",
       "account_type": "existing local development identity",
       "data_scale": "60 synthetic videos, two historical failed states, one saved old version",
@@ -78,14 +109,108 @@
         "evidence/2026-11-05/local-summary-deleted.png"
       ],
       "result": "passed",
-      "production_result": "blocked",
+      "production_result": "partial",
       "gaps": [
-        "No authorized signed-in production browser session; read-only diagnostic token is not browser authentication",
-        "No real worker, model call, import, mobile/theme matrix, offline recovery or load benchmark"
+        "No real worker, model call, import, mobile/theme matrix, offline recovery or load benchmark",
+        "Read-only production sample accepted;full write/processing chain still unaccepted."
       ],
       "issues": [],
       "in_progress_prs": [],
-      "next_check": "Repeat on authorized isolated hosted test account; then concurrent processing and reading"
+      "next_check": "Isolated full processing chain and larger production read-only sample",
+      "production_followups": [
+        {
+          "checked_at": "2026-11-06T21:09:30.640432+08:00",
+          "report": "2026-11-06-evening-technical-pm.json",
+          "scope": "Search/clear; one summary/transcript/history read; API text stable after reload. DOM equality unresolved. No deletion.",
+          "result": "partial",
+          "account_type": "authorized account, existing data read-only",
+          "data_scale": "2 Library titles;1 ordinary reader and1 series",
+          "responsibility": "technical + PM, coordinated with design PR242"
+        },
+        {
+          "checked_at": "2026-11-07T09:04:12.403725+08:00",
+          "report": "2026-11-07-technical-pm.json",
+          "result": "partial",
+          "scope": "Formatted reader reload/latest restore stable on1 item; empty podcast search/clear/reload; Library2 titles, no pagination",
+          "remaining": "No deletion/import/generation or sustained concurrent work accepted"
+        },
+        {
+          "checked_at": "2026-11-08T01:44:46.200835+00:00",
+          "report": "docs/audits/2026-11-08-technical-pm.json",
+          "scope": "Scoped production checks and release;see per-feature coverage_delta;does not promote earlier unit/local tests to full acceptance"
+        },
+        {
+          "checked_at": "2026-11-08T14:27:07.950316+00:00",
+          "report": "docs/audits/2026-11-08-reader-collection.json",
+          "scope": "2title Library no-match search/clear;1summary/transcript/historical/latest/reload;task history entry",
+          "result": "passed_scoped_read_only",
+          "environment": "production d230bd366762dcd32ed1646c849fffdea22fa698",
+          "account_type": "authorized account;existing data read-only",
+          "data_scale": "2titles;1ordinary reader,1history version,1two-part collection",
+          "evidence": [
+            "evidence/2026-11-08-reader-collection/final-production.json"
+          ],
+          "remaining": "No new import/generation/deletion,large pagination or active worker concurrency acceptance"
+        },
+        {
+          "checked_at": "2026-11-09T01:09:38.863782+00:00",
+          "report": "docs/audits/2026-11-09-technical-pm.json",
+          "result": "passed_scoped_read_only",
+          "scope": "2titles,summary/transcript/history/latest/currentreload,2partdirectory andsavedP2;no generation/deletion",
+          "evidence": [
+            "evidence/2026-11-09/production.json"
+          ]
+        },
+        {
+          "checked_at": "2026-11-09T06:25:19.176223+00:00",
+          "report": "docs/audits/2026-11-09-full-acceptance.json",
+          "scope": "Synthetic MP4 upload → real processing → summary/transcript → refresh",
+          "result": "passed",
+          "limitations": "Only exact tested fixture chain accepted; see report.",
+          "account_type": "authorized dedicated test account; preexisting contents read-only"
+        },
+        {
+          "checked_at": "2026-11-09T07:06:20.715214+00:00",
+          "report": "docs/audits/2026-11-09-full-acceptance.json",
+          "result": "passed_scoped_read_only_postdeploy",
+          "revision": "960839aa1058b9574a2294229c772b0c968c753a",
+          "scope": "4Librarycards search/clear;1existing summary/transcript/history/latest/reload;2partdirectory andsavedP2 return/reload;taskhistory",
+          "evidence": "evidence/2026-11-09-full-acceptance/postdeploy-core.json"
+        }
+      ],
+      "prior_local_checks": [
+        {
+          "last_actual_check": "2026-11-05T21:19:41.713041+08:00",
+          "environment": "local production frontend + FastAPI + isolated SQLite; Chromium 1440x1000 Classic dark",
+          "account_type": "existing local development identity",
+          "data_scale": "60 synthetic videos, two historical failed states, one saved old version",
+          "steps": [
+            "channel pagination",
+            "search",
+            "read summary",
+            "read transcript",
+            "read previous version",
+            "return latest",
+            "reload",
+            "delete summary only",
+            "reload; source and transcript retained; versions removed",
+            "second tab reload reflects removed summary",
+            "delete synthetic source",
+            "reload absence"
+          ],
+          "evidence": [
+            "evidence/2026-11-05/local-chain.json",
+            "evidence/2026-11-05/local-version.png",
+            "evidence/2026-11-05/local-summary-deleted.png"
+          ],
+          "result": "passed",
+          "production_result": "blocked",
+          "gaps": [
+            "No authorized signed-in production browser session; read-only diagnostic token is not browser authentication",
+            "No real worker, model call, import, mobile/theme matrix, offline recovery or load benchmark"
+          ]
+        }
+      ]
     },
     {
       "id": "dashboard-library",
@@ -103,13 +228,66 @@
       "steps": [],
       "evidence": [],
       "result": "not_checked",
-      "production_result": "blocked",
+      "production_result": "partial",
       "gaps": [
-        "No authorized signed-in production browser session; read-only diagnostic token is not browser authentication"
+        "Read-only production sample accepted;full write/processing chain still unaccepted."
       ],
       "issues": [],
       "in_progress_prs": [],
-      "next_check": "Check large lists and refresh consistency"
+      "next_check": "Isolated full processing chain and larger production read-only sample",
+      "production_followups": [
+        {
+          "checked_at": "2026-11-06T21:09:30.640432+08:00",
+          "report": "2026-11-06-evening-technical-pm.json",
+          "scope": "Library navigation/reload at three sizes;2 titles, no pagination; task history opened.",
+          "result": "partial",
+          "account_type": "authorized account, existing data read-only",
+          "data_scale": "2 Library titles;1 ordinary reader and1 series",
+          "responsibility": "technical + PM, coordinated with design PR242"
+        },
+        {
+          "checked_at": "2026-11-07T09:04:12.403725+08:00",
+          "report": "2026-11-07-technical-pm.json",
+          "result": "partial",
+          "scope": "Formatted reader reload/latest restore stable on1 item; empty podcast search/clear/reload; Library2 titles, no pagination",
+          "remaining": "No deletion/import/generation or sustained concurrent work accepted"
+        },
+        {
+          "checked_at": "2026-11-08T01:44:46.200835+00:00",
+          "report": "docs/audits/2026-11-08-technical-pm.json",
+          "scope": "Scoped production checks and release;see per-feature coverage_delta;does not promote earlier unit/local tests to full acceptance"
+        },
+        {
+          "checked_at": "2026-11-08T14:27:07.950316+00:00",
+          "report": "docs/audits/2026-11-08-reader-collection.json",
+          "scope": "2title Library no-match search/clear;1summary/transcript/historical/latest/reload;task history entry",
+          "result": "passed_scoped_read_only",
+          "environment": "production d230bd366762dcd32ed1646c849fffdea22fa698",
+          "account_type": "authorized account;existing data read-only",
+          "data_scale": "2titles;1ordinary reader,1history version,1two-part collection",
+          "evidence": [
+            "evidence/2026-11-08-reader-collection/final-production.json"
+          ],
+          "remaining": "No new import/generation/deletion,large pagination or active worker concurrency acceptance"
+        },
+        {
+          "checked_at": "2026-11-09T01:09:38.863782+00:00",
+          "report": "docs/audits/2026-11-09-technical-pm.json",
+          "result": "passed_scoped_read_only",
+          "scope": "2titles,summary/transcript/history/latest/currentreload,2partdirectory andsavedP2;no generation/deletion",
+          "evidence": [
+            "evidence/2026-11-09/production.json"
+          ]
+        },
+        {
+          "checked_at": "2026-11-09T07:06:20.715214+00:00",
+          "report": "docs/audits/2026-11-09-full-acceptance.json",
+          "result": "passed_scoped_read_only_postdeploy",
+          "revision": "960839aa1058b9574a2294229c772b0c968c753a",
+          "scope": "4Librarycards search/clear;1existing summary/transcript/history/latest/reload;2partdirectory andsavedP2 return/reload;taskhistory",
+          "evidence": "evidence/2026-11-09-full-acceptance/postdeploy-core.json"
+        }
+      ]
     },
     {
       "id": "multipart-series",
@@ -127,13 +305,84 @@
       "steps": [],
       "evidence": [],
       "result": "not_checked",
-      "production_result": "blocked",
+      "production_result": "partial",
       "gaps": [
-        "No authorized signed-in production browser session; read-only diagnostic token is not browser authentication"
+        "Read-only production sample accepted;full write/processing chain still unaccepted."
       ],
       "issues": [],
       "in_progress_prs": [],
-      "next_check": "Inspect Stanford P1 grouping and multi-P switching using authorized data"
+      "next_check": "Isolated full processing chain and larger production read-only sample",
+      "production_followups": [
+        {
+          "checked_at": "2026-11-06T21:09:30.640432+08:00",
+          "report": "2026-11-06-evening-technical-pm.json",
+          "scope": "Reproduced directory409 twice; missing manifest; fallback saved episode remains available.",
+          "result": "partial",
+          "account_type": "authorized account, existing data read-only",
+          "data_scale": "2 Library titles;1 ordinary reader and1 series",
+          "responsibility": "technical + PM, coordinated with design PR242"
+        },
+        {
+          "checked_at": "2026-11-08T01:44:46.200835+00:00",
+          "report": "docs/audits/2026-11-08-technical-pm.json",
+          "scope": "Scoped production checks and release;see per-feature coverage_delta;does not promote earlier unit/local tests to full acceptance"
+        },
+        {
+          "checked_at": "2026-11-08T14:27:07.950316+00:00",
+          "report": "docs/audits/2026-11-08-reader-collection.json",
+          "scope": "Legacy2part directory→saved P2→return→reload;complete manifest and unchanged saved body",
+          "result": "passed_scoped_read_only",
+          "environment": "production d230bd366762dcd32ed1646c849fffdea22fa698",
+          "account_type": "authorized account;existing data read-only",
+          "data_scale": "2titles;1ordinary reader,1history version,1two-part collection",
+          "evidence": [
+            "evidence/2026-11-08-reader-collection/final-production.json"
+          ],
+          "remaining": "No new import/generation/deletion,large pagination or active worker concurrency acceptance"
+        },
+        {
+          "checked_at": "2026-11-09T01:09:38.863782+00:00",
+          "report": "docs/audits/2026-11-09-technical-pm.json",
+          "result": "passed_scoped_read_only",
+          "scope": "2titles,summary/transcript/history/latest/currentreload,2partdirectory andsavedP2;no generation/deletion",
+          "evidence": [
+            "evidence/2026-11-09/production.json"
+          ]
+        },
+        {
+          "checked_at": "2026-11-09T07:06:20.715214+00:00",
+          "report": "docs/audits/2026-11-09-full-acceptance.json",
+          "result": "passed_scoped_read_only_postdeploy",
+          "revision": "960839aa1058b9574a2294229c772b0c968c753a",
+          "scope": "4Librarycards search/clear;1existing summary/transcript/history/latest/reload;2partdirectory andsavedP2 return/reload;taskhistory",
+          "evidence": "evidence/2026-11-09-full-acceptance/postdeploy-core.json"
+        }
+      ],
+      "prior_local_checks": [
+        {
+          "last_actual_check": "2026-11-06T09:13:07.098694+08:00",
+          "environment": "Local production build + real FastAPI/SQLite durable Worker; Chromium 1440x1000 Classic dark",
+          "account_type": "Existing local development identity; isolated synthetic data",
+          "data_scale": "21 synthetic parts",
+          "steps": [
+            "Seed 21 synthetic parts",
+            "Channel list numeric order includes P1",
+            "Read P1/P21",
+            "Reader next P1→P2 and current-part state",
+            "Expand/collapse 21-part directory"
+          ],
+          "evidence": [
+            "evidence/2026-11-06/extra-chain.json",
+            "2026-11-06-technical-functional.json"
+          ],
+          "result": "partial",
+          "production_result": "blocked",
+          "gaps": [
+            "No authorized signed-in production browser/test account",
+            "Production Stanford data and external import not verified"
+          ]
+        }
+      ]
     },
     {
       "id": "podcast-subscriptions",
@@ -144,20 +393,60 @@
         "quality": "summary quality audit for semantic coverage where applicable"
       },
       "risk": "high",
-      "last_actual_check": null,
-      "environment": null,
-      "account_type": null,
-      "data_scale": null,
-      "steps": [],
-      "evidence": [],
-      "result": "not_checked",
-      "production_result": "blocked",
+      "last_actual_check": "2026-11-09T08:33:39.049066+00:00",
+      "environment": "production9901157; real Python Playwright Chromium with sandbox/TLS",
+      "account_type": "authorized dedicated test account; existing data read-only",
+      "data_scale": "1publicRSS,1newdisposableaudio,1retainedcontrolledtestvideo",
+      "steps": [
+        "Normal UI RSS import",
+        "Normal failed-job retry",
+        "Parallel search/read/reload/delete only new disposable",
+        "Bounded checkpoint retry after grounding rejection",
+        "Read saved summary/transcript; reload and second-tab equality"
+      ],
+      "evidence": [
+        "docs/audits/2026-11-09-rss-coverage-repair.json"
+      ],
+      "result": "passed_scoped",
+      "production_result": "passed_scoped",
       "gaps": [
-        "No authorized signed-in production browser session; read-only diagnostic token is not browser authentication"
+        "First new run required explicit candidate retry; no universal one-shot reliability established.",
+        "4of41 material items remain partial under unchanged90percent contract.",
+        "Current public RSS summary/source retained; summary-only deletion on this RSS not run.",
+        "Genuine upstream524 and isolated hosted Supabase recovery remain unaccepted."
       ],
       "issues": [],
       "in_progress_prs": [],
-      "next_check": "Investigate Xiaoyuzhou import feasibility read-only; no development"
+      "next_check": "Retained RSS read-only regression; expand source samples and first-attempt reliability; genuine524 and isolated hosted recovery remain unaccepted.",
+      "production_followups": [
+        {
+          "checked_at": "2026-11-07T09:04:12.403725+08:00",
+          "report": "2026-11-07-technical-pm.json",
+          "result": "partial",
+          "scope": "Formatted reader reload/latest restore stable on1 item; empty podcast search/clear/reload; Library2 titles, no pagination",
+          "remaining": "No deletion/import/generation or sustained concurrent work accepted"
+        },
+        {
+          "checked_at": "2026-11-09T06:25:19.176223+00:00",
+          "report": "docs/audits/2026-11-09-full-acceptance.json",
+          "scope": "Public Apple podcast import → 50 episodes → refresh → remove created subscription",
+          "result": "passed_with_harness_correction",
+          "limitations": "Initial cleanup locator searched platform root; corrected by entering Apple platform. No public RSS episode generation.",
+          "account_type": "authorized dedicated test account; preexisting contents read-only"
+        },
+        {
+          "report": "docs/audits/2026-11-09-full-acceptance.json",
+          "scope": "Real public RSS >3minute summarizing with parallel reading/search; explicit retry restored checkpoint but both attempts failed unchanged coverage gate",
+          "result": "failed_quality_acceptance",
+          "issue": "P1 RSS quality acceptance; no core algorithm edit"
+        },
+        {
+          "checked_at": "2026-11-09T08:33:39.049066+00:00",
+          "report": "docs/audits/2026-11-09-rss-coverage-repair.json",
+          "result": "passed_scoped_after_candidate_retry"
+        }
+      ],
+      "current_scope": "Import same RSS; real processing339s initially blocked grounding; checkpoint retry285s accepted37/41; summary/transcript/reload/multitab passed. Search/read/delete at125s while firsttask summarizing. This scope does not claim every operation in the inventory chain was rerun."
     },
     {
       "id": "podcast-processing-delete",
@@ -168,20 +457,85 @@
         "quality": "summary quality audit for semantic coverage where applicable"
       },
       "risk": "high",
-      "last_actual_check": null,
-      "environment": null,
-      "account_type": null,
-      "data_scale": null,
-      "steps": [],
-      "evidence": [],
-      "result": "not_checked",
-      "production_result": "blocked",
+      "last_actual_check": "2026-11-09T08:33:39.049066+00:00",
+      "environment": "production9901157; real Python Playwright Chromium with sandbox/TLS",
+      "account_type": "authorized dedicated test account; existing data read-only",
+      "data_scale": "1publicRSS,1newdisposableaudio,1retainedcontrolledtestvideo",
+      "steps": [
+        "Normal UI RSS import",
+        "Normal failed-job retry",
+        "Parallel search/read/reload/delete only new disposable",
+        "Bounded checkpoint retry after grounding rejection",
+        "Read saved summary/transcript; reload and second-tab equality"
+      ],
+      "evidence": [
+        "docs/audits/2026-11-09-rss-coverage-repair.json"
+      ],
+      "result": "passed_scoped",
+      "production_result": "passed_scoped",
       "gaps": [
-        "No authorized signed-in production browser session; read-only diagnostic token is not browser authentication"
+        "First new run required explicit candidate retry; no universal one-shot reliability established.",
+        "4of41 material items remain partial under unchanged90percent contract.",
+        "Current public RSS summary/source retained; summary-only deletion on this RSS not run.",
+        "Genuine upstream524 and isolated hosted Supabase recovery remain unaccepted."
       ],
       "issues": [],
       "in_progress_prs": [],
-      "next_check": "Use isolated account and synthetic episode; compare video semantics"
+      "next_check": "Retained RSS read-only regression; expand source samples and first-attempt reliability; genuine524 and isolated hosted recovery remain unaccepted.",
+      "production_followups": [
+        {
+          "checked_at": "2026-11-09T06:25:19.176223+00:00",
+          "report": "docs/audits/2026-11-09-full-acceptance.json",
+          "scope": "Synthetic podcast upload → real transcription/model → read/transcript → reload/multiple tabs → delete summary only → delete source → reload",
+          "result": "passed",
+          "limitations": "Offline toggle/online recovery passed; failed offline-network UX not established; no multi-minute benchmark.",
+          "account_type": "authorized dedicated test account; preexisting contents read-only"
+        },
+        {
+          "report": "docs/audits/2026-11-09-full-acceptance.json",
+          "scope": "Real public RSS >3minute summarizing with parallel reading/search; explicit retry restored checkpoint but both attempts failed unchanged coverage gate",
+          "result": "failed_quality_acceptance",
+          "issue": "P1 RSS quality acceptance; no core algorithm edit"
+        },
+        {
+          "checked_at": "2026-11-09T08:33:39.049066+00:00",
+          "report": "docs/audits/2026-11-09-rss-coverage-repair.json",
+          "revision": "9901157",
+          "result": "same-source candidate retry accepted37/41;grounded;summary/transcript/reload/multitab passed;first run blocked grounding;long-running parallel search/read/delete passed",
+          "data_scale": "1 public RSS episode,1 disposable synthetic audio,1 existing controlled test video;3simulatedviewports"
+        }
+      ],
+      "current_scope": "Import same RSS; real processing339s initially blocked grounding; checkpoint retry285s accepted37/41; summary/transcript/reload/multitab passed. Search/read/delete at125s while firsttask summarizing. This scope does not claim every operation in the inventory chain was rerun.",
+      "prior_local_checks": [
+        {
+          "last_actual_check": "2026-11-06T09:13:07.098694+08:00",
+          "environment": "Local production build + real FastAPI/SQLite durable Worker; Chromium 1440x1000 Classic dark",
+          "account_type": "Existing local development identity; isolated synthetic data",
+          "data_scale": "55 seeded episodes plus one uploaded 1-second WAV",
+          "steps": [
+            "Seed 55 podcast episodes",
+            "Paginate 50→55; repeat 50→54 after one deletion",
+            "Read summary and transcript",
+            "Delete only summary, reload; source/transcript retained",
+            "Reload second tab",
+            "Delete episode and refresh absence",
+            "Upload synthetic WAV",
+            "Process fails with missing provider",
+            "API retry/cancel",
+            "Delete uploaded test episode and refresh"
+          ],
+          "evidence": [
+            "evidence/2026-11-06/browser-chain.json",
+            "2026-11-06-technical-functional.json"
+          ],
+          "result": "partial",
+          "production_result": "blocked",
+          "gaps": [
+            "No authorized signed-in production browser/test account",
+            "Generation and version switching not exercised; notes were seeded"
+          ]
+        }
+      ]
     },
     {
       "id": "article-import-media",
@@ -216,20 +570,104 @@
         "quality": "summary quality audit for semantic coverage where applicable"
       },
       "risk": "high",
-      "last_actual_check": null,
-      "environment": null,
-      "account_type": null,
-      "data_scale": null,
-      "steps": [],
-      "evidence": [],
-      "result": "not_checked",
-      "production_result": "blocked",
+      "last_actual_check": "2026-11-09T08:33:39.049066+00:00",
+      "environment": "production9901157; real Python Playwright Chromium with sandbox/TLS",
+      "account_type": "authorized dedicated test account; existing data read-only",
+      "data_scale": "1publicRSS,1newdisposableaudio,1retainedcontrolledtestvideo",
+      "steps": [
+        "Normal UI RSS import",
+        "Normal failed-job retry",
+        "Parallel search/read/reload/delete only new disposable",
+        "Bounded checkpoint retry after grounding rejection",
+        "Read saved summary/transcript; reload and second-tab equality"
+      ],
+      "evidence": [
+        "docs/audits/2026-11-09-rss-coverage-repair.json"
+      ],
+      "result": "passed_scoped",
+      "production_result": "passed_scoped",
       "gaps": [
-        "No authorized signed-in production browser session; read-only diagnostic token is not browser authentication"
+        "First new run required explicit candidate retry; no universal one-shot reliability established.",
+        "4of41 material items remain partial under unchanged90percent contract.",
+        "Current public RSS summary/source retained; summary-only deletion on this RSS not run.",
+        "Genuine upstream524 and isolated hosted Supabase recovery remain unaccepted."
       ],
       "issues": [],
       "in_progress_prs": [],
-      "next_check": "Validate retry cannot remain queued with no worker; authorized isolated model budget required"
+      "next_check": "Retained RSS read-only regression; expand source samples and first-attempt reliability; genuine524 and isolated hosted recovery remain unaccepted.",
+      "supplementary_checks": [
+        {
+          "checked_at": "2026-11-06T12:33:08.553319+08:00",
+          "environment": "isolated local HTTP/SQLite, synthetic fixtures",
+          "result": "passed_lower_level_only",
+          "evidence": "2026-11-06-manual-technical.json",
+          "limitation": "Not full API/UI operation-chain or production acceptance; preserve previous main feature result and pending PR239 evidence"
+        }
+      ],
+      "component_followups": [
+        {
+          "checked_at": "2026-11-08T14:33:58.060107+00:00",
+          "report": "docs/audits/2026-11-08-model-recheck.json",
+          "environment": "isolated local SQLite+loopback HTTP,synthetic processor",
+          "result": "passed_scoped",
+          "scope": "524 failure→next task→explicit retry→fresh process restores completed jobs/checkpoints",
+          "limitations": [
+            "Not real upstream524",
+            "Not full API server restart or browser acceptance",
+            "Not full podcast acquisition/transcription/model pipeline",
+            "Not production Supabase",
+            "Not a killed-worker lease-expiry test"
+          ]
+        }
+      ],
+      "production_followups": [
+        {
+          "checked_at": "2026-11-09T06:25:19.176223+00:00",
+          "report": "docs/audits/2026-11-09-full-acceptance.json",
+          "scope": "52 synthetic podcast uploads → 50 to52 UI pagination → refresh → cancel → explicit retry/new job → cancel → cleanup",
+          "result": "passed",
+          "limitations": "Job actions used normal authenticated API; pagination was browser UI; moderate list, not stress test.",
+          "account_type": "authorized dedicated test account; preexisting contents read-only"
+        },
+        {
+          "report": "docs/audits/2026-11-09-full-acceptance.json",
+          "scope": "Real public RSS >3minute summarizing with parallel reading/search; explicit retry restored checkpoint but both attempts failed unchanged coverage gate",
+          "result": "failed_quality_acceptance",
+          "issue": "P1 RSS quality acceptance; no core algorithm edit"
+        },
+        {
+          "checked_at": "2026-11-09T08:33:39.049066+00:00",
+          "report": "docs/audits/2026-11-09-rss-coverage-repair.json",
+          "result": "passed_scoped_after_candidate_retry"
+        }
+      ],
+      "current_scope": "Import same RSS; real processing339s initially blocked grounding; checkpoint retry285s accepted37/41; summary/transcript/reload/multitab passed. Search/read/delete at125s while firsttask summarizing. This scope does not claim every operation in the inventory chain was rerun.",
+      "prior_local_checks": [
+        {
+          "last_actual_check": "2026-11-06T09:13:07.098694+08:00",
+          "environment": "Local production build + real FastAPI/SQLite durable Worker; Chromium 1440x1000 Classic dark",
+          "account_type": "Existing local development identity; isolated synthetic data",
+          "data_scale": "7 queued worker attempts plus uploaded source failure/retry-cancel",
+          "steps": [
+            "Real SQLite durable dispatcher, two slots",
+            "Three admitted tasks fail on missing model configuration",
+            "Retry all three; all leave queued state",
+            "One transcript-only task completes using retained transcript",
+            "Retry/cancel uploaded test task; cancelled",
+            "No queued/running work remains after first seven tasks"
+          ],
+          "evidence": [
+            "evidence/2026-11-06/queue.json",
+            "2026-11-06-technical-functional.json"
+          ],
+          "result": "partial",
+          "production_result": "blocked",
+          "gaps": [
+            "No authorized signed-in production browser/test account",
+            "Not a 524 or slow-inference reproduction; no Supabase hosted-queue acceptance"
+          ]
+        }
+      ]
     },
     {
       "id": "parallel-progress",
@@ -240,20 +678,53 @@
         "quality": "summary quality audit for semantic coverage where applicable"
       },
       "risk": "high",
-      "last_actual_check": null,
-      "environment": null,
-      "account_type": null,
-      "data_scale": null,
-      "steps": [],
-      "evidence": [],
-      "result": "not_checked",
-      "production_result": "blocked",
+      "last_actual_check": "2026-11-09T08:33:39.049066+00:00",
+      "environment": "production9901157; real Python Playwright Chromium with sandbox/TLS",
+      "account_type": "authorized dedicated test account; existing data read-only",
+      "data_scale": "1publicRSS,1newdisposableaudio,1retainedcontrolledtestvideo",
+      "steps": [
+        "Normal UI RSS import",
+        "Normal failed-job retry",
+        "Parallel search/read/reload/delete only new disposable",
+        "Bounded checkpoint retry after grounding rejection",
+        "Read saved summary/transcript; reload and second-tab equality"
+      ],
+      "evidence": [
+        "docs/audits/2026-11-09-rss-coverage-repair.json"
+      ],
+      "result": "passed_scoped",
+      "production_result": "passed_scoped",
       "gaps": [
-        "No authorized signed-in production browser session; read-only diagnostic token is not browser authentication"
+        "First new run required explicit candidate retry; no universal one-shot reliability established.",
+        "4of41 material items remain partial under unchanged90percent contract.",
+        "Current public RSS summary/source retained; summary-only deletion on this RSS not run.",
+        "Genuine upstream524 and isolated hosted Supabase recovery remain unaccepted."
       ],
       "issues": [],
       "in_progress_prs": [],
-      "next_check": "Measure interaction and request times with actual workers; verify intermediate progress"
+      "next_check": "Retained RSS read-only regression; expand source samples and first-attempt reliability; genuine524 and isolated hosted recovery remain unaccepted.",
+      "production_followups": [
+        {
+          "checked_at": "2026-11-09T06:25:19.176223+00:00",
+          "report": "docs/audits/2026-11-09-full-acceptance.json",
+          "scope": "Synthetic podcast upload → real transcription/model → read/transcript → reload/multiple tabs → delete summary only → delete source → reload",
+          "result": "passed",
+          "limitations": "Offline toggle/online recovery passed; failed offline-network UX not established; no multi-minute benchmark.",
+          "account_type": "authorized dedicated test account; preexisting contents read-only"
+        },
+        {
+          "report": "docs/audits/2026-11-09-full-acceptance.json",
+          "scope": "Real public RSS >3minute summarizing with parallel reading/search; explicit retry restored checkpoint but both attempts failed unchanged coverage gate",
+          "result": "passed_scoped_parallel_read",
+          "issue": "P1 RSS quality acceptance; no core algorithm edit"
+        },
+        {
+          "checked_at": "2026-11-09T08:33:39.049066+00:00",
+          "report": "docs/audits/2026-11-09-rss-coverage-repair.json",
+          "result": "passed_scoped_after_candidate_retry"
+        }
+      ],
+      "current_scope": "Import same RSS; real processing339s initially blocked grounding; checkpoint retry285s accepted37/41; summary/transcript/reload/multitab passed. Search/read/delete at125s while firsttask summarizing. This scope does not claim every operation in the inventory chain was rerun."
     },
     {
       "id": "recovery",
@@ -264,7 +735,7 @@
         "quality": "summary quality audit for semantic coverage where applicable"
       },
       "risk": "high",
-      "last_actual_check": null,
+      "last_actual_check": "2026-11-09T06:25:19.176223+00:00",
       "environment": null,
       "account_type": null,
       "data_scale": null,
@@ -277,7 +748,58 @@
       ],
       "issues": [],
       "in_progress_prs": [],
-      "next_check": "Isolated real database concurrent restore/write; no production mutation"
+      "next_check": "Isolated real database concurrent restore/write; no production mutation",
+      "supplementary_checks": [
+        {
+          "checked_at": "2026-11-06T12:33:08.553319+08:00",
+          "environment": "isolated local HTTP/SQLite, synthetic fixtures",
+          "result": "passed_lower_level_only",
+          "evidence": "2026-11-06-manual-technical.json",
+          "limitation": "Not full API/UI operation-chain or production acceptance; preserve previous main feature result and pending PR239 evidence"
+        }
+      ],
+      "production_followups": [
+        {
+          "checked_at": "2026-11-08T01:44:46.200835+00:00",
+          "report": "docs/audits/2026-11-08-technical-pm.json",
+          "scope": "Scoped production checks and release;see per-feature coverage_delta;does not promote earlier unit/local tests to full acceptance"
+        }
+      ],
+      "component_followups": [
+        {
+          "checked_at": "2026-11-08T14:33:58.060107+00:00",
+          "report": "docs/audits/2026-11-08-model-recheck.json",
+          "environment": "isolated local SQLite+loopback HTTP,synthetic processor",
+          "result": "passed_scoped",
+          "scope": "524 failure→next task→explicit retry→fresh process restores completed jobs/checkpoints",
+          "limitations": [
+            "Not real upstream524",
+            "Not full API server restart or browser acceptance",
+            "Not full podcast acquisition/transcription/model pipeline",
+            "Not production Supabase",
+            "Not a killed-worker lease-expiry test"
+          ]
+        },
+        {
+          "checked_at": "2026-11-09T01:09:38.863782+00:00",
+          "report": "docs/audits/2026-11-09-technical-pm.json",
+          "result": "passed_scoped",
+          "scope": "RealSIGKILL,2second lease expiry,reclaim,stale-worker rejection,savedcheckpoint reuse;SQLite only",
+          "evidence": [
+            "evidence/2026-11-09/crash.json"
+          ]
+        }
+      ],
+      "local_followups": [
+        {
+          "checked_at": "2026-11-09T06:25:19.176223+00:00",
+          "report": "docs/audits/2026-11-09-full-acceptance.json",
+          "scope": "Local HTTP524 → failed job → next job completes → explicit retry → actual API SIGKILL → restart → real90s lease recovery → completed job/checkpoint restoration",
+          "result": "passed_isolated",
+          "limitations": "Not real vendor524, not hosted Supabase restart, not saved article row restoration.",
+          "account_type": "authorized dedicated test account; preexisting contents read-only"
+        }
+      ]
     },
     {
       "id": "settings-platforms",
@@ -288,20 +810,35 @@
         "quality": "summary quality audit for semantic coverage where applicable"
       },
       "risk": "high",
-      "last_actual_check": null,
+      "last_actual_check": "2026-11-09T06:25:19.176223+00:00",
       "environment": null,
       "account_type": null,
       "data_scale": null,
       "steps": [],
       "evidence": [],
       "result": "not_checked",
-      "production_result": "blocked",
+      "production_result": "passed_scoped",
       "gaps": [
-        "No authorized signed-in production browser session; read-only diagnostic token is not browser authentication"
+        "See latest report: remaining wider scenarios are not promoted by this fixture acceptance."
       ],
       "issues": [],
       "in_progress_prs": [],
-      "next_check": "Check cookie ownership and persistence with authorized isolated credentials"
+      "next_check": "Follow remaining acceptance conditions in docs/audits/2026-11-09-full-acceptance.json",
+      "production_followups": [
+        {
+          "checked_at": "2026-11-08T01:44:46.200835+00:00",
+          "report": "docs/audits/2026-11-08-technical-pm.json",
+          "scope": "Scoped production checks and release;see per-feature coverage_delta;does not promote earlier unit/local tests to full acceptance"
+        },
+        {
+          "checked_at": "2026-11-09T06:25:19.176223+00:00",
+          "report": "docs/audits/2026-11-09-full-acceptance.json",
+          "scope": "Normal account settings save custom key → refresh → real generation",
+          "result": "passed",
+          "limitations": "Cloud environment stale key not changed.",
+          "account_type": "authorized dedicated test account; preexisting contents read-only"
+        }
+      ]
     },
     {
       "id": "export",
@@ -349,10 +886,97 @@
       ],
       "issues": [],
       "in_progress_prs": [],
-      "next_check": "Authorized test identities; no forged tokens"
+      "next_check": "Authorized test identities; no forged tokens",
+      "production_followups": [
+        {
+          "checked_at": "2026-11-06T21:09:30.640432+08:00",
+          "report": "2026-11-06-evening-technical-pm.json",
+          "scope": "Normal signin and protected API only; no account-isolation/expiry/reset acceptance",
+          "result": "partial",
+          "account_type": "authorized account, existing data read-only",
+          "data_scale": "2 Library titles;1 ordinary reader and1 series",
+          "responsibility": "technical + PM, coordinated with design PR242"
+        }
+      ]
+    }
+  ],
+  "supplementary_audit_runs": [
+    {
+      "checked_at": "2026-11-06T12:33:08.553319+08:00",
+      "report": "2026-11-06-manual-technical.json",
+      "result": "partial",
+      "scope": "Isolated injected HTTP524, process death and local save recovery; no feature promoted to production acceptance",
+      "related_pending_prs": [
+        239,
+        240
+      ]
+    }
+  ],
+  "production_audit_runs": [
+    {
+      "checked_at": "2026-11-06T21:09:30.640432+08:00",
+      "report": "2026-11-06-evening-technical-pm.json",
+      "environment": "authenticated production Chromium, read-only guard",
+      "result": "partial; two reproduced issues and unresolved DOM consistency",
+      "related_prs": [
+        239,
+        240,
+        241,
+        242
+      ]
+    },
+    {
+      "checked_at": "2026-11-07T09:04:12.403725+08:00",
+      "report": "2026-11-07-technical-pm.json",
+      "result": "partial",
+      "scope": "Authenticated2-title Library;1 formatted reader refresh/history; empty podcast search/reload",
+      "issues": "Historical media404; model-list401; hosted frontend CI failure unresolved",
+      "related_prs": [
+        239,
+        240,
+        241,
+        242
+      ]
+    },
+    {
+      "checked_at": "2026-11-08T01:44:46.200835+00:00",
+      "report": "docs/audits/2026-11-08-technical-pm.json",
+      "result": "partial site coverage;cookie classification fix deployed and verified",
+      "versions": {
+        "core_readonly": "95b2712",
+        "affected_postdeploy": "37bcc192db81ff7227000b5c46b821f88cde07a7"
+      },
+      "evidence": "docs/audits/evidence/2026-11-08/",
+      "pr": 243
+    },
+    {
+      "checked_at": "2026-11-08T14:27:07.950316+00:00",
+      "report": "docs/audits/2026-11-08-reader-collection.json",
+      "result": "scoped fixes deployed and accepted;external blockers and untested chains retained",
+      "revision": "d230bd366762dcd32ed1646c849fffdea22fa698"
+    },
+    {
+      "checked_at": "2026-11-09T01:09:38.863782+00:00",
+      "report": "docs/audits/2026-11-09-technical-pm.json",
+      "result": "scoped productionread-only PASS;model401;new isolatedcrash recovery PASS",
+      "revision": "d230bd366762dcd32ed1646c849fffdea22fa698"
+    },
+    {
+      "checked_at": "2026-11-09T06:25:19.176223+00:00",
+      "report": "docs/audits/2026-11-09-full-acceptance.json",
+      "result": "passed_scoped_with_small_fix",
+      "fix_pr": 248
     }
   ],
   "remediation_followups": [
+    {
+      "date": "2026-11-07",
+      "report": "docs/audits/2026-11-07-remediation-followup.json",
+      "ci": "latest full hosted run success",
+      "media": "authenticated inventory:13/13 referenced assets missing across2 notes",
+      "model": "normalized /v1/models still401",
+      "state": "External credential and existing-data recovery boundaries remain; schedules updated to require execution"
+    },
     {
       "date": "2026-11-07 evening",
       "report": "docs/audits/2026-11-07-evening-technical-pm.json",
@@ -360,6 +984,51 @@
       "pr": 243,
       "state": "PR243 local fix and regression complete; hosted sandbox launch failure blocks merge/deployment",
       "prior_evidence": "PR241 c6bb7b4; preserved on its branch"
+    },
+    {
+      "date": "2026-11-08",
+      "report": "docs/audits/2026-11-08-technical-pm.json",
+      "pr": 243,
+      "state": "resolved and deployed: absent-cookie misclassification;CI sandbox compatibility",
+      "revision": "37bcc192db81ff7227000b5c46b821f88cde07a7",
+      "ci_run": 42432070935,
+      "deploy_run": 42434515097,
+      "remaining": "model401,13missingimages,legacydirectory409;no real long inference or hostedfault recovery acceptance"
+    },
+    {
+      "date": "2026-11-08",
+      "report": "docs/audits/2026-11-08-reader-collection.json",
+      "issue": "Legacy multipart directory 409 and reader DOM comparison",
+      "state": "PR245+246 merged;PR246 fullCI/deploy successful;legacy directory and settled reader scoped production acceptance passed",
+      "revision": "d230bd366762dcd32ed1646c849fffdea22fa698",
+      "ci_run": 42486536428,
+      "deploy_run": 42489072907
+    },
+    {
+      "date": "2026-11-08T14:33:58.060107+00:00",
+      "report": "docs/audits/2026-11-08-model-recheck.json",
+      "state": "Known2note media loss closed by user;provider explicitly reports key error;local injected524 component recovery passed;real model paths still external configuration blocked"
+    },
+    {
+      "checked_at": "2026-11-09T07:06:20.715214+00:00",
+      "pr": 248,
+      "commit": "960839aa1058b9574a2294229c772b0c968c753a",
+      "status": "deployed_verified",
+      "scope": "Explicit structured provider refusal classification;142targetedtests/fullPRCI/build; exactproductionhealth+readonlyregression",
+      "remaining": "RSS coverage quality gate failure is separate and not repaired by this change."
+    },
+    {
+      "checked_at": "2026-11-09T07:19:56.852059+00:00",
+      "report": "docs/audits/2026-11-09-rss-coverage-diagnosis.json",
+      "status": "root_cause_narrowed_core_plan_required",
+      "scope": "Same production configuration; real omitted qualifications plus duplicate repair rejection and materiality/recheck inconsistency; score is all-or-nothing item coverage, not missing-text percent",
+      "application_modified": false
+    },
+    {
+      "checked_at": "2026-11-09T07:44:34.707727+00:00",
+      "report": "docs/audits/2026-11-09-rss-coverage-repair.json",
+      "pr": 249,
+      "status": "fixed_local_verified_pending_ci_deployment"
     },
     {
       "date": "2026-11-08",
@@ -374,5 +1043,71 @@
       "state": "Authorized virtual group implemented; local regression passed; CI and deployment pending",
       "owner": "visual-interaction"
     }
-  ]
+  ],
+  "accepted_exclusions": [
+    {
+      "id": "accepted-legacy-upload-media-loss-20261108",
+      "confirmed_by": "User explicitly confirmed two historical local uploads lost screenshots due to storage space;no backup and no recovery requested.",
+      "scope": "Only the2notes/13missing screenshot references identified by2026-11-08 inventory",
+      "note_body_sha256": [
+        "7af237e297102d1fe129a6b767e9b85bcd14ce82509291c7564e25c51e698c11",
+        "eafb07f88c83de4274d06576415340a59c530119d857608d0c51225250f8d79a"
+      ],
+      "action": "Do not recheck or report these known missing files as actionable defects. Do not delete or alter notes. New missing media outside this scope remains actionable.",
+      "status": "closed_user_accepted",
+      "checked_at": "2026-11-08T14:33:58.060107+00:00",
+      "fingerprint_note": "Recorded API body hashes are historical references,not stable identities:media signatures rotate daily. Scope remains the two user-confirmed historical uploads;do not reopen solely on changed transport hash."
+    }
+  ],
+  "repair_acceptance_followups": [
+    {
+      "checked_at": "2026-11-09T08:33:39.049066+00:00",
+      "pr": 249,
+      "status": "merged_deployed_online_verified_after_candidate_retry",
+      "report": "docs/audits/2026-11-09-rss-coverage-repair.json",
+      "not_claimed": "universal one-shot success or100percentcoverage"
+    }
+  ],
+  "audit_attempts": [
+    {
+      "checked_at": "2026-11-06T12:20:09.421676+08:00",
+      "type": "visual_interaction",
+      "result": "blocked_before_browser_capture",
+      "report": "2026-11-06-visual-environment.json",
+      "tested_commit": "906393581ce23ef5bbf1594070834a1bcf8a9f19",
+      "browser_tool_available": false,
+      "http_reachability": 200,
+      "production_acceptance": false,
+      "prior_open_pr": 239
+    },
+    {
+      "checked_at": "2026-11-06T04:58:58.781741+00:00",
+      "type": "shell_browser_validation",
+      "result": "passed_anonymous_only",
+      "report": "2026-11-06-visual-environment.json",
+      "actual_image_inspection": true,
+      "authenticated_coverage": false,
+      "workflow": "../cloud-browser-inspection.md"
+    }
+  ],
+  "visual_inspection_runs": [
+    {
+      "id": "20261106-authenticated-followup",
+      "report": "2026-11-06-authenticated-visual-followup.json",
+      "environment": "production authorized test account",
+      "status": "partial; authenticated verification passed; two observations need investigation",
+      "evidence_private": "/workspace/browser-validation/auth-exploration-20261106",
+      "next_focus": "Series directory response and historical image availability; expand theme/page coverage"
+    }
+  ],
+  "environment_readiness_checks": [
+    {
+      "checked_at": "2026-11-06T12:22:39.787760+08:00",
+      "report": "2026-11-06-environment-readiness.json",
+      "scope": "discovery only; no feature acceptance promoted",
+      "pending_feature_evidence_pr": 239,
+      "pending_feature_evidence_head": "50592a175ec2639491ef7f7155cce058bb7b1986"
+    }
+  ],
+  "integration_note": "2026-11-09: merged PR239/240/241/242 evidence. Latest RSS report remains current; older environment blockers and rollout-pending statements are historical observations, not current acceptance. Prior local fixtures retained separately from production evidence."
 }

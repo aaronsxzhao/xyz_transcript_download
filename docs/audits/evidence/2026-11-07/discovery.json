@@ -1,0 +1,62 @@
+{
+  "started_at": "2026-11-07T01:02:17.477870+00:00",
+  "origin": "https://aipodcastsummary.online",
+  "mode": "authenticated",
+  "authenticated_session_verified": true,
+  "visual_inspection": "Podcast empty-state screenshot opened via view_image; visible search, add/upload controls and empty-state guidance.",
+  "sandbox_enabled": true,
+  "tls_verification": true,
+  "checks": [],
+  "blocked_write_requests": 13,
+  "browser_version": "154.0.8037.57",
+  "note_reads": [
+    {
+      "markdown_sha256": "768f58d228a650147f431c4609b8e58f55195eac72ba44110bb938950b816685",
+      "status": "success",
+      "versions": 1
+    },
+    {
+      "markdown_sha256": "768f58d228a650147f431c4609b8e58f55195eac72ba44110bb938950b816685",
+      "status": "success",
+      "versions": 1
+    }
+  ],
+  "page_error_count": 0,
+  "discovery": {
+    "search": {
+      "title_count": 2,
+      "cleared": true,
+      "pagination_available": false
+    },
+    "reader": {
+      "summary_nonempty": true,
+      "transcript_empty_message": false,
+      "transcript_panel_nonempty": true,
+      "summary_same_after_reload": true,
+      "more_actions_available": true,
+      "history_control_available": true,
+      "version_choices": 2,
+      "historical_version_http": 200,
+      "historical_note_nonempty": true,
+      "latest_restored": true
+    },
+    "task_history_available": true,
+    "task_history_opened": true,
+    "podcast_search": {
+      "no_match_visible": true,
+      "clear_succeeded": true,
+      "empty_account": true,
+      "reload_succeeded": true
+    }
+  },
+  "discovery_stage": "task_history",
+  "saved_markdown_unchanged_across_reads": true,
+  "status": "PASS",
+  "network_error_counts": [
+    {
+      "status": 404,
+      "category": "asset",
+      "count": 31
+    }
+  ]
+}

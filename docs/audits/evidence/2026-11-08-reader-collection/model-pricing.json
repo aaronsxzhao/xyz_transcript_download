@@ -1,0 +1,15 @@
+{
+  "operation": "public-pricing-read",
+  "authenticated": false,
+  "generation_calls": 0,
+  "http_status": 200,
+  "matching_model_count": 1,
+  "published_pricing": [
+    {
+      "model_price": 0,
+      "model_ratio": 5,
+      "completion_ratio": 5,
+      "quota_type": 0
+    }
+  ]
+}

@@ -10,3 +10,13 @@ For frontend, visual or interaction work, read [the UI design contract](docs/ui-
 - Use synthetic or explicitly controlled data for write interactions. Do not trigger real payment, deletion, subscription or content reprocessing during an audit.
 - Record the tested commit, surfaces, viewport/theme/browser coverage, evidence and limitations. Local fixtures, CI WebKit, live-site checks and physical-device checks are distinct claims.
 - Run the relevant regression lanes documented below. Do not weaken assertions or raise budgets just to make a change pass. Deploy only within the user's authorization and verify the deployed revision and health, not merely a merged PR.
+
+## Cloud browser inspection
+
+Missing built-in Browser tools does not establish that browser automation is unavailable.
+Use the validated shell-based Chromium/Playwright workflow in
+[docs/cloud-browser-inspection.md](docs/cloud-browser-inspection.md). Preserve the
+Chromium sandbox, certificate verification, proxy and CA trust. A shell permission
+failure is an environment blocker, not a frontend defect. Screenshot capture and
+actual image inspection are separate acceptance steps. Never count an anonymous
+or synthetic session as authenticated production coverage.

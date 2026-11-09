@@ -1,0 +1,11 @@
+{
+  "operation": "models-list-error-classification",
+  "http_status": 401,
+  "generation_calls": 0,
+  "signals": {
+    "invalid_credential": false,
+    "expired": false,
+    "permission": false,
+    "balance_or_quota": false
+  }
+}

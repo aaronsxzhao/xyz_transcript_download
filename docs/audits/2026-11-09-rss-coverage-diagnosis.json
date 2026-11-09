@@ -1,0 +1,110 @@
+{
+  "checked_at": "2026-11-09T07:19:56.852059+00:00",
+  "scope": "Read-only follow-up of two authorized test-account public RSS jobs; no paid generation, production writes, threshold changes or application edits",
+  "tasks": [
+    "5a4028a6-3967-4686-852e-5aa01deb911a",
+    "07295962-bda9-4281-a05d-af0911eb3d6b"
+  ],
+  "inspected_revision": "960839aa1058b9574a2294229c772b0c968c753a",
+  "evidence_source": "Connected Supabase SELECT restricted by this run task IDs and matching account/source checkpoints; unpublished candidate, inventory, model receipts and transcription segments inspected; no source prose persisted in report",
+  "configuration": {
+    "model": "gpt-6-astra",
+    "model_options": {},
+    "generation_mode": "single",
+    "pipeline": "source-linked-reading-v5-meaning-first",
+    "same_as_successful_audio_and_video_tests": true,
+    "rss_execution_environment": "actual production, not local mock",
+    "rss_source_scale": "4transcription segments totaling approximately33minutes;25973transcript characters;37inventory items",
+    "successful_controls": [
+      {
+        "kind": "synthetic podcast",
+        "material_items": 8,
+        "coverage_ratio": 1.0
+      },
+      {
+        "kind": "synthetic video",
+        "material_items": 9,
+        "coverage_ratio": 1.0
+      }
+    ]
+  },
+  "score_semantics": {
+    "material_items": 34,
+    "context_only": 3,
+    "covered": 27,
+    "partial": 7,
+    "calculation": "27/34=79.4117647%; partial counts as0, not proportional credit",
+    "not_claimed": "This is not a measured percentage of original words, information or semantic truth missing; current published successes have passed a gate, not proof every input reliably passes. Historical notes may use older pipelines."
+  },
+  "findings": [
+    {
+      "id": "repair-rejected-as-duplicate",
+      "confidence": "high for mechanical rejection; semantic novelty assessed against source",
+      "evidence": "At06:41:29 C3.31 was partial for omitted legislature timing.06:41:49 provider proposed the timing supplement.06:42:19 C3.31 became covered/grounded=true/duplicate=true with P11+L1.6 support. L1.6 is absent from saved candidate.",
+      "code": "coverage_ledger.py:513 good requires covered AND grounded AND NOT duplicate; paragraph acceptance requires novel good receipt. Later overlap handling cannot rescue a sole receipt rejected before acceptance.",
+      "consequence": "A real missing timing qualification was proposed but not retained; retry cannot simply be assumed to improve coverage.",
+      "fix_scope": "Core coverage/repair acceptance semantics; report only under current boundary."
+    },
+    {
+      "id": "materiality-and-recheck-inconsistency",
+      "confidence": "high that statuses changed; degree of semantic misclassification requires controlled review",
+      "evidence": "C1.3/P2,C3.24/P8,C3.28/P10,C4.36/P13 were covered at06:41 and partial at06:43–06:44. Only P11 was replaced; these supporting paragraphs were unchanged. Global draft context did change, so this is not an identical-input reproducibility experiment.",
+      "consequence": "Newly demanded details include rhetorical framing and incidental biography that MATCH explicitly allows to compress. Some genuine qualifications coexist; do not mark all7covered automatically."
+    },
+    {
+      "id": "final-recheck-no-repair",
+      "confidence": "high",
+      "code": "reading_delivery.py:108 efficient_audit(...allow_repairs=False) after grounding replacement; line116 quality/coverage rejection; quality errors break bounded loop.",
+      "consequence": "Final recheck adds/reopens gaps without another local repair opportunity. Current final ledger counters0repairs do not mean no repairs occurred earlier; checkpoint receipts prove prior repair attempts."
+    },
+    {
+      "id": "attribution-conflict",
+      "confidence": "medium pending audio speaker verification",
+      "evidence": "C3.32 repair receipt reported a conflict over who posed a question. Existing P11 and inventory disagree; appended opposite attribution cannot safely fix the existing sentence. Transcription has no reliable explicit speaker labels in this passage.",
+      "consequence": "Requires source-grounded local replacement and, if attribution remains ambiguous, audio verification; not acceptance via extra appended prose."
+    }
+  ],
+  "item_review": [
+    {
+      "id": "C1.3",
+      "assessment": "Turnout-question options not fully explicit; main answer and uncertainty are present. Materiality of omitted option needs adjudication; covered→partial on unchangedP2."
+    },
+    {
+      "id": "C3.24",
+      "assessment": "Core authenticity/identity argument present; remaining demand is emotional framing. Likely excessive detail requirement; covered→partial on unchangedP8."
+    },
+    {
+      "id": "C3.28",
+      "assessment": "Listening,delivery and candid acknowledgment of shortcomings present; remaining demand comes from rhetorical self-reproach, not a separate accountability mechanism. Likely overstrict, needs controlled semantic adjudication; unchangedP10."
+    },
+    {
+      "id": "C3.30",
+      "assessment": "Moderation and cross-sector cooperation present; non-vilification/public-good wording omitted. Boundary between substantive qualification and paraphrase remains uncertain; P11 changed."
+    },
+    {
+      "id": "C3.31",
+      "assessment": "Real omitted legislative timing; valid timing supplement mechanically rejected by duplicate flag."
+    },
+    {
+      "id": "C3.32",
+      "assessment": "Senate-seat condition omitted and question attribution disputed; genuine qualification requires repair, speaker assignment needs verification."
+    },
+    {
+      "id": "C4.36",
+      "assessment": "Historical labor and emotional significance present; remaining demanded names/family biography likely incidental under current MATCH instructions; unchangedP13."
+    }
+  ],
+  "proposal": {
+    "priority": "P1 for blocked user goal",
+    "steps": [
+      "Create synthetic regression cases for old-plus-new joint support, pure duplication, attribution contradiction and unchanged-support recheck drift.",
+      "Separate novelty of added meaning from overlap of existing context; retain strict grounding and contradiction veto.",
+      "Adjudicate only genuinely material newly alleged gaps using source; never automatically trust a previous pass or suppress valid contradictions.",
+      "Allow a bounded, targeted correction after final grounding edits when required, followed by immutable final verification. Version changed checkpoint semantics.",
+      "Validate this same controlled RSS sample and short/long controls at unchanged90% threshold; measure call budget and ensure no unbounded retry."
+    ],
+    "approval_boundary": "Requires a concrete core-algorithm plan before implementation; this turn performed only requested investigation.",
+    "rollback": "Keep previous release/checkpoint version; do not reprocess existing real-account notes automatically."
+  },
+  "validation": "Existing saved receipt replay: C3.31 covered=true grounded=true duplicate=true → existing good predicate false; saved candidate lacksL1.6. No new model requests or repeated unrelated regression suites."
+}

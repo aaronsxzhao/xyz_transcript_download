@@ -1,0 +1,183 @@
+{
+  "date": "2026-11-08",
+  "baseline": "906393581ce23ef5bbf1594070834a1bcf8a9f19",
+  "production_before": "95b2712bd7da8102c829ccdfebeaf4a4aab0d444",
+  "environment": {
+    "id": "ccarenv_b64_Y2NhcmVudl8yZDc0NjllZjE1OWM4MTkxOGNmNWE0NGJhMjhlMTA4Ng",
+    "current": "connected; network unrestricted enforced; configured GH/model bindings ready",
+    "browser": "Python3.11.17 Playwright1.64.0 system Chromium154.0.8037.57; no missing dynamic libraries; elevated shell; sandbox and TLS enabled"
+  },
+  "discovery": {
+    "data": "authorized existing account;2 saved titles;1 ordinary reader;1 legacy series;no podcasts;existing content read-only",
+    "core": "Library/search/clear;three viewport navigation/reload;summary/transcript/history/task panel;podcast empty state",
+    "consistency": "Saved API Markdown unchanged; rendered prose comparisons differed this run. Prior settled comparison is sample-specific and does not close this issue. No data-loss inference.",
+    "new_chain": "Library -> series expand -> parts409 in0.23s -> saved link still available -> collapse; Settings Tools & Data -> Check missing screenshots ->13/13 missing across2notes",
+    "page_errors": 0,
+    "console": "Errors include screenshot404,collection409 and intentionally blocked background writes; not clean-console acceptance",
+    "pm": {
+      "goal": "Find all series episodes and determine how to recover missing images",
+      "result": "partial: saved episode reading link retained (following it was not checked in this chain); integrity tool reports missing assets. Full directory and historical media unavailable.",
+      "priorities": [
+        "P2 legacy collection missing manifest: metadata-only discovery proposal, no content regeneration",
+        "P2 historical images: scoped backup/original-media recovery plan, no writes",
+        "P2 misleading cookie diagnostic: repair already in PR243, release pending CI"
+      ]
+    },
+    "visual": "1440x900,768x1024,390x844 Library screenshots opened;no horizontal overflow;desktop source filter still loading at capture;follow-up screenshots inspected, lower content extends below viewport",
+    "media_retention_review": "Current cleanup_expired_assets protects saved-task assets and fails closed when saved IDs cannot be read. No evidence that the current retention policy caused the historical13missing objects; no cleanup or recovery invoked."
+  },
+  "regression": {
+    "prior": "38 related Python,539 frontend tests and12 Chromium UI combinations passed Nov7; not rerun locally for runner-only change",
+    "current_ci": {
+      "run": 42432070935,
+      "head": "3d13e2539b383c43f46c68bffa1a4a6c1ddbd6ac",
+      "result": "success",
+      "frontend": "success",
+      "python": "success",
+      "postgres": "success",
+      "summary": "success",
+      "note": "Scheduled appearance and standalone API health jobs skipped by original event conditions; actual production health checked separately"
+    },
+    "change": "PR243 commit3d13e25 pins only frontend job to officially supported ubuntu-22.04. No host policy relaxation, no-sandbox flag, TLS bypass or threshold reduction.",
+    "ci_sandbox": "Resolved: full frontend suite including sandbox-enabled YouTube Chromium and WebKit lane passed on officially supported ubuntu-22.04; no security bypass or threshold changes."
+  },
+  "blockers": {
+    "model": "Current normalized /v1/models401;0 generation calls; provider-accepted SUMMARY_TEST_API_KEY required in secure environment config",
+    "hosted_fault_tests": "No isolated hosted queue/restart environment configured; no production fault injection",
+    "data_scale": "2-title production account cannot accept large pagination",
+    "full_podcast_and_long_inference": "Model auth blocks paid generation chain"
+  },
+  "harness_note": "Incorrect directory response matcher caused first run timeout; preserved failure and corrected targeted follow-up. Not a product timeout.",
+  "publication": {
+    "pr": 243,
+    "state": "merged, deployed and affected production behavior verified",
+    "merge_revision": "37bcc192db81ff7227000b5c46b821f88cde07a7",
+    "ci_run": 42432070935,
+    "deploy_run": 42434515097,
+    "deploy_result": "success",
+    "health": {
+      "status": "ok",
+      "revision": "37bcc192db81ff7227000b5c46b821f88cde07a7"
+    },
+    "merge_tree_matches_tested_head": true,
+    "postdeploy": {
+      "reference": "65434edb-44ca-47cd-86ac-5a1315ab8144",
+      "revision": "37bcc192db81ff7227000b5c46b821f88cde07a7",
+      "code": "missing_cookie",
+      "stage": "cookie",
+      "cookie_present": false,
+      "metadata_ok": false,
+      "download_ok": false,
+      "sample_bytes": 0,
+      "elapsed_seconds": 0.02,
+      "retry_available": true,
+      "missing_label": true
+    },
+    "limits": "Only absent-cookie production path verified; genuine storage-outage UI covered by synthetic regression, no production fault injection; no upstream YouTube metadata/media acceptance"
+  },
+  "evidence": "docs/audits/evidence/2026-11-08/",
+  "related_work": {
+    "239": "50592a1 open",
+    "240": "8508e4 open",
+    "241": "c6bb7b4 open",
+    "242": "0bb92d6 open; authenticated design follow-up consulted",
+    "243": "current fix and release"
+  },
+  "coverage_delta": [
+    {
+      "feature": "library-reader-versions-task-status",
+      "checked_at": "2026-11-08T00:57:50Z",
+      "owner": "technical/PM; share visual evidence with design audit",
+      "environment": "production; authorized existing account read-only",
+      "scale": "2 titles,1 ordinary reader,1 saved historical version",
+      "steps": [
+        "navigate Library",
+        "search no-match and clear",
+        "read summary and transcript",
+        "reload",
+        "select saved version and return latest",
+        "open task history"
+      ],
+      "result": "partial",
+      "evidence": "run.json",
+      "gap": "API Markdown stable; rendered semantic comparison differs;2titles cannot verify pagination",
+      "next": "Separate fully settled rich-render text from transition states; isolated large-list/processing concurrency after model auth restored",
+      "frequency": "Observed in this scoped account/sample; broader user frequency unknown"
+    },
+    {
+      "feature": "production-multipart-directory",
+      "checked_at": "2026-11-08T00:59:29Z",
+      "owner": "technical+PM; shared with design",
+      "environment": "production existing data read-only",
+      "scale": "1 legacy series with1saved episode",
+      "steps": [
+        "expand",
+        "observe409 in0.23s",
+        "verify saved reading link remains",
+        "collapse"
+      ],
+      "result": "failed for complete directory;fallback controls pass",
+      "risk": "P2:full series discovery blocked",
+      "root_cause_confidence": "high for missing saved manifest branch;history origin unknown",
+      "evidence": "followup.json",
+      "next": "Design metadata-only discovery with unchanged saved summaries; no automatic reprocessing/backfill",
+      "frequency": "Observed in this scoped account/sample; broader user frequency unknown"
+    },
+    {
+      "feature": "screenshot-integrity-recovery",
+      "checked_at": "2026-11-08T00:59:29Z",
+      "owner": "technical+PM",
+      "environment": "production existing data read-only",
+      "scale": "2notes,13references,13missingassets",
+      "steps": [
+        "Settings",
+        "Tools & Data",
+        "Check missing screenshots"
+      ],
+      "result": "inventory passes;historical media recovery unaccepted",
+      "risk": "P2:missing historical visual information",
+      "root_cause_confidence": "high missing inventory;low original loss cause",
+      "evidence": "followup.json",
+      "next": "Inventory backups and source availability;propose scoped restoration;retain existing read-only boundary",
+      "frequency": "Observed in this scoped account/sample; broader user frequency unknown"
+    },
+    {
+      "feature": "long-inference-and-full-podcast-lifecycle",
+      "owner": "technical/PM",
+      "environment": "test provider readiness only",
+      "scale": "one models-list read,zero generation requests",
+      "result": "blocked",
+      "evidence": "model.json",
+      "gap": "HTTP401 at normalized API endpoint",
+      "next": "Provider-accepted credential via secure Cloud settings;then isolated synthetic lifecycle within prior budget",
+      "frequency": "Observed in this scoped account/sample; broader user frequency unknown"
+    },
+    {
+      "feature": "settings-platforms-cookie-diagnostics",
+      "checked_at": "2026-11-08T01:43:33.965864+00:00",
+      "owner": "technical/PM",
+      "environment": "production authorized test account,normal login",
+      "scale": "one absent-cookie diagnostic;zero upstream media bytes",
+      "steps": [
+        "Settings",
+        "Platform Accounts",
+        "YouTube",
+        "Verify connection and download",
+        "inspect response and UI"
+      ],
+      "result": "pass for missing-cookie classification",
+      "evidence": "postdeploy.json",
+      "previous": "storage_unavailable beforefix",
+      "actual": "missing_cookie,correct import guidance,enabled retry",
+      "next": "Fresh authorized saved cookies required for upstream metadata/media validation"
+    }
+  ],
+  "commands": {
+    "browser_core": "/workspace/xyz_transcript_download/venv/bin/python browser.py --authenticated --output <private-run-dir>",
+    "browser_followup": "/workspace/xyz_transcript_download/venv/bin/python followup.py --authenticated --output <private-followup-dir>",
+    "readiness": "HTTP GET normalized SUMMARY_TEST_BASE_URL + /models with configured key; output status only",
+    "ci": "gh run view 42432070935 --json status,conclusion,jobs",
+    "release": "gh pr merge 243 --merge --match-head-commit 3d13e2539b383c43f46c68bffa1a4a6c1ddbd6ac; existing push-triggered deploy workflow"
+  },
+  "completed_at": "2026-11-08T01:44:46.200835+00:00"
+}

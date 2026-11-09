@@ -1,0 +1,148 @@
+{
+  "created": [
+    {
+      "eid": "local_b418eae0c24248f3",
+      "title": "AUDIT-20261109-SOFTWARE-MAIN",
+      "pid": "local_uploads"
+    },
+    {
+      "eid": "local_0f361e3d3dac4a48",
+      "title": "AUDIT-20261109-SOFTWARE-DISPOSABLE",
+      "pid": "local_uploads"
+    }
+  ],
+  "timings": [
+    {
+      "operation": "upload-MAIN",
+      "seconds": 1.099
+    },
+    {
+      "operation": "upload-DISPOSABLE",
+      "seconds": 1.06
+    },
+    {
+      "operation": "search-clear-during-processing",
+      "seconds": 0.957,
+      "job_state": "summarizing"
+    },
+    {
+      "operation": "read-existing-during-processing",
+      "seconds": 0.889,
+      "job_state": "summarizing"
+    },
+    {
+      "operation": "delete-own-disposable",
+      "seconds": 0.498,
+      "job_state": "summarizing"
+    }
+  ],
+  "states": [
+    {
+      "status": "pending",
+      "progress": 0.0,
+      "elapsed": 0.18
+    },
+    {
+      "status": "pending",
+      "progress": 0.0,
+      "elapsed": 1.31
+    },
+    {
+      "status": "fetching",
+      "progress": 10.0,
+      "elapsed": 2.46
+    },
+    {
+      "status": "transcribing",
+      "progress": 30.0,
+      "elapsed": 3.58
+    },
+    {
+      "status": "transcribing",
+      "progress": 30.0,
+      "elapsed": 4.71
+    },
+    {
+      "status": "transcribing",
+      "progress": 30.0,
+      "elapsed": 5.84
+    },
+    {
+      "status": "transcribing",
+      "progress": 30.0,
+      "elapsed": 6.99
+    },
+    {
+      "status": "summarizing",
+      "progress": 75.0,
+      "elapsed": 8.18
+    },
+    {
+      "status": "summarizing",
+      "progress": 75.0,
+      "elapsed": 9.5
+    },
+    {
+      "status": "summarizing",
+      "progress": 75.0,
+      "elapsed": 10.54
+    },
+    {
+      "status": "summarizing",
+      "progress": 75.0,
+      "elapsed": 11.55
+    },
+    {
+      "status": "summarizing",
+      "progress": 75.0,
+      "elapsed": 11.7
+    },
+    {
+      "status": "summarizing",
+      "progress": 75.0,
+      "elapsed": 16.94
+    },
+    {
+      "status": "summarizing",
+      "progress": 75.0,
+      "elapsed": 22.27
+    },
+    {
+      "status": "summarizing",
+      "progress": 75.0,
+      "elapsed": 27.47
+    },
+    {
+      "status": "summarizing",
+      "progress": 75.0,
+      "elapsed": 32.63
+    },
+    {
+      "status": "summarizing",
+      "progress": 75.0,
+      "elapsed": 37.81
+    },
+    {
+      "status": "completed",
+      "progress": 100.0,
+      "elapsed": 42.99
+    }
+  ],
+  "transcription_settings": {
+    "whisper_mode": "api",
+    "whisper_provider": "groq",
+    "transcription_provider": "server",
+    "whisper_key_saved": false
+  },
+  "upload_reload_passed": true,
+  "job_id": "8014474b-be54-4a8a-9b4e-b53edb1a395b",
+  "state_before_parallel_ui": "summarizing",
+  "disposable_deleted": true,
+  "terminal_status": "completed",
+  "job_message": "Processing complete!",
+  "job_error": "",
+  "reader_opened": true,
+  "summary_http": 200,
+  "summary_nonempty": true,
+  "status": "PASS"
+}

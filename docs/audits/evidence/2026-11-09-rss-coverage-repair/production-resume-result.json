@@ -1,0 +1,364 @@
+{
+  "states": [
+    {
+      "status": "pending",
+      "progress": 0.0,
+      "elapsed": 0.16
+    },
+    {
+      "status": "summarizing",
+      "progress": 70.0,
+      "elapsed": 5.34
+    },
+    {
+      "status": "summarizing",
+      "progress": 70.0,
+      "elapsed": 10.48
+    },
+    {
+      "status": "summarizing",
+      "progress": 70.0,
+      "elapsed": 15.62
+    },
+    {
+      "status": "summarizing",
+      "progress": 70.0,
+      "elapsed": 20.76
+    },
+    {
+      "status": "summarizing",
+      "progress": 70.0,
+      "elapsed": 25.9
+    },
+    {
+      "status": "summarizing",
+      "progress": 70.0,
+      "elapsed": 31.03
+    },
+    {
+      "status": "summarizing",
+      "progress": 70.0,
+      "elapsed": 36.15
+    },
+    {
+      "status": "summarizing",
+      "progress": 70.0,
+      "elapsed": 41.28
+    },
+    {
+      "status": "summarizing",
+      "progress": 70.0,
+      "elapsed": 46.41
+    },
+    {
+      "status": "summarizing",
+      "progress": 70.0,
+      "elapsed": 51.53
+    },
+    {
+      "status": "summarizing",
+      "progress": 70.0,
+      "elapsed": 56.65
+    },
+    {
+      "status": "summarizing",
+      "progress": 70.0,
+      "elapsed": 62.37
+    },
+    {
+      "status": "summarizing",
+      "progress": 70.0,
+      "elapsed": 67.62
+    },
+    {
+      "status": "summarizing",
+      "progress": 70.0,
+      "elapsed": 72.78
+    },
+    {
+      "status": "summarizing",
+      "progress": 70.0,
+      "elapsed": 78.04
+    },
+    {
+      "status": "summarizing",
+      "progress": 70.0,
+      "elapsed": 83.26
+    },
+    {
+      "status": "summarizing",
+      "progress": 70.0,
+      "elapsed": 88.42
+    },
+    {
+      "status": "summarizing",
+      "progress": 70.0,
+      "elapsed": 93.57
+    },
+    {
+      "status": "summarizing",
+      "progress": 70.0,
+      "elapsed": 98.71
+    },
+    {
+      "status": "summarizing",
+      "progress": 70.0,
+      "elapsed": 104.36
+    },
+    {
+      "status": "summarizing",
+      "progress": 70.0,
+      "elapsed": 109.49
+    },
+    {
+      "status": "summarizing",
+      "progress": 70.0,
+      "elapsed": 114.61
+    },
+    {
+      "status": "summarizing",
+      "progress": 70.0,
+      "elapsed": 119.74
+    },
+    {
+      "status": "summarizing",
+      "progress": 70.0,
+      "elapsed": 125.43
+    },
+    {
+      "status": "summarizing",
+      "progress": 70.0,
+      "elapsed": 130.6
+    },
+    {
+      "status": "summarizing",
+      "progress": 70.0,
+      "elapsed": 135.72
+    },
+    {
+      "status": "summarizing",
+      "progress": 70.0,
+      "elapsed": 140.85
+    },
+    {
+      "status": "summarizing",
+      "progress": 70.0,
+      "elapsed": 145.98
+    },
+    {
+      "status": "summarizing",
+      "progress": 70.0,
+      "elapsed": 151.1
+    },
+    {
+      "status": "summarizing",
+      "progress": 70.0,
+      "elapsed": 156.27
+    },
+    {
+      "status": "summarizing",
+      "progress": 70.0,
+      "elapsed": 161.41
+    },
+    {
+      "status": "summarizing",
+      "progress": 70.0,
+      "elapsed": 166.58
+    },
+    {
+      "status": "summarizing",
+      "progress": 70.0,
+      "elapsed": 171.7
+    },
+    {
+      "status": "summarizing",
+      "progress": 70.0,
+      "elapsed": 176.89
+    },
+    {
+      "status": "summarizing",
+      "progress": 70.0,
+      "elapsed": 182.07
+    },
+    {
+      "status": "summarizing",
+      "progress": 70.0,
+      "elapsed": 188.05
+    },
+    {
+      "status": "summarizing",
+      "progress": 70.0,
+      "elapsed": 193.22
+    },
+    {
+      "status": "summarizing",
+      "progress": 70.0,
+      "elapsed": 198.41
+    },
+    {
+      "status": "summarizing",
+      "progress": 70.0,
+      "elapsed": 203.57
+    },
+    {
+      "status": "summarizing",
+      "progress": 70.0,
+      "elapsed": 208.71
+    },
+    {
+      "status": "summarizing",
+      "progress": 70.0,
+      "elapsed": 213.85
+    },
+    {
+      "status": "summarizing",
+      "progress": 70.0,
+      "elapsed": 219.04
+    },
+    {
+      "status": "summarizing",
+      "progress": 70.0,
+      "elapsed": 224.16
+    },
+    {
+      "status": "summarizing",
+      "progress": 70.0,
+      "elapsed": 229.38
+    },
+    {
+      "status": "summarizing",
+      "progress": 70.0,
+      "elapsed": 234.52
+    },
+    {
+      "status": "summarizing",
+      "progress": 70.0,
+      "elapsed": 239.69
+    },
+    {
+      "status": "summarizing",
+      "progress": 70.0,
+      "elapsed": 244.84
+    },
+    {
+      "status": "summarizing",
+      "progress": 70.0,
+      "elapsed": 250.33
+    },
+    {
+      "status": "summarizing",
+      "progress": 70.0,
+      "elapsed": 255.5
+    },
+    {
+      "status": "summarizing",
+      "progress": 70.0,
+      "elapsed": 260.62
+    },
+    {
+      "status": "summarizing",
+      "progress": 70.0,
+      "elapsed": 265.8
+    },
+    {
+      "status": "summarizing",
+      "progress": 70.0,
+      "elapsed": 270.94
+    },
+    {
+      "status": "summarizing",
+      "progress": 70.0,
+      "elapsed": 276.1
+    },
+    {
+      "status": "summarizing",
+      "progress": 70.0,
+      "elapsed": 281.26
+    },
+    {
+      "status": "summarizing",
+      "progress": 70.0,
+      "elapsed": 286.41
+    },
+    {
+      "status": "completed",
+      "progress": 100.0,
+      "elapsed": 291.59
+    }
+  ],
+  "timings": [],
+  "poll_http": [
+    200,
+    200,
+    200,
+    200,
+    200,
+    200,
+    200,
+    200,
+    200,
+    200,
+    200,
+    200,
+    200,
+    200,
+    200,
+    200,
+    200,
+    200,
+    200,
+    200,
+    200,
+    200,
+    200,
+    200,
+    200,
+    200,
+    200,
+    200,
+    200,
+    200,
+    200,
+    200,
+    200,
+    200,
+    200,
+    200,
+    200,
+    200,
+    200,
+    200,
+    200,
+    200,
+    200,
+    200,
+    200,
+    200,
+    200,
+    200,
+    200,
+    200,
+    200,
+    200,
+    200,
+    200,
+    200,
+    200,
+    200
+  ],
+  "budget_before": 4.112084,
+  "revision": "99011578febe2a36bd039d8d1077dbe0a7c36f6b",
+  "created_pid": "apple_1200361736",
+  "candidate_resume_only": true,
+  "retry_http": 200,
+  "job_id": "de85336d-3ff2-4a22-aca3-8cadd2cc9c9a",
+  "budget_latest": 4.724534,
+  "terminal": "completed",
+  "quality_coverage_failure": false,
+  "rendered_summary_present": true,
+  "transcript_read": true,
+  "summary_reload_equal": true,
+  "second_tab_equal": true,
+  "status": "PASS",
+  "parallel_interaction_evidence": "production-first-result.json; not repeated during candidate-only resume"
+}

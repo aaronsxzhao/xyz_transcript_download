@@ -1,0 +1,187 @@
+{
+  "started_at": "2026-11-06T13:06:11.262856+00:00",
+  "origin": "https://aipodcastsummary.online",
+  "mode": "authenticated",
+  "authenticated_session_verified": true,
+  "visual_inspection": "NOT_REVIEWED",
+  "sandbox_enabled": true,
+  "tls_verification": true,
+  "checks": [],
+  "blocked_write_requests": 9,
+  "browser_version": "154.0.8037.57",
+  "network_errors": [
+    {
+      "status": 404,
+      "resource_kind": "screenshot",
+      "category": "asset"
+    },
+    {
+      "status": 404,
+      "resource_kind": "screenshot",
+      "category": "asset"
+    },
+    {
+      "status": 404,
+      "resource_kind": "screenshot",
+      "category": "asset"
+    },
+    {
+      "status": 404,
+      "resource_kind": "screenshot",
+      "category": "asset"
+    },
+    {
+      "status": 404,
+      "resource_kind": "screenshot",
+      "category": "asset"
+    },
+    {
+      "status": 404,
+      "resource_kind": "screenshot",
+      "category": "asset"
+    },
+    {
+      "status": 404,
+      "resource_kind": "screenshot",
+      "category": "asset"
+    },
+    {
+      "status": 404,
+      "resource_kind": "screenshot",
+      "category": "asset"
+    },
+    {
+      "status": 404,
+      "resource_kind": "screenshot",
+      "category": "asset"
+    },
+    {
+      "status": 404,
+      "resource_kind": "screenshot",
+      "category": "asset"
+    },
+    {
+      "status": 404,
+      "resource_kind": "screenshot",
+      "category": "asset"
+    },
+    {
+      "status": 404,
+      "resource_kind": "screenshot",
+      "category": "asset"
+    },
+    {
+      "status": 404,
+      "resource_kind": "screenshot",
+      "category": "asset"
+    },
+    {
+      "status": 404,
+      "resource_kind": "screenshot",
+      "category": "asset"
+    },
+    {
+      "status": 404,
+      "resource_kind": "screenshot",
+      "category": "asset"
+    },
+    {
+      "status": 404,
+      "resource_kind": "screenshot",
+      "category": "asset"
+    },
+    {
+      "status": 404,
+      "resource_kind": "screenshot",
+      "category": "asset"
+    },
+    {
+      "status": 404,
+      "resource_kind": "screenshot",
+      "category": "asset"
+    },
+    {
+      "status": 404,
+      "resource_kind": "screenshot",
+      "category": "asset"
+    },
+    {
+      "status": 404,
+      "resource_kind": "screenshot",
+      "category": "asset"
+    },
+    {
+      "status": 404,
+      "resource_kind": "screenshot",
+      "category": "asset"
+    },
+    {
+      "status": 404,
+      "resource_kind": "screenshot",
+      "category": "asset"
+    },
+    {
+      "status": 404,
+      "resource_kind": "screenshot",
+      "category": "asset"
+    },
+    {
+      "status": 404,
+      "resource_kind": "screenshot",
+      "category": "asset"
+    },
+    {
+      "status": 404,
+      "resource_kind": "screenshot",
+      "category": "asset"
+    },
+    {
+      "status": 404,
+      "resource_kind": "screenshot",
+      "category": "asset"
+    },
+    {
+      "status": 404,
+      "resource_kind": "screenshot",
+      "category": "asset"
+    },
+    {
+      "status": 404,
+      "resource_kind": "screenshot",
+      "category": "asset"
+    },
+    {
+      "status": 404,
+      "resource_kind": "screenshot",
+      "category": "asset"
+    },
+    {
+      "status": 404,
+      "resource_kind": "screenshot",
+      "category": "asset"
+    },
+    {
+      "status": 404,
+      "resource_kind": "screenshot",
+      "category": "asset"
+    }
+  ],
+  "page_error_count": 0,
+  "discovery": {
+    "reader": {
+      "summary_nonempty": true,
+      "transcript_empty_message": false,
+      "transcript_panel_nonempty": true,
+      "summary_same_after_reload": false,
+      "more_actions_available": true,
+      "history_control_available": true,
+      "version_choices": 2,
+      "historical_note_nonempty": true,
+      "latest_restored": false
+    },
+    "task_history_available": true,
+    "task_history_opened": true
+  },
+  "discovery_stage": "task_history",
+  "status": "PASS"
+}

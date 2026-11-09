@@ -1,0 +1,265 @@
+{
+  "states": [
+    {
+      "status": "pending",
+      "elapsed": 0.26
+    },
+    {
+      "status": "transcribing",
+      "elapsed": 5.4
+    },
+    {
+      "status": "transcribing",
+      "elapsed": 10.54
+    },
+    {
+      "status": "transcribing",
+      "elapsed": 15.66
+    },
+    {
+      "status": "transcribing",
+      "elapsed": 20.78
+    },
+    {
+      "status": "transcribing",
+      "elapsed": 25.91
+    },
+    {
+      "status": "transcribing",
+      "elapsed": 31.1
+    },
+    {
+      "status": "transcribing",
+      "elapsed": 36.22
+    },
+    {
+      "status": "summarizing",
+      "elapsed": 41.38
+    },
+    {
+      "status": "summarizing",
+      "elapsed": 46.62
+    },
+    {
+      "status": "summarizing",
+      "elapsed": 51.79
+    },
+    {
+      "status": "summarizing",
+      "elapsed": 56.95
+    },
+    {
+      "status": "summarizing",
+      "elapsed": 62.07
+    },
+    {
+      "status": "summarizing",
+      "elapsed": 67.25
+    },
+    {
+      "status": "summarizing",
+      "elapsed": 72.37
+    },
+    {
+      "status": "summarizing",
+      "elapsed": 77.51
+    },
+    {
+      "status": "summarizing",
+      "elapsed": 82.67
+    },
+    {
+      "status": "summarizing",
+      "elapsed": 87.85
+    },
+    {
+      "status": "summarizing",
+      "elapsed": 93.02
+    },
+    {
+      "status": "summarizing",
+      "elapsed": 98.23
+    },
+    {
+      "status": "summarizing",
+      "elapsed": 103.39
+    },
+    {
+      "status": "summarizing",
+      "elapsed": 108.53
+    },
+    {
+      "status": "summarizing",
+      "elapsed": 113.66
+    },
+    {
+      "status": "summarizing",
+      "elapsed": 118.84
+    },
+    {
+      "status": "summarizing",
+      "elapsed": 124.03
+    },
+    {
+      "status": "summarizing",
+      "elapsed": 129.21
+    },
+    {
+      "status": "summarizing",
+      "elapsed": 134.35
+    },
+    {
+      "status": "summarizing",
+      "elapsed": 139.51
+    },
+    {
+      "status": "summarizing",
+      "elapsed": 144.66
+    },
+    {
+      "status": "summarizing",
+      "elapsed": 149.82
+    },
+    {
+      "status": "summarizing",
+      "elapsed": 154.98
+    },
+    {
+      "status": "summarizing",
+      "elapsed": 160.11
+    },
+    {
+      "status": "summarizing",
+      "elapsed": 165.24
+    },
+    {
+      "status": "summarizing",
+      "elapsed": 170.38
+    },
+    {
+      "status": "summarizing",
+      "elapsed": 175.56
+    },
+    {
+      "status": "summarizing",
+      "elapsed": 180.78
+    },
+    {
+      "status": "summarizing",
+      "elapsed": 185.95
+    },
+    {
+      "status": "summarizing",
+      "elapsed": 191.16
+    },
+    {
+      "status": "summarizing",
+      "elapsed": 196.31
+    },
+    {
+      "status": "summarizing",
+      "elapsed": 201.47
+    },
+    {
+      "status": "summarizing",
+      "elapsed": 206.6
+    },
+    {
+      "status": "summarizing",
+      "elapsed": 211.76
+    },
+    {
+      "status": "summarizing",
+      "elapsed": 216.91
+    },
+    {
+      "status": "summarizing",
+      "elapsed": 222.08
+    },
+    {
+      "status": "summarizing",
+      "elapsed": 0.29
+    },
+    {
+      "status": "summarizing",
+      "elapsed": 5.43
+    },
+    {
+      "status": "summarizing",
+      "elapsed": 10.61
+    },
+    {
+      "status": "summarizing",
+      "elapsed": 15.74
+    },
+    {
+      "status": "summarizing",
+      "elapsed": 20.91
+    },
+    {
+      "status": "summarizing",
+      "elapsed": 26.08
+    },
+    {
+      "status": "summarizing",
+      "elapsed": 31.25
+    },
+    {
+      "status": "summarizing",
+      "elapsed": 36.43
+    },
+    {
+      "status": "summarizing",
+      "elapsed": 41.57
+    },
+    {
+      "status": "summarizing",
+      "elapsed": 46.74
+    },
+    {
+      "status": "summarizing",
+      "elapsed": 51.89
+    },
+    {
+      "status": "summarizing",
+      "elapsed": 57.02
+    },
+    {
+      "status": "summarizing",
+      "elapsed": 62.2
+    },
+    {
+      "status": "failed",
+      "elapsed": 67.43
+    }
+  ],
+  "import_http": 200,
+  "created_pid": "apple_1200361736",
+  "episode_id": "de4246248271cec5cc24b32c",
+  "job_id": "5a4028a6-3967-4686-852e-5aa01deb911a",
+  "error_type": "AssertionError",
+  "error_line": 22,
+  "resumed_read_only": true,
+  "poll_http": [
+    200,
+    200,
+    200,
+    200,
+    200,
+    200,
+    200,
+    200,
+    200,
+    200,
+    200,
+    200,
+    200,
+    200
+  ],
+  "terminal": "failed",
+  "error_code": null,
+  "has_error": false,
+  "cleanup_http": 200,
+  "cleaned": true,
+  "status": "BLOCKED"
+}

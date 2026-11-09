@@ -1,0 +1,11 @@
+{
+  "configured": {
+    "SUMMARY_TEST_BASE_URL": true,
+    "SUMMARY_TEST_API_KEY": true,
+    "SUMMARY_TEST_MODEL": true
+  },
+  "generation_calls": 0,
+  "operation": "normalized-models-list",
+  "http_status": 401,
+  "normalized_path_used": true
+}

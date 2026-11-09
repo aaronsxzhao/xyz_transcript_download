@@ -1,0 +1,38 @@
+{
+  "checked_at": "2026-11-09T08:55:03.156279+00:00",
+  "scope": "User requested all open PRs239,240,241,242 merged into main and deployed",
+  "base_main": "99011578febe2a36bd039d8d1077dbe0a7c36f6b",
+  "integration": "All4branch heads retained as ancestors; only shared coverage JSON conflicted. Latest241acceptance retained; prior239localchecks and240/242environment/visual histories kept separately.",
+  "application_diff": "No application changes; audit records, instructions, gitignore and standalone cloud browser checker only.",
+  "validation": {
+    "json_files": 77,
+    "python_files": 27,
+    "json_parse_and_python_ast": "passed",
+    "credential_shaped_literals": "none detected",
+    "browser": {
+      "anonymous": "PASS all3viewports;Rememberme toggle/restore;reload;protectedredirect",
+      "authenticated": "PASS realUIlogin+server-issuedtoken+protectedstats;Librarynavigation+reload all3viewports",
+      "visual": "All6screenshots opened withview_image;no horizontal overflow observed. Desktop sample includes still-loading source filters,so not a settled-filter acceptance.",
+      "viewports": [
+        [
+          1440,
+          900
+        ],
+        [
+          768,
+          1024
+        ],
+        [
+          390,
+          844
+        ]
+      ],
+      "sandbox": true,
+      "tls_verify": true,
+      "screenshots": "private workspace /workspace/merge-validation;notcommitted",
+      "production_data_writes": "none; browser guard rejects writes exceptlogin"
+    }
+  },
+  "ci": "Pending integrated-head fullCI",
+  "deployment": "Pending fullCI and merge; user explicitly requested online release despite audit-only application diff"
+}

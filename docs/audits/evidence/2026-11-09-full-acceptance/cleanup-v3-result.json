@@ -1,0 +1,15 @@
+{
+  "transcript_read": true,
+  "summary_reload_equal": true,
+  "tab_comparison": {
+    "first_chars": 1607,
+    "second_chars": 1607
+  },
+  "second_tab_equal": true,
+  "online_recovery_equal": true,
+  "summary_only_preserves_transcript_and_source": true,
+  "second_tab_reload_no_stale_summary": true,
+  "source_delete_refresh_absent": true,
+  "garden_source_cleaned": true,
+  "status": "PASS"
+}

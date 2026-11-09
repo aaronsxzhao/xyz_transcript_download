@@ -1,0 +1,39 @@
+{
+  "scope": "isolated synthetic local HTTP + real SQLite + killed child process; no API/UI or production Supabase acceptance",
+  "injected_http524": {
+    "statuses": [
+      524,
+      524,
+      524,
+      200
+    ],
+    "retry_limit": 3,
+    "failed_response_checkpointed": false,
+    "fresh_execution_recovered": true,
+    "replay_extra_requests": 0,
+    "seconds": 6.034,
+    "limit": "Actual local HTTP 524 through existing _call_llm; not real provider timeout, full generation, UI retry or worker dispatcher"
+  },
+  "process_death": {
+    "signal": "SIGKILL",
+    "exit_code": -9,
+    "lease_seconds": 2,
+    "reclaimed_attempt": 2,
+    "stale_worker_commit_rejected": true,
+    "saved_checkpoint_reused": true,
+    "next_queued_task_completed": true,
+    "saved_note_and_version_retained": true,
+    "limit": "Queue primitives driven explicitly; not application server restart or full dispatcher loop"
+  },
+  "save_recovery": {
+    "fault": "SQLite trigger abort on synthetic note update",
+    "original_retained": true,
+    "active_save_recovery_rejected": true,
+    "terminal_state_set_by_harness": true,
+    "partial_version_absent": true,
+    "reopened_database_recovery": "applied",
+    "repeat_recovery": "already_saved",
+    "versions": 1,
+    "limit": "Local storage facade; no browser or hosted RPC"
+  }
+}

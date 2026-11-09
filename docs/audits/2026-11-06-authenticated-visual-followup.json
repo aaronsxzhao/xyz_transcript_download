@@ -1,0 +1,69 @@
+{
+  "date": "2026-11-06",
+  "scope": "Authenticated follow-up; supersedes missing-environment-variable blocker only",
+  "source_commit": "7daefe1ba966741552a7da548fa9f9a954e00f09 plus prompt/navigation/wait fixes",
+  "main_commit": "906393581ce23ef5bbf1594070834a1bcf8a9f19",
+  "pr": 242,
+  "browser": "Chromium 154.0.8037.57; Python Playwright 1.62.0",
+  "auth": "Normal UI login and protected /api/stats HTTP 200 verified; no secrets persisted",
+  "automation": "Environment variables optional; confidential interactive input supported",
+  "A_actual": [
+    "Classic dark Library inspected at 1440x900,768x1024,390x844",
+    "Search no-results, clear, sort oldest and restore, list/grid, series expand",
+    "Ordinary summary reader, back, reload; task-history modal opened",
+    "8 screenshots opened using view_image"
+  ],
+  "B_automated": [
+    "Three viewport navigation/reload/no horizontal overflow assertions passed",
+    "Python compile and git diff whitespace checks passed"
+  ],
+  "C_unchecked": [
+    "Authenticated Editorial/light combinations",
+    "Large datasets and pagination (account has two titles)",
+    "Active processing, old progress update regression, background recovery",
+    "Authenticated Settings/subscription/article/Transcript full chains",
+    "Series episode reader and complete remote directory",
+    "Remote desktop/physical devices"
+  ],
+  "observations": [
+    {
+      "id": "series-partial-load",
+      "severity": "medium",
+      "reproduction": "Library > View episodes on existing series",
+      "actual": "Could not load all episodes; one saved episode remains available",
+      "impact": "Complete episode directory unavailable in this observation",
+      "root_cause_confidence": "low; API status not captured, follow-up required",
+      "action": "report only; outside confirmed visual fix scope"
+    },
+    {
+      "id": "historical-image-missing",
+      "severity": "low",
+      "reproduction": "Library > ordinary video summary",
+      "actual": "Source image is missing fallback at screenshot 00:45",
+      "impact": "Historical inline image unavailable",
+      "root_cause_confidence": "low; historical data versus retrieval not established",
+      "action": "report only; no recovery writes"
+    }
+  ],
+  "test_harness_failures": [
+    "Hidden mobile nav link selected; fixed by opening navigation",
+    "Multiple role=status regions; fixed locator scope",
+    "Initial screenshots captured loading states; wait for Library refresh completion added; image/source completion still separately noted"
+  ],
+  "environment_failures": [
+    "Restricted shell socket EPERM on git/gh; same read-only commands passed with supported require_escalated"
+  ],
+  "private_evidence": "/workspace/browser-validation/auth-exploration-20261106",
+  "commands": [
+    "python scripts/check_cloud_browser.py --authenticated --output /workspace/browser-validation/auth-recheck-20261106",
+    "python scripts/check_cloud_browser.py --authenticated --output /workspace/browser-validation/auth-recheck-20261106-stable",
+    "python /workspace/browser-validation/auth_explore.py --authenticated --output /workspace/browser-validation/auth-exploration-20261106"
+  ],
+  "production_changes": "none; no deployment; guard blocked non-login writes",
+  "open_prs": [
+    239,
+    240,
+    241,
+    242
+  ]
+}

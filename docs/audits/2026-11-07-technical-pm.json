@@ -1,0 +1,104 @@
+{
+  "checked_at": "2026-11-07T09:04:12.403725+08:00",
+  "tested_commit": "906393581ce23ef5bbf1594070834a1bcf8a9f19",
+  "production_revision": "95b2712bd7da8102c829ccdfebeaf4a4aab0d444",
+  "scope": "Authenticated read-only technical/PM audit; synthetic local component regression",
+  "preflight": {
+    "environment": "Waited for environment start, then current observations running/connected; HTTP policy enforced, no VPN. Declared model/GitHub bindings ready.",
+    "browser": "Chromium154.0.8037.57, Playwright1.64.0; supported elevated shell, sandbox enabled, TLS verified",
+    "code": "Main unchanged; PR239/240/241/242 still open; PR242 harness reused",
+    "ci": "Main latest CI success; PR241 at57758a8 frontend component lane failed. Python/PostgreSQL jobs passed. Build and frontend unit steps passed.",
+    "ci_failure": "Check Editorial and Classic controls in Chromium and WebKit exited1. Detailed job-log redirect denied403; annotations provide no assertion detail. Root cause not established; no threshold changes."
+  },
+  "discovery": {
+    "account": "Authorized account;2 saved titles,1 ordinary reader, no subscribed podcasts. Existing content read-only; server writes other than signin blocked.",
+    "library": "Normal UI login + protected API verified; link navigation/reload at1440x900,768x1024,390x844; no horizontal overflow. Search no-match and clear restored2 titles. No pagination control in this dataset.",
+    "reader": "Nonempty summary and transcript; one saved historical version HTTP200; return latest; task-history dialog. Waited for article[data-rendering=formatted] before sampling, removed media/status UI from prose comparison. Formatted text equal after reload and latest restore; server Markdown hashes and success status equal across two reads.",
+    "new_path": "Podcasts -> unique no-match search -> clear -> no-podcasts empty-state -> reload. Read-only path completed; no import/subscription/model processing performed.",
+    "console": "No pageerror events. Full console collection not implemented; do not claim console completely clean.",
+    "requests": "Screenshot resources still return404. Guard-aborted background mutations are harness-induced; cross-device sync untested.",
+    "performance": "No controlled timing benchmark or sustained inference measurement this round."
+  },
+  "visual": {
+    "inspected": [
+      "authenticated-1440x900.png",
+      "authenticated-768x1024.png",
+      "authenticated-390x844.png",
+      "podcasts.png"
+    ],
+    "tool": "view_image, images actually opened",
+    "private_roots": [
+      "/workspace/audit-nov07-private/final",
+      "/workspace/audit-nov07-private/followup"
+    ],
+    "findings": "Library cards fit inspected widths; mobile naturally scrolls. Desktop source-filter/artwork loading captured, not accepted as fully stable. Podcast empty-state shows search, Add Podcast/Upload Audio and clear next-step guidance. No confirmed visual defect.",
+    "privacy": "Private screenshots not committed; no user text, credentials, tokens, session state or signed URLs in repository evidence."
+  },
+  "prior_issue_followup": [
+    {
+      "id": "reader-dom-refresh-comparison",
+      "status": "resolved_for_this_sample",
+      "basis": "Formatted semantic text matches after reload and latest restore when render readiness is awaited. Earlier whole-container measurements could sample loader/media transitions. No app fix; not a claim for every note or concurrent processing."
+    },
+    {
+      "id": "historical-image-missing",
+      "status": "reproduced404",
+      "priority": "P2",
+      "root_cause_confidence": "high for unavailable requested resources; low for file-loss versus reference/routing origin",
+      "proposal": "Read-only inventory/backup investigation before any authorized recovery; preserve saved note/version content",
+      "modified": false
+    },
+    {
+      "id": "series-partial-load",
+      "status": "previously confirmed409; not re-requested this round",
+      "proposal": "Keep metadata-only discovery proposal from prior report; no reprocessing or backfill",
+      "modified": false
+    }
+  ],
+  "pm": {
+    "goal": "Find and read saved content, compare saved versions and understand empty podcast entry",
+    "result": "Reading/version/refresh goal achieved on one sample; podcast discovery/empty-state path works. Full series/media availability still incomplete.",
+    "priorities": [
+      "P2 investigate historical media recovery without regenerating saved text",
+      "P2 plan metadata-only legacy series discovery",
+      "Resolve failing hosted component CI before claiming green release readiness"
+    ],
+    "metrics": "No invented usage/conversion/impact-frequency metrics"
+  },
+  "harness_notes": [
+    "First run mistakenly waited for Summary tab after Library reload due reused reader block; corrected without changing product assertions.",
+    "Second run counted cards before deferred series finished mounting. Follow-up waited for displayed title count to match rendered cards.",
+    "Final probe selected formatted article explicitly; does not compare loader and media error UI as saved content.",
+    "All successful and failed run evidence retained; overall script status is not full product acceptance."
+  ],
+  "regression": {
+    "build": "TypeScript/Vite/bundle budget passed after restoring lockfile dependencies:197.7KiB <=197.75KiB",
+    "setup": "Initial tsc missing in restored dependency path; installed npm ci --ignore-scripts in isolated worktree, no lockfile/dependency changes.",
+    "local_component_initial": "Before rebuilding, tracked dist timed out locating Interface style. Screenshot showed header without selector. Not treated as same cause as CI.",
+    "local_component_final": "PASS, process exit0; Editorial light and dark, default820/390/1440 widths and default routes, Chromium only. Classic and WebKit not run locally. Cannot clear hosted CI failure.",
+    "launch_delta": "Temporary copy of existing check_editorial_components.py replaced only --no-sandbox with chromium_sandbox=True; unchanged assertions and default routes/widths/themes.",
+    "python_tests": "Not repeated; no Python application changes. Prior16 and29 regression counts remain historical."
+  },
+  "unaccepted": [
+    "Large-list pagination beyond2 titles",
+    "Full podcast import/transcription/generation/version/deletion chain",
+    "Real long-inference concurrent browsing; current models-list request401; no generation call this round",
+    "Actual provider524 and hosted Supabase/server recovery; staging not provisioned",
+    "Cross-device state sync and physical-device checks",
+    "Full application state consistency during processing or cancellation"
+  ],
+  "application_changes": [],
+  "deployment": "none",
+  "evidence": "evidence/2026-11-07/",
+  "model_readiness": {
+    "scope": "authenticated models-list readiness; no generation request",
+    "status": 401,
+    "error_type": "AuthenticationError"
+  },
+  "commands": [
+    "python browser.py --authenticated --output <fresh private output> (confidential terminal prompts)",
+    "npm --prefix web ci --ignore-scripts",
+    "npm --prefix web run build",
+    "python scripts/.audit_secure_components.py --browser-path /usr/bin/chromium --output <private output> (unchanged regression assertions; only sandbox launch adapted)"
+  ]
+}

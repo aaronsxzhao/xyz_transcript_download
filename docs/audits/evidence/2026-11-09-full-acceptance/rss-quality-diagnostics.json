@@ -1,0 +1,42 @@
+[
+  {
+    "task_id": "07295962-bda9-4281-a05d-af0911eb3d6b",
+    "delivery_status": "blocked",
+    "delivery_reason": "coverage",
+    "coverage_ratio": "0.7941176470588235",
+    "threshold": "0.9",
+    "failed_batches": "0",
+    "inventory_failed_batches": "0",
+    "inventory_validation_failed_batches": "0",
+    "ignored_boundary_items": "0",
+    "terminal_provider_failure": "false",
+    "unresolved_items": "7",
+    "covered_items": "27",
+    "context_only_items": "3",
+    "item_status_counts": {
+      "covered": 27,
+      "partial": 7,
+      "context_only": 3
+    }
+  },
+  {
+    "task_id": "5a4028a6-3967-4686-852e-5aa01deb911a",
+    "delivery_status": "blocked",
+    "delivery_reason": "coverage",
+    "coverage_ratio": "0.7647058823529411",
+    "threshold": "0.9",
+    "failed_batches": "0",
+    "inventory_failed_batches": "0",
+    "inventory_validation_failed_batches": "0",
+    "ignored_boundary_items": "0",
+    "terminal_provider_failure": "false",
+    "unresolved_items": "8",
+    "covered_items": "26",
+    "context_only_items": "3",
+    "item_status_counts": {
+      "covered": 26,
+      "partial": 8,
+      "context_only": 3
+    }
+  }
+]

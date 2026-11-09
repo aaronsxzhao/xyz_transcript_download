@@ -1,0 +1,381 @@
+{
+  "date": "2026-11-06",
+  "timezone": "Asia/Shanghai",
+  "checked_at": "2026-11-06T09:13:07.098694+08:00",
+  "tested_commit": "906393581ce23ef5bbf1594070834a1bcf8a9f19",
+  "baseline": {
+    "open_prs": [],
+    "changes_since_previous": "Documentation only, PR238; application unchanged",
+    "ci_passed": "https://github.com/aaronsxzhao/xyz_transcript_download/actions/runs/42057958549",
+    "latest_scheduled_ci": "42116505326 cancelled; not counted as passed; cancellation cause not established",
+    "last_deploy": "https://github.com/aaronsxzhao/xyz_transcript_download/actions/runs/41847114350",
+    "deployed_revision": "95b2712bd7da8102c829ccdfebeaf4a4aab0d444",
+    "records_read": [
+      "functional-coverage.json",
+      "2026-11-05-technical-functional.json",
+      "prior technical/design/publication review records; no newer shared review found"
+    ]
+  },
+  "discovery": {
+    "environment": "Real built frontend, FastAPI, isolated SQLite and embedded durable Worker (2 slots); existing local identity; no API/provider mocks or paid model calls",
+    "browser": "Chromium 1440x1000 Classic dark",
+    "seeded_data": "55 podcast episodes and 21 Bilibili parts; one synthetic 1-second WAV uploaded through real browser/API",
+    "podcast_and_series": {
+      "steps": [
+        "podcast pagination 50 to 54",
+        "read podcast summary",
+        "read podcast transcript",
+        "delete summary then refresh: episode and transcript retained",
+        "delete episode and refresh absence",
+        "multi-P series: all 21 parts including P1 in numeric order",
+        "open P1 summary",
+        "open P21 summary"
+      ],
+      "timings": {
+        "delete_summary_ms": 1897
+      },
+      "errors": [],
+      "failed_requests": [],
+      "data_scale": {
+        "podcast_episodes": 55,
+        "video_parts": 21
+      }
+    },
+    "creation_chain": {
+      "steps": [
+        "P1 to P2 through reader next navigation; current status correct",
+        "21 part directory expands and collapses",
+        "upload 1 second synthetic WAV via browser",
+        "uploaded source persists after reload",
+        "Process via browser: real worker rejects unconfigured model",
+        "retry via API then cancel via API",
+        "delete uploaded test episode via browser and reload absence"
+      ],
+      "upload_ms": 644,
+      "retry_terminal": "cancelled",
+      "errors": [],
+      "limits": "No transcription/model generation; success reading uses separately seeded notes; cancellation may race with immediate configuration failure"
+    },
+    "queue": {
+      "environment": "real FastAPI + SQLite durable Store + embedded Worker, 2 slots; no API/provider mocks",
+      "scenario": "3 synthetic local episodes fail because provider deliberately unconfigured; retry all three; fourth transcript-only task reuses existing transcript and completes",
+      "job_states": [
+        [
+          "pending",
+          "pending",
+          "pending"
+        ],
+        [
+          "pending",
+          "pending",
+          "pending"
+        ],
+        [
+          "pending",
+          "pending",
+          "pending"
+        ],
+        [
+          "failed",
+          "failed",
+          "pending"
+        ],
+        [
+          "failed",
+          "failed",
+          "pending"
+        ],
+        [
+          "failed",
+          "failed",
+          "pending"
+        ],
+        [
+          "failed",
+          "failed",
+          "pending"
+        ],
+        [
+          "failed",
+          "failed",
+          "pending"
+        ],
+        [
+          "failed",
+          "failed",
+          "pending"
+        ],
+        [
+          "failed",
+          "failed",
+          "pending"
+        ],
+        [
+          "failed",
+          "failed",
+          "failed"
+        ],
+        [
+          "pending",
+          "pending",
+          "pending"
+        ],
+        [
+          "pending",
+          "pending",
+          "pending"
+        ],
+        [
+          "pending",
+          "pending",
+          "pending"
+        ],
+        [
+          "pending",
+          "pending",
+          "pending"
+        ],
+        [
+          "pending",
+          "pending",
+          "pending"
+        ],
+        [
+          "pending",
+          "pending",
+          "pending"
+        ],
+        [
+          "pending",
+          "pending",
+          "pending"
+        ],
+        [
+          "failed",
+          "pending",
+          "failed"
+        ],
+        [
+          "failed",
+          "pending",
+          "failed"
+        ],
+        [
+          "failed",
+          "pending",
+          "failed"
+        ],
+        [
+          "failed",
+          "pending",
+          "failed"
+        ],
+        [
+          "failed",
+          "pending",
+          "failed"
+        ],
+        [
+          "failed",
+          "pending",
+          "failed"
+        ],
+        [
+          "failed",
+          "pending",
+          "failed"
+        ],
+        [
+          "failed",
+          "pending",
+          "failed"
+        ],
+        [
+          "failed",
+          "failed",
+          "failed"
+        ],
+        [
+          "pending"
+        ],
+        [
+          "pending"
+        ],
+        [
+          "pending"
+        ],
+        [
+          "pending"
+        ],
+        [
+          "pending"
+        ],
+        [
+          "pending"
+        ],
+        [
+          "pending"
+        ],
+        [
+          "completed"
+        ]
+      ],
+      "durable_terminal_counts": {
+        "completed": 1,
+        "failed": 6
+      },
+      "concurrent_episode_list_ms": [
+        5,
+        7,
+        5,
+        7,
+        6,
+        8,
+        5,
+        6,
+        6,
+        6,
+        5,
+        5,
+        5,
+        5,
+        5,
+        5,
+        6,
+        5,
+        7,
+        6,
+        5,
+        5,
+        6,
+        5,
+        6,
+        7,
+        6,
+        5,
+        7,
+        5,
+        5,
+        5,
+        5,
+        5,
+        6
+      ],
+      "limitation": "Not provider HTTP 524, slow inference, production Supabase, CPU/media pressure or successful generation; synthetic content only",
+      "failure_messages": [
+        "Error: Summary provider is not configured. Open Settings and choose Groq summaries."
+      ]
+    },
+    "measurement_limits": "Single local runs, not production performance benchmarks; list polling 5–8 ms occurred during short configuration failures, not sustained inference/media load",
+    "fixture_notes": [
+      "First browser pass paginated 50→55 and deleted episode00; it then stopped at an incorrect series-button selector. Corrected harness used the real details/summary control; second pass paginated 50→54 and deleted episode01. This was a harness error, not a product defect.",
+      "Multi-P metadata seeded locally, not fetched from Bilibili; Stanford production membership not verified.",
+      "Reader next navigation P1→P2, current-part marker and directory collapse verified; screenshot manually viewed.",
+      "Saved notes/transcripts were synthetic fixtures, not generated output. Podcast history versions not accepted."
+    ]
+  },
+  "online": {
+    "browser": [
+      {
+        "environment": "live",
+        "url": "https://aipodcastsummary.online/login",
+        "load_ms": 1164,
+        "login_visible": 1,
+        "errors": [],
+        "failed": []
+      }
+    ],
+    "diagnostics": [
+      {
+        "diagnostics": "stats",
+        "status": 200,
+        "json_response": true,
+        "milliseconds": 796
+      },
+      {
+        "diagnostics": "podcasts",
+        "status": 200,
+        "json_response": true,
+        "milliseconds": 347
+      },
+      {
+        "diagnostics": "library",
+        "status": 200,
+        "json_response": true,
+        "milliseconds": 285
+      },
+      {
+        "diagnostics": "video_tasks",
+        "status": 200,
+        "json_response": true,
+        "milliseconds": 433
+      },
+      {
+        "diagnostics": "jobs",
+        "status": 200,
+        "json_response": true,
+        "milliseconds": 166
+      },
+      {
+        "diagnostics": "summaries",
+        "status": 200,
+        "json_response": true,
+        "milliseconds": 163
+      },
+      {
+        "diagnostics": "settings",
+        "status": 200,
+        "json_response": true,
+        "milliseconds": 276
+      },
+      {
+        "diagnostics": "platform_accounts",
+        "status": 200,
+        "json_response": true,
+        "milliseconds": 192
+      },
+      {
+        "health_status": 200,
+        "health": {
+          "status": "ok",
+          "revision": "95b2712bd7da8102c829ccdfebeaf4a4aab0d444"
+        }
+      }
+    ],
+    "scope": "Anonymous login entry and scoped API availability only; no user content printed or production writes",
+    "blocked": [
+      "Signed-in list search/pagination",
+      "Existing summary/article, transcript/history reading",
+      "Browser task panel and refreshed state consistency"
+    ],
+    "cause": "No authorized signed-in production browser session or isolated hosted test account; scoped API token not converted into browser identity",
+    "tls_limit": "Browser accepts known managed-environment proxy CA SPKI only; not independent public TLS validation"
+  },
+  "existing_regressions": {
+    "tests": [
+      "tests/test_api_episodes.py",
+      "tests/test_podcast_job_revisions.py",
+      "tests/test_durable_processing.py"
+    ],
+    "result": "37 passed in 0.97s",
+    "environment_note": "Initial restricted sandbox run stalled before any test completed and was interrupted. Same unchanged suite passed when local socket/network capability was allowed; no assertion skipped or weakened.",
+    "build": "TypeScript/Vite and unchanged 197.75 KiB budget passed (197.7 KiB)",
+    "ci_for_audit_commit": "Pending, separate from baseline CI"
+  },
+  "new_confirmed_defects": [],
+  "application_changes": [],
+  "deployment": "No application changes; no deployment needed",
+  "unresolved_high_priority": [
+    "Production latency during long inference/media work remains unverified",
+    "HTTP524-specific retry/recovery and Supabase queue semantics not reproduced this round",
+    "Authorized production read-only browser flows",
+    "Offline recovery, mobile/theme matrix, podcast history versions and external subscription imports"
+  ],
+  "next_actions": [
+    "Obtain existing authorized logged-in browser/test account through supported configuration; do not forge authentication",
+    "Exercise sustained actual-model processing with explicit isolated test budget while browser reads/searches/deletes other synthetic content",
+    "Verify provider timeout retry/restart on isolated hosted database; retain previous saved-content consistency checks",
+    "Continue podcast history and subscription import flows"
+  ],
+  "publication": "Repository PR contains shared inventory and evidence; check PR status before claiming merged"
+}

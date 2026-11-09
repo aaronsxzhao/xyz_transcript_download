@@ -1,0 +1,33 @@
+{
+  "viewports": [
+    {
+      "width": 1440,
+      "height": 900,
+      "screenshot": "/workspace/rss-fix-private/live-reader-1440x900.png",
+      "horizontal_overflow": false,
+      "summary_present": true,
+      "sha256": "dce99a8eaceff67868118e583c53ec9708023cdb55ac3eac0862366141487bf8"
+    },
+    {
+      "width": 768,
+      "height": 1024,
+      "screenshot": "/workspace/rss-fix-private/live-reader-768x1024.png",
+      "horizontal_overflow": false,
+      "summary_present": true,
+      "sha256": "f5a219e469dc42fe91b48fde41b8927fbd590af8a992d52ff7a69c1e0c9e3852"
+    },
+    {
+      "width": 390,
+      "height": 844,
+      "screenshot": "/workspace/rss-fix-private/live-reader-390x844.png",
+      "horizontal_overflow": false,
+      "summary_present": true,
+      "sha256": "2fccfc52beff24410aa6bfdbdea4ad9b5f566466fbc5f4399e18304d3f1b570f"
+    }
+  ],
+  "console_error_count": 0,
+  "failed_requests": 0,
+  "actually_viewed_with": "view_image, all three images",
+  "observed": "Readable title, tabs, body and controls; no horizontal overflow observed. Simulated viewports, not physical-device acceptance.",
+  "screenshots_persistence": "Workspace only; images contain public RSS reading text and account header, not committed to shared repository."
+}
