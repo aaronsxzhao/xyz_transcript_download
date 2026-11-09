@@ -2,7 +2,7 @@
   "schema_version": 1,
   "site": "https://aipodcastsummary.online",
   "repository": "aaronsxzhao/xyz_transcript_download",
-  "updated_at": "2026-11-09T07:06:20.715214+00:00",
+  "updated_at": "2026-11-09T07:19:56.852059+00:00",
   "tested_commit": "d230bd366762dcd32ed1646c849fffdea22fa698",
   "current_report": "docs/audits/2026-11-09-full-acceptance.json",
   "inventory_basis": [
@@ -375,7 +375,7 @@
       ],
       "issues": [],
       "in_progress_prs": [],
-      "next_check": "Diagnose7partial coverage receipts; source/candidate comparison under separate core-change plan if required",
+      "next_check": "Approve bounded repair/novelty/materiality plan described in2026-11-09-rss-coverage-diagnosis.json, then rerun same controlled source without lowering90%",
       "production_followups": [
         {
           "checked_at": "2026-11-09T06:25:19.176223+00:00",
@@ -812,6 +812,13 @@
       "status": "deployed_verified",
       "scope": "Explicit structured provider refusal classification;142targetedtests/fullPRCI/build; exactproductionhealth+readonlyregression",
       "remaining": "RSS coverage quality gate failure is separate and not repaired by this change."
+    },
+    {
+      "checked_at": "2026-11-09T07:19:56.852059+00:00",
+      "report": "docs/audits/2026-11-09-rss-coverage-diagnosis.json",
+      "status": "root_cause_narrowed_core_plan_required",
+      "scope": "Same production configuration; real omitted qualifications plus duplicate repair rejection and materiality/recheck inconsistency; score is all-or-nothing item coverage, not missing-text percent",
+      "application_modified": false
     }
   ],
   "accepted_exclusions": [
