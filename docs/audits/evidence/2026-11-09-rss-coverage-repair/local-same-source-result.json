@@ -1,0 +1,32 @@
+{
+  "budget_before": 2.87395,
+  "requests": 9,
+  "max_requests": 40,
+  "usage": {
+    "total_tokens": 122423
+  },
+  "status": "accepted",
+  "markdown_nonempty": true,
+  "markdown_sha256": "6774dd618216830a855d8adacdb10b1515c31ac47ae71e6f85128fc47cb9ffa3",
+  "elapsed_seconds": 124.07,
+  "budget_after": 3.240444,
+  "delivery": {
+    "status": "accepted",
+    "coverage_ratio": 1.0,
+    "coverage_threshold": 0.9,
+    "grounded": true,
+    "semantic_proof": false,
+    "unresolved_items": 0
+  },
+  "final_coverage_repair_rounds": 0,
+  "ledger": {
+    "coverage_ratio": 1.0,
+    "covered_items": 34,
+    "unresolved_items": 0,
+    "context_only_items": 3,
+    "failed_batches": 0,
+    "terminal_provider_failure": false,
+    "repairs_accepted": 2,
+    "repairs_rejected": 0
+  }
+}

@@ -1,0 +1,32 @@
+{
+  "checked_at": "2026-11-09T07:44:34.707727+00:00",
+  "authorization": "User explicitly approved correcting the diagnosed core coverage/repair workflow;90percent threshold unchanged",
+  "application_pr": 249,
+  "application_commit": "1cee390",
+  "status": "full backend/PostgreSQL CI passed; frontend CI running; not deployed",
+  "changes": [
+    "Independent source/novelty check for ambiguous duplicate flag on joint existing+proposed support; pureduplicates,unsupportedclaims andcontradictions still rejected.",
+    "Source-only materiality adjudication of failed final coverage; passing90percent draft avoids unnecessary extra calls.",
+    "At most1grounding/contradiction replacement and1finalcoverage repair; immutable grounding review after mutations; max3reviewpasses and2reviewfailures.",
+    "Version candidate checkpointv3 andledger13; no reuse of prior acceptance semantics."
+  ],
+  "tests": {
+    "targeted": 255,
+    "build": "passed197.2KiB/197.75KiB unchanged budget",
+    "original_reproductions": "7new cases failed before fix; strict malformed receipts/rawfallback/contradiction/bounded-repair cases added"
+  },
+  "live_local": {
+    "source": "Same prior production RSS, reconstructed source_revision exactly matched; saved failed candidate used locally",
+    "result": "accepted34/34 material items,3context-only;groundedtrue;9requests124.07s;realmodel",
+    "limits": "One isolated real-model success, not production acceptance or proof of universal semantic correctness. Candidate replay occurred before final defensive raw-fallback guard; subsequent strict regression covers exact committed guard; online verification pending.",
+    "earlier_failure": "4request replay rejected invalidsourcevalidation; quality gate was not weakened to pass. One diagnostic run stopped locally to remove candidate-body output.",
+    "output": "Only sanitized metrics andhashes retained in report; no source, prompts, candidate orresponse bodies in repository."
+  },
+  "budget": {
+    "daily_usd": 50,
+    "observed_shared_key_delta_after_local": 3.240444,
+    "provider_hard_cap": false,
+    "extra80request_replay": "Not executed; automatic review rejected increased request scale. No attempt to bypass; use existing successful bounded replay and scheduled single-task production verification."
+  },
+  "next": "Wait fullPRCI, merge/deploy existing flow, verify exactversion then retry same controlled RSS episode and inspect saved summary/transcript/refresh; monitor daily budget and stop before reserve exhaustion."
+}
