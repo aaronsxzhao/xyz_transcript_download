@@ -1,0 +1,80 @@
+{
+  "checked_at": "2026-11-06T12:22:39.787760+08:00",
+  "timezone": "Asia/Shanghai",
+  "tested_commit": "906393581ce23ef5bbf1594070834a1bcf8a9f19",
+  "scope": "Environment discovery and acceptance preparation only",
+  "discovery": {
+    "environment": "running; current observations; unrestricted HTTP policy enforced; no VPN; no TCP grants",
+    "credentials": {
+      "GH_TOKEN": "ready; authenticated GitHub read succeeded",
+      "SUMMARY_TEST_API_KEY": "Managed binding ready; actual configured model request returned HTTP401 AuthenticationError. No credential values or response body logged.",
+      "SUMMARY_TEST_BASE_URL": "ready",
+      "SUMMARY_TEST_MODEL": "ready",
+      "PLATFORM_TEST_TOKEN": "not declared in current managed configuration; no old token files inspected"
+    },
+    "browser": "Remote desktop capability enabled but readiness unknown; no Browser js or desktop control tool exposed after repeated discovery. Installed Chromium is not evidence of connected or logged-in browser.",
+    "account": "User supplied a dedicated test account; credentials excluded from repository. Normal browser login not yet performed.",
+    "authorization": "User authorized configured test model use; bounded readiness probe only this round."
+  },
+  "repository": {
+    "main": "906393581ce23ef5bbf1594070834a1bcf8a9f19",
+    "open_prs": [
+      239
+    ],
+    "pr239": {
+      "state": "OPEN",
+      "head": "50592a175ec2639491ef7f7155cce058bb7b1986",
+      "ci": "Four executed checks succeeded; two conditional checks skipped",
+      "records_read": [
+        "2026-11-06-technical-functional.json",
+        "functional-coverage.json"
+      ]
+    },
+    "main_ci": "https://github.com/aaronsxzhao/xyz_transcript_download/actions/runs/42148434684"
+  },
+  "online": {
+    "health_endpoint": "/api/health",
+    "status": "ok",
+    "revision": "95b2712bd7da8102c829ccdfebeaf4a4aab0d444",
+    "latest_deployment": "https://github.com/aaronsxzhao/xyz_transcript_download/actions/runs/41847114350",
+    "deployment_result": "success",
+    "limitation": "Public API health and revision only; /health returns frontend HTML and is not the API health endpoint; no authenticated UI acceptance"
+  },
+  "existing_regressions": {
+    "rerun": false,
+    "reason": "No application changes; prior 37 local regressions remain historical PR239 evidence, not new acceptance."
+  },
+  "blocked_acceptance": [
+    "Configured model authentication: bounded real request returned HTTP401; long-inference acceptance cannot proceed",
+    "Long real inference while browsing/searching/reading/deleting other synthetic items: browser controls unavailable",
+    "HTTP524 retry, queue progression, restart and saved-content recovery: isolated hosted environment not provisioned",
+    "Logged-in production list/summary/transcript/history/task refresh consistency: browser session unverified",
+    "Production multipart grouping and full podcast flow: browser session unverified"
+  ],
+  "configuration_next_steps": {
+    "browser": "Connect Browser to this chat and expose its control tool, or enable the managed desktop control tool; then log in through the normal UI using the supplied test account. Do not use diagnostic tokens as browser credentials.",
+    "model": "In the current chat Cloud Environment configuration, verify secret SUMMARY_TEST_API_KEY (allowed domain api.aipaibox.com), plus SUMMARY_TEST_BASE_URL and SUMMARY_TEST_MODEL. Recheck runtime observations after applying changes. HTTP401 cause is not established: provider credential, endpoint compatibility or binding must be checked; no guessed replacement keys.",
+    "staging": "Separate Supabase project URL/public key/server service key in staging runtime only; separate Oracle instance, registry image tag and hostname; resources and costs require review before creation."
+  },
+  "staging_proposal": {
+    "status": "Proposal only; no resource creation or production changes",
+    "database": "Independent Supabase project, no production data clone; inspect server version and apply repository baseline/migrations in order only after schema plan review. Verify RLS and Data API grants for test identities.",
+    "storage": "Independent project buckets and isolated /data volume; synthetic audio/transcripts only, matching current storage configuration. No production bucket credentials.",
+    "deployment": "Use repository Dockerfile, linux/arm64 build, immutable commit tag in OCIR, separate Oracle Container Instance and routing. Match current single uvicorn process and embedded worker configuration; verify actual production resource sizing before comparing performance. Existing production workflow hardcodes production resource IDs and must not be dispatched for staging.",
+    "credentials": "Configure SUPABASE_URL, SUPABASE_KEY, SUPABASE_SERVICE_KEY and SUPABASE_STORAGE_ENABLED only on staging; server key never sent to browser. Model uses existing user-authorized SUMMARY_TEST_* via supported test configuration. A full audio transcription path additionally needs a verified test speech provider credential/budget.",
+    "budget": "Proposed initial model run: one job, at most 12 provider requests, per-owner model concurrency <=3, 600-second admission window; stop on limit. Request/token caps do not guarantee a USD cap without provider prices or a provider-side spending limit. Do not run broad load tests. Oracle/Supabase infrastructure costs not approved or quoted.",
+    "fault_test": "Staging-only controlled upstream adapter returns a labeled synthetic HTTP524; separately record any naturally observed provider 524. Queue another synthetic job, retry, restart staging during processing, compare checkpoint IDs, saved note hashes and history before/after. Injected 524 does not establish real provider incident reproduction.",
+    "measurements": "Record browser interaction latency, request p50/p95, long tasks, queue/lease/checkpoint transitions and reload consistency with idle baseline and during actual model work. No acceptance thresholds lowered.",
+    "cleanup": "Delete only tracked synthetic IDs and staging resources after retaining sanitized evidence; no real-account data mutation."
+  },
+  "application_changes": [],
+  "deployment_changes": [],
+  "model_probe": {
+    "scope": "single synthetic model readiness probe; not long-inference acceptance",
+    "request_limit": 1,
+    "max_completion_tokens": 16,
+    "error_type": "AuthenticationError",
+    "status": 401,
+    "seconds": 2.009
+  }
+}
