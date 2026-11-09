@@ -1,0 +1,62 @@
+{
+  "states": [
+    {
+      "state": "pending",
+      "progress": 0,
+      "elapsed": 0.27
+    },
+    {
+      "state": "transcribing",
+      "progress": 42,
+      "elapsed": 5.41
+    },
+    {
+      "state": "summarizing",
+      "progress": 72,
+      "elapsed": 10.59
+    },
+    {
+      "state": "summarizing",
+      "progress": 72,
+      "elapsed": 15.75
+    },
+    {
+      "state": "summarizing",
+      "progress": 72,
+      "elapsed": 20.89
+    },
+    {
+      "state": "summarizing",
+      "progress": 78.6,
+      "elapsed": 26.08
+    },
+    {
+      "state": "summarizing",
+      "progress": 86.96,
+      "elapsed": 31.28
+    },
+    {
+      "state": "summarizing",
+      "progress": 86.96,
+      "elapsed": 36.52
+    },
+    {
+      "state": "saving",
+      "progress": 96,
+      "elapsed": 41.75
+    },
+    {
+      "state": "success",
+      "progress": 100,
+      "elapsed": 47.04
+    }
+  ],
+  "task_id": "ae03fe78-a58",
+  "created_via_browser": true,
+  "terminal": "success",
+  "error": "",
+  "markdown_nonempty": true,
+  "rendered_refresh_equal": true,
+  "transcript_http": 200,
+  "status": "PASS"
+}

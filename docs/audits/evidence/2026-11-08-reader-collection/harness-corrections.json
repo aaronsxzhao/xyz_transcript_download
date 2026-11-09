@@ -1,0 +1,11 @@
+{
+  "scope": "Test harness only;not application defects",
+  "attempts": [
+    "First postrelease harness incorrectly required nonzero math nodes after separate currency fix; corrected to wait for assets and stable content.",
+    "Request-object tracking did not clear reliably; corrected to URL tracking.",
+    "DOM cloning could trigger image requests; replaced with existing-node TreeWalker.",
+    "Final first attempt accidentally read parts from stats due script assembly error: sign-in succeeded but harness KeyError before acceptance. Repaired script; fresh final run passed."
+  ],
+  "failed_final_attempt": "Private /workspace/public-parts-final-evidence/results.json",
+  "final": "final-production.json"
+}

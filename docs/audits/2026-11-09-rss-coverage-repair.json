@@ -1,0 +1,117 @@
+{
+  "checked_at": "2026-11-09T08:33:39.049066+00:00",
+  "authorization": "User explicitly approved correcting the diagnosed core coverage/repair workflow;90percent threshold unchanged",
+  "application_pr": 249,
+  "application_commit": "1cee390",
+  "status": "Fixed, full PR CI passed, merged and deployed; same-source production candidate retry accepted and browser read/refresh verified",
+  "changes": [
+    "Independent source/novelty check for ambiguous duplicate flag on joint existing+proposed support; pureduplicates,unsupportedclaims andcontradictions still rejected.",
+    "Source-only materiality adjudication of failed final coverage; passing90percent draft avoids unnecessary extra calls.",
+    "At most1grounding/contradiction replacement and1finalcoverage repair; immutable grounding review after mutations; max3reviewpasses and2reviewfailures.",
+    "Version candidate checkpointv3 andledger13; no reuse of prior acceptance semantics."
+  ],
+  "tests": {
+    "targeted": 255,
+    "build": "passed197.2KiB/197.75KiB unchanged budget",
+    "original_reproductions": "7new cases failed before fix; strict malformed receipts/rawfallback/contradiction/bounded-repair cases added"
+  },
+  "live_local": {
+    "source": "Same prior production RSS, reconstructed source_revision exactly matched; saved failed candidate used locally",
+    "result": "accepted34/34 material items,3context-only;groundedtrue;9requests124.07s;realmodel",
+    "limits": "One isolated real-model success, not production acceptance or proof of universal semantic correctness. Candidate replay occurred before final defensive raw-fallback guard; subsequent strict regression covers exact committed guard; online verification pending.",
+    "earlier_failure": "4request replay rejected invalidsourcevalidation; quality gate was not weakened to pass. One diagnostic run stopped locally to remove candidate-body output.",
+    "output": "Only sanitized metrics andhashes retained in report; no source, prompts, candidate orresponse bodies in repository."
+  },
+  "budget": {
+    "daily_usd": 50,
+    "observed_shared_key_delta_after_local": 3.240444,
+    "provider_hard_cap": false,
+    "extra80request_replay": "Not executed; automatic review rejected increased request scale. No attempt to bypass; use existing successful bounded replay and scheduled single-task production verification.",
+    "observed_shared_key_delta_after_all_tests": 4.848208,
+    "note": "Shared-key observed delta may include other activity and delayed settlement; not exclusive invoice or provider hard cap."
+  },
+  "next": "Recheck retained successful RSS read-only next schedule; expand real source samples without lowering90%; retain one-shot reliability limitation and separate hosted recovery gap.",
+  "merge_commit": "99011578febe2a36bd039d8d1077dbe0a7c36f6b",
+  "ci": {
+    "run": 42580561002,
+    "status": "passed",
+    "frontend_elapsed": "32m48s"
+  },
+  "deployment": {
+    "run": 42584133479,
+    "status": "success",
+    "exact_live_revision": "99011578febe2a36bd039d8d1077dbe0a7c36f6b"
+  },
+  "production": {
+    "first_attempt": {
+      "task_id": "1da1153c-152e-45fb-8f96-c392f536a8d3",
+      "result": "blocked",
+      "wall_seconds": 339.423,
+      "coverage": "38/42 (90.476%)",
+      "reason": "grounding: final review rejected L1.6 after the one grounding-replacement allowance was consumed; no rejected summary published"
+    },
+    "resume": {
+      "task_id": "de85336d-3ff2-4a22-aca3-8cadd2cc9c9a",
+      "state": "completed",
+      "wall_seconds": 284.855,
+      "checkpoint_hits": 1,
+      "delivery": {
+        "status": "accepted",
+        "grounded": true,
+        "coverage_ratio": 0.9024390243902439,
+        "coverage_threshold": 0.9,
+        "semantic_proof": false,
+        "unresolved_items": 4
+      },
+      "source_revision": "91762e81f705b9fed8d0c7f31d97fe77c20472aed2d63fcb39df7324c3c59140",
+      "ledger_version": "coverage-ledger-v13-verified-delta",
+      "covered_items": 37,
+      "context_only_items": 1,
+      "unresolved_items": 4,
+      "repairs_accepted": 0,
+      "final_coverage_repair_rounds": 0
+    },
+    "reader": {
+      "summary_present": true,
+      "transcript_read": true,
+      "reload_equal": true,
+      "second_tab_equal": true
+    },
+    "parallel_interactions": [
+      {
+        "operation": "search-clear",
+        "seconds": 0.944,
+        "job_state": "summarizing"
+      },
+      {
+        "operation": "read-test-video",
+        "seconds": 0.317,
+        "job_state": "summarizing"
+      },
+      {
+        "operation": "delete-own-disposable",
+        "seconds": 0.318,
+        "job_state": "summarizing"
+      }
+    ],
+    "test_data": "Controlled test account. Same public RSS episode retained for future reads. Only this run temporary audio deleted. Original failed history retained.",
+    "comparability": "Same source_revision; original two attempts used34 material items, new inventory42 then source-only adjudication classified1ascontext-only. Percentages are not a fixed-inventory before/after experiment; final37/41,4unresolved, not100% semantic coverage.",
+    "limits": "The first fresh run still needed one explicit user-style checkpoint retry; one passing source does not establish universal one-shot reliability."
+  },
+  "pm": {
+    "goal": "Find/import same RSS, understand processing, continue browsing, recover failed review, read saved summary/transcript consistently",
+    "result": "Completed after one explicit candidate retry; parallel search/read/delete remained usable. First attempt did not complete in one shot.",
+    "remaining": "4material items not fully covered; true upstream524 and isolated hosted Supabase recovery remain separate unaccepted scenarios."
+  },
+  "reproduction": {
+    "regression_command": "venv/bin/python -m pytest -q tests/test_coverage_ledger.py tests/test_reading_delivery.py tests/test_transcript_reading.py tests/test_reading_editor.py tests/test_durable_processing.py tests/test_reading_budget.py tests/test_reading_recovery.py tests/test_reading_progress.py tests/test_processing_parallel.py tests/test_podcast_reading.py",
+    "health_command": "EXPECTED_REVISION=99011578febe2a36bd039d8d1077dbe0a7c36f6b venv/bin/python scripts/verify_deployment.py",
+    "browser": "Python3.11.17 / Playwright1.64.0 / Chromium154.0.8037.57; executable_path=/usr/bin/chromium;chromium_sandbox=True;ignore_https_errors=False;proxy from runtime HTTPS_PROXY; supported shell escalation",
+    "browser_scripts_workspace_only": [
+      "/workspace/rss-fix-private/production-verify.py",
+      "/workspace/rss-fix-private/production-resume.py",
+      "/workspace/rss-fix-private/reader-viewports.py"
+    ],
+    "credentials": "UI login via hidden getpass; no stored login state or authentication data. Uploaded temporary Key file deleted after final usage check. Website encrypted test-account configuration remains the authorized source for future tests."
+  }
+}

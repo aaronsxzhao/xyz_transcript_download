@@ -1,0 +1,148 @@
+{
+  "started_at": "2026-11-06T13:03:09.804014+00:00",
+  "origin": "https://aipodcastsummary.online",
+  "mode": "authenticated",
+  "authenticated_session_verified": true,
+  "visual_inspection": "NOT_REVIEWED",
+  "sandbox_enabled": true,
+  "tls_verification": true,
+  "checks": [],
+  "blocked_write_requests": 10,
+  "browser_version": "154.0.8037.57",
+  "network_errors": [
+    {
+      "status": 404,
+      "resource_kind": "screenshot",
+      "category": "asset"
+    },
+    {
+      "status": 404,
+      "resource_kind": "screenshot",
+      "category": "asset"
+    },
+    {
+      "status": 404,
+      "resource_kind": "screenshot",
+      "category": "asset"
+    },
+    {
+      "status": 404,
+      "resource_kind": "screenshot",
+      "category": "asset"
+    },
+    {
+      "status": 404,
+      "resource_kind": "screenshot",
+      "category": "asset"
+    },
+    {
+      "status": 404,
+      "resource_kind": "screenshot",
+      "category": "asset"
+    },
+    {
+      "status": 404,
+      "resource_kind": "screenshot",
+      "category": "asset"
+    },
+    {
+      "status": 404,
+      "resource_kind": "screenshot",
+      "category": "asset"
+    },
+    {
+      "status": 404,
+      "resource_kind": "screenshot",
+      "category": "asset"
+    },
+    {
+      "status": 404,
+      "resource_kind": "screenshot",
+      "category": "asset"
+    },
+    {
+      "status": 404,
+      "resource_kind": "screenshot",
+      "category": "asset"
+    },
+    {
+      "status": 404,
+      "resource_kind": "screenshot",
+      "category": "asset"
+    },
+    {
+      "status": 404,
+      "resource_kind": "screenshot",
+      "category": "asset"
+    },
+    {
+      "status": 404,
+      "resource_kind": "screenshot",
+      "category": "asset"
+    },
+    {
+      "status": 404,
+      "resource_kind": "screenshot",
+      "category": "asset"
+    },
+    {
+      "status": 404,
+      "resource_kind": "screenshot",
+      "category": "asset"
+    },
+    {
+      "status": 404,
+      "resource_kind": "screenshot",
+      "category": "asset"
+    },
+    {
+      "status": 404,
+      "resource_kind": "screenshot",
+      "category": "asset"
+    },
+    {
+      "status": 404,
+      "resource_kind": "screenshot",
+      "category": "asset"
+    },
+    {
+      "status": 404,
+      "resource_kind": "screenshot",
+      "category": "asset"
+    },
+    {
+      "status": 404,
+      "resource_kind": "screenshot",
+      "category": "asset"
+    },
+    {
+      "status": 404,
+      "resource_kind": "screenshot",
+      "category": "asset"
+    },
+    {
+      "status": 404,
+      "resource_kind": "screenshot",
+      "category": "asset"
+    }
+  ],
+  "page_error_count": 0,
+  "discovery": {
+    "search_clear": {
+      "passed": true,
+      "title_count": 2,
+      "pagination_available": false
+    },
+    "reader": {
+      "summary_nonempty": true,
+      "transcript_empty_message": false,
+      "transcript_panel_nonempty": true
+    }
+  },
+  "discovery_stage": "reader_reload",
+  "status": "BLOCKED",
+  "failure_category": "authentication",
+  "error_type": "TimeoutError",
+  "failure_signature": "See failing stage; raw exception omitted to protect credentials",
+  "interpretation": "Harness outcome retained verbatim; not an overall product verdict. See parent audit report for verified observations and harness limitations."
+}

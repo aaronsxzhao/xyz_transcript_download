@@ -1,0 +1,14 @@
+{
+  "status": "PASS",
+  "actual_child_sigkill": true,
+  "pre_expiry_claim_blocked": true,
+  "same_work_reclaimed_after_real_expiry": true,
+  "attempts": 2,
+  "old_worker_finish_rejected": true,
+  "old_worker_heartbeat_rejected": true,
+  "completed_checkpoint_reused_without_generator": true,
+  "completion_persisted": true,
+  "test_lease_seconds": 2,
+  "scope": "real process kill;application Store/Execution;SQLite;synthetic content",
+  "limits": "Not full API-server restart,production90second lease,Supabase,model provider or UI lifecycle"
+}

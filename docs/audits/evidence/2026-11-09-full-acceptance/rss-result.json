@@ -1,0 +1,12 @@
+{
+  "import_http": 200,
+  "import_seconds": 2.295,
+  "created_pid": "apple_1200361736",
+  "was_existing": false,
+  "visible_episode_count": 50,
+  "refresh_episode_count": 50,
+  "source_import_read_refresh": true,
+  "status": "FAIL",
+  "error_type": "TimeoutError",
+  "error_line": 24
+}

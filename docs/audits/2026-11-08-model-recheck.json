@@ -1,0 +1,96 @@
+{
+  "checked_at": "2026-11-08T14:33:58.060107+00:00",
+  "tested_commit": "d230bd366762dcd32ed1646c849fffdea22fa698",
+  "scope": "Test-provider401 diagnosis;isolated local524/retry/process persistence discovery;close accepted legacy media loss",
+  "model": {
+    "result": "external_configuration_blocker",
+    "endpoint": "https://api.aipaibox.com/v1/models",
+    "status": 401,
+    "provider_error": "密钥错误，请登录平台重新创建",
+    "provider_error_type": "new_api_error",
+    "interpretation": "Provider categorizes current configured request as a key error. Does not prove expiry vs revocation vs incorrect value;no evidence of browser/session failure. Unauthenticated control gives same message,so wording alone cannot establish key transmission or per-endpoint policy.",
+    "prior_correction": "Previous English keyword classifier missed explicit Chinese key error;retain original evidence but supersede inconclusive classification.",
+    "runtime": "Current configuration enforced;SUMMARY_TEST_API_KEY binding and BASE_URL/MODEL ready. Readiness does not prove remote acceptance.",
+    "attempts": [
+      "Default sandbox network socket denied;approved elevated same probe reached provider.",
+      "Bearer authenticated models-list with configured environment key401.",
+      "Same public endpoint without credential also401. No credential values or request headers retained."
+    ],
+    "generation_calls": 0,
+    "required_external_action": "Update/check SUMMARY_TEST_API_KEY in current Cloud Environment configuration Secrets,verify BASE_URL/MODEL in Variables,apply to this running environment;refresh environment status then retry. No production model changes.",
+    "pending_user_question": true,
+    "cost_gate": "Existing authorization US$2/max12 model calls/one task/account concurrency<=3 retained;verified price and enforceable ceiling remain required."
+  },
+  "discovery": {
+    "status": "PASS",
+    "first": [
+      {
+        "task": "a",
+        "state": "failed"
+      },
+      {
+        "task": "b",
+        "state": "completed"
+      }
+    ],
+    "explicit_retry": [
+      {
+        "task": "a",
+        "state": "completed"
+      }
+    ],
+    "fresh_process": [
+      {
+        "new_process_restored_completed_jobs": true,
+        "saved_model_checkpoints_reused_without_HTTP": true
+      }
+    ],
+    "local_http_counts": {
+      "a": 2,
+      "b": 1
+    },
+    "scope": "Real SQLite and application Worker.run/checkpoint/job persistence;synthetic processor and loopback HTTP524;manual claim/dispatch;three separate Python processes",
+    "limitations": [
+      "Not real upstream524",
+      "Not full API server restart or browser acceptance",
+      "Not full podcast acquisition/transcription/model pipeline",
+      "Not production Supabase",
+      "Not a killed-worker lease-expiry test"
+    ]
+  },
+  "existing_regression": {
+    "command": "XYZ_DATA_DIR=/workspace/model-recheck-private/regression-data /workspace/xyz_transcript_download/venv/bin/python -m pytest tests/test_durable_processing.py tests/test_podcast_job_revisions.py -q --timeout=30",
+    "result": "26 passed in1.03s",
+    "distinction": "Existing component regressions;not production E2E."
+  },
+  "media_exclusion": {
+    "id": "accepted-legacy-upload-media-loss-20261108",
+    "confirmed_by": "User explicitly confirmed two historical local uploads lost screenshots due to storage space;no backup and no recovery requested.",
+    "scope": "Only the2notes/13missing screenshot references identified by2026-11-08 inventory",
+    "note_body_sha256": [
+      "7af237e297102d1fe129a6b767e9b85bcd14ce82509291c7564e25c51e698c11",
+      "eafb07f88c83de4274d06576415340a59c530119d857608d0c51225250f8d79a"
+    ],
+    "action": "Do not recheck or report these known missing files as actionable defects. Do not delete or alter notes. New missing media outside this scope remains actionable.",
+    "status": "closed_user_accepted",
+    "checked_at": "2026-11-08T14:33:58.060107+00:00"
+  },
+  "unaccepted": [
+    {
+      "chain": "Real long inference with concurrent UI operations",
+      "blocker": "Current configured provider request rejected;price/cap not verified",
+      "acceptance": "After key ready,one isolated synthetic task plus browse/search/read/delete other synthetic content;measure latency and refresh consistency."
+    },
+    {
+      "chain": "Full podcast acquisition/transcription/summary/read/manage",
+      "blocker": "Real model path not available;local worker component experiment does not replace full pipeline",
+      "acceptance": "Isolated synthetic source and authorized model,actual completed output/transcript/version and managed cleanup."
+    },
+    {
+      "chain": "Recovery",
+      "remaining": "Real upstream524,full API-service restart,crash lease expiry,production Supabase unaccepted. Local injected524/manual dispatch/three process component recovery passed."
+    }
+  ],
+  "product_changes": false,
+  "deployments": false
+}

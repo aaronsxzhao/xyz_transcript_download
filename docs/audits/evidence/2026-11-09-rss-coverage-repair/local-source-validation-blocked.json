@@ -1,0 +1,31 @@
+{
+  "budget_before": 2.54717,
+  "requests": 4,
+  "max_requests": 40,
+  "usage": {
+    "total_tokens": 57347
+  },
+  "status": "blocked",
+  "error_type": "SummaryOutputError",
+  "error_code": "quality",
+  "reason": "coverage",
+  "elapsed_seconds": 38.74,
+  "budget_after": 2.723818,
+  "delivery": {
+    "status": "blocked",
+    "coverage_threshold": 0.9,
+    "coverage_ratio": 0.7352941176470589,
+    "reason": "coverage"
+  },
+  "final_coverage_repair_rounds": 0,
+  "ledger": {
+    "coverage_ratio": 0.7352941176470589,
+    "covered_items": 25,
+    "unresolved_items": 9,
+    "context_only_items": 3,
+    "failed_batches": 0,
+    "terminal_provider_failure": false,
+    "repairs_accepted": 0,
+    "repairs_rejected": 0
+  }
+}

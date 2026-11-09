@@ -1,0 +1,227 @@
+{
+  "states": [
+    {
+      "status": "pending",
+      "elapsed": 0.13
+    },
+    {
+      "status": "summarizing",
+      "elapsed": 5.29
+    },
+    {
+      "status": "summarizing",
+      "elapsed": 10.45
+    },
+    {
+      "status": "summarizing",
+      "elapsed": 15.61
+    },
+    {
+      "status": "summarizing",
+      "elapsed": 20.83
+    },
+    {
+      "status": "summarizing",
+      "elapsed": 26.0
+    },
+    {
+      "status": "summarizing",
+      "elapsed": 31.12
+    },
+    {
+      "status": "summarizing",
+      "elapsed": 36.33
+    },
+    {
+      "status": "summarizing",
+      "elapsed": 41.52
+    },
+    {
+      "status": "summarizing",
+      "elapsed": 46.73
+    },
+    {
+      "status": "summarizing",
+      "elapsed": 51.88
+    },
+    {
+      "status": "summarizing",
+      "elapsed": 57.14
+    },
+    {
+      "status": "summarizing",
+      "elapsed": 62.32
+    },
+    {
+      "status": "summarizing",
+      "elapsed": 67.5
+    },
+    {
+      "status": "summarizing",
+      "elapsed": 72.79
+    },
+    {
+      "status": "summarizing",
+      "elapsed": 77.91
+    },
+    {
+      "status": "summarizing",
+      "elapsed": 83.12
+    },
+    {
+      "status": "summarizing",
+      "elapsed": 88.24
+    },
+    {
+      "status": "summarizing",
+      "elapsed": 93.36
+    },
+    {
+      "status": "summarizing",
+      "elapsed": 98.53
+    },
+    {
+      "status": "summarizing",
+      "elapsed": 103.7
+    },
+    {
+      "status": "summarizing",
+      "elapsed": 108.88
+    },
+    {
+      "status": "summarizing",
+      "elapsed": 114.05
+    },
+    {
+      "status": "summarizing",
+      "elapsed": 119.22
+    },
+    {
+      "status": "summarizing",
+      "elapsed": 124.38
+    },
+    {
+      "status": "summarizing",
+      "elapsed": 129.54
+    },
+    {
+      "status": "summarizing",
+      "elapsed": 134.7
+    },
+    {
+      "status": "summarizing",
+      "elapsed": 139.86
+    },
+    {
+      "status": "summarizing",
+      "elapsed": 144.98
+    },
+    {
+      "status": "summarizing",
+      "elapsed": 150.09
+    },
+    {
+      "status": "summarizing",
+      "elapsed": 155.22
+    },
+    {
+      "status": "summarizing",
+      "elapsed": 160.39
+    },
+    {
+      "status": "summarizing",
+      "elapsed": 165.59
+    },
+    {
+      "status": "summarizing",
+      "elapsed": 170.77
+    },
+    {
+      "status": "summarizing",
+      "elapsed": 175.93
+    },
+    {
+      "status": "summarizing",
+      "elapsed": 181.05
+    },
+    {
+      "status": "summarizing",
+      "elapsed": 186.22
+    },
+    {
+      "status": "summarizing",
+      "elapsed": 191.34
+    },
+    {
+      "status": "summarizing",
+      "elapsed": 196.5
+    },
+    {
+      "status": "summarizing",
+      "elapsed": 201.66
+    },
+    {
+      "status": "summarizing",
+      "elapsed": 206.81
+    },
+    {
+      "status": "failed",
+      "elapsed": 211.96
+    }
+  ],
+  "import_http": 200,
+  "created_pid": "apple_1200361736",
+  "episode_id": "de4246248271cec5cc24b32c",
+  "job_id": "07295962-bda9-4281-a05d-af0911eb3d6b",
+  "parent_job": "5a4028a6-3967-4686-852e-5aa01deb911a",
+  "poll_http": [
+    200,
+    200,
+    200,
+    200,
+    200,
+    200,
+    200,
+    200,
+    200,
+    200,
+    200,
+    200,
+    200,
+    200,
+    200,
+    200,
+    200,
+    200,
+    200,
+    200,
+    200,
+    200,
+    200,
+    200,
+    200,
+    200,
+    200,
+    200,
+    200,
+    200,
+    200,
+    200,
+    200,
+    200,
+    200,
+    200,
+    200,
+    200,
+    200,
+    200,
+    200,
+    200
+  ],
+  "terminal": "failed",
+  "error_code": null,
+  "quality_coverage_failure": true,
+  "cleanup_http": 200,
+  "cleaned": true,
+  "status": "BLOCKED"
+}

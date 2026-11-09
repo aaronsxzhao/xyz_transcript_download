@@ -1,0 +1,83 @@
+{
+  "started_at": "2026-11-08T13:39:00.009485+00:00",
+  "origin": "https://aipodcastsummary.online",
+  "mode": "authenticated",
+  "authenticated_session_verified": true,
+  "visual_inspection": "REVIEWED: actual screenshots opened with view_image; scoped layout/readability observations only",
+  "sandbox_enabled": true,
+  "tls_verification": true,
+  "checks": [],
+  "blocked_write_requests": 10,
+  "browser_version": "154.0.8037.57",
+  "note_reads": [
+    {
+      "markdown_sha256": "eafb07f88c83de4274d06576415340a59c530119d857608d0c51225250f8d79a",
+      "status": "success",
+      "versions": 1
+    },
+    {
+      "markdown_sha256": "eafb07f88c83de4274d06576415340a59c530119d857608d0c51225250f8d79a",
+      "status": "success",
+      "versions": 1
+    }
+  ],
+  "page_error_count": 0,
+  "console_error_count": 130,
+  "library": {
+    "titles": 2,
+    "search_and_clear": true,
+    "pagination_available": false
+  },
+  "transcript": {
+    "panel_nonempty": true,
+    "empty_message": false
+  },
+  "historical_version": {
+    "http_status": 200,
+    "saved_body_nonempty": true,
+    "rendered_body_nonempty": true
+  },
+  "version_restore": {
+    "equal": true,
+    "math_counts": [
+      0,
+      0
+    ],
+    "lengths": [
+      2921,
+      2921
+    ]
+  },
+  "reader_timing": {
+    "initial_math": 0,
+    "settled_math": 0,
+    "reload_math": 0,
+    "initial_equals_settled": true,
+    "settled_equals_reload": true,
+    "text_lengths": [
+      2921,
+      2921,
+      2921
+    ]
+  },
+  "reader_deltas": [
+    {
+      "pair": "initial_settled",
+      "operations": []
+    },
+    {
+      "pair": "settled_reload",
+      "operations": []
+    }
+  ],
+  "status": "PASS",
+  "network_error_counts": [
+    {
+      "status": 404,
+      "resource_kind": "screenshot",
+      "category": "asset",
+      "count": 120
+    }
+  ],
+  "measurement_limit": "Repeated screenshot errors include image cloning by the earlier text sampler; counts are not user-frequency metrics. Final harness uses a text-node walker."
+}

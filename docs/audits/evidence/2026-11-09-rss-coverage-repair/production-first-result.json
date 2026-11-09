@@ -1,0 +1,452 @@
+{
+  "states": [
+    {
+      "status": "pending",
+      "progress": 0.0,
+      "elapsed": 0.12
+    },
+    {
+      "status": "summarizing",
+      "progress": 80.5,
+      "elapsed": 5.28
+    },
+    {
+      "status": "summarizing",
+      "progress": 80.5,
+      "elapsed": 10.44
+    },
+    {
+      "status": "summarizing",
+      "progress": 80.5,
+      "elapsed": 15.62
+    },
+    {
+      "status": "summarizing",
+      "progress": 80.5,
+      "elapsed": 20.79
+    },
+    {
+      "status": "summarizing",
+      "progress": 80.5,
+      "elapsed": 25.96
+    },
+    {
+      "status": "summarizing",
+      "progress": 80.5,
+      "elapsed": 31.08
+    },
+    {
+      "status": "summarizing",
+      "progress": 80.5,
+      "elapsed": 36.28
+    },
+    {
+      "status": "summarizing",
+      "progress": 80.5,
+      "elapsed": 41.42
+    },
+    {
+      "status": "summarizing",
+      "progress": 80.5,
+      "elapsed": 46.61
+    },
+    {
+      "status": "summarizing",
+      "progress": 80.5,
+      "elapsed": 51.8
+    },
+    {
+      "status": "summarizing",
+      "progress": 80.5,
+      "elapsed": 56.96
+    },
+    {
+      "status": "summarizing",
+      "progress": 80.5,
+      "elapsed": 62.95
+    },
+    {
+      "status": "summarizing",
+      "progress": 80.5,
+      "elapsed": 68.11
+    },
+    {
+      "status": "summarizing",
+      "progress": 80.5,
+      "elapsed": 73.28
+    },
+    {
+      "status": "summarizing",
+      "progress": 80.5,
+      "elapsed": 78.4
+    },
+    {
+      "status": "summarizing",
+      "progress": 80.5,
+      "elapsed": 83.57
+    },
+    {
+      "status": "summarizing",
+      "progress": 80.5,
+      "elapsed": 88.73
+    },
+    {
+      "status": "summarizing",
+      "progress": 80.5,
+      "elapsed": 93.95
+    },
+    {
+      "status": "summarizing",
+      "progress": 80.5,
+      "elapsed": 99.09
+    },
+    {
+      "status": "summarizing",
+      "progress": 80.5,
+      "elapsed": 104.21
+    },
+    {
+      "status": "summarizing",
+      "progress": 80.5,
+      "elapsed": 109.37
+    },
+    {
+      "status": "summarizing",
+      "progress": 80.5,
+      "elapsed": 114.49
+    },
+    {
+      "status": "summarizing",
+      "progress": 80.5,
+      "elapsed": 119.66
+    },
+    {
+      "status": "summarizing",
+      "progress": 80.5,
+      "elapsed": 125.35
+    },
+    {
+      "status": "summarizing",
+      "progress": 80.5,
+      "elapsed": 126.64
+    },
+    {
+      "status": "summarizing",
+      "progress": 80.5,
+      "elapsed": 127.11
+    },
+    {
+      "status": "summarizing",
+      "progress": 80.5,
+      "elapsed": 129.65
+    },
+    {
+      "status": "summarizing",
+      "progress": 80.5,
+      "elapsed": 134.83
+    },
+    {
+      "status": "summarizing",
+      "progress": 80.5,
+      "elapsed": 140.0
+    },
+    {
+      "status": "summarizing",
+      "progress": 80.5,
+      "elapsed": 145.15
+    },
+    {
+      "status": "summarizing",
+      "progress": 80.5,
+      "elapsed": 150.28
+    },
+    {
+      "status": "summarizing",
+      "progress": 80.5,
+      "elapsed": 155.45
+    },
+    {
+      "status": "summarizing",
+      "progress": 80.5,
+      "elapsed": 160.63
+    },
+    {
+      "status": "summarizing",
+      "progress": 80.5,
+      "elapsed": 165.82
+    },
+    {
+      "status": "summarizing",
+      "progress": 80.5,
+      "elapsed": 170.99
+    },
+    {
+      "status": "summarizing",
+      "progress": 80.5,
+      "elapsed": 176.1
+    },
+    {
+      "status": "summarizing",
+      "progress": 80.5,
+      "elapsed": 181.29
+    },
+    {
+      "status": "summarizing",
+      "progress": 80.5,
+      "elapsed": 187.15
+    },
+    {
+      "status": "summarizing",
+      "progress": 80.5,
+      "elapsed": 192.35
+    },
+    {
+      "status": "summarizing",
+      "progress": 80.5,
+      "elapsed": 197.52
+    },
+    {
+      "status": "summarizing",
+      "progress": 80.5,
+      "elapsed": 202.64
+    },
+    {
+      "status": "summarizing",
+      "progress": 80.5,
+      "elapsed": 207.8
+    },
+    {
+      "status": "summarizing",
+      "progress": 80.5,
+      "elapsed": 212.96
+    },
+    {
+      "status": "summarizing",
+      "progress": 80.5,
+      "elapsed": 218.14
+    },
+    {
+      "status": "summarizing",
+      "progress": 80.5,
+      "elapsed": 223.34
+    },
+    {
+      "status": "summarizing",
+      "progress": 80.5,
+      "elapsed": 228.51
+    },
+    {
+      "status": "summarizing",
+      "progress": 80.5,
+      "elapsed": 233.68
+    },
+    {
+      "status": "summarizing",
+      "progress": 80.5,
+      "elapsed": 238.85
+    },
+    {
+      "status": "summarizing",
+      "progress": 80.5,
+      "elapsed": 244.02
+    },
+    {
+      "status": "summarizing",
+      "progress": 80.5,
+      "elapsed": 249.7
+    },
+    {
+      "status": "summarizing",
+      "progress": 80.5,
+      "elapsed": 254.92
+    },
+    {
+      "status": "summarizing",
+      "progress": 80.5,
+      "elapsed": 260.08
+    },
+    {
+      "status": "summarizing",
+      "progress": 80.5,
+      "elapsed": 265.27
+    },
+    {
+      "status": "summarizing",
+      "progress": 80.5,
+      "elapsed": 270.43
+    },
+    {
+      "status": "summarizing",
+      "progress": 80.5,
+      "elapsed": 275.66
+    },
+    {
+      "status": "summarizing",
+      "progress": 80.5,
+      "elapsed": 280.82
+    },
+    {
+      "status": "summarizing",
+      "progress": 80.5,
+      "elapsed": 286.04
+    },
+    {
+      "status": "summarizing",
+      "progress": 80.5,
+      "elapsed": 291.16
+    },
+    {
+      "status": "summarizing",
+      "progress": 80.5,
+      "elapsed": 296.33
+    },
+    {
+      "status": "summarizing",
+      "progress": 80.5,
+      "elapsed": 301.5
+    },
+    {
+      "status": "summarizing",
+      "progress": 80.5,
+      "elapsed": 306.62
+    },
+    {
+      "status": "summarizing",
+      "progress": 80.5,
+      "elapsed": 312.38
+    },
+    {
+      "status": "summarizing",
+      "progress": 80.5,
+      "elapsed": 317.51
+    },
+    {
+      "status": "summarizing",
+      "progress": 80.5,
+      "elapsed": 322.68
+    },
+    {
+      "status": "summarizing",
+      "progress": 80.5,
+      "elapsed": 327.83
+    },
+    {
+      "status": "summarizing",
+      "progress": 80.5,
+      "elapsed": 333.01
+    },
+    {
+      "status": "summarizing",
+      "progress": 80.5,
+      "elapsed": 338.13
+    },
+    {
+      "status": "failed",
+      "progress": 0.0,
+      "elapsed": 343.3
+    }
+  ],
+  "timings": [
+    {
+      "operation": "search-clear",
+      "seconds": 0.944,
+      "job_state": "summarizing"
+    },
+    {
+      "operation": "read-test-video",
+      "seconds": 0.317,
+      "job_state": "summarizing"
+    },
+    {
+      "operation": "delete-own-disposable",
+      "seconds": 0.318,
+      "job_state": "summarizing"
+    }
+  ],
+  "poll_http": [
+    200,
+    200,
+    200,
+    200,
+    200,
+    200,
+    200,
+    200,
+    200,
+    200,
+    200,
+    200,
+    200,
+    200,
+    200,
+    200,
+    200,
+    200,
+    200,
+    200,
+    200,
+    200,
+    200,
+    200,
+    200,
+    200,
+    200,
+    200,
+    200,
+    200,
+    200,
+    200,
+    200,
+    200,
+    200,
+    200,
+    200,
+    200,
+    200,
+    200,
+    200,
+    200,
+    200,
+    200,
+    200,
+    200,
+    200,
+    200,
+    200,
+    200,
+    200,
+    200,
+    200,
+    200,
+    200,
+    200,
+    200,
+    200,
+    200,
+    200,
+    200,
+    200,
+    200,
+    200,
+    200,
+    200,
+    200,
+    200,
+    200
+  ],
+  "budget_before": 3.268192,
+  "revision": "99011578febe2a36bd039d8d1077dbe0a7c36f6b",
+  "created_pid": "apple_1200361736",
+  "resumed_after_missing_local_fixture": true,
+  "created_disposable": "local_932efdf9fc5a43ac",
+  "retry_http": 200,
+  "job_id": "1da1153c-152e-45fb-8f96-c392f536a8d3",
+  "budget_latest": 4.007668,
+  "parallel_begin_elapsed": 125.35,
+  "parallel_reader_reload_equal": true,
+  "deleted_disposable": true,
+  "parallel_checked": true,
+  "terminal": "failed",
+  "quality_coverage_failure": false,
+  "status": "BLOCKED"
+}

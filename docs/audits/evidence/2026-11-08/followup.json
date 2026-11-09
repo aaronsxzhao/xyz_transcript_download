@@ -1,0 +1,39 @@
+{
+  "started_at": "2026-11-08T00:59:29.373496+00:00",
+  "origin": "https://aipodcastsummary.online",
+  "mode": "authenticated",
+  "authenticated_session_verified": true,
+  "visual_inspection": "view_image opened all three Library viewport screenshots and follow-up series/integrity screenshots; account images remain private",
+  "sandbox_enabled": true,
+  "tls_verification": true,
+  "checks": [],
+  "blocked_write_requests": 6,
+  "browser_version": "154.0.8037.57",
+  "note_reads": [],
+  "page_error_count": 0,
+  "console_error_count": 7,
+  "discovery": {
+    "series_directory": {
+      "http_status": 409,
+      "observed_seconds": 0.23,
+      "saved_links_visible": 1,
+      "failure_explained": true,
+      "collapsed": true
+    },
+    "media_integrity": {
+      "http_status": 200,
+      "referenced": 13,
+      "missing": 13,
+      "affected_notes": 2
+    }
+  },
+  "status": "PASS",
+  "network_summary": [
+    {
+      "status": 409,
+      "kind": "other",
+      "category": "collection_parts",
+      "count": 1
+    }
+  ]
+}

@@ -1,0 +1,11 @@
+{
+  "revision": "d230bd366762dcd32ed1646c849fffdea22fa698",
+  "health": "ok",
+  "rss_job_before": "summarizing",
+  "search_clear_seconds": 0.921,
+  "open_reader_seconds": 1.567,
+  "summary_reload_equal": true,
+  "transcript_http": 200,
+  "rss_job_after": "summarizing",
+  "status": "PASS"
+}

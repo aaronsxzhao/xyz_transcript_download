@@ -1,0 +1,37 @@
+{
+  "status": "PASS",
+  "first": [
+    {
+      "task": "a",
+      "state": "failed"
+    },
+    {
+      "task": "b",
+      "state": "completed"
+    }
+  ],
+  "explicit_retry": [
+    {
+      "task": "a",
+      "state": "completed"
+    }
+  ],
+  "fresh_process": [
+    {
+      "new_process_restored_completed_jobs": true,
+      "saved_model_checkpoints_reused_without_HTTP": true
+    }
+  ],
+  "local_http_counts": {
+    "a": 2,
+    "b": 1
+  },
+  "scope": "Real SQLite and application Worker.run/checkpoint/job persistence;synthetic processor and loopback HTTP524;manual claim/dispatch;three separate Python processes",
+  "limitations": [
+    "Not real upstream524",
+    "Not full API server restart or browser acceptance",
+    "Not full podcast acquisition/transcription/model pipeline",
+    "Not production Supabase",
+    "Not a killed-worker lease-expiry test"
+  ]
+}

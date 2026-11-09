@@ -1,0 +1,10 @@
+{
+  "operation": "same endpoint without credential control",
+  "status": 401,
+  "error": {
+    "code": "",
+    "message": "密钥错误，请登录平台重新创建 (request id: 202611081432484968249218268d9d6NeclMQeH)",
+    "type": "new_api_error"
+  },
+  "generation_calls": 0
+}

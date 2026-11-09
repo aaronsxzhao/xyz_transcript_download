@@ -1,0 +1,12 @@
+{
+  "source": "scripts/check_editorial_components.py at906393581ce23ef5bbf1594070834a1bcf8a9f19",
+  "temporary_copy": "scripts/.audit_secure_components.py",
+  "only_change": {
+    "before": "args=['--no-sandbox']",
+    "after": "chromium_sandbox=True"
+  },
+  "assertions": "unchanged",
+  "build": "npm ci --ignore-scripts; npm run build in isolated worktree",
+  "command": "python scripts/.audit_secure_components.py --browser-path /usr/bin/chromium --output <private directory>",
+  "scope": "Default Editorial design, light/dark; default routes and820/390/1440 widths; Chromium only. Does not cover CI Classic/WebKit."
+}

@@ -1,0 +1,109 @@
+{
+  "started_at": "2026-11-08T00:57:50.295862+00:00",
+  "origin": "https://aipodcastsummary.online",
+  "mode": "authenticated",
+  "authenticated_session_verified": true,
+  "visual_inspection": "view_image opened all three Library viewport screenshots and follow-up series/integrity screenshots; account images remain private",
+  "sandbox_enabled": true,
+  "tls_verification": true,
+  "checks": [
+    {
+      "viewport": [
+        1440,
+        900
+      ],
+      "status": "PASS",
+      "interaction": "Library navigation link clicked",
+      "reload": "PASS",
+      "screenshot": "authenticated-1440x900.png",
+      "horizontal_overflow": false
+    },
+    {
+      "viewport": [
+        768,
+        1024
+      ],
+      "status": "PASS",
+      "interaction": "Library navigation link clicked",
+      "reload": "PASS",
+      "screenshot": "authenticated-768x1024.png",
+      "horizontal_overflow": false
+    },
+    {
+      "viewport": [
+        390,
+        844
+      ],
+      "status": "PASS",
+      "interaction": "Library navigation link clicked",
+      "reload": "PASS",
+      "screenshot": "authenticated-390x844.png",
+      "horizontal_overflow": false
+    }
+  ],
+  "blocked_write_requests": 25,
+  "browser_version": "154.0.8037.57",
+  "note_reads": [
+    {
+      "markdown_sha256": "eafb07f88c83de4274d06576415340a59c530119d857608d0c51225250f8d79a",
+      "status": "success",
+      "versions": 1
+    },
+    {
+      "markdown_sha256": "eafb07f88c83de4274d06576415340a59c530119d857608d0c51225250f8d79a",
+      "status": "success",
+      "versions": 1
+    }
+  ],
+  "page_error_count": 0,
+  "console_error_count": 60,
+  "discovery": {
+    "search": {
+      "title_count": 2,
+      "cleared": true,
+      "pagination_available": false
+    },
+    "reader": {
+      "summary_nonempty": true,
+      "transcript_empty_message": false,
+      "transcript_panel_nonempty": true,
+      "summary_same_after_reload": false,
+      "more_actions_available": true,
+      "history_control_available": true,
+      "version_choices": 2,
+      "historical_version_http": 200,
+      "historical_note_nonempty": true,
+      "latest_restored": false
+    },
+    "task_history_available": true,
+    "task_history_opened": true,
+    "podcast_search": {
+      "no_match_visible": true,
+      "clear_succeeded": true,
+      "empty_account": true,
+      "reload_succeeded": true
+    }
+  },
+  "discovery_stage": "task_history",
+  "saved_markdown_unchanged_across_reads": true,
+  "timeout_at": "task_history",
+  "status": "FAIL",
+  "failure_category": "application",
+  "error_type": "TimeoutError",
+  "failure_signature": "See failing stage; raw exception omitted to protect credentials",
+  "network_summary": [
+    {
+      "status": 404,
+      "kind": "screenshot",
+      "category": "asset",
+      "count": 34
+    },
+    {
+      "status": 409,
+      "kind": "other",
+      "category": "collection_parts",
+      "count": 1
+    }
+  ],
+  "failure_explanation": "Harness expected /api/collections instead of actual /api/video-notes/collections; core checks completed; only directory/integrity rerun with corrected path. Initial rendered-text hashes differ; saved API Markdown stable."
+}
