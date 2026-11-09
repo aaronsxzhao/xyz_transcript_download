@@ -1,4 +1,5 @@
 import copy
+import json
 import threading
 from concurrent.futures import ThreadPoolExecutor
 from types import SimpleNamespace
@@ -12,6 +13,61 @@ from summary_errors import SummaryOutputError, ProcessingCancelledError
 from transcript_reading import source_lines, validate_sections, organize_sections
 from processing_parallel import FairSemaphore
 from processing_execution import Execution, bind
+
+
+@pytest.mark.parametrize('corrected', [True, False])
+def test_unchanged_grounding_repair_is_not_cached_and_gets_one_targeted_retry(corrected):
+    from reading_delivery import repair_unsupported
+    from scripts.validate_parallel_processing import Store
+    _, lines = source_lines('Use python scripts check cloud browser.\n'
+                            'Output appearance checks slash cloud browser slash run id slash anonymous.')
+    ranges = [{'start':lines[0].id, 'end':lines[1].id}]
+    rejected = ('The transcript mentions cloud-browser appearance checks; '
+                'it does not clearly specify an output path.')
+    sections, _ = validate_sections({'sections':[{'heading':'Browser', 'paragraphs':[
+        {'text':rejected, 'source_ranges':ranges}]}]}, lines)
+    sections[0]['paragraphs'][0]['id'] = 'L1.8'
+    before = copy.deepcopy(sections)
+    owner = SimpleNamespace(client=Mock(base_url='https://models.example/v1/'), model='test')
+    store = Store()
+    requests = []
+
+    def complete(client, model, system, payload, timeout, **kwargs):
+        request = json.loads(payload)
+        requests.append(request)
+        assert [p['id'] for p in request['paragraphs']] == ['L1.8']
+        if len(requests) == 2:
+            assert not store.values  # No-op provider output was not checkpointed.
+            assert request['repair_feedback']
+        return {'replacements':[{'id':'L1.8', 'source_ranges':ranges,
+            'text':'The output path is appearance checks / cloud browser / run id / anonymous.'
+                   if corrected and len(requests) == 2 else rejected.replace(' ', '  ')}]}
+
+    with patch('reading_editor._call_editor', side_effect=complete), bind(Execution('owner','source',store)):
+        if corrected:
+            repair_unsupported(owner, lines, sections, {'L1.8'})
+            assert len(store.values) == 1
+            assert sections[0]['paragraphs'][0]['text'].startswith('The output path is')
+        else:
+            with pytest.raises(SummaryOutputError) as error:
+                repair_unsupported(owner, lines, sections, {'L1.8'})
+            assert error.value.reason == 'grounding'
+            assert not store.values
+            assert sections == before
+    assert len(requests) == 2
+
+
+def test_grounding_repair_does_not_add_transport_retries():
+    from reading_delivery import repair_unsupported
+    owner, edition = candidate(10)
+    owner.client = Mock(base_url='https://models.example/v1/')
+    owner.model = 'test'
+    before = copy.deepcopy(edition['sections'])
+    with patch('reading_editor._call_editor', side_effect=TimeoutError) as call:
+        with pytest.raises(TimeoutError):
+            repair_unsupported(owner, edition['lines'], edition['sections'], {'P1'})
+    assert call.call_count == 1
+    assert edition['sections'] == before
 
 
 def candidate(covered=9):

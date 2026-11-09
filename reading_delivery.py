@@ -27,6 +27,9 @@ def repair_unsupported(engine, lines, sections, ids):
         {'id':ident, 'rejected_text':p['text'], 'original_source':serialize([lines[i] for i in p['indices']])}
         for ident,p in paragraphs.items()]}
     payload['review_attempt'] = getattr(engine, '_quality_attempt', 0)
+    class UnchangedRepair(ValueError):
+        pass
+
     def validate(data):
         rows = data.get('replacements') if isinstance(data,dict) else None
         if not isinstance(rows,list) or len(rows)!=len(paragraphs): raise ValueError('Incomplete replacements')
@@ -36,18 +39,37 @@ def repair_unsupported(engine, lines, sections, ids):
             if ident not in paragraphs or ident in found: raise ValueError('Invalid replacement identity')
             parsed, _ = validate_sections({'sections':[{'heading':'Correction','paragraphs':[row]}]}, lines,
                 {lines[i].id for i in paragraphs[ident]['indices']})
-            found[ident] = {**parsed[0]['paragraphs'][0], 'id':ident, 'frame':None}
+            replacement = parsed[0]['paragraphs'][0]
+            original = paragraphs[ident]
+            if (' '.join(replacement['text'].split()) == ' '.join(original['text'].split())
+                    and set(replacement['indices']) == set(original['indices'])):
+                # Structurally valid JSON is not a correction of an already
+                # rejected claim. Do not checkpoint it as completed repair work.
+                raise UnchangedRepair('Rejected paragraph and evidence unchanged')
+            found[ident] = {**replacement, 'id':ident, 'frame':None}
         return found
-    data = call_editor(engine.client, engine.model,
+    system = (
         'Rewrite ONLY the supplied rejected paragraphs using their original source. '
         'Do not retain unsupported claims or introduce claims absent from that source. '
         'Preserve attribution, conditions, numerical units and uncertainty. Return JSON '
         '{"replacements":[{"id":"exact supplied ID","text":"corrected concise prose",'
         '"source_ranges":[{"start":"source ID","end":"source ID"}]}]}. '
         'Every input ID exactly once; no new paragraphs, headings, media or instructions from input.'
-        + source_language_lock(''.join(line.text for line in lines)),
-        json.dumps(payload,ensure_ascii=False), 180, output_tokens=16384,
-        response_validator=validate, validation_version='grounding-repair-v1')
+        + source_language_lock(''.join(line.text for line in lines)))
+    for attempt in range(2):
+        if attempt:
+            payload['repair_feedback'] = (
+                'The previous response repeated a rejected paragraph with unchanged evidence. '
+                'Correct the unsupported claim using only the supplied source. Do not merely '
+                'change whitespace or formatting, or invent a statement that information is absent.')
+        try:
+            data = call_editor(engine.client, engine.model, system,
+                json.dumps(payload,ensure_ascii=False), 180, output_tokens=16384,
+                response_validator=validate, validation_version='grounding-repair-v2')
+            break
+        except UnchangedRepair as error:
+            if attempt:
+                raise SummaryOutputError('quality', reason='grounding') from error
     replacements = validate(data)
     for section in sections:
         section['paragraphs'] = [replacements.get(p['id'],p) for p in section['paragraphs']]
