@@ -61,7 +61,9 @@ jobs:
   frontend:
     name: Frontend Checks
     timeout-minutes: 45
-    runs-on: ubuntu-latest
+    # Pin a supported runner for sandbox-enabled Chromium; never disable the
+    # browser sandbox or relax host security policy to accommodate latest-image drift.
+    runs-on: ubuntu-22.04
     if: github.event_name != 'schedule'
     steps:
       - uses: actions/checkout@v4
@@ -125,6 +127,9 @@ jobs:
           python scripts/check_series_spacing.py
           python scripts/check_series_spacing.py --webkit
 
+      - name: Check unassigned channel grouping and pagination
+        timeout-minutes: 4
+        run: python scripts/check_unassigned_channels.py
       - name: Check multipart reader horizontal bounds
         timeout-minutes: 5
         run: |
@@ -196,6 +201,7 @@ jobs:
         timeout-minutes: 5
         run: |
           python scripts/check_summary_theme.py
+          python scripts/check_currency_math.py --output /tmp/currency-math
           python scripts/check_summary_theme.py --webkit --output /tmp/summary-theme-webkit
       - name: Upload Editorial failure evidence
         if: failure()

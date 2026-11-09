@@ -1,0 +1,45 @@
+{
+  "date": "2026-11-09",
+  "base": "d230bd366762dcd32ed1646c849fffdea22fa698",
+  "authorization": "User explicitly requested virtual 未归属频道 group and real test-account imports.",
+  "problem": "Empty/null channel tasks were excluded from channel statistics and inaccessible through Videos.",
+  "fix": [
+    "Virtual group per platform with existing channel-card layout; videos only appear after entering the group.",
+    "Owner/platform-scoped null-or-empty paging; no source metadata rewrite.",
+    "Complete paginated cloud channel statistics and matching SQLite aggregation.",
+    "No bulk deletion/upstream update on virtual group. Channel card component deferred to retain existing initial asset budget."
+  ],
+  "validation": {
+    "channel_tests": 9,
+    "frontend_unit_tests": 541,
+    "build_budget_kib": 197.2,
+    "budget_kib": 197.75,
+    "browser_cases": 12,
+    "browser_scope": "Local isolated fixtures, 43 unassigned videos and one named group; pagination, search reset, reload, Classic/Editorial light/dark at 1440x900,768x1024,390x844",
+    "visually_viewed": [
+      "group-classic-light-390.png",
+      "group-editorial-dark-768.png",
+      "videos-editorial-light-390.png"
+    ],
+    "production_imports": [
+      {
+        "source": "Short YouTube video",
+        "task": "fd375cec-8f3",
+        "result": "Created; upstream YouTube requires authentication before metadata. No cookie bypass attempted."
+      },
+      {
+        "source": "W3Schools short public MP4",
+        "task": "19e17617-08e",
+        "result": "Created; protected task API confirms channel www.w3schools.com, platform web, status summarizing at observation."
+      }
+    ]
+  },
+  "limitations": [
+    "DOM tab presence in initial import harness is not proof of completed processing; protected API status is authoritative.",
+    "Public import first attempt used wrong button name and never submitted; corrected to actual Import content control.",
+    "Production rollout and after-deployment checks pending.",
+    "No real 524 or physical-device acceptance."
+  ],
+  "evidence_private": "/workspace/browser-validation/unassigned-20261109",
+  "local_browser_evidence": "appearance-checks/unassigned"
+}

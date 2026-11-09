@@ -5,7 +5,50 @@ A collection import is never represented as one 113-minute first-part summary.
 """
 import math
 import uuid
+import re
 from urllib.parse import parse_qs, urlsplit
+
+
+def public_collection_metadata(url):
+    """Read a complete legacy directory without cookies, media or DB writes."""
+    import requests
+    from video_downloader import BilibiliDownloader
+    parsed = urlsplit(url)
+    if parsed.hostname in ('b23.tv', 'www.b23.tv'):
+        url = BilibiliDownloader._resolve_short_url(url)
+        parsed = urlsplit(url)
+    identity = re.fullmatch(r'/video/(BV\w+|av\d+)/?', parsed.path)
+    if (parsed.scheme not in ('http', 'https') or parsed.username or parsed.password
+            or parsed.port not in (None, 80, 443)
+            or parsed.hostname not in ('bilibili.com', 'www.bilibili.com', 'm.bilibili.com')
+            or not identity):
+        raise ValueError('No canonical Bilibili source identity')
+    video_id = identity.group(1)
+    params = {'bvid': video_id} if video_id.startswith('BV') else {'aid': video_id[2:]}
+    # The public page-list endpoint returns the complete collection directly.
+    # A directory does not need the separate video overview (which may reject
+    # an anonymous read even while the public page list remains available).
+    with requests.get('https://api.bilibili.com/x/player/pagelist', params=params,
+                      headers={'User-Agent': 'Mozilla/5.0', 'Referer': 'https://www.bilibili.com/'},
+                      timeout=15, allow_redirects=False) as response:
+        if response.status_code != 200:
+            raise ValueError(f'Public part metadata unavailable (HTTP {response.status_code})')
+        data = response.json()
+    if not isinstance(data, dict) or data.get('code') != 0:
+        raise ValueError('Public part metadata was rejected')
+    pages = data.get('data')
+    if not isinstance(pages, list) or not all(isinstance(page, dict) for page in pages):
+        raise ValueError('Public part metadata is invalid')
+    try:
+        # Do not invent an overview title or a source-reported total. Keep each
+        # public part label; the saved collection heading remains unchanged.
+        parts = part_manifest({'title': 'Bilibili', 'pages': pages}, url)
+    except TypeError as error:
+        raise ValueError('Public part metadata is invalid') from error
+    page = selected_part(url) or 1
+    if page > len(parts):
+        raise ValueError('Saved part is absent from the public directory')
+    return {'bilibili_parts': parts, 'bilibili_part': parts[page - 1]}
 
 
 def selected_part(url):

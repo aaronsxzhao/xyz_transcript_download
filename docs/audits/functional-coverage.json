@@ -352,6 +352,29 @@
       "next_check": "Authorized test identities; no forged tokens"
     }
   ],
+  "remediation_followups": [
+    {
+      "date": "2026-11-07 evening",
+      "report": "docs/audits/2026-11-07-evening-technical-pm.json",
+      "issue": "empty-cookie lookup misclassified as storage outage",
+      "pr": 243,
+      "state": "PR243 local fix and regression complete; hosted sandbox launch failure blocks merge/deployment",
+      "prior_evidence": "PR241 c6bb7b4; preserved on its branch"
+    },
+    {
+      "date": "2026-11-08",
+      "report": "docs/audits/2026-11-08-reader-collection.json",
+      "issue": "Legacy multipart directory 409 and reader DOM comparison",
+      "state": "Read-only manifest recovery implemented; focused regression passed; production rollout pending. Settled reader/history/refresh verified; delayed math can change raw text."
+    },
+    {
+      "date": "2026-11-09",
+      "issue": "Missing-channel videos excluded from Videos",
+      "report": "docs/audits/2026-11-09-unassigned-channel.json",
+      "state": "Authorized virtual group implemented; local regression passed; CI and deployment pending",
+      "owner": "visual-interaction"
+    }
+  ],
   "audit_attempts": [
     {
       "checked_at": "2026-11-06T12:20:09.421676+08:00",

@@ -117,3 +117,80 @@ def test_cloud_part_status_alias_lookup_is_owner_scoped_and_omits_metadata():
     query.reset_mock()
     assert db.part_statuses([BASE+'?p=1'],None)==[]
     query.select.assert_not_called()
+
+
+def test_legacy_directory_discovers_metadata_without_saving_or_processing(collection, monkeypatch):
+    from unittest.mock import Mock
+    db, task, user, submit = collection
+    metadata = db.get_task(task, user.id)['source_metadata']
+    db.update_task(task, {'source_metadata': {}, 'status': 'success', 'markdown': 'Saved note'})
+    before = db.get_task(task, user.id)
+    discover = Mock(return_value=metadata)
+    monkeypatch.setattr('bilibili_parts.public_collection_metadata', discover)
+    result = routes.collection_parts(task, user)['parts']
+    assert len(result) == 3
+    assert result[1]['task_id'] == task and result[1]['status'] == 'success'
+    assert result[0]['task_id'] is None
+    assert db.get_task(task, user.id) == before
+    submit.assert_not_called()
+    discover.assert_called_once_with(BASE + '?p=2')
+
+
+def test_legacy_discovery_checks_owner_first(collection, monkeypatch):
+    from unittest.mock import Mock
+    db, task, user, _ = collection
+    db.update_task(task, {'source_metadata': {}})
+    discover = Mock()
+    monkeypatch.setattr('bilibili_parts.public_collection_metadata', discover)
+    with pytest.raises(HTTPException) as error:
+        routes.collection_parts(task, SimpleNamespace(id='other'))
+    assert error.value.status_code == 404
+    discover.assert_not_called()
+
+
+def test_saved_manifest_does_not_request_upstream(collection, monkeypatch):
+    from unittest.mock import Mock
+    discover = Mock(side_effect=AssertionError('Unexpected network request'))
+    monkeypatch.setattr('bilibili_parts.public_collection_metadata', discover)
+    _, task, user, _ = collection
+    assert len(routes.collection_parts(task, user)['parts']) == 3
+    discover.assert_not_called()
+
+
+def test_unavailable_legacy_source_keeps_saved_note_and_reports_retry(collection, monkeypatch):
+    from unittest.mock import Mock
+    import requests
+    db, task, user, submit = collection
+    db.update_task(task, {'source_metadata': {}, 'status': 'success', 'markdown': 'Saved'})
+    before = db.get_task(task, user.id)
+    monkeypatch.setattr('bilibili_parts.public_collection_metadata', Mock(side_effect=requests.Timeout()))
+    with pytest.raises(HTTPException) as error:
+        routes.collection_parts(task, user)
+    assert error.value.status_code == 503
+    assert db.get_task(task, user.id) == before
+    submit.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_legacy_selected_processing_uses_same_discovered_manifest(collection, monkeypatch):
+    db, task, user, submit = collection
+    metadata = db.get_task(task, user.id)['source_metadata']
+    db.update_task(task, {'source_metadata': {}})
+    monkeypatch.setattr('bilibili_parts.public_collection_metadata', lambda url: metadata)
+    await routes.process_collection_part(task, 3, user)
+    submit.assert_awaited_once()
+    assert submit.call_args.kwargs['url'] == BASE + '?p=3'
+    assert db.get_task_by_url(BASE+'?p=1',user.id) is None
+    assert db.get_task(task,user.id)['source_metadata'] == {}
+
+
+def test_discovery_preserves_known_resolved_part_of_legacy_share_url(collection, monkeypatch):
+    from unittest.mock import Mock
+    db, task, user, _ = collection
+    metadata = db.get_task(task,user.id)['source_metadata']
+    db.update_task(task, {'url':'https://b23.tv/legacy-share', 'source_metadata':{'bilibili_part':metadata['bilibili_part']}})
+    discover = Mock(return_value=metadata)
+    monkeypatch.setattr('bilibili_parts.public_collection_metadata',discover)
+    result = routes.collection_parts(task,user)['parts']
+    discover.assert_called_once_with(BASE+'?p=2')
+    assert result[1]['task_id'] == task

@@ -143,6 +143,38 @@ def test_optional_editor_uses_selected_provider_client_and_model_without_retries
     assert client.with_options.return_value.chat.completions.create.call_args.kwargs['model']=='selected-model'
 
 
+@pytest.mark.parametrize('message', [
+    NS(content=None, refusal='Provider declined this request'),
+    NS(content='{"refusal":"Provider declined this request"}', refusal=None),
+])
+def test_explicit_provider_refusal_is_not_retried_as_malformed_draft(message):
+    from transcript_reading import call_json
+    client = Mock()
+    generate = client.with_options.return_value.chat.completions.create
+    generate.return_value = NS(choices=[NS(finish_reason='stop', message=message)])
+    engine = NS(client=client, model='selected-model', generation_report={})
+    payload = json.dumps({'mode':'single', 'primary_source':[{'id':'L1','text':'Synthetic source'}]})
+    with pytest.raises(SummaryOutputError) as error:
+        call_json(engine, 'system', payload, 12)
+    assert error.value.code == 'content_filter'
+    assert 'Provider declined this request' not in str(error.value)
+    generate.assert_called_once()
+    assert engine.generation_report == {}
+
+
+@pytest.mark.parametrize('data', [
+    {'overview':'The speaker described a refusal.', 'sections':[]},
+    {'refusal':'A source quotation', 'groups':[]},
+    {'refusal':False},
+    {'refusal':''},
+])
+def test_refusal_detection_does_not_reinterpret_other_structured_content(data):
+    client = Mock()
+    client.with_options.return_value.chat.completions.create.return_value = NS(
+        choices=[NS(finish_reason='stop', message=NS(content=json.dumps(data), refusal=None))])
+    assert call_editor(client, 'model', 'system', 'payload', 12) == data
+
+
 def test_video_table_of_contents_with_real_prose_is_not_discarded():
     from note_summarizer import NoteSummarizer
     engine=NoteSummarizer(api_key='synthetic')
