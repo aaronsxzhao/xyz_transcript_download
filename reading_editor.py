@@ -162,7 +162,20 @@ def _call_editor(client, model, system, payload, timeout, *, output_tokens=None)
     if not response.choices or response.choices[0].finish_reason not in (None, 'stop'):
         from summary_errors import SummaryOutputError
         raise SummaryOutputError(response.choices[0].finish_reason if response.choices else 'empty')
-    return extract_model_json(response.choices[0].message.content or '')
+    message = response.choices[0].message
+    refusal = getattr(message, 'refusal', None)
+    if isinstance(refusal, str) and refusal.strip():
+        from summary_errors import SummaryOutputError
+        raise SummaryOutputError('content_filter')
+    data = extract_model_json(message.content or '')
+    # Some compatible gateways put an explicit refusal in JSON content instead
+    # of the protocol field. Do not infer refusal from ordinary source prose or
+    # discard a legitimate structured result that merely mentions a refusal.
+    if (isinstance(data, dict) and set(data) == {'refusal'}
+            and isinstance(data['refusal'], str) and data['refusal'].strip()):
+        from summary_errors import SummaryOutputError
+        raise SummaryOutputError('content_filter')
+    return data
 
 
 def _batches(rows, limit):
