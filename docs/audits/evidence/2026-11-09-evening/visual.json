@@ -1,0 +1,29 @@
+{
+  "viewed_with": "view_image",
+  "viewports": [
+    {
+      "width": 1440,
+      "height": 900,
+      "path": "/workspace/evening-validation/followup/reader-1440x900.png",
+      "sha256": "ae81cac02a568406edaf2a803fac56739275cf27b4cfa89d465802d4628fa6a8",
+      "actually_viewed": true
+    },
+    {
+      "width": 768,
+      "height": 1024,
+      "path": "/workspace/evening-validation/followup/reader-768x1024.png",
+      "sha256": "00f8c0fe872cdbba2ab333995a0a81e86e3e44a8a3af1ff35ea66dd47728e2b3",
+      "actually_viewed": true
+    },
+    {
+      "width": 390,
+      "height": 844,
+      "path": "/workspace/evening-validation/followup/reader-390x844.png",
+      "sha256": "4dbc871adf01e735957be20d0d27d061430345fce5ba7cc330fc77527cdd4ab8",
+      "actually_viewed": true
+    }
+  ],
+  "scope": "Classic dark RSS reader; real headless Chromium; simulated viewports, not physical devices",
+  "result": "no horizontal overflow observed; readable title/body/tabs",
+  "persistence": "Screenshot files remain private workspace only; metrics/hashes and actual inspection conclusions are committed."
+}

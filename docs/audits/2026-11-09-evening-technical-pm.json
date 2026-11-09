@@ -1,0 +1,155 @@
+{
+  "checked_at": "2026-11-09T13:10:23.193726+00:00",
+  "revision": "8a660a41baa5cb21c4783fd3f90451b040e4f0d4",
+  "environment": {
+    "id": "ccarenv_b64_Y2NhcmVudl8yZDc0NjllZjE1OWM4MTkxOGNmNWE0NGJhMjhlMTA4Ng",
+    "config": "bff92f3f-57f3-482f-8f2b-7beae698a60c~cecfg_6ad393188adc819db89d4628d0f79658",
+    "observations_current": true,
+    "network_policy": "unrestricted/enforced",
+    "python": "3.11.17",
+    "playwright": "1.64.0",
+    "chromium": "154.0.8037.57",
+    "missing_dynamic_libraries": false,
+    "sandbox": true,
+    "tls_verify": true,
+    "browser": "shell Python Playwright; supported escalated execution; no shared-desktop/manual takeover claim"
+  },
+  "baseline": {
+    "open_prs": [],
+    "pr239_240_241": "all merged, freshly queried",
+    "main_full_ci": {
+      "run": 42592995683,
+      "result": "success"
+    },
+    "last_deployment": 42593075770,
+    "current_health": "exact revision verified"
+  },
+  "discovery": {
+    "account": "authorized dedicated test account, existing data read-only",
+    "scale": {
+      "library_cards": 6,
+      "multipart_pages": 2,
+      "video_samples": 1,
+      "version_options": 2,
+      "rss_samples": 1,
+      "rss_key_points": 23,
+      "rss_transcript_segments": 342,
+      "podcast_tasks": 12,
+      "active_podcast_tasks": 0
+    },
+    "operations": [
+      "UI login",
+      "Library search, keyboard clear and count restore",
+      "Expand multipart directory;P1/P2ordering and saved status",
+      "Synthetic video summary/transcript/history selection/latest restore/reload",
+      "Retained RSS summary/transcript/reload",
+      "Real Markdown download, title/body sanity, file hash; temporary download deleted",
+      "Open HTML export, title/body sanity,23quotes retained and native quote expansion",
+      "Task history open/reload and all podcast taskID/status tuples unchanged",
+      "Three simulated viewport screenshots, all actually viewed"
+    ],
+    "result": "passed for listed scope",
+    "timings_seconds": {
+      "search_clear": 0.957,
+      "markdown_download": 0.213,
+      "html_open": 0.431
+    },
+    "console": {
+      "errors": 6,
+      "cause": "six readonly-guard aborted POST /cdn-cgi/rum telemetry requests; all ERR_FAILED",
+      "critical_http_errors": 0,
+      "page_errors": 0,
+      "html_script": "Cloudflare Insights external beacon; native disclosure works without script"
+    },
+    "initial_harness_correction": "First history option count0 was sampled before lazy component loaded. Added wait for visible selector and attached option; followup2options and actual history restore passed. No app patch.",
+    "limitations": [
+      "6cards expose no Library pagination control; previous52episode pagination evidence is not this run acceptance",
+      "Markdown/HTML title/body/quote checks are scoped export checks, not an independent semantic proof of all content",
+      "PDF native print/save and external Notion export not exercised",
+      "No new generation, cancellation or deletion this round; prior controlled lifecycle evidence retained separately"
+    ]
+  },
+  "regression": {
+    "command": "venv/bin/python -m pytest -q --timeout=30 tests/test_podcast_reading.py tests/test_api_summaries.py tests/test_security_regressions.py",
+    "result": "55passed in1.58s under supported escalated execution",
+    "default_shell_attempt": "12passed; first ASGI list request remained awaiting Future; interrupted at99.20s. Same tests passed with execution permission; no assertion changed. Exact sandbox primitive not established.",
+    "retained_cache_regressions": [
+      "tests/test_note_presentation.py::test_embedded_durable_api_reads_finished_note_instead_of_stale_pending_cache",
+      "tests/test_progress_responsiveness.py::test_newer_database_progress_is_not_replaced_by_an_older_process_cache"
+    ],
+    "not_repeated": "full build/browserCI and unchanged cache suite; currentmain fullCI success independently verified"
+  },
+  "small_fixes": {
+    "application": "none confirmed in inspected flows; no application change or deployment",
+    "harness": "wait for lazy version selector; classify expected telemetry aborts; HTMLnativequote interaction verified"
+  },
+  "larger_findings": [
+    {
+      "id": "legacy-deploy-owner-session",
+      "priority": "P1 plan review",
+      "confirmed": "Existing workflow automatically runs after successful deployments; repair script reads container Supabase bindings and conditionally signs an owner JWT then calls resummarize for one fixed reported episode. Healthy/source-restricted rows return early.",
+      "evidence": [
+        ".github/workflows/repair-reported-transcript.yml:10",
+        "scripts/repair_reported_transcript.py:104",
+        "scripts/repair_reported_transcript.py:108",
+        "scripts/repair_reported_transcript.py:138"
+      ],
+      "frequency": "workflow trigger every successful deployment; actual mutation only if checks fail",
+      "observed_run": {
+        "id": 42593531165,
+        "event": "workflow_run",
+        "job": "restore success",
+        "raw_log_probe": "gh run view --log returned0bytes; cannot determine already_healthy versus reprocessed from available log output"
+      },
+      "impact": "Conditional production content reprocessing and owner-identity use outside normal login; historical authorization and present need require explicit review. No evidence of actual unauthorized modification in this round.",
+      "confidence": "high on code path; actual mutation this run unknown",
+      "owner": "platform/authentication",
+      "proposal": "Keep deployment health read-only; separately authorize narrowly scoped manual recovery and design audited service authorization instead of owner-session construction. Review existing approved repair purpose before retirement.",
+      "acceptance": "Ordinary deployment cannot generate user sessions or trigger content processing; separately approved recovery tests enforce exact source/account and idempotency.",
+      "rollback": "Retain read-only diagnostics; do not automatically resume the legacy mutation path.",
+      "modified": false
+    },
+    {
+      "id": "html-export-bearer-query",
+      "priority": "P2 design review",
+      "confirmed": "Open as HTML link places normal access token in query URL; existing endpoint accepts query auth. No token value retained.",
+      "evidence": [
+        "web/src/pages/Viewer.tsx:477",
+        "api/routers/summaries.py:113"
+      ],
+      "impact": "Credential-bearing URL can enter browser history or request logs; no leakage incident demonstrated.",
+      "frequency": "each authenticated HTML tab open",
+      "confidence": "high on mechanism; exposure incident unknown",
+      "owner": "frontend/authentication",
+      "proposal": "Design scoped short-lived export ticket or authenticated fetch/blob flow; evaluate standalone-tab refresh/download compatibility before changing contract.",
+      "acceptance": "HTML export and refresh work without a reusable session credential in URL/history; owner isolation remains enforced.",
+      "modified": false
+    }
+  ],
+  "remaining": {
+    "hosted_recovery": "No isolated staging database/storage/deployment binding identified in this runtime; production fault injection and restart tests not performed. Earlier localSQLite injected524 is not genuine upstream524 or hostedSupabase acceptance.",
+    "staging_plan": {
+      "deployment": "Separate Oracle container using same ARM image/deploy/health pattern",
+      "data": "Independent Supabase DB/Auth/Storage and dedicated test identity; never production secrets or buckets",
+      "configuration_location": "Cloud Environment runtime Secrets and separate staging deployment secret scope; provision isolated project URL/keys/storage and deployment target after infrastructure quote/authorization",
+      "test": "One traceable job plus queued successor; staging-only upstream proxy injects524; retry/queueadvance/controlledrestart/savedresultrestoration verified through API and browser",
+      "budget": "Infrastructure cost not quoted or authorized; no resources created. Model daily50USD shared cap monitoring retained, serial tasks and concurrency<=3."
+    },
+    "genuine_upstream524": "not reproduced; do not equate proxy injection with genuine occurrence",
+    "new_model_calls": 0,
+    "budget": "No paid calls; no new usage probe required/performed. Last4.848208shared-key delta is historical, not current daily total. OldCloud401 not used to judge saved account model.",
+    "accepted_exclusion": "Two oldlocalnotes13lostscreenshots not rescanned or reopened"
+  },
+  "pm": {
+    "goal": "Find retained content, inspect versions, read source quotes, export an independently openable copy and return/refresh without losing content",
+    "preconditions": "Authorized normal login; retained testvideo and RSS; no production writes",
+    "success_standard": "Search restores list; versions restore latest; Markdown download and HTML sourcequotes readable; task status and reader stable after refresh",
+    "actual": "Achieved in scoped samples; no confirmed product-flow defect. PDF/Notion and largeLibrary pagination remain untested.",
+    "top_followups": [
+      "P1 legacy deployment recovery authorization design",
+      "P2 credential-free export URL design",
+      "Continue isolated hosted recovery preparation; do not reopen accepted historical screenshot loss"
+    ]
+  },
+  "persistence": "Report and sharedcoverage prepared as documentation-only commit; no new report-only PR or deployment planned."
+}

@@ -1,0 +1,55 @@
+{
+  "checks": {
+    "login": true,
+    "library": {
+      "count": 6,
+      "search_clear": true,
+      "pagination_control": false
+    },
+    "multipart": {
+      "parts": 2,
+      "pages": [
+        1,
+        2
+      ],
+      "ready_count": 1
+    },
+    "video_versions": {
+      "options": 0
+    },
+    "video_reload": true,
+    "rss_transcript_segments": 342,
+    "markdown_export": {
+      "bytes": 39350,
+      "sha256": "b6be5937478ec0dabfab8f497449497cc8d4d4d5e05d127078dc02ce3a397863",
+      "title_present": true,
+      "key_points": 23
+    },
+    "html_export": {
+      "text_length": 13723,
+      "title_present": true,
+      "scripts": 1
+    },
+    "rss_reload_equal": true,
+    "tasks": {
+      "total": 12,
+      "active": 0,
+      "reload_consistent": true
+    }
+  },
+  "http_errors": [],
+  "console_errors": 6,
+  "page_errors": 0,
+  "timings": {
+    "search_clear_seconds": 0.913,
+    "markdown_download_seconds": 0.369,
+    "html_open_seconds": 0.433
+  },
+  "screenshots": [
+    "reader-1440x900.png",
+    "reader-768x1024.png",
+    "reader-390x844.png"
+  ],
+  "revision": "8a660a41baa5cb21c4783fd3f90451b040e4f0d4",
+  "status": "PASS"
+}

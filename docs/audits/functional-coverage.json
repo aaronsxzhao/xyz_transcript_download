@@ -2,9 +2,9 @@
   "schema_version": 1,
   "site": "https://aipodcastsummary.online",
   "repository": "aaronsxzhao/xyz_transcript_download",
-  "updated_at": "2026-11-09T08:33:39.049066+00:00",
-  "tested_commit": "99011578febe2a36bd039d8d1077dbe0a7c36f6b",
-  "current_report": "docs/audits/2026-11-09-rss-coverage-repair.json",
+  "updated_at": "2026-11-09T13:10:23.193726+00:00",
+  "tested_commit": "8a660a41baa5cb21c4783fd3f90451b040e4f0d4",
+  "current_report": "docs/audits/2026-11-09-evening-technical-pm.json",
   "inventory_basis": [
     "web/src/App.tsx routes",
     "current repository feature components and prior audit records",
@@ -53,6 +53,13 @@
           "account_type": "authorized account, existing data read-only",
           "data_scale": "2 Library titles;1 ordinary reader and1 series",
           "responsibility": "technical + PM, coordinated with design PR242"
+        },
+        {
+          "checked_at": "2026-11-09T13:10:23.193726+00:00",
+          "report": "docs/audits/2026-11-09-evening-technical-pm.json",
+          "result": "passed_scoped",
+          "scope": "Achieved in scoped samples; no confirmed product-flow defect. PDF/Notion and largeLibrary pagination remain untested.",
+          "no_new_write_acceptance": true
         }
       ],
       "prior_local_checks": [
@@ -176,6 +183,13 @@
           "revision": "960839aa1058b9574a2294229c772b0c968c753a",
           "scope": "4Librarycards search/clear;1existing summary/transcript/history/latest/reload;2partdirectory andsavedP2 return/reload;taskhistory",
           "evidence": "evidence/2026-11-09-full-acceptance/postdeploy-core.json"
+        },
+        {
+          "checked_at": "2026-11-09T13:10:23.193726+00:00",
+          "report": "docs/audits/2026-11-09-evening-technical-pm.json",
+          "result": "passed_scoped",
+          "scope": "Achieved in scoped samples; no confirmed product-flow defect. PDF/Notion and largeLibrary pagination remain untested.",
+          "no_new_write_acceptance": true
         }
       ],
       "prior_local_checks": [
@@ -286,6 +300,13 @@
           "revision": "960839aa1058b9574a2294229c772b0c968c753a",
           "scope": "4Librarycards search/clear;1existing summary/transcript/history/latest/reload;2partdirectory andsavedP2 return/reload;taskhistory",
           "evidence": "evidence/2026-11-09-full-acceptance/postdeploy-core.json"
+        },
+        {
+          "checked_at": "2026-11-09T13:10:23.193726+00:00",
+          "report": "docs/audits/2026-11-09-evening-technical-pm.json",
+          "result": "passed_scoped",
+          "scope": "Achieved in scoped samples; no confirmed product-flow defect. PDF/Notion and largeLibrary pagination remain untested.",
+          "no_new_write_acceptance": true
         }
       ]
     },
@@ -356,6 +377,13 @@
           "revision": "960839aa1058b9574a2294229c772b0c968c753a",
           "scope": "4Librarycards search/clear;1existing summary/transcript/history/latest/reload;2partdirectory andsavedP2 return/reload;taskhistory",
           "evidence": "evidence/2026-11-09-full-acceptance/postdeploy-core.json"
+        },
+        {
+          "checked_at": "2026-11-09T13:10:23.193726+00:00",
+          "report": "docs/audits/2026-11-09-evening-technical-pm.json",
+          "result": "passed_scoped",
+          "scope": "Achieved in scoped samples; no confirmed product-flow defect. PDF/Notion and largeLibrary pagination remain untested.",
+          "no_new_write_acceptance": true
         }
       ],
       "prior_local_checks": [
@@ -639,6 +667,13 @@
           "checked_at": "2026-11-09T08:33:39.049066+00:00",
           "report": "docs/audits/2026-11-09-rss-coverage-repair.json",
           "result": "passed_scoped_after_candidate_retry"
+        },
+        {
+          "checked_at": "2026-11-09T13:10:23.193726+00:00",
+          "report": "docs/audits/2026-11-09-evening-technical-pm.json",
+          "result": "passed_scoped",
+          "scope": "Achieved in scoped samples; no confirmed product-flow defect. PDF/Notion and largeLibrary pagination remain untested.",
+          "no_new_write_acceptance": true
         }
       ],
       "current_scope": "Import same RSS; real processing339s initially blocked grounding; checkpoint retry285s accepted37/41; summary/transcript/reload/multitab passed. Search/read/delete at125s while firsttask summarizing. This scope does not claim every operation in the inventory chain was rerun.",
@@ -849,20 +884,38 @@
         "quality": "summary quality audit for semantic coverage where applicable"
       },
       "risk": "medium",
-      "last_actual_check": null,
-      "environment": null,
-      "account_type": null,
-      "data_scale": null,
-      "steps": [],
-      "evidence": [],
-      "result": "not_checked",
-      "production_result": "blocked",
+      "last_actual_check": "2026-11-09T13:10:23.193726+00:00",
+      "environment": "production8a660a4; secureheadlessChromium",
+      "account_type": "authorized dedicatedtestaccount,readonly",
+      "data_scale": "1RSS,23keypoints/quotes",
+      "steps": [
+        "DownloadMarkdown",
+        "OpenHTMLnewtab",
+        "Expandnativequote",
+        "Returnandreload"
+      ],
+      "evidence": [
+        "docs/audits/evidence/2026-11-09-evening/browser.json"
+      ],
+      "result": "passed_scoped",
+      "production_result": "passed_scoped",
       "gaps": [
-        "No authorized signed-in production browser session; read-only diagnostic token is not browser authentication"
+        "PDFnativeprint/save nottested",
+        "ExternalNotionwrite notauthorized/tested",
+        "Reusable session token inHTMLquery requires design review"
       ],
       "issues": [],
       "in_progress_prs": [],
-      "next_check": "Synthetic content only; external writes need destination authorization"
+      "next_check": "Review credential-free export design; test native print/save in supported environment",
+      "production_followups": [
+        {
+          "checked_at": "2026-11-09T13:10:23.193726+00:00",
+          "report": "docs/audits/2026-11-09-evening-technical-pm.json",
+          "result": "passed_scoped",
+          "scope": "Achieved in scoped samples; no confirmed product-flow defect. PDF/Notion and largeLibrary pagination remain untested.",
+          "no_new_write_acceptance": true
+        }
+      ]
     },
     {
       "id": "auth-account",
@@ -1109,5 +1162,19 @@
       "pending_feature_evidence_head": "50592a175ec2639491ef7f7155cce058bb7b1986"
     }
   ],
-  "integration_note": "2026-11-09: merged PR239/240/241/242 evidence. Latest RSS report remains current; older environment blockers and rollout-pending statements are historical observations, not current acceptance. Prior local fixtures retained separately from production evidence."
+  "integration_note": "2026-11-09: merged PR239/240/241/242 evidence. Latest RSS report remains current; older environment blockers and rollout-pending statements are historical observations, not current acceptance. Prior local fixtures retained separately from production evidence.",
+  "technical_plan_findings": [
+    {
+      "id": "legacy-deploy-owner-session",
+      "report": "docs/audits/2026-11-09-evening-technical-pm.json",
+      "status": "plan_only_unmodified",
+      "priority": "P1 plan review"
+    },
+    {
+      "id": "html-export-bearer-query",
+      "report": "docs/audits/2026-11-09-evening-technical-pm.json",
+      "status": "plan_only_unmodified",
+      "priority": "P2 design review"
+    }
+  ]
 }
