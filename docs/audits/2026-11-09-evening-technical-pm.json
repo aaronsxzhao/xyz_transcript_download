@@ -151,5 +151,13 @@
       "Continue isolated hosted recovery preparation; do not reopen accepted historical screenshot loss"
     ]
   },
-  "persistence": "Report and sharedcoverage prepared as documentation-only commit; no new report-only PR or deployment planned."
+  "persistence": "Report and sharedcoverage prepared as documentation-only commit; no new report-only PR or deployment planned.",
+  "concurrent_work_detected_at_close": {
+    "pr": 250,
+    "head": "6eceb2d9142451f461a7e0371cf67b349e95646e",
+    "scope": "Reject and boundedly retry unchanged grounding repair before caching; separate ongoing task",
+    "ci": "backend/PostgreSQLpassed;front-endinprogress",
+    "production_acceptance": "not yet reported; do not duplicate changes or claim fixed online",
+    "initial_open_pr_list_was_empty": true
+  }
 }

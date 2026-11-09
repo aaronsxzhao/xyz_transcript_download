@@ -508,8 +508,10 @@
         "Genuine upstream524 and isolated hosted Supabase recovery remain unaccepted."
       ],
       "issues": [],
-      "in_progress_prs": [],
-      "next_check": "Retained RSS read-only regression; expand source samples and first-attempt reliability; genuine524 and isolated hosted recovery remain unaccepted.",
+      "in_progress_prs": [
+        250
+      ],
+      "next_check": "Read PR250 finalCI/deployment/live retry evidence before any duplicate grounding repair work; retain scoped export/readonly evidence and hosted recovery gap.",
       "production_followups": [
         {
           "checked_at": "2026-11-09T06:25:19.176223+00:00",
@@ -621,8 +623,10 @@
         "Genuine upstream524 and isolated hosted Supabase recovery remain unaccepted."
       ],
       "issues": [],
-      "in_progress_prs": [],
-      "next_check": "Retained RSS read-only regression; expand source samples and first-attempt reliability; genuine524 and isolated hosted recovery remain unaccepted.",
+      "in_progress_prs": [
+        250
+      ],
+      "next_check": "Read PR250 finalCI/deployment/live retry evidence before any duplicate grounding repair work; retain scoped export/readonly evidence and hosted recovery gap.",
       "supplementary_checks": [
         {
           "checked_at": "2026-11-06T12:33:08.553319+08:00",
