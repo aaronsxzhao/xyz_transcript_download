@@ -1,0 +1,103 @@
+{
+  "checked_at": "2026-11-10T02:13:39.304868+00:00",
+  "main_sha": "4a95d9d9ade8c03545c0f948cb840525dd675592",
+  "production_revision": "83307d55752d06fb1a917c6f5b98204a8abb603e",
+  "environment": {
+    "config": "cecfg_6ad393188adc819db89d4628d0f79658",
+    "network": "unrestricted/enforced, observations current",
+    "python": "3.12.14",
+    "playwright": "1.62.0",
+    "chromium": "154.0.8037.57",
+    "missing_libraries": false,
+    "execution": "supported escalated shell; Chromium sandbox and TLS verification enabled; inherited proxy and CA",
+    "remote_desktop": "not used or validated"
+  },
+  "prior_items": {
+    "pr239_240_241_242_250": "freshly queried MERGED; no open PRs",
+    "grounding_repair": "retained completed source summary/Transcript read successfully; no paid regeneration",
+    "pagination": "previous85Library and52episode evidence remains historical; current7titles have no pagination control; not treated as unresolved product defect",
+    "genuine_upstream524": "not observed; cannot fabricate production upstream outage; isolated recovery evidence remains separate",
+    "hosted_recovery_and_notion": "paused per latest shared records; no infrastructure/config changes",
+    "long_inference_concurrent_deletion": "not rerun; budget reconciliation prerequisite from technical record retained"
+  },
+  "A_actual_exploration": {
+    "library_series": {
+      "steps": "search no-match/clear, oldest sort/reload, media filter/reset, list/grid, expand series, open ready P2, Transcript HTTP200 and loaded body, back/reload retains sort",
+      "titles": 7,
+      "series_parts": 2,
+      "reader": "/videos/c11d7621-080",
+      "result": "PASS"
+    },
+    "task_history": {
+      "jobs": 13,
+      "steps": "Dashboard task dialog, completed and historical failed states, reload and exact job/status consistency",
+      "result": "PASS",
+      "limit": "No active task or stale-update injection this round"
+    },
+    "settings_subscription": {
+      "steps": "General/Platform Accounts/Tools & Data selected feedback; unchanged Save disabled; subscription draft close/reopen retains value; keyboard focus; empty Add disabled vs nonempty enabled, settled styles distinct",
+      "result": "PASS",
+      "writes": "no settings save or subscription submit"
+    },
+    "media_article": {
+      "source": "Public W3Schools HTML Images with unique audit marker",
+      "steps": "normal UI original-only import, reader, Markdown download, refresh text equality, three viewports, own-record UI deletion, reload and API404",
+      "characters": 40483,
+      "model_calls": 0,
+      "created_task": "09f15acf-c2c",
+      "cleanup": "confirmed deleted",
+      "result": "PASS_SCOPED",
+      "media": "2loaded images observed; first-screen article cover inspected at3widths; all24deep lazy images not accepted"
+    },
+    "visual": {
+      "opened_screenshots": 42,
+      "transitional_only": [
+        "library-list.png",
+        "series-expanded.png",
+        "series-transcript.png",
+        "subscription-draft-restored.png"
+      ],
+      "library_matrix": "Classic/Editorial x light/dark x1440x900,768x1024,390x844 all12screens inspected",
+      "other_surfaces": "7surface screenshots in Classic dark desktop and Editorial light phone; additional series/Transcript/task/form and article screenshots",
+      "limits": "Not every state on every page has full12combination visual acceptance; form failures/load/retry and deeper scroll positions not exhaustively checked"
+    }
+  },
+  "B_automation": {
+    "anonymous": "HTTP,DOM,Remember-me toggle/restore, protected navigation,refresh,3viewports PASS",
+    "authenticated": "normal UI signin and protected stats HTTP200 verified",
+    "matrix_checks": 84,
+    "matrix_bounds_failures": [],
+    "matrix_scope": "7surfaces x2designs x2colors x3viewports; persisted theme at each document navigation; DOM bounds not full visual acceptance",
+    "latest_main_ci": {
+      "run": 42735569143,
+      "result": "success, queried; not rerun locally"
+    },
+    "local_isolated": "not run this round; no application edits"
+  },
+  "fixes": {
+    "application": "none; no confirmed new defect",
+    "harness": "replaced early transitional captures with stable state and explicit transcript API/content assertions",
+    "pr": "none",
+    "deployment": "none; current production health ok"
+  },
+  "C_remaining": {
+    "external_blockers": [],
+    "not_tested": "natural upstream524, active long inference plus concurrent deletion, password reset/account isolation, all lazy images/deep article scroll states, exhaustive all-control loading/failure/retry states",
+    "next_focus": "Scroll and verify every image in controlled media article; auth expiry/recovery with isolated session; reconcile shared paid-call budget before new long inference",
+    "scope_note": "These are coverage limits, not proven product failures or a claim that prior accepted tests need repeating"
+  },
+  "process_proposal": {
+    "observation": "Original W3Schools article includes website navigation headings/content before the main tutorial. Reader preserved fetched original; not treated as CSS issue.",
+    "severity": "P3 readability",
+    "root_confidence": "medium: source extraction/main-content selection needs separate semantic analysis",
+    "modified": false,
+    "suggestion": "Decide source-main-content extraction policy before changing saved original semantics"
+  },
+  "private_evidence_root": "/workspace/browser-validation/appearance-20261110",
+  "commands": [
+    "python scripts/check_cloud_browser.py --output appearance-checks/cloud-browser/20261110/anonymous",
+    "python /workspace/browser-validation/appearance-20261110/check.py --authenticated --output /workspace/browser-validation/appearance-20261110/live",
+    "python /workspace/browser-validation/appearance-20261110/followup.py --authenticated --output /workspace/browser-validation/appearance-20261110/followup",
+    "python /workspace/browser-validation/appearance-20261110/article.py"
+  ]
+}
