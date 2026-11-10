@@ -2,9 +2,9 @@
   "schema_version": 1,
   "site": "https://aipodcastsummary.online",
   "repository": "aaronsxzhao/xyz_transcript_download",
-  "updated_at": "2026-11-09T14:18:16.332865+00:00",
+  "updated_at": "2026-11-10T01:23:42.264927+00:00",
   "tested_commit": "83307d55752d06fb1a917c6f5b98204a8abb603e",
-  "current_report": "docs/audits/2026-11-09-export-recovery/report.json",
+  "current_report": "docs/audits/2026-11-10-technical-pm.json",
   "inventory_basis": [
     "web/src/App.tsx routes",
     "current repository feature components and prior audit records",
@@ -19,31 +19,33 @@
   "features": [
     {
       "id": "login-entry",
-      "operation_chain": "Anonymous entry → login page; login/reset-password not exercised",
+      "operation_chain": "Normal login→navigate to saved content",
       "responsibility": {
         "technical": "implementation, state correctness, performance and full operation-chain acceptance",
         "interaction": "design audit; shared evidence, coordinate changes",
         "quality": "summary quality audit for semantic coverage where applicable"
       },
       "risk": "high",
-      "last_actual_check": "2026-11-05T21:19:41.713041+08:00",
-      "environment": "production anonymous Chromium",
-      "account_type": "anonymous",
-      "data_scale": null,
+      "last_actual_check": "2026-11-10T01:23:42.264927+00:00",
+      "environment": "production83307d5; sandboxed Chromium154",
+      "account_type": "dedicated test account;existing data read-only;writes only current-run marked source",
+      "data_scale": "7Library cards/2parts/1existingvideo/1RSS",
       "steps": [
-        "Open /videos, observe redirect to /login and rendered login page"
+        "Normal login→navigate to saved content"
       ],
       "evidence": [
-        "evidence/2026-11-05/live-videos.png"
+        "docs/audits/2026-11-10-technical-pm.json",
+        "docs/audits/evidence/2026-11-10-technical-pm/core.json",
+        "docs/audits/evidence/2026-11-10-technical-pm/article.json"
       ],
-      "result": "passed",
-      "production_result": "passed_anonymous_entry_only",
+      "result": "passed_scoped",
+      "production_result": "passed_scoped",
       "gaps": [
-        "No authorized signed-in production browser session; read-only diagnostic token is not browser authentication"
+        "Password reset and account-switch/isolation not tested this round"
       ],
       "issues": [],
       "in_progress_prs": [],
-      "next_check": "Authorized isolated browser login and reset flow",
+      "next_check": "Password reset and account-switch/isolation not tested this round",
       "production_followups": [
         {
           "checked_at": "2026-11-06T21:09:30.640432+08:00",
@@ -228,27 +230,33 @@
     },
     {
       "id": "dashboard-library",
-      "operation_chain": "Dashboard → statistics/recent content → library → search/filter → open content",
+      "operation_chain": "Library→search no matches→keyboard clear→original count restored",
       "responsibility": {
         "technical": "implementation, state correctness, performance and full operation-chain acceptance",
         "interaction": "design audit; shared evidence, coordinate changes",
         "quality": "summary quality audit for semantic coverage where applicable"
       },
       "risk": "medium",
-      "last_actual_check": null,
-      "environment": null,
-      "account_type": null,
-      "data_scale": null,
-      "steps": [],
-      "evidence": [],
-      "result": "not_checked",
-      "production_result": "partial",
+      "last_actual_check": "2026-11-10T01:23:42.264927+00:00",
+      "environment": "production83307d5; sandboxed Chromium154",
+      "account_type": "dedicated test account;existing data read-only;writes only current-run marked source",
+      "data_scale": "7Library cards/2parts/1existingvideo/1RSS",
+      "steps": [
+        "Library→search no matches→keyboard clear→original count restored"
+      ],
+      "evidence": [
+        "docs/audits/2026-11-10-technical-pm.json",
+        "docs/audits/evidence/2026-11-10-technical-pm/core.json",
+        "docs/audits/evidence/2026-11-10-technical-pm/article.json"
+      ],
+      "result": "passed_scoped",
+      "production_result": "passed_scoped",
       "gaps": [
-        "Read-only production sample accepted;full write/processing chain still unaccepted."
+        "Current list has no pagination control;not a large-list acceptance"
       ],
       "issues": [],
       "in_progress_prs": [],
-      "next_check": "Isolated full processing chain and larger production read-only sample",
+      "next_check": "Current list has no pagination control;not a large-list acceptance",
       "production_followups": [
         {
           "checked_at": "2026-11-06T21:09:30.640432+08:00",
@@ -312,27 +320,33 @@
     },
     {
       "id": "multipart-series",
-      "operation_chain": "Import multi-P → series grouping including P1 → part selection → reader navigation",
+      "operation_chain": "Expand collection→verify P1/P2 and saved status",
       "responsibility": {
         "technical": "implementation, state correctness, performance and full operation-chain acceptance",
         "interaction": "design audit; shared evidence, coordinate changes",
         "quality": "summary quality audit for semantic coverage where applicable"
       },
       "risk": "high",
-      "last_actual_check": null,
-      "environment": null,
-      "account_type": null,
-      "data_scale": null,
-      "steps": [],
-      "evidence": [],
-      "result": "not_checked",
-      "production_result": "partial",
+      "last_actual_check": "2026-11-10T01:23:42.264927+00:00",
+      "environment": "production83307d5; sandboxed Chromium154",
+      "account_type": "dedicated test account;existing data read-only;writes only current-run marked source",
+      "data_scale": "7Library cards/2parts/1existingvideo/1RSS",
+      "steps": [
+        "Expand collection→verify P1/P2 and saved status"
+      ],
+      "evidence": [
+        "docs/audits/2026-11-10-technical-pm.json",
+        "docs/audits/evidence/2026-11-10-technical-pm/core.json",
+        "docs/audits/evidence/2026-11-10-technical-pm/article.json"
+      ],
+      "result": "passed_scoped",
+      "production_result": "passed_scoped",
       "gaps": [
-        "Read-only production sample accepted;full write/processing chain still unaccepted."
+        "New collection import/write and production large multiparts not tested"
       ],
       "issues": [],
       "in_progress_prs": [],
-      "next_check": "Isolated full processing chain and larger production read-only sample",
+      "next_check": "New collection import/write and production large multiparts not tested",
       "production_followups": [
         {
           "checked_at": "2026-11-06T21:09:30.640432+08:00",
@@ -511,7 +525,7 @@
       "in_progress_prs": [
         250
       ],
-      "next_check": "Read PR250 finalCI/deployment/live retry evidence before any duplicate grounding repair work; retain scoped export/readonly evidence and hosted recovery gap.",
+      "next_check": "PR250 merged,CI/deployment passed;review current gaps without duplicating grounding repair. Genuine provider524 remains unobserved;hosted recovery paused.",
       "production_followups": [
         {
           "checked_at": "2026-11-09T06:25:19.176223+00:00",
@@ -569,27 +583,33 @@
     },
     {
       "id": "article-import-media",
-      "operation_chain": "Import article → source publication/author → inline video/GIF → read/export",
+      "operation_chain": "Unique original-text URL→import→read→Markdown→refresh→delete→refresh/API404",
       "responsibility": {
         "technical": "implementation, state correctness, performance and full operation-chain acceptance",
         "interaction": "design audit; shared evidence, coordinate changes",
         "quality": "summary quality audit for semantic coverage where applicable"
       },
       "risk": "medium",
-      "last_actual_check": null,
-      "environment": null,
-      "account_type": null,
-      "data_scale": null,
-      "steps": [],
-      "evidence": [],
-      "result": "not_checked",
-      "production_result": "blocked",
+      "last_actual_check": "2026-11-10T01:23:42.264927+00:00",
+      "environment": "production83307d5; sandboxed Chromium154",
+      "account_type": "dedicated test account;existing data read-only;writes only current-run marked source",
+      "data_scale": "7Library cards/2parts/1existingvideo/1RSS;article4tinyattempts",
+      "steps": [
+        "Unique original-text URL→import→read→Markdown→refresh→delete→refresh/API404"
+      ],
+      "evidence": [
+        "docs/audits/2026-11-10-technical-pm.json",
+        "docs/audits/evidence/2026-11-10-technical-pm/core.json",
+        "docs/audits/evidence/2026-11-10-technical-pm/article.json"
+      ],
+      "result": "passed_scoped",
+      "production_result": "passed_scoped",
       "gaps": [
-        "No authorized signed-in production browser session; read-only diagnostic token is not browser authentication"
+        "Media-bearing source and source update/recovery not tested"
       ],
       "issues": [],
       "in_progress_prs": [],
-      "next_check": "Use controlled article and inspect saved source attribution/media"
+      "next_check": "Media-bearing source and source update/recovery not tested"
     },
     {
       "id": "processing-retry-cancel",
@@ -626,7 +646,7 @@
       "in_progress_prs": [
         250
       ],
-      "next_check": "Read PR250 finalCI/deployment/live retry evidence before any duplicate grounding repair work; retain scoped export/readonly evidence and hosted recovery gap.",
+      "next_check": "PR250 merged,CI/deployment passed;review current gaps without duplicating grounding repair. Genuine provider524 remains unobserved;hosted recovery paused.",
       "supplementary_checks": [
         {
           "checked_at": "2026-11-06T12:33:08.553319+08:00",
@@ -783,11 +803,11 @@
       "result": "not_checked",
       "production_result": "blocked",
       "gaps": [
-        "No authorized signed-in production browser session; read-only diagnostic token is not browser authentication"
+        "Independent hosted recovery is paused by user;existing SQLite injection evidence is not hosted production acceptance"
       ],
       "issues": [],
       "in_progress_prs": [],
-      "next_check": "Isolated real database concurrent restore/write; no production mutation",
+      "next_check": "Respect user pause;no new hosted infrastructure without renewed authorization",
       "supplementary_checks": [
         {
           "checked_at": "2026-11-06T12:33:08.553319+08:00",
@@ -934,27 +954,33 @@
     },
     {
       "id": "auth-account",
-      "operation_chain": "Sign in/out → account boundary → expired session → password reset",
+      "operation_chain": "Normal test-account authentication→read own content",
       "responsibility": {
         "technical": "implementation, state correctness, performance and full operation-chain acceptance",
         "interaction": "design audit; shared evidence, coordinate changes",
         "quality": "summary quality audit for semantic coverage where applicable"
       },
       "risk": "high",
-      "last_actual_check": null,
-      "environment": null,
-      "account_type": null,
-      "data_scale": null,
-      "steps": [],
-      "evidence": [],
-      "result": "not_checked",
-      "production_result": "blocked",
+      "last_actual_check": "2026-11-10T01:23:42.264927+00:00",
+      "environment": "production83307d5; sandboxed Chromium154",
+      "account_type": "dedicated test account;existing data read-only;writes only current-run marked source",
+      "data_scale": "7Library cards/2parts/1existingvideo/1RSS",
+      "steps": [
+        "Normal test-account authentication→read own content"
+      ],
+      "evidence": [
+        "docs/audits/2026-11-10-technical-pm.json",
+        "docs/audits/evidence/2026-11-10-technical-pm/core.json",
+        "docs/audits/evidence/2026-11-10-technical-pm/article.json"
+      ],
+      "result": "passed_scoped",
+      "production_result": "passed_scoped",
       "gaps": [
-        "No authorized signed-in production browser session; read-only diagnostic token is not browser authentication"
+        "Password reset, multi-account isolation and expiry recovery not tested"
       ],
       "issues": [],
       "in_progress_prs": [],
-      "next_check": "Authorized test identities; no forged tokens",
+      "next_check": "Password reset, multi-account isolation and expiry recovery not tested",
       "production_followups": [
         {
           "checked_at": "2026-11-06T21:09:30.640432+08:00",
@@ -1041,6 +1067,13 @@
       "revision": "83307d55752d06fb1a917c6f5b98204a8abb603e",
       "result": "passed_scoped",
       "scope": "export security and renderer verification"
+    },
+    {
+      "checked_at": "2026-11-10T01:23:42.264927+00:00",
+      "report": "docs/audits/2026-11-10-technical-pm.json",
+      "revision": "83307d55752d06fb1a917c6f5b98204a8abb603e",
+      "result": "passed_scoped",
+      "scope": "core readonly checks plus original-text import/export/delete lifecycle"
     }
   ],
   "remediation_followups": [
@@ -1198,6 +1231,13 @@
       "scope": "discovery only; no feature acceptance promoted",
       "pending_feature_evidence_pr": 239,
       "pending_feature_evidence_head": "50592a175ec2639491ef7f7155cce058bb7b1986"
+    },
+    {
+      "checked_at": "2026-11-10T01:23:42.264927+00:00",
+      "report": "docs/audits/2026-11-10-technical-pm.json",
+      "browser": "real shell Chromium interactions/screenshots actually viewed",
+      "network": "enforced",
+      "new_key_probe": "usage200;not a generation test"
     }
   ],
   "integration_note": "2026-11-09: merged PR239/240/241/242 evidence. Latest RSS report remains current; older environment blockers and rollout-pending statements are historical observations, not current acceptance. Prior local fixtures retained separately from production evidence.",

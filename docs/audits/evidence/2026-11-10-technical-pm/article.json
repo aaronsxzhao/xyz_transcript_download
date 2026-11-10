@@ -1,0 +1,25 @@
+{
+  "checks": {
+    "login": true,
+    "article_import": {
+      "id": "7a6fbadc-230",
+      "seconds": 2.912,
+      "source_characters": 275,
+      "style": "original",
+      "model_empty": true
+    },
+    "article_read_export_refresh": true,
+    "article_source_delete_ui_refresh": true
+  },
+  "http_errors": [],
+  "console_errors": 0,
+  "page_errors": 0,
+  "timings": {},
+  "screenshots": [],
+  "revision": "83307d55752d06fb1a917c6f5b98204a8abb603e",
+  "created_test_ids": [
+    "7a6fbadc-230"
+  ],
+  "cleanup": "all current-run content deleted",
+  "status": "PASS"
+}

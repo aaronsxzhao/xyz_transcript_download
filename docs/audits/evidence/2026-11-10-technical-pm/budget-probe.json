@@ -1,0 +1,30 @@
+{
+  "checked_at": "2026-11-10T01:15:58.898375+00:00",
+  "source": "authorized newly uploaded key, not environment key",
+  "paid_calls": 0,
+  "usage": {
+    "status": 200,
+    "data_type": "dict",
+    "fields": [
+      "expires_at",
+      "model_limits",
+      "model_limits_enabled",
+      "name",
+      "object",
+      "total_available",
+      "total_granted",
+      "total_used",
+      "unlimited_quota"
+    ],
+    "usage": {
+      "total_available": -125193463,
+      "total_granted": 0,
+      "total_used": 125193463,
+      "unlimited_quota": true
+    }
+  },
+  "token_log": {
+    "status": 301,
+    "json": false
+  }
+}

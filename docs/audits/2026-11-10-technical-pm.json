@@ -1,0 +1,199 @@
+{
+  "checked_at": "2026-11-10T01:23:42.264927+00:00",
+  "main": "f6a0697bd405148793a02613ecb4bd8e18b874db",
+  "production_revision": "83307d55752d06fb1a917c6f5b98204a8abb603e",
+  "environment": {
+    "id": "ccarenv_b64_Y2NhcmVudl8yZDc0NjllZjE1OWM4MTkxOGNmNWE0NGJhMjhlMTA4Ng",
+    "config": "bff92f3f-57f3-482f-8f2b-7beae698a60c~cecfg_6ad393188adc819db89d4628d0f79658",
+    "observations_current": true,
+    "network": "unrestricted/enforced",
+    "python": "3.11.17",
+    "playwright": "1.64.0",
+    "chromium": "154.0.8037.57",
+    "missing_dynamic_libraries": false,
+    "browser": "shell Python Playwright, supported escalated execution, Chromium sandbox enabled, TLS verification enabled; no shared desktop/manual takeover claim"
+  },
+  "baseline": {
+    "open_prs": [],
+    "pr239_240_241": "merged; latest states queried, PR241 branch manual evidence read",
+    "pr250_251": "merged and deployed in83307d5; previous main CI pending items now successful",
+    "main_ci": [
+      42632334608,
+      42633417868
+    ],
+    "latest_scheduled_ci": {
+      "run": 42694497012,
+      "result": "success"
+    },
+    "deployment": {
+      "run": 42632334290,
+      "result": "success",
+      "public_health": "exact revision/status ok checked in browser"
+    }
+  },
+  "discovery": {
+    "core": {
+      "checks": {
+        "login": true,
+        "library": {
+          "count": 7,
+          "search_clear": true,
+          "pagination_control": false
+        },
+        "multipart": {
+          "parts": 2,
+          "pages": [
+            1,
+            2
+          ],
+          "ready_count": 1
+        },
+        "video_versions": {
+          "options": 2,
+          "restore_equal": true
+        },
+        "video_reload": true,
+        "rss_transcript_segments": 342,
+        "rss_reload_equal": true,
+        "tasks": {
+          "total": 13,
+          "active": 0,
+          "reload_consistent": true
+        }
+      },
+      "http_errors": [],
+      "console_errors": 0,
+      "page_errors": 0,
+      "timings": {
+        "search_clear_seconds": 0.902
+      },
+      "screenshots": [
+        "reader-1440x900.png",
+        "reader-768x1024.png",
+        "reader-390x844.png"
+      ],
+      "revision": "83307d55752d06fb1a917c6f5b98204a8abb603e",
+      "status": "PASS_SCOPED_CORE",
+      "scope": "Checks completed before the separate article harness failure; no article acceptance implied"
+    },
+    "deep_chain": {
+      "user_goal": "Import public original text without model cost, read/export it, then delete only the test source and verify absence.",
+      "preconditions": "Dedicated test account normal UI login; unique audit URL marker; local read-only source preflight156characters/no media; code path saves original before model configuration/call.",
+      "success_criteria": [
+        "One traceable new task, original style and no model",
+        "Read source prose and title; download Markdown; stable fully loaded reader after refresh",
+        "Delete this task through its own UI action, refresh absence and API404"
+      ],
+      "actual": {
+        "checks": {
+          "login": true,
+          "article_import": {
+            "id": "7a6fbadc-230",
+            "seconds": 2.912,
+            "source_characters": 275,
+            "style": "original",
+            "model_empty": true
+          },
+          "article_read_export_refresh": true,
+          "article_source_delete_ui_refresh": true
+        },
+        "http_errors": [],
+        "console_errors": 0,
+        "page_errors": 0,
+        "timings": {},
+        "screenshots": [],
+        "revision": "83307d55752d06fb1a917c6f5b98204a8abb603e",
+        "created_test_ids": [
+          "7a6fbadc-230"
+        ],
+        "cleanup": "all current-run content deleted",
+        "status": "PASS"
+      },
+      "data_scale": "4 tiny original-only attempts; first3cleaned via explicit authenticated owner API fallback, final1through UI; no existing records altered",
+      "retained_content": "none from this round",
+      "timings_seconds": [
+        2.861,
+        2.279,
+        5.554,
+        2.912
+      ],
+      "errors": "0 critical HTTP/console/page errors on final accepted chain"
+    },
+    "harness_corrections": [
+      {
+        "attempt": "ed0c1769-b03",
+        "cause": "Title lives in reader heading, not inside article body.",
+        "cleanup_http": 200
+      },
+      {
+        "attempt": "c418860d-700",
+        "cause": "Named card hides raw URL text; select its source link by exact href.",
+        "cleanup_http": 200
+      },
+      {
+        "attempt": "0e4aa024-af0",
+        "cause": "Plain reader fallback asynchronously enhances source link into a card; wait for article-link-card before comparing same rendered state.",
+        "cleanup_http": 200
+      }
+    ],
+    "evidence_folder": "docs/audits/evidence/2026-11-10-technical-pm"
+  },
+  "existing_regression": {
+    "main_and_scheduled_ci": "freshly queried success; no redundant local unit/build rerun because no application changes",
+    "prior_export_security_and_524": "retained prior acceptance evidence; no claim of re-running those entire suites today"
+  },
+  "fixes": {
+    "application": "none; no confirmed new application defect",
+    "audit_harness": "corrected title/link locators and lazy-component readiness wait; existing content assertions retained",
+    "deployment": "none; no redundant deploy or report-only PR"
+  },
+  "budget": {
+    "paid_calls_this_round": 0,
+    "new_uploaded_key_usage_endpoint": "HTTP200, cumulative quota only",
+    "provider_hard_cap": false,
+    "downloaded_copy_deleted": true,
+    "token_log_probe": "HTTP301 with redirects disabled; no daily usage conclusion drawn",
+    "daily_spend": "not established by this cumulative-only probe; do not label cumulative usage as today consumption",
+    "next_paid_call_requirement": "Reconcile shared Beijing-day cost or a valid conservative multi-day upper bound and all known in-flight work; preserve daily50USD monitoring budget."
+  },
+  "pm": {
+    "result": "Original-text import→read→Markdown→refresh→delete goal achieved; existing sample reading/version/task consistency achieved.",
+    "confirmed_new_issues": [],
+    "limits": [
+      "No AI generation in this round; original import is not a model availability test",
+      "7Library cards do not expose pagination; prior52episode pagination acceptance remains separate",
+      "No media attachments in the new article sample; screenshot recovery excluded for the two known historical uploads only"
+    ]
+  },
+  "remaining": [
+    {
+      "scope": "Genuine external upstream524",
+      "status": "not observed; no production fault injection; prior local HTTP524 evidence remains explicitly isolated"
+    },
+    {
+      "scope": "Independent hosted queue restart/recovery",
+      "status": "paused by user; no new database/storage/deployment provisioned"
+    },
+    {
+      "scope": "Notion external export",
+      "status": "paused by user; do not request integration setup again"
+    },
+    {
+      "scope": "Long inference concurrent deletion",
+      "status": "prior30s deletion and multi-minute read/search evidence retained separately; combined multi-minute deletion not newly accepted today"
+    },
+    {
+      "scope": "Native OS PDF Save dialog",
+      "status": "not tested; prior actual Chromium PDF rendering acceptance retained"
+    }
+  ],
+  "next_focus": "Long inference with concurrent deletion of another current-run synthetic item, after shared cost/in-flight reconciliation; or controlled media-bearing article source chain.",
+  "commands": [
+    "python -c \"import sys,importlib.metadata;print(sys.version);print(importlib.metadata.version(\"playwright\"))\"",
+    "chromium --version;ldd /usr/lib/chromium/chromium",
+    "gh pr list;gh pr view239/240/241;gh run list;gh run view42694497012",
+    "venv/bin/python check.py (core checks passed; initial article harness assertion corrected separately)",
+    "venv/bin/python article.py (final complete original-text lifecycle passed)",
+    "view_image: three reader screenshots and synthetic article screenshot"
+  ]
+}

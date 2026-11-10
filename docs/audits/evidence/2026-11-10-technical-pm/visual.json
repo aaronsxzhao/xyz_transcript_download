@@ -1,0 +1,17 @@
+{
+  "actually_viewed": [
+    "reader-1440x900.png",
+    "reader-768x1024.png",
+    "reader-390x844.png",
+    "synthetic-article.png"
+  ],
+  "tool": "view_image",
+  "sha256": {
+    "reader-768x1024.png": "00f8c0fe872cdbba2ab333995a0a81e86e3e44a8a3af1ff35ea66dd47728e2b3",
+    "reader-390x844.png": "4dbc871adf01e735957be20d0d27d061430345fce5ba7cc330fc77527cdd4ab8",
+    "reader-1440x900.png": "ae81cac02a568406edaf2a803fac56739275cf27b4cfa89d465802d4628fa6a8",
+    "synthetic-article.png": "948c15862386e94697cea0967fa43cef9f5b3648b27fbfb6f5526aacbc85f38e"
+  },
+  "conclusion": "Readable Classic dark RSS reader in all three simulated viewports; no observed horizontal overflow. Original-article title/source card/prose readable at desktop.",
+  "storage": "Images contain account chrome or saved user text and remain workspace-local; not published or assumed portable. This persisted metadata documents the actual inspection."
+}
