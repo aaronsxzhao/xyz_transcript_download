@@ -1222,6 +1222,28 @@
       "status": "partial; authenticated verification passed; two observations need investigation",
       "evidence_private": "/workspace/browser-validation/auth-exploration-20261106",
       "next_focus": "Series directory response and historical image availability; expand theme/page coverage"
+    },
+    {
+      "run": "2026-11-10-pm",
+      "checked_at": "2026-11-10T10:21:20.349853+00:00",
+      "report": "docs/audits/2026-11-10-appearance-pm.json",
+      "main": "4a95d9d9ade8c03545c0f948cb840525dd675592",
+      "production_revision": "83307d55752d06fb1a917c6f5b98204a8abb603e",
+      "actual": "Authenticated84 matrix +3 anonymous viewports,24 deep images across4 combinations,isolated85-item pagination,realHTTP524 UI/API recovery,realHTTP503 image retry",
+      "closed_this_run": [
+        "deep-image traversal including reload",
+        "isolated524 UI retry and durable queue/process recovery",
+        "isolated pagination boundaries"
+      ],
+      "blocked": [
+        "real-long-inference-concurrent-delete: specific key/destination auto-review rejection; shared daily budget not reconciled"
+      ],
+      "decision": [
+        "site-specific source extraction change"
+      ],
+      "owner": "appearance audit",
+      "private_evidence": "/workspace/browser-validation/appearance-20261110-pm",
+      "scope_limits": "Local synthetic provider is not real supplier; physical devices not tested; natural524 absent in owner-visible records."
     }
   ],
   "environment_readiness_checks": [

@@ -1,0 +1,156 @@
+{
+  "checked_at": "2026-11-10T10:21:20.349853+00:00",
+  "main": "4a95d9d9ade8c03545c0f948cb840525dd675592",
+  "production_revision": "83307d55752d06fb1a917c6f5b98204a8abb603e",
+  "environment": {
+    "config": "cecfg_6ad393188adc819db89d4628d0f79658",
+    "runtime": "Python3.12.14 / Playwright1.62 / Chromium154.0.8037.57",
+    "network": "unrestricted/enforced; proxy and CA retained",
+    "browser": "system Chromium, sandbox=true, ignore_https_errors=false, supported shell escalation",
+    "remote_desktop": "not exercised; automation and image inspection separately verified"
+  },
+  "coordination": {
+    "open_prs": [],
+    "pr239_240_241_242": "queried merged; no prior visual conclusions promoted to this run",
+    "technical_report": "docs/audits/2026-11-10-technical-pm.json",
+    "latest_ci": 42748960519,
+    "latest_ci_result": "success",
+    "paid_calls_this_run": 0
+  },
+  "A_actual_visual": {
+    "anonymous": "HTTP/DOM/safe toggle restored/navigation/refresh at 1440x900,768x1024,390x844; three screenshots viewed",
+    "authentication": "Normal UI login plus protected API verified, no storage state/HAR saved",
+    "chains": [
+      "Library search clear / sorting / filtering / list-grid / series episode Transcript / return and refresh",
+      "Task history inspect and refresh; 13 jobs, 0 active, no visible error containing524",
+      "Settings three tabs / unchanged save disabled / subscription form focus, empty validation and draft reopen",
+      "Two tracked original-only article imports / read / export / refresh / delete only newly created IDs; both absent after refresh"
+    ],
+    "matrix": "7 surfaces x2 designs x2 themes x3 viewports=84 DOM/overflow checks; screenshots reviewed separately, not exhaustive visual proof for all84 states",
+    "images": {
+      "unique_images": 24,
+      "initial_decode_checks": 96,
+      "initial_failures": 0,
+      "initial_label_correction": "Classic-light768 was actually dark after an immediate reload; not counted as light acceptance",
+      "corrective_run": "24/24 decoded with explicit theme assertions before/after reload; light screenshot actually viewed",
+      "accepted_combinations": [
+        "Classic dark1440",
+        "Classic light768 (corrective run)",
+        "Editorial dark390",
+        "Editorial light1440"
+      ],
+      "visual": "24 individual image screenshots plus end-state screenshots inspected. No observed missing image/horizontal overflow. Full 12-way image matrix not claimed.",
+      "controlled_failure": "Isolated realHTTP503 placeholder, explicit Retry image, decoding and refresh passed; separate from live all-success source"
+    },
+    "isolated_pagination": "85 real local SQLite records:40→80→85 unique/end boundary; sort/filter/reset/search/reader-back/refresh; 1440/768/390 screenshots viewed",
+    "new_minor_product_defects": []
+  },
+  "B_automation": {
+    "production_build": "PASS;197.3KiB initial compressed assets within197.75KiB unchanged budget",
+    "live_matrix_bounds": "84/84 passed",
+    "isolated_http524": {
+      "injected_524_failed_job": true,
+      "next_job_completed": true,
+      "explicit_retry_reached_upstream": true,
+      "actual_api_process_sigkill": true,
+      "completed_job_restored": true,
+      "retry_recovered_after_real_90_second_lease": true,
+      "prepared_source_not_repeated": true,
+      "fixture_calls": {
+        "/a": 3,
+        "/b": 1
+      },
+      "status": "PASS"
+    },
+    "isolated_library_ui": [
+      {
+        "case": "40-80-85 no duplicates end boundary",
+        "passed": true
+      },
+      {
+        "case": "sort resets cursor then advances",
+        "passed": true
+      },
+      {
+        "case": "article filter40-42 boundary",
+        "passed": true
+      },
+      {
+        "case": "search clear restores expanded cached filter",
+        "passed": true
+      },
+      {
+        "case": "reader back refresh retained filter",
+        "passed": true
+      },
+      {
+        "case": "isolated524 visible error then explicit retry content restored",
+        "passed": true
+      }
+    ],
+    "isolated_image_retry": {
+      "real_http503_placeholder": true,
+      "explicit_retry_decoded": true,
+      "refresh_decoded": true
+    },
+    "limits": "Queue processor uses synthetic model/media work but actual localHTTP524,durable queue,SQLite,SIGKILL and90-second lease. UI error/retry is a separate real localHTTP fixture. Not hosted-provider or hosted-Supabase acceptance."
+  },
+  "C_remaining": [
+    {
+      "id": "real-long-inference-concurrent-delete",
+      "status": "external_blocker",
+      "attempted": "Read shared technical expense records and current account jobs(0 active); attempted readonly usage/quota requests with referenced uploaded key; automatic review rejected before request execution. Uploaded local copy deleted. No model request made.",
+      "blocker": "Auto-review found no trusted authorization for that specific uploaded key and api.aipaibox.com destination. No alternate channel attempted.",
+      "unknown": "Current Beijing-day shared spend and other audit inflight costs remain unreconciled; cumulative quota is not daily spend.",
+      "resume": "Explicit authorization for the specific key/destination; reconcile Beijing-day <=US$50 including shared inflight; then one real long inference overlapping UI browsing/search/reading and deletion of another current-run disposable item; verify no resurrection and final summary/transcript."
+    },
+    {
+      "id": "natural-upstream524",
+      "status": "event_not_observed",
+      "evidence": "13 owner-visible jobs,0 matching524; not global provider logs",
+      "resume": "If a real upstream event occurs, trace controlled content recovery; cannot manufacture production524."
+    },
+    {
+      "id": "source-navigation-in-original",
+      "status": "needs_semantic_decision",
+      "severity": "P3 readability",
+      "root_cause_confidence": "high",
+      "reproduction": "Import W3Schools HTML Images as original; saved content and reader outline include HTML Tutorial/navigation and promotion graphics. Source has no article/main/[role=main] or current semantic content classes, but has div#main and sibling #leftmenuinnerinner. content_sources.py falls back to body.",
+      "proposal": "Add a W3Schools-scoped div#main extraction candidate before body fallback; leave global fallback and existing saved notes unchanged. Do not hide text only in reader, because exports/saved content would remain inconsistent.",
+      "boundary_cases": [
+        "Absent/empty #main must retain safe existing fallback",
+        "Preserve tutorial headings,code,table,inline links and main-content media",
+        "Remove sibling navigation/promotion, not actual lesson content",
+        "No change to login/paywall handling, fetch security or historic records"
+      ],
+      "acceptance": [
+        "Local source fixtures compare retained lesson content and excluded sibling navigation",
+        "New original import,reader,export and refresh agree",
+        "Test known semantic article/main pages unchanged"
+      ],
+      "code_changed": false
+    }
+  ],
+  "delivery": {
+    "application_changes": false,
+    "new_pr": null,
+    "new_deployment": false,
+    "reason": "No confirmed new low-risk presentation defect; semantic extractor change awaits decision.",
+    "evidence_private": "/workspace/browser-validation/appearance-20261110-pm",
+    "report_branch": "audit/appearance-20261110-pm",
+    "shared_record": "Incremental append; prior technical and visual entries preserved; branch publication is not main merge."
+  },
+  "fixture_corrections": [
+    "Initial local web/dist was older committed bundle; rebuilt currentmain and reran pagination/524, replacing screenshots.",
+    "Existing root node_modules lacked dependencies; reused installed coverage worktree node_modules, no install.",
+    "Relative/loopback arbitrary image URLs correctly removed by app; used supported /data/screenshots fixture instead.",
+    "524 fixture held failing through automatic retry until explicit recovery; assertions retained."
+  ],
+  "cleanup": {
+    "created_live_ids": [
+      "f03b1b27-4d5",
+      "88ba4dcc-8b8"
+    ],
+    "status": "Both deleted via UI and absent after refresh; existing content untouched."
+  }
+}
