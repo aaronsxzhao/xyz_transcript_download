@@ -1,0 +1,307 @@
+{
+  "created": [
+    {
+      "eid": "local_84f3e0074ec349ee",
+      "pid": "local_uploads"
+    }
+  ],
+  "timings": [
+    {
+      "operation": "search-clear-during-processing",
+      "seconds": 0.87,
+      "job_state": "summarizing"
+    },
+    {
+      "operation": "read-existing-during-processing",
+      "seconds": 1.066,
+      "job_state": "summarizing"
+    },
+    {
+      "operation": "delete-own-disposable",
+      "seconds": 0.321,
+      "job_state": "summarizing"
+    }
+  ],
+  "states": [
+    {
+      "status": "pending",
+      "progress": 0.0,
+      "elapsed": 0.22
+    },
+    {
+      "status": "pending",
+      "progress": 0.0,
+      "elapsed": 1.39
+    },
+    {
+      "status": "downloading",
+      "progress": 15.0,
+      "elapsed": 2.54
+    },
+    {
+      "status": "downloading",
+      "progress": 15.0,
+      "elapsed": 3.71
+    },
+    {
+      "status": "downloading",
+      "progress": 15.0,
+      "elapsed": 4.86
+    },
+    {
+      "status": "transcribing",
+      "progress": 30.0,
+      "elapsed": 5.99
+    },
+    {
+      "status": "transcribing",
+      "progress": 30.0,
+      "elapsed": 7.17
+    },
+    {
+      "status": "transcribing",
+      "progress": 30.0,
+      "elapsed": 8.36
+    },
+    {
+      "status": "transcribing",
+      "progress": 30.0,
+      "elapsed": 9.48
+    },
+    {
+      "status": "transcribing",
+      "progress": 30.0,
+      "elapsed": 10.63
+    },
+    {
+      "status": "transcribing",
+      "progress": 30.0,
+      "elapsed": 11.76
+    },
+    {
+      "status": "transcribing",
+      "progress": 30.0,
+      "elapsed": 12.9
+    },
+    {
+      "status": "transcribing",
+      "progress": 30.0,
+      "elapsed": 14.06
+    },
+    {
+      "status": "transcribing",
+      "progress": 30.0,
+      "elapsed": 15.19
+    },
+    {
+      "status": "transcribing",
+      "progress": 30.0,
+      "elapsed": 16.34
+    },
+    {
+      "status": "transcribing",
+      "progress": 30.0,
+      "elapsed": 17.48
+    },
+    {
+      "status": "transcribing",
+      "progress": 50.0,
+      "elapsed": 18.64
+    },
+    {
+      "status": "transcribing",
+      "progress": 50.0,
+      "elapsed": 19.83
+    },
+    {
+      "status": "transcribing",
+      "progress": 50.0,
+      "elapsed": 20.97
+    },
+    {
+      "status": "transcribing",
+      "progress": 50.0,
+      "elapsed": 22.1
+    },
+    {
+      "status": "transcribing",
+      "progress": 50.0,
+      "elapsed": 23.23
+    },
+    {
+      "status": "transcribing",
+      "progress": 50.0,
+      "elapsed": 24.36
+    },
+    {
+      "status": "transcribing",
+      "progress": 50.0,
+      "elapsed": 25.55
+    },
+    {
+      "status": "transcribing",
+      "progress": 50.0,
+      "elapsed": 26.68
+    },
+    {
+      "status": "transcribing",
+      "progress": 50.0,
+      "elapsed": 27.82
+    },
+    {
+      "status": "transcribing",
+      "progress": 50.0,
+      "elapsed": 29.03
+    },
+    {
+      "status": "transcribing",
+      "progress": 50.0,
+      "elapsed": 30.24
+    },
+    {
+      "status": "summarizing",
+      "progress": 75.0,
+      "elapsed": 31.46
+    },
+    {
+      "status": "summarizing",
+      "progress": 75.0,
+      "elapsed": 32.66
+    },
+    {
+      "status": "summarizing",
+      "progress": 75.0,
+      "elapsed": 33.84
+    },
+    {
+      "status": "summarizing",
+      "progress": 75.0,
+      "elapsed": 34.76
+    },
+    {
+      "status": "summarizing",
+      "progress": 75.0,
+      "elapsed": 34.88
+    },
+    {
+      "status": "summarizing",
+      "progress": 75.0,
+      "elapsed": 40.03
+    },
+    {
+      "status": "summarizing",
+      "progress": 75.0,
+      "elapsed": 45.28
+    },
+    {
+      "status": "summarizing",
+      "progress": 75.0,
+      "elapsed": 50.46
+    },
+    {
+      "status": "summarizing",
+      "progress": 75.0,
+      "elapsed": 55.63
+    },
+    {
+      "status": "summarizing",
+      "progress": 75.0,
+      "elapsed": 60.76
+    },
+    {
+      "status": "summarizing",
+      "progress": 75.0,
+      "elapsed": 65.94
+    },
+    {
+      "status": "summarizing",
+      "progress": 75.0,
+      "elapsed": 71.08
+    },
+    {
+      "status": "summarizing",
+      "progress": 75.0,
+      "elapsed": 76.26
+    },
+    {
+      "status": "summarizing",
+      "progress": 75.0,
+      "elapsed": 81.45
+    },
+    {
+      "status": "summarizing",
+      "progress": 75.0,
+      "elapsed": 86.57
+    },
+    {
+      "status": "summarizing",
+      "progress": 75.0,
+      "elapsed": 91.69
+    },
+    {
+      "status": "summarizing",
+      "progress": 75.0,
+      "elapsed": 96.85
+    },
+    {
+      "status": "summarizing",
+      "progress": 75.0,
+      "elapsed": 102.02
+    },
+    {
+      "status": "summarizing",
+      "progress": 75.0,
+      "elapsed": 107.15
+    },
+    {
+      "status": "summarizing",
+      "progress": 75.0,
+      "elapsed": 112.38
+    },
+    {
+      "status": "summarizing",
+      "progress": 75.0,
+      "elapsed": 117.52
+    },
+    {
+      "status": "summarizing",
+      "progress": 75.0,
+      "elapsed": 122.74
+    },
+    {
+      "status": "summarizing",
+      "progress": 75.0,
+      "elapsed": 127.94
+    },
+    {
+      "status": "summarizing",
+      "progress": 75.0,
+      "elapsed": 133.08
+    },
+    {
+      "status": "summarizing",
+      "progress": 75.0,
+      "elapsed": 138.28
+    },
+    {
+      "status": "failed",
+      "progress": 0.0,
+      "elapsed": 143.44
+    }
+  ],
+  "transcription_settings": {
+    "whisper_mode": "api",
+    "whisper_provider": "groq",
+    "transcription_provider": "server",
+    "whisper_key_saved": false
+  },
+  "created_pid": "apple_290783428",
+  "main_eid": "9826f3225eb2936514291994",
+  "duration": 1943,
+  "job_id": "25b33b27-b86e-442b-90f3-10473289c252",
+  "state_before_parallel_ui": "summarizing",
+  "disposable_deleted": true,
+  "terminal_status": "failed",
+  "error_code": null,
+  "status": "BLOCKED_PIPELINE"
+}

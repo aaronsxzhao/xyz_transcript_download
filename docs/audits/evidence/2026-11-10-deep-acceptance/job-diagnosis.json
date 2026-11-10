@@ -1,0 +1,17 @@
+{
+  "job_count": 14,
+  "upstream_524_events": [],
+  "target": {
+    "job_id": "25b33b27-b86e-442b-90f3-10473289c252",
+    "status": "failed",
+    "created_at": 1794316028.9099019,
+    "updated_at": null,
+    "error_code": null,
+    "progress": 0.0,
+    "categories": [
+      "coverage"
+    ],
+    "percentages": [],
+    "error_length": 130
+  }
+}

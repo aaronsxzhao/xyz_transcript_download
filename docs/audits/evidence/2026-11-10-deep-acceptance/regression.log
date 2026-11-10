@@ -1,0 +1,15 @@
+============================= test session starts ==============================
+platform linux -- Python 3.11.17, pytest-8.0.0, pluggy-1.7.0
+rootdir: /workspace/deep-acceptance
+configfile: pytest.ini
+plugins: Faker-22.0.0, anyio-4.15.1, asyncio-0.23.8, cov-4.1.0, timeout-2.2.0, respx-0.20.2
+asyncio: mode=Mode.AUTO
+timeout: 40.0s
+timeout method: signal
+timeout func_only: False
+collected 16 items
+
+tests/test_article_image_delivery.py .........                           [ 56%]
+tests/test_processing_parallel_stress.py .......                         [100%]
+
+============================== 16 passed in 2.84s ==============================

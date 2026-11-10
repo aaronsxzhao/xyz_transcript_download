@@ -1,0 +1,180 @@
+{
+  "screenshots": [
+    {
+      "file": "docs/audits/evidence/2026-11-10-deep-acceptance/image-failure.png",
+      "sha256": "eba56bda688801b4012bc3f083eede2c8d2b0a7fc731a867babf7b22da650099",
+      "viewed": true,
+      "scope": "controlled local fixture",
+      "note": ""
+    },
+    {
+      "file": "/workspace/deep-acceptance-private/image-recovered.png",
+      "sha256": "c4053681305bbe40ddd1f2c5e8121a5ac654b414933f80688457946ebf9a4c6e",
+      "viewed": true,
+      "scope": "controlled local fixture",
+      "note": "image-recovered.png is prior tracked-dist build; current recovery covered by images.json plus current matrix screenshots"
+    },
+    {
+      "file": "docs/audits/evidence/2026-11-10-deep-acceptance/images-classic-dark-1440.png",
+      "sha256": "e41ca4df491582cca7d999d60793edbb1efbb654adb5327dcfe5cdac6301a09d",
+      "viewed": true,
+      "scope": "controlled local fixture",
+      "note": ""
+    },
+    {
+      "file": "docs/audits/evidence/2026-11-10-deep-acceptance/images-classic-dark-390.png",
+      "sha256": "4757ffced249bebc4f651086b1aa3eb6334224ef3a4130fc8a64d80ffb73a425",
+      "viewed": true,
+      "scope": "controlled local fixture",
+      "note": ""
+    },
+    {
+      "file": "docs/audits/evidence/2026-11-10-deep-acceptance/images-classic-dark-768.png",
+      "sha256": "38345d71b45737bba65c5a8450e00262b00000b8d74ba329952b1a59fe7d8821",
+      "viewed": true,
+      "scope": "controlled local fixture",
+      "note": ""
+    },
+    {
+      "file": "docs/audits/evidence/2026-11-10-deep-acceptance/images-classic-light-1440.png",
+      "sha256": "10851a707297214873447a0efa6c189d69170a996b415107fdc72efffc9c9792",
+      "viewed": true,
+      "scope": "controlled local fixture",
+      "note": ""
+    },
+    {
+      "file": "docs/audits/evidence/2026-11-10-deep-acceptance/images-classic-light-390.png",
+      "sha256": "fb0497a7d696e332181410ce150bbc9b0f98d5e58e4732f974a870e8b27fa1ee",
+      "viewed": true,
+      "scope": "controlled local fixture",
+      "note": ""
+    },
+    {
+      "file": "docs/audits/evidence/2026-11-10-deep-acceptance/images-classic-light-768.png",
+      "sha256": "d9327e95268031f9113599c1673ee7f8a6a394c352da5e9257d0486ca99a577d",
+      "viewed": true,
+      "scope": "controlled local fixture",
+      "note": ""
+    },
+    {
+      "file": "docs/audits/evidence/2026-11-10-deep-acceptance/images-editorial-dark-1440.png",
+      "sha256": "44532a6606a1c05bb9f1bf2bb83ee5502f26bab430a00ad980c1c9cbe248cf6d",
+      "viewed": true,
+      "scope": "controlled local fixture",
+      "note": ""
+    },
+    {
+      "file": "docs/audits/evidence/2026-11-10-deep-acceptance/images-editorial-dark-390.png",
+      "sha256": "ad2699e85dcc15de3b4d82baa948e732e69d490a6eb5b3c9e5b4577fa796f52a",
+      "viewed": true,
+      "scope": "controlled local fixture",
+      "note": ""
+    },
+    {
+      "file": "docs/audits/evidence/2026-11-10-deep-acceptance/images-editorial-dark-768.png",
+      "sha256": "171e385e00a28ab2809fbfe2fa932050d96397c57e369dc801284286afe64035",
+      "viewed": true,
+      "scope": "controlled local fixture",
+      "note": ""
+    },
+    {
+      "file": "docs/audits/evidence/2026-11-10-deep-acceptance/images-editorial-light-1440.png",
+      "sha256": "d4119de66f76f86ec36e44327f431b8aa0b7d32753c12a4a37b42bd3e9f9fc25",
+      "viewed": true,
+      "scope": "controlled local fixture",
+      "note": ""
+    },
+    {
+      "file": "docs/audits/evidence/2026-11-10-deep-acceptance/images-editorial-light-390.png",
+      "sha256": "2946ea53d7b05b8c9ae99841738ad9254f104015ab25060f57a1e645cd7df5c7",
+      "viewed": true,
+      "scope": "controlled local fixture",
+      "note": ""
+    },
+    {
+      "file": "docs/audits/evidence/2026-11-10-deep-acceptance/images-editorial-light-768.png",
+      "sha256": "ca8c2626f83392167fc977f6f142fb302f90414665a908d5c05452d18cf24183",
+      "viewed": true,
+      "scope": "controlled local fixture",
+      "note": ""
+    },
+    {
+      "file": "/workspace/deep-acceptance-private/local-probe.png",
+      "sha256": "3016c24f61fe6a11a1e464f67eb8ee17613c9925ce63354ba91d659322a4411e",
+      "viewed": false,
+      "scope": "controlled local fixture",
+      "note": ""
+    },
+    {
+      "file": "/workspace/deep-acceptance-private/reader-1440x900.png",
+      "sha256": "ae81cac02a568406edaf2a803fac56739275cf27b4cfa89d465802d4628fa6a8",
+      "viewed": true,
+      "scope": "private production sample",
+      "note": ""
+    },
+    {
+      "file": "/workspace/deep-acceptance-private/reader-390x844.png",
+      "sha256": "4dbc871adf01e735957be20d0d27d061430345fce5ba7cc330fc77527cdd4ab8",
+      "viewed": true,
+      "scope": "private production sample",
+      "note": ""
+    },
+    {
+      "file": "/workspace/deep-acceptance-private/reader-768x1024.png",
+      "sha256": "00f8c0fe872cdbba2ab333995a0a81e86e3e44a8a3af1ff35ea66dd47728e2b3",
+      "viewed": true,
+      "scope": "private production sample",
+      "note": ""
+    },
+    {
+      "file": "docs/audits/evidence/2026-11-10-deep-acceptance/recovery-reader.png",
+      "sha256": "68eb228227eeb05ffacc51811e5761182379fed8fdaab49e0256f2bf3fff05fb",
+      "viewed": true,
+      "scope": "controlled local fixture",
+      "note": ""
+    },
+    {
+      "file": "docs/audits/evidence/2026-11-10-deep-acceptance/recovery-tasks.png",
+      "sha256": "cc3a51519cfbebc526fb87b02460e7413021a943dba8222a2131d4d5d3453e5a",
+      "viewed": true,
+      "scope": "controlled local fixture",
+      "note": ""
+    },
+    {
+      "file": "docs/audits/evidence/2026-11-10-deep-acceptance/saved-navigation.png",
+      "sha256": "552ec4e351305b0fbd9c74282b0f8bac989d011565bd37dc461966031a122814",
+      "viewed": true,
+      "scope": "controlled local fixture",
+      "note": ""
+    },
+    {
+      "file": "/workspace/deep-acceptance-private/software-1440.png",
+      "sha256": "dcb5f0d68e3a25058e6ec38ee16a1af6dc77999e2023fcedc2d445df65fbdd09",
+      "viewed": false,
+      "scope": "private production sample",
+      "note": ""
+    },
+    {
+      "file": "/workspace/deep-acceptance-private/software-390.png",
+      "sha256": "3cd340532304ec3d78129a0329bcf3184b6cae039f814d21ec6fdf4f487947ee",
+      "viewed": false,
+      "scope": "private production sample",
+      "note": ""
+    },
+    {
+      "file": "/workspace/deep-acceptance-private/software-768.png",
+      "sha256": "a9f54d9693e50e01ea81190643b84ac1ce60fae50b3eb237b8fcce4590b01628",
+      "viewed": false,
+      "scope": "private production sample",
+      "note": ""
+    },
+    {
+      "file": "docs/audits/evidence/2026-11-10-deep-acceptance/source-navigation.png",
+      "sha256": "4939a6274b760ae1bf83c2a6dbb7f28608c3b7312be6302727ab920b5441122f",
+      "viewed": true,
+      "scope": "controlled local fixture",
+      "note": ""
+    }
+  ],
+  "inspection": "Current 12 matrix screenshots opened via view_image; chart border/cross visible with contain proportions, no horizontal clipping. Failure placeholder and recovered reader screenshots separately opened. Simulated viewport only; no physical device/remote desktop claim."
+}

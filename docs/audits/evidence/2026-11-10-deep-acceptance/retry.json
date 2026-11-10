@@ -1,0 +1,90 @@
+{
+  "retry_id": "cdbe3c1e-1d8f-4ee4-8e2f-792907535b48",
+  "states": [
+    {
+      "status": "pending",
+      "elapsed": 0.14
+    },
+    {
+      "status": "summarizing",
+      "elapsed": 5.28
+    },
+    {
+      "status": "summarizing",
+      "elapsed": 10.41
+    },
+    {
+      "status": "summarizing",
+      "elapsed": 15.56
+    },
+    {
+      "status": "summarizing",
+      "elapsed": 20.72
+    },
+    {
+      "status": "summarizing",
+      "elapsed": 25.86
+    },
+    {
+      "status": "summarizing",
+      "elapsed": 31.03
+    },
+    {
+      "status": "summarizing",
+      "elapsed": 36.18
+    },
+    {
+      "status": "summarizing",
+      "elapsed": 41.31
+    },
+    {
+      "status": "summarizing",
+      "elapsed": 46.49
+    },
+    {
+      "status": "summarizing",
+      "elapsed": 51.69
+    },
+    {
+      "status": "summarizing",
+      "elapsed": 56.87
+    },
+    {
+      "status": "summarizing",
+      "elapsed": 62.07
+    },
+    {
+      "status": "summarizing",
+      "elapsed": 67.24
+    },
+    {
+      "status": "summarizing",
+      "elapsed": 72.44
+    },
+    {
+      "status": "summarizing",
+      "elapsed": 77.61
+    },
+    {
+      "status": "summarizing",
+      "elapsed": 82.77
+    },
+    {
+      "status": "summarizing",
+      "elapsed": 87.91
+    },
+    {
+      "status": "summarizing",
+      "elapsed": 93.09
+    },
+    {
+      "status": "failed",
+      "elapsed": 98.22
+    }
+  ],
+  "terminal": "failed",
+  "coverage_failure": true,
+  "transcript_http": 200,
+  "segments": 488,
+  "deleted_disposable_absent_after_reload": true
+}

@@ -1,0 +1,18 @@
+{
+  "failure_in_history": true,
+  "reader_transcript_reload": true,
+  "source_nav": {
+    "outer": true,
+    "inner": true
+  },
+  "saved_nav": {
+    "outer": false,
+    "inner": true
+  },
+  "reader_nav": {
+    "outer": false,
+    "inner": true
+  },
+  "status": "PASS",
+  "comparison_note": "Markdown escaping decoded before comparing visible sentinel text"
+}

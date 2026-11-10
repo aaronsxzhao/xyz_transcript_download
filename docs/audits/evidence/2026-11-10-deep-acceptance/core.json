@@ -1,0 +1,51 @@
+{
+  "checks": {
+    "login": true,
+    "library": {
+      "count": 7,
+      "search_clear": true,
+      "pagination_control": false
+    },
+    "multipart": {
+      "parts": 2,
+      "pages": [
+        1,
+        2
+      ],
+      "ready_count": 1
+    },
+    "video_versions": {
+      "options": 2,
+      "restore_equal": true
+    },
+    "video_reload": true,
+    "rss_transcript_segments": 342,
+    "rss_reload_equal": true,
+    "tasks": {
+      "total": 13,
+      "active": 0,
+      "reload_consistent": true
+    },
+    "video_tasks": {
+      "http": 200,
+      "total": 5,
+      "active": 0,
+      "status_counts": {
+        "success": 5
+      }
+    }
+  },
+  "http_errors": [],
+  "console_errors": 0,
+  "page_errors": 0,
+  "timings": {
+    "search_clear_seconds": 0.917
+  },
+  "screenshots": [
+    "reader-1440x900.png",
+    "reader-768x1024.png",
+    "reader-390x844.png"
+  ],
+  "revision": "83307d55752d06fb1a917c6f5b98204a8abb603e",
+  "status": "PASS"
+}

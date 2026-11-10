@@ -2,9 +2,9 @@
   "schema_version": 1,
   "site": "https://aipodcastsummary.online",
   "repository": "aaronsxzhao/xyz_transcript_download",
-  "updated_at": "2026-11-10T01:23:42.264927+00:00",
+  "updated_at": "2026-11-10T13:36:52.110210+00:00",
   "tested_commit": "83307d55752d06fb1a917c6f5b98204a8abb603e",
-  "current_report": "docs/audits/2026-11-10-technical-pm.json",
+  "current_report": "docs/audits/2026-11-10-deep-acceptance.json",
   "inventory_basis": [
     "web/src/App.tsx routes",
     "current repository feature components and prior audit records",
@@ -26,7 +26,7 @@
         "quality": "summary quality audit for semantic coverage where applicable"
       },
       "risk": "high",
-      "last_actual_check": "2026-11-10T01:23:42.264927+00:00",
+      "last_actual_check": "2026-11-10T13:27:25.439880+00:00",
       "environment": "production83307d5; sandboxed Chromium154",
       "account_type": "dedicated test account;existing data read-only;writes only current-run marked source",
       "data_scale": "7Library cards/2parts/1existingvideo/1RSS",
@@ -36,7 +36,8 @@
       "evidence": [
         "docs/audits/2026-11-10-technical-pm.json",
         "docs/audits/evidence/2026-11-10-technical-pm/core.json",
-        "docs/audits/evidence/2026-11-10-technical-pm/article.json"
+        "docs/audits/evidence/2026-11-10-technical-pm/article.json",
+        "docs/audits/2026-11-10-deep-acceptance.json"
       ],
       "result": "passed_scoped",
       "production_result": "passed_scoped",
@@ -83,6 +84,13 @@
             "No authorized signed-in production browser session; read-only diagnostic token is not browser authentication"
           ]
         }
+      ],
+      "deep_acceptance_followups": [
+        {
+          "checked_at": "2026-11-10T13:27:25.439880+00:00",
+          "report": "docs/audits/2026-11-10-deep-acceptance.json",
+          "result": "See scoped discovery results;no wholesale feature promotion"
+        }
       ]
     },
     {
@@ -94,7 +102,7 @@
         "quality": "summary quality audit for semantic coverage where applicable"
       },
       "risk": "high",
-      "last_actual_check": "2026-11-09T06:25:19.176223+00:00",
+      "last_actual_check": "2026-11-10T13:27:25.439880+00:00",
       "environment": "local production frontend + FastAPI + isolated SQLite; Chromium 1440x1000 Classic dark",
       "account_type": "existing local development identity",
       "data_scale": "60 synthetic videos, two historical failed states, one saved old version",
@@ -115,7 +123,8 @@
       "evidence": [
         "evidence/2026-11-05/local-chain.json",
         "evidence/2026-11-05/local-version.png",
-        "evidence/2026-11-05/local-summary-deleted.png"
+        "evidence/2026-11-05/local-summary-deleted.png",
+        "docs/audits/2026-11-10-deep-acceptance.json"
       ],
       "result": "passed",
       "production_result": "partial",
@@ -226,6 +235,13 @@
             "No real worker, model call, import, mobile/theme matrix, offline recovery or load benchmark"
           ]
         }
+      ],
+      "deep_acceptance_followups": [
+        {
+          "checked_at": "2026-11-10T13:27:25.439880+00:00",
+          "report": "docs/audits/2026-11-10-deep-acceptance.json",
+          "result": "See scoped discovery results;no wholesale feature promotion"
+        }
       ]
     },
     {
@@ -237,26 +253,31 @@
         "quality": "summary quality audit for semantic coverage where applicable"
       },
       "risk": "medium",
-      "last_actual_check": "2026-11-10T01:23:42.264927+00:00",
+      "last_actual_check": "2026-11-10T13:27:25.439880+00:00",
       "environment": "production83307d5; sandboxed Chromium154",
       "account_type": "dedicated test account;existing data read-only;writes only current-run marked source",
-      "data_scale": "7Library cards/2parts/1existingvideo/1RSS",
+      "data_scale": "42liveLibraryitems(35temporaryoriginal-onlytestitems);40then42pagination;all35cleaned",
       "steps": [
-        "Library→search no matches→keyboard clear→original count restored"
+        "Existing7itemssearch/no-match/clear",
+        "35serialoriginal-onlyimports",
+        "Showmore40to42;all35testIDsvisible",
+        "Refreshretains40itempageboundary",
+        "Deleteonly35current-runitems"
       ],
       "evidence": [
         "docs/audits/2026-11-10-technical-pm.json",
         "docs/audits/evidence/2026-11-10-technical-pm/core.json",
-        "docs/audits/evidence/2026-11-10-technical-pm/article.json"
+        "docs/audits/evidence/2026-11-10-technical-pm/article.json",
+        "docs/audits/2026-11-10-deep-acceptance.json"
       ],
-      "result": "passed_scoped",
+      "result": "passed_scoped_production_pagination",
       "production_result": "passed_scoped",
       "gaps": [
-        "Current list has no pagination control;not a large-list acceptance"
+        "Thousands-of-itemperformanceandlarge-searchcombinationsnotclaimed"
       ],
       "issues": [],
       "in_progress_prs": [],
-      "next_check": "Current list has no pagination control;not a large-list acceptance",
+      "next_check": "Preserve42itempaginationevidence;onlyexpandfornewregressionsoractualscaleproblem",
       "production_followups": [
         {
           "checked_at": "2026-11-06T21:09:30.640432+08:00",
@@ -316,6 +337,13 @@
           "scope": "Achieved in scoped samples; no confirmed product-flow defect. PDF/Notion and largeLibrary pagination remain untested.",
           "no_new_write_acceptance": true
         }
+      ],
+      "deep_acceptance_followups": [
+        {
+          "checked_at": "2026-11-10T13:27:25.439880+00:00",
+          "report": "docs/audits/2026-11-10-deep-acceptance.json",
+          "result": "See scoped discovery results;no wholesale feature promotion"
+        }
       ]
     },
     {
@@ -327,7 +355,7 @@
         "quality": "summary quality audit for semantic coverage where applicable"
       },
       "risk": "high",
-      "last_actual_check": "2026-11-10T01:23:42.264927+00:00",
+      "last_actual_check": "2026-11-10T13:27:25.439880+00:00",
       "environment": "production83307d5; sandboxed Chromium154",
       "account_type": "dedicated test account;existing data read-only;writes only current-run marked source",
       "data_scale": "7Library cards/2parts/1existingvideo/1RSS",
@@ -337,7 +365,8 @@
       "evidence": [
         "docs/audits/2026-11-10-technical-pm.json",
         "docs/audits/evidence/2026-11-10-technical-pm/core.json",
-        "docs/audits/evidence/2026-11-10-technical-pm/article.json"
+        "docs/audits/evidence/2026-11-10-technical-pm/article.json",
+        "docs/audits/2026-11-10-deep-acceptance.json"
       ],
       "result": "passed_scoped",
       "production_result": "passed_scoped",
@@ -424,6 +453,13 @@
             "Production Stanford data and external import not verified"
           ]
         }
+      ],
+      "deep_acceptance_followups": [
+        {
+          "checked_at": "2026-11-10T13:27:25.439880+00:00",
+          "report": "docs/audits/2026-11-10-deep-acceptance.json",
+          "result": "See scoped discovery results;no wholesale feature promotion"
+        }
       ]
     },
     {
@@ -435,10 +471,10 @@
         "quality": "summary quality audit for semantic coverage where applicable"
       },
       "risk": "high",
-      "last_actual_check": "2026-11-09T08:33:39.049066+00:00",
-      "environment": "production9901157; real Python Playwright Chromium with sandbox/TLS",
+      "last_actual_check": "2026-11-10T13:27:25.439880+00:00",
+      "environment": "production83307d5,sandboxedChromium154;isolatedHTTP524separatelyrecorded",
       "account_type": "authorized dedicated test account; existing data read-only",
-      "data_scale": "1publicRSS,1newdisposableaudio,1retainedcontrolledtestvideo",
+      "data_scale": "1new1943secondRSSepisode;488savedtranscriptsegments;1createddisposabledeleted;2generationattemptsbothcoveragefail",
       "steps": [
         "Normal UI RSS import",
         "Normal failed-job retry",
@@ -447,19 +483,21 @@
         "Read saved summary/transcript; reload and second-tab equality"
       ],
       "evidence": [
-        "docs/audits/2026-11-09-rss-coverage-repair.json"
+        "docs/audits/2026-11-09-rss-coverage-repair.json",
+        "docs/audits/2026-11-10-deep-acceptance.json"
       ],
-      "result": "passed_scoped",
-      "production_result": "passed_scoped",
+      "result": "partial_failed_new_rss",
+      "production_result": "partial_failed_new_rss",
       "gaps": [
-        "First new run required explicit candidate retry; no universal one-shot reliability established.",
-        "4of41 material items remain partial under unchanged90percent contract.",
-        "Current public RSS summary/source retained; summary-only deletion on this RSS not run.",
-        "Genuine upstream524 and isolated hosted Supabase recovery remain unaccepted."
+        "New32minuteRSS initial and explicit retry fail coverage validation;requires receipt-leveldiagnosis",
+        "Successful multi-minute inference+paralleldelete+finalsavedsummary not yet accepted;106.82second observed summary interval ended in failure",
+        "Real upstream524event absent;hostedqueue infrastructure paused by user"
       ],
-      "issues": [],
+      "issues": [
+        "rss-coverage-20261110"
+      ],
       "in_progress_prs": [],
-      "next_check": "Retained RSS read-only regression; expand source samples and first-attempt reliability; genuine524 and isolated hosted recovery remain unaccepted.",
+      "next_check": "Receipt-level diagnosis of the recorded taskIDs;preserve90percent contract",
       "production_followups": [
         {
           "checked_at": "2026-11-07T09:04:12.403725+08:00",
@@ -488,7 +526,14 @@
           "result": "passed_scoped_after_candidate_retry"
         }
       ],
-      "current_scope": "Import same RSS; real processing339s initially blocked grounding; checkpoint retry285s accepted37/41; summary/transcript/reload/multitab passed. Search/read/delete at125s while firsttask summarizing. This scope does not claim every operation in the inventory chain was rerun."
+      "current_scope": "Import same RSS; real processing339s initially blocked grounding; checkpoint retry285s accepted37/41; summary/transcript/reload/multitab passed. Search/read/delete at125s while firsttask summarizing. This scope does not claim every operation in the inventory chain was rerun.",
+      "deep_acceptance_followups": [
+        {
+          "checked_at": "2026-11-10T13:27:25.439880+00:00",
+          "report": "docs/audits/2026-11-10-deep-acceptance.json",
+          "result": "See scoped discovery results;no wholesale feature promotion"
+        }
+      ]
     },
     {
       "id": "podcast-processing-delete",
@@ -499,10 +544,10 @@
         "quality": "summary quality audit for semantic coverage where applicable"
       },
       "risk": "high",
-      "last_actual_check": "2026-11-09T08:33:39.049066+00:00",
-      "environment": "production9901157; real Python Playwright Chromium with sandbox/TLS",
+      "last_actual_check": "2026-11-10T13:27:25.439880+00:00",
+      "environment": "production83307d5,sandboxedChromium154;isolatedHTTP524separatelyrecorded",
       "account_type": "authorized dedicated test account; existing data read-only",
-      "data_scale": "1publicRSS,1newdisposableaudio,1retainedcontrolledtestvideo",
+      "data_scale": "1new1943secondRSSepisode;488savedtranscriptsegments;1createddisposabledeleted;2generationattemptsbothcoveragefail",
       "steps": [
         "Normal UI RSS import",
         "Normal failed-job retry",
@@ -511,21 +556,23 @@
         "Read saved summary/transcript; reload and second-tab equality"
       ],
       "evidence": [
-        "docs/audits/2026-11-09-rss-coverage-repair.json"
+        "docs/audits/2026-11-09-rss-coverage-repair.json",
+        "docs/audits/2026-11-10-deep-acceptance.json"
       ],
-      "result": "passed_scoped",
-      "production_result": "passed_scoped",
+      "result": "partial_failed_new_rss",
+      "production_result": "partial_failed_new_rss",
       "gaps": [
-        "First new run required explicit candidate retry; no universal one-shot reliability established.",
-        "4of41 material items remain partial under unchanged90percent contract.",
-        "Current public RSS summary/source retained; summary-only deletion on this RSS not run.",
-        "Genuine upstream524 and isolated hosted Supabase recovery remain unaccepted."
+        "New32minuteRSS initial and explicit retry fail coverage validation;requires receipt-leveldiagnosis",
+        "Successful multi-minute inference+paralleldelete+finalsavedsummary not yet accepted;106.82second observed summary interval ended in failure",
+        "Real upstream524event absent;hostedqueue infrastructure paused by user"
       ],
-      "issues": [],
+      "issues": [
+        "rss-coverage-20261110"
+      ],
       "in_progress_prs": [
         250
       ],
-      "next_check": "PR250 merged,CI/deployment passed;review current gaps without duplicating grounding repair. Genuine provider524 remains unobserved;hosted recovery paused.",
+      "next_check": "Receipt-level diagnosis of the recorded taskIDs;preserve90percent contract",
       "production_followups": [
         {
           "checked_at": "2026-11-09T06:25:19.176223+00:00",
@@ -579,6 +626,13 @@
             "Generation and version switching not exercised; notes were seeded"
           ]
         }
+      ],
+      "deep_acceptance_followups": [
+        {
+          "checked_at": "2026-11-10T13:27:25.439880+00:00",
+          "report": "docs/audits/2026-11-10-deep-acceptance.json",
+          "result": "See scoped discovery results;no wholesale feature promotion"
+        }
       ]
     },
     {
@@ -590,7 +644,7 @@
         "quality": "summary quality audit for semantic coverage where applicable"
       },
       "risk": "medium",
-      "last_actual_check": "2026-11-10T01:23:42.264927+00:00",
+      "last_actual_check": "2026-11-10T13:27:25.439880+00:00",
       "environment": "production83307d5; sandboxed Chromium154",
       "account_type": "dedicated test account;existing data read-only;writes only current-run marked source",
       "data_scale": "7Library cards/2parts/1existingvideo/1RSS;article4tinyattempts",
@@ -600,16 +654,27 @@
       "evidence": [
         "docs/audits/2026-11-10-technical-pm.json",
         "docs/audits/evidence/2026-11-10-technical-pm/core.json",
-        "docs/audits/evidence/2026-11-10-technical-pm/article.json"
+        "docs/audits/evidence/2026-11-10-technical-pm/article.json",
+        "docs/audits/2026-11-10-deep-acceptance.json"
       ],
-      "result": "passed_scoped",
+      "result": "passed_scoped_local_images_with_extraction_issue",
       "production_result": "passed_scoped",
       "gaps": [
-        "Media-bearing source and source update/recovery not tested"
+        "Unmarked source navigation inside article requires extraction decision",
+        "Arbitrary live third-party image providers not covered by controlledfixture"
       ],
-      "issues": [],
+      "issues": [
+        "article-inner-navigation"
+      ],
       "in_progress_prs": [],
-      "next_check": "Media-bearing source and source update/recovery not tested"
+      "next_check": "Review precise source-selector proposal;do not repeat firstscreen-onlyimage checks",
+      "deep_acceptance_followups": [
+        {
+          "checked_at": "2026-11-10T13:27:25.439880+00:00",
+          "report": "docs/audits/2026-11-10-deep-acceptance.json",
+          "result": "See scoped discovery results;no wholesale feature promotion"
+        }
+      ]
     },
     {
       "id": "processing-retry-cancel",
@@ -620,10 +685,10 @@
         "quality": "summary quality audit for semantic coverage where applicable"
       },
       "risk": "high",
-      "last_actual_check": "2026-11-09T08:33:39.049066+00:00",
-      "environment": "production9901157; real Python Playwright Chromium with sandbox/TLS",
+      "last_actual_check": "2026-11-10T13:27:25.439880+00:00",
+      "environment": "production83307d5,sandboxedChromium154;isolatedHTTP524separatelyrecorded",
       "account_type": "authorized dedicated test account; existing data read-only",
-      "data_scale": "1publicRSS,1newdisposableaudio,1retainedcontrolledtestvideo",
+      "data_scale": "1new1943secondRSSepisode;488savedtranscriptsegments;1createddisposabledeleted;2generationattemptsbothcoveragefail",
       "steps": [
         "Normal UI RSS import",
         "Normal failed-job retry",
@@ -632,21 +697,23 @@
         "Read saved summary/transcript; reload and second-tab equality"
       ],
       "evidence": [
-        "docs/audits/2026-11-09-rss-coverage-repair.json"
+        "docs/audits/2026-11-09-rss-coverage-repair.json",
+        "docs/audits/2026-11-10-deep-acceptance.json"
       ],
-      "result": "passed_scoped",
-      "production_result": "passed_scoped",
+      "result": "partial_failed_new_rss",
+      "production_result": "partial_failed_new_rss",
       "gaps": [
-        "First new run required explicit candidate retry; no universal one-shot reliability established.",
-        "4of41 material items remain partial under unchanged90percent contract.",
-        "Current public RSS summary/source retained; summary-only deletion on this RSS not run.",
-        "Genuine upstream524 and isolated hosted Supabase recovery remain unaccepted."
+        "New32minuteRSS initial and explicit retry fail coverage validation;requires receipt-leveldiagnosis",
+        "Successful multi-minute inference+paralleldelete+finalsavedsummary not yet accepted;106.82second observed summary interval ended in failure",
+        "Real upstream524event absent;hostedqueue infrastructure paused by user"
       ],
-      "issues": [],
+      "issues": [
+        "rss-coverage-20261110"
+      ],
       "in_progress_prs": [
         250
       ],
-      "next_check": "PR250 merged,CI/deployment passed;review current gaps without duplicating grounding repair. Genuine provider524 remains unobserved;hosted recovery paused.",
+      "next_check": "Receipt-level diagnosis of the recorded taskIDs;preserve90percent contract",
       "supplementary_checks": [
         {
           "checked_at": "2026-11-06T12:33:08.553319+08:00",
@@ -726,6 +793,13 @@
             "Not a 524 or slow-inference reproduction; no Supabase hosted-queue acceptance"
           ]
         }
+      ],
+      "deep_acceptance_followups": [
+        {
+          "checked_at": "2026-11-10T13:27:25.439880+00:00",
+          "report": "docs/audits/2026-11-10-deep-acceptance.json",
+          "result": "See scoped discovery results;no wholesale feature promotion"
+        }
       ]
     },
     {
@@ -737,10 +811,10 @@
         "quality": "summary quality audit for semantic coverage where applicable"
       },
       "risk": "high",
-      "last_actual_check": "2026-11-09T08:33:39.049066+00:00",
-      "environment": "production9901157; real Python Playwright Chromium with sandbox/TLS",
+      "last_actual_check": "2026-11-10T13:27:25.439880+00:00",
+      "environment": "production83307d5,sandboxedChromium154;isolatedHTTP524separatelyrecorded",
       "account_type": "authorized dedicated test account; existing data read-only",
-      "data_scale": "1publicRSS,1newdisposableaudio,1retainedcontrolledtestvideo",
+      "data_scale": "1new1943secondRSSepisode;488savedtranscriptsegments;1createddisposabledeleted;2generationattemptsbothcoveragefail",
       "steps": [
         "Normal UI RSS import",
         "Normal failed-job retry",
@@ -749,19 +823,21 @@
         "Read saved summary/transcript; reload and second-tab equality"
       ],
       "evidence": [
-        "docs/audits/2026-11-09-rss-coverage-repair.json"
+        "docs/audits/2026-11-09-rss-coverage-repair.json",
+        "docs/audits/2026-11-10-deep-acceptance.json"
       ],
-      "result": "passed_scoped",
-      "production_result": "passed_scoped",
+      "result": "partial_failed_new_rss",
+      "production_result": "partial_failed_new_rss",
       "gaps": [
-        "First new run required explicit candidate retry; no universal one-shot reliability established.",
-        "4of41 material items remain partial under unchanged90percent contract.",
-        "Current public RSS summary/source retained; summary-only deletion on this RSS not run.",
-        "Genuine upstream524 and isolated hosted Supabase recovery remain unaccepted."
+        "New32minuteRSS initial and explicit retry fail coverage validation;requires receipt-leveldiagnosis",
+        "Successful multi-minute inference+paralleldelete+finalsavedsummary not yet accepted;106.82second observed summary interval ended in failure",
+        "Real upstream524event absent;hostedqueue infrastructure paused by user"
       ],
-      "issues": [],
+      "issues": [
+        "rss-coverage-20261110"
+      ],
       "in_progress_prs": [],
-      "next_check": "Retained RSS read-only regression; expand source samples and first-attempt reliability; genuine524 and isolated hosted recovery remain unaccepted.",
+      "next_check": "Receipt-level diagnosis of the recorded taskIDs;preserve90percent contract",
       "production_followups": [
         {
           "checked_at": "2026-11-09T06:25:19.176223+00:00",
@@ -783,7 +859,14 @@
           "result": "passed_scoped_after_candidate_retry"
         }
       ],
-      "current_scope": "Import same RSS; real processing339s initially blocked grounding; checkpoint retry285s accepted37/41; summary/transcript/reload/multitab passed. Search/read/delete at125s while firsttask summarizing. This scope does not claim every operation in the inventory chain was rerun."
+      "current_scope": "Import same RSS; real processing339s initially blocked grounding; checkpoint retry285s accepted37/41; summary/transcript/reload/multitab passed. Search/read/delete at125s while firsttask summarizing. This scope does not claim every operation in the inventory chain was rerun.",
+      "deep_acceptance_followups": [
+        {
+          "checked_at": "2026-11-10T13:27:25.439880+00:00",
+          "report": "docs/audits/2026-11-10-deep-acceptance.json",
+          "result": "See scoped discovery results;no wholesale feature promotion"
+        }
+      ]
     },
     {
       "id": "recovery",
@@ -794,16 +877,19 @@
         "quality": "summary quality audit for semantic coverage where applicable"
       },
       "risk": "high",
-      "last_actual_check": "2026-11-09T06:25:19.176223+00:00",
+      "last_actual_check": "2026-11-10T13:27:25.439880+00:00",
       "environment": null,
       "account_type": null,
       "data_scale": null,
       "steps": [],
-      "evidence": [],
-      "result": "not_checked",
+      "evidence": [
+        "docs/audits/2026-11-10-deep-acceptance.json"
+      ],
+      "result": "passed_scoped_local_http524_sqlite",
       "production_result": "blocked",
       "gaps": [
-        "Independent hosted recovery is paused by user;existing SQLite injection evidence is not hosted production acceptance"
+        "Genuineupstream524notobserved",
+        "Independenthostedrecoverypausedbyuser"
       ],
       "issues": [],
       "in_progress_prs": [],
@@ -857,6 +943,13 @@
           "result": "passed_isolated",
           "limitations": "Not real vendor524, not hosted Supabase restart, not saved article row restoration.",
           "account_type": "authorized dedicated test account; preexisting contents read-only"
+        }
+      ],
+      "deep_acceptance_followups": [
+        {
+          "checked_at": "2026-11-10T13:27:25.439880+00:00",
+          "report": "docs/audits/2026-11-10-deep-acceptance.json",
+          "result": "See scoped discovery results;no wholesale feature promotion"
         }
       ]
     },
@@ -1074,6 +1167,13 @@
       "revision": "83307d55752d06fb1a917c6f5b98204a8abb603e",
       "result": "passed_scoped",
       "scope": "core readonly checks plus original-text import/export/delete lifecycle"
+    },
+    {
+      "checked_at": "2026-11-10T13:27:25.439880+00:00",
+      "report": "docs/audits/2026-11-10-deep-acceptance.json",
+      "scope": "Core read-only plus one newRSS task and one explicit retry;concurrentUIdeletion;newRSSfailedcoverage",
+      "result": "partial_failed_new_rss",
+      "version": "83307d55752d06fb1a917c6f5b98204a8abb603e"
     }
   ],
   "remediation_followups": [
@@ -1261,6 +1361,45 @@
       "resolution_report": "docs/audits/2026-11-09-export-recovery/report.json",
       "pr": 251,
       "revision": "83307d55752d06fb1a917c6f5b98204a8abb603e"
+    },
+    {
+      "id": "rss-coverage-20261110",
+      "priority": "P1",
+      "impact": "New public32minute RSS task cannot deliver summary on initial or explicit retry;transcript retained",
+      "frequency": "2attempts on1new sample;population unknown",
+      "root_confidence": "coverage error category high;actual insufficiency vs malformed/unresolved receipts unknown",
+      "boundary": "Core summary algorithm/unknown root cause;not a confirmed local low-risk patch",
+      "already_tried": [
+        "Real account stored key successfully made billed calls",
+        "Initial processing143.44s;explicit checkpoint retry98.22s",
+        "Check saved488segment transcript and stable failed task",
+        "Read source_coverage audit error mapping:multiple receipt/format/grounding causes share coverage category",
+        "Checked production log tooling:OCI unavailable/no configured credentials"
+      ],
+      "remaining_steps": [
+        "Obtain sanitized audit_feedback.issue,stage,unit/covered/missing counts and cache-key metadata for the2listed taskIDs via existing authorized production log access",
+        "Reproduce offending receipt parsing in isolated regression without raw user/model output logging",
+        "If local parser defect is proven,fix narrowly and run regression+CI+deploy;otherwise propose bounded algorithm change without lowering90percent",
+        "Rerun same controlled source only after cause resolved;require completed summary+transcript+refresh and no deletion resurrection"
+      ],
+      "rollback": "Revert only proposed code commit;do not bulk reprocess existing notes;no production change made"
+    },
+    {
+      "id": "article-inner-navigation",
+      "priority": "P2",
+      "impact": "Reader includes source menu links when nested in article as ordinarydiv",
+      "frequency": "controlledfixture reproduced;real source frequency unknown",
+      "root_confidence": "high for fixture",
+      "proposed_scope": "Source-specific selector or explicit role=navigation semantics with captured fixtures;do not globally dropdiv,a,header or all high-link-density paragraphs",
+      "boundary_cases": [
+        "In-article table of contents must survive",
+        "Inline citations and reference lists must survive",
+        "Captions/bylines/legitimate article headers must survive",
+        "Multi-part article body must not truncate",
+        "Only verified source chrome excluded"
+      ],
+      "acceptance": "Compare rawHTML,savedMarkdown,reader;navigation absent while all substantive paragraphs/images/citations intact;version extraction change;no historical bulk rewrite",
+      "rollback": "Revert selector rule/version;existing saved originals unchanged;not modified"
     }
   ],
   "user_authorization_updates": [

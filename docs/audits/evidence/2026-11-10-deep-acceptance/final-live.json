@@ -1,0 +1,22 @@
+{
+  "job_count": 15,
+  "upstream_524_events": [],
+  "target": {
+    "job_id": "cdbe3c1e-1d8f-4ee4-8e2f-792907535b48",
+    "status": "failed",
+    "created_at": 1794316483.0157425,
+    "updated_at": null,
+    "error_code": null,
+    "progress": 0.0,
+    "categories": [
+      "coverage"
+    ],
+    "percentages": [],
+    "error_length": 130
+  },
+  "active_jobs": 0,
+  "health": {
+    "revision": "83307d55752d06fb1a917c6f5b98204a8abb603e",
+    "status": "ok"
+  }
+}

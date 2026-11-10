@@ -1,0 +1,12 @@
+{
+  "episodes_initial": 50,
+  "pagination_available": true,
+  "second_page_count": 0,
+  "second_page_http": 200,
+  "episodes_after_more": 50,
+  "no_duplicate_ids": true,
+  "already_loaded_reader_stays_readable": true,
+  "reconnected_reload_equal": true,
+  "second_tab_equal": true,
+  "status": "PASS"
+}

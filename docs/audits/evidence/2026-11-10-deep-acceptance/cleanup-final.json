@@ -1,0 +1,12 @@
+{
+  "created_ids_absent": true,
+  "remaining_video_tasks": 5,
+  "library_restored_cards": 7,
+  "reload_consistent": true,
+  "active_jobs": 0,
+  "health": {
+    "revision": "83307d55752d06fb1a917c6f5b98204a8abb603e",
+    "status": "ok"
+  },
+  "status": "PASS"
+}

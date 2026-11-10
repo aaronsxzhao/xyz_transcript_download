@@ -1,0 +1,315 @@
+{
+  "checked_at": "2026-11-10T13:27:25.439880+00:00",
+  "tested_code": "4a95d9d9ade8c03545c0f948cb840525dd675592",
+  "production_revision": "83307d55752d06fb1a917c6f5b98204a8abb603e",
+  "previous_report": "docs/audits/2026-11-10-technical-pm.json",
+  "environment": {
+    "id": "ccarenv_b64_Y2NhcmVudl8yZDc0NjllZjE1OWM4MTkxOGNmNWE0NGJhMjhlMTA4Ng",
+    "configuration": "bff92f3f-57f3-482f-8f2b-7beae698a60c~cecfg_6ad393188adc819db89d4628d0f79658",
+    "python": "3.11.17",
+    "playwright": "1.64.0",
+    "chromium": "154.0.8037.57",
+    "browser": "shell Python Playwright, Chromium sandbox=true, TLS validation=true; supported escalated shell",
+    "network": "environment_status connected, unrestricted enforced; HTTPS_PROXY for production, direct loopback for fixtures",
+    "credentials": "GH ready; account stored custom model used successfully; stale SUMMARY_TEST_API_KEY not used; uploaded key used only for billing metadata and downloaded copies removed",
+    "desktop": "not used; browser automation and view_image inspection only"
+  },
+  "coordination": {
+    "open_prs": [],
+    "prs_239_240_241": "all merged, queried this run",
+    "latest_main_ci": "42809061361 success;42748960519 and42735569143 success",
+    "local_shared_budget_record": "/workspace/shared/technical-budget-20261110.json",
+    "no_other_code_changes_since_start": true
+  },
+  "budget": {
+    "http": 200,
+    "beijing_day": "2026-11-10",
+    "checked_at": "2026-11-10T13:22:15.413041+00:00",
+    "today_usd": 1.290506,
+    "today_records": 28,
+    "oldest_returned_utc": "2026-11-04T05:50:23+00:00",
+    "latest_returned_utc": "2026-11-10T13:16:18+00:00",
+    "quota_per_usd": 500000,
+    "daily_budget": 50,
+    "provider_hard_cap": false,
+    "paid_call_delta_this_run_usd": 0.829122,
+    "final_test_account_active_jobs": 0
+  },
+  "discovery": {
+    "core": {
+      "result": "passed_scoped",
+      "scale": "7 Library cards;2 multipart entries;1 existing video with2versions;1RSS with342 transcript segments;13podcast jobs and5video tasks initially, all inactive",
+      "evidence": "docs/audits/evidence/2026-11-10-deep-acceptance/core.json"
+    },
+    "real_model_parallel_delete": {
+      "user_goal": "Process a new32-minute podcast while finding/reading existing notes and deleting a disposable item; end with saved readable result",
+      "preconditions": "Normal test-account login;global settled Beijing-day budget0.461384USD;zero active podcast/video tasks;one serial task then one explicit recovery retry",
+      "task_id": "25b33b27-b86e-442b-90f3-10473289c252",
+      "retry_id": "cdbe3c1e-1d8f-4ee4-8e2f-792907535b48",
+      "source_duration_seconds": 1943,
+      "first_attempt_seconds": 143.44,
+      "observed_summarizing_span_seconds": 106.82,
+      "first_observed_summarizing_elapsed": 31.46,
+      "last_observed_summarizing_elapsed": 138.28,
+      "interaction_seconds": [
+        {
+          "operation": "search-clear-during-processing",
+          "seconds": 0.87,
+          "job_state": "summarizing"
+        },
+        {
+          "operation": "read-existing-during-processing",
+          "seconds": 1.066,
+          "job_state": "summarizing"
+        },
+        {
+          "operation": "delete-own-disposable",
+          "seconds": 0.321,
+          "job_state": "summarizing"
+        }
+      ],
+      "disposable_id": "local_84f3e0074ec349ee",
+      "deletion_refresh_absent": true,
+      "saved_transcript_segments": 488,
+      "terminal": "failed coverage check on both attempts",
+      "result": "partial interaction acceptance;end-to-end FAIL;106.82seconds observed summarizing is NOT a multi-minute successful long-inference acceptance",
+      "preserved_for_diagnosis": {
+        "new_test_podcast": "apple_290783428",
+        "new_episode": "9826f3225eb2936514291994",
+        "only_disposable_deleted": true
+      },
+      "evidence": [
+        "docs/audits/evidence/2026-11-10-deep-acceptance/long-task.json",
+        "docs/audits/evidence/2026-11-10-deep-acceptance/retry.json"
+      ],
+      "created_at_utc": "2026-11-10T13:07:08.909902+00:00",
+      "timeline_scope": "Elapsed is browser monotonic time after initial submission;job timestamp from authenticated API;state sampled before/after UI actions;not individual provider-call duration"
+    },
+    "all_lazy_images": {
+      "user_goal": "Read all images in a long article including last below-fold image and recover an external-origin failure",
+      "preconditions": "Isolated SQLite;24 synthetic images;real extraction/save/API/signature/image resize+cache/production frontend build;fixture provider replaces only exact fixture.example image origin",
+      "result": "PASS scoped local fixture",
+      "checks": 576,
+      "unique_images": 24,
+      "matrix": "Classic/Editorial x light/dark x1440x900,768x1024,390x844 x cold+reload",
+      "assertions": "Scroll every image;wait complete/naturalWidth and decode;contain ratio;page boundaries;origin failure placeholder;after3.2second documented cache backoff explicit retry and reload succeed",
+      "limitations": "Not live arbitrary-origin reliability or physical devices. Preliminary tracked-dist results discarded;current-source build and actual data-theme/data-design assertions used for final matrix.",
+      "evidence": [
+        "docs/audits/evidence/2026-11-10-deep-acceptance/images.json",
+        "docs/audits/evidence/2026-11-10-deep-acceptance/visual.json"
+      ]
+    },
+    "isolated_524": {
+      "result": "PASS scoped SQLite",
+      "steps": [
+        "Actual HTTP524 local server response fails task",
+        "Next queued task completes",
+        "Explicit retry reaches real local HTTP server",
+        "SIGKILL only isolated process;restart and recover after real90second lease",
+        "Prepared checkpoint not repeated",
+        "Saved summary and transcript restore",
+        "Actual browser failure history,summary,transcript and refresh verified"
+      ],
+      "fixture_limits": "Real durable API/workers/SQLite, synthetic provider processor. Not productionSupabase, not genuine provider524.",
+      "evidence": [
+        "docs/audits/evidence/2026-11-10-deep-acceptance/isolated-524.json",
+        "docs/audits/evidence/2026-11-10-deep-acceptance/recovery-ui.json"
+      ]
+    },
+    "genuine_upstream_524": {
+      "result": "event not observed;cannot现场验收",
+      "attempt": "Read accessible15 account task histories after tests;zero524matches;no production injection",
+      "external_log_access": "No OCI CLI/config/environment credential binding;cannot inspect production container internals using current authorized tools",
+      "evidence": "docs/audits/evidence/2026-11-10-deep-acceptance/final-live.json"
+    },
+    "article_navigation": {
+      "result": "reproduced in controlled source;requires extraction decision",
+      "comparison": "Semantic outer<nav> is removed;inner<div class=site-links> survives extraction, saved Markdown (underscores escaped), and reader. Reader faithfully displays saved body.",
+      "root_cause": "content_sources.py removes semantic chrome and chooses largest article container;unmarked inner link blocks indistinguishable from legitimate prose links under current contract",
+      "confidence": "high for controlled fixture;unknown frequency in live imported sources;original reported source URL unavailable in shared records",
+      "evidence": "docs/audits/evidence/2026-11-10-deep-acceptance/recovery-ui.json",
+      "source_screenshot_scope": "Raw source screenshot is navigation-content comparison only;fixture.example image URLs intentionally have no public DNS origin. Actual image matrix uses isolated exact-origin fixture adapter and signed app HTTP delivery."
+    },
+    "additional_readonly": {
+      "episodes_initial": 50,
+      "pagination_available": true,
+      "second_page_count": 0,
+      "second_page_http": 200,
+      "episodes_after_more": 50,
+      "no_duplicate_ids": true,
+      "already_loaded_reader_stays_readable": true,
+      "reconnected_reload_equal": true,
+      "second_tab_equal": true,
+      "status": "PASS",
+      "scope": "Existingvideo read-only plus newlyimported50episodepodcast;secondpageemptycorrectlyendspagination;not51+episodeacceptance"
+    },
+    "production_library_pagination": {
+      "result": "PASS scoped pagination",
+      "created_original_only": 35,
+      "initial_page": 40,
+      "after_load_more": 42,
+      "all35created_found": true,
+      "refresh_boundary_consistent": true,
+      "all_created_deleted": true,
+      "model_calls": 0,
+      "scope": "Serial no-model original text imports using unique traceable example.com URLs, normal account API preparation and actual UI pagination. Not load/stress benchmark.",
+      "search_limitation": "Search count sampled before debounce;not claimed as35-item search acceptance. Core7-item search/no-match/clear accepted separately.",
+      "evidence": "docs/audits/evidence/2026-11-10-deep-acceptance/library-pagination.json",
+      "cleanup_refresh_original7_restored": true
+    }
+  },
+  "existing_regressions": {
+    "result": "16passed",
+    "files": [
+      "tests/test_article_image_delivery.py",
+      "tests/test_processing_parallel_stress.py"
+    ],
+    "build": "tsc/Vite/assets/bundle budget passed196.7KiB<=197.75KiB",
+    "execution_note": "Restricted-shell async API test stalled;terminated own process and reran unchanged assertions with supported escalated execution;16pass2.84seconds",
+    "evidence": [
+      "docs/audits/evidence/2026-11-10-deep-acceptance/regression.log",
+      "docs/audits/evidence/2026-11-10-deep-acceptance/build.log"
+    ]
+  },
+  "issues_requiring_plan": [
+    {
+      "id": "rss-coverage-20261110",
+      "priority": "P1",
+      "impact": "New public32minute RSS task cannot deliver summary on initial or explicit retry;transcript retained",
+      "frequency": "2attempts on1new sample;population unknown",
+      "root_confidence": "coverage error category high;actual insufficiency vs malformed/unresolved receipts unknown",
+      "boundary": "Core summary algorithm/unknown root cause;not a confirmed local low-risk patch",
+      "already_tried": [
+        "Real account stored key successfully made billed calls",
+        "Initial processing143.44s;explicit checkpoint retry98.22s",
+        "Check saved488segment transcript and stable failed task",
+        "Read source_coverage audit error mapping:multiple receipt/format/grounding causes share coverage category",
+        "Checked production log tooling:OCI unavailable/no configured credentials"
+      ],
+      "remaining_steps": [
+        "Obtain sanitized audit_feedback.issue,stage,unit/covered/missing counts and cache-key metadata for the2listed taskIDs via existing authorized production log access",
+        "Reproduce offending receipt parsing in isolated regression without raw user/model output logging",
+        "If local parser defect is proven,fix narrowly and run regression+CI+deploy;otherwise propose bounded algorithm change without lowering90percent",
+        "Rerun same controlled source only after cause resolved;require completed summary+transcript+refresh and no deletion resurrection"
+      ],
+      "rollback": "Revert only proposed code commit;do not bulk reprocess existing notes;no production change made"
+    },
+    {
+      "id": "article-inner-navigation",
+      "priority": "P2",
+      "impact": "Reader includes source menu links when nested in article as ordinarydiv",
+      "frequency": "controlledfixture reproduced;real source frequency unknown",
+      "root_confidence": "high for fixture",
+      "proposed_scope": "Source-specific selector or explicit role=navigation semantics with captured fixtures;do not globally dropdiv,a,header or all high-link-density paragraphs",
+      "boundary_cases": [
+        "In-article table of contents must survive",
+        "Inline citations and reference lists must survive",
+        "Captions/bylines/legitimate article headers must survive",
+        "Multi-part article body must not truncate",
+        "Only verified source chrome excluded"
+      ],
+      "acceptance": "Compare rawHTML,savedMarkdown,reader;navigation absent while all substantive paragraphs/images/citations intact;version extraction change;no historical bulk rewrite",
+      "rollback": "Revert selector rule/version;existing saved originals unchanged;not modified"
+    }
+  ],
+  "disposition": {
+    "fixed_and_deployed": [],
+    "fixed_waiting_ci_or_deploy": [],
+    "verified_no_product_fix_needed": [
+      "Scoped production core reads",
+      "Currentbuild24image matrix",
+      "Isolated realHTTP524 recovery and saved reader",
+      "Shared budget/model authentication"
+    ],
+    "external_blockers": [
+      "Production detailed coverage receipts/logs inaccessible with currently configured tools",
+      "Natural upstream524did not occur;not a defect or permanent repair task"
+    ],
+    "paused_by_user": [
+      "Notion real export integration",
+      "Independent hosted queue/database infrastructure",
+      "Two historical local notes13lostscreenshots recovery"
+    ],
+    "needs_plan": [
+      "RSS coverage root-cause/possible core algorithm work",
+      "Original extraction rules for unmarked inner navigation"
+    ]
+  },
+  "pm": {
+    "goal_result": "Existing reading and local image/recovery goals achieved;newRSS trusted-summary goal failed despite responsive concurrent operations",
+    "top_priorities": [
+      "P1newRSS coverage failure",
+      "P2source navigation extraction contract"
+    ],
+    "no_population_or_conversion_claims": true
+  },
+  "changes": "No application code change;no deployment;harness corrections and durable incremental evidence only",
+  "commands": [
+    "environment_status;readcloudruntime;git fetch origin main;gh pr list;gh pr view239,240,241;gh run list",
+    "AUDIT_OUTPUT=/workspace/deep-acceptance-private /workspace/xyz_transcript_download/venv/bin/python /workspace/deep-acceptance-private/core.py",
+    "python long.py then long-resume.py with hidden login;one initial request;python retry.py one recovery request",
+    "npm --prefix web run build",
+    "python images-server.py;python images.py;python service-recovery-v2.py;python recovery-ui.py",
+    "python -m pytest tests/test_article_image_delivery.py tests/test_processing_parallel_stress.py -q --timeout=40"
+  ],
+  "evidence_root": "docs/audits/evidence/2026-11-10-deep-acceptance",
+  "outstanding_inventory_disposition": [
+    {
+      "scope": "Long inference+paralleldelete+readable final result",
+      "status": "failed_new_sample",
+      "next": "Receipt-level diagnosis;do not relabel106.82seconds as successful multi-minute processing"
+    },
+    {
+      "scope": "All24deepimages",
+      "status": "accepted_local_currentbuild",
+      "next": "No repeated firstscreen check needed;productionarbitraryorigin remainsdistinct"
+    },
+    {
+      "scope": "IsolatedHTTP524queue/restart/savedresults",
+      "status": "accepted_local_sqlite",
+      "next": "No new hosted environment provisioned"
+    },
+    {
+      "scope": "Genuineprovider524",
+      "status": "event_absent",
+      "next": "Observe next natural event;do not injectproduction"
+    },
+    {
+      "scope": "Original source navigation",
+      "status": "requires_extraction_decision",
+      "next": "Concrete scoped-selector plan and preservation cases inthisreport"
+    },
+    {
+      "scope": "Notion",
+      "status": "paused_by_user"
+    },
+    {
+      "scope": "NativeOSPDFsavedialog",
+      "status": "external_capability_gap",
+      "next": "Shellheadless validatesPDFcontent;noOSdialog/shareddesktopoperationperformed"
+    },
+    {
+      "scope": "Passwordreset/multi-accountisolation",
+      "status": "external_precondition_missing",
+      "next": "No secondisolatedaccount or verified resetmailbox capability;do not resetexistingaccount just foraudit"
+    },
+    {
+      "scope": "ProductionLibrarypagination/newmultipartimport",
+      "status": "42itemproductionpaginationaccepted;newmultipartimportnotaccepted",
+      "remaining": "Existing2partreadonlytestdoesnotacceptnewcollectionimport;no additionalknowncontrolledpublicmultipartsource identified in this run"
+    }
+  ],
+  "completed_at": "2026-11-10T13:36:52.110210+00:00",
+  "cleanup": {
+    "created_ids_absent": true,
+    "remaining_video_tasks": 5,
+    "library_restored_cards": 7,
+    "reload_consistent": true,
+    "active_jobs": 0,
+    "health": {
+      "revision": "83307d55752d06fb1a917c6f5b98204a8abb603e",
+      "status": "ok"
+    },
+    "status": "PASS"
+  }
+}
