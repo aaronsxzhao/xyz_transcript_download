@@ -44,6 +44,7 @@ import {
 import {
   ApiError,
   fetchJob,
+  fetchEpisode,
   fetchSummary,
   fetchTranscript,
   resummarizeEpisode,
@@ -68,6 +69,7 @@ export default function Viewer() {
     getCache(CacheKeys.SUMMARY(eid!)),
   );
   const [transcript, setTranscript] = useState<Transcript | null>(null);
+  const [episodeTitle, setEpisodeTitle] = useState<{eid: string; title: string} | null>(null);
   const [loading, setLoading] = useState(
     () => !getCache(CacheKeys.SUMMARY(eid!)),
   );
@@ -134,6 +136,7 @@ export default function Viewer() {
     setSummary(cached);
     setExpandedTopics(new Set(summaryChapters(cached).map(([topic]) => topic)));
     setTranscript(null);
+    setEpisodeTitle(null);
     setActiveTab("summary");
     setResummarizing(false);
     setActionError("");
@@ -169,6 +172,11 @@ export default function Viewer() {
       if (cached) setError("Cannot refresh this summary. Please retry.");
       else if (err instanceof ApiError && err.status === 404) {
         // Episodes with a transcript but no summary still open normally.
+        // Metadata is optional: its failure must not prevent reading the transcript.
+        void fetchEpisode(eid!).then((episode) => {
+          if (current() && episode.eid === requestedEid)
+            setEpisodeTitle({eid: episode.eid, title: episode.title});
+        }).catch(() => {});
         const fallback = await loadTranscript();
         if (requestedEid !== currentEid.current) return;
         if (fallback) setActiveTab("transcript");
@@ -399,7 +407,7 @@ export default function Viewer() {
   return (
     <ReaderFrame
       kind="Podcast"
-      title={summary?.title || "Episode Viewer"}
+      title={summary?.title || (episodeTitle && episodeTitle.eid === eid ? episodeTitle.title : "") || "Episode Viewer"}
       sections={
         activeTab === "summary" && !summary?.quality_warning ? sections : []
       }
