@@ -1,0 +1,72 @@
+{
+  "episode_http": 200,
+  "source": {
+    "eid": "9826f3225eb2936514291994",
+    "pid": "apple_290783428",
+    "duration": 1943,
+    "audio_host": "tracking.swap.fm",
+    "feed_host": "feeds.npr.org",
+    "platform": "apple"
+  },
+  "podcast_http": 200,
+  "model": {
+    "llm_provider": "custom",
+    "llm_model": "gpt-6-astra",
+    "summary_generation_mode": "single",
+    "llm_reasoning_effort": "",
+    "llm_service_tier": "",
+    "endpoint_host": "api.aipaibox.com"
+  },
+  "active_jobs": 0,
+  "natural_524_events": 0,
+  "matching_tasks": [
+    {
+      "id": "25b33b27-b86e-442b-90f3-10473289c252",
+      "status": "failed",
+      "coverage_failure": true,
+      "available_fields": [
+        "job_id",
+        "created_at",
+        "revision",
+        "checkpoint_root",
+        "force",
+        "source_url",
+        "transcribe_only",
+        "resummarize",
+        "whisper_model",
+        "llm_model",
+        "user_id",
+        "status",
+        "started_at",
+        "progress",
+        "message",
+        "episode_id",
+        "episode_title"
+      ]
+    },
+    {
+      "id": "cdbe3c1e-1d8f-4ee4-8e2f-792907535b48",
+      "status": "failed",
+      "coverage_failure": true,
+      "available_fields": [
+        "job_id",
+        "created_at",
+        "revision",
+        "checkpoint_root",
+        "force",
+        "source_url",
+        "transcribe_only",
+        "resummarize",
+        "whisper_model",
+        "llm_model",
+        "user_id",
+        "status",
+        "started_at",
+        "progress",
+        "message",
+        "episode_id",
+        "episode_title"
+      ]
+    }
+  ]
+}

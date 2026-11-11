@@ -1,0 +1,155 @@
+{
+  "calls": 0,
+  "stages": [
+    {
+      "stage": "draft",
+      "total": 1
+    },
+    {
+      "stage": "draft",
+      "total": 1
+    },
+    {
+      "stage": "grounding",
+      "total": 1
+    },
+    {
+      "stage": "grounding",
+      "total": 1
+    },
+    {
+      "stage": "inventory",
+      "total": 6
+    },
+    {
+      "stage": "inventory",
+      "total": 6
+    },
+    {
+      "stage": "inventory",
+      "total": 6
+    },
+    {
+      "stage": "inventory",
+      "total": 6
+    },
+    {
+      "stage": "inventory",
+      "total": 6
+    },
+    {
+      "stage": "inventory",
+      "total": 6
+    },
+    {
+      "stage": "inventory",
+      "total": 6
+    },
+    {
+      "stage": "inventory",
+      "total": 6
+    },
+    {
+      "stage": "inventory",
+      "total": 6
+    },
+    {
+      "stage": "inventory",
+      "total": 6
+    },
+    {
+      "stage": "coverage",
+      "total": 45
+    },
+    {
+      "stage": "coverage",
+      "total": 45
+    },
+    {
+      "stage": "coverage",
+      "total": 45
+    },
+    {
+      "stage": "coverage",
+      "total": 45
+    },
+    {
+      "stage": "coverage",
+      "total": 45
+    },
+    {
+      "stage": "coverage",
+      "total": 6
+    },
+    {
+      "stage": "grounding",
+      "total": 6
+    },
+    {
+      "stage": "repair",
+      "total": 6
+    },
+    {
+      "stage": "recheck",
+      "total": 6
+    },
+    {
+      "stage": "coverage",
+      "total": 6
+    },
+    {
+      "stage": "quality",
+      "total": 1
+    }
+  ],
+  "daily_usd": 6.735638,
+  "segments": 488,
+  "wall_seconds": 171.792,
+  "peak_concurrency": 0,
+  "coverage_ledger": {
+    "status": "acceptable",
+    "semantic_proof": false,
+    "inventory_batches": 6,
+    "failed_batches": 0,
+    "repairs_accepted": 4,
+    "repairs_rejected": 0,
+    "requests": 13,
+    "ignored_boundary_items": 0,
+    "validation_retries": 1,
+    "inventory_failed_batches": 0,
+    "terminal_provider_failure": false,
+    "inventory_validation_failed_batches": 0,
+    "inventory_transport_retries": 0,
+    "inventory_recovered_batches": 0,
+    "inventory_split_retries": 0,
+    "recovery_rounds": 1,
+    "grounding_concerns": false,
+    "initial_unresolved_items": 6,
+    "unresolved_items": 2,
+    "covered_items": 43,
+    "context_only_items": 0,
+    "coverage_ratio": 0.9555555555555556,
+    "threshold": 0.9
+  },
+  "verification": {
+    "review_parts": 1,
+    "final_coverage_attempts": 0,
+    "coverage_checks_resolved": 0,
+    "review_attempts": 1,
+    "review_capacity_fallback": false,
+    "reviewed": 1,
+    "unresolved": 2,
+    "status": "unverified",
+    "semantic_proof": false,
+    "missing_material_additions": 0
+  },
+  "delivery": {},
+  "item_statuses": {
+    "covered": 43,
+    "missing": 2
+  },
+  "result": "interrupted_due_to_audit_counter_bypass",
+  "calls_valid": false,
+  "peak_concurrency_valid": false,
+  "acceptance": "NOT accepted; KeyboardInterrupt during final coverage recheck; no production writes"
+}

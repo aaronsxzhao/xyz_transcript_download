@@ -1,0 +1,159 @@
+{
+  "calls": 20,
+  "stages": [
+    {
+      "stage": "draft",
+      "total": 1
+    },
+    {
+      "stage": "draft",
+      "total": 1
+    },
+    {
+      "stage": "grounding",
+      "total": 1
+    },
+    {
+      "stage": "grounding",
+      "total": 1
+    },
+    {
+      "stage": "inventory",
+      "total": 6
+    },
+    {
+      "stage": "inventory",
+      "total": 6
+    },
+    {
+      "stage": "inventory",
+      "total": 6
+    },
+    {
+      "stage": "inventory",
+      "total": 6
+    },
+    {
+      "stage": "inventory",
+      "total": 6
+    },
+    {
+      "stage": "inventory",
+      "total": 6
+    },
+    {
+      "stage": "inventory",
+      "total": 6
+    },
+    {
+      "stage": "inventory",
+      "total": 6
+    },
+    {
+      "stage": "inventory",
+      "total": 6
+    },
+    {
+      "stage": "inventory",
+      "total": 6
+    },
+    {
+      "stage": "coverage",
+      "total": 47
+    },
+    {
+      "stage": "coverage",
+      "total": 47
+    },
+    {
+      "stage": "coverage",
+      "total": 47
+    },
+    {
+      "stage": "coverage",
+      "total": 47
+    },
+    {
+      "stage": "coverage",
+      "total": 47
+    },
+    {
+      "stage": "coverage",
+      "total": 12
+    },
+    {
+      "stage": "grounding",
+      "total": 12
+    },
+    {
+      "stage": "repair",
+      "total": 12
+    },
+    {
+      "stage": "recheck",
+      "total": 12
+    },
+    {
+      "stage": "coverage",
+      "total": 12
+    },
+    {
+      "stage": "quality",
+      "total": 1
+    },
+    {
+      "stage": "quality",
+      "total": 3
+    }
+  ],
+  "daily_usd": 8.35905,
+  "segments": 488,
+  "result": "failed",
+  "error_type": "ProcessingCancelledError",
+  "code": null,
+  "reason": null,
+  "wall_seconds": 272.267,
+  "peak_concurrency": 3,
+  "coverage_ledger": {
+    "status": "acceptable",
+    "semantic_proof": false,
+    "inventory_batches": 6,
+    "failed_batches": 0,
+    "repairs_accepted": 0,
+    "repairs_rejected": 0,
+    "requests": 11,
+    "ignored_boundary_items": 0,
+    "validation_retries": 0,
+    "inventory_failed_batches": 0,
+    "terminal_provider_failure": false,
+    "inventory_validation_failed_batches": 0,
+    "inventory_transport_retries": 0,
+    "inventory_recovered_batches": 0,
+    "inventory_split_retries": 0,
+    "recovery_rounds": 0,
+    "grounding_concerns": true,
+    "initial_unresolved_items": 6,
+    "unresolved_items": 2,
+    "covered_items": 45,
+    "context_only_items": 0,
+    "coverage_ratio": 0.9574468085106383,
+    "threshold": 0.9
+  },
+  "verification": {
+    "review_parts": 1,
+    "final_coverage_attempts": 0,
+    "coverage_checks_resolved": 0,
+    "review_attempts": 1,
+    "review_capacity_fallback": false,
+    "reviewed": 1,
+    "unresolved": 2,
+    "status": "unverified",
+    "semantic_proof": false,
+    "missing_material_additions": 0
+  },
+  "delivery": {},
+  "item_statuses": {
+    "partial": 2,
+    "covered": 45
+  }
+}

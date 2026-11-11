@@ -1,0 +1,193 @@
+{
+  "run": 42937587468,
+  "conclusion": "success",
+  "runtime": [
+    {
+      "container_role": "app",
+      "resource_config": null,
+      "command": null,
+      "has_persistent_mounts": false
+    },
+    {
+      "previous_run": false,
+      "container_role": "app",
+      "logs": {
+        "youtube_verifications": [],
+        "exception_types": [],
+        "missing_modules": [],
+        "source_frames": [],
+        "startup_complete": false,
+        "startup_failed": false,
+        "listen_ports": [],
+        "out_of_memory": false,
+        "tunnel_connected": false,
+        "origin_unreachable": false,
+        "tunnel_configuration_error": false,
+        "auth_jwks_failures": 0,
+        "auth_api_failures": 0,
+        "database_error_codes": [],
+        "http2_terminated": 0,
+        "http2_stream_reset": 0,
+        "episode_http_statuses": {
+          "200": 0,
+          "401": 0,
+          "403": 0,
+          "404": 0,
+          "500": 0,
+          "502": 0,
+          "503": 0,
+          "504": 0
+        },
+        "platform_account_http_statuses": {
+          "/api/cookies/bilibili/qr/generate": {
+            "200": 0,
+            "400": 0,
+            "401": 0,
+            "403": 0,
+            "404": 0,
+            "500": 0,
+            "502": 0,
+            "503": 0,
+            "504": 0
+          },
+          "/api/cookies/bilibili/qr/poll": {
+            "200": 0,
+            "400": 0,
+            "401": 0,
+            "403": 0,
+            "404": 0,
+            "500": 0,
+            "502": 0,
+            "503": 0,
+            "504": 0
+          },
+          "/api/cookies/youtube": {
+            "200": 0,
+            "400": 0,
+            "401": 0,
+            "403": 0,
+            "404": 0,
+            "500": 0,
+            "502": 0,
+            "503": 0,
+            "504": 0
+          },
+          "/api/cookies/upload-file": {
+            "200": 0,
+            "400": 0,
+            "401": 0,
+            "403": 0,
+            "404": 0,
+            "500": 0,
+            "502": 0,
+            "503": 0,
+            "504": 0
+          },
+          "/api/cookies/save-simple": {
+            "200": 0,
+            "400": 0,
+            "401": 0,
+            "403": 0,
+            "404": 0,
+            "500": 0,
+            "502": 0,
+            "503": 0,
+            "504": 0
+          }
+        },
+        "summary_failures": {
+          "output_limit": 0,
+          "empty_key_points": 0,
+          "json_parse": 0,
+          "empty_choices": 0,
+          "connection": 0
+        },
+        "summary_audit_issues": {
+          "missing_units": 0,
+          "invalid_note_reference": 0,
+          "invalid_addition": 0,
+          "ungrounded_edit": 0,
+          "unknown_edit_field": 0,
+          "duplicate_edit_field": 0,
+          "invalid_lists": 0,
+          "invalid_receipt": 0,
+          "unknown_or_duplicate_unit": 0,
+          "invalid_kind": 0,
+          "SummaryOutputError": 0,
+          "JSONDecodeError": 0,
+          "RuntimeError": 0
+        },
+        "timeout_mentions": 0,
+        "custom_model_probe_failures": {
+          "models": 0,
+          "summary": 0,
+          "transcription": 0
+        },
+        "custom_model_error_types": {
+          "models": {
+            "APIConnectionError": 0,
+            "APITimeoutError": 0,
+            "AuthenticationError": 0,
+            "PermissionDeniedError": 0,
+            "NotFoundError": 0,
+            "RateLimitError": 0,
+            "InternalServerError": 0,
+            "APIStatusError": 0,
+            "ModelConfigurationError": 0,
+            "AttributeError": 0,
+            "TypeError": 0,
+            "ValueError": 0,
+            "JSONDecodeError": 0
+          },
+          "summary": {
+            "APIConnectionError": 0,
+            "APITimeoutError": 0,
+            "AuthenticationError": 0,
+            "PermissionDeniedError": 0,
+            "NotFoundError": 0,
+            "RateLimitError": 0,
+            "InternalServerError": 0,
+            "APIStatusError": 0,
+            "ModelConfigurationError": 0,
+            "AttributeError": 0,
+            "TypeError": 0,
+            "ValueError": 0,
+            "JSONDecodeError": 0
+          },
+          "transcription": {
+            "APIConnectionError": 0,
+            "APITimeoutError": 0,
+            "AuthenticationError": 0,
+            "PermissionDeniedError": 0,
+            "NotFoundError": 0,
+            "RateLimitError": 0,
+            "InternalServerError": 0,
+            "APIStatusError": 0,
+            "ModelConfigurationError": 0,
+            "AttributeError": 0,
+            "TypeError": 0,
+            "ValueError": 0,
+            "JSONDecodeError": 0
+          }
+        },
+        "model_http_statuses": {
+          "200": 0,
+          "401": 0,
+          "403": 0,
+          "422": 0,
+          "500": 0,
+          "502": 0,
+          "503": 0,
+          "504": 0
+        },
+        "custom_model_upstream_5xx": 0
+      }
+    },
+    {
+      "previous_run": true,
+      "container_role": "app",
+      "logs_available": false
+    }
+  ],
+  "limits": "Whitelisted aggregate patterns only; no per-task coverage/grounding receipts; zero matches do not prove zero errors or no 524."
+}

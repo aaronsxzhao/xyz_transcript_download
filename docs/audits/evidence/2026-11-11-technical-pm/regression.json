@@ -1,0 +1,8 @@
+{
+  "initial_command": "/workspace/xyz_transcript_download/venv/bin/python -m pytest -q tests/test_reading_delivery.py tests/test_saved_coverage_completion.py tests/test_http_524_recovery.py",
+  "initial_result": "49 passed;2 setup errors:socket EPERM in default shell sandbox",
+  "supported_escalation_command": "/workspace/xyz_transcript_download/venv/bin/python -m pytest -q tests/test_http_524_recovery.py",
+  "escalation_result": "2 passed in9.61seconds",
+  "total_passed": 51,
+  "scope": "Existing regression, not new end-to-end acceptance; no assertions changed"
+}

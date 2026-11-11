@@ -1,0 +1,181 @@
+{
+  "checked_at": "2026-11-11T01:16:25.870260+00:00",
+  "tested_commit": "44bed42ad14a9770d0d3276824f0822e5a67f876",
+  "production_revision": "83307d55752d06fb1a917c6f5b98204a8abb603e",
+  "previous_report": "docs/audits/2026-11-10-deep-acceptance.json",
+  "environment": {
+    "id": "ccarenv_b64_Y2NhcmVudl8yZDc0NjllZjE1OWM4MTkxOGNmNWE0NGJhMjhlMTA4Ng",
+    "configuration": "bff92f3f-57f3-482f-8f2b-7beae698a60c~cecfg_6ad393188adc819db89d4628d0f79658",
+    "configuration_version": "cecfgver_6aea9b1381b8819d9e38bde951d68554",
+    "network": "fresh environment_status connected/running, unrestricted enforced",
+    "python": "3.11.17",
+    "playwright": "1.64.0",
+    "chromium": "154.0.8037.57",
+    "browser": "Python Playwright shell; sandbox=True; ignore_https_errors=False; inherited HTTPS_PROXY; supported escalated shell",
+    "image_inspection": "All three current screenshots actually viewed; private screenshots not committed",
+    "desktop": "not used; no manual takeover claim",
+    "credentials": "GH ready; old SUMMARY_TEST key unused; authorized attachment used only in memory and downloaded copies deleted; production log access: OCI CLI/config/env absent; existing GitHub runtime workflow successfully retrieved safe host-log summary"
+  },
+  "coordination": {
+    "open_prs": [],
+    "PR239_240_241": "freshly queried, all merged; PR241 branch coverage read",
+    "main_unchanged_during_audit": true,
+    "main_ci_successes": [
+      42931886115,
+      42886488881
+    ],
+    "latest_application_deploy": 42632334290,
+    "shared_budget_path": "/workspace/shared/technical-budget-20261111.json"
+  },
+  "discovery": {
+    "core": {
+      "result": "passed_scoped",
+      "environment": "production dedicated test account;existing content read-only",
+      "scale": "7 Library cards;2 multipart entries(1 ready);1 video/2versions;1 RSS/342segments;15podcastjobs and5video tasks, none active",
+      "steps": [
+        "Normal login",
+        "Library search/no-result/clear",
+        "Expand multipart directory",
+        "Summary/transcript/history→older/latest→refresh",
+        "RSS reader refresh",
+        "Task history refresh"
+      ],
+      "search_clear_seconds": 0.906,
+      "network_failures": 0,
+      "console_errors": 0,
+      "page_errors": 0,
+      "pagination": "No control at7cards; Nov10 real42card pagination remains prior evidence only",
+      "evidence": "docs/audits/evidence/2026-11-11-technical-pm/core.json"
+    },
+    "ci_failure": {
+      "result": "verified_external_install_timeout;no app fix required",
+      "run": 42826200248,
+      "job": 129864030285,
+      "stage": "Prepare browser validation dependencies",
+      "cause": "Eight-minute timeout while apt browser/system dependency downloads still running; no frontend assertion ran; same SHA subsequent2full CI success",
+      "evidence": "docs/audits/evidence/2026-11-11-technical-pm/ci-install-evidence.txt",
+      "no_threshold_change": true
+    },
+    "public_rss_diagnosis": {
+      "result": "INCONCLUSIVE: audit20requestcap reached during final check;not an application failure",
+      "source": "Prior-run controlled public NPR episode9826f3225eb2936514291994;488segments;1943seconds;normal account API verified public feed and configured provider",
+      "scope": "Local current-code real-model execution, output memory only;no production reprocess or save",
+      "evidence": "docs/audits/evidence/2026-11-11-technical-pm/diagnosis-bounded.json",
+      "prior_production_tasks": [
+        "25b33b27-b86e-442b-90f3-10473289c252",
+        "cdbe3c1e-1d8f-4ee4-8e2f-792907535b48"
+      ],
+      "production_status": "Both still failed; no production recovery acceptance",
+      "code_path": "Summarizer.summarize→transcript_reading.generate→coverage_ledger.efficient_audit→reading_delivery.accept_edition; corrects prior report focus on legacy source_coverage",
+      "root_limit": "Generic coverage gate includes missing items and invalid/incomplete audit receipts; prior task receipts not exposed by normal APIs. Cannot infer root from generic text or middle-stage ratio.",
+      "wall_seconds": 272.267,
+      "requests": 20,
+      "peak_concurrency": 3,
+      "coverage_ratio": 0.9574468085106383,
+      "covered_items": 45,
+      "total_items": 47,
+      "grounding_concerns": true,
+      "final_delivery": "not reached",
+      "conclusion": "Current configured key works;coverage95.74percent alone does not satisfy final grounding gate. Does not establish root of prior production failure or recovery. No extra paid rerun to chase acceptance."
+    },
+    "audit_harness": {
+      "result": "fixed locally and verified with fake cloned clients;not an application defect",
+      "cause": "First wrapper patched one client method but reading_editor.with_options cloned clients; calls/peak zero are invalid",
+      "action": "Interrupted first run; actual settled daily cost reconciled7.58341USD; replaced wrapper with one sharing count/semaphore across with_options; no-network test allows20 then rejects21st; bounded rerun uses this wrapper",
+      "partial_first_run": "docs/audits/evidence/2026-11-11-technical-pm/diagnosis-interrupted.json",
+      "script": "docs/audits/evidence/2026-11-11-technical-pm/diagnose-public-rss.py",
+      "approval": "Initial auto-review rejection resolved by read-only proof of public test source and same configured endpoint, then supported re-review approval; no access-control bypass"
+    },
+    "natural_upstream_524": {
+      "result": "No event in accessible account task records; cannot现场验收;not an application defect",
+      "scope": "No524event in accessible account records. Existing host-log workflow ran successfully but its allowlisted counters are not524-specific;no whole-production absence claim."
+    },
+    "runtime_logs": {
+      "result": "Existing read-only workflow42937587468success;app current logs retrieved,safe aggregate patterns zero;previous logs unavailable",
+      "limitations": "Existing summary does not expose original task-specific coverage receipts or524-specific counts;zero regex matches cannot establish all traffic healthy",
+      "evidence": "docs/audits/evidence/2026-11-11-technical-pm/runtime.json"
+    }
+  },
+  "prior_evidence_retained_not_rerun": {
+    "reason": "git diff production83307d5..main44bed42 only docs; code unchanged",
+    "all_lazy_images": "Nov10 local24images x4themes x3viewports xcold/reload=576 checks plus failure/retry; not production arbitrary origins",
+    "isolated_524": "Nov10 real localHTTP524,queue progression,explicit retry,90second lease restart,SQLite saved output and UIrefresh; not Supabase",
+    "library_pagination": "Nov10 production42cards through35traceable disposable imports then cleanup; thisrun7cards",
+    "export": "Prior MD/HTML/PDF acceptance on83307d5;Notionpaused",
+    "source_navigation": "Nov10 rawHTML/savedMarkdown/reader fixture proves unmarked innerdiv links survive; semantic outer nav removed"
+  },
+  "regressions": {
+    "result": "51passed",
+    "evidence": "docs/audits/evidence/2026-11-11-technical-pm/regression.json",
+    "build": "Not rerun:no application edits; current-main CI already successful"
+  },
+  "budget": {
+    "day_beijing": "2026-11-11",
+    "limit_usd": 50,
+    "hard_cap": false,
+    "start_settled_usd": 6.735638,
+    "last_settled_usd": 8.35905,
+    "notes": "Provider settlement, not hard enforcement or assurance against delayed billing; no new calls after diagnosis; no production jobs started",
+    "observed_shared_delta_usd": 1.623412,
+    "attribution": "Shared settled-day increase during audit;not guaranteed exclusive per-run billing attribution",
+    "local_inflight_after": 0
+  },
+  "needs_plan": [
+    {
+      "id": "rss-coverage-20261110",
+      "priority": "P1",
+      "impact": "Prior public test episode not deliverable after initial and retry",
+      "frequency": "2 production attempts/1source; population unknown",
+      "confidence": "Confirmed outcome; exact original receipt failure unknown",
+      "remaining": "Current diagnosis reaches45/47coverage with grounding_concerns=true then audit20callcap;no final verdict. Obtain sanitized original failed-task delivery.reason,failed/invalid receipt counts,grounding concerns and cache metadata from existing authorized host/checkpoint access. Existing workflow summaries lack those per-task fields. Confirm whether bounded correction exhausts valid review versus parser failure before any core algorithm change. Preserve90percent and source grounding.",
+      "proposal": "For review: a bounded resume of the last unaccepted candidate with explicit per-stage failure metadata; preserve source inventory, invalidate receipts after prose changes, re-review immutable final draft, never publish a below-threshold or unsupported candidate. First verify existing candidate resume with original task evidence; do not add another blind retry loop."
+    },
+    {
+      "id": "article-inner-navigation",
+      "priority": "P2",
+      "confidence": "High for controlled fixture,real-source frequency unknown",
+      "proposal": "Capture affected real URL; source-specific selectors or explicit navigation semantics only. Preserve TOC,citations,bylines,captions,all paragraphs and images; no broaddiv/link-density deletion or historical rewrite. Requires extraction-contract decision."
+    }
+  ],
+  "other_open_dispositions": [
+    {
+      "item": "Successful real long inference with concurrent delete",
+      "result": "Not accepted; prior overlap/deletion evidence only; final production summary failed. Current isolated diagnosis cannot substitute for UI chain."
+    },
+    {
+      "item": "Fresh production multipart import",
+      "result": "Not accepted; current existing2part read/navigation accepted; no additional verified controlled multipart source in records"
+    },
+    {
+      "item": "Password reset/cross-account isolation",
+      "result": "No second isolated account or reset mailbox access available; current normal login only"
+    },
+    {
+      "item": "Notion",
+      "result": "Paused by user"
+    },
+    {
+      "item": "Independent hosted database/queue recovery",
+      "result": "Paused by user;no infrastructure created"
+    },
+    {
+      "item": "13old lost screenshots",
+      "result": "User-accepted exclusion;not rescanned or listed for repair"
+    }
+  ],
+  "pm": {
+    "goal": "Find content→identify part state→read/switch version→refresh",
+    "result": "Achieved for current sample; complete new public RSS processing remains unaccepted",
+    "priorities": [
+      "P1 public RSS final delivery",
+      "P2 inner source navigation extraction decision"
+    ],
+    "no_business_metrics_invented": true
+  },
+  "changes": {
+    "application": false,
+    "deployment": false,
+    "new_pr": false,
+    "scope": "Audit harness and persistent evidence only; no production-data changes"
+  }
+}

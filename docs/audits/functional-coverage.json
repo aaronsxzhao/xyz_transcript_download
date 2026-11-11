@@ -2,9 +2,9 @@
   "schema_version": 1,
   "site": "https://aipodcastsummary.online",
   "repository": "aaronsxzhao/xyz_transcript_download",
-  "updated_at": "2026-11-10T13:36:52.110210+00:00",
+  "updated_at": "2026-11-11T01:16:25.870260+00:00",
   "tested_commit": "83307d55752d06fb1a917c6f5b98204a8abb603e",
-  "current_report": "docs/audits/2026-11-10-deep-acceptance.json",
+  "current_report": "docs/audits/2026-11-11-technical-pm.json",
   "inventory_basis": [
     "web/src/App.tsx routes",
     "current repository feature components and prior audit records",
@@ -26,7 +26,7 @@
         "quality": "summary quality audit for semantic coverage where applicable"
       },
       "risk": "high",
-      "last_actual_check": "2026-11-10T13:27:25.439880+00:00",
+      "last_actual_check": "2026-11-11T01:16:25.870260+00:00",
       "environment": "production83307d5; sandboxed Chromium154",
       "account_type": "dedicated test account;existing data read-only;writes only current-run marked source",
       "data_scale": "7Library cards/2parts/1existingvideo/1RSS",
@@ -37,7 +37,8 @@
         "docs/audits/2026-11-10-technical-pm.json",
         "docs/audits/evidence/2026-11-10-technical-pm/core.json",
         "docs/audits/evidence/2026-11-10-technical-pm/article.json",
-        "docs/audits/2026-11-10-deep-acceptance.json"
+        "docs/audits/2026-11-10-deep-acceptance.json",
+        "docs/audits/2026-11-11-technical-pm.json"
       ],
       "result": "passed_scoped",
       "production_result": "passed_scoped",
@@ -90,6 +91,11 @@
           "checked_at": "2026-11-10T13:27:25.439880+00:00",
           "report": "docs/audits/2026-11-10-deep-acceptance.json",
           "result": "See scoped discovery results;no wholesale feature promotion"
+        },
+        {
+          "checked_at": "2026-11-11T01:16:25.870260+00:00",
+          "report": "docs/audits/2026-11-11-technical-pm.json",
+          "result": "See per-item current/prior/blocked/decision dispositions;no wholesale promotion"
         }
       ]
     },
@@ -241,6 +247,11 @@
           "checked_at": "2026-11-10T13:27:25.439880+00:00",
           "report": "docs/audits/2026-11-10-deep-acceptance.json",
           "result": "See scoped discovery results;no wholesale feature promotion"
+        },
+        {
+          "checked_at": "2026-11-11T01:16:25.870260+00:00",
+          "report": "docs/audits/2026-11-11-technical-pm.json",
+          "result": "See per-item current/prior/blocked/decision dispositions;no wholesale promotion"
         }
       ]
     },
@@ -343,6 +354,11 @@
           "checked_at": "2026-11-10T13:27:25.439880+00:00",
           "report": "docs/audits/2026-11-10-deep-acceptance.json",
           "result": "See scoped discovery results;no wholesale feature promotion"
+        },
+        {
+          "checked_at": "2026-11-11T01:16:25.870260+00:00",
+          "report": "docs/audits/2026-11-11-technical-pm.json",
+          "result": "See per-item current/prior/blocked/decision dispositions;no wholesale promotion"
         }
       ]
     },
@@ -355,7 +371,7 @@
         "quality": "summary quality audit for semantic coverage where applicable"
       },
       "risk": "high",
-      "last_actual_check": "2026-11-10T13:27:25.439880+00:00",
+      "last_actual_check": "2026-11-11T01:16:25.870260+00:00",
       "environment": "production83307d5; sandboxed Chromium154",
       "account_type": "dedicated test account;existing data read-only;writes only current-run marked source",
       "data_scale": "7Library cards/2parts/1existingvideo/1RSS",
@@ -366,7 +382,8 @@
         "docs/audits/2026-11-10-technical-pm.json",
         "docs/audits/evidence/2026-11-10-technical-pm/core.json",
         "docs/audits/evidence/2026-11-10-technical-pm/article.json",
-        "docs/audits/2026-11-10-deep-acceptance.json"
+        "docs/audits/2026-11-10-deep-acceptance.json",
+        "docs/audits/2026-11-11-technical-pm.json"
       ],
       "result": "passed_scoped",
       "production_result": "passed_scoped",
@@ -459,6 +476,11 @@
           "checked_at": "2026-11-10T13:27:25.439880+00:00",
           "report": "docs/audits/2026-11-10-deep-acceptance.json",
           "result": "See scoped discovery results;no wholesale feature promotion"
+        },
+        {
+          "checked_at": "2026-11-11T01:16:25.870260+00:00",
+          "report": "docs/audits/2026-11-11-technical-pm.json",
+          "result": "See per-item current/prior/blocked/decision dispositions;no wholesale promotion"
         }
       ]
     },
@@ -532,6 +554,11 @@
           "checked_at": "2026-11-10T13:27:25.439880+00:00",
           "report": "docs/audits/2026-11-10-deep-acceptance.json",
           "result": "See scoped discovery results;no wholesale feature promotion"
+        },
+        {
+          "checked_at": "2026-11-11T01:16:25.870260+00:00",
+          "report": "docs/audits/2026-11-11-technical-pm.json",
+          "result": "See per-item current/prior/blocked/decision dispositions;no wholesale promotion"
         }
       ]
     },
@@ -632,6 +659,11 @@
           "checked_at": "2026-11-10T13:27:25.439880+00:00",
           "report": "docs/audits/2026-11-10-deep-acceptance.json",
           "result": "See scoped discovery results;no wholesale feature promotion"
+        },
+        {
+          "checked_at": "2026-11-11T01:16:25.870260+00:00",
+          "report": "docs/audits/2026-11-11-technical-pm.json",
+          "result": "See per-item current/prior/blocked/decision dispositions;no wholesale promotion"
         }
       ]
     },
@@ -673,6 +705,11 @@
           "checked_at": "2026-11-10T13:27:25.439880+00:00",
           "report": "docs/audits/2026-11-10-deep-acceptance.json",
           "result": "See scoped discovery results;no wholesale feature promotion"
+        },
+        {
+          "checked_at": "2026-11-11T01:16:25.870260+00:00",
+          "report": "docs/audits/2026-11-11-technical-pm.json",
+          "result": "See per-item current/prior/blocked/decision dispositions;no wholesale promotion"
         }
       ]
     },
@@ -799,6 +836,11 @@
           "checked_at": "2026-11-10T13:27:25.439880+00:00",
           "report": "docs/audits/2026-11-10-deep-acceptance.json",
           "result": "See scoped discovery results;no wholesale feature promotion"
+        },
+        {
+          "checked_at": "2026-11-11T01:16:25.870260+00:00",
+          "report": "docs/audits/2026-11-11-technical-pm.json",
+          "result": "See per-item current/prior/blocked/decision dispositions;no wholesale promotion"
         }
       ]
     },
@@ -865,6 +907,11 @@
           "checked_at": "2026-11-10T13:27:25.439880+00:00",
           "report": "docs/audits/2026-11-10-deep-acceptance.json",
           "result": "See scoped discovery results;no wholesale feature promotion"
+        },
+        {
+          "checked_at": "2026-11-11T01:16:25.870260+00:00",
+          "report": "docs/audits/2026-11-11-technical-pm.json",
+          "result": "See per-item current/prior/blocked/decision dispositions;no wholesale promotion"
         }
       ]
     },
@@ -950,6 +997,11 @@
           "checked_at": "2026-11-10T13:27:25.439880+00:00",
           "report": "docs/audits/2026-11-10-deep-acceptance.json",
           "result": "See scoped discovery results;no wholesale feature promotion"
+        },
+        {
+          "checked_at": "2026-11-11T01:16:25.870260+00:00",
+          "report": "docs/audits/2026-11-11-technical-pm.json",
+          "result": "See per-item current/prior/blocked/decision dispositions;no wholesale promotion"
         }
       ]
     },
@@ -989,6 +1041,13 @@
           "result": "passed",
           "limitations": "Cloud environment stale key not changed.",
           "account_type": "authorized dedicated test account; preexisting contents read-only"
+        }
+      ],
+      "deep_acceptance_followups": [
+        {
+          "checked_at": "2026-11-11T01:16:25.870260+00:00",
+          "report": "docs/audits/2026-11-11-technical-pm.json",
+          "result": "See per-item current/prior/blocked/decision dispositions;no wholesale promotion"
         }
       ]
     },
@@ -1043,6 +1102,13 @@
           "revision": "83307d55752d06fb1a917c6f5b98204a8abb603e",
           "scope": "Credential-free HTML export,normal session-only newtab/reload,Markdown and actual PDF rendering;no production writes"
         }
+      ],
+      "deep_acceptance_followups": [
+        {
+          "checked_at": "2026-11-11T01:16:25.870260+00:00",
+          "report": "docs/audits/2026-11-11-technical-pm.json",
+          "result": "See per-item current/prior/blocked/decision dispositions;no wholesale promotion"
+        }
       ]
     },
     {
@@ -1054,7 +1120,7 @@
         "quality": "summary quality audit for semantic coverage where applicable"
       },
       "risk": "high",
-      "last_actual_check": "2026-11-10T01:23:42.264927+00:00",
+      "last_actual_check": "2026-11-11T01:16:25.870260+00:00",
       "environment": "production83307d5; sandboxed Chromium154",
       "account_type": "dedicated test account;existing data read-only;writes only current-run marked source",
       "data_scale": "7Library cards/2parts/1existingvideo/1RSS",
@@ -1064,7 +1130,8 @@
       "evidence": [
         "docs/audits/2026-11-10-technical-pm.json",
         "docs/audits/evidence/2026-11-10-technical-pm/core.json",
-        "docs/audits/evidence/2026-11-10-technical-pm/article.json"
+        "docs/audits/evidence/2026-11-10-technical-pm/article.json",
+        "docs/audits/2026-11-11-technical-pm.json"
       ],
       "result": "passed_scoped",
       "production_result": "passed_scoped",
@@ -1083,6 +1150,13 @@
           "account_type": "authorized account, existing data read-only",
           "data_scale": "2 Library titles;1 ordinary reader and1 series",
           "responsibility": "technical + PM, coordinated with design PR242"
+        }
+      ],
+      "deep_acceptance_followups": [
+        {
+          "checked_at": "2026-11-11T01:16:25.870260+00:00",
+          "report": "docs/audits/2026-11-11-technical-pm.json",
+          "result": "See per-item current/prior/blocked/decision dispositions;no wholesale promotion"
         }
       ]
     }
@@ -1174,6 +1248,12 @@
       "scope": "Core read-only plus one newRSS task and one explicit retry;concurrentUIdeletion;newRSSfailedcoverage",
       "result": "partial_failed_new_rss",
       "version": "83307d55752d06fb1a917c6f5b98204a8abb603e"
+    },
+    {
+      "checked_at": "2026-11-11T01:16:25.870260+00:00",
+      "report": "docs/audits/2026-11-11-technical-pm.json",
+      "scope": "Current readonly7card core; real-model isolated public RSS diagnosis; CI failure root cause; prior deep evidence retained with dates",
+      "result": "partial;no blanket acceptance"
     }
   ],
   "remediation_followups": [

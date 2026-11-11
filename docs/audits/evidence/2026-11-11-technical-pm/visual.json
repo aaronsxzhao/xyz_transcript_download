@@ -1,0 +1,33 @@
+{
+  "inspection": "All three screenshots opened with view_image during this run; no horizontal overflow observed. Private content images retained locally only.",
+  "browser": "Python Playwright1.64.0 / Chromium154.0.8037.57, sandbox enabled, TLS verification enabled",
+  "screenshots": [
+    {
+      "viewport": [
+        1440,
+        900
+      ],
+      "path": "/workspace/audit-nov11-private/reader-1440x900.png",
+      "sha256": "8d588ad1884aae27e6d0b23a567617b212f2425671ec6c1b2ab3049d86b7b5ef",
+      "actually_viewed": true
+    },
+    {
+      "viewport": [
+        768,
+        1024
+      ],
+      "path": "/workspace/audit-nov11-private/reader-768x1024.png",
+      "sha256": "1bbf785ccd16cc50730b0a5692440a4b367ce2e032ef317bcc22ceaa8ee61469",
+      "actually_viewed": true
+    },
+    {
+      "viewport": [
+        390,
+        844
+      ],
+      "path": "/workspace/audit-nov11-private/reader-390x844.png",
+      "sha256": "900b293a4728807c5203d13e54786f8dcb46bb8001e690fd6d634f9b7c0bbce7",
+      "actually_viewed": true
+    }
+  ]
+}
