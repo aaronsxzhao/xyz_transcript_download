@@ -1,0 +1,26 @@
+[
+  {
+    "case": "classic-dark-1440-reload",
+    "passed": true
+  },
+  {
+    "case": "classic-light-768-reload",
+    "passed": true
+  },
+  {
+    "case": "editorial-light-390-reload",
+    "passed": true
+  },
+  {
+    "case": "editorial-dark-390-reload",
+    "passed": true
+  },
+  {
+    "case": "metadata failure leaves transcript readable without prior episode title",
+    "passed": true
+  },
+  {
+    "case": "late metadata cannot overwrite a different episode",
+    "passed": true
+  }
+]

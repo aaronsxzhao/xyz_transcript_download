@@ -1,0 +1,125 @@
+{
+  "date": "2026-11-11",
+  "base_commit": "dcfa417e93c2b60c10934f30c4bf4b5e12375b2a",
+  "production_before": "83307d55752d06fb1a917c6f5b98204a8abb603e",
+  "private_evidence": "/workspace/browser-validation/appearance-20261111",
+  "environment": {
+    "python": "3.12.14",
+    "playwright": "1.62.0",
+    "chromium": "154.0.8037.57",
+    "sandbox": true,
+    "tls_verification": true,
+    "proxy": "inherited",
+    "network": "unrestricted enforced; supported escalated shell",
+    "remote_desktop": "not used; no takeover claim"
+  },
+  "A_actual": {
+    "anonymous": "HTTP/DOM/remember-me click and restore/protected navigation/reload; three screenshots viewed",
+    "authenticated": "Normal UI login and protected stats HTTP200 verified",
+    "paths": [
+      "Library search no-result/clear/sort/filter/list-grid/series/transcript/back/reload",
+      "Task history and refresh;15 jobs,0 active at initial observation",
+      "Settings tabs/unchanged save disabled; subscription draft focus/reopen, no submission"
+    ],
+    "scale": "7 Library cards; existing series transcript; retained failed RSS488segments",
+    "screenshots": "30 live +3 RSS +4 local title regression images actually viewed; loading series screenshot excluded from stable expanded-list acceptance",
+    "finding": {
+      "id": "transcript-title-fallback",
+      "severity": "P3",
+      "confidence": "high",
+      "reproduction": "Open RSS episode9826f3225eb2936514291994 whose summary404/transcript200/episode200. H1 Episode Viewer despite available47-character title. Reload retains defect.",
+      "impact": "Readers cannot identify retained transcript by episode title",
+      "fix": "Nonblocking episode metadata fallback on missing summary, guarded against stale eid/account/load; metadata failures keep transcript readable",
+      "pr": "https://github.com/aaronsxzhao/xyz_transcript_download/pull/252",
+      "commit": "6446387",
+      "status": "fixed_merged_deployed_live_verified"
+    },
+    "postdeploy_visual": "3 actual screenshots inspected, title wraps correctly and transcript remains readable",
+    "article": {
+      "task_id": "ed87cc31-83f",
+      "result": "PASS scoped live image/read/export/refresh/UI delete chain",
+      "import_seconds": 7.745,
+      "saved_characters": 40419,
+      "style": "original",
+      "model_empty": true,
+      "images": 24,
+      "image_observations": 576,
+      "failed": 0,
+      "blocked": 0,
+      "matrix": "Classic/Editorial × light/dark ×1440x900,768x1024,390x844 ×first traversal and refresh traversal",
+      "visual_review": "All24 per-image screenshots and24 matrix-end screenshots actually opened with view_image",
+      "cleanup": "UI delete,refresh absent,GET404",
+      "limits": "No failed-image production event; prior isolated placeholder/retry evidence remains separate. Images include unwanted source promotional assets; decoding success does not approve extraction quality."
+    }
+  },
+  "B_automated": {
+    "live_bounds": "84 cases,7 surfaces × Classic/Editorial × light/dark ×3 viewports; not84 visual acceptances",
+    "local_unit_tests": 545,
+    "local_build": "PASS;197.4KiB initial compressed under unchanged197.75KiB budget",
+    "targeted_browser_cases": 6,
+    "prior_evidence": "Nov10 deep-acceptance record includes isolated realHTTP524 recovery and24image cold/reload576checks; not rerun or represented as this round execution",
+    "live_images": "576 complete/naturalWidth/decode checks; no HTTP/console/page errors; all12 matrix page bounds passed"
+  },
+  "C_dispositions": [
+    {
+      "id": "free-original-import-pending",
+      "status": "recheck passed after normal deployment; prior pending root unresolved",
+      "severity": "P2",
+      "confidence": "high for pending symptom; low for root",
+      "actions": "Two unique W3Schools original-only UI imports. Second180polls/214.4sec allpending0%, no API error. Both current-run items deletedHTTP200. Existing read-only runtime workflow42943357222 succeeded but summary has no task claim/lease trace. After legitimate title deployment, one original-only recheck completed7.745sec and all image/reader/export/delete checks passed.",
+      "tasks": [
+        "c9a6a826-ac4",
+        "3b886818-487"
+      ],
+      "remaining": "No current image acceptance blocker. Retain prior two task traces for technical diagnosis if symptom recurs; do not claim title patch fixed queue behavior.",
+      "owner": "technical processing; interaction supplies evidence"
+    },
+    {
+      "id": "rss-final-delivery-and-long-inference-delete",
+      "status": "not accepted; original final summary failed",
+      "actions": "Read current technical audit and bounded diagnosis, rechecked both failed job APIs and retained transcript. No blind paid repeat.",
+      "remaining": "Original delivery.reason, failed/invalid receipts, grounding/cache metadata; evaluate bounded-resume proposal without lowering90% coverage or grounding thresholds",
+      "budget": "Current-day other-audit settled8.35905USD of shared50USD,0 local inflight at its checkpoint; not a hard cap or current reservation. This round0 paid requests. Previous credential action was blocked by automatic approval review; no alternate-channel bypass.",
+      "owner": "technical/summary quality"
+    },
+    {
+      "id": "upstream524",
+      "status": "No natural upstream524 in15 accessible jobs; cannot现场验收",
+      "remaining": "Track a natural event if it occurs; do not label absence an application defect. Prior isolatedHTTP524 pass remains separate."
+    },
+    {
+      "id": "article-source-navigation",
+      "status": "reproduced; extraction semantics decision required; unchanged",
+      "actions": "Current real original URL→saved Markdown→reader comparison completed.19 source-navigation strings absent from#main found in both saved Markdown and reader. Source DOM has#main, no recognized semantic candidate,body fallback includes external navigation/promotional assets.",
+      "proposal": "Recognize explicit main-content container for supported source; remove only semantically identified site navigation; preserve contents,citations,bylines,captions,all body paragraphs/images. No historical rewrite or generic link-density deletion.",
+      "acceptance": "Compare original/saved/reader for this real URL plus nested navigation,article TOC,missingmain,multiplemain and article-image fixtures. Requires extraction semantics approval.",
+      "confidence": "high for this source",
+      "severity": "P2"
+    },
+    {
+      "id": "pagination",
+      "status": "current7cards not paginated; prior Nov10real42card boundary accepted",
+      "remaining": "No new pagination defect; do not represent prior42card execution as current."
+    },
+    {
+      "id": "other-account-and-platform",
+      "status": "partial",
+      "remaining": "Fresh multipart import requires verified controlled source; password-reset/cross-account checks require second test account/mailbox. Notion and independent hosted environment remain user-paused."
+    }
+  ],
+  "ci": {
+    "run": 42943705179,
+    "result": "success",
+    "frontend_duration": "26m16s"
+  },
+  "deployment": {
+    "run": 42946836367,
+    "revision": "7a519e552b87d5cbc87233edc79f80533bd86562",
+    "status": "success",
+    "health": "ok; exact7a519e552b87d5cbc87233edc79f80533bd86562",
+    "live_verification": "PASS;normal UI login/protected API;title+transcript reload3viewports;existing summary title;own2deleted tasks404;task history available"
+  },
+  "checked_at": "2026-11-11T02:43:03.829532+00:00",
+  "production_paid_calls": 0,
+  "artifact_attachment": "Attempted codex_app attach_artifact; environment returned No handler registered; PR accessible by direct GitHub URL."
+}

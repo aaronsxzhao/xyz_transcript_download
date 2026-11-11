@@ -2,9 +2,9 @@
   "schema_version": 1,
   "site": "https://aipodcastsummary.online",
   "repository": "aaronsxzhao/xyz_transcript_download",
-  "updated_at": "2026-11-11T01:16:25.870260+00:00",
-  "tested_commit": "83307d55752d06fb1a917c6f5b98204a8abb603e",
-  "current_report": "docs/audits/2026-11-11-technical-pm.json",
+  "updated_at": "2026-11-11T02:43:03.829532+00:00",
+  "tested_commit": "7a519e552b87d5cbc87233edc79f80533bd86562",
+  "current_report": "docs/audits/2026-11-11-appearance.json",
   "inventory_basis": [
     "web/src/App.tsx routes",
     "current repository feature components and prior audit records",
@@ -38,7 +38,8 @@
         "docs/audits/evidence/2026-11-10-technical-pm/core.json",
         "docs/audits/evidence/2026-11-10-technical-pm/article.json",
         "docs/audits/2026-11-10-deep-acceptance.json",
-        "docs/audits/2026-11-11-technical-pm.json"
+        "docs/audits/2026-11-11-technical-pm.json",
+        "docs/audits/2026-11-11-appearance.json"
       ],
       "result": "passed_scoped",
       "production_result": "passed_scoped",
@@ -97,7 +98,8 @@
           "report": "docs/audits/2026-11-11-technical-pm.json",
           "result": "See per-item current/prior/blocked/decision dispositions;no wholesale promotion"
         }
-      ]
+      ],
+      "latest_interaction_audit": "docs/audits/2026-11-11-appearance.json"
     },
     {
       "id": "video-library-reader-delete",
@@ -279,7 +281,8 @@
         "docs/audits/2026-11-10-technical-pm.json",
         "docs/audits/evidence/2026-11-10-technical-pm/core.json",
         "docs/audits/evidence/2026-11-10-technical-pm/article.json",
-        "docs/audits/2026-11-10-deep-acceptance.json"
+        "docs/audits/2026-11-10-deep-acceptance.json",
+        "docs/audits/2026-11-11-appearance.json"
       ],
       "result": "passed_scoped_production_pagination",
       "production_result": "passed_scoped",
@@ -360,7 +363,8 @@
           "report": "docs/audits/2026-11-11-technical-pm.json",
           "result": "See per-item current/prior/blocked/decision dispositions;no wholesale promotion"
         }
-      ]
+      ],
+      "latest_interaction_audit": "docs/audits/2026-11-11-appearance.json"
     },
     {
       "id": "multipart-series",
@@ -383,7 +387,8 @@
         "docs/audits/evidence/2026-11-10-technical-pm/core.json",
         "docs/audits/evidence/2026-11-10-technical-pm/article.json",
         "docs/audits/2026-11-10-deep-acceptance.json",
-        "docs/audits/2026-11-11-technical-pm.json"
+        "docs/audits/2026-11-11-technical-pm.json",
+        "docs/audits/2026-11-11-appearance.json"
       ],
       "result": "passed_scoped",
       "production_result": "passed_scoped",
@@ -482,7 +487,8 @@
           "report": "docs/audits/2026-11-11-technical-pm.json",
           "result": "See per-item current/prior/blocked/decision dispositions;no wholesale promotion"
         }
-      ]
+      ],
+      "latest_interaction_audit": "docs/audits/2026-11-11-appearance.json"
     },
     {
       "id": "podcast-subscriptions",
@@ -584,7 +590,8 @@
       ],
       "evidence": [
         "docs/audits/2026-11-09-rss-coverage-repair.json",
-        "docs/audits/2026-11-10-deep-acceptance.json"
+        "docs/audits/2026-11-10-deep-acceptance.json",
+        "docs/audits/2026-11-11-appearance.json"
       ],
       "result": "partial_failed_new_rss",
       "production_result": "partial_failed_new_rss",
@@ -665,7 +672,8 @@
           "report": "docs/audits/2026-11-11-technical-pm.json",
           "result": "See per-item current/prior/blocked/decision dispositions;no wholesale promotion"
         }
-      ]
+      ],
+      "latest_interaction_audit": "docs/audits/2026-11-11-appearance.json"
     },
     {
       "id": "article-import-media",
@@ -687,7 +695,8 @@
         "docs/audits/2026-11-10-technical-pm.json",
         "docs/audits/evidence/2026-11-10-technical-pm/core.json",
         "docs/audits/evidence/2026-11-10-technical-pm/article.json",
-        "docs/audits/2026-11-10-deep-acceptance.json"
+        "docs/audits/2026-11-10-deep-acceptance.json",
+        "docs/audits/2026-11-11-appearance.json"
       ],
       "result": "passed_scoped_local_images_with_extraction_issue",
       "production_result": "passed_scoped",
@@ -711,7 +720,9 @@
           "report": "docs/audits/2026-11-11-technical-pm.json",
           "result": "See per-item current/prior/blocked/decision dispositions;no wholesale promotion"
         }
-      ]
+      ],
+      "latest_interaction_audit": "docs/audits/2026-11-11-appearance.json",
+      "latest_interaction_result": "Current fresh original-only source/read/export/24images576checks/UIdelete-refresh passed;navigation extraction remains decision-required;see dated report"
     },
     {
       "id": "processing-retry-cancel",
@@ -1019,7 +1030,9 @@
       "account_type": null,
       "data_scale": null,
       "steps": [],
-      "evidence": [],
+      "evidence": [
+        "docs/audits/2026-11-11-appearance.json"
+      ],
       "result": "not_checked",
       "production_result": "passed_scoped",
       "gaps": [
@@ -1049,7 +1062,8 @@
           "report": "docs/audits/2026-11-11-technical-pm.json",
           "result": "See per-item current/prior/blocked/decision dispositions;no wholesale promotion"
         }
-      ]
+      ],
+      "latest_interaction_audit": "docs/audits/2026-11-11-appearance.json"
     },
     {
       "id": "export",
@@ -1254,6 +1268,12 @@
       "report": "docs/audits/2026-11-11-technical-pm.json",
       "scope": "Current readonly7card core; real-model isolated public RSS diagnosis; CI failure root cause; prior deep evidence retained with dates",
       "result": "partial;no blanket acceptance"
+    },
+    {
+      "checked_at": "2026-11-11T02:43:03.829532+00:00",
+      "report": "docs/audits/2026-11-11-appearance.json",
+      "scope": "Normal UI login;7-card Library search/filter/series/reader/back;15-job history;settings/subscription draft;84bounds assertions;RSS retained transcript title defect;2free article imports pending and cleaned;postdeploy original-only article24images12matrix2passes;source/saved/reader navigation comparison",
+      "result": "partial;title fix deployed/live verified;fresh24image576checks and UI cleanup PASS;source navigation reproduced;RSS final delivery still unresolved"
     }
   ],
   "remediation_followups": [
@@ -1346,6 +1366,14 @@
       "pr": 251,
       "revision": "83307d55752d06fb1a917c6f5b98204a8abb603e",
       "scope": "retired5privileged maintenance commands/workflows;HTML and Markdown header-only authentication;bounded HTTP524 safe-read reconnect"
+    },
+    {
+      "checked_at": "2026-11-11T02:43:03.829532+00:00",
+      "report": "docs/audits/2026-11-11-appearance.json",
+      "status": "fixed_and_deployed_live_verified",
+      "pr": 252,
+      "revision": "7a519e552b87d5cbc87233edc79f80533bd86562",
+      "scope": "Retain episode title for transcript-only reader; optional metadata failure and stale response regression"
     }
   ],
   "accepted_exclusions": [
@@ -1402,6 +1430,14 @@
       "status": "partial; authenticated verification passed; two observations need investigation",
       "evidence_private": "/workspace/browser-validation/auth-exploration-20261106",
       "next_focus": "Series directory response and historical image availability; expand theme/page coverage"
+    },
+    {
+      "id": "20261111-appearance",
+      "report": "docs/audits/2026-11-11-appearance.json",
+      "environment": "production83307d5 before fix and7a519e5 after;isolated6446387",
+      "status": "Actual screenshot inspection; loading series screenshot excluded; no full-site acceptance",
+      "evidence_private": "/workspace/browser-validation/appearance-20261111",
+      "scope": "3anonymous,30live,3RSS,4localtitle,3postdeploy,48article screenshots actually viewed;series loading screenshot excluded"
     }
   ],
   "environment_readiness_checks": [

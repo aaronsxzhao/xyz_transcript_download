@@ -1,0 +1,359 @@
+{
+  "method": "Actual view_image inspection; no screenshot generation inferred as review",
+  "production_revision_before_fix": "83307d55752d06fb1a917c6f5b98204a8abb603e",
+  "reviewed": [
+    {
+      "file": "live/channels-classic-dark-1440.png",
+      "result": "Actual inspection of captured viewport; no additional confirmed presentation defect. Does not establish below-fold/full-state acceptance."
+    },
+    {
+      "file": "live/channels-editorial-light-390.png",
+      "result": "Actual inspection of captured viewport; no additional confirmed presentation defect. Does not establish below-fold/full-state acceptance."
+    },
+    {
+      "file": "live/dashboard-classic-dark-1440.png",
+      "result": "Actual inspection of captured viewport; no additional confirmed presentation defect. Does not establish below-fold/full-state acceptance."
+    },
+    {
+      "file": "live/dashboard-editorial-light-390.png",
+      "result": "Actual inspection of captured viewport; no additional confirmed presentation defect. Does not establish below-fold/full-state acceptance."
+    },
+    {
+      "file": "live/library-classic-dark-1440.png",
+      "result": "Actual inspection of captured viewport; no additional confirmed presentation defect. Does not establish below-fold/full-state acceptance."
+    },
+    {
+      "file": "live/library-classic-dark-390.png",
+      "result": "Actual inspection of captured viewport; no additional confirmed presentation defect. Does not establish below-fold/full-state acceptance."
+    },
+    {
+      "file": "live/library-classic-dark-768.png",
+      "result": "Actual inspection of captured viewport; no additional confirmed presentation defect. Does not establish below-fold/full-state acceptance."
+    },
+    {
+      "file": "live/library-classic-light-1440.png",
+      "result": "Actual inspection of captured viewport; no additional confirmed presentation defect. Does not establish below-fold/full-state acceptance."
+    },
+    {
+      "file": "live/library-classic-light-390.png",
+      "result": "Actual inspection of captured viewport; no additional confirmed presentation defect. Does not establish below-fold/full-state acceptance."
+    },
+    {
+      "file": "live/library-classic-light-768.png",
+      "result": "Actual inspection of captured viewport; no additional confirmed presentation defect. Does not establish below-fold/full-state acceptance."
+    },
+    {
+      "file": "live/library-editorial-dark-1440.png",
+      "result": "Actual inspection of captured viewport; no additional confirmed presentation defect. Does not establish below-fold/full-state acceptance."
+    },
+    {
+      "file": "live/library-editorial-dark-390.png",
+      "result": "Actual inspection of captured viewport; no additional confirmed presentation defect. Does not establish below-fold/full-state acceptance."
+    },
+    {
+      "file": "live/library-editorial-dark-768.png",
+      "result": "Actual inspection of captured viewport; no additional confirmed presentation defect. Does not establish below-fold/full-state acceptance."
+    },
+    {
+      "file": "live/library-editorial-light-1440.png",
+      "result": "Actual inspection of captured viewport; no additional confirmed presentation defect. Does not establish below-fold/full-state acceptance."
+    },
+    {
+      "file": "live/library-editorial-light-390.png",
+      "result": "Actual inspection of captured viewport; no additional confirmed presentation defect. Does not establish below-fold/full-state acceptance."
+    },
+    {
+      "file": "live/library-editorial-light-768.png",
+      "result": "Actual inspection of captured viewport; no additional confirmed presentation defect. Does not establish below-fold/full-state acceptance."
+    },
+    {
+      "file": "live/library-list.png",
+      "result": "Actual inspection of captured viewport; no additional confirmed presentation defect. Does not establish below-fold/full-state acceptance."
+    },
+    {
+      "file": "live/long-summary-classic-dark-1440.png",
+      "result": "Actual inspection of captured viewport; no additional confirmed presentation defect. Does not establish below-fold/full-state acceptance."
+    },
+    {
+      "file": "live/long-summary-editorial-light-390.png",
+      "result": "Actual inspection of captured viewport; no additional confirmed presentation defect. Does not establish below-fold/full-state acceptance."
+    },
+    {
+      "file": "live/retained-long-transcript.png",
+      "result": "Actual inspection of captured viewport; no additional confirmed presentation defect. Does not establish below-fold/full-state acceptance."
+    },
+    {
+      "file": "live/series-expanded.png",
+      "result": "Loading series area; excluded from stable expanded-list acceptance"
+    },
+    {
+      "file": "live/series-transcript.png",
+      "result": "Actual inspection of captured viewport; no additional confirmed presentation defect. Does not establish below-fold/full-state acceptance."
+    },
+    {
+      "file": "live/settings-classic-dark-1440.png",
+      "result": "Actual inspection of captured viewport; no additional confirmed presentation defect. Does not establish below-fold/full-state acceptance."
+    },
+    {
+      "file": "live/settings-editorial-light-390.png",
+      "result": "Actual inspection of captured viewport; no additional confirmed presentation defect. Does not establish below-fold/full-state acceptance."
+    },
+    {
+      "file": "live/subscription-draft-restored.png",
+      "result": "Actual inspection of captured viewport; no additional confirmed presentation defect. Does not establish below-fold/full-state acceptance."
+    },
+    {
+      "file": "live/subscriptions-classic-dark-1440.png",
+      "result": "Actual inspection of captured viewport; no additional confirmed presentation defect. Does not establish below-fold/full-state acceptance."
+    },
+    {
+      "file": "live/subscriptions-editorial-light-390.png",
+      "result": "Actual inspection of captured viewport; no additional confirmed presentation defect. Does not establish below-fold/full-state acceptance."
+    },
+    {
+      "file": "live/task-history.png",
+      "result": "Actual inspection of captured viewport; no additional confirmed presentation defect. Does not establish below-fold/full-state acceptance."
+    },
+    {
+      "file": "live/video-reader-classic-dark-1440.png",
+      "result": "Actual inspection of captured viewport; no additional confirmed presentation defect. Does not establish below-fold/full-state acceptance."
+    },
+    {
+      "file": "live/video-reader-editorial-light-390.png",
+      "result": "Actual inspection of captured viewport; no additional confirmed presentation defect. Does not establish below-fold/full-state acceptance."
+    },
+    {
+      "file": "rss/rss-failure-history.png",
+      "result": "Viewed task-history layout. Screenshot does not establish that the target NPR task is visible; target failure independently verified via authenticated API."
+    },
+    {
+      "file": "rss/rss-reload.png",
+      "result": "Confirmed before-fix defect: generic Episode Viewer heading with readable retained transcript; metadata API supplied episode title."
+    },
+    {
+      "file": "rss/rss-retained-transcript.png",
+      "result": "Confirmed before-fix defect: generic Episode Viewer heading with readable retained transcript; metadata API supplied episode title."
+    },
+    {
+      "file": "title-regression/classic-dark-1440.png",
+      "result": "Actual inspection of final rerun screenshot: title visible, transcript readable, no observed clipping in captured viewport; local fixture only."
+    },
+    {
+      "file": "title-regression/classic-light-768.png",
+      "result": "Actual inspection of final rerun screenshot: title visible, transcript readable, no observed clipping in captured viewport; local fixture only."
+    },
+    {
+      "file": "title-regression/editorial-dark-390.png",
+      "result": "Actual inspection of final rerun screenshot: title visible, transcript readable, no observed clipping in captured viewport; local fixture only."
+    },
+    {
+      "file": "title-regression/editorial-light-390.png",
+      "result": "Actual inspection of final rerun screenshot: title visible, transcript readable, no observed clipping in captured viewport; local fixture only."
+    },
+    {
+      "file": "postdeploy/fixed-transcript-1440.png",
+      "result": "Production7a519e5 actual view_image inspection: correct episode title and readable retained transcript; mobile title wraps without clipping; refreshed session assertions passed."
+    },
+    {
+      "file": "postdeploy/fixed-transcript-390.png",
+      "result": "Production7a519e5 actual view_image inspection: correct episode title and readable retained transcript; mobile title wraps without clipping; refreshed session assertions passed."
+    },
+    {
+      "file": "postdeploy/fixed-transcript-768.png",
+      "result": "Production7a519e5 actual view_image inspection: correct episode title and readable retained transcript; mobile title wraps without clipping; refreshed session assertions passed."
+    },
+    {
+      "file": "article-after-deploy/end-classic-dark-1440-first.png",
+      "result": "Actually opened with view_image. Image loaded with preserved proportions; no new confirmed clipping/overflow defect. Source navigation and promotional assets included in saved content are a separate extraction defect. First/refresh and theme/viewport are in filename."
+    },
+    {
+      "file": "article-after-deploy/end-classic-dark-1440-refresh.png",
+      "result": "Actually opened with view_image. Image loaded with preserved proportions; no new confirmed clipping/overflow defect. Source navigation and promotional assets included in saved content are a separate extraction defect. First/refresh and theme/viewport are in filename."
+    },
+    {
+      "file": "article-after-deploy/end-classic-dark-390-first.png",
+      "result": "Actually opened with view_image. Image loaded with preserved proportions; no new confirmed clipping/overflow defect. Source navigation and promotional assets included in saved content are a separate extraction defect. First/refresh and theme/viewport are in filename."
+    },
+    {
+      "file": "article-after-deploy/end-classic-dark-390-refresh.png",
+      "result": "Actually opened with view_image. Image loaded with preserved proportions; no new confirmed clipping/overflow defect. Source navigation and promotional assets included in saved content are a separate extraction defect. First/refresh and theme/viewport are in filename."
+    },
+    {
+      "file": "article-after-deploy/end-classic-dark-768-first.png",
+      "result": "Actually opened with view_image. Image loaded with preserved proportions; no new confirmed clipping/overflow defect. Source navigation and promotional assets included in saved content are a separate extraction defect. First/refresh and theme/viewport are in filename."
+    },
+    {
+      "file": "article-after-deploy/end-classic-dark-768-refresh.png",
+      "result": "Actually opened with view_image. Image loaded with preserved proportions; no new confirmed clipping/overflow defect. Source navigation and promotional assets included in saved content are a separate extraction defect. First/refresh and theme/viewport are in filename."
+    },
+    {
+      "file": "article-after-deploy/end-classic-light-1440-first.png",
+      "result": "Actually opened with view_image. Image loaded with preserved proportions; no new confirmed clipping/overflow defect. Source navigation and promotional assets included in saved content are a separate extraction defect. First/refresh and theme/viewport are in filename."
+    },
+    {
+      "file": "article-after-deploy/end-classic-light-1440-refresh.png",
+      "result": "Actually opened with view_image. Image loaded with preserved proportions; no new confirmed clipping/overflow defect. Source navigation and promotional assets included in saved content are a separate extraction defect. First/refresh and theme/viewport are in filename."
+    },
+    {
+      "file": "article-after-deploy/end-classic-light-390-first.png",
+      "result": "Actually opened with view_image. Image loaded with preserved proportions; no new confirmed clipping/overflow defect. Source navigation and promotional assets included in saved content are a separate extraction defect. First/refresh and theme/viewport are in filename."
+    },
+    {
+      "file": "article-after-deploy/end-classic-light-390-refresh.png",
+      "result": "Actually opened with view_image. Image loaded with preserved proportions; no new confirmed clipping/overflow defect. Source navigation and promotional assets included in saved content are a separate extraction defect. First/refresh and theme/viewport are in filename."
+    },
+    {
+      "file": "article-after-deploy/end-classic-light-768-first.png",
+      "result": "Actually opened with view_image. Image loaded with preserved proportions; no new confirmed clipping/overflow defect. Source navigation and promotional assets included in saved content are a separate extraction defect. First/refresh and theme/viewport are in filename."
+    },
+    {
+      "file": "article-after-deploy/end-classic-light-768-refresh.png",
+      "result": "Actually opened with view_image. Image loaded with preserved proportions; no new confirmed clipping/overflow defect. Source navigation and promotional assets included in saved content are a separate extraction defect. First/refresh and theme/viewport are in filename."
+    },
+    {
+      "file": "article-after-deploy/end-editorial-dark-1440-first.png",
+      "result": "Actually opened with view_image. Image loaded with preserved proportions; no new confirmed clipping/overflow defect. Source navigation and promotional assets included in saved content are a separate extraction defect. First/refresh and theme/viewport are in filename."
+    },
+    {
+      "file": "article-after-deploy/end-editorial-dark-1440-refresh.png",
+      "result": "Actually opened with view_image. Image loaded with preserved proportions; no new confirmed clipping/overflow defect. Source navigation and promotional assets included in saved content are a separate extraction defect. First/refresh and theme/viewport are in filename."
+    },
+    {
+      "file": "article-after-deploy/end-editorial-dark-390-first.png",
+      "result": "Actually opened with view_image. Image loaded with preserved proportions; no new confirmed clipping/overflow defect. Source navigation and promotional assets included in saved content are a separate extraction defect. First/refresh and theme/viewport are in filename."
+    },
+    {
+      "file": "article-after-deploy/end-editorial-dark-390-refresh.png",
+      "result": "Actually opened with view_image. Image loaded with preserved proportions; no new confirmed clipping/overflow defect. Source navigation and promotional assets included in saved content are a separate extraction defect. First/refresh and theme/viewport are in filename."
+    },
+    {
+      "file": "article-after-deploy/end-editorial-dark-768-first.png",
+      "result": "Actually opened with view_image. Image loaded with preserved proportions; no new confirmed clipping/overflow defect. Source navigation and promotional assets included in saved content are a separate extraction defect. First/refresh and theme/viewport are in filename."
+    },
+    {
+      "file": "article-after-deploy/end-editorial-dark-768-refresh.png",
+      "result": "Actually opened with view_image. Image loaded with preserved proportions; no new confirmed clipping/overflow defect. Source navigation and promotional assets included in saved content are a separate extraction defect. First/refresh and theme/viewport are in filename."
+    },
+    {
+      "file": "article-after-deploy/end-editorial-light-1440-first.png",
+      "result": "Actually opened with view_image. Image loaded with preserved proportions; no new confirmed clipping/overflow defect. Source navigation and promotional assets included in saved content are a separate extraction defect. First/refresh and theme/viewport are in filename."
+    },
+    {
+      "file": "article-after-deploy/end-editorial-light-1440-refresh.png",
+      "result": "Actually opened with view_image. Image loaded with preserved proportions; no new confirmed clipping/overflow defect. Source navigation and promotional assets included in saved content are a separate extraction defect. First/refresh and theme/viewport are in filename."
+    },
+    {
+      "file": "article-after-deploy/end-editorial-light-390-first.png",
+      "result": "Actually opened with view_image. Image loaded with preserved proportions; no new confirmed clipping/overflow defect. Source navigation and promotional assets included in saved content are a separate extraction defect. First/refresh and theme/viewport are in filename."
+    },
+    {
+      "file": "article-after-deploy/end-editorial-light-390-refresh.png",
+      "result": "Actually opened with view_image. Image loaded with preserved proportions; no new confirmed clipping/overflow defect. Source navigation and promotional assets included in saved content are a separate extraction defect. First/refresh and theme/viewport are in filename."
+    },
+    {
+      "file": "article-after-deploy/end-editorial-light-768-first.png",
+      "result": "Actually opened with view_image. Image loaded with preserved proportions; no new confirmed clipping/overflow defect. Source navigation and promotional assets included in saved content are a separate extraction defect. First/refresh and theme/viewport are in filename."
+    },
+    {
+      "file": "article-after-deploy/end-editorial-light-768-refresh.png",
+      "result": "Actually opened with view_image. Image loaded with preserved proportions; no new confirmed clipping/overflow defect. Source navigation and promotional assets included in saved content are a separate extraction defect. First/refresh and theme/viewport are in filename."
+    },
+    {
+      "file": "article-after-deploy/image-classic-dark-1440-first-00.png",
+      "result": "Actually opened with view_image. Image loaded with preserved proportions; no new confirmed clipping/overflow defect. Source navigation and promotional assets included in saved content are a separate extraction defect. First/refresh and theme/viewport are in filename."
+    },
+    {
+      "file": "article-after-deploy/image-classic-dark-1440-first-01.png",
+      "result": "Actually opened with view_image. Image loaded with preserved proportions; no new confirmed clipping/overflow defect. Source navigation and promotional assets included in saved content are a separate extraction defect. First/refresh and theme/viewport are in filename."
+    },
+    {
+      "file": "article-after-deploy/image-classic-dark-1440-first-02.png",
+      "result": "Actually opened with view_image. Image loaded with preserved proportions; no new confirmed clipping/overflow defect. Source navigation and promotional assets included in saved content are a separate extraction defect. First/refresh and theme/viewport are in filename."
+    },
+    {
+      "file": "article-after-deploy/image-classic-dark-1440-first-03.png",
+      "result": "Actually opened with view_image. Image loaded with preserved proportions; no new confirmed clipping/overflow defect. Source navigation and promotional assets included in saved content are a separate extraction defect. First/refresh and theme/viewport are in filename."
+    },
+    {
+      "file": "article-after-deploy/image-classic-dark-1440-first-04.png",
+      "result": "Actually opened with view_image. Image loaded with preserved proportions; no new confirmed clipping/overflow defect. Source navigation and promotional assets included in saved content are a separate extraction defect. First/refresh and theme/viewport are in filename."
+    },
+    {
+      "file": "article-after-deploy/image-classic-dark-1440-first-05.png",
+      "result": "Actually opened with view_image. Image loaded with preserved proportions; no new confirmed clipping/overflow defect. Source navigation and promotional assets included in saved content are a separate extraction defect. First/refresh and theme/viewport are in filename."
+    },
+    {
+      "file": "article-after-deploy/image-classic-dark-1440-first-06.png",
+      "result": "Actually opened with view_image. Image loaded with preserved proportions; no new confirmed clipping/overflow defect. Source navigation and promotional assets included in saved content are a separate extraction defect. First/refresh and theme/viewport are in filename."
+    },
+    {
+      "file": "article-after-deploy/image-classic-dark-1440-first-07.png",
+      "result": "Actually opened with view_image. Image loaded with preserved proportions; no new confirmed clipping/overflow defect. Source navigation and promotional assets included in saved content are a separate extraction defect. First/refresh and theme/viewport are in filename."
+    },
+    {
+      "file": "article-after-deploy/image-classic-dark-1440-first-08.png",
+      "result": "Actually opened with view_image. Image loaded with preserved proportions; no new confirmed clipping/overflow defect. Source navigation and promotional assets included in saved content are a separate extraction defect. First/refresh and theme/viewport are in filename."
+    },
+    {
+      "file": "article-after-deploy/image-classic-dark-1440-first-09.png",
+      "result": "Actually opened with view_image. Image loaded with preserved proportions; no new confirmed clipping/overflow defect. Source navigation and promotional assets included in saved content are a separate extraction defect. First/refresh and theme/viewport are in filename."
+    },
+    {
+      "file": "article-after-deploy/image-classic-dark-1440-first-10.png",
+      "result": "Actually opened with view_image. Image loaded with preserved proportions; no new confirmed clipping/overflow defect. Source navigation and promotional assets included in saved content are a separate extraction defect. First/refresh and theme/viewport are in filename."
+    },
+    {
+      "file": "article-after-deploy/image-classic-dark-1440-first-11.png",
+      "result": "Actually opened with view_image. Image loaded with preserved proportions; no new confirmed clipping/overflow defect. Source navigation and promotional assets included in saved content are a separate extraction defect. First/refresh and theme/viewport are in filename."
+    },
+    {
+      "file": "article-after-deploy/image-classic-dark-1440-first-12.png",
+      "result": "Actually opened with view_image. Image loaded with preserved proportions; no new confirmed clipping/overflow defect. Source navigation and promotional assets included in saved content are a separate extraction defect. First/refresh and theme/viewport are in filename."
+    },
+    {
+      "file": "article-after-deploy/image-classic-dark-1440-first-13.png",
+      "result": "Actually opened with view_image. Image loaded with preserved proportions; no new confirmed clipping/overflow defect. Source navigation and promotional assets included in saved content are a separate extraction defect. First/refresh and theme/viewport are in filename."
+    },
+    {
+      "file": "article-after-deploy/image-classic-dark-1440-first-14.png",
+      "result": "Actually opened with view_image. Image loaded with preserved proportions; no new confirmed clipping/overflow defect. Source navigation and promotional assets included in saved content are a separate extraction defect. First/refresh and theme/viewport are in filename."
+    },
+    {
+      "file": "article-after-deploy/image-classic-dark-1440-first-15.png",
+      "result": "Actually opened with view_image. Image loaded with preserved proportions; no new confirmed clipping/overflow defect. Source navigation and promotional assets included in saved content are a separate extraction defect. First/refresh and theme/viewport are in filename."
+    },
+    {
+      "file": "article-after-deploy/image-classic-dark-1440-first-16.png",
+      "result": "Actually opened with view_image. Image loaded with preserved proportions; no new confirmed clipping/overflow defect. Source navigation and promotional assets included in saved content are a separate extraction defect. First/refresh and theme/viewport are in filename."
+    },
+    {
+      "file": "article-after-deploy/image-classic-dark-1440-first-17.png",
+      "result": "Actually opened with view_image. Image loaded with preserved proportions; no new confirmed clipping/overflow defect. Source navigation and promotional assets included in saved content are a separate extraction defect. First/refresh and theme/viewport are in filename."
+    },
+    {
+      "file": "article-after-deploy/image-classic-dark-1440-first-18.png",
+      "result": "Actually opened with view_image. Image loaded with preserved proportions; no new confirmed clipping/overflow defect. Source navigation and promotional assets included in saved content are a separate extraction defect. First/refresh and theme/viewport are in filename."
+    },
+    {
+      "file": "article-after-deploy/image-classic-dark-1440-first-19.png",
+      "result": "Actually opened with view_image. Image loaded with preserved proportions; no new confirmed clipping/overflow defect. Source navigation and promotional assets included in saved content are a separate extraction defect. First/refresh and theme/viewport are in filename."
+    },
+    {
+      "file": "article-after-deploy/image-classic-dark-1440-first-20.png",
+      "result": "Actually opened with view_image. Image loaded with preserved proportions; no new confirmed clipping/overflow defect. Source navigation and promotional assets included in saved content are a separate extraction defect. First/refresh and theme/viewport are in filename."
+    },
+    {
+      "file": "article-after-deploy/image-classic-dark-1440-first-21.png",
+      "result": "Actually opened with view_image. Image loaded with preserved proportions; no new confirmed clipping/overflow defect. Source navigation and promotional assets included in saved content are a separate extraction defect. First/refresh and theme/viewport are in filename."
+    },
+    {
+      "file": "article-after-deploy/image-classic-dark-1440-first-22.png",
+      "result": "Actually opened with view_image. Image loaded with preserved proportions; no new confirmed clipping/overflow defect. Source navigation and promotional assets included in saved content are a separate extraction defect. First/refresh and theme/viewport are in filename."
+    },
+    {
+      "file": "article-after-deploy/image-classic-dark-1440-first-23.png",
+      "result": "Actually opened with view_image. Image loaded with preserved proportions; no new confirmed clipping/overflow defect. Source navigation and promotional assets included in saved content are a separate extraction defect. First/refresh and theme/viewport are in filename."
+    }
+  ],
+  "anonymous": "Three anonymous screenshots actually viewed earlier this run; separate repository appearance-checks output"
+}

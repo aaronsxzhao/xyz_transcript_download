@@ -1,0 +1,1091 @@
+{
+  "status": "FAIL",
+  "task_timeline": [
+    {
+      "second": 0.7,
+      "status": "pending",
+      "progress": 0,
+      "error_category": null
+    },
+    {
+      "second": 1.8,
+      "status": "pending",
+      "progress": 0,
+      "error_category": null
+    },
+    {
+      "second": 3.0,
+      "status": "pending",
+      "progress": 0,
+      "error_category": null
+    },
+    {
+      "second": 4.2,
+      "status": "pending",
+      "progress": 0,
+      "error_category": null
+    },
+    {
+      "second": 5.4,
+      "status": "pending",
+      "progress": 0,
+      "error_category": null
+    },
+    {
+      "second": 6.6,
+      "status": "pending",
+      "progress": 0,
+      "error_category": null
+    },
+    {
+      "second": 7.8,
+      "status": "pending",
+      "progress": 0,
+      "error_category": null
+    },
+    {
+      "second": 9.0,
+      "status": "pending",
+      "progress": 0,
+      "error_category": null
+    },
+    {
+      "second": 10.1,
+      "status": "pending",
+      "progress": 0,
+      "error_category": null
+    },
+    {
+      "second": 11.3,
+      "status": "pending",
+      "progress": 0,
+      "error_category": null
+    },
+    {
+      "second": 12.5,
+      "status": "pending",
+      "progress": 0,
+      "error_category": null
+    },
+    {
+      "second": 13.7,
+      "status": "pending",
+      "progress": 0,
+      "error_category": null
+    },
+    {
+      "second": 14.9,
+      "status": "pending",
+      "progress": 0,
+      "error_category": null
+    },
+    {
+      "second": 16.1,
+      "status": "pending",
+      "progress": 0,
+      "error_category": null
+    },
+    {
+      "second": 17.3,
+      "status": "pending",
+      "progress": 0,
+      "error_category": null
+    },
+    {
+      "second": 18.4,
+      "status": "pending",
+      "progress": 0,
+      "error_category": null
+    },
+    {
+      "second": 19.6,
+      "status": "pending",
+      "progress": 0,
+      "error_category": null
+    },
+    {
+      "second": 20.8,
+      "status": "pending",
+      "progress": 0,
+      "error_category": null
+    },
+    {
+      "second": 22.0,
+      "status": "pending",
+      "progress": 0,
+      "error_category": null
+    },
+    {
+      "second": 23.2,
+      "status": "pending",
+      "progress": 0,
+      "error_category": null
+    },
+    {
+      "second": 24.6,
+      "status": "pending",
+      "progress": 0,
+      "error_category": null
+    },
+    {
+      "second": 25.7,
+      "status": "pending",
+      "progress": 0,
+      "error_category": null
+    },
+    {
+      "second": 26.9,
+      "status": "pending",
+      "progress": 0,
+      "error_category": null
+    },
+    {
+      "second": 28.2,
+      "status": "pending",
+      "progress": 0,
+      "error_category": null
+    },
+    {
+      "second": 29.5,
+      "status": "pending",
+      "progress": 0,
+      "error_category": null
+    },
+    {
+      "second": 30.6,
+      "status": "pending",
+      "progress": 0,
+      "error_category": null
+    },
+    {
+      "second": 31.8,
+      "status": "pending",
+      "progress": 0,
+      "error_category": null
+    },
+    {
+      "second": 32.9,
+      "status": "pending",
+      "progress": 0,
+      "error_category": null
+    },
+    {
+      "second": 34.1,
+      "status": "pending",
+      "progress": 0,
+      "error_category": null
+    },
+    {
+      "second": 35.3,
+      "status": "pending",
+      "progress": 0,
+      "error_category": null
+    },
+    {
+      "second": 36.5,
+      "status": "pending",
+      "progress": 0,
+      "error_category": null
+    },
+    {
+      "second": 37.6,
+      "status": "pending",
+      "progress": 0,
+      "error_category": null
+    },
+    {
+      "second": 38.8,
+      "status": "pending",
+      "progress": 0,
+      "error_category": null
+    },
+    {
+      "second": 40.0,
+      "status": "pending",
+      "progress": 0,
+      "error_category": null
+    },
+    {
+      "second": 41.2,
+      "status": "pending",
+      "progress": 0,
+      "error_category": null
+    },
+    {
+      "second": 42.5,
+      "status": "pending",
+      "progress": 0,
+      "error_category": null
+    },
+    {
+      "second": 43.7,
+      "status": "pending",
+      "progress": 0,
+      "error_category": null
+    },
+    {
+      "second": 45.0,
+      "status": "pending",
+      "progress": 0,
+      "error_category": null
+    },
+    {
+      "second": 46.4,
+      "status": "pending",
+      "progress": 0,
+      "error_category": null
+    },
+    {
+      "second": 47.6,
+      "status": "pending",
+      "progress": 0,
+      "error_category": null
+    },
+    {
+      "second": 48.8,
+      "status": "pending",
+      "progress": 0,
+      "error_category": null
+    },
+    {
+      "second": 49.9,
+      "status": "pending",
+      "progress": 0,
+      "error_category": null
+    },
+    {
+      "second": 51.1,
+      "status": "pending",
+      "progress": 0,
+      "error_category": null
+    },
+    {
+      "second": 52.3,
+      "status": "pending",
+      "progress": 0,
+      "error_category": null
+    },
+    {
+      "second": 53.4,
+      "status": "pending",
+      "progress": 0,
+      "error_category": null
+    },
+    {
+      "second": 54.6,
+      "status": "pending",
+      "progress": 0,
+      "error_category": null
+    },
+    {
+      "second": 55.8,
+      "status": "pending",
+      "progress": 0,
+      "error_category": null
+    },
+    {
+      "second": 57.0,
+      "status": "pending",
+      "progress": 0,
+      "error_category": null
+    },
+    {
+      "second": 58.1,
+      "status": "pending",
+      "progress": 0,
+      "error_category": null
+    },
+    {
+      "second": 59.3,
+      "status": "pending",
+      "progress": 0,
+      "error_category": null
+    },
+    {
+      "second": 60.4,
+      "status": "pending",
+      "progress": 0,
+      "error_category": null
+    },
+    {
+      "second": 61.7,
+      "status": "pending",
+      "progress": 0,
+      "error_category": null
+    },
+    {
+      "second": 62.8,
+      "status": "pending",
+      "progress": 0,
+      "error_category": null
+    },
+    {
+      "second": 64.0,
+      "status": "pending",
+      "progress": 0,
+      "error_category": null
+    },
+    {
+      "second": 65.1,
+      "status": "pending",
+      "progress": 0,
+      "error_category": null
+    },
+    {
+      "second": 66.3,
+      "status": "pending",
+      "progress": 0,
+      "error_category": null
+    },
+    {
+      "second": 67.5,
+      "status": "pending",
+      "progress": 0,
+      "error_category": null
+    },
+    {
+      "second": 68.7,
+      "status": "pending",
+      "progress": 0,
+      "error_category": null
+    },
+    {
+      "second": 69.8,
+      "status": "pending",
+      "progress": 0,
+      "error_category": null
+    },
+    {
+      "second": 71.0,
+      "status": "pending",
+      "progress": 0,
+      "error_category": null
+    },
+    {
+      "second": 72.2,
+      "status": "pending",
+      "progress": 0,
+      "error_category": null
+    },
+    {
+      "second": 73.3,
+      "status": "pending",
+      "progress": 0,
+      "error_category": null
+    },
+    {
+      "second": 74.7,
+      "status": "pending",
+      "progress": 0,
+      "error_category": null
+    },
+    {
+      "second": 75.8,
+      "status": "pending",
+      "progress": 0,
+      "error_category": null
+    },
+    {
+      "second": 77.0,
+      "status": "pending",
+      "progress": 0,
+      "error_category": null
+    },
+    {
+      "second": 78.2,
+      "status": "pending",
+      "progress": 0,
+      "error_category": null
+    },
+    {
+      "second": 79.4,
+      "status": "pending",
+      "progress": 0,
+      "error_category": null
+    },
+    {
+      "second": 80.6,
+      "status": "pending",
+      "progress": 0,
+      "error_category": null
+    },
+    {
+      "second": 81.8,
+      "status": "pending",
+      "progress": 0,
+      "error_category": null
+    },
+    {
+      "second": 83.0,
+      "status": "pending",
+      "progress": 0,
+      "error_category": null
+    },
+    {
+      "second": 84.1,
+      "status": "pending",
+      "progress": 0,
+      "error_category": null
+    },
+    {
+      "second": 85.3,
+      "status": "pending",
+      "progress": 0,
+      "error_category": null
+    },
+    {
+      "second": 86.5,
+      "status": "pending",
+      "progress": 0,
+      "error_category": null
+    },
+    {
+      "second": 87.8,
+      "status": "pending",
+      "progress": 0,
+      "error_category": null
+    },
+    {
+      "second": 88.9,
+      "status": "pending",
+      "progress": 0,
+      "error_category": null
+    },
+    {
+      "second": 90.0,
+      "status": "pending",
+      "progress": 0,
+      "error_category": null
+    },
+    {
+      "second": 91.2,
+      "status": "pending",
+      "progress": 0,
+      "error_category": null
+    },
+    {
+      "second": 92.4,
+      "status": "pending",
+      "progress": 0,
+      "error_category": null
+    },
+    {
+      "second": 93.6,
+      "status": "pending",
+      "progress": 0,
+      "error_category": null
+    },
+    {
+      "second": 94.8,
+      "status": "pending",
+      "progress": 0,
+      "error_category": null
+    },
+    {
+      "second": 95.9,
+      "status": "pending",
+      "progress": 0,
+      "error_category": null
+    },
+    {
+      "second": 97.1,
+      "status": "pending",
+      "progress": 0,
+      "error_category": null
+    },
+    {
+      "second": 98.2,
+      "status": "pending",
+      "progress": 0,
+      "error_category": null
+    },
+    {
+      "second": 99.4,
+      "status": "pending",
+      "progress": 0,
+      "error_category": null
+    },
+    {
+      "second": 100.6,
+      "status": "pending",
+      "progress": 0,
+      "error_category": null
+    },
+    {
+      "second": 101.8,
+      "status": "pending",
+      "progress": 0,
+      "error_category": null
+    },
+    {
+      "second": 103.0,
+      "status": "pending",
+      "progress": 0,
+      "error_category": null
+    },
+    {
+      "second": 104.3,
+      "status": "pending",
+      "progress": 0,
+      "error_category": null
+    },
+    {
+      "second": 105.6,
+      "status": "pending",
+      "progress": 0,
+      "error_category": null
+    },
+    {
+      "second": 106.8,
+      "status": "pending",
+      "progress": 0,
+      "error_category": null
+    },
+    {
+      "second": 108.1,
+      "status": "pending",
+      "progress": 0,
+      "error_category": null
+    },
+    {
+      "second": 109.4,
+      "status": "pending",
+      "progress": 0,
+      "error_category": null
+    },
+    {
+      "second": 110.6,
+      "status": "pending",
+      "progress": 0,
+      "error_category": null
+    },
+    {
+      "second": 111.8,
+      "status": "pending",
+      "progress": 0,
+      "error_category": null
+    },
+    {
+      "second": 113.0,
+      "status": "pending",
+      "progress": 0,
+      "error_category": null
+    },
+    {
+      "second": 114.3,
+      "status": "pending",
+      "progress": 0,
+      "error_category": null
+    },
+    {
+      "second": 115.6,
+      "status": "pending",
+      "progress": 0,
+      "error_category": null
+    },
+    {
+      "second": 116.8,
+      "status": "pending",
+      "progress": 0,
+      "error_category": null
+    },
+    {
+      "second": 118.0,
+      "status": "pending",
+      "progress": 0,
+      "error_category": null
+    },
+    {
+      "second": 119.2,
+      "status": "pending",
+      "progress": 0,
+      "error_category": null
+    },
+    {
+      "second": 120.5,
+      "status": "pending",
+      "progress": 0,
+      "error_category": null
+    },
+    {
+      "second": 121.6,
+      "status": "pending",
+      "progress": 0,
+      "error_category": null
+    },
+    {
+      "second": 122.8,
+      "status": "pending",
+      "progress": 0,
+      "error_category": null
+    },
+    {
+      "second": 124.0,
+      "status": "pending",
+      "progress": 0,
+      "error_category": null
+    },
+    {
+      "second": 125.2,
+      "status": "pending",
+      "progress": 0,
+      "error_category": null
+    },
+    {
+      "second": 126.4,
+      "status": "pending",
+      "progress": 0,
+      "error_category": null
+    },
+    {
+      "second": 127.6,
+      "status": "pending",
+      "progress": 0,
+      "error_category": null
+    },
+    {
+      "second": 128.8,
+      "status": "pending",
+      "progress": 0,
+      "error_category": null
+    },
+    {
+      "second": 129.9,
+      "status": "pending",
+      "progress": 0,
+      "error_category": null
+    },
+    {
+      "second": 131.1,
+      "status": "pending",
+      "progress": 0,
+      "error_category": null
+    },
+    {
+      "second": 132.3,
+      "status": "pending",
+      "progress": 0,
+      "error_category": null
+    },
+    {
+      "second": 133.5,
+      "status": "pending",
+      "progress": 0,
+      "error_category": null
+    },
+    {
+      "second": 134.6,
+      "status": "pending",
+      "progress": 0,
+      "error_category": null
+    },
+    {
+      "second": 135.8,
+      "status": "pending",
+      "progress": 0,
+      "error_category": null
+    },
+    {
+      "second": 137.0,
+      "status": "pending",
+      "progress": 0,
+      "error_category": null
+    },
+    {
+      "second": 138.2,
+      "status": "pending",
+      "progress": 0,
+      "error_category": null
+    },
+    {
+      "second": 139.3,
+      "status": "pending",
+      "progress": 0,
+      "error_category": null
+    },
+    {
+      "second": 140.5,
+      "status": "pending",
+      "progress": 0,
+      "error_category": null
+    },
+    {
+      "second": 141.7,
+      "status": "pending",
+      "progress": 0,
+      "error_category": null
+    },
+    {
+      "second": 142.9,
+      "status": "pending",
+      "progress": 0,
+      "error_category": null
+    },
+    {
+      "second": 144.1,
+      "status": "pending",
+      "progress": 0,
+      "error_category": null
+    },
+    {
+      "second": 145.3,
+      "status": "pending",
+      "progress": 0,
+      "error_category": null
+    },
+    {
+      "second": 146.5,
+      "status": "pending",
+      "progress": 0,
+      "error_category": null
+    },
+    {
+      "second": 147.7,
+      "status": "pending",
+      "progress": 0,
+      "error_category": null
+    },
+    {
+      "second": 148.9,
+      "status": "pending",
+      "progress": 0,
+      "error_category": null
+    },
+    {
+      "second": 150.1,
+      "status": "pending",
+      "progress": 0,
+      "error_category": null
+    },
+    {
+      "second": 151.2,
+      "status": "pending",
+      "progress": 0,
+      "error_category": null
+    },
+    {
+      "second": 152.4,
+      "status": "pending",
+      "progress": 0,
+      "error_category": null
+    },
+    {
+      "second": 153.6,
+      "status": "pending",
+      "progress": 0,
+      "error_category": null
+    },
+    {
+      "second": 154.8,
+      "status": "pending",
+      "progress": 0,
+      "error_category": null
+    },
+    {
+      "second": 156.1,
+      "status": "pending",
+      "progress": 0,
+      "error_category": null
+    },
+    {
+      "second": 157.3,
+      "status": "pending",
+      "progress": 0,
+      "error_category": null
+    },
+    {
+      "second": 158.5,
+      "status": "pending",
+      "progress": 0,
+      "error_category": null
+    },
+    {
+      "second": 159.7,
+      "status": "pending",
+      "progress": 0,
+      "error_category": null
+    },
+    {
+      "second": 160.9,
+      "status": "pending",
+      "progress": 0,
+      "error_category": null
+    },
+    {
+      "second": 162.0,
+      "status": "pending",
+      "progress": 0,
+      "error_category": null
+    },
+    {
+      "second": 163.2,
+      "status": "pending",
+      "progress": 0,
+      "error_category": null
+    },
+    {
+      "second": 164.4,
+      "status": "pending",
+      "progress": 0,
+      "error_category": null
+    },
+    {
+      "second": 165.6,
+      "status": "pending",
+      "progress": 0,
+      "error_category": null
+    },
+    {
+      "second": 166.8,
+      "status": "pending",
+      "progress": 0,
+      "error_category": null
+    },
+    {
+      "second": 167.9,
+      "status": "pending",
+      "progress": 0,
+      "error_category": null
+    },
+    {
+      "second": 169.1,
+      "status": "pending",
+      "progress": 0,
+      "error_category": null
+    },
+    {
+      "second": 170.3,
+      "status": "pending",
+      "progress": 0,
+      "error_category": null
+    },
+    {
+      "second": 171.4,
+      "status": "pending",
+      "progress": 0,
+      "error_category": null
+    },
+    {
+      "second": 172.6,
+      "status": "pending",
+      "progress": 0,
+      "error_category": null
+    },
+    {
+      "second": 173.8,
+      "status": "pending",
+      "progress": 0,
+      "error_category": null
+    },
+    {
+      "second": 175.0,
+      "status": "pending",
+      "progress": 0,
+      "error_category": null
+    },
+    {
+      "second": 176.2,
+      "status": "pending",
+      "progress": 0,
+      "error_category": null
+    },
+    {
+      "second": 177.3,
+      "status": "pending",
+      "progress": 0,
+      "error_category": null
+    },
+    {
+      "second": 178.5,
+      "status": "pending",
+      "progress": 0,
+      "error_category": null
+    },
+    {
+      "second": 179.7,
+      "status": "pending",
+      "progress": 0,
+      "error_category": null
+    },
+    {
+      "second": 180.9,
+      "status": "pending",
+      "progress": 0,
+      "error_category": null
+    },
+    {
+      "second": 182.1,
+      "status": "pending",
+      "progress": 0,
+      "error_category": null
+    },
+    {
+      "second": 183.2,
+      "status": "pending",
+      "progress": 0,
+      "error_category": null
+    },
+    {
+      "second": 184.4,
+      "status": "pending",
+      "progress": 0,
+      "error_category": null
+    },
+    {
+      "second": 185.6,
+      "status": "pending",
+      "progress": 0,
+      "error_category": null
+    },
+    {
+      "second": 186.8,
+      "status": "pending",
+      "progress": 0,
+      "error_category": null
+    },
+    {
+      "second": 188.0,
+      "status": "pending",
+      "progress": 0,
+      "error_category": null
+    },
+    {
+      "second": 189.2,
+      "status": "pending",
+      "progress": 0,
+      "error_category": null
+    },
+    {
+      "second": 190.4,
+      "status": "pending",
+      "progress": 0,
+      "error_category": null
+    },
+    {
+      "second": 191.5,
+      "status": "pending",
+      "progress": 0,
+      "error_category": null
+    },
+    {
+      "second": 192.7,
+      "status": "pending",
+      "progress": 0,
+      "error_category": null
+    },
+    {
+      "second": 193.9,
+      "status": "pending",
+      "progress": 0,
+      "error_category": null
+    },
+    {
+      "second": 195.3,
+      "status": "pending",
+      "progress": 0,
+      "error_category": null
+    },
+    {
+      "second": 196.8,
+      "status": "pending",
+      "progress": 0,
+      "error_category": null
+    },
+    {
+      "second": 198.0,
+      "status": "pending",
+      "progress": 0,
+      "error_category": null
+    },
+    {
+      "second": 199.2,
+      "status": "pending",
+      "progress": 0,
+      "error_category": null
+    },
+    {
+      "second": 200.3,
+      "status": "pending",
+      "progress": 0,
+      "error_category": null
+    },
+    {
+      "second": 201.5,
+      "status": "pending",
+      "progress": 0,
+      "error_category": null
+    },
+    {
+      "second": 202.7,
+      "status": "pending",
+      "progress": 0,
+      "error_category": null
+    },
+    {
+      "second": 203.9,
+      "status": "pending",
+      "progress": 0,
+      "error_category": null
+    },
+    {
+      "second": 205.1,
+      "status": "pending",
+      "progress": 0,
+      "error_category": null
+    },
+    {
+      "second": 206.2,
+      "status": "pending",
+      "progress": 0,
+      "error_category": null
+    },
+    {
+      "second": 207.4,
+      "status": "pending",
+      "progress": 0,
+      "error_category": null
+    },
+    {
+      "second": 208.6,
+      "status": "pending",
+      "progress": 0,
+      "error_category": null
+    },
+    {
+      "second": 209.7,
+      "status": "pending",
+      "progress": 0,
+      "error_category": null
+    },
+    {
+      "second": 210.9,
+      "status": "pending",
+      "progress": 0,
+      "error_category": null
+    },
+    {
+      "second": 212.1,
+      "status": "pending",
+      "progress": 0,
+      "error_category": null
+    },
+    {
+      "second": 213.3,
+      "status": "pending",
+      "progress": 0,
+      "error_category": null
+    },
+    {
+      "second": 214.4,
+      "status": "pending",
+      "progress": 0,
+      "error_category": null
+    }
+  ],
+  "cleanup": {
+    "fallback_status": 200,
+    "id": "3b886818-487"
+  },
+  "error_type": "AssertionError",
+  "error_line": 41
+}

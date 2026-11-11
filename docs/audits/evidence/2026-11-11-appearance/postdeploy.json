@@ -1,0 +1,52 @@
+[
+  {
+    "name": "health",
+    "status": "ok",
+    "revision": "7a519e552b87d5cbc87233edc79f80533bd86562"
+  },
+  {
+    "name": "screenshot",
+    "file": "fixed-transcript-1440.png"
+  },
+  {
+    "name": "title-and-transcript-reload",
+    "width": 1440,
+    "passed": true
+  },
+  {
+    "name": "screenshot",
+    "file": "fixed-transcript-768.png"
+  },
+  {
+    "name": "title-and-transcript-reload",
+    "width": 768,
+    "passed": true
+  },
+  {
+    "name": "screenshot",
+    "file": "fixed-transcript-390.png"
+  },
+  {
+    "name": "title-and-transcript-reload",
+    "width": 390,
+    "passed": true
+  },
+  {
+    "name": "own-test-cleanup-verified",
+    "task": "c9a6a826-ac4",
+    "http": 404
+  },
+  {
+    "name": "own-test-cleanup-verified",
+    "task": "3b886818-487",
+    "http": 404
+  },
+  {
+    "name": "existing-summary-title-retained",
+    "passed": true
+  },
+  {
+    "name": "task-history-access-after-deploy",
+    "count": 15
+  }
+]
