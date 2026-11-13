@@ -492,6 +492,10 @@ def test_generation_retries_invalid_format_with_full_source_and_validates_again(
     assert complete.call_count == 2
     assert all(call.kwargs['messages'][1]['content'] == payload for call in complete.call_args_list)
     assert owner.generation_report['format_retries'] == 1
+    expected = ('json' if bad == 'not JSON' else
+                'sections' if json.loads(bad)['sections'] == [] else 'source_ranges')
+    assert owner.generation_report['format_failure_category'] == expected
+    assert 'previous attempt failed format validation' in complete.call_args_list[1].kwargs['messages'][0]['content']
 
 
 def test_generation_format_retry_is_bounded_and_never_accepts_invalid_evidence():
