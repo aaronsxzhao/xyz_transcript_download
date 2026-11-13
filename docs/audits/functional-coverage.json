@@ -1595,6 +1595,13 @@
       "report": "docs/audits/2026-11-13-parallel-final-review.json",
       "scope": "Bound final immutable-draft reviews to two parallel batches while retaining all source checks and existing gates.",
       "remaining": "Measured provider and full reported podcast performance and acceptance."
+    },
+    {
+      "id": "2026-11-13-coverage-round-diagnostics",
+      "status": "local_tests_passed_release_pending",
+      "report": "docs/audits/2026-11-13-coverage-round-diagnostics.json",
+      "scope": "Preserve privacy-safe per-round counters and reasons for existing rejection decisions without modifying coverage gates.",
+      "remaining": "Determine semantic accuracy of gaps with separately authorized evidence; collect prospective round metrics; verify full reported podcast."
     }
   ],
   "user_authorization_updates": [

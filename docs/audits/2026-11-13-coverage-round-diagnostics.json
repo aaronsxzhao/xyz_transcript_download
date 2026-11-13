@@ -1,0 +1,43 @@
+{
+  "base": "224e6aeb0ce1cc3aed26d6e270984c274a0edf4c",
+  "reported_issue": "Repeated coverage repairs are costly and can remain below threshold; latest-round counters overwrite previous-round repair activity.",
+  "metadata_findings": {
+    "historical_candidate_count": 5,
+    "inventory_items_range": [
+      137,
+      189
+    ],
+    "identical_source_range_duplicates_per_candidate": [
+      0,
+      0,
+      1,
+      0,
+      0
+    ],
+    "example_checkpoint": {
+      "coverage": 0.6882352941176471,
+      "initial_gaps_in_latest_round": 58,
+      "final_gaps_in_latest_round": 53,
+      "latest_round_accepted_paragraphs": 0,
+      "retained_L_paragraphs": 23,
+      "source_corrected_items": 7
+    },
+    "interpretation": "Retained L paragraphs show earlier successful additions despite zero latest-round accepted count. Source-corrected count is a model judgment, not proof that initial items were wrong. Identical range checks do not rule out semantic duplicates."
+  },
+  "full_test": {
+    "source": "reported public episode, dedicated test-account transcript, isolated local processing",
+    "requests": 70,
+    "stop": "test request guard, not provider failure",
+    "wall_seconds": 2533.961,
+    "coverage_ratio": 0.8465116279069768,
+    "initial_unresolved": 74,
+    "final_unresolved": 33,
+    "latest_round_accepted": 19,
+    "latest_round_rejected": 25,
+    "delivered": false,
+    "actual_daily_settled_usd": 29.806216
+  },
+  "change": "Record content-free counters for each coverage round and structured reasons for the existing repair rejection decisions; do not change the decisions or quality gates. Logical request counts are not provider call totals. Existing authorized read-only diagnostic exports allowlisted counters only.",
+  "limitations": "No historical reason data can be reconstructed. Real full-podcast success and semantic validity of gaps remain unproven. A proposed normalization of private statement text was rejected by automatic review; no workaround or raw content access was attempted.",
+  "tests": "228 relevant tests passed locally, including retained previous rounds, rejection categories, safe diagnostic redaction, cancellation propagation and unresolved-kind counts."
+}

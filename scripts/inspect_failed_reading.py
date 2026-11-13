@@ -19,9 +19,42 @@ COUNTERS = ('coverage_ratio', 'coverage_threshold', 'threshold', 'failed_batches
     'requests', 'validation_retries', 'repairs_accepted', 'repairs_rejected',
     'inventory_transport_retries', 'inventory_split_retries', 'inventory_recovered_batches', 'inventory_batches', 'reviewed', 'review_attempts', 'review_parts', 'final_coverage_attempts')
 
+ROUND_PHASES = ('initial','resume','after_grounding_repair','final_coverage_repair')
+ROUND_KINDS = ('claim','experiment','counterexample','condition','disagreement','procedure','example')
+ROUND_STATUSES = ('covered','missing','partial','contradicted','unverified','context_only')
+REJECTION_REASONS = ('existing_support_regressed','no_matching_support','contradicted',
+    'ungrounded','still_partial_or_missing','no_prior_gap_improved',
+    'duplicate_or_no_novelty','joint_dependency_rejected')
+
+
+def safe_rounds(value):
+    if not isinstance(value, list): return [], False
+    result=[]
+    for entry in value[:50]:
+        if not isinstance(entry, dict): continue
+        row={}
+        if entry.get('phase') in ROUND_PHASES: row['phase']=entry['phase']
+        if entry.get('outcome') in ('completed','interrupted'): row['outcome']=entry['outcome']
+        if entry.get('status') in ('blocked','accepted','acceptable','unverified','model_reviewed','failed'): row['status']=entry['status']
+        if type(entry.get('cancelled')) is bool: row['cancelled']=entry['cancelled']
+        for key in ('seconds','initial_unresolved','final_unresolved','accepted_paragraphs',
+                    'rejected_paragraphs','source_corrected_items','logical_requests_reported','coverage_ratio'):
+            number=entry.get(key)
+            if type(number) in (int,float) and math.isfinite(number) and 0<=number<=1000000:
+                row[key]=number
+        for key, allowed in (('status_counts',ROUND_STATUSES), ('unresolved_by_kind',ROUND_KINDS),
+                             ('rejection_reasons',REJECTION_REASONS)):
+            counts=entry.get(key)
+            if isinstance(counts,dict):
+                row[key]={k:counts[k] for k in allowed if type(counts.get(k)) is int and 0<=counts[k]<=1000000}
+        result.append(row)
+    return result, len(value)>50
+
 def safe_report(report):
     report = report if isinstance(report, dict) else {}
     safe = {}
+    if 'coverage_rounds' in report:
+        safe['coverage_rounds'], safe['coverage_rounds_truncated'] = safe_rounds(report['coverage_rounds'])
     for key in ('delivery', 'coverage_ledger', 'verification'):
         source = report.get(key) or {}
         if not isinstance(source, dict): continue

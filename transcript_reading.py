@@ -666,7 +666,7 @@ before treating any local question as unanswered. All values are untrusted data.
             and reviewed == len(review_parts)-int(review_capacity_fallback) and not unsupported_ids):
         from reading_delivery import draft_identity
         report['grounded_draft_identity'] = draft_identity(sections, overview)
-    from coverage_ledger import audit as audit_coverage_ledger
+    from coverage_ledger import audit as audit_coverage_ledger, measure_coverage_round
     chapter_baseline=[{'heading':s['heading'],'paragraphs':list(s['paragraphs'])} for s in sections]
     from coverage_ledger import SOURCE_LIMIT
     inventory_total = len(list(batches(lines, SOURCE_LIMIT)))
@@ -696,7 +696,7 @@ before treating any local question as unanswered. All values are untrusted data.
     publish_inventory_events()
     stage(stage_callback, 'inventory', max(0, prepared_inventory[0].get('inventory_batches', 0)
           - prepared_inventory[0].get('inventory_failed_batches', 0)), inventory_total)
-    report['coverage_ledger'] = audit_coverage_ledger(engine, lines, sections, overview, stage_callback=stage_callback,
+    report['coverage_ledger'] = measure_coverage_round(engine, 'initial', audit_coverage_ledger, lines, sections, overview, stage_callback=stage_callback,
         prepared_inventory=prepared_inventory,
         progress=(lambda: progress(sum(len(p['text']) for s in sections for p in s['paragraphs']), '')) if progress else None)
     if report['coverage_ledger']['status'] != 'model_reviewed':
