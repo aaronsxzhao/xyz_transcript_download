@@ -1,0 +1,58 @@
+[
+  {
+    "design": "classic",
+    "kind": "episodes",
+    "rect": {
+      "left": 320,
+      "width": 1920
+    },
+    "card": {
+      "left": 337,
+      "right": 2223,
+      "width": 1886
+    },
+    "new_badge": 0
+  },
+  {
+    "design": "classic",
+    "kind": "videos",
+    "rect": {
+      "left": 320,
+      "width": 1920
+    },
+    "card": {
+      "left": 337,
+      "right": 2223,
+      "width": 1886
+    },
+    "new_badge": 1
+  },
+  {
+    "design": "editorial",
+    "kind": "episodes",
+    "rect": {
+      "left": 640,
+      "width": 1280
+    },
+    "card": {
+      "left": 657,
+      "right": 1903,
+      "width": 1246
+    },
+    "new_badge": 0
+  },
+  {
+    "design": "editorial",
+    "kind": "videos",
+    "rect": {
+      "left": 640,
+      "width": 1280
+    },
+    "card": {
+      "left": 657,
+      "right": 1903,
+      "width": 1246
+    },
+    "new_badge": 1
+  }
+]

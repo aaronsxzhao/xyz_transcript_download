@@ -1,0 +1,41 @@
+{
+  "checked_at": "2026-11-13T05:10:03.107440+00:00",
+  "base": "0f69b5f",
+  "scope": "User reports: article short-link cards,video badges,podcast/video workspace width",
+  "width": {
+    "cause": "Episodes root omitted shared workspace-page container",
+    "fix": "Reuse Videos workspace container, preserving each design max-width and centering",
+    "before_2560": {
+      "classic": [
+        2512,
+        1920
+      ],
+      "editorial": [
+        2480,
+        1280
+      ]
+    },
+    "after_2560": {
+      "classic": [
+        1920,
+        1920
+      ],
+      "editorial": [
+        1280,
+        1280
+      ]
+    },
+    "validation": "Sandboxed Chromium;84 collection layout cases (3pages x4appearances x7widths320..2560),paired width assertions;before/after images actually viewed;TypeScript/Vite/budget passed"
+  },
+  "badges": {
+    "newly_added": "Already implemented and observed in synthetic video list (unique ID); status discovered/pending and seen count<2; text hidden on narrow screen with icon retained",
+    "transcript": "No video-list badge implementation; lightweight list projections omit transcript body and availability flag. This does not imply saved transcription is absent. No N+1 full transcript reads or inferred badge from success status added."
+  },
+  "source_links": {
+    "status": "awaiting exact short URL",
+    "finding": "Screenshot shows different x.com and t.co URLs. Existing dedup handles exact adjacent duplicate only. Need resolved destination/equivalence before removing a citation. Screenshot-transcribed address is ambiguous; its404 is not proof the actual link is invalid. No historical data edited."
+  },
+  "release": "pending CI/deploy",
+  "paid_calls": 0,
+  "production_writes": false
+}
