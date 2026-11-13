@@ -1443,6 +1443,12 @@
       "report": "docs/audits/2026-11-13-code-contrast.json",
       "status": "pending CI/deployment/live exact article verification",
       "scope": "Reopened light-code legibility; child text assertion added, prior PR253 coverage limited"
+    },
+    {
+      "checked_at": "2026-11-13T05:10:03.107440+00:00",
+      "report": "docs/audits/2026-11-13-list-parity.json",
+      "status": "local verified; pending release",
+      "scope": "Podcast/video width parity; video badge implementation checked; short-link identity pending exact URL"
     }
   ],
   "audit_attempts": [

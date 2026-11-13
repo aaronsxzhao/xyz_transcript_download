@@ -266,7 +266,7 @@ export default function Episodes() {
   }
   
   return (
-    <div className="space-y-4 md:space-y-6">
+    <div className="workspace-page space-y-4 md:space-y-6">
       {error && <LoadError message={error} onRetry={() => { void (errorSource === 'more' ? loadMore() : loadData()) }} />}
       {metadataError && <LoadError message={metadataError} onRetry={() => void loadMetadata()} />}
       <div className="flex items-center gap-3 md:gap-4">

@@ -21,24 +21,25 @@ async def main():
   await c.route('**/api/podcasts?*',lambda r:r.fulfill(json=shows))
   await c.route('**/api/podcasts/content?*',lambda r:r.fulfill(json=[dict(eid='bench',pid='show',title=title,duration=1200,has_summary=True,has_transcript=True,topics_count=2,key_points_count=5)]))
   await c.route('**/api/video-notes/channels',lambda r:r.fulfill(json={'channels':[dict(channel=title,platform='youtube',total=20,done=10,channel_url='https://example.test/channel')]}))
-  page=await c.new_page();errors=[]
+  page=await c.new_page();errors=[];workspace_bounds={}
   page.on("pageerror",lambda error:errors.append(str(error)))
   for name,path in [('podcasts','/podcasts?platform=xiaoyuzhou'),('episodes','/podcasts/show/episodes'),('channels','/videos?platform=youtube')]:
    await page.goto(f'http://127.0.0.1:{server.server_port}'+path)
    await page.locator('h3').first.wait_for()
    for design,theme in [('classic','dark'),('classic','light'),('editorial','light'),('editorial','dark')]:
     await choose(page,design,theme)
-    for width in [320,390,640,820,1024,1440]:
+    for width in [320,390,640,820,1024,1440,2560]:
      await page.set_viewport_size({'width':width,'height':1000});await page.wait_for_timeout(250)
      overflow=await page.evaluate('document.documentElement.scrollWidth>innerWidth+1||[...document.querySelectorAll("main")].some(e=>e.scrollWidth>e.clientWidth+1)')
      print(name,design,theme,width,'overflow',overflow,flush=True)
      assert not overflow,(name,design,theme,width)
+     workspace_bounds[(name,design,theme,width)]=await page.locator('.page-frame').evaluate('e=>{const r=e.firstElementChild.getBoundingClientRect();return {left:r.left,width:r.width}}')
      rows=await page.locator('.collection-row').evaluate_all("""rows=>rows.map(row=>{
        const h=row.querySelector('h3'),a=row.querySelector('.collection-actions'),r=row.getBoundingClientRect(),b=a.getBoundingClientRect();
        return {right:Math.abs(r.right-b.right),title:h.getBoundingClientRect().height,line:parseFloat(getComputedStyle(h).lineHeight),buttons:[...a.children].map(e=>e.getBoundingClientRect().height),clamped:[...row.querySelectorAll('p')].filter(e=>getComputedStyle(e).webkitLineClamp==='2').every(e=>e.getBoundingClientRect().height<=parseFloat(getComputedStyle(e).lineHeight)*2+1)};
      })""")
      assert rows and all(r['right']<2 and r['title']<=r['line']*2+1 and min(r['buttons'])>=36 and r['clamped'] for r in rows),rows
-     if width in [390,820]: await page.screenshot(path=str(out/f'{name}-{design}-{theme}-{width}.png'))
+     if width in [390,820,2560]: await page.screenshot(path=str(out/f'{name}-{design}-{theme}-{width}.png'))
    if name in ['podcasts','channels']:
     search=page.get_by_placeholder('Search '+name+'...')
     await search.fill('definitely-no-matching-item')
@@ -46,6 +47,10 @@ async def main():
     await search.fill('')
     await page.locator('.collection-row').first.wait_for()
    assert not errors,errors
+  for (name,design,theme,width),bounds in workspace_bounds.items():
+   if name=='episodes':
+    reference=workspace_bounds[('channels',design,theme,width)]
+    assert abs(bounds['width']-reference['width'])<=1 and abs(bounds['left']-reference['left'])<=1,(design,theme,width,bounds,reference)
   await browser.close()
  server.shutdown()
 if __name__=='__main__':
