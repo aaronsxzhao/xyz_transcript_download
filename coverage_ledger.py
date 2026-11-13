@@ -12,6 +12,38 @@ SOURCE_LIMIT = 12000
 ITEM_LIMIT = 16
 KINDS = {'claim', 'experiment', 'counterexample', 'condition', 'disagreement', 'procedure', 'example'}
 RESOLVED = {'covered', 'context_only'}
+
+
+def measure_coverage_round(engine, phase, operation, *args, **kwargs):
+    """Keep content-free per-round counters when later audits replace the ledger.
+
+    A round's logical request count can include reused inventory/checkpoints; it
+    is not an actual provider-call count and must not be summed as one.
+    """
+    import time
+    started = time.monotonic()
+    entry = {'phase':phase, 'outcome':'interrupted'}
+    try:
+        ledger = operation(engine, *args, **kwargs)
+    except Exception as error:
+        entry.update(cancelled=is_cancellation(error), seconds=round(time.monotonic()-started, 3))
+        engine.generation_report.setdefault('coverage_rounds', []).append(entry)
+        raise
+    counts = {key:sum(isinstance(item, dict) and item.get('status') == key
+                      for item in ledger.get('items', []))
+              for key in ('covered','partial','missing','contradicted','context_only','unverified')}
+    entry.update(outcome='completed', seconds=round(time.monotonic()-started, 3),
+        status=ledger.get('status'), status_counts=counts,
+        initial_unresolved=ledger.get('initial_unresolved_items'),
+        final_unresolved=ledger.get('unresolved_items'),
+        accepted_paragraphs=ledger.get('repairs_accepted', 0),
+        rejected_paragraphs=ledger.get('repairs_rejected', 0),
+        rejection_reasons=dict(ledger.get('repair_rejection_reasons', {})),
+        source_corrected_items=len(ledger.get('corrected_inventory_items', []) or []),
+        logical_requests_reported=ledger.get('requests', 0),
+        coverage_ratio=coverage_ratio(ledger))
+    engine.generation_report.setdefault('coverage_rounds', []).append(entry)
+    return ledger
 INVENTORY = '''Read every primary source line BEFORE seeing any summary. Extract a
 coverage checklist of important independent meaning, not a rewritten summary.
 Return {"checked_source_ranges":[{"start":"ID","end":"ID"}],"items":[
@@ -115,6 +147,20 @@ def delta_response(data, proposed):
                ('grounded', 'adds_material_meaning', 'contradicts_existing')):
             raise ValueError('Missing repair delta judgement')
     return rows
+
+
+def repair_rejection_reason(paragraph_id, rows, previous, regression):
+    """Explain an existing rejection without recording source or model text."""
+    if regression: return 'existing_support_regressed'
+    related = [row for row in rows if any(s['paragraph_id'] == paragraph_id for s in row['support'])]
+    if not related: return 'no_matching_support'
+    if any(row['status'] == 'contradicted' for row in related): return 'contradicted'
+    if any(not row['grounded'] for row in related): return 'ungrounded'
+    if any(row['status'] != 'covered' for row in related): return 'still_partial_or_missing'
+    novel = [row for row in related if previous[row['item_id']]['status'] in {'partial','missing'}]
+    if not novel: return 'no_prior_gap_improved'
+    if all(row['duplicate'] for row in novel): return 'duplicate_or_no_novelty'
+    return 'joint_dependency_rejected'
 
 
 VERIFY_INVENTORY = '''Verify checklist claims against original source ONLY; no
@@ -272,6 +318,8 @@ def audit(engine, lines, sections, overview='', progress=None, stage_callback=No
         report['items'] = [receipts.get(row['id'],row) for row in report['items']]
         for key in ('requests', 'repairs_accepted', 'repairs_rejected', 'validation_retries', 'inventory_validation_failed_batches'):
             report[key] += recovered[key]
+        for reason, count in recovered.get('repair_rejection_reasons', {}).items():
+            report.setdefault('repair_rejection_reasons', {})[reason] = report.setdefault('repair_rejection_reasons', {}).get(reason, 0) + count
         report['corrected_inventory_items'] = list(dict.fromkeys(report['corrected_inventory_items']+recovered['corrected_inventory_items']))
         report['failed_batches'] = report['inventory_failed_batches'] + recovered['failed_batches']
         report['terminal_provider_failure'] = recovered['terminal_provider_failure']
@@ -361,7 +409,7 @@ def _audit(engine, lines, sections, overview='', progress=None, stage_callback=N
             'inventory_failed_batches':0, 'terminal_provider_failure':False,
             'corrected_inventory_items':[], 'inventory_validation_failed_batches':0,
             'inventory_transport_retries':0, 'inventory_recovered_batches':0,
-            'inventory_split_retries':0, 'inventory_failures':[]}
+            'inventory_split_retries':0, 'inventory_failures':[], 'repair_rejection_reasons':{}}
     if not inventory_only and inventory is None:
         if prepared_inventory is None:
             prepared_inventory = build_inventory(engine, lines, progress, stage_callback)
@@ -601,6 +649,10 @@ def _audit(engine, lines, sections, overview='', progress=None, stage_callback=N
                     if kept:sections.append({**section,'paragraphs':kept})
                 report['repairs_accepted']+=len(accepted)
                 report['repairs_rejected']+=len(proposed)-len(accepted)
+                for pid in set(proposed)-accepted:
+                    reason = repair_rejection_reason(pid, rechecked, by_id, regression)
+                    reasons = report.setdefault('repair_rejection_reasons', {})
+                    reasons[reason] = reasons.get(reason, 0) + 1
                 # One overlapping setup clause must not discard other missing
                 # facts in the same grounded paragraph. Entirely duplicate
                 # proposals have no novel receipt and cannot reach this branch.
@@ -679,6 +731,9 @@ def efficient_audit(engine, lines, sections, overview='', progress=None, stage_c
                     'inventory_validation_failed_batches'):
             report[key] = report.get(key, 0) + local.get(key, 0)
         report['terminal_provider_failure'] |= local['terminal_provider_failure']
+        for reason, count in local.get('repair_rejection_reasons', {}).items():
+            reasons = report.setdefault('repair_rejection_reasons', {})
+            reasons[reason] = reasons.get(reason, 0) + count
         report['corrected_inventory_items'].extend(local.get('corrected_inventory_items', []))
     lookup = {}
     for local, corrected in results:

@@ -14,6 +14,55 @@ from summary_errors import ProcessingCancelledError
 CASES=json.loads((Path(__file__).parent/'fixtures/coverage_ledger/huberman.json').read_text())
 
 
+def test_coverage_rounds_keep_prior_repairs_when_later_ledger_is_replaced():
+    from coverage_ledger import measure_coverage_round
+    owner = SimpleNamespace(generation_report={})
+    first = {'status':'unverified','initial_unresolved_items':30,'unresolved_items':7,
+        'repairs_accepted':23,'repairs_rejected':4,'requests':32,
+        'corrected_inventory_items':['private-id'],
+        'items':[{'status':'covered','statement':'private source text'}, {'status':'missing'}]}
+    second = {'status':'unverified','initial_unresolved_items':7,'unresolved_items':7,
+        'repairs_accepted':0,'repairs_rejected':0,'requests':12,
+        'items':[{'status':'covered'}, {'status':'missing'}]}
+    owner.generation_report['coverage_ledger'] = measure_coverage_round(owner,'initial',lambda *_: first)
+    owner.generation_report['coverage_ledger'] = measure_coverage_round(owner,'after_grounding_repair',lambda *_: second)
+    rounds = owner.generation_report['coverage_rounds']
+    assert [r['accepted_paragraphs'] for r in rounds] == [23,0]
+    assert [r['phase'] for r in rounds] == ['initial','after_grounding_repair']
+    assert rounds[0]['status_counts']['missing'] == 1
+    assert rounds[0]['source_corrected_items'] == 1
+    assert 'private' not in json.dumps(rounds)
+    assert owner.generation_report['coverage_ledger'] is second
+
+
+def test_interrupted_coverage_round_is_recorded_and_cancellation_propagates():
+    from coverage_ledger import measure_coverage_round
+    owner = SimpleNamespace(generation_report={})
+    def interrupted(*_): raise ProcessingCancelledError('private detail')
+    with pytest.raises(ProcessingCancelledError):
+        measure_coverage_round(owner,'resume',interrupted)
+    assert owner.generation_report['coverage_rounds'][0]['outcome'] == 'interrupted'
+    assert owner.generation_report['coverage_rounds'][0]['cancelled'] is True
+    assert 'private' not in json.dumps(owner.generation_report)
+
+
+@pytest.mark.parametrize(('status','grounded','duplicate','prior','expected'), [
+    ('covered',True,True,'missing','duplicate_or_no_novelty'),
+    ('partial',True,False,'missing','still_partial_or_missing'),
+    ('covered',False,False,'missing','ungrounded'),
+    ('contradicted',True,False,'missing','contradicted'),
+    ('covered',True,False,'covered','no_prior_gap_improved'),
+    ('covered',True,False,'missing','joint_dependency_rejected'),
+])
+def test_repair_rejection_categories_explain_existing_gate(status, grounded, duplicate, prior, expected):
+    from coverage_ledger import repair_rejection_reason
+    row={'item_id':'C1','status':status,'grounded':grounded,'duplicate':duplicate,
+         'support':[{'paragraph_id':'P1'}]}
+    assert repair_rejection_reason('P1',[row],{'C1':{'status':prior}},False) == expected
+    assert repair_rejection_reason('P1',[row],{'C1':{'status':prior}},True) == 'existing_support_regressed'
+    assert repair_rejection_reason('P2',[row],{'C1':{'status':prior}},False) == 'no_matching_support'
+
+
 def setup_case(case):
     _,lines=source_lines(case['source'])
     ranges=[{'start':lines[0].id,'end':lines[-1].id}]

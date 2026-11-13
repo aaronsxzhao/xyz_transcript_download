@@ -82,7 +82,7 @@ def accept_edition(engine, edition, title, source, formats, duration, stage_call
     from transcript_reading import (call_json, REVIEW, REVIEW_TIMEOUT, serialize, public_draft,
         validate_review, render, organize_sections, batches)
     from reading_language import source_language_lock
-    from coverage_ledger import efficient_audit, coverage_acceptable, coverage_ratio, build_inventory
+    from coverage_ledger import efficient_audit, coverage_acceptable, coverage_ratio, build_inventory, measure_coverage_round
     report = engine.generation_report
     sections, lines, overview = edition['sections'], edition['lines'], edition['overview']
     baseline = copy.deepcopy(sections)
@@ -95,7 +95,7 @@ def accept_edition(engine, edition, title, source, formats, duration, stage_call
         # is retained; only its current gaps can trigger new prose work.
         if engine._quality_inventory[0].get('inventory_failed_batches'):
             engine._quality_inventory = build_inventory(engine, lines)
-        report['coverage_ledger'] = efficient_audit(engine, lines, sections, overview,
+        report['coverage_ledger'] = measure_coverage_round(engine, 'resume', efficient_audit, lines, sections, overview,
             prepared_inventory=engine._quality_inventory, stage_callback=stage_callback)
     grounding_repaired = False
     coverage_repaired = False
@@ -116,7 +116,7 @@ def accept_edition(engine, edition, title, source, formats, duration, stage_call
                     overview = ''
                 repair_unsupported(engine, lines, sections, rejected-{'overview'})
                 report.pop('grounded_draft_identity', None)
-                report['coverage_ledger'] = efficient_audit(engine, lines, sections, overview,
+                report['coverage_ledger'] = measure_coverage_round(engine, 'after_grounding_repair', efficient_audit, lines, sections, overview,
                     prepared_inventory=engine._quality_inventory, allow_repairs=False, stage_callback=stage_callback)
                 if any(p.get('raw') for s in sections for p in s['paragraphs']):
                     raise SummaryOutputError('quality', reason='grounding')
@@ -164,7 +164,7 @@ def accept_edition(engine, edition, title, source, formats, duration, stage_call
                         else:
                             repair_unsupported(engine, lines, sections, unsupported-{'overview'})
                         report.pop('grounded_draft_identity', None)
-                        report['coverage_ledger'] = efficient_audit(engine, lines, sections, overview,
+                        report['coverage_ledger'] = measure_coverage_round(engine, 'after_grounding_repair', efficient_audit, lines, sections, overview,
                             prepared_inventory=engine._quality_inventory, allow_repairs=False, stage_callback=stage_callback)
                         continue
                     report['verification'].update(status='unverified',
@@ -181,7 +181,7 @@ def accept_edition(engine, edition, title, source, formats, duration, stage_call
                         and hasattr(engine, '_quality_inventory')):
                     coverage_repaired = True
                     report['final_coverage_repair_rounds'] = 1
-                    report['coverage_ledger'] = efficient_audit(engine, lines, sections, overview,
+                    report['coverage_ledger'] = measure_coverage_round(engine, 'final_coverage_repair', efficient_audit, lines, sections, overview,
                         prepared_inventory=engine._quality_inventory, stage_callback=stage_callback)
                     continue
                 raise SummaryOutputError('quality', reason='source_review'
