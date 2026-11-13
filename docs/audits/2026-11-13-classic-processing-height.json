@@ -8,7 +8,7 @@
   },
   "fix": "Classic desktop panel max-height480px; only task list scrolls, heading/count/history stay outside scroll area; keyboard-focusable named task region. Mobile and Editorial sizing unchanged.",
   "validation": {
-    "build": "197.1KiB under unchanged197.75KiB budget",
+    "build": "Exact CI Node22.23.4 and fresh lockfile installation:197.7KiB under unchanged197.75KiB budget. Initial reused dependency-directory build was not CI-equivalent; simplified CSS grid rules resolved the reproducible budget failure.",
     "browser": "16 cases: Chromium/WebKit, Classic light/dark,390/768/1440/2560; reload, keyboard End, last Cancel focus visibility, history visibility, all8tasks retained, no horizontal overflow",
     "screenshots_viewed": [
       "before.png",
