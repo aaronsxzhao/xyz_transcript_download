@@ -1609,6 +1609,14 @@
       "report": "docs/audits/2026-11-13-proposed-only-duplicate-review.json",
       "scope": "Run existing independent source, novelty and contradiction verifier for eligible new-only duplicate flags; preserve all quality gates.",
       "remaining": "Real historic false-positive rate and end-to-end long podcast acceptance remain unverified."
+    },
+    {
+      "id": "2026-11-13-real-podcast-coverage-inspection",
+      "result": "blocked",
+      "environment": "isolated local reproduction with authorized test podcast transcript and real model",
+      "evidence": "docs/audits/2026-11-13-coverage-inspection-final.json",
+      "summary": "88 real model calls over 1998 seconds; first pass accepted 31 additions; final 79.41% coverage and one contradiction blocked publication. Historical semantic correctness remains unverified.",
+      "next_step": "Independently inspect a limited sample of historical gaps and corresponding source with appropriate authorization; improve repair efficiency without lowering coverage or source verification gates."
     }
   ],
   "user_authorization_updates": [

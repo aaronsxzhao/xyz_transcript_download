@@ -1,0 +1,99 @@
+{
+  "calls": 88,
+  "daily_usd": 37.700172,
+  "segments": 3088,
+  "result": "failed",
+  "error_type": "SummaryOutputError",
+  "code": "quality",
+  "reason": "coverage",
+  "coverage_rounds": [
+    {
+      "phase": "initial",
+      "outcome": "completed",
+      "seconds": 1171.092,
+      "status": "unverified",
+      "status_counts": {
+        "covered": 162,
+        "partial": 22,
+        "missing": 22,
+        "contradicted": 0,
+        "context_only": 2,
+        "unverified": 0
+      },
+      "unresolved_by_kind": {
+        "claim": 14,
+        "condition": 8,
+        "counterexample": 1,
+        "disagreement": 3,
+        "example": 11,
+        "experiment": 0,
+        "procedure": 7
+      },
+      "initial_unresolved": 105,
+      "final_unresolved": 44,
+      "accepted_paragraphs": 31,
+      "rejected_paragraphs": 6,
+      "rejection_reasons": {
+        "ungrounded": 1,
+        "duplicate_or_no_novelty": 2,
+        "still_partial_or_missing": 3
+      },
+      "source_corrected_items": 9,
+      "logical_requests_reported": 59,
+      "coverage_ratio": 0.7864077669902912
+    },
+    {
+      "phase": "after_grounding_repair",
+      "outcome": "completed",
+      "seconds": 388.838,
+      "status": "unverified",
+      "status_counts": {
+        "covered": 162,
+        "partial": 28,
+        "missing": 13,
+        "contradicted": 1,
+        "context_only": 4,
+        "unverified": 0
+      },
+      "unresolved_by_kind": {
+        "claim": 12,
+        "condition": 8,
+        "counterexample": 1,
+        "disagreement": 2,
+        "example": 11,
+        "experiment": 0,
+        "procedure": 8
+      },
+      "initial_unresolved": 48,
+      "final_unresolved": 42,
+      "accepted_paragraphs": 0,
+      "rejected_paragraphs": 0,
+      "rejection_reasons": {},
+      "source_corrected_items": 2,
+      "logical_requests_reported": 34,
+      "coverage_ratio": 0.7941176470588235
+    }
+  ],
+  "wall_seconds": 1998.175,
+  "peak_concurrency": 3,
+  "delivery": {
+    "status": "blocked",
+    "coverage_threshold": 0.9,
+    "coverage_ratio": 0.7941176470588235
+  },
+  "environment": "isolated local reproduction using authorized test podcast transcript and real model; no production result written",
+  "limitations": [
+    "Model status labels and corrected source references are model judgments, not independently verified facts.",
+    "The reproduction naturally failed the coverage gate; it did not stop due to the request or budget guard.",
+    "Historical semantic duplicate analysis was blocked by automatic approval; private statements were not analyzed.",
+    "Synthetic verification results do not establish end-to-end success on real podcasts."
+  ],
+  "prior_70_request_run": "Separate run stopped at request limit with 84.65% intermediate coverage; not a final result.",
+  "pull_requests": [
+    260,
+    261,
+    262,
+    263,
+    264
+  ]
+}
