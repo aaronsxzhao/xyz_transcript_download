@@ -1398,6 +1398,33 @@
       "status": "merged_deployed_online_verified_after_candidate_retry",
       "report": "docs/audits/2026-11-09-rss-coverage-repair.json",
       "not_claimed": "universal one-shot success or100percentcoverage"
+    },
+    {
+      "date": "2026-11-13",
+      "owner": "appearance-repair",
+      "pr": 254,
+      "base_commit": "2ee43fd",
+      "scope": [
+        "W3Schools HTML tutorial extraction",
+        "failed RSS source inventory diagnostics"
+      ],
+      "status": "local_regression_passed_release_verification_pending",
+      "evidence": "docs/audits/2026-11-13-article-rss-repair.md",
+      "results": {
+        "article": "source-specific #main plus site paging/share exclusion; real source comparison; 8 local reader cases",
+        "rss": "original task receipts: InternalServerError in 5 and 2 inventory batches; exact historical HTTP code unavailable; source-review error classification fixed; 90% threshold unchanged"
+      },
+      "budget": {
+        "beijing_date": "2026-11-13",
+        "settled_usd": 0,
+        "active_work_count": 0,
+        "source": "configured test-account provider billing; run 43355523363"
+      },
+      "remaining": [
+        "CI/merge/deploy SHA verification",
+        "live controlled article import",
+        "one budget-checked original RSS retry"
+      ]
     }
   ],
   "audit_attempts": [

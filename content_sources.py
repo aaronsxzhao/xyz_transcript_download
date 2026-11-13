@@ -10,7 +10,7 @@ from public_content_fetch import fetch_public, normalize_public_url
 from social_content import SocialContent, SocialSourceError, html_markdown, _escape, _link, _image_url, social_platform, resolve_social_content
 
 DOCUMENT_PLATFORMS = ('twitter', 'substack', 'web')
-EXTRACTION_VERSION = 'public-article-v1'
+EXTRACTION_VERSION = 'public-article-v2'
 
 
 @dataclass
@@ -141,7 +141,8 @@ def extract_public_article(raw, url, content_type='text/html'):
             chrome.decompose()
     # Remove site chrome, not substantive headers/captions inside the article.
     for node in soup.select('script,style,noscript,nav,aside,form,button,dialog,[hidden],[aria-hidden="true"],.cookie-banner,.cookie-consent,.comments,#comments'):
-        if node.name == 'nav' and tutorial_root is not None and tutorial_root in node.parents:
+        if (node.name == 'nav' and tutorial_root is not None and tutorial_root in node.parents
+                and not node.has_attr('hidden') and node.get('aria-hidden') != 'true'):
             continue  # Preserve the tutorial's own contents/citation navigation.
         node.decompose()
     candidates = ([tutorial_root] if tutorial_root is not None else
