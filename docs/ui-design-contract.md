@@ -11,6 +11,8 @@ This records the accepted product direction, not a new redesign. The authored CS
 
 Both support light and dark. Theme switching changes presentation, not content, navigation, drafts or task state. Light is not simply a white background on dark components. Disabled, selected, hover, focus, loading, error and empty states belong to all four appearances.
 
+Light-mode reader code blocks use black text (`#111`) on their light surface, including unlabelled fences and syntax tokens. Inline prose code and dark-mode syntax palettes retain their existing styles.
+
 Token sources:
 - `web/src/index.css`: Classic base and shared structural rules.
 - `web/src/classic-light.css`: Classic light colors.

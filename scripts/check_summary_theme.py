@@ -41,6 +41,17 @@ def summarize(source):
 2019. Another numbered reference.
 '''
 
+CODE_BLOCKS = '\n\n```\nGREEN    every claim carries a source line\n```\n\n```text\nNOT A CHECK    the output looks good\n```\n'
+
+async def check_code_text(page, theme):
+    if theme != 'light': return
+    nodes = page.locator('.note-prose pre code, .note-prose pre code span')
+    assert await nodes.count() >= 2
+    for node in await nodes.all():
+        assert await node.evaluate('e=>getComputedStyle(e).color') == 'rgb(17, 17, 17)'
+        colors = await node.evaluate(CONTROL)
+        assert colors['ratio'] >= 4.5, colors
+
 async def main():
     parser=argparse.ArgumentParser()
     parser.add_argument('--browser-path');parser.add_argument('--webkit',action='store_true')
@@ -53,25 +64,26 @@ async def main():
             browser=await p.webkit.launch() if args.webkit else await p.chromium.launch(executable_path=args.browser_path,args=['--no-sandbox'])
             for width in [320,390,820]:
                 context=await context_for(browser,width)
-                task,_=fixtures();task.update(markdown=MARKDOWN,versions=[])
+                task,_=fixtures();task.update(markdown=MARKDOWN+CODE_BLOCKS,versions=[])
                 await context.route('**/api/video-notes/tasks/bench*',lambda r:r.fulfill(json=task))
                 await context.route('**/summary-chart.svg',lambda r:r.fulfill(content_type='image/svg+xml',body='<svg xmlns="http://www.w3.org/2000/svg" width="800" height="400"><rect width="800" height="400" fill="#e5dfd3"/><text x="60" y="200" font-size="40">Summary chart</text></svg>'))
                 page=await context.new_page();errors=[]
                 page.on('pageerror',lambda e:errors.append(str(e)))
                 await page.goto(f'http://127.0.0.1:{server.server_port}/videos/bench')
                 await page.locator('[data-rendering="formatted"]').wait_for()
-                await page.locator('pre').wait_for()
+                await page.locator('pre').first.wait_for()
                 for design,theme in [('classic','dark'),('editorial','light'),('editorial','dark'),('classic','light')]:
                     await choose(page,design,theme);await page.wait_for_timeout(250)
-                    await page.locator('pre').scroll_into_view_if_needed()
+                    await page.locator('pre').first.scroll_into_view_if_needed()
                     await page.screenshot(path=str(args.output/f'{width}-{design}-{theme}-summary.png'))
-                    result=await page.locator('pre').evaluate('e=>({bg:getComputedStyle(e.firstElementChild).backgroundColor,width:document.documentElement.scrollWidth,viewport:innerWidth})')
+                    result=await page.locator('pre').first.evaluate('e=>({bg:getComputedStyle(e.firstElementChild).backgroundColor,width:document.documentElement.scrollWidth,viewport:innerWidth})')
                     if not args.capture_only:
                         assert result['width']<=result['viewport'],result
+                        await check_code_text(page,theme)
                         assert await page.locator('ol[start="2018"]').evaluate('e=>getComputedStyle(e).listStylePosition==="inside"')
                         expected=await page.locator('html').evaluate('e=>getComputedStyle(e).getPropertyValue("--ui-surface").trim() || "#eef2f8"')
                         if design=='editorial' or theme=='light':
-                            actual=await page.locator('.summary-code').evaluate('(e,color)=>{const s=document.createElement("span");s.style.color=color;document.body.append(s);const v=getComputedStyle(s).color;s.remove();return {actual:getComputedStyle(e).backgroundColor,expected:v}}',expected)
+                            actual=await page.locator('.summary-code').first.evaluate('(e,color)=>{const s=document.createElement("span");s.style.color=color;document.body.append(s);const v=getComputedStyle(s).color;s.remove();return {actual:getComputedStyle(e).backgroundColor,expected:v}}',expected)
                             assert actual['actual']==actual['expected'],actual
                             for node in await page.locator('.summary-code .token, .note-prose th, .summary-screenshot-placeholder').all():
                                 colors=await node.evaluate(CONTROL)
@@ -84,6 +96,7 @@ async def main():
                     await page.keyboard.press('Escape');await page.locator('.screenshot-gallery').wait_for(state='hidden')
                     print(json.dumps({'width':width,'design':design,'theme':theme,'result':result}),flush=True)
                 task.update(platform='web',style='original',markdown='# Article\n\n2018\\. A year in an ordinary source paragraph.\n\n[Video source](https://www.youtube.com/watch?v=dQw4w9WgXcQ)\n\n[Source article](https://example.com/reference)\n\n2018. A real numbered reference.\n2019. Another reference.\n\n## Large reference numbers\n\n999999998. A very large legitimate marker.\n999999999. The next marker.\n\n> A quotation with '+('UnbrokenText'*20)+'\n\n| Field | Details | Value |\n| --- | --- | --- |\n| Original | A detailed source explanation | Preserved |')
+                task['markdown'] += CODE_BLOCKS
                 await context.route('https://www.youtube-nocookie.com/**',lambda r:r.fulfill(content_type='text/html',body='<p>Synthetic player</p>'))
                 await page.reload();await page.locator('.article-link-card').first.wait_for()
                 for design,theme in [('editorial','light'),('editorial','dark'),('classic','light')]:
@@ -91,6 +104,7 @@ async def main():
                     await page.locator('.article-link-card').first.scroll_into_view_if_needed()
                     await page.screenshot(path=str(args.output/f'{width}-{design}-{theme}-article.png'))
                     if not args.capture_only:
+                        await check_code_text(page,theme)
                         assert await page.locator('.note-prose p').filter(has_text='2018. A year in an ordinary source paragraph.').count()==1
                         assert await page.locator('ol[start="999999998"]').count()==1
                         for size in ['18px','28px']:
