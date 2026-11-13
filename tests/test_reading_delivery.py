@@ -135,6 +135,46 @@ def test_changed_final_text_requires_new_grounding_and_cannot_reuse_stale_pass()
     assert review.call_count==1
 
 
+@pytest.mark.parametrize('reject_second', [False, True])
+def test_final_review_runs_independent_batches_in_parallel_without_weakening_gate(reject_second):
+    owner, edition = candidate(10)
+    owner.generation_report.pop('grounded_draft_identity')
+    lines = edition['lines']
+    barrier = threading.Barrier(2, timeout=5)
+    active = [0, 0]
+    lock = threading.Lock()
+    drafts = []
+    progress = []
+    def review(_engine, _system, payload, _timeout):
+        request = json.loads(payload)
+        with lock:
+            active[0] += 1
+            active[1] = max(active)
+            drafts.append(request['global_draft'])
+        try:
+            barrier.wait()
+            ident = request['primary_source'][0]['id']
+            return {'checked_source_ids':[ident], 'complete':True,
+                    'grounded':not (reject_second and ident == lines[1].id),
+                    'unsupported_paragraph_ids':[], 'additions':[]}
+        finally:
+            with lock: active[0] -= 1
+    with patch('transcript_reading.batches',return_value=[[lines[0]], [lines[1]]]), \
+         patch('transcript_reading.call_json', side_effect=review) as check:
+        if reject_second:
+            with pytest.raises(SummaryOutputError) as error:
+                accept_edition(owner,edition,'Title','Source',[],0,stage_callback=progress.append)
+            assert error.value.reason == 'grounding'
+            assert owner.generation_report['delivery']['status'] == 'blocked'
+        else:
+            result = accept_edition(owner,edition,'Title','Source',[],0,stage_callback=progress.append)
+            assert result['markdown']
+            assert owner.generation_report['delivery']['status'] == 'accepted'
+    assert check.call_count == 2 and active[1] == 2
+    assert drafts[0] == drafts[1]
+    assert [event['completed'] for event in progress if event.get('stage') == 'quality' and event.get('total') == 2] == [0,1,2]
+
+
 def test_final_review_forwards_only_rejected_paragraph_feedback_and_rechecks():
     owner, edition = candidate(10)
     owner.generation_report.pop('grounded_draft_identity')

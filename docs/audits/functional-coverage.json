@@ -1588,6 +1588,13 @@
       "report": "docs/audits/2026-11-13-podcast-reference-repair.json",
       "scope": "Target invalid source ranges only; preserve prose, run full validation, retain grounding/coverage gates",
       "remaining": "Live reported episode failed on deployed PR260; PR261 not deployed; exact root type varies between model requests; end-to-end success and latency unproven."
+    },
+    {
+      "id": "2026-11-13-parallel-final-review",
+      "status": "local_tests_passed_release_pending",
+      "report": "docs/audits/2026-11-13-parallel-final-review.json",
+      "scope": "Bound final immutable-draft reviews to two parallel batches while retaining all source checks and existing gates.",
+      "remaining": "Measured provider and full reported podcast performance and acceptance."
     }
   ],
   "user_authorization_updates": [

@@ -1,0 +1,17 @@
+{
+  "base": "f9ede9997d1b778744c9db865ad2ec86ed8d5250",
+  "trigger": "Reported 3088-segment podcast. In isolated full-generation test, eight final review batches were executed sequentially; the run reached the 70-request guard at 2533.961 seconds with 84.65% coverage and no published result. Cancellation by the test guard is not a provider failure.",
+  "change": "Review every immutable final-draft batch with at most two parallel workers, retain all independent validations and block if any batch rejects. Existing per-owner model limit remains three.",
+  "local_verification": "214 tests passed including simultaneous execution of two batches, same immutable draft, monotonic progress and fail-closed rejection.",
+  "real_provider": {
+    "scope": "synthetic two-batch source, same model and source; no production writes",
+    "serial_seconds": 9.01,
+    "parallel_seconds": 4.85,
+    "requests_each": 2,
+    "outcome_each": "accepted",
+    "peak_concurrency": 2,
+    "budget_after_usd": 29.86401
+  },
+  "remaining": "Full reported podcast did not finish inside test request cap; coverage quality, end-to-end success and production latency remain unproven.",
+  "cost": "Before this comparison, Beijing day settled USD29.806216; no production writes in the isolated run."
+}
