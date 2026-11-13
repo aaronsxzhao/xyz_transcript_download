@@ -1445,6 +1445,12 @@
       "scope": "Reopened light-code legibility; child text assertion added, prior PR253 coverage limited"
     },
     {
+      "date": "2026-11-13",
+      "report": "docs/audits/2026-11-13-progress-freshness.json",
+      "status": "local_passed_pending_release",
+      "scope": "Correct observed long-wait reset; no claim that all podcast latency is fixed"
+    },
+    {
       "checked_at": "2026-11-13T05:10:03.107440+00:00",
       "report": "docs/audits/2026-11-13-list-parity.json",
       "status": "local verified; pending release",

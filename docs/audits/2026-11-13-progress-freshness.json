@@ -1,0 +1,32 @@
+{
+  "date": "2026-11-13",
+  "base": "0f69b5f",
+  "scope": "Task progress age across panel reopen and page reload",
+  "cause": "Client-only lastChange reset on mount; existing backend revision/updated_at not passed to shared progress component",
+  "fix": "Use existing epoch status timestamps for elapsed quiet-progress age; reject legacy counters/invalid/future timestamps; state that activity remains unconfirmed without a new result",
+  "validation": {
+    "unit": "27 targeted passed",
+    "build": "Node22.23.5 with clean npm ci from current lockfile: TypeScript/Vite and unchanged197.75KiB budget passed (197.7KiB). Initial CI found reused local dependencies non-equivalent; compacted feedback without raising threshold.",
+    "browser": "12 cases Classic/Editorial light/dark 390/820/1440, real Chromium sandbox; before all hide 10 minute wait, after all preserve it on panel reopen",
+    "viewed": [
+      "before-classic-light-390",
+      "after-classic-light-390",
+      "after-editorial-light-390"
+    ],
+    "existing_browser": "processing progress regression 390/1440 passed: parallel socket/poll, fast completion, detail unavailable and clock skew"
+  },
+  "live_readonly": {
+    "revision": "0f69b5f1d6986baa3c33af524ccd8187c0def915",
+    "jobs": 16,
+    "latest_completed_task": "92b92730-754b-460a-903c-956a33f94e6d",
+    "approx_run_seconds": 406.484,
+    "limitation": "Does not identify user screenshot account long-running tasks; source URL requested"
+  },
+  "pipeline_findings": [
+    "Video uses platform subtitles when available, skipping audio download/transcription; podcast reuses valid saved/shared transcript or processes audio",
+    "Both summary wrappers call transcript_reading.generate; model JSON requests return complete responses, not continuous streaming output",
+    "Worker lease heartbeats are separate from progress and do not prove provider advancement"
+  ],
+  "release": "pending CI/deploy",
+  "paid_calls": 0
+}

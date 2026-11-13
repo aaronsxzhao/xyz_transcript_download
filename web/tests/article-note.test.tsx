@@ -116,3 +116,14 @@ it('keeps an attachment player when the body has only a linked poster',async()=>
  expect(node.querySelectorAll('video')).toHaveLength(1)
  expect(node.querySelector('img')?.src).toBe('https://example.com/poster.jpg')
 })
+
+it('keeps the post and linked Article in one source card without losing later references',async()=>{
+ const post='https://x.com/i/status/2091515787366306154',short='https://t.co/5w8ILIIelz'
+ await act(async()=>root.render(<ArticleNote markdown={`[Original source](${post})\n\n${short}\n\nBody.\n\nhttps://example.com/reference`}/>))
+ const cards=node.querySelectorAll('.article-link-card')
+ expect(cards).toHaveLength(2)
+ expect([...cards[0].querySelectorAll('a')].map(a=>a.href)).toEqual([post,short])
+ expect(cards[0].textContent).toContain('Original post')
+ expect(cards[0].textContent).toContain('Linked source')
+ expect(cards[1].querySelector('a')?.href).toBe('https://example.com/reference')
+})

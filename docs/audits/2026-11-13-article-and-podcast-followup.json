@@ -1,0 +1,294 @@
+{
+  "date": "2026-11-13",
+  "scope": "User-reported X source cards and long podcast processing",
+  "source_links": {
+    "post": "https://x.com/i/status/2091515787366306154",
+    "article": "https://x.com/i/article/2091485629452304385",
+    "controlled_import": "b517cccf-052",
+    "change": "Group adjacent original-post and linked-source cards while preserving both destinations and unrelated citations; display only, no saved Markdown rewriting."
+  },
+  "podcast": {
+    "status": "found",
+    "task_count": 2,
+    "production_writes": false,
+    "provider_calls": 0,
+    "tasks": [
+      {
+        "task_id": "63208f3e-1150-4d04-aafa-83f49a772878",
+        "state": "failed",
+        "stages": {
+          "model.editor": {
+            "calls": 102,
+            "seconds": 3447.089000000001,
+            "failed_calls": 8
+          },
+          "model.phase.draft": {
+            "calls": 1,
+            "seconds": 112.55
+          },
+          "model.phase.match": {
+            "calls": 50,
+            "seconds": 1364.9820000000002,
+            "failed_calls": 1
+          },
+          "model.phase.other": {
+            "calls": 3,
+            "seconds": 49.486
+          },
+          "model.phase.repair": {
+            "calls": 13,
+            "seconds": 293.3539999999999
+          },
+          "model.phase.grounding": {
+            "calls": 7,
+            "seconds": 108.35100000000001
+          },
+          "model.phase.inventory": {
+            "calls": 13,
+            "seconds": 502.49799999999993
+          },
+          "model.phase.repair_grounding": {
+            "calls": 1,
+            "seconds": 15.039
+          },
+          "model.phase.validate_inventory": {
+            "calls": 14,
+            "seconds": 190.40800000000002
+          }
+        },
+        "generation": {
+          "delivery": {
+            "coverage_ratio": 0.7299270072992701,
+            "coverage_threshold": 0.9,
+            "status": "blocked",
+            "reason": "grounding"
+          },
+          "coverage_ledger": {
+            "coverage_ratio": 0.7299270072992701,
+            "threshold": 0.9,
+            "failed_batches": 0,
+            "inventory_failed_batches": 0,
+            "inventory_validation_failed_batches": 0,
+            "ignored_boundary_items": 0,
+            "terminal_provider_failure": false,
+            "grounding_concerns": true,
+            "unresolved_items": 37,
+            "covered_items": 100,
+            "requests": 24,
+            "validation_retries": 0,
+            "repairs_accepted": 0,
+            "repairs_rejected": 0,
+            "inventory_transport_retries": 0,
+            "inventory_split_retries": 0,
+            "inventory_recovered_batches": 0,
+            "inventory_batches": 11,
+            "status": "unverified",
+            "inventory_error_types": {
+              "ValueError": 0,
+              "SummaryOutputError": 0,
+              "APIConnectionError": 0,
+              "APITimeoutError": 0,
+              "TimeoutError": 0,
+              "APIStatusError": 0,
+              "RateLimitError": 0,
+              "RuntimeError": 0,
+              "ReadTimeout": 0,
+              "ConnectError": 0,
+              "ConnectionError": 0,
+              "ModelRequestTimeout": 0,
+              "InternalServerError": 0,
+              "BadRequestError": 0,
+              "AuthenticationError": 0,
+              "PermissionDeniedError": 0,
+              "NotFoundError": 0,
+              "UnprocessableEntityError": 0
+            },
+            "inventory_http_statuses": {
+              "408": 0,
+              "429": 0,
+              "500": 0,
+              "502": 0,
+              "503": 0,
+              "504": 0,
+              "524": 0
+            },
+            "inventory_failures_recorded": 0,
+            "inventory_failures_available": true,
+            "item_status_counts": {
+              "covered": 100,
+              "missing": 9,
+              "partial": 28,
+              "contradicted": 0,
+              "unverified": 0,
+              "context_only": 0
+            }
+          },
+          "verification": {
+            "reviewed": 1,
+            "review_attempts": 1,
+            "review_parts": 1,
+            "final_coverage_attempts": 0,
+            "status": "unverified"
+          }
+        },
+        "wall_seconds": 2194.986,
+        "checkpoint_hits": 13
+      },
+      {
+        "task_id": "ae557f9c-4145-4880-8159-601f258d3db7",
+        "state": "failed",
+        "stages": {
+          "model.editor": {
+            "calls": 71,
+            "seconds": 2739.2159999999994,
+            "failed_calls": 1
+          },
+          "model.phase.draft": {
+            "calls": 1,
+            "seconds": 148.231
+          },
+          "model.phase.match": {
+            "calls": 34,
+            "seconds": 1292.4639999999997
+          },
+          "model.phase.other": {
+            "calls": 2,
+            "seconds": 25.281
+          },
+          "model.phase.repair": {
+            "calls": 7,
+            "seconds": 243.80900000000003
+          },
+          "model.phase.grounding": {
+            "calls": 7,
+            "seconds": 245.89899999999997
+          },
+          "model.phase.inventory": {
+            "calls": 11,
+            "seconds": 519.747
+          },
+          "transcription.segment": {
+            "calls": 6,
+            "seconds": 28.107999999999997
+          },
+          "model.phase.repair_grounding": {
+            "calls": 1,
+            "seconds": 51.871
+          },
+          "model.phase.validate_inventory": {
+            "calls": 8,
+            "seconds": 154.88500000000002
+          }
+        },
+        "generation": {
+          "delivery": {
+            "coverage_ratio": 0.82,
+            "coverage_threshold": 0.9,
+            "status": "blocked",
+            "reason": "grounding"
+          },
+          "coverage_ledger": {
+            "coverage_ratio": 0.82,
+            "threshold": 0.9,
+            "failed_batches": 0,
+            "inventory_failed_batches": 0,
+            "inventory_validation_failed_batches": 0,
+            "ignored_boundary_items": 0,
+            "terminal_provider_failure": false,
+            "grounding_concerns": false,
+            "unresolved_items": 27,
+            "covered_items": 123,
+            "requests": 25,
+            "validation_retries": 0,
+            "repairs_accepted": 0,
+            "repairs_rejected": 0,
+            "inventory_transport_retries": 0,
+            "inventory_split_retries": 0,
+            "inventory_recovered_batches": 0,
+            "inventory_batches": 11,
+            "status": "unverified",
+            "inventory_error_types": {
+              "ValueError": 0,
+              "SummaryOutputError": 0,
+              "APIConnectionError": 0,
+              "APITimeoutError": 0,
+              "TimeoutError": 0,
+              "APIStatusError": 0,
+              "RateLimitError": 0,
+              "RuntimeError": 0,
+              "ReadTimeout": 0,
+              "ConnectError": 0,
+              "ConnectionError": 0,
+              "ModelRequestTimeout": 0,
+              "InternalServerError": 0,
+              "BadRequestError": 0,
+              "AuthenticationError": 0,
+              "PermissionDeniedError": 0,
+              "NotFoundError": 0,
+              "UnprocessableEntityError": 0
+            },
+            "inventory_http_statuses": {
+              "408": 0,
+              "429": 0,
+              "500": 0,
+              "502": 0,
+              "503": 0,
+              "504": 0,
+              "524": 0
+            },
+            "inventory_failures_recorded": 0,
+            "inventory_failures_available": true,
+            "item_status_counts": {
+              "covered": 123,
+              "missing": 8,
+              "partial": 19,
+              "contradicted": 0,
+              "unverified": 0,
+              "context_only": 1
+            }
+          },
+          "verification": {
+            "reviewed": 1,
+            "review_attempts": 1,
+            "review_parts": 1,
+            "final_coverage_attempts": 0,
+            "status": "unverified"
+          }
+        },
+        "wall_seconds": 1901.639,
+        "checkpoint_hits": 0
+      }
+    ]
+  },
+  "findings": {
+    "latency": "Historical wall times 1901.639 and 2194.986 seconds; 71 and 102 model calls. Accumulated model durations overlap and must not be added to wall time. Transcription was not the dominant cost in the measured task.",
+    "progress_fix": "Forward existing stage callback into four later efficient_audit calls; no retry, quality threshold or algorithm change.",
+    "remaining": "Repeated full coverage matching and repair drives model work. Core optimization requires a separate plan and validation; this patch does not claim to resolve all grounding failures or speed up model inference."
+  },
+  "validation": {
+    "backend": "47 passed; callback regression failed before fix in resume and final-coverage paths",
+    "frontend": "27 passed",
+    "browser": "12 local fixture cases: Classic/Editorial, light/dark, 390/768/1440, refresh; grouped card keeps both links, unrelated citation retained",
+    "images_viewed": [
+      "Editorial light 390",
+      "Classic dark 1440",
+      "Live before import screenshot"
+    ],
+    "limitations": "Local fixture image-proxy responses are not production media acceptance. No physical device tests.",
+    "build": "Node 22 clean lockfile build: 197.0 KiB, unchanged 197.75 KiB budget"
+  },
+  "billing": {
+    "new_paid_calls": 0,
+    "latest_readonly_snapshot_usd": 20.466298,
+    "snapshot_run": 43374841469,
+    "active_work_at_snapshot": 0,
+    "note": "Snapshot only, not a hard cap or reservation for future calls"
+  },
+  "release": {
+    "status": "pending CI, merge, deployment and live verification"
+  },
+  "evidence_paths": [
+    "/workspace/article-link-evidence",
+    "https://github.com/aaronsxzhao/xyz_transcript_download/actions/runs/43374841469"
+  ]
+}

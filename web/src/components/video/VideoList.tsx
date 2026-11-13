@@ -209,7 +209,7 @@ export default function VideoList({ videos, onDelete, onRetry, onCancel }: {
                 }
 
                 if (isProcessing(task.status)) {
-                  return <div className="collection-task"><TaskProgress status={task.status} progress={task.progress} startedAt={task.started_at} message={task.message} compact/></div>
+                  return <div className="collection-task"><TaskProgress status={task.status} progress={task.progress} startedAt={task.started_at} updatedAt={task.updated_at} message={task.message} compact/></div>
                 }
 
                 if(sourceAction(errorMsg))return <Link className="ui-button" to="/settings">Check source access</Link>
