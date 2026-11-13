@@ -99,6 +99,7 @@ def accept_edition(engine, edition, title, source, formats, duration, stage_call
             prepared_inventory=engine._quality_inventory, stage_callback=stage_callback)
     grounding_repaired = False
     coverage_repaired = False
+    late_contradiction_repaired = False
     review_failures = 0
     report['final_coverage_repair_rounds'] = 0
     # At most one grounding replacement and one final coverage repair. Every
@@ -173,6 +174,28 @@ def accept_edition(engine, edition, title, source, formats, duration, stage_call
                 report['grounded_draft_identity'] = identity
             ledger = report['coverage_ledger']
             if not coverage_acceptable(ledger, threshold):
+                # A full recheck after a grounding rewrite may discover a
+                # different contradiction. Give identifiable paragraphs one
+                # bounded correction, then recheck the complete draft and
+                # source inventory. Never treat the contradiction as resolved
+                # merely because the editor returned a replacement.
+                contradicted_ids = {pid for item in ledger.get('items', [])
+                    if item['status'] == 'contradicted'
+                    for pid in item.get('paragraph_ids', [])}
+                has_failed_checks = any(ledger.get(k) for k in ('failed_batches',
+                    'inventory_failed_batches', 'inventory_validation_failed_batches',
+                    'ignored_boundary_items', 'terminal_provider_failure'))
+                if (grounding_repaired and not late_contradiction_repaired
+                        and contradicted_ids and not has_failed_checks and attempt < 2):
+                    late_contradiction_repaired = True
+                    if 'overview' in contradicted_ids:
+                        overview = ''
+                    repair_unsupported(engine, lines, sections, contradicted_ids-{'overview'})
+                    report.pop('grounded_draft_identity', None)
+                    report['coverage_ledger'] = measure_coverage_round(engine, 'after_grounding_repair',
+                        efficient_audit, lines, sections, overview, prepared_inventory=engine._quality_inventory,
+                        allow_repairs=False, stage_callback=stage_callback)
+                    continue
                 hard_failure = (any(ledger.get(k) for k in ('failed_batches',
                     'inventory_failed_batches', 'inventory_validation_failed_batches',
                     'ignored_boundary_items', 'terminal_provider_failure')) or

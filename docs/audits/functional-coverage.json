@@ -1609,6 +1609,16 @@
       "report": "docs/audits/2026-11-13-proposed-only-duplicate-review.json",
       "scope": "Run existing independent source, novelty and contradiction verifier for eligible new-only duplicate flags; preserve all quality gates.",
       "remaining": "Real historic false-positive rate and end-to-end long podcast acceptance remain unverified."
+    },
+    {
+      "id": "2026-11-13-late-contradiction-recovery",
+      "scope": "Podcast source-review and coverage recovery",
+      "result": "local regression passed; real-podcast acceptance pending",
+      "environment": "local synthetic regression; production history read-only aggregated metadata",
+      "observation": "A contradiction discovered after an initial grounding repair could terminate the run without a targeted correction. One 189-item historical inventory had no exact normalized duplicate statements; this does not determine semantic duplicates.",
+      "change": "Allow one bounded targeted correction when all source checks succeeded and a contradicted paragraph is identifiable. Re-run complete coverage and grounding checks; retain failure on persistent contradiction, failed source checks or missing paragraph IDs.",
+      "limitations": "The historical contradictory item has not been semantically adjudicated; no complete real-model end-to-end success or performance improvement has been demonstrated. A second correction may increase cost and duration.",
+      "next_step": "After daily budget permits, run a real authorized test podcast end to end and measure calls, latency, grounding and final coverage."
     }
   ],
   "user_authorization_updates": [

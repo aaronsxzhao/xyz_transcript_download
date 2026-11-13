@@ -422,6 +422,67 @@ def test_contradicted_saved_receipt_requires_source_replacement_not_append_or_st
     assert check.call_count==1  # Even a no-op replacement cannot reuse a stale pass.
 
 
+@pytest.mark.parametrize('resolved', [True, False])
+def test_new_contradiction_after_grounding_repair_gets_one_bounded_correction(resolved):
+    owner, edition = candidate(10)
+    owner._quality_inventory = ({}, [])
+    edition['sections'][0]['paragraphs'][0]['raw'] = True
+    first = copy.deepcopy(owner.generation_report['coverage_ledger'])
+    first['items'][0].update(status='contradicted', paragraph_ids=['P1'])
+    second = copy.deepcopy(first)
+    if resolved:
+        second['items'][0]['status'] = 'covered'
+    review = {'checked_source_ids': [line.id for line in edition['lines']],
+              'complete': True, 'grounded': True,
+              'unsupported_paragraph_ids': [], 'additions': []}
+
+    def rewrite(_engine, _lines, sections, _ids):
+        paragraph = sections[0]['paragraphs'][0]
+        paragraph.pop('raw', None)
+        paragraph['text'] += ' corrected'
+
+    with patch('reading_delivery.repair_unsupported', side_effect=rewrite) as repair, \
+         patch('coverage_ledger.efficient_audit', side_effect=[first, second]) as audit, \
+         patch('transcript_reading.call_json', return_value=review) as check:
+        if resolved:
+            accept_edition(owner, edition, 'Title', 'Source', [], 0)
+            assert owner.generation_report['delivery']['status'] == 'accepted'
+            assert check.call_count == 2  # The corrected final draft is reviewed again.
+        else:
+            with pytest.raises(SummaryOutputError):
+                accept_edition(owner, edition, 'Title', 'Source', [], 0)
+            assert owner.generation_report['delivery']['status'] == 'blocked'
+        assert repair.call_count == 2
+        assert audit.call_count == 2
+        assert all(call.kwargs['allow_repairs'] is False for call in audit.call_args_list)
+
+
+@pytest.mark.parametrize('failure', ['missing_ids', 'failed_source_check'])
+def test_late_contradiction_cannot_bypass_unlocatable_or_failed_check(failure):
+    owner, edition = candidate(10)
+    owner._quality_inventory = ({}, [])
+    edition['sections'][0]['paragraphs'][0]['raw'] = True
+    ledger = copy.deepcopy(owner.generation_report['coverage_ledger'])
+    ledger['items'][0].update(status='contradicted',
+                              paragraph_ids=[] if failure == 'missing_ids' else ['P1'])
+    if failure == 'failed_source_check':
+        ledger['inventory_validation_failed_batches'] = 1
+    review = {'checked_source_ids': [line.id for line in edition['lines']],
+              'complete': True, 'grounded': True,
+              'unsupported_paragraph_ids': [], 'additions': []}
+
+    def rewrite(_engine, _lines, sections, _ids):
+        sections[0]['paragraphs'][0].pop('raw', None)
+
+    with patch('reading_delivery.repair_unsupported', side_effect=rewrite) as repair, \
+         patch('coverage_ledger.efficient_audit', return_value=ledger), \
+         patch('transcript_reading.call_json', return_value=review):
+        with pytest.raises(SummaryOutputError):
+            accept_edition(owner, edition, 'Title', 'Source', [], 0)
+    assert repair.call_count == 1
+    assert owner.generation_report['delivery']['status'] == 'blocked'
+
+
 def test_noop_grounding_repair_cannot_publish_raw_fallback_even_with_passing_ledger():
     owner,edition=candidate(10);owner._quality_inventory=({},[])
     edition['sections'][0]['paragraphs'][0]['raw']=True
