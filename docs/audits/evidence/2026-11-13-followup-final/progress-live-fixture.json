@@ -1,0 +1,84 @@
+{
+  "checks": {},
+  "http_errors": [],
+  "console_errors": 0,
+  "page_errors": 0,
+  "timings": {},
+  "screenshots": [],
+  "revision": "f9f4238df6fded65e8f01e5256a08b039fad9e3f",
+  "scope": "Production frontend assets with synthetic progress fixture after normal sign-in; NOT real worker progress acceptance",
+  "matrix": [
+    {
+      "design": "classic",
+      "theme": "light",
+      "width": 390,
+      "reopen_keeps_server_age": true
+    },
+    {
+      "design": "classic",
+      "theme": "dark",
+      "width": 390,
+      "reopen_keeps_server_age": true
+    },
+    {
+      "design": "editorial",
+      "theme": "light",
+      "width": 390,
+      "reopen_keeps_server_age": true
+    },
+    {
+      "design": "editorial",
+      "theme": "dark",
+      "width": 390,
+      "reopen_keeps_server_age": true
+    },
+    {
+      "design": "classic",
+      "theme": "light",
+      "width": 768,
+      "reopen_keeps_server_age": true
+    },
+    {
+      "design": "classic",
+      "theme": "dark",
+      "width": 768,
+      "reopen_keeps_server_age": true
+    },
+    {
+      "design": "editorial",
+      "theme": "light",
+      "width": 768,
+      "reopen_keeps_server_age": true
+    },
+    {
+      "design": "editorial",
+      "theme": "dark",
+      "width": 768,
+      "reopen_keeps_server_age": true
+    },
+    {
+      "design": "classic",
+      "theme": "light",
+      "width": 1440,
+      "reopen_keeps_server_age": true
+    },
+    {
+      "design": "classic",
+      "theme": "dark",
+      "width": 1440,
+      "reopen_keeps_server_age": true
+    },
+    {
+      "design": "editorial",
+      "theme": "light",
+      "width": 1440,
+      "reopen_keeps_server_age": true
+    },
+    {
+      "design": "editorial",
+      "theme": "dark",
+      "width": 1440,
+      "reopen_keeps_server_age": true
+    }
+  ]
+}

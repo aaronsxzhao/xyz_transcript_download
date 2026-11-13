@@ -2,9 +2,9 @@
   "schema_version": 1,
   "site": "https://aipodcastsummary.online",
   "repository": "aaronsxzhao/xyz_transcript_download",
-  "updated_at": "2026-11-13T04:14:29.428151+00:00",
-  "tested_commit": "ec1406924638a7475ae219a17a5dc03aaff595fa",
-  "current_report": "docs/audits/2026-11-13-reader-fixes.json",
+  "updated_at": "2026-11-13T06:49:28.529969+00:00",
+  "tested_commit": "f9f4238df6fded65e8f01e5256a08b039fad9e3f",
+  "current_report": "docs/audits/2026-11-13-consolidated-followup.json",
   "inventory_basis": [
     "web/src/App.tsx routes",
     "current repository feature components and prior audit records",
@@ -499,10 +499,10 @@
         "quality": "summary quality audit for semantic coverage where applicable"
       },
       "risk": "high",
-      "last_actual_check": "2026-11-10T13:27:25.439880+00:00",
-      "environment": "production83307d5,sandboxedChromium154;isolatedHTTP524separatelyrecorded",
+      "last_actual_check": "2026-11-13 (prior PR254 release acceptance; not rerun in this follow-up)",
+      "environment": "Production17340db; prior authenticated release acceptance reviewed via PR254final evidence",
       "account_type": "authorized dedicated test account; existing data read-only",
-      "data_scale": "1new1943secondRSSepisode;488savedtranscriptsegments;1createddisposabledeleted;2generationattemptsbothcoveragefail",
+      "data_scale": "Prior same-source explicitRSSretry414.5s;488segments;coverage47/48;parallelsearch/read/current-rundisposabledelete",
       "steps": [
         "Normal UI RSS import",
         "Normal failed-job retry",
@@ -514,18 +514,15 @@
         "docs/audits/2026-11-09-rss-coverage-repair.json",
         "docs/audits/2026-11-10-deep-acceptance.json"
       ],
-      "result": "partial_failed_new_rss",
-      "production_result": "partial_failed_new_rss",
+      "result": "passed_scoped_prior_release_evidence",
+      "production_result": "passed_scoped_prior_release_evidence",
       "gaps": [
-        "New32minuteRSS initial and explicit retry fail coverage validation;requires receipt-leveldiagnosis",
-        "Successful multi-minute inference+paralleldelete+finalsavedsummary not yet accepted;106.82second observed summary interval ended in failure",
-        "Real upstream524event absent;hostedqueue infrastructure paused by user"
+        "User-specific tens-of-minutes podcast tasks need exact source/task evidence",
+        "Actual upstream524 not established;independent hostedqueuepaused"
       ],
-      "issues": [
-        "rss-coverage-20261110"
-      ],
+      "issues": [],
       "in_progress_prs": [],
-      "next_check": "Receipt-level diagnosis of the recorded taskIDs;preserve90percent contract",
+      "next_check": "Investigate user-specific long task and feedback; preserve quality gates",
       "production_followups": [
         {
           "checked_at": "2026-11-07T09:04:12.403725+08:00",
@@ -554,7 +551,7 @@
           "result": "passed_scoped_after_candidate_retry"
         }
       ],
-      "current_scope": "Import same RSS; real processing339s initially blocked grounding; checkpoint retry285s accepted37/41; summary/transcript/reload/multitab passed. Search/read/delete at125s while firsttask summarizing. This scope does not claim every operation in the inventory chain was rerun.",
+      "current_scope": "PR254 explicit UI retry completed with unchanged90%gate;summary/transcript/refresh and concurrentsearch/read/delete accepted; fresh readonlyreceiptconfirmedacceptedcandidate,notnewpaidexecution",
       "deep_acceptance_followups": [
         {
           "checked_at": "2026-11-10T13:27:25.439880+00:00",
@@ -566,7 +563,28 @@
           "report": "docs/audits/2026-11-11-technical-pm.json",
           "result": "See per-item current/prior/blocked/decision dispositions;no wholesale promotion"
         }
-      ]
+      ],
+      "historical_snapshots": [
+        {
+          "last_actual_check": "2026-11-10T13:27:25.439880+00:00",
+          "environment": "production83307d5,sandboxedChromium154;isolatedHTTP524separatelyrecorded",
+          "data_scale": "1new1943secondRSSepisode;488savedtranscriptsegments;1createddisposabledeleted;2generationattemptsbothcoveragefail",
+          "result": "partial_failed_new_rss",
+          "production_result": "partial_failed_new_rss",
+          "gaps": [
+            "New32minuteRSS initial and explicit retry fail coverage validation;requires receipt-leveldiagnosis",
+            "Successful multi-minute inference+paralleldelete+finalsavedsummary not yet accepted;106.82second observed summary interval ended in failure",
+            "Real upstream524event absent;hostedqueue infrastructure paused by user"
+          ],
+          "issues": [
+            "rss-coverage-20261110"
+          ],
+          "next_check": "Receipt-level diagnosis of the recorded taskIDs;preserve90percent contract",
+          "current_scope": "Import same RSS; real processing339s initially blocked grounding; checkpoint retry285s accepted37/41; summary/transcript/reload/multitab passed. Search/read/delete at125s while firsttask summarizing. This scope does not claim every operation in the inventory chain was rerun."
+        }
+      ],
+      "evidence_reviewed_at": "2026-11-13T05:45:44.429547+00:00",
+      "evidence_reference": "https://github.com/aaronsxzhao/xyz_transcript_download/pull/254"
     },
     {
       "id": "podcast-processing-delete",
@@ -577,10 +595,10 @@
         "quality": "summary quality audit for semantic coverage where applicable"
       },
       "risk": "high",
-      "last_actual_check": "2026-11-10T13:27:25.439880+00:00",
-      "environment": "production83307d5,sandboxedChromium154;isolatedHTTP524separatelyrecorded",
+      "last_actual_check": "2026-11-13 (prior PR254 release acceptance; not rerun in this follow-up)",
+      "environment": "Production17340db; prior authenticated release acceptance reviewed via PR254final evidence",
       "account_type": "authorized dedicated test account; existing data read-only",
-      "data_scale": "1new1943secondRSSepisode;488savedtranscriptsegments;1createddisposabledeleted;2generationattemptsbothcoveragefail",
+      "data_scale": "Prior same-source explicitRSSretry414.5s;488segments;coverage47/48;parallelsearch/read/current-rundisposabledelete",
       "steps": [
         "Normal UI RSS import",
         "Normal failed-job retry",
@@ -593,20 +611,17 @@
         "docs/audits/2026-11-10-deep-acceptance.json",
         "docs/audits/2026-11-11-appearance.json"
       ],
-      "result": "partial_failed_new_rss",
-      "production_result": "partial_failed_new_rss",
+      "result": "passed_scoped_prior_release_evidence",
+      "production_result": "passed_scoped_prior_release_evidence",
       "gaps": [
-        "New32minuteRSS initial and explicit retry fail coverage validation;requires receipt-leveldiagnosis",
-        "Successful multi-minute inference+paralleldelete+finalsavedsummary not yet accepted;106.82second observed summary interval ended in failure",
-        "Real upstream524event absent;hostedqueue infrastructure paused by user"
+        "User-specific tens-of-minutes podcast tasks need exact source/task evidence",
+        "Actual upstream524 not established;independent hostedqueuepaused"
       ],
-      "issues": [
-        "rss-coverage-20261110"
-      ],
+      "issues": [],
       "in_progress_prs": [
         250
       ],
-      "next_check": "Receipt-level diagnosis of the recorded taskIDs;preserve90percent contract",
+      "next_check": "Investigate user-specific long task and feedback; preserve quality gates",
       "production_followups": [
         {
           "checked_at": "2026-11-09T06:25:19.176223+00:00",
@@ -630,7 +645,7 @@
           "data_scale": "1 public RSS episode,1 disposable synthetic audio,1 existing controlled test video;3simulatedviewports"
         }
       ],
-      "current_scope": "Import same RSS; real processing339s initially blocked grounding; checkpoint retry285s accepted37/41; summary/transcript/reload/multitab passed. Search/read/delete at125s while firsttask summarizing. This scope does not claim every operation in the inventory chain was rerun.",
+      "current_scope": "PR254 explicit UI retry completed with unchanged90%gate;summary/transcript/refresh and concurrentsearch/read/delete accepted; fresh readonlyreceiptconfirmedacceptedcandidate,notnewpaidexecution",
       "prior_local_checks": [
         {
           "last_actual_check": "2026-11-06T09:13:07.098694+08:00",
@@ -673,7 +688,28 @@
           "result": "See per-item current/prior/blocked/decision dispositions;no wholesale promotion"
         }
       ],
-      "latest_interaction_audit": "docs/audits/2026-11-11-appearance.json"
+      "latest_interaction_audit": "docs/audits/2026-11-11-appearance.json",
+      "historical_snapshots": [
+        {
+          "last_actual_check": "2026-11-10T13:27:25.439880+00:00",
+          "environment": "production83307d5,sandboxedChromium154;isolatedHTTP524separatelyrecorded",
+          "data_scale": "1new1943secondRSSepisode;488savedtranscriptsegments;1createddisposabledeleted;2generationattemptsbothcoveragefail",
+          "result": "partial_failed_new_rss",
+          "production_result": "partial_failed_new_rss",
+          "gaps": [
+            "New32minuteRSS initial and explicit retry fail coverage validation;requires receipt-leveldiagnosis",
+            "Successful multi-minute inference+paralleldelete+finalsavedsummary not yet accepted;106.82second observed summary interval ended in failure",
+            "Real upstream524event absent;hostedqueue infrastructure paused by user"
+          ],
+          "issues": [
+            "rss-coverage-20261110"
+          ],
+          "next_check": "Receipt-level diagnosis of the recorded taskIDs;preserve90percent contract",
+          "current_scope": "Import same RSS; real processing339s initially blocked grounding; checkpoint retry285s accepted37/41; summary/transcript/reload/multitab passed. Search/read/delete at125s while firsttask summarizing. This scope does not claim every operation in the inventory chain was rerun."
+        }
+      ],
+      "evidence_reviewed_at": "2026-11-13T05:45:44.429547+00:00",
+      "evidence_reference": "https://github.com/aaronsxzhao/xyz_transcript_download/pull/254"
     },
     {
       "id": "article-import-media",
@@ -684,10 +720,10 @@
         "quality": "summary quality audit for semantic coverage where applicable"
       },
       "risk": "medium",
-      "last_actual_check": "2026-11-10T13:27:25.439880+00:00",
-      "environment": "production83307d5; sandboxed Chromium154",
+      "last_actual_check": "2026-11-13 (prior PR254 release acceptance; not rerun in this follow-up)",
+      "environment": "Production17340db; prior authenticated release acceptance reviewed via PR254final evidence",
       "account_type": "dedicated test account;existing data read-only;writes only current-run marked source",
-      "data_scale": "7Library cards/2parts/1existingvideo/1RSS;article4tinyattempts",
+      "data_scale": "1controlledW3Schoolsarticle;3retainedimages;72liveimagechecks;27screenshotsreportedviewedbyreleaseaudit",
       "steps": [
         "Unique original-text URL→import→read→Markdown→refresh→delete→refresh/API404"
       ],
@@ -698,17 +734,15 @@
         "docs/audits/2026-11-10-deep-acceptance.json",
         "docs/audits/2026-11-11-appearance.json"
       ],
-      "result": "passed_scoped_local_images_with_extraction_issue",
-      "production_result": "passed_scoped",
+      "result": "passed_scoped_prior_release_evidence",
+      "production_result": "passed_scoped_prior_release_evidence",
       "gaps": [
-        "Unmarked source navigation inside article requires extraction decision",
-        "Arbitrary live third-party image providers not covered by controlledfixture"
+        "Other source extraction rules and arbitrary live image providers not universally covered",
+        "Current user x.com/t.co equivalence still awaits exact link"
       ],
-      "issues": [
-        "article-inner-navigation"
-      ],
+      "issues": [],
       "in_progress_prs": [],
-      "next_check": "Review precise source-selector proposal;do not repeat firstscreen-onlyimage checks",
+      "next_check": "Exact user article/shortlink; do not repeat excluded old local screenshots",
       "deep_acceptance_followups": [
         {
           "checked_at": "2026-11-10T13:27:25.439880+00:00",
@@ -722,7 +756,28 @@
         }
       ],
       "latest_interaction_audit": "docs/audits/2026-11-11-appearance.json",
-      "latest_interaction_result": "Current fresh original-only source/read/export/24images576checks/UIdelete-refresh passed;navigation extraction remains decision-required;see dated report"
+      "latest_interaction_result": "Current fresh original-only source/read/export/24images576checks/UIdelete-refresh passed;navigation extraction remains decision-required;see dated report",
+      "historical_snapshots": [
+        {
+          "last_actual_check": "2026-11-10T13:27:25.439880+00:00",
+          "environment": "production83307d5; sandboxed Chromium154",
+          "data_scale": "7Library cards/2parts/1existingvideo/1RSS;article4tinyattempts",
+          "result": "passed_scoped_local_images_with_extraction_issue",
+          "production_result": "passed_scoped",
+          "gaps": [
+            "Unmarked source navigation inside article requires extraction decision",
+            "Arbitrary live third-party image providers not covered by controlledfixture"
+          ],
+          "issues": [
+            "article-inner-navigation"
+          ],
+          "next_check": "Review precise source-selector proposal;do not repeat firstscreen-onlyimage checks",
+          "current_scope": null
+        }
+      ],
+      "evidence_reviewed_at": "2026-11-13T05:45:44.429547+00:00",
+      "evidence_reference": "https://github.com/aaronsxzhao/xyz_transcript_download/pull/254",
+      "current_scope": "PR254 source-specific main extraction and live import/read/export/refresh/delete accepted; does not rewrite historical articles"
     },
     {
       "id": "processing-retry-cancel",
@@ -733,10 +788,10 @@
         "quality": "summary quality audit for semantic coverage where applicable"
       },
       "risk": "high",
-      "last_actual_check": "2026-11-10T13:27:25.439880+00:00",
-      "environment": "production83307d5,sandboxedChromium154;isolatedHTTP524separatelyrecorded",
+      "last_actual_check": "2026-11-13 (prior PR254 release acceptance; not rerun in this follow-up)",
+      "environment": "Production17340db; prior authenticated release acceptance reviewed via PR254final evidence",
       "account_type": "authorized dedicated test account; existing data read-only",
-      "data_scale": "1new1943secondRSSepisode;488savedtranscriptsegments;1createddisposabledeleted;2generationattemptsbothcoveragefail",
+      "data_scale": "Prior same-source explicitRSSretry414.5s;488segments;coverage47/48;parallelsearch/read/current-rundisposabledelete",
       "steps": [
         "Normal UI RSS import",
         "Normal failed-job retry",
@@ -748,20 +803,17 @@
         "docs/audits/2026-11-09-rss-coverage-repair.json",
         "docs/audits/2026-11-10-deep-acceptance.json"
       ],
-      "result": "partial_failed_new_rss",
-      "production_result": "partial_failed_new_rss",
+      "result": "passed_scoped_prior_release_evidence",
+      "production_result": "passed_scoped_prior_release_evidence",
       "gaps": [
-        "New32minuteRSS initial and explicit retry fail coverage validation;requires receipt-leveldiagnosis",
-        "Successful multi-minute inference+paralleldelete+finalsavedsummary not yet accepted;106.82second observed summary interval ended in failure",
-        "Real upstream524event absent;hostedqueue infrastructure paused by user"
+        "User-specific tens-of-minutes podcast tasks need exact source/task evidence",
+        "Actual upstream524 not established;independent hostedqueuepaused"
       ],
-      "issues": [
-        "rss-coverage-20261110"
-      ],
+      "issues": [],
       "in_progress_prs": [
         250
       ],
-      "next_check": "Receipt-level diagnosis of the recorded taskIDs;preserve90percent contract",
+      "next_check": "Investigate user-specific long task and feedback; preserve quality gates",
       "supplementary_checks": [
         {
           "checked_at": "2026-11-06T12:33:08.553319+08:00",
@@ -815,7 +867,7 @@
           "no_new_write_acceptance": true
         }
       ],
-      "current_scope": "Import same RSS; real processing339s initially blocked grounding; checkpoint retry285s accepted37/41; summary/transcript/reload/multitab passed. Search/read/delete at125s while firsttask summarizing. This scope does not claim every operation in the inventory chain was rerun.",
+      "current_scope": "PR254 explicit UI retry completed with unchanged90%gate;summary/transcript/refresh and concurrentsearch/read/delete accepted; fresh readonlyreceiptconfirmedacceptedcandidate,notnewpaidexecution",
       "prior_local_checks": [
         {
           "last_actual_check": "2026-11-06T09:13:07.098694+08:00",
@@ -853,7 +905,28 @@
           "report": "docs/audits/2026-11-11-technical-pm.json",
           "result": "See per-item current/prior/blocked/decision dispositions;no wholesale promotion"
         }
-      ]
+      ],
+      "historical_snapshots": [
+        {
+          "last_actual_check": "2026-11-10T13:27:25.439880+00:00",
+          "environment": "production83307d5,sandboxedChromium154;isolatedHTTP524separatelyrecorded",
+          "data_scale": "1new1943secondRSSepisode;488savedtranscriptsegments;1createddisposabledeleted;2generationattemptsbothcoveragefail",
+          "result": "partial_failed_new_rss",
+          "production_result": "partial_failed_new_rss",
+          "gaps": [
+            "New32minuteRSS initial and explicit retry fail coverage validation;requires receipt-leveldiagnosis",
+            "Successful multi-minute inference+paralleldelete+finalsavedsummary not yet accepted;106.82second observed summary interval ended in failure",
+            "Real upstream524event absent;hostedqueue infrastructure paused by user"
+          ],
+          "issues": [
+            "rss-coverage-20261110"
+          ],
+          "next_check": "Receipt-level diagnosis of the recorded taskIDs;preserve90percent contract",
+          "current_scope": "Import same RSS; real processing339s initially blocked grounding; checkpoint retry285s accepted37/41; summary/transcript/reload/multitab passed. Search/read/delete at125s while firsttask summarizing. This scope does not claim every operation in the inventory chain was rerun."
+        }
+      ],
+      "evidence_reviewed_at": "2026-11-13T05:45:44.429547+00:00",
+      "evidence_reference": "https://github.com/aaronsxzhao/xyz_transcript_download/pull/254"
     },
     {
       "id": "parallel-progress",
@@ -864,10 +937,10 @@
         "quality": "summary quality audit for semantic coverage where applicable"
       },
       "risk": "high",
-      "last_actual_check": "2026-11-10T13:27:25.439880+00:00",
-      "environment": "production83307d5,sandboxedChromium154;isolatedHTTP524separatelyrecorded",
+      "last_actual_check": "2026-11-13 (prior PR254 release acceptance; not rerun in this follow-up)",
+      "environment": "Production17340db; prior authenticated release acceptance reviewed via PR254final evidence",
       "account_type": "authorized dedicated test account; existing data read-only",
-      "data_scale": "1new1943secondRSSepisode;488savedtranscriptsegments;1createddisposabledeleted;2generationattemptsbothcoveragefail",
+      "data_scale": "Prior same-source explicitRSSretry414.5s;488segments;coverage47/48;parallelsearch/read/current-rundisposabledelete",
       "steps": [
         "Normal UI RSS import",
         "Normal failed-job retry",
@@ -879,18 +952,15 @@
         "docs/audits/2026-11-09-rss-coverage-repair.json",
         "docs/audits/2026-11-10-deep-acceptance.json"
       ],
-      "result": "partial_failed_new_rss",
-      "production_result": "partial_failed_new_rss",
+      "result": "passed_scoped_prior_release_evidence",
+      "production_result": "passed_scoped_prior_release_evidence",
       "gaps": [
-        "New32minuteRSS initial and explicit retry fail coverage validation;requires receipt-leveldiagnosis",
-        "Successful multi-minute inference+paralleldelete+finalsavedsummary not yet accepted;106.82second observed summary interval ended in failure",
-        "Real upstream524event absent;hostedqueue infrastructure paused by user"
+        "User-specific tens-of-minutes podcast tasks need exact source/task evidence",
+        "Actual upstream524 not established;independent hostedqueuepaused"
       ],
-      "issues": [
-        "rss-coverage-20261110"
-      ],
+      "issues": [],
       "in_progress_prs": [],
-      "next_check": "Receipt-level diagnosis of the recorded taskIDs;preserve90percent contract",
+      "next_check": "Investigate user-specific long task and feedback; preserve quality gates",
       "production_followups": [
         {
           "checked_at": "2026-11-09T06:25:19.176223+00:00",
@@ -912,7 +982,7 @@
           "result": "passed_scoped_after_candidate_retry"
         }
       ],
-      "current_scope": "Import same RSS; real processing339s initially blocked grounding; checkpoint retry285s accepted37/41; summary/transcript/reload/multitab passed. Search/read/delete at125s while firsttask summarizing. This scope does not claim every operation in the inventory chain was rerun.",
+      "current_scope": "PR254 explicit UI retry completed with unchanged90%gate;summary/transcript/refresh and concurrentsearch/read/delete accepted; fresh readonlyreceiptconfirmedacceptedcandidate,notnewpaidexecution",
       "deep_acceptance_followups": [
         {
           "checked_at": "2026-11-10T13:27:25.439880+00:00",
@@ -924,7 +994,28 @@
           "report": "docs/audits/2026-11-11-technical-pm.json",
           "result": "See per-item current/prior/blocked/decision dispositions;no wholesale promotion"
         }
-      ]
+      ],
+      "historical_snapshots": [
+        {
+          "last_actual_check": "2026-11-10T13:27:25.439880+00:00",
+          "environment": "production83307d5,sandboxedChromium154;isolatedHTTP524separatelyrecorded",
+          "data_scale": "1new1943secondRSSepisode;488savedtranscriptsegments;1createddisposabledeleted;2generationattemptsbothcoveragefail",
+          "result": "partial_failed_new_rss",
+          "production_result": "partial_failed_new_rss",
+          "gaps": [
+            "New32minuteRSS initial and explicit retry fail coverage validation;requires receipt-leveldiagnosis",
+            "Successful multi-minute inference+paralleldelete+finalsavedsummary not yet accepted;106.82second observed summary interval ended in failure",
+            "Real upstream524event absent;hostedqueue infrastructure paused by user"
+          ],
+          "issues": [
+            "rss-coverage-20261110"
+          ],
+          "next_check": "Receipt-level diagnosis of the recorded taskIDs;preserve90percent contract",
+          "current_scope": "Import same RSS; real processing339s initially blocked grounding; checkpoint retry285s accepted37/41; summary/transcript/reload/multitab passed. Search/read/delete at125s while firsttask summarizing. This scope does not claim every operation in the inventory chain was rerun."
+        }
+      ],
+      "evidence_reviewed_at": "2026-11-13T05:45:44.429547+00:00",
+      "evidence_reference": "https://github.com/aaronsxzhao/xyz_transcript_download/pull/254"
     },
     {
       "id": "recovery",
@@ -1455,6 +1546,52 @@
       "report": "docs/audits/2026-11-13-list-parity.json",
       "status": "local verified; pending release",
       "scope": "Podcast/video width parity; video badge implementation checked; short-link identity pending exact URL"
+    },
+    {
+      "reviewed_at": "2026-11-13T05:45:44.429547+00:00",
+      "report": "docs/audits/2026-11-13-consolidated-followup.json",
+      "scope": "Reconcile oldpendingreports withPR254/255releaseevidence;preserve newuser-specific gaps",
+      "note": "Review of prior execution, not rerunning or promoting every feature"
+    },
+    {
+      "date": "2026-11-13",
+      "report": "docs/audits/2026-11-13-consolidated-followup.json",
+      "pr_links": [
+        256,
+        257,
+        258
+      ],
+      "status": "scoped_fixes_deployed_accepted_core_plan_pending",
+      "actual_new_coverage": [
+        "Exact user podcast read-only runtime metrics for two failed jobs",
+        "Exact public X article imported normally into test account without model call",
+        "Actual article light code text accepted after reload in both designs and three widths",
+        "Podcast/video list width equality accepted live in four appearances",
+        "New source grouping 12 Chromium and 12 WebKit local cases",
+        "Deployed actual source grouping12cases with refresh and own-item cleanup",
+        "Deployed progress UI12fixturecases; real model speedup not claimed"
+      ],
+      "not_accepted": [
+        "Core model-call reduction and grounding-failure resolution",
+        "Native-device behavior"
+      ],
+      "excluded": [
+        "User-paused Notion and independent hosted queue recovery",
+        "User-excluded 13 historical missing images"
+      ],
+      "no_paid_calls": true,
+      "release": {
+        "revision": "f9f4238df6fded65e8f01e5256a08b039fad9e3f",
+        "integrated_pr": 258,
+        "included_pr": 257,
+        "ci": 43376269909,
+        "ci_result": "all required jobs passed",
+        "deployment": 43380236719,
+        "deployment_result": "success",
+        "exact_tree_matches_tested_head": true,
+        "open_prs_after_merge": 0
+      },
+      "evidence_directory": "docs/audits/evidence/2026-11-13-followup-final"
     }
   ],
   "audit_attempts": [
@@ -1550,12 +1687,12 @@
         "Checked production log tooling:OCI unavailable/no configured credentials"
       ],
       "remaining_steps": [
-        "Obtain sanitized audit_feedback.issue,stage,unit/covered/missing counts and cache-key metadata for the2listed taskIDs via existing authorized production log access",
-        "Reproduce offending receipt parsing in isolated regression without raw user/model output logging",
-        "If local parser defect is proven,fix narrowly and run regression+CI+deploy;otherwise propose bounded algorithm change without lowering90percent",
-        "Rerun same controlled source only after cause resolved;require completed summary+transcript+refresh and no deletion resurrection"
+        "No repeated repair for this scoped historical defect; new source-specific failures require their own evidence"
       ],
-      "rollback": "Revert only proposed code commit;do not bulk reprocess existing notes;no production change made"
+      "rollback": "Revert only proposed code commit;do not bulk reprocess existing notes;no production change made",
+      "status": "resolved_scoped_prior_release",
+      "resolution_evidence": "https://github.com/aaronsxzhao/xyz_transcript_download/pull/254",
+      "reviewed_at": "2026-11-13T05:45:44.429547+00:00"
     },
     {
       "id": "article-inner-navigation",
@@ -1572,7 +1709,13 @@
         "Only verified source chrome excluded"
       ],
       "acceptance": "Compare rawHTML,savedMarkdown,reader;navigation absent while all substantive paragraphs/images/citations intact;version extraction change;no historical bulk rewrite",
-      "rollback": "Revert selector rule/version;existing saved originals unchanged;not modified"
+      "rollback": "Revert selector rule/version;existing saved originals unchanged;not modified",
+      "status": "resolved_scoped_prior_release",
+      "resolution_evidence": "https://github.com/aaronsxzhao/xyz_transcript_download/pull/254",
+      "reviewed_at": "2026-11-13T05:45:44.429547+00:00",
+      "remaining_steps": [
+        "No repeated repair for this scoped historical defect; new source-specific failures require their own evidence"
+      ]
     }
   ],
   "user_authorization_updates": [

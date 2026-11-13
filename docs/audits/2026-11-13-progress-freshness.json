@@ -28,5 +28,17 @@
     "Worker lease heartbeats are separate from progress and do not prove provider advancement"
   ],
   "release": "pending CI/deploy",
-  "paid_calls": 0
+  "paid_calls": 0,
+  "final_release": {
+    "revision": "f9f4238df6fded65e8f01e5256a08b039fad9e3f",
+    "integrated_pr": 258,
+    "included_pr": 257,
+    "ci": 43376269909,
+    "deployment": 43380236719,
+    "scope": "12 deployed frontend cases with synthetic progress data after normal sign-in; no paid real processing; exact server-age tolerance4s and reopen retention passed",
+    "viewed_screenshots": [
+      "progress-editorial-light-390.png",
+      "progress-classic-dark-1440.png"
+    ]
+  }
 }

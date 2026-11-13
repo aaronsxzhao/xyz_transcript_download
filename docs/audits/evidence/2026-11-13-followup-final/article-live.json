@@ -1,0 +1,170 @@
+{
+  "revision": "f9f4238df6fded65e8f01e5256a08b039fad9e3f",
+  "task_id": "b517cccf-052",
+  "cleanup": {
+    "only_this_run_created_id": "b517cccf-052",
+    "delete_status": 200,
+    "subsequent_read": 404
+  },
+  "console_errors": 0,
+  "page_errors": 0,
+  "http_errors": [],
+  "cases": [
+    {
+      "design": "classic",
+      "theme": "light",
+      "width": 390,
+      "bounds": true,
+      "code_colors": [
+        "rgb(17, 17, 17)"
+      ],
+      "screenshot": "classic-light-390-code.png",
+      "source_card_count": 2,
+      "grouped_destination_count": 2,
+      "unrelated_citation_retained": true
+    },
+    {
+      "design": "classic",
+      "theme": "light",
+      "width": 768,
+      "bounds": true,
+      "code_colors": [
+        "rgb(17, 17, 17)"
+      ],
+      "screenshot": "classic-light-768-code.png",
+      "source_card_count": 2,
+      "grouped_destination_count": 2,
+      "unrelated_citation_retained": true
+    },
+    {
+      "design": "classic",
+      "theme": "light",
+      "width": 1440,
+      "bounds": true,
+      "code_colors": [
+        "rgb(17, 17, 17)"
+      ],
+      "screenshot": "classic-light-1440-code.png",
+      "source_card_count": 2,
+      "grouped_destination_count": 2,
+      "unrelated_citation_retained": true
+    },
+    {
+      "design": "classic",
+      "theme": "dark",
+      "width": 390,
+      "bounds": true,
+      "code_colors": [
+        "oklch(0.872 0.01 258.338)"
+      ],
+      "screenshot": "classic-dark-390-code.png",
+      "source_card_count": 2,
+      "grouped_destination_count": 2,
+      "unrelated_citation_retained": true
+    },
+    {
+      "design": "classic",
+      "theme": "dark",
+      "width": 768,
+      "bounds": true,
+      "code_colors": [
+        "oklch(0.872 0.01 258.338)"
+      ],
+      "screenshot": "classic-dark-768-code.png",
+      "source_card_count": 2,
+      "grouped_destination_count": 2,
+      "unrelated_citation_retained": true
+    },
+    {
+      "design": "classic",
+      "theme": "dark",
+      "width": 1440,
+      "bounds": true,
+      "code_colors": [
+        "oklch(0.872 0.01 258.338)"
+      ],
+      "screenshot": "classic-dark-1440-code.png",
+      "source_card_count": 2,
+      "grouped_destination_count": 2,
+      "unrelated_citation_retained": true
+    },
+    {
+      "design": "editorial",
+      "theme": "light",
+      "width": 390,
+      "bounds": true,
+      "code_colors": [
+        "rgb(17, 17, 17)"
+      ],
+      "screenshot": "editorial-light-390-code.png",
+      "source_card_count": 2,
+      "grouped_destination_count": 2,
+      "unrelated_citation_retained": true
+    },
+    {
+      "design": "editorial",
+      "theme": "light",
+      "width": 768,
+      "bounds": true,
+      "code_colors": [
+        "rgb(17, 17, 17)"
+      ],
+      "screenshot": "editorial-light-768-code.png",
+      "source_card_count": 2,
+      "grouped_destination_count": 2,
+      "unrelated_citation_retained": true
+    },
+    {
+      "design": "editorial",
+      "theme": "light",
+      "width": 1440,
+      "bounds": true,
+      "code_colors": [
+        "rgb(17, 17, 17)"
+      ],
+      "screenshot": "editorial-light-1440-code.png",
+      "source_card_count": 2,
+      "grouped_destination_count": 2,
+      "unrelated_citation_retained": true
+    },
+    {
+      "design": "editorial",
+      "theme": "dark",
+      "width": 390,
+      "bounds": true,
+      "code_colors": [
+        "rgb(234, 231, 223)"
+      ],
+      "screenshot": "editorial-dark-390-code.png",
+      "source_card_count": 2,
+      "grouped_destination_count": 2,
+      "unrelated_citation_retained": true
+    },
+    {
+      "design": "editorial",
+      "theme": "dark",
+      "width": 768,
+      "bounds": true,
+      "code_colors": [
+        "rgb(234, 231, 223)"
+      ],
+      "screenshot": "editorial-dark-768-code.png",
+      "source_card_count": 2,
+      "grouped_destination_count": 2,
+      "unrelated_citation_retained": true
+    },
+    {
+      "design": "editorial",
+      "theme": "dark",
+      "width": 1440,
+      "bounds": true,
+      "code_colors": [
+        "rgb(234, 231, 223)"
+      ],
+      "screenshot": "editorial-dark-1440-code.png",
+      "source_card_count": 2,
+      "grouped_destination_count": 2,
+      "unrelated_citation_retained": true
+    }
+  ]
+}

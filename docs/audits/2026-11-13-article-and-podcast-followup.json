@@ -275,7 +275,8 @@
       "Live before import screenshot"
     ],
     "limitations": "Local fixture image-proxy responses are not production media acceptance. No physical device tests.",
-    "build": "Node 22 clean lockfile build: 197.0 KiB, unchanged 197.75 KiB budget"
+    "build": "Node 22 clean lockfile build: 197.0 KiB, unchanged 197.75 KiB budget",
+    "webkit": "12 local fixture source-card cases and exact mobile lane320/390/430 passed"
   },
   "billing": {
     "new_paid_calls": 0,
@@ -285,7 +286,17 @@
     "note": "Snapshot only, not a hard cap or reservation for future calls"
   },
   "release": {
-    "status": "pending CI, merge, deployment and live verification"
+    "status": "deployed and actual article accepted",
+    "revision": "f9f4238df6fded65e8f01e5256a08b039fad9e3f",
+    "ci": 43376269909,
+    "deployment": 43380236719,
+    "live_cases": 12,
+    "scope": "Actual article; late model audit callback is backend regression evidence, not a paid live regeneration",
+    "cleanup": {
+      "only_this_run_created_id": "b517cccf-052",
+      "delete_status": 200,
+      "subsequent_read": 404
+    }
   },
   "evidence_paths": [
     "/workspace/article-link-evidence",

@@ -1,0 +1,178 @@
+{
+  "updated_at": "2026-11-13T06:49:28.529969+00:00",
+  "owner": "fix/progress-freshness",
+  "paid_calls": 0,
+  "reserved_usd": 0,
+  "items": [
+    {
+      "id": "podcast-width",
+      "state": "fixed_deployed_live_verified",
+      "pr": 256,
+      "verification": "PR256 merge c8441810747f0b81038b2b2f193b8593f0920eff; CI43370287481 and deploy43373703343 passed; authenticated four-appearance 2560px episode/video bounds match."
+    },
+    {
+      "id": "quiet-progress-age",
+      "state": "fixed_deployed_ui_accepted",
+      "pr": 257,
+      "verification": "Integrated CI43376269909 passed; deployed f9f4238.12 production-asset synthetic-fixture cases after normal sign-in, all designs/themes/390/768/1440; reopen preserved measured server age within4s. Screenshots viewed. No real model task created."
+    },
+    {
+      "id": "podcast-many-minute-runtime",
+      "state": "progress_wiring_fixed_deployed_core_latency_unresolved",
+      "evidence": "Exact user episode matched two failed jobs: 1901.639/2194.986 wall seconds, 71/102 model calls. Repeated matching/repair dominates. Read-only workflow43374841469; no paid replay.",
+      "remaining": "Four missing audit progress callbacks fixed and deployed. Core model-call reduction and grounding quality remain unaccepted; see concrete plan below.",
+      "pr": 258
+    },
+    {
+      "id": "podcast-only-keypoints",
+      "state": "core_output_design_not_changed",
+      "evidence": "paragraphs map tokey_points;takeaways empty byimplementation; unsupportedoverviewmayremoved;emptyheadingfixPR253only",
+      "remaining": "Actualscreenshotrecordneeded; independent overview/takeawaygeneration requires quality-preserving core plan"
+    },
+    {
+      "id": "article-two-links",
+      "state": "fixed_deployed_live_accepted",
+      "evidence": "User X post2091515787366306154 attaches Article2091485629452304385; exact t.co/5w8ILIIelz301 targets Article. Imported normally as b517cccf-052 in test account; no model/media processing. Grouped display retains both URLs and unrelated citation.",
+      "remaining": "None in tested source-card scope; saved user originals were not rewritten.",
+      "pr": 258,
+      "verification": "12 authenticated actual-note cases with reload on exact revision; both source destinations retained in one card, unrelated citation retained. Selected card and code screenshots actually viewed. Only created task b517cccf-052 deleted; subsequent GET404."
+    },
+    {
+      "id": "video-newly-added",
+      "state": "verified_existing",
+      "evidence": "present fordiscovered/pending seen<2;labelhiddenmobile/iconretained; browserfixtureobserved"
+    },
+    {
+      "id": "video-transcript-badge",
+      "state": "confirmed_not_implemented",
+      "evidence": "listAPI hasnoavailabilitymetadata; absenceofbadge notabsenceoftranscript",
+      "remaining": "Ifadding parity, needlightweightavailability withconsistentlist/progressmetadata; do notfetchalltranscripts orinferfromsuccess"
+    },
+    {
+      "id": "reader-back-context",
+      "state": "previously_verified",
+      "pr": 253,
+      "evidence": "PR253finalauthenticatedentry/readerhop/reload/return;notrerunthisturn"
+    },
+    {
+      "id": "light-code-black",
+      "state": "live_actual_source_accepted",
+      "pr": 255,
+      "evidence": "Imported the exact public source into test account as b517cccf-052. On c844181, 12 Classic/Editorial × light/dark ×390/768/1440 cases after reload; all light pre code text #111, zero console/page/HTTP errors. Viewed Editorial light390 and Classic light1440 screenshots.",
+      "remaining": "No additional contrast fix needed for the tested article. Native devices not tested."
+    },
+    {
+      "id": "rss-original-failure",
+      "state": "previously_recovered_rechecked_receipts",
+      "pr": 254,
+      "evidence": "HistoricalInternalServerError5/6and2/6;bounded retryexisted;normallaterUIretrycompleted414.5s,47/48;freshreadonlydiagnostic43372026642confirmedacceptedcandidate"
+    },
+    {
+      "id": "long-inference-parallel-delete",
+      "state": "previously_accepted_scoped",
+      "pr": 254,
+      "evidence": "PR254finalnormalUIretry,parallelsearch/read/delete,refresh/finalresult;notrerunthisturn"
+    },
+    {
+      "id": "deep-images-source-navigation",
+      "state": "previously_fixed_accepted_scoped",
+      "pr": 254,
+      "evidence": "72liveimagechecks/27viewedscreenshots;main-bodyselectorfix;specificW3Schoolssourceonly"
+    },
+    {
+      "id": "isolated-http524-restart",
+      "state": "previously_accepted_sqlite_only",
+      "evidence": "Nov10realHTTP524nextjob/retry/SIGKILLrestart90slease/savedresults;notproducer524orhostedqueue"
+    },
+    {
+      "id": "real-upstream524",
+      "state": "event_not_proven",
+      "evidence": "HistoricalInternalServerErrornotsufficienttoidentify524;latestreadonlyreceiptnoidentified524"
+    },
+    {
+      "id": "export-session-url-and-legacy-signing",
+      "state": "previously_fixed_deployed",
+      "pr": 251
+    },
+    {
+      "id": "pdf",
+      "state": "previously_accepted_scoped",
+      "evidence": "exportrenderverified;nativeOSsave-dialognotaccepted"
+    },
+    {
+      "id": "notion",
+      "state": "paused_by_user"
+    },
+    {
+      "id": "independent-hosted-queue-recovery",
+      "state": "paused_by_user"
+    },
+    {
+      "id": "13-old-local-screenshots",
+      "state": "excluded_by_user"
+    },
+    {
+      "id": "new-multipart-import-password-reset-multiaccount",
+      "state": "unaccepted_not_confirmed_defects",
+      "remaining": "Controlledpublicmultipartsource/secondtestaccount/resetmailaccess needed;noneinferredfromunittests"
+    }
+  ],
+  "budget_snapshot": {
+    "run": 43374841469,
+    "used_usd": 20.466298,
+    "remaining_usd": 29.533702,
+    "active_work": 0,
+    "not_a_hard_cap": true,
+    "new_paid_calls_this_turn": 0
+  },
+  "core_performance_plan": {
+    "status": "proposal_not_implemented",
+    "evidence": "71/102 model calls, including 34/50 matching calls and 7/13 repair calls; wall 31.7/36.6 min. Grounding rejection remains; coverage82%/72.99%. Failed calls1/8 do not establish HTTP524.",
+    "scope": "Reduce redundant verification work without reducing source coverage or grounding standards. First preserve exact immutable draft/source identities and measure per-phase critical path; only then evaluate reusing unchanged receipts and targeted repair.",
+    "boundary_cases": [
+      "Changed paragraph invalidates dependent receipts",
+      "Overview removal changes draft identity",
+      "Cross-batch claims and pronoun context must remain checked",
+      "Malformed or provider-failed receipt cannot become accepted",
+      "Resume after restart must use same source/draft identities",
+      "Chinese/English and long podcast/video sources need matched comparisons"
+    ],
+    "acceptance": [
+      "Keep material coverage>=90% and grounding gates unchanged",
+      "No raw or unsupported paragraphs published",
+      "Controlled before/after tasks show fewer model calls and lower wall time with identical source coverage criteria",
+      "Explicit failure/retry/cancel and persisted progress survive refresh",
+      "Roll back code only; never bulk reprocess historical user content"
+    ],
+    "authorization_needed": "Core summary/audit algorithm changes remain outside the standing small-fix boundary; no such change made in PR258."
+  },
+  "ci_followup": {
+    "pr257_initial_failure": "WebKit mobile320 navigation: Library sources access-control pageerror, run43373884386",
+    "local_reproduction": "Exact assertions passed all320/390/430 widths using WebKit27.2 with user-local missing libraries; no assertion suppression",
+    "status": "Same-head frontend rerun pending; do not claim root cause confirmed or CI passed",
+    "integrated_ci": "43376269909 passed, including formerly failing WebKit lane without assertion changes. Original failure cause not proven; local exact lane passed."
+  },
+  "environment_additions": {
+    "webkit": "Playwright WebKit2370 installed; missing Debian libraries extracted to /workspace/webkit-libs/root; stock wrapper overrides LD_LIBRARY_PATH, so user-local wrapper preserves bundle paths plus missing libraries. No browser security flags disabled. sudo unavailable; system apt install denied for non-root."
+  },
+  "additional_validation": {
+    "source_grouping_webkit": "12 local fixture cases passed; same assertions as Chromium; screenshot creation is separate from inspection",
+    "source_grouping_chromium": "12 local fixture cases passed; two selected screenshots viewed",
+    "actual_imported_article_contrast": "12 authenticated read-only live cases passed on c844181; six light cases #111; actual selected screenshots viewed; no page/console/HTTP errors"
+  },
+  "release": {
+    "revision": "f9f4238df6fded65e8f01e5256a08b039fad9e3f",
+    "integrated_pr": 258,
+    "included_pr": 257,
+    "ci": 43376269909,
+    "ci_result": "all required jobs passed",
+    "deployment": 43380236719,
+    "deployment_result": "success",
+    "exact_tree_matches_tested_head": true,
+    "open_prs_after_merge": 0
+  },
+  "evidence": "docs/audits/evidence/2026-11-13-followup-final",
+  "fixture_failure_resolution": "Initial progress fixture websocket glob missed /api/ws/progress, allowing real snapshots to replace the synthetic task. Corrected exact fixture path; full12case rerun passed without application changes.",
+  "standalone_health_probe": "urllib client received403 with public error1010; Playwright request and normal authenticated browser confirmed expected revision and functioning pages. No WAF/security setting changed.",
+  "remaining_decision": "Core summary/audit performance and persistent grounding failures require the quality-preserving plan below. No new paid model calls or real-user reprocessing performed."
+}
