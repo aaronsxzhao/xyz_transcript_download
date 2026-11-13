@@ -23,6 +23,8 @@ Use `--ui-bg`, `--ui-surface`, `--ui-hover`, `--ui-border`, `--ui-text`, `--ui-s
 
 ## Layout invariants
 
+- Podcast episode lists use the same centered workspace width as video channel lists in both designs, including wide desktop screens.
+
 - Preserve Classic's established base layout. A fix for Editorial must not unintentionally alter it.
 - Keep the mobile brand on two lines with compact vertical spacing; protect the theme selector, color toggle and menu touch targets. Do not shrink the title to make a toolbar fit.
 - Keep the import entry in its current position. Keep statistics visible and reader collection details expanded by default.
