@@ -18,7 +18,7 @@ export default function ProcessingProgress({
   onRetry,
   onDismiss,
 }: {
-  job: ProcessingJob;
+  job: ProcessingJob & { updated_at?: string };
   link?: string;
   kind?: "podcast" | "video";
   platform?: string;
@@ -79,6 +79,7 @@ export default function ProcessingProgress({
         status={restricted ? "restricted" : job.status}
         progress={job.progress}
         startedAt={job.started_at}
+        updatedAt={job.revision ? job.revision / 1000 : job.updated_at}
         message={failure.message}
       />
       {job.message && !active && <p className="task-message">{failure.message}</p>}

@@ -44,6 +44,7 @@ export default function ProcessingPanel() {
         status: t.status,
         progress: t.progress,
         started_at: t.started_at,
+        updated_at: t.updated_at,
         message: t.error || t.message,
         platform: t.platform,
         sourceUrl: t.url,

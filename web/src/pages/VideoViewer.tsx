@@ -627,7 +627,7 @@ export default function VideoViewer() {
       {!["success", "failed", "cancelled"].includes(uiTask.status) && content &&
         <div className="mb-4">
           <p role="status" className="text-sm text-gray-400 mb-3">{uiTask.message?.startsWith('Coverage review') ? 'Checking coverage. Showing the saved note.' : 'A new version is processing. Showing the saved note.'}</p>
-          <TaskProgress status={uiTask.status} progress={uiTask.progress} startedAt={uiTask.started_at} message={uiTask.message || 'Waiting for processing…'} />
+          <TaskProgress status={uiTask.status} progress={uiTask.progress} startedAt={uiTask.started_at} updatedAt={uiTask.updated_at} message={uiTask.message || 'Waiting for processing…'} />
         </div>}
       {uiTask.status === "cancelled" && (
         <p role="status" className="text-sm text-gray-400 mb-3">
@@ -721,7 +721,7 @@ export default function VideoViewer() {
           <TaskProgress
             status={uiTask.status}
             progress={uiTask.progress}
-            startedAt={uiTask.started_at}
+            startedAt={uiTask.started_at} updatedAt={uiTask.updated_at}
             message={uiTask.message || "Waiting for processing…"}
           />
         </div>
