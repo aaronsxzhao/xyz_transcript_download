@@ -354,6 +354,11 @@ def test_inventory_owns_all_source_once_and_matching_sees_later_answers():
 def test_candidate_cannot_publish_repeated_or_unchecked_claims(damage):
     case=CASES[0];lines,sections,_=setup_case(case);before=copy.deepcopy(sections);calls=[]
     def response(engine,system,payload,validator):
+        if payload['phase']=='verify_repair_delta':
+            data={'paragraphs':[{'id':p['id'],'grounded':True,'adds_material_meaning':False,
+                                'contradicts_existing':False} for p in payload['proposed_paragraphs']]}
+            validator(data)
+            return data
         data=scripted(case,calls)(engine,system,payload,validator)
         if payload['phase']=='repair' and damage=='extra_unchecked_paragraph':
             extra=copy.deepcopy(data['sections'][0]['paragraphs'][0]);extra['text']='An unrelated unsupported claim.'
@@ -649,9 +654,10 @@ def test_shared_context_does_not_discard_grounded_new_information(new_fact_groun
         assert report['status']=='unverified' and len(sections)==1
 
 
+@pytest.mark.parametrize('support_shape',['joint','new_only'])
 @pytest.mark.parametrize('novel,grounded,contradicts', [
     (True,True,False), (False,True,False), (True,False,False), (True,True,True)])
-def test_joint_support_duplicate_flag_requires_independent_delta_verification(novel,grounded,contradicts):
+def test_duplicate_flag_requires_independent_delta_verification(novel,grounded,contradicts,support_shape):
     case={'source':'[00:00] The program starts.\n[00:01] Approval is required in January.',
           'missing_draft':'The program starts.',
           'complete_draft':'Approval is required in January.', 'kind':'condition'}
@@ -668,13 +674,35 @@ def test_joint_support_duplicate_flag_requires_independent_delta_verification(no
         data=base(engine,system,payload,validator)
         if payload['phase']=='match' and payload.get('proposed_paragraph_ids'):
             for row in data['matches']:
-                row.update(duplicate=True,support=[{'paragraph_id':'P1'},
-                    {'paragraph_id':payload['proposed_paragraph_ids'][0]}])
+                new_support=[{'paragraph_id':payload['proposed_paragraph_ids'][0]}]
+                row.update(duplicate=True,support=([{'paragraph_id':'P1'}] if support_shape=='joint' else [])+new_support)
         return data
     with patch('coverage_ledger.request',side_effect=response):report=audit(SimpleNamespace(),lines,sections)
     assert verified
     assert report['repairs_accepted']==int(novel and grounded and not contradicts)
     assert (len(sections)>1)==(novel and grounded and not contradicts)
+
+
+@pytest.mark.parametrize('failure',['malformed','transport'])
+def test_new_only_duplicate_fails_closed_when_independent_review_fails(failure):
+    case={'source':'[00:00] The program starts.\n[00:01] Approval is required in January.',
+          'missing_draft':'The program starts.',
+          'complete_draft':'Approval is required in January.', 'kind':'condition'}
+    lines,sections,_=setup_case(case);before=copy.deepcopy(sections);base=scripted(case,[]);checks=[]
+    def response(engine,system,payload,validator):
+        if payload['phase']=='verify_repair_delta':
+            checks.append(True)
+            if failure=='transport': raise TimeoutError()
+            data={'paragraphs':[]}
+            validator(data)
+            return data
+        data=base(engine,system,payload,validator)
+        if payload['phase']=='match' and payload.get('proposed_paragraph_ids'):
+            for row in data['matches']:
+                row.update(duplicate=True,support=[{'paragraph_id':payload['proposed_paragraph_ids'][0]}])
+        return data
+    with patch('coverage_ledger.request',side_effect=response):report=audit(SimpleNamespace(),lines,sections)
+    assert checks and report['status']=='unverified' and sections==before
 
 
 def test_final_readonly_audit_source_checks_new_incidental_gap_without_adding_prose():

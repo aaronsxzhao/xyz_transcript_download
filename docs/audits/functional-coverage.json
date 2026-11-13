@@ -1602,6 +1602,13 @@
       "report": "docs/audits/2026-11-13-coverage-round-diagnostics.json",
       "scope": "Preserve privacy-safe per-round counters and reasons for existing rejection decisions without modifying coverage gates.",
       "remaining": "Determine semantic accuracy of gaps with separately authorized evidence; collect prospective round metrics; verify full reported podcast."
+    },
+    {
+      "id": "2026-11-13-proposed-only-duplicate-review",
+      "status": "local_and_synthetic_tests_passed_release_pending",
+      "report": "docs/audits/2026-11-13-proposed-only-duplicate-review.json",
+      "scope": "Run existing independent source, novelty and contradiction verifier for eligible new-only duplicate flags; preserve all quality gates.",
+      "remaining": "Real historic false-positive rate and end-to-end long podcast acceptance remain unverified."
     }
   ],
   "user_authorization_updates": [
