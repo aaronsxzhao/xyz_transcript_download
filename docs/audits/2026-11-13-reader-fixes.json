@@ -36,7 +36,8 @@
       "check_summary_theme:390/820 classic/editorial light/dark",
       "check_reader_interactions:390/768/1440"
     ],
-    "limits": "Simulated viewports,not physicaldevices;allprivateuserbody stayedout of evidence"
+    "limits": "Simulated viewports,not physicaldevices;allprivateuserbody stayedout of evidence",
+    "ci_first_failure": "43354247685:CI Node22 compressed startup197.9KiB>197.75;article-only helper was forced into startup workspace chunk. Excluded articleLinks from forced startup group;12case browser matrix reran successfully;budget unchanged."
   },
   "podcast_investigation": {
     "current_account": "Normal login,15taskrecords;3groundingfailures;2savedsummaries have292/307overviewcharacters and27/23points. User66point screenshot does not match those saved records. Requested siteURLs.",
@@ -44,7 +45,11 @@
     "empty_overview_path": "reading_delivery.accept_edition deliberately clears overview if unsupported. Summarizer maps paragraphs tokey_points;frontendlabels allchapters Key Points. Emptyheading wasdisplaybug. Screenshot recordstillneeded toconfirm exactsource.",
     "prior_diagnosis": "Nov11 modelcoverage45/47(95.74%)butgrounding_concerns;20requestauditstopnotappfailure;notrerun ormisreportedthisrun",
     "core_boundary": "No algorithmchange/no historicalreprocessing. Need originaltask receipt/candidate evidence to distinguish actualunsupportedclaims fromreviewfalsepositives. Currentreview contract permits grounded=false withoutIDs, which leaves no targetedrepair; evidence for specific jobs stillmissing.",
-    "proposed_decision": "Validate reviewer inconsistency as invalid receipt with bounded re-review; repair only evidenced rejected paragraphs,thenfresh immutable fullreview; keep90percentcoverage andzero knownunsupportedclaims. Requires source-specific evidence beforechangingcoregate; no blanketreretry orthresholdreduction."
+    "proposed_decision": "Validate reviewer inconsistency as invalid receipt with bounded re-review; repair only evidenced rejected paragraphs,thenfresh immutable fullreview; keep90percentcoverage andzero knownunsupportedclaims. Requires source-specific evidence beforechangingcoregate; no blanketreretry orthresholdreduction.",
+    "contract_probe": {
+      "negative_review_without_ids": "Synthetic validate_review accepted grounded=false with no unsupportedIDs;no targeted repair possible",
+      "proven_actual_job_cause": false
+    }
   },
   "fees": "No paid generation thisrun",
   "release": "PendingPR/CI/deploy; update after release"

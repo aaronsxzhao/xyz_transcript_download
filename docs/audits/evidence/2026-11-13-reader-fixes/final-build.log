@@ -178,65 +178,65 @@ dist/assets/reader-typography-BqaGKpCW.css             66.90 kB │ gzip:  10.62
 dist/assets/workspace-D0lTTFQF.css                     90.67 kB │ gzip:  17.96 kB
 dist/assets/editorial-DogcICYi.css                    142.68 kB │ gzip:  44.03 kB
 dist/assets/SeriesCard-CRYt94Nt.js                      0.09 kB │ gzip:   0.11 kB
-dist/assets/RegenerateDialog-CRmqmwfM.js                0.80 kB │ gzip:   0.42 kB
+dist/assets/RegenerateDialog-CfGY7stZ.js                0.80 kB │ gzip:   0.42 kB
 dist/assets/rolldown-runtime-CNOWq4Kh.js                0.81 kB │ gzip:   0.47 kB
-dist/assets/index-4QFPoHz9.js                           0.85 kB │ gzip:   0.48 kB
-dist/assets/podcastMarkdown-C29DePVl.js                 0.94 kB │ gzip:   0.58 kB
-dist/assets/SourceUpdateStatus-CI6Z8Jjc.js              0.95 kB │ gzip:   0.52 kB
-dist/assets/SeriesCard-Br8XGBW1.js                      0.96 kB │ gzip:   0.53 kB
-dist/assets/ReaderAppearance-BNSDpwbP.js                1.14 kB │ gzip:   0.49 kB
-dist/assets/TranscriptPanel-BaufGjk4.js                 1.14 kB │ gzip:   0.59 kB
+dist/assets/index-CQJZ05wA.js                           0.85 kB │ gzip:   0.48 kB
+dist/assets/podcastMarkdown-DUCAG6c_.js                 0.94 kB │ gzip:   0.58 kB
+dist/assets/SourceUpdateStatus-CCJ_zD8t.js              0.95 kB │ gzip:   0.52 kB
+dist/assets/SeriesCard-C1wn6PE-.js                      0.96 kB │ gzip:   0.53 kB
+dist/assets/ReaderAppearance-Cc0R6PLQ.js                1.14 kB │ gzip:   0.49 kB
+dist/assets/TranscriptPanel-CHmLmepS.js                 1.14 kB │ gzip:   0.59 kB
 dist/assets/bilibiliCollection-4mJqS9F9.js              1.37 kB │ gzip:   0.73 kB
 dist/assets/preload-helper-DzCYNvzR.js                  1.62 kB │ gzip:   0.87 kB
-dist/assets/SummaryExport-DtIajB6u.js                   1.63 kB │ gzip:   0.88 kB
-dist/assets/sourceUpdateCheck-ChGO52qs.js               1.71 kB │ gzip:   0.86 kB
-dist/assets/podcastPrint-BJ0-1VXi.js                    1.75 kB │ gzip:   0.90 kB
-dist/assets/DashboardDialog-ChDmI44e.js                 1.85 kB │ gzip:   0.93 kB
-dist/assets/notionExport-BhGcIlxx.js                    1.92 kB │ gzip:   1.06 kB
+dist/assets/SummaryExport-Di5ygxzn.js                   1.63 kB │ gzip:   0.88 kB
+dist/assets/sourceUpdateCheck-DtRhFY7q.js               1.71 kB │ gzip:   0.86 kB
+dist/assets/podcastPrint-C_cHiGix.js                    1.75 kB │ gzip:   0.90 kB
+dist/assets/DashboardDialog-BRD01AvW.js                 1.85 kB │ gzip:   0.93 kB
+dist/assets/notionExport-BUHslHg0.js                    1.92 kB │ gzip:   1.06 kB
 dist/assets/markdownDownload-Btnu_2IW.js                2.03 kB │ gzip:   1.05 kB
-dist/assets/esm-dTBLMSyX.js                             2.43 kB │ gzip:   1.09 kB
-dist/assets/videoPrint-BtqpAoMN.js                      2.63 kB │ gzip:   1.13 kB
-dist/assets/ModelExecutionFields-C4uF2kSW.js            2.65 kB │ gzip:   1.38 kB
-dist/assets/LocalPodcastUpload-B1Umxyai.js              2.67 kB │ gzip:   1.20 kB
-dist/assets/PerformancePanel-Iq3lEs6R.js                2.84 kB │ gzip:   1.28 kB
-dist/assets/PodcastUploadForm-CIKQ8I-I.js               2.88 kB │ gzip:   1.12 kB
-dist/assets/ReaderDetails-Di_pziiA.js                   3.09 kB │ gzip:   1.44 kB
-dist/assets/lib-Bim8ELqu.js                             3.10 kB │ gzip:   1.45 kB
-dist/assets/taskActions-BlNeBsX6.js                     3.50 kB │ gzip:   1.42 kB
-dist/assets/ChannelList-BcSYUnKW.js                     3.52 kB │ gzip:   1.39 kB
-dist/assets/YouTubeVerification-Cfg_1vKa.js             3.53 kB │ gzip:   1.56 kB
-dist/assets/ProcessingPanel-BvGVrzpk.js                 3.72 kB │ gzip:   1.60 kB
-dist/assets/ScreenshotGallery-B01oIn6A.js               4.08 kB │ gzip:   1.81 kB
-dist/assets/SeriesCardContent-DoL2ksnu.js               4.69 kB │ gzip:   2.01 kB
-dist/assets/TranscriptMaintenance-_sizALeF.js           4.72 kB │ gzip:   1.81 kB
+dist/assets/esm-BbDzWCZA.js                             2.43 kB │ gzip:   1.09 kB
+dist/assets/videoPrint-CDQvsvo_.js                      2.63 kB │ gzip:   1.12 kB
+dist/assets/ModelExecutionFields-DAMC35AD.js            2.65 kB │ gzip:   1.38 kB
+dist/assets/LocalPodcastUpload-p1hM_Xef.js              2.67 kB │ gzip:   1.20 kB
+dist/assets/PerformancePanel-CantN4wn.js                2.84 kB │ gzip:   1.28 kB
+dist/assets/PodcastUploadForm-Cvuy4XcW.js               2.88 kB │ gzip:   1.12 kB
+dist/assets/ReaderDetails-BoiUj0mR.js                   3.09 kB │ gzip:   1.43 kB
+dist/assets/lib-JoPOY0Qb.js                             3.10 kB │ gzip:   1.45 kB
+dist/assets/taskActions-dwKzActN.js                     3.50 kB │ gzip:   1.43 kB
+dist/assets/ChannelList-BPFU8kV7.js                     3.52 kB │ gzip:   1.39 kB
+dist/assets/YouTubeVerification-Z7KAB4P5.js             3.53 kB │ gzip:   1.56 kB
+dist/assets/ProcessingPanel-B_KYd0nP.js                 3.72 kB │ gzip:   1.60 kB
+dist/assets/ScreenshotGallery-DgKngBGJ.js               4.08 kB │ gzip:   1.81 kB
+dist/assets/SeriesCardContent-O1OYgC0v.js               4.69 kB │ gzip:   2.01 kB
+dist/assets/TranscriptMaintenance-BpVV0ZNO.js           4.72 kB │ gzip:   1.81 kB
 dist/assets/legacyModelOptions-DhHDgBIq.js              5.65 kB │ gzip:   1.06 kB
-dist/assets/remark-math-BXrE2quy.js                     6.09 kB │ gzip:   2.22 kB
-dist/assets/BilibiliFavorites-FNNKKegF.js               6.16 kB │ gzip:   2.50 kB
-dist/assets/CustomModelFields-B--xwQ9p.js               6.21 kB │ gzip:   2.36 kB
-dist/assets/MindMapView-Czk1iMTX.js                     6.21 kB │ gzip:   2.66 kB
-dist/assets/ArticleNote-kAvlZB8N.js                     6.42 kB │ gzip:   2.74 kB
-dist/assets/PodcastNotionExport-DPjX450m.js             7.12 kB │ gzip:   2.70 kB
-dist/assets/BilibiliParts-Bzfq2Xvb.js                   7.36 kB │ gzip:   2.84 kB
-dist/assets/DataRecovery-CGRxS28M.js                    7.54 kB │ gzip:   2.97 kB
-dist/assets/videoUpload-C2s1FHX4.js                     8.52 kB │ gzip:   3.07 kB
-dist/assets/VideoList-DfoeaV3I.js                       8.73 kB │ gzip:   2.94 kB
-dist/assets/esm-BjpDcIFZ.js                            16.26 kB │ gzip:   6.07 kB
-dist/assets/VideoCreation-Dv37TCXj.js                  22.67 kB │ gzip:   6.74 kB
-dist/assets/dist-173pwM2G.js                           24.76 kB │ gzip:   8.97 kB
+dist/assets/remark-math-CeB-2nNZ.js                     6.09 kB │ gzip:   2.22 kB
+dist/assets/BilibiliFavorites-u8HDbJBZ.js               6.16 kB │ gzip:   2.50 kB
+dist/assets/CustomModelFields-HNys7lJ6.js               6.21 kB │ gzip:   2.36 kB
+dist/assets/MindMapView-D-xCnwQW.js                     6.21 kB │ gzip:   2.66 kB
+dist/assets/ArticleNote-C0sPHbrQ.js                     6.94 kB │ gzip:   2.97 kB
+dist/assets/PodcastNotionExport-BjYo3Rnf.js             7.12 kB │ gzip:   2.70 kB
+dist/assets/BilibiliParts-BgEdSqMt.js                   7.36 kB │ gzip:   2.83 kB
+dist/assets/DataRecovery-BWyRYbDb.js                    7.54 kB │ gzip:   2.96 kB
+dist/assets/videoUpload-BQlJ8f1C.js                     8.52 kB │ gzip:   3.07 kB
+dist/assets/VideoList-CDCBDU9_.js                       8.73 kB │ gzip:   2.94 kB
+dist/assets/esm-Bv_zhLlP.js                            16.26 kB │ gzip:   6.06 kB
+dist/assets/VideoCreation-BimTZV4u.js                  22.67 kB │ gzip:   6.73 kB
+dist/assets/dist-DOF4Xsyo.js                           24.76 kB │ gzip:   8.97 kB
 dist/assets/purify.es-B-iXX0Fb.js                      29.28 kB │ gzip:  11.69 kB
-dist/assets/TranscriptSegments-lfeSoi3k.js             35.40 kB │ gzip:  10.82 kB
+dist/assets/TranscriptSegments-BE25Es6u.js             35.40 kB │ gzip:  10.82 kB
 dist/assets/marked.esm-BiA0SdJP.js                     40.71 kB │ gzip:  12.59 kB
-dist/assets/HighlightedCode-PDyTFMR3.js                41.32 kB │ gzip:  14.99 kB
+dist/assets/HighlightedCode-vrQJN8cj.js                41.32 kB │ gzip:  14.99 kB
 dist/assets/lib--C78gx8q.js                            58.28 kB │ gzip:  16.24 kB
-dist/assets/MarkdownPreview-C0xTmCxT.js               109.02 kB │ gzip:  34.75 kB
-dist/assets/rehype-katex-B7N5up0P.js                  266.65 kB │ gzip:  81.35 kB
-dist/assets/workspace-BSEKZRgU.js                     537.46 kB │ gzip: 165.51 kB
+dist/assets/MarkdownPreview-gR1SBLIB.js               109.02 kB │ gzip:  34.74 kB
+dist/assets/rehype-katex-Ba54uIxb.js                  266.65 kB │ gzip:  81.35 kB
+dist/assets/workspace-CFEnr68P.js                     536.90 kB │ gzip: 165.28 kB
 
 [plugin builtin:vite-reporter] 
 (!) Some chunks are larger than 500 kB after minification. Consider:
 - Using dynamic import() to code-split the application
 - Use build.rolldownOptions.output.codeSplitting to improve chunking: https://rolldown.rs/reference/OutputOptions.codeSplitting
 - Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.
-✓ built in 1.16s
-Prepared Brotli/gzip assets: 1724971 raw bytes → 482766 Brotli bytes
-Initial compressed document and external assets: 197.2 KiB (budget: 197.75 KiB)
+✓ built in 1.17s
+Prepared Brotli/gzip assets: 1724928 raw bytes → 482745 Brotli bytes
+Initial compressed document and external assets: 197.0 KiB (budget: 197.75 KiB)
