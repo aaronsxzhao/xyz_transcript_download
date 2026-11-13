@@ -1,3 +1,4 @@
+import {useTrackReaderOrigin} from '../lib/readerReturn'
 import { Outlet, useLocation } from 'react-router-dom'
 import PageErrorBoundary from './PageErrorBoundary'
 import { Suspense } from 'react'
@@ -10,6 +11,7 @@ import { useAuth } from '../contexts/AuthContext'
 import { ConnectionNoticeContext } from '../lib/connectionRecovery'
 
 export default function Layout() {
+  useTrackReaderOrigin()
   const { user, connectionError, retryConnection } = useAuth()
   const hasTasks=useStore(s=>s.jobs.length+s.videoTasks.filter(t=>t.status!=="discovered").length+s.uploadSessions.length>0)
   const {pathname}=useLocation()

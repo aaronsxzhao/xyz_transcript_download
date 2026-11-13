@@ -177,7 +177,7 @@ html[data-design='editorial'][data-theme='light'] :is(.app-shell,.ui-scope) :is(
 :where(html[data-design='editorial']) .note-prose hr { border:0; border-top:1px solid var(--ui-border); margin-block:2em; }
 :where(html[data-design='editorial']) .note-prose table { border-collapse:collapse; font-family:var(--publication-serif); font-size:14px; }
 :where(html[data-design='editorial']) .note-prose :not(pre)>code { background:var(--ui-hover); color:var(--ui-accent); padding:.15em .35em; border-radius:3px; font-size:.88em; }
-:where(html[data-design='editorial']) .note-prose pre { padding:16px; background:var(--ui-surface); border:1px solid var(--ui-border); border-radius:4px; font-size:14px; line-height:1.7; }
+:where(html[data-design='editorial']) .note-prose pre { color:var(--ui-text); padding:16px; background:var(--ui-surface); border:1px solid var(--ui-border); border-radius:4px; font-size:14px; line-height:1.7; }
 :where(html[data-design='editorial']) .note-prose pre>code { font:inherit; white-space:pre; }:where(html[data-design='editorial']) .note-prose img { max-width:100%; }
 :where(html[data-design='editorial']) .note-prose :is(h5,h6) { font-size:1em; }
 :where(html[data-design='editorial']) .dashboard-page .dashboard-main-work { min-width:0; }:where(html[data-design='editorial']) .dashboard-recent-filters { display:flex; flex-wrap:wrap; }:where(html[data-design='editorial']) .dashboard-recent-notes { display:grid; }:where(html[data-design='editorial']) .dashboard-recent-notes .reading-history-card { min-width:0; border-radius:0; background:transparent; }

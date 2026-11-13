@@ -1,0 +1,13 @@
+
+> podcast-transcript-web@1.0.0 test
+> vitest run article-links reader-return viewer-loading
+
+
+ RUN  v5.0.5 /workspace/fix-nov13/web
+
+
+ Test Files  4 passed (4)
+      Tests  14 passed (14)
+   Start at  02:40:02
+   Duration  1.51s (environment 54%, transform 17%, tests 14%, import 14%, worker 1%)
+

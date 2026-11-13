@@ -1,0 +1,122 @@
+[
+  {
+    "design": "classic",
+    "theme": "light",
+    "width": 390,
+    "code_contrast": 11.5,
+    "one_source_card": true,
+    "reload_return_filters": true,
+    "direct_entry_fallback": true,
+    "screenshot": "/workspace/nov13-private/after-classic-light-390.png"
+  },
+  {
+    "design": "classic",
+    "theme": "light",
+    "width": 768,
+    "code_contrast": 11.5,
+    "one_source_card": true,
+    "reload_return_filters": true,
+    "direct_entry_fallback": true,
+    "screenshot": "/workspace/nov13-private/after-classic-light-768.png"
+  },
+  {
+    "design": "classic",
+    "theme": "light",
+    "width": 1440,
+    "code_contrast": 11.5,
+    "one_source_card": true,
+    "reload_return_filters": true,
+    "direct_entry_fallback": true,
+    "screenshot": "/workspace/nov13-private/after-classic-light-1440.png"
+  },
+  {
+    "design": "classic",
+    "theme": "dark",
+    "width": 390,
+    "code_contrast": 14.26,
+    "one_source_card": true,
+    "reload_return_filters": true,
+    "direct_entry_fallback": true,
+    "screenshot": "/workspace/nov13-private/after-classic-dark-390.png"
+  },
+  {
+    "design": "classic",
+    "theme": "dark",
+    "width": 768,
+    "code_contrast": 14.26,
+    "one_source_card": true,
+    "reload_return_filters": true,
+    "direct_entry_fallback": true,
+    "screenshot": "/workspace/nov13-private/after-classic-dark-768.png"
+  },
+  {
+    "design": "classic",
+    "theme": "dark",
+    "width": 1440,
+    "code_contrast": 14.26,
+    "one_source_card": true,
+    "reload_return_filters": true,
+    "direct_entry_fallback": true,
+    "screenshot": "/workspace/nov13-private/after-classic-dark-1440.png"
+  },
+  {
+    "design": "editorial",
+    "theme": "light",
+    "width": 390,
+    "code_contrast": 14.08,
+    "one_source_card": true,
+    "reload_return_filters": true,
+    "direct_entry_fallback": true,
+    "screenshot": "/workspace/nov13-private/after-editorial-light-390.png"
+  },
+  {
+    "design": "editorial",
+    "theme": "light",
+    "width": 768,
+    "code_contrast": 14.08,
+    "one_source_card": true,
+    "reload_return_filters": true,
+    "direct_entry_fallback": true,
+    "screenshot": "/workspace/nov13-private/after-editorial-light-768.png"
+  },
+  {
+    "design": "editorial",
+    "theme": "light",
+    "width": 1440,
+    "code_contrast": 14.08,
+    "one_source_card": true,
+    "reload_return_filters": true,
+    "direct_entry_fallback": true,
+    "screenshot": "/workspace/nov13-private/after-editorial-light-1440.png"
+  },
+  {
+    "design": "editorial",
+    "theme": "dark",
+    "width": 390,
+    "code_contrast": 12.55,
+    "one_source_card": true,
+    "reload_return_filters": true,
+    "direct_entry_fallback": true,
+    "screenshot": "/workspace/nov13-private/after-editorial-dark-390.png"
+  },
+  {
+    "design": "editorial",
+    "theme": "dark",
+    "width": 768,
+    "code_contrast": 12.55,
+    "one_source_card": true,
+    "reload_return_filters": true,
+    "direct_entry_fallback": true,
+    "screenshot": "/workspace/nov13-private/after-editorial-dark-768.png"
+  },
+  {
+    "design": "editorial",
+    "theme": "dark",
+    "width": 1440,
+    "code_contrast": 12.55,
+    "one_source_card": true,
+    "reload_return_filters": true,
+    "direct_entry_fallback": true,
+    "screenshot": "/workspace/nov13-private/after-editorial-dark-1440.png"
+  }
+]

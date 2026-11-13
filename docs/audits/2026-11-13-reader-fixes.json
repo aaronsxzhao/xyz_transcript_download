@@ -1,0 +1,77 @@
+{
+  "checked_at": "2026-11-13T02:43:48.955546+00:00",
+  "base": "2ee43fdd8192f41e0409a22bf8287ff35865c9df",
+  "production_before": "7a519e552b87d5cbc87233edc79f80533bd86562",
+  "user_reports": [
+    "Podcast empty overview and repeated generation failure",
+    "Reader exits lose entry context",
+    "Duplicate adjacent source link cards",
+    "Unreadable light code blocks"
+  ],
+  "changes": {
+    "reader_return": "Keep allowed entry route/query in history state across reader hops/reload; direct-entry fallbackLibrary; error screen uses same return",
+    "article_links": "Display-only removal of bare adjacent duplicate immediately following Original source with exact same URL; preserve other citations,code,reference definitions,saved content",
+    "code": "Explicit theme text colors for pre; light-mode contrast >=11.5",
+    "overview": "Hide empty overview heading and TOC entry only; no generation changes or invented content"
+  },
+  "verification": {
+    "unit": "551passed",
+    "build": "TypeScript/Vite/bundle budget passed; see final-build.log",
+    "matrix": "4themes x390/768/1440;real Chromium sandbox,TLS enabled;synthetic localAPI",
+    "matrix_assertions": [
+      "one source card",
+      "code contrast>=4.5",
+      "no pageoverflow",
+      "return preserves Libraryquery afterreload",
+      "directreader fallbackLibrary"
+    ],
+    "viewed": [
+      "before-light.png",
+      "after-editorial-light-390.png",
+      "after-classic-light-768.png",
+      "after-editorial-dark-1440.png",
+      "after-classic-dark-390.png"
+    ],
+    "other_browser_lanes": [
+      "check_summary_theme:390/820 classic/editorial light/dark",
+      "check_reader_interactions:390/768/1440"
+    ],
+    "limits": "Simulated viewports,not physicaldevices;allprivateuserbody stayedout of evidence",
+    "ci_first_failure": "43354247685:CI Node22 compressed startup197.9KiB>197.75;article-only helper was forced into startup workspace chunk. Excluded articleLinks from forced startup group;12case browser matrix reran successfully;budget unchanged.",
+    "integration": "Merged concurrent PR254; shared coverage conflict resolved by retaining both independent records. Full integration CI required."
+  },
+  "podcast_investigation": {
+    "current_account": "Normal login,15taskrecords;3groundingfailures;2savedsummaries have292/307overviewcharacters and27/23points. User66point screenshot does not match those saved records. Requested siteURLs.",
+    "screenshot_failure": "Source-grounding gate,notcookie or401;cannotgeneralize frequency toallpodcasts",
+    "empty_overview_path": "reading_delivery.accept_edition deliberately clears overview if unsupported. Summarizer maps paragraphs tokey_points;frontendlabels allchapters Key Points. Emptyheading wasdisplaybug. Screenshot recordstillneeded toconfirm exactsource.",
+    "prior_diagnosis": "Nov11 modelcoverage45/47(95.74%)butgrounding_concerns;20requestauditstopnotappfailure;notrerun ormisreportedthisrun",
+    "core_boundary": "No algorithmchange/no historicalreprocessing. Need originaltask receipt/candidate evidence to distinguish actualunsupportedclaims fromreviewfalsepositives. Currentreview contract permits grounded=false withoutIDs, which leaves no targetedrepair; evidence for specific jobs stillmissing.",
+    "proposed_decision": "Validate reviewer inconsistency as invalid receipt with bounded re-review; repair only evidenced rejected paragraphs,thenfresh immutable fullreview; keep90percentcoverage andzero knownunsupportedclaims. Requires source-specific evidence beforechangingcoregate; no blanketreretry orthresholdreduction.",
+    "contract_probe": {
+      "negative_review_without_ids": "Synthetic validate_review accepted grounded=false with no unsupportedIDs;no targeted repair possible",
+      "proven_actual_job_cause": false
+    },
+    "fresh_diagnosis": {
+      "result": "accepted_in_memory_only",
+      "coverage": "51/53 (96.2264%)",
+      "wall_seconds": 324.634,
+      "requests": 20,
+      "negative_grounding_without_ids_observed": false,
+      "not_proven": "root cause of screenshot jobs"
+    },
+    "concurrent_evidence": {
+      "pr": 254,
+      "commit": "17340dbac9b0688aa7e54ebcd7d005482e413e40",
+      "report": "docs/audits/2026-11-13-article-rss-repair.md",
+      "finding": "Prior two investigated tasks had InternalServerError in 5/6 and 2/6 inventory batches. Historical exact HTTP code unavailable. These are not established as the screenshot jobs."
+    }
+  },
+  "fees": {
+    "beijing_date": "2026-11-13",
+    "provider_settled_usd": 0.901862,
+    "calls": 20,
+    "peak_concurrency": 3,
+    "scope": "One isolated public RSS generation; not production reprocessing; no provider hard cap"
+  },
+  "release": "PendingPR/CI/deploy; update after release"
+}
