@@ -789,7 +789,7 @@ def test_source_validation_never_reuses_incidental_invalid_or_corrected_receipts
     assert len(calls)==2
 
 
-@pytest.mark.parametrize('outcome', ['recover','timeout','non_retryable'])
+@pytest.mark.parametrize('outcome', ['recover','timeout','non_retryable','rate_limit'])
 def test_transient_repair_failure_retries_only_the_failed_batch(outcome):
     from coverage_ledger import efficient_audit
     case=CASES[0];lines,sections,ranges=setup_case(case)
@@ -801,6 +801,12 @@ def test_transient_repair_failure_retries_only_the_failed_batch(outcome):
         if payload['phase']=='repair':
             attempts.append(1)
             if outcome=='non_retryable': raise PermissionError('synthetic failure')
+            if outcome=='rate_limit':
+                import httpx
+                from openai import RateLimitError
+                req=httpx.Request('POST','https://models.example/v1/chat/completions')
+                raise RateLimitError('synthetic throttle',response=httpx.Response(429,request=req,
+                    headers={'Retry-After':'60'}),body=None)
             if outcome=='timeout' or len(attempts)==1: raise TimeoutError('synthetic timeout')
         return base(engine,system,payload,validator)
     with patch('coverage_ledger.request',side_effect=response):
@@ -813,7 +819,7 @@ def test_transient_repair_failure_retries_only_the_failed_batch(outcome):
         assert report['repair_transport_retries']==1
     else:
         assert report['status']=='unverified' and report['repairs_accepted']==0
-    assert len(attempts)==(1 if outcome=='non_retryable' else 2)
+    assert len(attempts)==(1 if outcome in {'non_retryable','rate_limit'} else 2)
 
 @pytest.mark.parametrize('damage',['missing','extra','duplicate','non_boolean','unknown'])
 def test_delta_receipt_must_cover_exact_proposals_with_explicit_booleans(damage):

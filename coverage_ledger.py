@@ -613,7 +613,9 @@ def _audit(engine, lines, sections, overview='', progress=None, stage_callback=N
                     # A whole-draft review cannot recover a timed-out repair;
                     # completed work is retained and the usual recheck follows.
                     from summary_errors import SummaryOutputError
-                    if isinstance(error,(ValueError,SummaryOutputError)) or not retryable_model_failure(error): raise
+                    if (isinstance(error,(ValueError,SummaryOutputError)) or
+                            getattr(error,'status_code',None) is not None or
+                            not retryable_model_failure(error)): raise
                     report['repair_transport_retries'] = report.get('repair_transport_retries', 0) + 1
                     repaired=call(REPAIR+revision_guidance(sections,overview),payload,validate)
                 additions,_=validate(repaired)
