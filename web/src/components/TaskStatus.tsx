@@ -66,18 +66,18 @@ export function TaskProgress({
   const reportedAt = typeof updatedAt === 'string' ? Date.parse(updatedAt) : updatedAt;
   // Old podcast revisions were counters, not epoch timestamps. Never treat
   // those or future/invalid timestamps as evidence of recent backend work.
-  const validReport = typeof reportedAt === 'number' && Number.isFinite(reportedAt)
+  const validReport = typeof reportedAt === 'number'
     && reportedAt >= 946684800000 && reportedAt <= now;
   const unchangedSeconds = Math.max(0, Math.floor((now - (validReport ? reportedAt : lastChange)) / 1000));
-  const stageHint = coverageReview ? "Checking the saved transcript section by section. Your saved note stays readable." : status === "summarizing"
-    ? "Writing and checking your summary. Progress follows completed steps."
+  const stageHint = coverageReview ? "Checking transcript sections; saved notes remain readable." : status === "summarizing"
+    ? "Writing and checking the summary; updates follow completed steps."
     : status === "transcribing"
-      ? "Working through the audio. Longer recordings finish in batches."
+      ? "Transcribing audio in batches."
       : status === "saving"
-        ? "Final checks and saving. Complete only when your notes are ready."
+        ? "Checking and saving your notes."
         : status === "downloading"
-          ? "Fetching your media. Progress follows downloaded data."
-          : "Preparing your content. Progress updates as results arrive.";
+          ? "Downloading media."
+          : "Preparing content; waiting for results.";
   const active = isActiveStatus(status) && !waiting;
   return (
     <div className="task-progress" data-offline={!online || undefined}>
@@ -117,13 +117,10 @@ export function TaskProgress({
           {!online
             ? "You're offline. Reconnect to refresh progress."
             : unchangedSeconds >= 30
-              ? `${stageHint} No new progress for ${Math.floor(unchangedSeconds / 60)}m ${unchangedSeconds % 60}s; waiting for the next result. This does not confirm the task is still advancing.`
+              ? `${stageHint} No new progress for ${Math.floor(unchangedSeconds / 60)}m ${unchangedSeconds % 60}s; task activity is unconfirmed.`
               : stageHint}
         </p>
       )}
-      {active && validReport && <p className="task-progress-expectation">
-        Last server progress <time dateTime={new Date(reportedAt).toISOString()}>{new Date(reportedAt).toLocaleTimeString()}</time>.
-      </p>}
       {startedAt > 0 && isActiveStatus(status) && status !== "pending" && (
         <span className="text-xs text-gray-500 tabular-nums">
           Elapsed {Math.floor(elapsed / 60)}m {elapsed % 60}s

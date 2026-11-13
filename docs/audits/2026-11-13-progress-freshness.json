@@ -3,10 +3,10 @@
   "base": "0f69b5f",
   "scope": "Task progress age across panel reopen and page reload",
   "cause": "Client-only lastChange reset on mount; existing backend revision/updated_at not passed to shared progress component",
-  "fix": "Use existing epoch status timestamps; reject legacy counters/invalid/future timestamps; label last server progress and avoid claiming worker liveness",
+  "fix": "Use existing epoch status timestamps for elapsed quiet-progress age; reject legacy counters/invalid/future timestamps; state that activity remains unconfirmed without a new result",
   "validation": {
     "unit": "27 targeted passed",
-    "build": "TypeScript/Vite and unchanged compressed budget passed",
+    "build": "Node22.23.5 with clean npm ci from current lockfile: TypeScript/Vite and unchanged197.75KiB budget passed (197.7KiB). Initial CI found reused local dependencies non-equivalent; compacted feedback without raising threshold.",
     "browser": "12 cases Classic/Editorial light/dark 390/820/1440, real Chromium sandbox; before all hide 10 minute wait, after all preserve it on panel reopen",
     "viewed": [
       "before-classic-light-390",

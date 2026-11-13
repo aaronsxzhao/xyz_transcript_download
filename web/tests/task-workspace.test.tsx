@@ -213,17 +213,16 @@ it('keeps server progress age after remount and clears it only on a newer report
   const render=(updatedAt:number|string)=>root.render(<TaskProgress status="summarizing" progress={74} updatedAt={updatedAt} message="Checking source accuracy · 0/6 checks finished"/>)
   await act(async()=>render(old))
   expect(node.textContent).toContain('No new progress for 10m 0s')
-  expect(node.textContent).toContain('does not confirm the task is still advancing')
+  expect(node.textContent).toContain('task activity is unconfirmed')
   await act(async()=>root.render(<div/>))
   await act(async()=>vi.advanceTimersByTime(5000))
   await act(async()=>render(old))
   expect(node.textContent).toContain('No new progress for 10m 5s')
   await act(async()=>render(new Date().toISOString()))
   expect(node.textContent).not.toContain('No new progress')
-  expect(node.textContent).toContain('Last server progress')
   for(const invalid of [1,NaN,Date.now()+600000,'invalid']) {
    await act(async()=>render(invalid))
-   expect(node.textContent).not.toContain('Last server progress')
+   expect(node.textContent).not.toContain('10m 5s')
   }
  } finally {vi.useRealTimers()}
 })
