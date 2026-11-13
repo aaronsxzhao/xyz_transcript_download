@@ -364,3 +364,21 @@ def test_provider_inventory_failure_is_not_reported_as_missing_source_meaning():
     assert 'source coverage check could not finish' in str(failure.value)
     assert owner.generation_report['delivery']['status'] == 'blocked'
     assert 'markdown' not in edition
+
+@pytest.mark.parametrize('resume',[False,True])
+def test_late_coverage_work_publishes_completed_batch_progress(resume):
+    owner,edition=candidate(10 if resume else 8)
+    owner._quality_inventory=({},[])
+    if resume:owner._quality_attempt=1
+    complete=copy.deepcopy(candidate(10)[0].generation_report['coverage_ledger'])
+    events=[]
+    def audit(*args,stage_callback=None,**kwargs):
+        from reading_progress import stage
+        stage(stage_callback,'coverage',2,10)
+        stage(stage_callback,'repair',2,10,batch_size=3)
+        return complete
+    with patch('coverage_ledger.efficient_audit',side_effect=audit):
+        accept_edition(owner,edition,'Title','Source',[],0,stage_callback=events.append)
+    assert any(e['stage']=='coverage' and e['completed']==2 and e['total']==10 for e in events)
+    assert any(e['stage']=='repair' and '3 items' in e['message'] for e in events)
+    assert owner.generation_report['delivery']['status']=='accepted'

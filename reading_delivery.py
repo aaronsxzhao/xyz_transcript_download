@@ -94,7 +94,7 @@ def accept_edition(engine, edition, title, source, formats, duration, stage_call
         if engine._quality_inventory[0].get('inventory_failed_batches'):
             engine._quality_inventory = build_inventory(engine, lines)
         report['coverage_ledger'] = efficient_audit(engine, lines, sections, overview,
-            prepared_inventory=engine._quality_inventory)
+            prepared_inventory=engine._quality_inventory, stage_callback=stage_callback)
     grounding_repaired = False
     coverage_repaired = False
     review_failures = 0
@@ -115,7 +115,7 @@ def accept_edition(engine, edition, title, source, formats, duration, stage_call
                 repair_unsupported(engine, lines, sections, rejected-{'overview'})
                 report.pop('grounded_draft_identity', None)
                 report['coverage_ledger'] = efficient_audit(engine, lines, sections, overview,
-                    prepared_inventory=engine._quality_inventory, allow_repairs=False)
+                    prepared_inventory=engine._quality_inventory, allow_repairs=False, stage_callback=stage_callback)
                 if any(p.get('raw') for s in sections for p in s['paragraphs']):
                     raise SummaryOutputError('quality', reason='grounding')
             identity = draft_identity(sections, overview)
@@ -145,7 +145,7 @@ def accept_edition(engine, edition, title, source, formats, duration, stage_call
                         repair_unsupported(engine, lines, sections, unsupported-{'overview'})
                         report.pop('grounded_draft_identity', None)
                         report['coverage_ledger'] = efficient_audit(engine, lines, sections, overview,
-                            prepared_inventory=engine._quality_inventory, allow_repairs=False)
+                            prepared_inventory=engine._quality_inventory, allow_repairs=False, stage_callback=stage_callback)
                         continue
                     report['verification'].update(status='unverified',
                         unsupported_paragraph_ids=sorted(unsupported))
@@ -162,7 +162,7 @@ def accept_edition(engine, edition, title, source, formats, duration, stage_call
                     coverage_repaired = True
                     report['final_coverage_repair_rounds'] = 1
                     report['coverage_ledger'] = efficient_audit(engine, lines, sections, overview,
-                        prepared_inventory=engine._quality_inventory)
+                        prepared_inventory=engine._quality_inventory, stage_callback=stage_callback)
                     continue
                 raise SummaryOutputError('quality', reason='source_review'
                     if ledger.get('inventory_failed_batches') or ledger.get('inventory_validation_failed_batches')

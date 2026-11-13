@@ -12,3 +12,18 @@ describe('generated source duplication',()=>{
   }
  })
 })
+
+it('groups X post and adjacent Article short link but retains both destinations and later citations',()=>{
+ const post='https://x.com/i/status/2091515787366306154',short='https://t.co/5w8ILIIelz'
+ const source=`[Original source](${post})\n\n${short}\n\nBody\n\nhttps://t.me/example`
+ const actual=articleDisplayMarkdown(source)
+ expect(actual).toBe(`[Original source](${post}) · [Linked source](<${short}>)\n\nBody\n\nhttps://t.me/example`)
+ expect(articleDisplayMarkdown(actual)).toBe(actual)
+})
+
+it('does not group a prose citation, unrelated host, code, or nonadjacent short link',()=>{
+ for(const middle of ['A source: https://t.co/abc','https://example.com/article','```\nhttps://t.co/abc\n```','Body\n\nhttps://t.co/abc']) {
+  const source='[Original source](https://x.com/i/status/123)\n\n'+middle
+  expect(articleDisplayMarkdown(source)).toBe(source)
+ }
+})

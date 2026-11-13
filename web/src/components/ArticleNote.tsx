@@ -51,7 +51,7 @@ function ArticleMedia({href,label,kind}:{href:string;label:string;kind:'video'|'
   </figure>
 }
 
-function ArticleLink({href,label}:{href:string;label:string}) {
+function ArticleLink({href,label,related}:{href:string;label:string;related?:string}) {
   const [loaded,setLoaded]=useState(false)
   const [pending,setPending]=useState(false)
   const [slow,setSlow]=useState(false)
@@ -68,6 +68,7 @@ function ArticleLink({href,label}:{href:string;label:string}) {
       <span className="article-link-host">{embed?.name||host}</span>
       <strong>{title}</strong><span className="article-link-action">Open original ↗</span>
     </a>
+    {related&&<p><a href={related} target="_blank" rel="noopener noreferrer">Linked source ↗</a></p>}
     {embed&&!loaded&&<button type="button" className="article-embed-button" onClick={()=>{setLoaded(true);setPending(true)}}>Load {embed.name} player</button>}
     {embed&&loaded&&<>
       {pending&&<p role="status">{slow?'Player is taking longer to load. You can open the original above.':'Loading player…'}</p>}
@@ -104,6 +105,9 @@ export default function ArticleNote({markdown,attachments=[],readerTitle,readerM
   const remaining=attachments.filter(item=>!inlineMedia.has(item.url))
   return <>
     {remaining.length>0&&<section aria-label="Article media" className="reader-utility-panel mb-4"><h2>Media in this article</h2><p className="text-sm text-gray-400">The complete article is retained below. Process a recording separately when you want its transcript and notes.</p>{remaining.map((item,index)=>articleMediaKind(item.url)?<ArticleLink key={item.url+index} href={item.url} label={item.title||'Article media'}/>:<div key={item.url+index} className="flex flex-wrap items-center gap-3 mt-3"><a href={item.url} target="_blank" rel="noopener noreferrer">{item.title||'Open media'} ↗</a>{(item.kind==='audio'||item.kind==='video'||['youtube','bilibili','douyin','kuaishou'].includes(detectContentPlatform(item.url)))&&<Link className="reader-action" to={'/videos?import='+encodeURIComponent(item.url)}>Process {item.kind==='audio'?'audio':'video'}</Link>}</div>)}</section>}
-    <article data-rendering="plain" aria-label="Readable note" className="note-prose prose prose-invert max-w-none"><ReadableMarkdown markdown={displayMarkdown} readerTitle={readerTitle} readerMeta={readerMeta} imageSources={articleImageSources} renderParagraph={(paragraph,index)=>{const link=paragraph.tokens.length===1?paragraph.tokens[0]:null;return link?.type==='link'&&link.tokens&&/^https?:\/\//i.test(link.href)&&!hasImage(link.tokens)?<ArticleLink key={index+link.href} href={link.href} label={inlineNoteText(link.tokens)}/>:null}}/></article>
+    <article data-rendering="plain" aria-label="Readable note" className="note-prose prose prose-invert max-w-none"><ReadableMarkdown markdown={displayMarkdown} readerTitle={readerTitle} readerMeta={readerMeta} imageSources={articleImageSources} renderParagraph={(paragraph,index)=>{
+      const [first,separator,second]=paragraph.tokens
+      if(paragraph.tokens.length===3&&first?.type==='link'&&inlineNoteText(first.tokens||[])==='Original source'&&separator?.type==='text'&&separator.text===' · '&&second?.type==='link'&&inlineNoteText(second.tokens||[])==='Linked source'&&/^https?:\/\//i.test(first.href)&&/^https?:\/\//i.test(second.href))return <ArticleLink key={index+first.href} href={first.href} label="Original post" related={second.href}/>
+      const link=paragraph.tokens.length===1?paragraph.tokens[0]:null;return link?.type==='link'&&link.tokens&&/^https?:\/\//i.test(link.href)&&!hasImage(link.tokens)?<ArticleLink key={index+link.href} href={link.href} label={inlineNoteText(link.tokens)}/>:null}}/></article>
   </>
 }

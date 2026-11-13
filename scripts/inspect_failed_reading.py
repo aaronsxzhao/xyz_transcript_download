@@ -42,6 +42,41 @@ def safe_report(report):
     return safe
 
 
+# User supplied this exact episode for read-only latency diagnosis on 2026-11-13.
+REPORTED_EPISODE = 'https://www.xiaoyuzhoufm.com/episode/6ac6a657e742e36efcbf74af'
+
+def inspect_reported_episode(get):
+    rows = get('processing_work', {
+        'select':'task_id,user_id,state,attempts,metrics,created_at,updated_at',
+        'kind':'eq.podcast','payload->>episode_url':'eq.'+REPORTED_EPISODE,
+        'order':'created_at.desc','limit':'21'})
+    if len(rows)>20 or len({row.get('user_id') for row in rows})>1:
+        return {'status':'blocked_ambiguous_or_truncated','record_count':len(rows)}
+    allowed = {'model.editor','transcription.segment','reading.candidate.v1',
+        *('model.phase.'+phase for phase in ('draft','grounding','inventory','match','repair','validate_inventory','repair_grounding','other'))}
+    result=[]
+    for row in rows:
+        metrics=row.get('metrics') or {}
+        phases={name:{key:value for key,value in values.items()
+            if key in ('seconds','calls','failed_calls') and type(value) in (int,float)
+            and math.isfinite(value) and value>=0}
+            for name,values in (metrics.get('stages') or {}).items()
+            if name in allowed and isinstance(values,dict)}
+        item={'task_id':row['task_id'],
+            'state':row.get('state') if row.get('state') in ('completed','failed','cancelled','queued','running') else 'unknown',
+            'stages':phases,'generation':safe_report(metrics.get('generation'))}
+        for key in ('wall_seconds','checkpoint_hits'):
+            value=metrics.get(key)
+            if type(value) in (int,float) and math.isfinite(value) and value>=0:item[key]=value
+        for key in ('created_at','updated_at'):
+            value=row.get(key)
+            # Dates are stored as server numeric epochs or ISO timestamps.
+            if type(value) in (int,float) and math.isfinite(value):item[key]=value
+        result.append(item)
+    return {'status':'found' if rows else 'not_found','task_count':len(result),
+            'production_writes':False,'provider_calls':0,'tasks':result}
+
+
 def inspect(base, key, credential_seed=None):
     def get(table, query):
         request = Request(base.rstrip('/')+'/rest/v1/'+table+'?'+urlencode(query),
@@ -73,7 +108,7 @@ def inspect(base, key, credential_seed=None):
                       'http_status':getattr(error,'code',None) if isinstance(getattr(error,'code',None),int) else None}
         budget['active_work_count'] = len(active)
         budget['active_work_scan_complete'] = len(active) < 1000
-    return {'production_writes':False, 'provider_calls':0, 'task_count':len(rows), 'tasks':result, 'budget':budget}
+    return {'production_writes':False, 'provider_calls':0, 'task_count':len(rows), 'tasks':result, 'budget':budget, 'reported_episode':inspect_reported_episode(get)}
 
 
 def inspect_budget(prefs, owner, seed):

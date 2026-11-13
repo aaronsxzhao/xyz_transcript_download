@@ -21,12 +21,14 @@ export function TaskProgress({
   compact = false,
   startedAt = 0,
   message = "",
+  updatedAt,
 }: {
   status: string;
   progress?: number;
   compact?: boolean;
   startedAt?: number;
   message?: string;
+  updatedAt?: number | string;
 }) {
   const [now, setNow] = useState(Date.now());
   const [online, setOnline] = useState(() => navigator.onLine);
@@ -61,16 +63,17 @@ export function TaskProgress({
   const stageMessage = isActiveStatus(status) && !waiting ? message : "";
   const coverageReview = stageMessage.startsWith('Coverage review');
   const stageLabel = status === "summarizing" ? ["Coverage review", "Writing full-transcript summary", "Writing sections", "Checking source accuracy", "Building coverage checklist", "Checking coverage", "Filling missing details", "Verifying additions", "Preparing the final summary"].find(label => stageMessage.startsWith(label)) : undefined;
-  const unchangedSeconds = Math.max(0, Math.floor((now - lastChange) / 1000));
-  const stageHint = coverageReview ? "Checking the saved transcript section by section. Your saved note stays readable." : status === "summarizing"
-    ? "Writing and checking your summary. Progress follows completed steps."
+  const reportedAt = typeof updatedAt === 'string' ? Date.parse(updatedAt) : updatedAt;
+  // Old podcast revisions were counters, not epoch timestamps. Never treat
+  // those or future/invalid timestamps as evidence of recent backend work.
+  const validReport = typeof reportedAt === 'number'
+    && reportedAt >= 946684800000 && reportedAt <= now;
+  const unchangedSeconds = Math.max(0, Math.floor((now - (validReport ? reportedAt : lastChange)) / 1000));
+  const stageHint = coverageReview
+    ? "Checking saved transcript sections; your note remains readable."
     : status === "transcribing"
-      ? "Working through the audio. Longer recordings finish in batches."
-      : status === "saving"
-        ? "Final checks and saving. Complete only when your notes are ready."
-        : status === "downloading"
-          ? "Fetching your media. Progress follows downloaded data."
-          : "Preparing your content. Progress updates as results arrive.";
+      ? "Audio transcription reports completed batches."
+      : "Progress updates when each step finishes.";
   const active = isActiveStatus(status) && !waiting;
   return (
     <div className="task-progress" data-offline={!online || undefined}>
@@ -110,7 +113,7 @@ export function TaskProgress({
           {!online
             ? "You're offline. Reconnect to refresh progress."
             : unchangedSeconds >= 30
-              ? `${stageHint} No new progress for ${Math.floor(unchangedSeconds / 60)}m ${unchangedSeconds % 60}s; waiting for the next result.`
+              ? `${stageHint} No new progress for ${Math.floor(unchangedSeconds / 60)}m ${unchangedSeconds % 60}s; task activity is unconfirmed.`
               : stageHint}
         </p>
       )}
