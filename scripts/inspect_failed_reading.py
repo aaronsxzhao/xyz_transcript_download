@@ -17,7 +17,7 @@ COUNTERS = ('coverage_ratio', 'coverage_threshold', 'threshold', 'failed_batches
     'inventory_failed_batches', 'inventory_validation_failed_batches', 'ignored_boundary_items',
     'terminal_provider_failure', 'grounding_concerns', 'unresolved_items', 'covered_items',
     'requests', 'validation_retries', 'repairs_accepted', 'repairs_rejected',
-    'reviewed', 'review_attempts', 'review_parts', 'final_coverage_attempts')
+    'inventory_transport_retries', 'inventory_split_retries', 'inventory_recovered_batches', 'inventory_batches', 'reviewed', 'review_attempts', 'review_parts', 'final_coverage_attempts')
 
 def safe_report(report):
     report = report if isinstance(report, dict) else {}
@@ -32,6 +32,7 @@ def safe_report(report):
         if source.get('reason') in ('coverage','grounding','review','ValueError','SummaryOutputError','ReadingProviderError'):
             row['reason'] = source['reason']
         if key == 'coverage_ledger':
+            row['inventory_error_types'] = {name:sum(isinstance(e,dict) and e.get('error_type')==name for e in source.get('inventory_failures',[]) or []) for name in ('ValueError','SummaryOutputError','APIConnectionError','APITimeoutError','TimeoutError','APIStatusError','RateLimitError')}
             row['item_status_counts'] = {state:sum(isinstance(i,dict) and i.get('status')==state for i in source.get('items',[]) or [])
                 for state in ('covered','missing','partial','contradicted','unverified','context_only')}
         safe[key] = row
