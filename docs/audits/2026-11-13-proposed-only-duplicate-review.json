@@ -4,7 +4,7 @@
   "issue": "The independent source/novelty/contradiction verifier only ran when a duplicate flag had mixed old/new support; new-only support never got that independent check.",
   "change": "Apply the same independent verifier to eligible duplicate-flagged new-only support; accept only grounded, materially novel, non-contradictory proposals that pass the existing match and final delivery gates.",
   "tradeoff": "May add one verification request for batches containing only new-only duplicate flags. This can recover genuine additions but is not guaranteed to reduce requests or improve real success.",
-  "local_tests": "232 related tests passed, including true duplicate, ungrounded, contradictory and new material cases for both support shapes.",
+  "local_tests": "234 related tests passed, including true duplicate, ungrounded, contradictory, novel, malformed-verifier and transport-failure cases for both support shapes.",
   "real_provider": {
     "scope": "two short synthetic cases",
     "requests": 2,

@@ -683,6 +683,28 @@ def test_duplicate_flag_requires_independent_delta_verification(novel,grounded,c
     assert (len(sections)>1)==(novel and grounded and not contradicts)
 
 
+@pytest.mark.parametrize('failure',['malformed','transport'])
+def test_new_only_duplicate_fails_closed_when_independent_review_fails(failure):
+    case={'source':'[00:00] The program starts.\n[00:01] Approval is required in January.',
+          'missing_draft':'The program starts.',
+          'complete_draft':'Approval is required in January.', 'kind':'condition'}
+    lines,sections,_=setup_case(case);before=copy.deepcopy(sections);base=scripted(case,[]);checks=[]
+    def response(engine,system,payload,validator):
+        if payload['phase']=='verify_repair_delta':
+            checks.append(True)
+            if failure=='transport': raise TimeoutError()
+            data={'paragraphs':[]}
+            validator(data)
+            return data
+        data=base(engine,system,payload,validator)
+        if payload['phase']=='match' and payload.get('proposed_paragraph_ids'):
+            for row in data['matches']:
+                row.update(duplicate=True,support=[{'paragraph_id':payload['proposed_paragraph_ids'][0]}])
+        return data
+    with patch('coverage_ledger.request',side_effect=response):report=audit(SimpleNamespace(),lines,sections)
+    assert checks and report['status']=='unverified' and sections==before
+
+
 def test_final_readonly_audit_source_checks_new_incidental_gap_without_adding_prose():
     from coverage_ledger import efficient_audit
     case={'source':'[00:00] An effective method, illustrated by another incidental biography.',
