@@ -1581,6 +1581,13 @@
       ],
       "acceptance": "Compare rawHTML,savedMarkdown,reader;navigation absent while all substantive paragraphs/images/citations intact;version extraction change;no historical bulk rewrite",
       "rollback": "Revert selector rule/version;existing saved originals unchanged;not modified"
+    },
+    {
+      "id": "2026-11-13-podcast-reference-repair",
+      "status": "local_tests_passed_real_acceptance_pending",
+      "report": "docs/audits/2026-11-13-podcast-reference-repair.json",
+      "scope": "Target invalid source ranges only; preserve prose, run full validation, retain grounding/coverage gates",
+      "remaining": "Live reported episode failed on deployed PR260; PR261 not deployed; exact root type varies between model requests; end-to-end success and latency unproven."
     }
   ],
   "user_authorization_updates": [
