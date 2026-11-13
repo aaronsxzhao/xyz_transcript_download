@@ -69,15 +69,11 @@ export function TaskProgress({
   const validReport = typeof reportedAt === 'number'
     && reportedAt >= 946684800000 && reportedAt <= now;
   const unchangedSeconds = Math.max(0, Math.floor((now - (validReport ? reportedAt : lastChange)) / 1000));
-  const stageHint = coverageReview ? "Checking transcript sections; saved notes remain readable." : status === "summarizing"
-    ? "Writing and checking the summary; updates follow completed steps."
+  const stageHint = coverageReview
+    ? "Checking saved transcript sections; your note remains readable."
     : status === "transcribing"
-      ? "Transcribing audio in batches."
-      : status === "saving"
-        ? "Checking and saving your notes."
-        : status === "downloading"
-          ? "Downloading media."
-          : "Preparing content; waiting for results.";
+      ? "Audio transcription reports completed batches."
+      : "Progress updates when each step finishes.";
   const active = isActiveStatus(status) && !waiting;
   return (
     <div className="task-progress" data-offline={!online || undefined}>
