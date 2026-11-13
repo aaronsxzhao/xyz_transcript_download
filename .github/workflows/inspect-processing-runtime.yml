@@ -1,6 +1,11 @@
 name: Inspect processing runtime
 on:
   workflow_dispatch:
+    inputs:
+      inspect_failed_reading:
+        description: Read only the two authorized failed test-job receipts
+        type: boolean
+        default: false
   push:
     branches: [main, feat/durable-processing-model-options-20261026]
     paths: ['scripts/inspect_processing_runtime.py', '.github/workflows/inspect-processing-runtime.yml']
@@ -30,3 +35,6 @@ jobs:
           chmod 600 ~/.oci/key.pem
           printf '[DEFAULT]\nuser=%s\nfingerprint=%s\ntenancy=%s\nregion=us-ashburn-1\nkey_file=~/.oci/key.pem\n' "$OCI_CLI_USER" "$OCI_CLI_FINGERPRINT" "$OCI_CLI_TENANCY" > ~/.oci/config
       - run: python scripts/inspect_processing_runtime.py
+      - name: Inspect authorized failed reading receipts without model calls
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.inspect_failed_reading }}
+        run: python scripts/inspect_failed_reading.py
