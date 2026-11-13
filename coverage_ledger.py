@@ -44,6 +44,7 @@ def measure_coverage_round(engine, phase, operation, *args, **kwargs):
         rejection_reasons=dict(ledger.get('repair_rejection_reasons', {})),
         source_corrected_items=len(ledger.get('corrected_inventory_items', []) or []),
         inventory_receipts_reused=ledger.get('inventory_receipts_reused', 0),
+        repair_transport_retries=ledger.get('repair_transport_retries', 0),
         logical_requests_reported=ledger.get('requests', 0),
         coverage_ratio=coverage_ratio(ledger))
     engine.generation_report.setdefault('coverage_rounds', []).append(entry)
@@ -605,7 +606,16 @@ def _audit(engine, lines, sections, overview='', progress=None, stage_callback=N
                         raise ValueError('Repair contains boundary commentary')
                     return validated, issues
                 from reading_budget import revision_guidance
-                repaired=call(REPAIR+revision_guidance(sections,overview),payload,validate)
+                try:
+                    repaired=call(REPAIR+revision_guidance(sections,overview),payload,validate)
+                except Exception as error:
+                    # Retry a transient failure at the failed batch boundary.
+                    # A whole-draft review cannot recover a timed-out repair;
+                    # completed work is retained and the usual recheck follows.
+                    from summary_errors import SummaryOutputError
+                    if isinstance(error,(ValueError,SummaryOutputError)) or not retryable_model_failure(error): raise
+                    report['repair_transport_retries'] = report.get('repair_transport_retries', 0) + 1
+                    repaired=call(REPAIR+revision_guidance(sections,overview),payload,validate)
                 additions,_=validate(repaired)
                 candidate=copy.deepcopy(sections)
                 proposed=[]
@@ -759,7 +769,7 @@ def efficient_audit(engine, lines, sections, overview='', progress=None, stage_c
         stop_when=lambda result: result[0]['terminal_provider_failure'], on_complete=matched_batch)
     receipts = {}
     def add_counters(local):
-        for key in ('requests', 'repairs_accepted', 'repairs_rejected', 'validation_retries', 'inventory_receipts_reused',
+        for key in ('requests', 'repairs_accepted', 'repairs_rejected', 'validation_retries', 'inventory_receipts_reused', 'repair_transport_retries',
                     'inventory_validation_failed_batches'):
             report[key] = report.get(key, 0) + local.get(key, 0)
         report['terminal_provider_failure'] |= local['terminal_provider_failure']

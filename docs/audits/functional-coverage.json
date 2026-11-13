@@ -1624,9 +1624,9 @@
       "id": "2026-11-13-source-verification-reuse",
       "scope": "Avoid repeating identical source-only checks when coverage batches change",
       "result": "local synthetic regression; real-podcast effectiveness pending",
-      "observation": "An affirmative source validation can be repeated because per-request checkpoint identity depends on the whole batch; identical items may appear in a later differently grouped batch.",
-      "change": "Within one engine, reuse only validated affirmative receipts for identical item, original source context, reported gap, verification prompt and model. Never reuse corrections, incidental classifications or failed responses.",
-      "limitations": "Does not skip final coverage matching or grounding. Real long-podcast request savings and final quality remain unverified; short real-source sample is not whole-episode acceptance.",
+      "observation": "An affirmative source validation can be repeated because per-request checkpoint identity depends on the whole batch; identical items may appear in a later differently grouped batch. A real 50-segment sample observed one repair timeout followed by a whole-draft review and renewed matching before the next repair.",
+      "change": "Within one engine, reuse only validated affirmative receipts for identical item, original source context, reported gap, verification prompt and model. Never reuse corrections, incidental classifications or failed responses. Retry one transient repair transport failure at the same batch boundary before proceeding to full review; preserve validation and fail closed.",
+      "limitations": "Does not skip final coverage matching or grounding. Real long-podcast request savings and final quality remain unverified; short real-source sample is not whole-episode acceptance. Small sample before the targeted retry used 14 calls in 289 seconds, coverage 77.78%, no receipt cache hits; its prior harness did not bind production-style checkpoints.",
       "next_step": "Run the entire authorized long test episode when the executor can receive its full transcript safely, and compare actual provider calls, final coverage, completion and costs."
     }
   ],

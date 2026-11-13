@@ -788,6 +788,33 @@ def test_source_validation_never_reuses_incidental_invalid_or_corrected_receipts
             _correct_inventory(owner,lines,[item],report,None,None)
     assert len(calls)==2
 
+
+@pytest.mark.parametrize('outcome', ['recover','timeout','non_retryable'])
+def test_transient_repair_failure_retries_only_the_failed_batch(outcome):
+    from coverage_ledger import efficient_audit
+    case=CASES[0];lines,sections,ranges=setup_case(case)
+    owner=SimpleNamespace(quality_coverage_threshold=.9,model='model-a')
+    inventory=[{'id':'C1','kind':case['kind'],'statement':case['complete_draft'],
+                'source_ranges':ranges}]
+    calls=[];base=scripted(case,calls);attempts=[]
+    def response(engine,system,payload,validator):
+        if payload['phase']=='repair':
+            attempts.append(1)
+            if outcome=='non_retryable': raise PermissionError('synthetic failure')
+            if outcome=='timeout' or len(attempts)==1: raise TimeoutError('synthetic timeout')
+        return base(engine,system,payload,validator)
+    with patch('coverage_ledger.request',side_effect=response):
+        report=efficient_audit(owner,lines,sections,
+            prepared_inventory=({'failed_batches':0,'inventory_failed_batches':0,
+                                 'terminal_provider_failure':False},inventory))
+    if outcome=='recover':
+        assert report['status']=='model_reviewed' and report['repairs_accepted']==1
+        assert [call['phase'] for call in calls].count('match')==2
+        assert report['repair_transport_retries']==1
+    else:
+        assert report['status']=='unverified' and report['repairs_accepted']==0
+    assert len(attempts)==(1 if outcome=='non_retryable' else 2)
+
 @pytest.mark.parametrize('damage',['missing','extra','duplicate','non_boolean','unknown'])
 def test_delta_receipt_must_cover_exact_proposals_with_explicit_booleans(damage):
     from coverage_ledger import delta_response
