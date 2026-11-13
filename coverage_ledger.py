@@ -43,6 +43,8 @@ def measure_coverage_round(engine, phase, operation, *args, **kwargs):
         rejected_paragraphs=ledger.get('repairs_rejected', 0),
         rejection_reasons=dict(ledger.get('repair_rejection_reasons', {})),
         source_corrected_items=len(ledger.get('corrected_inventory_items', []) or []),
+        inventory_receipts_reused=ledger.get('inventory_receipts_reused', 0),
+        repair_transport_retries=ledger.get('repair_transport_retries', 0),
         logical_requests_reported=ledger.get('requests', 0),
         coverage_ratio=coverage_ratio(ledger))
     engine.generation_report.setdefault('coverage_rounds', []).append(entry)
@@ -339,9 +341,18 @@ def _correct_inventory(engine, lines, items, report, progress, stage_callback, m
     from transcript_reading import serialize, validate_sections
     from model_execution import terminal_provider_failure
     from reading_progress import stage
+    from processing_execution import fingerprint
     index={line.id:i for i,line in enumerate(lines)}
     gaps={row['item_id']:row.get('missing_meaning') for row in matches}
     corrected=[]
+    # Only reuse an affirmative source/materiality receipt for exactly the
+    # same item, source context, alleged gap, prompt and model. This cache is
+    # local to this engine instance and stores hashes, not source text.
+    receipt_cache = getattr(engine, '_verified_inventory_receipts', None)
+    if receipt_cache is None:
+        receipt_cache = set()
+        engine._verified_inventory_receipts = receipt_cache
+    language = source_language_lock(''.join(line.text for line in lines))
     for start in range(0,len(items),ITEM_LIMIT):
         batch=items[start:start+ITEM_LIMIT];contexts={}
         for item in batch:
@@ -352,6 +363,20 @@ def _correct_inventory(engine, lines, items, report, progress, stage_callback, m
         payload={'phase':'validate_inventory','items':[
             {**item,'original_source':serialize(contexts[item['id']]),
              **({'reported_gap':gaps[item['id']]} if gaps.get(item['id']) else {})} for item in batch]}
+        client = getattr(engine, 'client', None)
+        keys = {item['id']:fingerprint({'item':item, 'system':VERIFY_INVENTORY+language,
+                                        'model':getattr(engine, 'model', None),
+                                        'endpoint':str(getattr(client, 'base_url', '')),
+                                        'options':getattr(client, 'options', {})})
+                for item in payload['items']}
+        reused = {ident for ident,key in keys.items() if key in receipt_cache}
+        report['inventory_receipts_reused'] = report.get('inventory_receipts_reused',0) + len(reused)
+        if reused:
+            if progress: progress()
+            batch = [item for item in batch if item['id'] not in reused]
+            payload['items'] = [item for item in payload['items'] if item['id'] not in reused]
+        if not batch:
+            continue
         def validate(data):
             rows=data.get('items') if isinstance(data,dict) else None
             if not isinstance(rows,list) or len(rows)!=len(batch):raise ValueError('Incomplete source-only validation')
@@ -384,8 +409,13 @@ def _correct_inventory(engine, lines, items, report, progress, stage_callback, m
             if progress:progress()
             stage(stage_callback,'grounding',start,len(items))
             report['requests']+=1
-            data=request(engine,VERIFY_INVENTORY+source_language_lock(''.join(line.text for line in lines)),payload,validate)
+            data=request(engine,VERIFY_INVENTORY+language,payload,validate)
             corrected.extend(validate(data))
+            # Do not cache corrections, incidental classifications or failed
+            # responses: they affect the inventory or require fresh evidence.
+            for row in data['items']:
+                if row['supported'] is True and row.get('material',True) is True:
+                    receipt_cache.add(keys[row['id']])
         except Exception as error:
             if is_cancellation(error):raise
             report['inventory_validation_failed_batches']+=1
@@ -576,7 +606,18 @@ def _audit(engine, lines, sections, overview='', progress=None, stage_callback=N
                         raise ValueError('Repair contains boundary commentary')
                     return validated, issues
                 from reading_budget import revision_guidance
-                repaired=call(REPAIR+revision_guidance(sections,overview),payload,validate)
+                try:
+                    repaired=call(REPAIR+revision_guidance(sections,overview),payload,validate)
+                except Exception as error:
+                    # Retry a transient failure at the failed batch boundary.
+                    # A whole-draft review cannot recover a timed-out repair;
+                    # completed work is retained and the usual recheck follows.
+                    from summary_errors import SummaryOutputError
+                    if (isinstance(error,(ValueError,SummaryOutputError)) or
+                            getattr(error,'status_code',None) is not None or
+                            not retryable_model_failure(error)): raise
+                    report['repair_transport_retries'] = report.get('repair_transport_retries', 0) + 1
+                    repaired=call(REPAIR+revision_guidance(sections,overview),payload,validate)
                 additions,_=validate(repaired)
                 candidate=copy.deepcopy(sections)
                 proposed=[]
@@ -730,7 +771,7 @@ def efficient_audit(engine, lines, sections, overview='', progress=None, stage_c
         stop_when=lambda result: result[0]['terminal_provider_failure'], on_complete=matched_batch)
     receipts = {}
     def add_counters(local):
-        for key in ('requests', 'repairs_accepted', 'repairs_rejected', 'validation_retries',
+        for key in ('requests', 'repairs_accepted', 'repairs_rejected', 'validation_retries', 'inventory_receipts_reused', 'repair_transport_retries',
                     'inventory_validation_failed_batches'):
             report[key] = report.get(key, 0) + local.get(key, 0)
         report['terminal_provider_failure'] |= local['terminal_provider_failure']
