@@ -29,10 +29,11 @@ def safe_report(report):
                and math.isfinite(source[k])}
         if source.get('status') in ('blocked','accepted','acceptable','unverified','model_reviewed','failed'):
             row['status'] = source['status']
-        if source.get('reason') in ('coverage','grounding','review','ValueError','SummaryOutputError','ReadingProviderError'):
+        if source.get('reason') in ('coverage','source_review','grounding','review','ValueError','SummaryOutputError','ReadingProviderError'):
             row['reason'] = source['reason']
         if key == 'coverage_ledger':
             row['inventory_error_types'] = {name:sum(isinstance(e,dict) and e.get('error_type')==name for e in source.get('inventory_failures',[]) or []) for name in ('ValueError','SummaryOutputError','APIConnectionError','APITimeoutError','TimeoutError','APIStatusError','RateLimitError','RuntimeError','ReadTimeout','ConnectError','ConnectionError','ModelRequestTimeout','InternalServerError','BadRequestError','AuthenticationError','PermissionDeniedError','NotFoundError','UnprocessableEntityError')}
+            row['inventory_http_statuses'] = {str(code):sum(isinstance(e,dict) and e.get('http_status')==code for e in source.get('inventory_failures',[]) or []) for code in (408,429,500,502,503,504,524)}
             row['inventory_failures_recorded'] = len(source.get('inventory_failures',[]) or [])
             row['inventory_failures_available'] = 'inventory_failures' in source
             row['item_status_counts'] = {state:sum(isinstance(i,dict) and i.get('status')==state for i in source.get('items',[]) or [])

@@ -164,7 +164,9 @@ def accept_edition(engine, edition, title, source, formats, duration, stage_call
                     report['coverage_ledger'] = efficient_audit(engine, lines, sections, overview,
                         prepared_inventory=engine._quality_inventory)
                     continue
-                raise SummaryOutputError('quality', reason='coverage')
+                raise SummaryOutputError('quality', reason='source_review'
+                    if ledger.get('inventory_failed_batches') or ledger.get('inventory_validation_failed_batches')
+                    else 'coverage')
             sections = organize_sections(sections, baseline)
             report['delivery'] = {'status':'accepted', 'coverage_ratio':coverage_ratio(ledger),
                 'coverage_threshold':threshold, 'grounded':True, 'semantic_proof':False,

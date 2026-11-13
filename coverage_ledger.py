@@ -448,6 +448,9 @@ def _audit(engine, lines, sections, overview='', progress=None, stage_callback=N
             if is_cancellation(error):raise
             report['inventory_failures'].append({'batch':number+1,'start':part[0].id,
                 'end':part[-1].id,'error_type':type(error).__name__})
+            status = getattr(error, 'status_code', None)
+            if type(status) is int and 400 <= status <= 599:
+                report['inventory_failures'][-1]['http_status'] = status
             if fail(error):
                 if inventory_parts is None:
                     report['failed_batches']+=len(parts)-number-1
