@@ -30,6 +30,23 @@ def test_provider_receipt_only_exposes_allowlisted_type_and_http_status():
     assert 'private response' not in str(row)
 
 
+def test_round_diagnostics_allowlist_counts_and_never_leak_private_values():
+    report={'coverage_rounds':[{'phase':'initial','outcome':'completed','seconds':2.5,
+        'accepted_paragraphs':3,'coverage_ratio':.8,'private':'secret text',
+        'status_counts':{'covered':5,'private':123},
+        'unresolved_by_kind':{'claim':2,'private':12},
+        'rejection_reasons':{'ungrounded':1,'secret text':3}},
+        {'phase':'private','outcome':'interrupted','cancelled':True,'seconds':float('nan')}]}
+    safe=safe_report(report)
+    assert safe['coverage_rounds_truncated'] is False
+    assert safe['coverage_rounds'][0]['accepted_paragraphs']==3
+    assert safe['coverage_rounds'][0]['status_counts']=={'covered':5}
+    assert safe['coverage_rounds'][0]['unresolved_by_kind']=={'claim':2}
+    assert safe['coverage_rounds'][0]['rejection_reasons']=={'ungrounded':1}
+    assert safe['coverage_rounds'][1]=={'outcome':'interrupted','cancelled':True}
+    assert 'secret' not in str(safe) and 'private' not in str(safe)
+
+
 def test_reported_episode_query_is_exact_read_only_and_metrics_are_allowlisted():
     from scripts.inspect_failed_reading import inspect_reported_episode, REPORTED_EPISODE
     calls=[]

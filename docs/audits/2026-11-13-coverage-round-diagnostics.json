@@ -37,7 +37,7 @@
     "delivered": false,
     "actual_daily_settled_usd": 29.806216
   },
-  "change": "Record content-free counters for each coverage round and structured reasons for the existing repair rejection decisions; do not change the decisions or quality gates. Logical request counts are not provider call totals.",
+  "change": "Record content-free counters for each coverage round and structured reasons for the existing repair rejection decisions; do not change the decisions or quality gates. Logical request counts are not provider call totals. Existing authorized read-only diagnostic exports allowlisted counters only.",
   "limitations": "No historical reason data can be reconstructed. Real full-podcast success and semantic validity of gaps remain unproven. A proposed normalization of private statement text was rejected by automatic review; no workaround or raw content access was attempted.",
-  "tests": "222 relevant tests passed locally, including retained previous rounds, redaction, cancellation propagation and rejection categories."
+  "tests": "228 relevant tests passed locally, including retained previous rounds, rejection categories, safe diagnostic redaction, cancellation propagation and unresolved-kind counts."
 }
