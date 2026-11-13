@@ -112,3 +112,8 @@ it('does not rerender saved podcast content when unrelated video progress change
  expect(usePageTiming).not.toHaveBeenCalled()
  expect(node.textContent).toContain('Saved content')
 })
+
+it('does not render an empty overview heading while keeping saved points',async()=>{
+ vi.mocked(fetchSummary).mockResolvedValue({...summary,overview:'',topics:['Chapter'],key_points:[{topic:'Chapter',summary:'Saved point remains readable',quote:'',timestamp:''}]} as any)
+ const node=await mount();expect(node.querySelector('#summary-overview')).toBeNull();expect(node.textContent).toContain('Saved point remains readable')
+})

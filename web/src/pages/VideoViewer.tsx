@@ -1,3 +1,4 @@
+import {useReaderReturn} from '../lib/readerReturn'
 import {retryCoverageReview} from '../lib/coverageReview';
 import LoadError from '../components/LoadError';
 import { videoFailureHint } from '../lib/videoFailure';
@@ -18,7 +19,7 @@ import { CacheKeys, getCache, setCache, removeCache } from "../lib/cache";
 import { usePageTiming } from "../lib/pageTiming";
 import { useEffect, useState, useMemo, useRef, useCallback } from "react";
 import { ScreenshotRecoveryContext } from '../lib/screenshotRecovery';
-import { useParams, Link, useNavigate } from "react-router-dom";
+import { useParams, Link } from "react-router-dom";
 import {
   Copy,
   Download,
@@ -65,7 +66,7 @@ type ViewMode = "markdown" | "mindmap" | "transcript";
 
 export default function VideoViewer() {
   const { taskId } = useParams<{ taskId: string }>();
-  const navigate = useNavigate();
+  const returnToEntry = useReaderReturn();
   const [task, setTask] = useState<VideoTask | null>(() =>
     getCache(CacheKeys.VIDEO_NOTE(taskId!)),
   );
@@ -426,7 +427,7 @@ export default function VideoViewer() {
     return (
       <div className="flex flex-col items-center justify-center h-[60vh] text-gray-500">
         <LoadError message={readError || actionError || "Task not found"} onRetry={retryRead} />
-        <button onClick={() => navigate(-1)} className="text-indigo-400 mt-2">
+        <button onClick={returnToEntry} className="text-indigo-400 mt-2">
           Go Back
         </button>
       </div>

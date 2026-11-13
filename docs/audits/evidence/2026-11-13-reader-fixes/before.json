@@ -1,0 +1,9 @@
+{
+  "duplicate_cards": 2,
+  "code": {
+    "color": "oklch(0.872 0.01 258.338)",
+    "bg": "rgb(247, 245, 240)"
+  },
+  "simple_return": "/library?q=Synthetic",
+  "direct_return": "/library?q=Synthetic"
+}

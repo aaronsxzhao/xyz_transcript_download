@@ -69,3 +69,11 @@ videos; do not mix video cards into the channel list. The internal `__unknown__`
 key is not displayed or written into source metadata. Real channel attribution
 continues to be saved normally. The virtual group has no upstream update or
 bulk-delete control. This grouping was explicitly authorized on 2026-11-09.
+
+## Reader return context (2026-11-13)
+
+The reader Back control returns to the page that opened the reading session,
+including its query filters, across reader-to-reader moves and reloads. Direct
+reader URLs fall back to Library. This user-requested behavior replaces blind
+one-step history navigation; normal browser history controls remain available.
+Empty saved podcast overviews do not produce an empty heading or TOC entry.

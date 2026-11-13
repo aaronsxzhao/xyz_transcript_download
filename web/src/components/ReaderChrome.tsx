@@ -7,7 +7,7 @@ import {
   MoreHorizontal,
   RefreshCw,
 } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import {useReaderReturn} from "../lib/readerReturn";
 import {deferView} from './DeferredView';
 import {useDialog} from '../lib/reading';
 const RegenerateDialog=deferView(()=>import('./RegenerateDialog'));
@@ -182,7 +182,7 @@ export default function ReaderFrame({
   cover?: string;
 }) {
   const {design} = useAppearance();
-  const navigate = useNavigate();
+  const returnToEntry = useReaderReturn();
   const [visibleSection, setVisibleSection] = useState("");
   const ids = sections.map((section) => section.id).join("\n");
   useEffect(() => {
@@ -243,7 +243,7 @@ export default function ReaderFrame({
       <div className="unified-document">
         <header className="unified-header">
           <div className="reader-breadcrumb">
-            <button onClick={() => navigate(-1)} aria-label="Go back">
+            <button onClick={returnToEntry} aria-label="Go back">
               <ArrowLeft size={14} /> Back
             </button>
             <span>/</span>

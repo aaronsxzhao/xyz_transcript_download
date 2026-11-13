@@ -384,7 +384,7 @@ export default function Viewer() {
     ...(introduction.conclusions
       ? [{ id: "summary-conclusions", title: "核心结论" }]
       : []),
-    { id: "summary-overview", title: "Overview" },
+    ...(introduction.overview.trim() ? [{ id: "summary-overview", title: "Overview" }] : []),
     ...topicEntries.map(([topic], index) => ({
       id: `summary-topic-${index}`,
       title: topic,
@@ -596,8 +596,8 @@ export default function Viewer() {
                 <SummaryText>{introduction.conclusions}</SummaryText>
               </section>
             )}
-            {/* Overview */}
-            <div className="reader-section">
+            {/* Empty overviews must not promise content that was not saved. */}
+            {introduction.overview.trim() && <div className="reader-section">
               <h2
                 id="summary-overview"
                 className="text-lg font-semibold text-white mb-4 flex items-center gap-2"
@@ -606,7 +606,7 @@ export default function Viewer() {
                 Overview
               </h2>
               <SummaryText>{introduction.overview}</SummaryText>
-            </div>
+            </div>}
 
             {/* Topics/Key Points */}
             <section className="space-y-4">
