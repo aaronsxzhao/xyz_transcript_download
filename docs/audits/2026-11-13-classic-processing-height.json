@@ -15,9 +15,91 @@
       "after-light.png",
       "after-dark.png"
     ],
-    "CI": "new regression runs from existing dashboard recent lane in both engines"
+    "CI": "new regression runs from existing dashboard recent lane in both engines",
+    "screenshot_followup": "A supplemental keyboard-scroll reset screenshot wait timed out. Full eight-case interaction matrix had already passed. Captured a fresh light initial-state screenshot; dark screenshot shows the scrolled task region. Both were actually viewed. No product change or weakened interaction assertion."
   },
-  "release": "pending CI/deployment/live frontend verification",
+  "release": {
+    "revision": "d3cfa078d2ec8f5ec8781a925f9a2fd5ddb1424d",
+    "PR": 259,
+    "CI": 43383792351,
+    "CI_result": "all required jobs passed",
+    "deploy": 43387859403,
+    "deploy_result": "success",
+    "content_tree_matches_tested_head": true,
+    "live": {
+      "checks": {},
+      "http_errors": [],
+      "console_errors": 0,
+      "page_errors": 0,
+      "timings": {},
+      "screenshots": [],
+      "revision": "d3cfa078d2ec8f5ec8781a925f9a2fd5ddb1424d",
+      "scope": "Deployed frontend with synthetic task list after normal sign-in; no real processing or cancellation",
+      "matrix": [
+        {
+          "design": "classic",
+          "theme": "light",
+          "width": 1440,
+          "panel_height": 480,
+          "tasks": 8
+        },
+        {
+          "design": "classic",
+          "theme": "dark",
+          "width": 1440,
+          "panel_height": 480,
+          "tasks": 8
+        },
+        {
+          "design": "classic",
+          "theme": "light",
+          "width": 2560,
+          "panel_height": 480,
+          "tasks": 8
+        },
+        {
+          "design": "classic",
+          "theme": "dark",
+          "width": 2560,
+          "panel_height": 480,
+          "tasks": 8
+        },
+        {
+          "design": "classic",
+          "theme": "light",
+          "width": 390,
+          "panel_height": 1811,
+          "tasks": 8
+        },
+        {
+          "design": "classic",
+          "theme": "dark",
+          "width": 390,
+          "panel_height": 1811,
+          "tasks": 8
+        },
+        {
+          "design": "editorial",
+          "theme": "light",
+          "width": 1440,
+          "panel_height": 1755,
+          "tasks": 8
+        },
+        {
+          "design": "editorial",
+          "theme": "dark",
+          "width": 1440,
+          "panel_height": 1755,
+          "tasks": 8
+        }
+      ]
+    },
+    "screenshots_viewed": [
+      "live-classic-light-1440.png",
+      "live-classic-dark-1440.png"
+    ],
+    "scope": "Production frontend with browser-only synthetic tasks; no real processing acceptance"
+  },
   "production_writes": 0,
   "paid_calls": 0
 }

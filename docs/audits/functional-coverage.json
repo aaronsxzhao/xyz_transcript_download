@@ -1274,6 +1274,20 @@
       "report": "docs/audits/2026-11-11-appearance.json",
       "scope": "Normal UI login;7-card Library search/filter/series/reader/back;15-job history;settings/subscription draft;84bounds assertions;RSS retained transcript title defect;2free article imports pending and cleaned;postdeploy original-only article24images12matrix2passes;source/saved/reader navigation comparison",
       "result": "partial;title fix deployed/live verified;fresh24image576checks and UI cleanup PASS;source navigation reproduced;RSS final delivery still unresolved"
+    },
+    {
+      "date": "2026-11-13",
+      "revision": "d3cfa078d2ec8f5ec8781a925f9a2fd5ddb1424d",
+      "scope": "Classic dashboard long processing queue",
+      "result": "fixed_deployed_live_frontend_verified",
+      "PR": 259,
+      "ci": 43383792351,
+      "deployment": 43387859403,
+      "live_cases": 8,
+      "account": "normal sign-in dedicated test account; browser-only synthetic eight-task fixture",
+      "writes": 0,
+      "paid_calls": 0,
+      "evidence": "docs/audits/2026-11-13-classic-processing-height.json"
     }
   ],
   "remediation_followups": [
@@ -1581,6 +1595,13 @@
       ],
       "acceptance": "Compare rawHTML,savedMarkdown,reader;navigation absent while all substantive paragraphs/images/citations intact;version extraction change;no historical bulk rewrite",
       "rollback": "Revert selector rule/version;existing saved originals unchanged;not modified"
+    },
+    {
+      "id": "nov13-three-reported-podcast-failures",
+      "state": "core_plan_proposed_not_modified",
+      "evidence": "docs/audits/2026-11-13-podcast-exact-followup.json",
+      "result": "Three exact user-reported sources: six failed attempts, one cancellation excluded; not sitewide failure rate. Latest two grounding failures and one initial draft format failure.",
+      "next": "Controlled reproductions with exact validation failure codes; targeted claim/evidence repair and immutable receipt reuse, retaining all quality gates. Core algorithm approval required by standing boundary."
     }
   ],
   "user_authorization_updates": [

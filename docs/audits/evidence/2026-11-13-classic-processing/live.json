@@ -1,0 +1,68 @@
+{
+  "checks": {},
+  "http_errors": [],
+  "console_errors": 0,
+  "page_errors": 0,
+  "timings": {},
+  "screenshots": [],
+  "revision": "d3cfa078d2ec8f5ec8781a925f9a2fd5ddb1424d",
+  "scope": "Deployed frontend with synthetic task list after normal sign-in; no real processing or cancellation",
+  "matrix": [
+    {
+      "design": "classic",
+      "theme": "light",
+      "width": 1440,
+      "panel_height": 480,
+      "tasks": 8
+    },
+    {
+      "design": "classic",
+      "theme": "dark",
+      "width": 1440,
+      "panel_height": 480,
+      "tasks": 8
+    },
+    {
+      "design": "classic",
+      "theme": "light",
+      "width": 2560,
+      "panel_height": 480,
+      "tasks": 8
+    },
+    {
+      "design": "classic",
+      "theme": "dark",
+      "width": 2560,
+      "panel_height": 480,
+      "tasks": 8
+    },
+    {
+      "design": "classic",
+      "theme": "light",
+      "width": 390,
+      "panel_height": 1811,
+      "tasks": 8
+    },
+    {
+      "design": "classic",
+      "theme": "dark",
+      "width": 390,
+      "panel_height": 1811,
+      "tasks": 8
+    },
+    {
+      "design": "editorial",
+      "theme": "light",
+      "width": 1440,
+      "panel_height": 1755,
+      "tasks": 8
+    },
+    {
+      "design": "editorial",
+      "theme": "dark",
+      "width": 1440,
+      "panel_height": 1755,
+      "tasks": 8
+    }
+  ]
+}

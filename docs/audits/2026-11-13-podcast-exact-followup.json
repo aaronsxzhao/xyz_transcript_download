@@ -1,0 +1,446 @@
+{
+  "checked_at": "2026-11-13T07:28:54.654Z",
+  "sources": "User supplied exact three episode URLs, one owner per source confirmed by SQL count; no owner IDs/content/secrets retrieved.",
+  "tasks": [
+    {
+      "task_id": "c36fae4c-0cf6-400c-8874-979a422a0a60",
+      "source_url": "https://www.xiaoyuzhoufm.com/episode/6ac6a657e742e36efcbf74af",
+      "state": "cancelled",
+      "attempts": 1,
+      "created_at": "2026-11-13 07:24:29.211698+00",
+      "updated_at": "2026-11-13 07:25:27.713373+00",
+      "wall_seconds": 56.6,
+      "checkpoint_hits": 0,
+      "stages": {
+        "model.queue": {
+          "calls": 3,
+          "seconds": 0
+        },
+        "model.editor": {
+          "calls": 3,
+          "seconds": 118.328
+        },
+        "model.phase.draft": {
+          "calls": 1,
+          "seconds": 54.718
+        },
+        "model.phase.inventory": {
+          "calls": 2,
+          "seconds": 63.36
+        }
+      },
+      "delivery": null,
+      "format_retries": null,
+      "verification_status": null,
+      "unsupported_ids": null,
+      "coverage_ratio": null,
+      "grounding_concerns": null,
+      "inventory_failed_batches": null
+    },
+    {
+      "task_id": "1a3a07ef-cc2f-45e8-8c50-827225d7ec65",
+      "source_url": "https://www.xiaoyuzhoufm.com/episode/6af4bcc53caef3b52f546272",
+      "state": "failed",
+      "attempts": 1,
+      "created_at": "2026-11-13 04:32:12.08253+00",
+      "updated_at": "2026-11-13 05:34:04.741153+00",
+      "wall_seconds": 2981.793,
+      "checkpoint_hits": 23,
+      "stages": {
+        "model.queue": {
+          "calls": 138,
+          "seconds": 335.43699999999995
+        },
+        "model.editor": {
+          "calls": 138,
+          "seconds": 4014.2580000000007,
+          "failed_calls": 3
+        },
+        "model.phase.draft": {
+          "calls": 1,
+          "seconds": 94.381
+        },
+        "model.phase.match": {
+          "calls": 60,
+          "seconds": 1710.4560000000001
+        },
+        "model.phase.other": {
+          "calls": 3,
+          "seconds": 60.041
+        },
+        "model.phase.repair": {
+          "calls": 18,
+          "seconds": 499.314,
+          "failed_calls": 1
+        },
+        "model.phase.grounding": {
+          "calls": 22,
+          "seconds": 390.6289999999999
+        },
+        "model.phase.inventory": {
+          "calls": 13,
+          "seconds": 523.525
+        },
+        "model.phase.repair_grounding": {
+          "calls": 1,
+          "seconds": 12.071
+        },
+        "model.phase.validate_inventory": {
+          "calls": 20,
+          "seconds": 383.27000000000004
+        }
+      },
+      "delivery": {
+        "reason": "grounding",
+        "status": "blocked",
+        "coverage_ratio": 0.8848484848484849,
+        "coverage_threshold": 0.9
+      },
+      "format_retries": null,
+      "verification_status": "unverified",
+      "unsupported_ids": [
+        "L1.11",
+        "L1.30",
+        "P1",
+        "P18"
+      ],
+      "coverage_ratio": 0.8848484848484849,
+      "grounding_concerns": false,
+      "inventory_failed_batches": 0
+    },
+    {
+      "task_id": "1b82ba82-0e2b-4afe-a714-63c8dee32690",
+      "source_url": "https://www.xiaoyuzhoufm.com/episode/6acfca97e742e36efcc313f6",
+      "state": "failed",
+      "attempts": 1,
+      "created_at": "2026-11-13 04:32:09.473697+00",
+      "updated_at": "2026-11-13 04:37:29.548261+00",
+      "wall_seconds": 317.768,
+      "checkpoint_hits": 0,
+      "stages": {
+        "model.queue": {
+          "calls": 10,
+          "seconds": 331.856
+        },
+        "model.editor": {
+          "calls": 11,
+          "seconds": 907.917,
+          "failed_calls": 3
+        },
+        "model.phase.draft": {
+          "calls": 2,
+          "seconds": 267.409
+        },
+        "model.phase.inventory": {
+          "calls": 8,
+          "seconds": 287.43
+        }
+      },
+      "delivery": null,
+      "format_retries": 1,
+      "verification_status": null,
+      "unsupported_ids": null,
+      "coverage_ratio": null,
+      "grounding_concerns": null,
+      "inventory_failed_batches": null
+    },
+    {
+      "task_id": "63208f3e-1150-4d04-aafa-83f49a772878",
+      "source_url": "https://www.xiaoyuzhoufm.com/episode/6ac6a657e742e36efcbf74af",
+      "state": "failed",
+      "attempts": 1,
+      "created_at": "2026-11-13 04:32:08.822477+00",
+      "updated_at": "2026-11-13 05:15:28.115209+00",
+      "wall_seconds": 2194.986,
+      "checkpoint_hits": 13,
+      "stages": {
+        "model.queue": {
+          "calls": 102,
+          "seconds": 806.694
+        },
+        "model.editor": {
+          "calls": 102,
+          "seconds": 3447.089000000001,
+          "failed_calls": 8
+        },
+        "model.phase.draft": {
+          "calls": 1,
+          "seconds": 112.55
+        },
+        "model.phase.match": {
+          "calls": 50,
+          "seconds": 1364.9820000000002,
+          "failed_calls": 1
+        },
+        "model.phase.other": {
+          "calls": 3,
+          "seconds": 49.486
+        },
+        "model.phase.repair": {
+          "calls": 13,
+          "seconds": 293.3539999999999
+        },
+        "model.phase.grounding": {
+          "calls": 7,
+          "seconds": 108.35100000000001
+        },
+        "model.phase.inventory": {
+          "calls": 13,
+          "seconds": 502.49799999999993
+        },
+        "model.phase.repair_grounding": {
+          "calls": 1,
+          "seconds": 15.039
+        },
+        "model.phase.validate_inventory": {
+          "calls": 14,
+          "seconds": 190.40800000000002
+        }
+      },
+      "delivery": {
+        "reason": "grounding",
+        "status": "blocked",
+        "coverage_ratio": 0.7299270072992701,
+        "coverage_threshold": 0.9
+      },
+      "format_retries": null,
+      "verification_status": "unverified",
+      "unsupported_ids": [
+        "L1.17",
+        "P11"
+      ],
+      "coverage_ratio": 0.7299270072992701,
+      "grounding_concerns": true,
+      "inventory_failed_batches": 0
+    },
+    {
+      "task_id": "ae557f9c-4145-4880-8159-601f258d3db7",
+      "source_url": "https://www.xiaoyuzhoufm.com/episode/6ac6a657e742e36efcbf74af",
+      "state": "failed",
+      "attempts": 1,
+      "created_at": "2026-11-12 03:37:21.647312+00",
+      "updated_at": "2026-11-12 04:51:27.060236+00",
+      "wall_seconds": 1901.639,
+      "checkpoint_hits": 0,
+      "stages": {
+        "model.queue": {
+          "calls": 71,
+          "seconds": 54.651999999999994
+        },
+        "model.editor": {
+          "calls": 71,
+          "seconds": 2739.2159999999994,
+          "failed_calls": 1
+        },
+        "model.phase.draft": {
+          "calls": 1,
+          "seconds": 148.231
+        },
+        "model.phase.match": {
+          "calls": 34,
+          "seconds": 1292.4639999999997
+        },
+        "model.phase.other": {
+          "calls": 2,
+          "seconds": 25.281
+        },
+        "model.phase.repair": {
+          "calls": 7,
+          "seconds": 243.80900000000003
+        },
+        "model.phase.grounding": {
+          "calls": 7,
+          "seconds": 245.89899999999997
+        },
+        "model.phase.inventory": {
+          "calls": 11,
+          "seconds": 519.747
+        },
+        "transcription.segment": {
+          "calls": 6,
+          "seconds": 28.107999999999997
+        },
+        "model.phase.repair_grounding": {
+          "calls": 1,
+          "seconds": 51.871
+        },
+        "model.phase.validate_inventory": {
+          "calls": 8,
+          "seconds": 154.88500000000002
+        }
+      },
+      "delivery": {
+        "reason": "grounding",
+        "status": "blocked",
+        "coverage_ratio": 0.82,
+        "coverage_threshold": 0.9
+      },
+      "format_retries": null,
+      "verification_status": "unverified",
+      "unsupported_ids": [
+        "L1.9",
+        "P14",
+        "P7"
+      ],
+      "coverage_ratio": 0.82,
+      "grounding_concerns": false,
+      "inventory_failed_batches": 0
+    },
+    {
+      "task_id": "454b1fd2-5881-4071-8048-077a3d20f375",
+      "source_url": "https://www.xiaoyuzhoufm.com/episode/6acfca97e742e36efcc313f6",
+      "state": "failed",
+      "attempts": 1,
+      "created_at": "2026-11-12 03:37:17.488411+00",
+      "updated_at": "2026-11-12 04:24:06.153561+00",
+      "wall_seconds": 2808.279,
+      "checkpoint_hits": 0,
+      "stages": {
+        "model.queue": {
+          "calls": 87,
+          "seconds": 767.1720000000003
+        },
+        "model.editor": {
+          "calls": 87,
+          "seconds": 4154.016,
+          "failed_calls": 3
+        },
+        "model.phase.draft": {
+          "calls": 1,
+          "seconds": 146.276
+        },
+        "model.phase.match": {
+          "calls": 36,
+          "seconds": 1654.4390000000003
+        },
+        "model.phase.other": {
+          "calls": 1,
+          "seconds": 4.094
+        },
+        "model.phase.repair": {
+          "calls": 7,
+          "seconds": 253.49300000000002
+        },
+        "model.phase.grounding": {
+          "calls": 17,
+          "seconds": 314.029
+        },
+        "model.phase.inventory": {
+          "calls": 16,
+          "seconds": 709.188
+        },
+        "transcription.segment": {
+          "calls": 11,
+          "seconds": 90.671
+        },
+        "model.phase.repair_grounding": {
+          "calls": 1,
+          "seconds": 19.426
+        },
+        "model.phase.validate_inventory": {
+          "calls": 8,
+          "seconds": 282.745
+        }
+      },
+      "delivery": {
+        "reason": "grounding",
+        "status": "blocked",
+        "coverage_ratio": 0.8253968253968254,
+        "coverage_threshold": 0.9
+      },
+      "format_retries": null,
+      "verification_status": "unverified",
+      "unsupported_ids": [
+        "L1.25"
+      ],
+      "coverage_ratio": 0.8253968253968254,
+      "grounding_concerns": true,
+      "inventory_failed_batches": 0
+    },
+    {
+      "task_id": "bb10200a-cd14-4c32-859c-caa6659ee677",
+      "source_url": "https://www.xiaoyuzhoufm.com/episode/6af4bcc53caef3b52f546272",
+      "state": "failed",
+      "attempts": 1,
+      "created_at": "2026-11-12 03:36:53.093722+00",
+      "updated_at": "2026-11-12 04:19:45.293136+00",
+      "wall_seconds": 2569.147,
+      "checkpoint_hits": 0,
+      "stages": {
+        "model.queue": {
+          "calls": 73,
+          "seconds": 534.447
+        },
+        "model.editor": {
+          "calls": 73,
+          "seconds": 3779.9260000000017,
+          "failed_calls": 1
+        },
+        "model.phase.draft": {
+          "calls": 1,
+          "seconds": 205.601
+        },
+        "model.phase.match": {
+          "calls": 34,
+          "seconds": 1565.9939999999997
+        },
+        "model.phase.other": {
+          "calls": 1,
+          "seconds": 13.298
+        },
+        "model.phase.repair": {
+          "calls": 5,
+          "seconds": 127.35900000000001
+        },
+        "model.phase.grounding": {
+          "calls": 8,
+          "seconds": 244.011
+        },
+        "model.phase.inventory": {
+          "calls": 13,
+          "seconds": 624.0949999999999
+        },
+        "transcription.segment": {
+          "calls": 7,
+          "seconds": 74.785
+        },
+        "model.phase.repair_grounding": {
+          "calls": 1,
+          "seconds": 9.367
+        },
+        "model.phase.validate_inventory": {
+          "calls": 10,
+          "seconds": 452.818
+        }
+      },
+      "delivery": {
+        "reason": "grounding",
+        "status": "blocked",
+        "coverage_ratio": 0.6882352941176471,
+        "coverage_threshold": 0.9
+      },
+      "format_retries": null,
+      "verification_status": "unverified",
+      "unsupported_ids": [
+        "P13",
+        "P4",
+        "P8"
+      ],
+      "coverage_ratio": 0.6882352941176471,
+      "grounding_concerns": true,
+      "inventory_failed_batches": 0
+    }
+  ],
+  "confirmed": "Six failed attempts across three exact sources, plus one cancellation excluded. Latest failures: two grounding rejects and one draft format failure after one fresh attempt. Not a sitewide success-rate estimate.",
+  "limitations": "Checkpoint receipts span attempts for the same source. Invalid response is not persisted as valid checkpoint; exact structural validation branch cannot be recovered from generic error. Unsupported paragraph IDs do not prove whether rejection was semantically correct.",
+  "proposed_scope": [
+    "Preserve coverage>=90% and all source grounding gates.",
+    "Record bounded structural failure codes and targeted schema feedback for existing single format retry; no raw content logging.",
+    "Carry precise claim/evidence reasons into targeted grounding repair, then recheck changed paragraphs and their coverage dependencies.",
+    "Reuse unchanged source/draft receipts only by immutable identity; never accept stale or incomplete checks.",
+    "Compare controlled copies of these three public sources against current behavior, including full final acceptance and request/time/cost totals."
+  ],
+  "authorization": "Core generation/review changes remain a proposal under standing permission boundary; no algorithm change in PR259.",
+  "production_writes": 0,
+  "new_paid_calls": 0
+}
