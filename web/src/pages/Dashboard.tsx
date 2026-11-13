@@ -785,7 +785,7 @@ export default function Dashboard() {
                 queued
               </span>
             </div>
-            <div className="dashboard-active-tasks">
+            <div className="dashboard-active-tasks" role="region" aria-label="Active processing tasks" tabIndex={0}>
               {activeQueue.map(renderTask)}
             </div>
             <button

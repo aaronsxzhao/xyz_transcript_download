@@ -1455,6 +1455,14 @@
       "report": "docs/audits/2026-11-13-list-parity.json",
       "status": "local verified; pending release",
       "scope": "Podcast/video width parity; video badge implementation checked; short-link identity pending exact URL"
+    },
+    {
+      "date": "2026-11-13",
+      "report": "docs/audits/2026-11-13-classic-processing-height.json",
+      "scope": "Classic desktop dashboard with long processing queue",
+      "status": "local_verified_release_pending",
+      "environment": "local production-build synthetic8task fixtures",
+      "not_claimed": "real provider processing or physical devices"
     }
   ],
   "audit_attempts": [

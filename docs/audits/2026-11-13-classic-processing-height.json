@@ -1,0 +1,23 @@
+{
+  "date": "2026-11-13",
+  "base": "f9f4238df6fded65e8f01e5256a08b039fad9e3f",
+  "problem": "Classic desktop processing queue stretched shared grid row, pushing Recently added below a large blank under Continue reading.",
+  "reproduction": {
+    "synthetic_tasks": 8,
+    "before_height_px": 1919
+  },
+  "fix": "Classic desktop panel max-height480px; only task list scrolls, heading/count/history stay outside scroll area; keyboard-focusable named task region. Mobile and Editorial sizing unchanged.",
+  "validation": {
+    "build": "197.1KiB under unchanged197.75KiB budget",
+    "browser": "16 cases: Chromium/WebKit, Classic light/dark,390/768/1440/2560; reload, keyboard End, last Cancel focus visibility, history visibility, all8tasks retained, no horizontal overflow",
+    "screenshots_viewed": [
+      "before.png",
+      "after-light.png",
+      "after-dark.png"
+    ],
+    "CI": "new regression runs from existing dashboard recent lane in both engines"
+  },
+  "release": "pending CI/deployment/live frontend verification",
+  "production_writes": 0,
+  "paid_calls": 0
+}
