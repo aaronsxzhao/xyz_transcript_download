@@ -1,0 +1,23 @@
+{
+  "checks": {},
+  "http_errors": [],
+  "console_errors": 0,
+  "page_errors": 0,
+  "timings": {},
+  "screenshots": [],
+  "revision": "7a519e552b87d5cbc87233edc79f80533bd86562",
+  "summary_matches": [
+    {
+      "id": "local_d82616dc95f74a8e",
+      "screenshot_title_match": false,
+      "chapter_topics": 6
+    },
+    {
+      "id": "de4246248271cec5cc24b32c",
+      "screenshot_title_match": false,
+      "chapter_topics": 6
+    }
+  ],
+  "screenshot_job_matches": [],
+  "article_matches": []
+}

@@ -1,0 +1,214 @@
+{
+  "calls": 20,
+  "stages": [
+    {
+      "stage": "draft",
+      "total": 1
+    },
+    {
+      "stage": "draft",
+      "total": 1
+    },
+    {
+      "stage": "grounding",
+      "total": 1
+    },
+    {
+      "stage": "grounding",
+      "total": 1
+    },
+    {
+      "stage": "inventory",
+      "total": 6
+    },
+    {
+      "stage": "inventory",
+      "total": 6
+    },
+    {
+      "stage": "inventory",
+      "total": 6
+    },
+    {
+      "stage": "inventory",
+      "total": 6
+    },
+    {
+      "stage": "inventory",
+      "total": 6
+    },
+    {
+      "stage": "inventory",
+      "total": 6
+    },
+    {
+      "stage": "inventory",
+      "total": 6
+    },
+    {
+      "stage": "inventory",
+      "total": 6
+    },
+    {
+      "stage": "inventory",
+      "total": 6
+    },
+    {
+      "stage": "inventory",
+      "total": 6
+    },
+    {
+      "stage": "coverage",
+      "total": 53
+    },
+    {
+      "stage": "coverage",
+      "total": 53
+    },
+    {
+      "stage": "coverage",
+      "total": 53
+    },
+    {
+      "stage": "coverage",
+      "total": 53
+    },
+    {
+      "stage": "coverage",
+      "total": 53
+    },
+    {
+      "stage": "coverage",
+      "total": 53
+    },
+    {
+      "stage": "coverage",
+      "total": 9
+    },
+    {
+      "stage": "grounding",
+      "total": 9
+    },
+    {
+      "stage": "repair",
+      "total": 9
+    },
+    {
+      "stage": "recheck",
+      "total": 9
+    },
+    {
+      "stage": "coverage",
+      "total": 9
+    },
+    {
+      "stage": "quality",
+      "total": 1
+    },
+    {
+      "stage": "quality",
+      "total": 3
+    },
+    {
+      "stage": "quality",
+      "total": 3
+    },
+    {
+      "stage": "quality",
+      "total": 3
+    },
+    {
+      "stage": "render",
+      "total": 1
+    }
+  ],
+  "review_receipts": [
+    {
+      "delivery_check": false,
+      "repair_grounding": false,
+      "grounded": true,
+      "complete": true,
+      "unsupported_paragraph_ids_count": 0,
+      "additions_count": 0
+    },
+    {
+      "delivery_check": true,
+      "repair_grounding": false,
+      "grounded": true,
+      "complete": true,
+      "unsupported_paragraph_ids_count": 0,
+      "additions_count": 0
+    },
+    {
+      "delivery_check": true,
+      "repair_grounding": false,
+      "grounded": true,
+      "complete": false,
+      "unsupported_paragraph_ids_count": 0,
+      "additions_count": 1
+    },
+    {
+      "delivery_check": true,
+      "repair_grounding": false,
+      "grounded": true,
+      "complete": true,
+      "unsupported_paragraph_ids_count": 0,
+      "additions_count": 0
+    }
+  ],
+  "daily_usd": 0.901862,
+  "segments": 488,
+  "result": "generated_in_memory_only",
+  "points": 18,
+  "wall_seconds": 324.634,
+  "peak_concurrency": 3,
+  "coverage_ledger": {
+    "status": "acceptable",
+    "semantic_proof": false,
+    "inventory_batches": 6,
+    "failed_batches": 0,
+    "repairs_accepted": 5,
+    "repairs_rejected": 2,
+    "requests": 15,
+    "ignored_boundary_items": 0,
+    "validation_retries": 1,
+    "inventory_failed_batches": 0,
+    "terminal_provider_failure": false,
+    "inventory_validation_failed_batches": 0,
+    "inventory_transport_retries": 0,
+    "inventory_recovered_batches": 0,
+    "inventory_split_retries": 0,
+    "recovery_rounds": 1,
+    "grounding_concerns": false,
+    "initial_unresolved_items": 9,
+    "unresolved_items": 2,
+    "covered_items": 51,
+    "context_only_items": 0,
+    "coverage_ratio": 0.9622641509433962,
+    "threshold": 0.9
+  },
+  "verification": {
+    "review_parts": 1,
+    "final_coverage_attempts": 0,
+    "coverage_checks_resolved": 0,
+    "review_attempts": 1,
+    "review_capacity_fallback": false,
+    "reviewed": 1,
+    "unresolved": 0,
+    "status": "model_reviewed",
+    "semantic_proof": false,
+    "missing_material_additions": 0
+  },
+  "delivery": {
+    "status": "accepted",
+    "coverage_ratio": 0.9622641509433962,
+    "coverage_threshold": 0.9,
+    "grounded": true,
+    "semantic_proof": false,
+    "unresolved_items": 2
+  },
+  "item_statuses": {
+    "covered": 51,
+    "partial": 2
+  }
+}

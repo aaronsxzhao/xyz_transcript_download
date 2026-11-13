@@ -2,8 +2,8 @@
   "schema_version": 1,
   "site": "https://aipodcastsummary.online",
   "repository": "aaronsxzhao/xyz_transcript_download",
-  "updated_at": "2026-11-13T02:43:48.955546+00:00",
-  "tested_commit": "7a519e552b87d5cbc87233edc79f80533bd86562",
+  "updated_at": "2026-11-13T04:14:29.428151+00:00",
+  "tested_commit": "ec1406924638a7475ae219a17a5dc03aaff595fa",
   "current_report": "docs/audits/2026-11-13-reader-fixes.json",
   "inventory_basis": [
     "web/src/App.tsx routes",
@@ -1400,10 +1400,16 @@
       "not_claimed": "universal one-shot success or100percentcoverage"
     },
     {
-      "checked_at": "2026-11-13T02:43:48.955546+00:00",
+      "checked_at": "2026-11-13T04:14:29.428151+00:00",
       "report": "docs/audits/2026-11-13-reader-fixes.json",
-      "status": "local_verified_pending_release",
-      "scope": "Readerentryreturn/adjacentduplicatecard/lightcode/emptyoverview;podcastgenerationstillunderinvestigation"
+      "status": "merged_deployed_scoped_online_verified",
+      "scope": "Live reader entry/reader-hop/reload/return; local 12-case source-card/code-contrast matrix; isolated fresh RSS accepted 51/53; original screenshot jobs unavailable for exact-root diagnosis",
+      "tested_commit": "ec1406924638a7475ae219a17a5dc03aaff595fa",
+      "pr": 253,
+      "remaining": [
+        "Original screenshot podcast/article records and source-review receipts",
+        "Independent overview/takeaways output requires an explicit generation/output design; no core algorithm change here"
+      ]
     },
     {
       "date": "2026-11-13",

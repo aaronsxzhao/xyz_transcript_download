@@ -1,5 +1,5 @@
 {
-  "checked_at": "2026-11-13T02:43:48.955546+00:00",
+  "checked_at": "2026-11-13T04:14:29.428151+00:00",
   "base": "2ee43fdd8192f41e0409a22bf8287ff35865c9df",
   "production_before": "7a519e552b87d5cbc87233edc79f80533bd86562",
   "user_reports": [
@@ -17,7 +17,7 @@
   "verification": {
     "unit": "551passed",
     "build": "TypeScript/Vite/bundle budget passed; see final-build.log",
-    "matrix": "4themes x390/768/1440;real Chromium sandbox,TLS enabled;synthetic localAPI",
+    "matrix": "Four themes x 1440x900,768x1024,390x844; sandboxed real Chromium; local synthetic API; actual representative image inspection",
     "matrix_assertions": [
       "one source card",
       "code contrast>=4.5",
@@ -38,13 +38,38 @@
     ],
     "limits": "Simulated viewports,not physicaldevices;allprivateuserbody stayedout of evidence",
     "ci_first_failure": "43354247685:CI Node22 compressed startup197.9KiB>197.75;article-only helper was forced into startup workspace chunk. Excluded articleLinks from forced startup group;12case browser matrix reran successfully;budget unchanged.",
-    "integration": "Merged concurrent PR254; shared coverage conflict resolved by retaining both independent records. Full integration CI required."
+    "integration": "Merged concurrent PR254; shared coverage conflict resolved by retaining both independent records. Full integration CI required.",
+    "ci": {
+      "run": 43360041163,
+      "head": "fb70af58b08dce8d78b9e83c339fae5cfc6e0c38",
+      "status": "success",
+      "previous_full_run": 43356498482
+    },
+    "live_after": {
+      "checks": {},
+      "http_errors": [],
+      "console_errors": 0,
+      "page_errors": 0,
+      "timings": {},
+      "screenshots": [],
+      "revision": "ec1406924638a7475ae219a17a5dc03aaff595fa",
+      "route_chain": {
+        "first": "/viewer/9826f3225eb2936514291994",
+        "second": "/viewer/local_d82616dc95f74a8e",
+        "return": "/library?kind=podcast",
+        "expected": "/library?kind=podcast"
+      },
+      "return_passed": true,
+      "dashboard_return": true,
+      "direct_entry_library": true
+    },
+    "harness_correction": "First postdeploy run passed Library and Dashboard return but timed out on a fresh tab without its own non-remembered session. Repeated with normal signin in that tab; direct-entry fallback passed. No authentication code or token fabrication."
   },
   "podcast_investigation": {
-    "current_account": "Normal login,15taskrecords;3groundingfailures;2savedsummaries have292/307overviewcharacters and27/23points. User66point screenshot does not match those saved records. Requested siteURLs.",
+    "current_account": "Initial pre-release inspection: Normal login,15taskrecords;3groundingfailures;2savedsummaries have292/307overviewcharacters and27/23points. User66point screenshot does not match those saved records. Requested siteURLs.",
     "screenshot_failure": "Source-grounding gate,notcookie or401;cannotgeneralize frequency toallpodcasts",
     "empty_overview_path": "reading_delivery.accept_edition deliberately clears overview if unsupported. Summarizer maps paragraphs tokey_points;frontendlabels allchapters Key Points. Emptyheading wasdisplaybug. Screenshot recordstillneeded toconfirm exactsource.",
-    "prior_diagnosis": "Nov11 modelcoverage45/47(95.74%)butgrounding_concerns;20requestauditstopnotappfailure;notrerun ormisreportedthisrun",
+    "prior_diagnosis": "Nov11 request-budget stop was not application failure; this turn separately completed one fresh isolated public-source run, no production reprocessing.",
     "core_boundary": "No algorithmchange/no historicalreprocessing. Need originaltask receipt/candidate evidence to distinguish actualunsupportedclaims fromreviewfalsepositives. Currentreview contract permits grounded=false withoutIDs, which leaves no targetedrepair; evidence for specific jobs stillmissing.",
     "proposed_decision": "Validate reviewer inconsistency as invalid receipt with bounded re-review; repair only evidenced rejected paragraphs,thenfresh immutable fullreview; keep90percentcoverage andzero knownunsupportedclaims. Requires source-specific evidence beforechangingcoregate; no blanketreretry orthresholdreduction.",
     "contract_probe": {
@@ -64,14 +89,23 @@
       "commit": "17340dbac9b0688aa7e54ebcd7d005482e413e40",
       "report": "docs/audits/2026-11-13-article-rss-repair.md",
       "finding": "Prior two investigated tasks had InternalServerError in 5/6 and 2/6 inventory batches. Historical exact HTTP code unavailable. These are not established as the screenshot jobs."
-    }
+    },
+    "output_shape": "summarizer maps chapter paragraphs to key_points and returns empty takeaways; hiding empty Overview changes display only, not stored or generated content.",
+    "screenshot_matching": "Exact title matching found neither screenshot podcast/jobs nor article in the authorized test account. Original site URLs requested; no assumption that other sample jobs have the same cause."
   },
   "fees": {
     "beijing_date": "2026-11-13",
     "provider_settled_usd": 0.901862,
     "calls": 20,
     "peak_concurrency": 3,
-    "scope": "One isolated public RSS generation; not production reprocessing; no provider hard cap"
+    "scope": "One isolated public RSS generation; not production reprocessing; no provider hard cap; settled amount is the snapshot after this diagnosis, not a promise that later shared spending stayed unchanged"
   },
-  "release": "PendingPR/CI/deploy; update after release"
+  "release": {
+    "pr": 253,
+    "merged_application_sha": "ec1406924638a7475ae219a17a5dc03aaff595fa",
+    "deploy_run": 43363549894,
+    "deploy_status": "success",
+    "exact_health_revision_verified": true,
+    "scope": "Authenticated readonly entry/reader hops/reload/return verified; source-card and code-color visual assertions are controlled local browser coverage, not original screenshot article acceptance."
+  }
 }
