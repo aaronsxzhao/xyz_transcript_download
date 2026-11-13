@@ -726,6 +726,63 @@ def test_final_readonly_audit_source_checks_new_incidental_gap_without_adding_pr
     assert 'validate_inventory' in phases and 'repair' not in phases
     assert report['items'][0]['status']=='context_only' and sections==before
 
+
+def test_source_validation_reuses_only_identical_affirmative_receipts_across_batches():
+    from coverage_ledger import _correct_inventory
+    case={'source':'[00:00] The source describes a supported condition.', 'missing_draft':'A draft.'}
+    lines,_,ranges=setup_case(case)
+    items=[{'id':f'C{i}','kind':'claim','statement':f'Supported claim {i}',
+            'source_ranges':ranges} for i in range(3)]
+    owner=SimpleNamespace(model='model-a'); calls=[]
+    def response(_engine,_system,payload,_validator):
+        calls.append([item['id'] for item in payload['items']])
+        return {'items':[{'id':item['id'],'supported':True,'material':True}
+                         for item in payload['items']]}
+    def report():return {'requests':0,'inventory_validation_failed_batches':0,'terminal_provider_failure':False}
+    with patch('coverage_ledger.request',side_effect=response):
+        assert not _correct_inventory(owner,lines,items[:2],report(),None,None,
+            [{'item_id':'C0','missing_meaning':'Condition A'}, {'item_id':'C1','missing_meaning':'Condition B'}])
+        result=report()
+        assert not _correct_inventory(owner,lines,[items[1],items[0],items[2]],result,None,None,
+            [{'item_id':'C0','missing_meaning':'Condition A'}, {'item_id':'C1','missing_meaning':'Changed condition'}])
+        assert result['inventory_receipts_reused']==1
+        assert calls==[['C0','C1'],['C1','C2']]
+        owner.model='model-b'
+        _correct_inventory(owner,lines,[items[0]],report(),None,None,
+            [{'item_id':'C0','missing_meaning':'Condition A'}])
+        assert calls[-1]==['C0']
+        changed=copy.deepcopy(items[0]);changed['statement']='A different claim'
+        owner.model='model-a'
+        _correct_inventory(owner,lines,[changed],report(),None,None,
+            [{'item_id':'C0','missing_meaning':'Condition A'}])
+        assert calls[-1]==['C0'] and len(calls)==4
+        from transcript_reading import SourceLine
+        changed_lines=[SourceLine(line.id,'Different source context.',line.time) for line in lines]
+        _correct_inventory(owner,changed_lines,[items[0]],report(),None,None,
+            [{'item_id':'C0','missing_meaning':'Condition A'}])
+        assert calls[-1]==['C0'] and len(calls)==5
+
+
+@pytest.mark.parametrize('receipt', ['incidental','invalid','corrected'])
+def test_source_validation_never_reuses_incidental_invalid_or_corrected_receipts(receipt):
+    from coverage_ledger import _correct_inventory
+    case={'source':'[00:00] A source detail.', 'missing_draft':'A draft.'}
+    lines,_,ranges=setup_case(case)
+    item={'id':'C0','kind':'claim','statement':'A source detail','source_ranges':ranges}
+    owner=SimpleNamespace(model='model-a');calls=[]
+    def response(_engine,_system,payload,_validator):
+        calls.append(1)
+        if receipt=='invalid':return {'items':[]}
+        if receipt=='corrected':return {'items':[{'id':'C0','supported':False,
+            'reason':'Unsupported synthetic wording','statement':'A corrected source detail.',
+            'source_ranges':ranges}]}
+        return {'items':[{'id':'C0','supported':True,'material':False,'material_reason':'Incidental'}]}
+    with patch('coverage_ledger.request',side_effect=response):
+        for _ in range(2):
+            report={'requests':0,'inventory_validation_failed_batches':0,'terminal_provider_failure':False}
+            _correct_inventory(owner,lines,[item],report,None,None)
+    assert len(calls)==2
+
 @pytest.mark.parametrize('damage',['missing','extra','duplicate','non_boolean','unknown'])
 def test_delta_receipt_must_cover_exact_proposals_with_explicit_booleans(damage):
     from coverage_ledger import delta_response
