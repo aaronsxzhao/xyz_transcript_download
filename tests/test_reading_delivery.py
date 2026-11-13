@@ -350,3 +350,17 @@ def test_noop_grounding_repair_cannot_publish_raw_fallback_even_with_passing_led
          patch('coverage_ledger.efficient_audit',return_value=owner.generation_report['coverage_ledger']):
         with pytest.raises(SummaryOutputError) as error:accept_edition(owner,edition,'Title','Source',[],0)
     assert error.value.reason=='grounding'
+
+
+def test_provider_inventory_failure_is_not_reported_as_missing_source_meaning():
+    owner, edition = candidate(10)
+    ledger = owner.generation_report['coverage_ledger']
+    ledger.update(inventory_failed_batches=1, failed_batches=1,
+                  inventory_failures=[{'error_type':'InternalServerError','http_status':524}])
+    with patch('transcript_reading.call_json', side_effect=AssertionError('No repeat generation')):
+        with pytest.raises(SummaryOutputError) as failure:
+            accept_edition(owner, edition, 'Title', 'Source', [], 0)
+    assert failure.value.reason == 'source_review'
+    assert 'source coverage check could not finish' in str(failure.value)
+    assert owner.generation_report['delivery']['status'] == 'blocked'
+    assert 'markdown' not in edition

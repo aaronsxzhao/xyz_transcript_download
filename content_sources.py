@@ -10,7 +10,7 @@ from public_content_fetch import fetch_public, normalize_public_url
 from social_content import SocialContent, SocialSourceError, html_markdown, _escape, _link, _image_url, social_platform, resolve_social_content
 
 DOCUMENT_PLATFORMS = ('twitter', 'substack', 'web')
-EXTRACTION_VERSION = 'public-article-v1'
+EXTRACTION_VERSION = 'public-article-v2'
 
 
 @dataclass
@@ -132,10 +132,21 @@ def extract_public_article(raw, url, content_type='text/html'):
     if isinstance(cover, list): cover = cover[0] if cover else ''
     if isinstance(cover, dict): cover = cover.get('url') or cover.get('contentUrl')
     cover = _link(cover, base)
+    # This source uses a div rather than a semantic main element. Scope the
+    # adapter to verified tutorial pages; never make #main a global heuristic.
+    tutorial = soup.select('div#main') if host in ('w3schools.com', 'www.w3schools.com') and urlsplit(url).path.startswith('/html/') else []
+    tutorial_root = tutorial[0] if len(tutorial) == 1 and tutorial[0].find('h1') and tutorial[0].find('p') else None
+    if tutorial_root is not None:
+        for chrome in tutorial_root.select(".nextprev, .ws-share"):
+            chrome.decompose()
     # Remove site chrome, not substantive headers/captions inside the article.
     for node in soup.select('script,style,noscript,nav,aside,form,button,dialog,[hidden],[aria-hidden="true"],.cookie-banner,.cookie-consent,.comments,#comments'):
+        if (node.name == 'nav' and tutorial_root is not None and tutorial_root in node.parents
+                and not node.has_attr('hidden') and node.get('aria-hidden') != 'true'):
+            continue  # Preserve the tutorial's own contents/citation navigation.
         node.decompose()
-    candidates = (soup.select('.post-body, .entry-content, .post-content, .article-body, .article-content')
+    candidates = ([tutorial_root] if tutorial_root is not None else
+                  soup.select('.post-body, .entry-content, .post-content, .article-body, .article-content')
                   or soup.select('article') or soup.select('main, [role="main"]'))
     if candidates:
         # Prefer the complete readable container; never extract only a preview

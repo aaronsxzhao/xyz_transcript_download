@@ -659,3 +659,18 @@ def test_delta_receipt_must_cover_exact_proposals_with_explicit_booleans(damage)
     if damage=='non_boolean':row['adds_material_meaning']=1
     if damage=='unknown':row['id']='P1'
     with pytest.raises(ValueError):delta_response({'paragraphs':rows},[{'id':'L1'}])
+
+
+def test_provider_524_receipt_keeps_status_without_raw_provider_response():
+    import httpx
+    from openai import InternalServerError
+    lines, sections, _ = setup_case(CASES[0])
+    response = httpx.Response(524, request=httpx.Request('POST','https://provider.example/v1/chat/completions'))
+    error = InternalServerError('private provider detail',response=response,body={'secret':'not retained'})
+    with patch('coverage_ledger.request',side_effect=error) as request:
+        result = audit(SimpleNamespace(), lines, sections)
+    assert request.call_count == 2
+    assert result['inventory_failures'][0]['http_status'] == 524
+    assert result['inventory_failures'][0]['error_type'] == 'InternalServerError'
+    assert result['status'] == 'unverified'
+    assert 'private provider detail' not in str(result) and 'secret' not in str(result)
