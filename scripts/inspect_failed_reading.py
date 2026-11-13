@@ -41,7 +41,7 @@ def safe_report(report):
     return safe
 
 
-def inspect(base, key):
+def inspect(base, key, credential_seed=None):
     def get(table, query):
         request = Request(base.rstrip('/')+'/rest/v1/'+table+'?'+urlencode(query),
             headers={'apikey':key,'Authorization':'Bearer '+key})
@@ -59,7 +59,40 @@ def inspect(base, key):
         item['inventory_receipts'] = [safe_report({'coverage_ledger':(c.get('result') or {}).get('inventory',[{}])[0]}) for c in checkpoints if (c.get('result') or {}).get('inventory')]
         item['candidate_count'] = len(checkpoints)
         result.append(item)
-    return {'production_writes':False, 'provider_calls':0, 'task_count':len(rows), 'tasks':result}
+    budget = {'status':'not_checked'}
+    if credential_seed and rows:
+        owner = rows[0]['user_id']
+        settings = get('user_settings', {'select':'preferences','user_id':'eq.'+owner,'limit':'1'})
+        active = get('processing_work', {'select':'state','state':'in.(queued,running)','limit':'1000'})
+        try:
+            prefs = settings[0]['preferences'] if settings else {}
+            budget = inspect_budget(prefs, owner, credential_seed)
+        except Exception as error:
+            budget = {'status':'blocked','error_type':type(error).__name__,
+                      'http_status':getattr(error,'code',None) if isinstance(getattr(error,'code',None),int) else None}
+        budget['active_work_count'] = len(active)
+        budget['active_work_scan_complete'] = len(active) < 1000
+    return {'production_writes':False, 'provider_calls':0, 'task_count':len(rows), 'tasks':result, 'budget':budget}
+
+
+def inspect_budget(prefs, owner, seed):
+    # Same account-bound format as api.model_credentials; key exists only in
+    # process memory and is sent only to this account's configured provider.
+    import base64, hashlib, hmac
+    from datetime import datetime, timedelta, timezone
+    from urllib.parse import urlsplit
+    from cryptography.fernet import Fernet
+    if prefs.get('llm_provider') != 'custom' or urlsplit(prefs.get('llm_base_url','')).hostname != 'api.aipaibox.com':
+        return {'status':'blocked','reason':'unsupported_billing_provider'}
+    derived = hmac.new(seed.encode(), f'xyz-model-key-v1:{owner}:llm_api_key'.encode(), hashlib.sha256).digest()
+    token = Fernet(base64.urlsafe_b64encode(derived)).decrypt(prefs['llm_api_key_encrypted'].encode()).decode()
+    request = Request('https://api.aipaibox.com/api/log/token', headers={'Authorization':'Bearer '+token})
+    with urlopen(request,timeout=30) as response: data = json.load(response)['data']
+    zone = timezone(timedelta(hours=8));day = datetime.now(zone).date()
+    if not isinstance(data,list) or not data or min(datetime.fromtimestamp(row['created_at'],zone).date() for row in data) >= day:
+        return {'status':'blocked','reason':'billing_history_does_not_span_day_boundary'}
+    used = sum(row['quota'] for row in data if row['type']==2 and datetime.fromtimestamp(row['created_at'],zone).date()==day)/500000
+    return {'status':'checked','beijing_date':str(day),'settled_usd':used,'remaining_usd':max(0,50-used),'daily_limit_usd':50,'scope':'configured_test_account_provider_token','model_calls':0}
 
 
 def main():
@@ -69,7 +102,7 @@ def main():
     for container in containers:
         bindings = oci_json(['container-instances','container','get','--container-id',container], 'data."environment-variables"') or {}
         if bindings.get('SUPABASE_URL') and bindings.get('SUPABASE_SERVICE_KEY'):
-            print(json.dumps({'failed_reading_diagnostic':inspect(bindings['SUPABASE_URL'],bindings['SUPABASE_SERVICE_KEY'])}))
+            print(json.dumps({'failed_reading_diagnostic':inspect(bindings['SUPABASE_URL'],bindings['SUPABASE_SERVICE_KEY'],bindings.get('MODEL_CREDENTIAL_KEY') or bindings['SUPABASE_SERVICE_KEY'])}))
             return 0
     print(json.dumps({'failed_reading_diagnostic':{'blocked':'existing_database_binding_unavailable'}}))
     return 1
