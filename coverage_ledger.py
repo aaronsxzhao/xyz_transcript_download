@@ -32,8 +32,11 @@ def measure_coverage_round(engine, phase, operation, *args, **kwargs):
     counts = {key:sum(isinstance(item, dict) and item.get('status') == key
                       for item in ledger.get('items', []))
               for key in ('covered','partial','missing','contradicted','context_only','unverified')}
+    gap_kinds = {kind:sum(isinstance(item, dict) and item.get('kind') == kind
+                         and item.get('status') in {'partial','missing','contradicted','unverified'}
+                         for item in ledger.get('items', [])) for kind in sorted(KINDS)}
     entry.update(outcome='completed', seconds=round(time.monotonic()-started, 3),
-        status=ledger.get('status'), status_counts=counts,
+        status=ledger.get('status'), status_counts=counts, unresolved_by_kind=gap_kinds,
         initial_unresolved=ledger.get('initial_unresolved_items'),
         final_unresolved=ledger.get('unresolved_items'),
         accepted_paragraphs=ledger.get('repairs_accepted', 0),

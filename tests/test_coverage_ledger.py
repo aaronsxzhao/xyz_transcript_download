@@ -20,7 +20,7 @@ def test_coverage_rounds_keep_prior_repairs_when_later_ledger_is_replaced():
     first = {'status':'unverified','initial_unresolved_items':30,'unresolved_items':7,
         'repairs_accepted':23,'repairs_rejected':4,'requests':32,
         'corrected_inventory_items':['private-id'],
-        'items':[{'status':'covered','statement':'private source text'}, {'status':'missing'}]}
+        'items':[{'status':'covered','kind':'claim','statement':'private source text'}, {'status':'missing','kind':'example'}]}
     second = {'status':'unverified','initial_unresolved_items':7,'unresolved_items':7,
         'repairs_accepted':0,'repairs_rejected':0,'requests':12,
         'items':[{'status':'covered'}, {'status':'missing'}]}
@@ -30,6 +30,7 @@ def test_coverage_rounds_keep_prior_repairs_when_later_ledger_is_replaced():
     assert [r['accepted_paragraphs'] for r in rounds] == [23,0]
     assert [r['phase'] for r in rounds] == ['initial','after_grounding_repair']
     assert rounds[0]['status_counts']['missing'] == 1
+    assert rounds[0]['unresolved_by_kind']['example'] == 1
     assert rounds[0]['source_corrected_items'] == 1
     assert 'private' not in json.dumps(rounds)
     assert owner.generation_report['coverage_ledger'] is second
