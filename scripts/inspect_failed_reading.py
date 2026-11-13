@@ -32,7 +32,9 @@ def safe_report(report):
         if source.get('reason') in ('coverage','grounding','review','ValueError','SummaryOutputError','ReadingProviderError'):
             row['reason'] = source['reason']
         if key == 'coverage_ledger':
-            row['inventory_error_types'] = {name:sum(isinstance(e,dict) and e.get('error_type')==name for e in source.get('inventory_failures',[]) or []) for name in ('ValueError','SummaryOutputError','APIConnectionError','APITimeoutError','TimeoutError','APIStatusError','RateLimitError')}
+            row['inventory_error_types'] = {name:sum(isinstance(e,dict) and e.get('error_type')==name for e in source.get('inventory_failures',[]) or []) for name in ('ValueError','SummaryOutputError','APIConnectionError','APITimeoutError','TimeoutError','APIStatusError','RateLimitError','RuntimeError','ReadTimeout','ConnectError','ConnectionError','ModelRequestTimeout')}
+            row['inventory_failures_recorded'] = len(source.get('inventory_failures',[]) or [])
+            row['inventory_failures_available'] = 'inventory_failures' in source
             row['item_status_counts'] = {state:sum(isinstance(i,dict) and i.get('status')==state for i in source.get('items',[]) or [])
                 for state in ('covered','missing','partial','contradicted','unverified','context_only')}
         safe[key] = row
@@ -54,6 +56,7 @@ def inspect(base, key):
         checkpoints = get('processing_checkpoints', {'select':'result', 'user_id':'eq.'+row['user_id'],
             'source_id':'eq.'+row['source_id'], 'stage':'eq.reading.candidate.v1','limit':'10'})
         item['candidate_checkpoints'] = [safe_report((c.get('result') or {}).get('report')) for c in checkpoints]
+        item['inventory_receipts'] = [safe_report({'coverage_ledger':(c.get('result') or {}).get('inventory',[{}])[0]}) for c in checkpoints if (c.get('result') or {}).get('inventory')]
         item['candidate_count'] = len(checkpoints)
         result.append(item)
     return {'production_writes':False, 'provider_calls':0, 'task_count':len(rows), 'tasks':result}
