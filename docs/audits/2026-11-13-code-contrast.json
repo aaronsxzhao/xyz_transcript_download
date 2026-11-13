@@ -1,0 +1,16 @@
+{
+  "checked_at": "2026-11-13T04:22:17.305700+00:00",
+  "base": "583bb7b",
+  "problem": "Light reader code still unreadable after PR253",
+  "confirmed_cause": "Formatted Markdown uses prose-code color utilities on child code, overriding inherited pre color. Prior test covered original article only. User-provided exact page verification tracked separately.",
+  "fix": "Light reader pre code and syntax spans explicitly #111 with transparent background; inline code and dark styles unchanged.",
+  "local_validation": [
+    "551 frontend tests",
+    "TypeScript/Vite and unchanged 197.75KiB budget passed",
+    "Updated check_summary_theme passed Chromium320/390/820 both designs and theme switching",
+    "Actual screenshot inspection of1440/768/390; cold starts and reloads of original and formatted code, no-language/text/python"
+  ],
+  "status": "pending CI/deployment/live exact article verification",
+  "production_writes": false,
+  "paid_calls": 0
+}

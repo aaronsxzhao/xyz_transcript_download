@@ -1,0 +1,150 @@
+[
+  {
+    "mode": "original",
+    "design": "editorial",
+    "rows": [
+      {
+        "color": "rgb(38, 37, 33)",
+        "bg": "rgb(247, 245, 240)",
+        "codes": [
+          {
+            "color": "rgb(38, 37, 33)",
+            "html": "<code>GREEN    the test suite exits 0\nGREEN    every claim carries a source line</code>"
+          }
+        ]
+      },
+      {
+        "color": "rgb(38, 37, 33)",
+        "bg": "rgb(247, 245, 240)",
+        "codes": [
+          {
+            "color": "rgb(38, 37, 33)",
+            "html": "<code>NOT A CHECK    the output looks good</code>"
+          }
+        ]
+      },
+      {
+        "color": "rgb(38, 37, 33)",
+        "bg": "rgb(247, 245, 240)",
+        "codes": [
+          {
+            "color": "rgb(38, 37, 33)",
+            "html": "<code>print(\"hello\") # comment</code>"
+          }
+        ]
+      }
+    ],
+    "image": "/workspace/code-contrast-evidence/before-original-editorial.png"
+  },
+  {
+    "mode": "original",
+    "design": "classic",
+    "rows": [
+      {
+        "color": "rgb(37, 50, 71)",
+        "bg": "rgb(238, 242, 248)",
+        "codes": [
+          {
+            "color": "rgb(37, 50, 71)",
+            "html": "<code>GREEN    the test suite exits 0\nGREEN    every claim carries a source line</code>"
+          }
+        ]
+      },
+      {
+        "color": "rgb(37, 50, 71)",
+        "bg": "rgb(238, 242, 248)",
+        "codes": [
+          {
+            "color": "rgb(37, 50, 71)",
+            "html": "<code>NOT A CHECK    the output looks good</code>"
+          }
+        ]
+      },
+      {
+        "color": "rgb(37, 50, 71)",
+        "bg": "rgb(238, 242, 248)",
+        "codes": [
+          {
+            "color": "rgb(37, 50, 71)",
+            "html": "<code>print(\"hello\") # comment</code>"
+          }
+        ]
+      }
+    ],
+    "image": "/workspace/code-contrast-evidence/before-original-classic.png"
+  },
+  {
+    "mode": "summary",
+    "design": "editorial",
+    "rows": [
+      {
+        "color": "rgb(38, 37, 33)",
+        "bg": "rgb(247, 245, 240)",
+        "codes": [
+          {
+            "color": "oklch(0.785 0.115 274.713)",
+            "html": "<code node=\"[object Object]\">GREEN    the test suite exits 0\nGREEN    every claim carries a source line\n</code>"
+          }
+        ]
+      },
+      {
+        "color": "rgb(38, 37, 33)",
+        "bg": "rgb(247, 245, 240)",
+        "codes": [
+          {
+            "color": "rgb(38, 37, 33)",
+            "html": "<code class=\"language-text\" style=\"white-space: pre;\"><span class=\"\">NOT A CHECK    the output looks good</span></code>"
+          }
+        ]
+      },
+      {
+        "color": "rgb(38, 37, 33)",
+        "bg": "rgb(247, 245, 240)",
+        "codes": [
+          {
+            "color": "rgb(38, 37, 33)",
+            "html": "<code class=\"language-python\" style=\"white-space: pre;\"><span class=\"token keyword\">print</span><span class=\"token punctuation\">(</span><span class=\"token string\">\"hello\"</span><sp"
+          }
+        ]
+      }
+    ],
+    "image": "/workspace/code-contrast-evidence/before-summary-editorial.png"
+  },
+  {
+    "mode": "summary",
+    "design": "classic",
+    "rows": [
+      {
+        "color": "rgb(37, 50, 71)",
+        "bg": "rgb(238, 242, 248)",
+        "codes": [
+          {
+            "color": "oklch(0.785 0.115 274.713)",
+            "html": "<code node=\"[object Object]\">GREEN    the test suite exits 0\nGREEN    every claim carries a source line\n</code>"
+          }
+        ]
+      },
+      {
+        "color": "rgb(37, 50, 71)",
+        "bg": "rgb(238, 242, 248)",
+        "codes": [
+          {
+            "color": "rgb(37, 50, 71)",
+            "html": "<code class=\"language-text\" style=\"white-space: pre;\"><span class=\"\">NOT A CHECK    the output looks good</span></code>"
+          }
+        ]
+      },
+      {
+        "color": "rgb(37, 50, 71)",
+        "bg": "rgb(238, 242, 248)",
+        "codes": [
+          {
+            "color": "rgb(37, 50, 71)",
+            "html": "<code class=\"language-python\" style=\"white-space: pre;\"><span class=\"token keyword\">print</span><span class=\"token punctuation\">(</span><span class=\"token string\">\"hello\"</span><sp"
+          }
+        ]
+      }
+    ],
+    "image": "/workspace/code-contrast-evidence/before-summary-classic.png"
+  }
+]

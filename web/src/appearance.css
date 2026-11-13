@@ -42,3 +42,12 @@ html[data-theme='light'] .toast-stack .text-green-400 { color:#287346; }
 
 /* An ongoing import notification must not cover expanded mobile navigation. */
 @media(max-width:767px) { body:has(#mobile-navigation) .toast-stack { z-index:39; } }
+
+/* Light readers use black code text, including unlabelled fences and lazy
+   syntax tokens. Override prose utility colors on the text, not only pre. */
+html[data-theme='light'] .note-prose.prose pre code,
+html[data-theme='light'] .note-prose.prose pre code span {
+  color:#111;
+  background:transparent;
+  text-shadow:none;
+}
