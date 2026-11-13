@@ -1,0 +1,26 @@
+{
+  "date": "2026-11-13",
+  "base": "4a50cd7aac9ba1f60606e46af7bee0d15596c0c4",
+  "reported_episode": "6acfca97e742e36efcc313f6",
+  "live_test_job": "9efa4826-4f11-4f64-898a-3b2f4fe8621b",
+  "live_failure": {
+    "state": "failed",
+    "wall_seconds": 321.646,
+    "model_calls": 15,
+    "draft_calls": 2,
+    "format_retries": 1,
+    "format_category": "source_ranges",
+    "transcript": "readable",
+    "summary": "not published"
+  },
+  "independent_draft_diagnostic": {
+    "requests": 1,
+    "source_lines": 3088,
+    "paragraphs": 51,
+    "result": "all source references valid; model output is nondeterministic"
+  },
+  "local_tests": "212 related tests passed",
+  "quality": "Original full draft validator, grounding and 90% coverage gates unchanged; no unsupported output published.",
+  "limit": "Targeted repair experiment and final end-to-end acceptance are not yet completed.",
+  "production_writes": "One authorized test-account job created; user data unchanged."
+}

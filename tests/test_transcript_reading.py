@@ -487,7 +487,8 @@ def test_generation_retries_invalid_format_with_full_source_and_validates_again(
     complete = owner.client.with_options.return_value.chat.completions.create
     complete.side_effect = [SimpleNamespace(choices=[SimpleNamespace(finish_reason='stop',
         message=SimpleNamespace(content=body))]) for body in [bad, valid]]
-    result = call_json(owner, 'Schema instruction', payload, 10)
+    with patch('transcript_reading.repair_invalid_source_ranges', return_value=None):
+        result = call_json(owner, 'Schema instruction', payload, 10)
     assert result['sections']
     assert complete.call_count == 2
     assert all(call.kwargs['messages'][1]['content'] == payload for call in complete.call_args_list)
@@ -496,6 +497,45 @@ def test_generation_retries_invalid_format_with_full_source_and_validates_again(
                 'sections' if json.loads(bad)['sections'] == [] else 'source_ranges')
     assert owner.generation_report['format_failure_category'] == expected
     assert 'previous attempt failed format validation' in complete.call_args_list[1].kwargs['messages'][0]['content']
+
+
+def test_invalid_source_ranges_are_targeted_without_rewriting_or_skipping_validation():
+    from transcript_reading import call_json
+    owner = engine()
+    owner.client = Mock(base_url='https://models.example/v1/')
+    owner.model = 'fixture'
+    _, lines = source_lines('First supporting line.\nLast supporting line.')
+    payload = json.dumps({'mode':'single', 'primary_source':[{'id':x.id,'text':x.text} for x in lines]})
+    draft = {'sections':[{'heading':'Claim','paragraphs':[{'text':'Preserve this claim.',
+        'source_ranges':[{'start':'invented','end':'invented'}]}]}]}
+    response = {'repairs':[{'id':'0:0','source_ranges':[{'start':lines[0].id,'end':lines[-1].id}]}]}
+    complete = owner.client.with_options.return_value.chat.completions.create
+    complete.side_effect = [SimpleNamespace(choices=[SimpleNamespace(finish_reason='stop',
+        message=SimpleNamespace(content=json.dumps(value)))]) for value in [draft,response]]
+    result = call_json(owner, 'Schema', payload, 10)
+    paragraph = result['sections'][0]['paragraphs'][0]
+    assert paragraph['text'] == 'Preserve this claim.'
+    assert paragraph['source_ranges'] == response['repairs'][0]['source_ranges']
+    assert complete.call_count == 2
+    assert owner.generation_report['source_range_repairs'] == 1
+
+
+def test_invalid_reference_repair_cannot_bypass_full_validation():
+    from transcript_reading import call_json
+    owner = engine()
+    owner.client = Mock(base_url='https://models.example/v1/')
+    owner.model = 'fixture'
+    _, lines = source_lines('Only source.')
+    payload = json.dumps({'mode':'single', 'primary_source':[{'id':x.id,'text':x.text} for x in lines]})
+    draft = {'sections':[{'heading':'Claim','paragraphs':[{'text':'Claim.',
+        'source_ranges':[{'start':'invented','end':'invented'}]}]}]}
+    bad_repair = {'repairs':[{'id':'0:0','source_ranges':[{'start':'invented','end':'invented'}]}]}
+    complete = owner.client.with_options.return_value.chat.completions.create
+    complete.side_effect = [SimpleNamespace(choices=[SimpleNamespace(finish_reason='stop',
+        message=SimpleNamespace(content=json.dumps(value)))]) for value in [draft,bad_repair,draft]]
+    with pytest.raises(SummaryOutputError): call_json(owner, 'Schema', payload, 10)
+    assert complete.call_count == 3
+    assert not owner.generation_report.get('source_range_repairs')
 
 
 def test_generation_format_retry_is_bounded_and_never_accepts_invalid_evidence():
