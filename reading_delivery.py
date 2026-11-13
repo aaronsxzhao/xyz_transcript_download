@@ -129,15 +129,25 @@ def accept_edition(engine, edition, title, source, formats, duration, stage_call
                 # Source-local receipts cover every source line. All batches see
                 # the same final draft; no intermediate edits or stale receipts.
                 review_parts = list(batches(lines, 24000))
-                for number, part in enumerate(review_parts):
-                    stage(stage_callback, 'quality', number, len(review_parts))
-                    payload = {'primary_source':serialize(part), 'global_draft':public_draft(sections),
+                frozen_draft = copy.deepcopy(public_draft(sections))
+                known_ids = {p['id'] for s in frozen_draft for p in s['paragraphs']} | {'overview'}
+                from processing_parallel import bounded_map
+                completed = [0]
+                stage(stage_callback, 'quality', 0, len(review_parts))
+                def review_part(part):
+                    payload = {'primary_source':serialize(part), 'global_draft':frozen_draft,
                                'global_overview':overview, 'delivery_check':True,
                                'review_attempt':getattr(engine, '_quality_attempt', 0)}
                     data = call_json(engine, REVIEW+source_language_lock(source),
                                      json.dumps(payload,ensure_ascii=False), REVIEW_TIMEOUT)
                     _, invalid = validate_review(data, lines, {line.id for line in part},
-                        {p['id'] for s in sections for p in s['paragraphs']} | {'overview'})
+                        known_ids)
+                    return data, invalid
+                def reviewed_part(_index, _result):
+                    completed[0] += 1
+                    stage(stage_callback, 'quality', completed[0], len(review_parts))
+                for data, invalid in bounded_map(review_part, review_parts, workers=2,
+                                                 on_complete=reviewed_part):
                     grounded &= data.get('grounded') is True and not invalid
                     unsupported.update(invalid)
                     for item in data.get('unsupported_reasons', []) if isinstance(data.get('unsupported_reasons'), list) else []:
