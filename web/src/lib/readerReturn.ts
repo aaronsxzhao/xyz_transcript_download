@@ -3,7 +3,7 @@ import {useLocation, useNavigate} from 'react-router-dom'
 
 const isReader = (path:string) => /^\/(viewer|videos)\/[^/]+\/?$/.test(path)
 export function readerOrigin(value:unknown):string | null {
-  if(typeof value!=='string' || !/^\/(?:\?|$|library(?:[?#]|$)|videos(?:[?#]|$)|podcasts(?:\/[^/?#]+\/episodes)?(?:[?#]|$))/.test(value)) return null
+  if(typeof value!=='string' || !/^\/(?:[?#]|$|settings(?:[?#]|$)|library(?:[?#]|$)|videos(?:[?#]|$)|podcasts(?:\/[^/?#]+\/episodes)?(?:[?#]|$))/.test(value)) return null
   return value
 }
 /** Keep the entry page across reader-to-reader transitions and reloads. */
