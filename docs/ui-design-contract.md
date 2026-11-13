@@ -43,6 +43,8 @@ A multipart source is one series with ordered episodes, not unrelated copies of 
 - Use actual source artwork when available and the existing media icon fallback otherwise. Preserve image proportions; avoid cropping instructional screenshots. Match the surface's established cover/contain choice.
 - Across surfaces, a saved episode must not become “not processed” just because another listing lacks its metadata. Tests must distinguish loaded-page counts, total series parts and ready episodes.
 
+Classic desktop dashboards cap the Processing panel at 480px. Its task list scrolls independently while the heading/count and task-history action remain visible; every task and action stays keyboard reachable. Mobile and Editorial sizing retain their existing behavior.
+
 ## Controls and feedback
 
 Use shared Button, reader-action, ui-button and ItemActions conventions where applicable. Primary actions use the theme accent; destructive actions remain distinguishable. Labels and status must not rely solely on color or a numeric badge.

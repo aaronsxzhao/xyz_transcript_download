@@ -166,6 +166,9 @@ async def main():
         async with async_playwright() as p:
             browser=await p.webkit.launch() if args.webkit else await p.chromium.launch(executable_path=args.browser_path,args=['--no-sandbox'])
             for width in args.widths:await check(browser,f'http://127.0.0.1:{server.server_port}',width)
+            from scripts.check_dashboard_processing_layout import check_processing_layout
+            for width in sorted(set(args.widths+[1440])):
+                await check_processing_layout(browser,f'http://127.0.0.1:{server.server_port}',width)
             await browser.close()
     finally:server.shutdown()
 
