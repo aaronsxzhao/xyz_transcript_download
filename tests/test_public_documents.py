@@ -185,3 +185,31 @@ def test_legacy_source_attribution_is_repaired_only_in_the_generated_wrapper():
     assert result['markdown'].endswith('The author wrote: Author: blog.example.')
     assert task['markdown']==raw
     assert repair_web_attribution('# Title\n\nAuthor: Actual Author\n\n[Original source](https://blog.example/article)','https://blog.example/article').startswith('# Title\n\nAuthor: Actual Author')
+
+
+def test_w3schools_main_excludes_site_navigation_but_preserves_body_structure():
+    raw = b"""<html><title>HTML Images</title><body>
+    <div id="sidenav"><a href="/html/intro">Site navigation</a></div>
+    <div id="main"><h1>HTML Images</h1><p>Original opening.</p><div class="nextprev">Site next lesson</div><div class="ws-share">Share controls</div>
+    <nav aria-label="Article contents"><a href="#examples">Body contents</a></nav>
+    <h2 id="examples">Examples</h2><p>Final qualification <a href="/reference">citation</a>.</p>
+    <figure><img src="/chart.png"><figcaption>Original caption</figcaption></figure>
+    <header>Body byline</header></div><div>External promotion</div></body></html>"""
+    result = sources.extract_public_article(raw, 'https://www.w3schools.com/html/html_images.asp')
+    assert all(value not in result.body for value in ['Site navigation', 'External promotion', 'Site next lesson', 'Share controls'])
+    for value in ['Original opening.', 'Body contents', 'Examples', 'Final qualification', 'citation', 'Original caption', 'Body byline', 'https://www.w3schools.com/chart.png']:
+        assert value in result.body
+
+
+@pytest.mark.parametrize('url', ['https://example.com/html/html_images.asp', 'https://www.w3schools.com.evil.example/html/html_images.asp'])
+def test_main_id_is_not_a_global_extraction_rule(url):
+    raw = b'<html><body><div id="main"><h1>Widget</h1><p>Widget text.</p></div><article><h1>Actual article</h1><p>Substantive article.</p></article></body></html>'
+    result = sources.extract_public_article(raw, url)
+    assert 'Substantive article.' in result.body and 'Widget text.' not in result.body
+
+
+@pytest.mark.parametrize('main', ['', '<div id="main"><p>Preview</p></div>', '<div id="main"><h1>First</h1></div><div id="main"><h1>Second</h1></div>'])
+def test_ambiguous_or_missing_tutorial_main_keeps_semantic_article_fallback(main):
+    raw = ('<html><body>'+main+'<article><h1>Complete article</h1><p>Keep complete content.</p></article></body></html>').encode()
+    result = sources.extract_public_article(raw, 'https://www.w3schools.com/html/html_images.asp')
+    assert 'Keep complete content.' in result.body

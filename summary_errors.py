@@ -70,6 +70,7 @@ class SummaryOutputError(RuntimeError):
         'capacity': 'The full transcript exceeds the model context capacity. Choose segmented generation or a larger-context model, then retry.',
     }
     QUALITY_MESSAGES = {
+        'source_review': 'The source coverage check could not finish. No unfinished summary was published. Retry to resume saved work.',
         'grounding': 'Some summary passages could not be verified against the source. No unfinished summary was published. Retry to resume saved work.',
         'coverage': 'The summary has not reached the required source coverage. No unfinished summary was published. Retry to resume saved work.',
         'review': 'The final summary check could not finish. No unfinished summary was published. Retry to resume saved work.',

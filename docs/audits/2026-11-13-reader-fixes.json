@@ -37,7 +37,8 @@
       "check_reader_interactions:390/768/1440"
     ],
     "limits": "Simulated viewports,not physicaldevices;allprivateuserbody stayedout of evidence",
-    "ci_first_failure": "43354247685:CI Node22 compressed startup197.9KiB>197.75;article-only helper was forced into startup workspace chunk. Excluded articleLinks from forced startup group;12case browser matrix reran successfully;budget unchanged."
+    "ci_first_failure": "43354247685:CI Node22 compressed startup197.9KiB>197.75;article-only helper was forced into startup workspace chunk. Excluded articleLinks from forced startup group;12case browser matrix reran successfully;budget unchanged.",
+    "integration": "Merged concurrent PR254; shared coverage conflict resolved by retaining both independent records. Full integration CI required."
   },
   "podcast_investigation": {
     "current_account": "Normal login,15taskrecords;3groundingfailures;2savedsummaries have292/307overviewcharacters and27/23points. User66point screenshot does not match those saved records. Requested siteURLs.",
@@ -49,8 +50,28 @@
     "contract_probe": {
       "negative_review_without_ids": "Synthetic validate_review accepted grounded=false with no unsupportedIDs;no targeted repair possible",
       "proven_actual_job_cause": false
+    },
+    "fresh_diagnosis": {
+      "result": "accepted_in_memory_only",
+      "coverage": "51/53 (96.2264%)",
+      "wall_seconds": 324.634,
+      "requests": 20,
+      "negative_grounding_without_ids_observed": false,
+      "not_proven": "root cause of screenshot jobs"
+    },
+    "concurrent_evidence": {
+      "pr": 254,
+      "commit": "17340dbac9b0688aa7e54ebcd7d005482e413e40",
+      "report": "docs/audits/2026-11-13-article-rss-repair.md",
+      "finding": "Prior two investigated tasks had InternalServerError in 5/6 and 2/6 inventory batches. Historical exact HTTP code unavailable. These are not established as the screenshot jobs."
     }
   },
-  "fees": "No paid generation thisrun",
+  "fees": {
+    "beijing_date": "2026-11-13",
+    "provider_settled_usd": 0.901862,
+    "calls": 20,
+    "peak_concurrency": 3,
+    "scope": "One isolated public RSS generation; not production reprocessing; no provider hard cap"
+  },
   "release": "PendingPR/CI/deploy; update after release"
 }
