@@ -3,7 +3,7 @@ import copy
 import json
 from pathlib import Path
 from types import SimpleNamespace
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 import pytest
 
@@ -747,6 +747,11 @@ def test_source_validation_reuses_only_identical_affirmative_receipts_across_bat
             [{'item_id':'C0','missing_meaning':'Condition A'}, {'item_id':'C1','missing_meaning':'Changed condition'}])
         assert result['inventory_receipts_reused']==1
         assert calls==[['C0','C1'],['C1','C2']]
+        result=report();progress=Mock()
+        _correct_inventory(owner,lines,[items[0]],result,progress,None,
+            [{'item_id':'C0','missing_meaning':'Condition A'}])
+        assert result['inventory_receipts_reused']==1 and result['requests']==0
+        assert calls==[['C0','C1'],['C1','C2']] and progress.call_count==1
         owner.model='model-b'
         _correct_inventory(owner,lines,[items[0]],report(),None,None,
             [{'item_id':'C0','missing_meaning':'Condition A'}])
