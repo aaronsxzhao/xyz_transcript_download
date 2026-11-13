@@ -594,16 +594,16 @@ def _audit(engine, lines, sections, overview='', progress=None, stage_callback=N
                     candidate.append(s)
                 stage(stage_callback,'recheck',start,len(inventory),batch_size=len(items),fraction=(start+len(items)*.7)/len(inventory))
                 rechecked=match(candidate,proposed)
-                # A matcher can attach a duplicate flag to joint old+new support.
-                # Resolve only that ambiguity with a separate source/novelty check;
-                # never turn a pure duplicate or contradiction into accepted prose.
+                # A duplicate flag can refer to joint or new-only support.
+                # Independently check source, novelty and contradictions before
+                # accepting either; truly repeated or unsupported prose stays out.
                 proposed_set = set(proposed)
                 ambiguous = []
                 for row in rechecked:
                     used = {s['paragraph_id'] for s in row['support']}
                     if (row['status']=='covered' and row['grounded'] and row['duplicate']
                             and by_id[row['item_id']]['status'] in {'partial','missing'}
-                            and used & proposed_set and used - proposed_set):
+                            and used & proposed_set):
                         ambiguous.append(row)
                 if ambiguous:
                     wanted = {s['paragraph_id'] for row in ambiguous for s in row['support']} & proposed_set

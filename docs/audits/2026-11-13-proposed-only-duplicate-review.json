@@ -1,0 +1,24 @@
+{
+  "base": "PR263 head eafd78310995e09686c4cfebf248a1e3571c55eb",
+  "observation": "Across saved matching receipts for three reported sources, 84 covered+grounded+duplicate judgments referenced proposed paragraphs: 56 new-only and 28 mixed old/new. These are observations across multiple attempts, not unique gaps or proven false positives; eligibility against original missing status was not established.",
+  "issue": "The independent source/novelty/contradiction verifier only ran when a duplicate flag had mixed old/new support; new-only support never got that independent check.",
+  "change": "Apply the same independent verifier to eligible duplicate-flagged new-only support; accept only grounded, materially novel, non-contradictory proposals that pass the existing match and final delivery gates.",
+  "tradeoff": "May add one verification request for batches containing only new-only duplicate flags. This can recover genuine additions but is not guaranteed to reduce requests or improve real success.",
+  "local_tests": "232 related tests passed, including true duplicate, ungrounded, contradictory and new material cases for both support shapes.",
+  "real_provider": {
+    "scope": "two short synthetic cases",
+    "requests": 2,
+    "novel": {
+      "grounded": true,
+      "adds_material_meaning": true,
+      "contradicts_existing": false
+    },
+    "duplicate": {
+      "grounded": true,
+      "adds_material_meaning": false,
+      "contradicts_existing": false
+    },
+    "daily_settled_usd": 29.949802
+  },
+  "limitations": "No semantic inspection of historic private checklist statements was performed after automatic review rejected the normalization query; exact historic false-positive count and full-podcast acceptance remain unknown."
+}
