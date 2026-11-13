@@ -1,0 +1,9 @@
+{
+  "revision": "0f69b5f1d6986baa3c33af524ccd8187c0def915",
+  "colors": [
+    "rgb(17, 17, 17)",
+    "rgb(17, 17, 17)",
+    "rgb(17, 17, 17)"
+  ],
+  "scope": "Actual deployed CSS with DOM-only controlled markup on public page; not the inaccessible user article; no production data writes"
+}

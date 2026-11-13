@@ -2,9 +2,9 @@
   "schema_version": 1,
   "site": "https://aipodcastsummary.online",
   "repository": "aaronsxzhao/xyz_transcript_download",
-  "updated_at": "2026-11-13T04:14:29.428151+00:00",
-  "tested_commit": "ec1406924638a7475ae219a17a5dc03aaff595fa",
-  "current_report": "docs/audits/2026-11-13-reader-fixes.json",
+  "updated_at": "2026-11-13T05:00:24.445264+00:00",
+  "tested_commit": "0f69b5f1d6986baa3c33af524ccd8187c0def915",
+  "current_report": "docs/audits/2026-11-13-code-contrast.json",
   "inventory_basis": [
     "web/src/App.tsx routes",
     "current repository feature components and prior audit records",
@@ -1439,10 +1439,13 @@
       ]
     },
     {
-      "checked_at": "2026-11-13T04:22:17.305700+00:00",
+      "checked_at": "2026-11-13T05:00:24.445264+00:00",
       "report": "docs/audits/2026-11-13-code-contrast.json",
-      "status": "pending CI/deployment/live exact article verification",
-      "scope": "Reopened light-code legibility; child text assertion added, prior PR253 coverage limited"
+      "status": "merged_deployed; local renderer matrix and deployed CSS verified",
+      "scope": "Reopened light-code legibility; child text assertion added, prior PR253 coverage limited",
+      "pr": 255,
+      "tested_commit": "0f69b5f1d6986baa3c33af524ccd8187c0def915",
+      "remaining": "User article returns404 in authorized test session; original-page visual acceptance blocked"
     }
   ],
   "audit_attempts": [

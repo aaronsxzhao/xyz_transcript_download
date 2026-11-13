@@ -1,5 +1,5 @@
 {
-  "checked_at": "2026-11-13T04:22:17.305700+00:00",
+  "checked_at": "2026-11-13T05:00:24.445264+00:00",
   "base": "583bb7b",
   "problem": "Light reader code still unreadable after PR253",
   "confirmed_cause": "Formatted Markdown uses prose-code color utilities on child code, overriding inherited pre color. Prior test covered original article only. User-provided exact page verification tracked separately.",
@@ -10,7 +10,27 @@
     "Updated check_summary_theme passed Chromium320/390/820 both designs and theme switching",
     "Actual screenshot inspection of1440/768/390; cold starts and reloads of original and formatted code, no-language/text/python"
   ],
-  "status": "pending CI/deployment/live exact article verification",
+  "status": "merged_deployed; actual deployed CSS probe passed; original user article unavailable to test session",
   "production_writes": false,
-  "paid_calls": 0
+  "paid_calls": 0,
+  "pr": 255,
+  "ci": 43365213848,
+  "deployed_sha": "0f69b5f1d6986baa3c33af524ccd8187c0def915",
+  "deploy_run": 43368102027,
+  "target_access": {
+    "path": "/videos/60935c70-fe7",
+    "normal_signin": true,
+    "http_status": 404,
+    "limitation": "No assertion that original article is absent or visually accepted"
+  },
+  "deployed_probe": {
+    "scope": "DOM-only controlled code markup using actual production CSS; no account impersonation or server writes",
+    "result": "all code text rgb(17,17,17); screenshot actually inspected"
+  },
+  "viewport_scope": {
+    "1440x900": "cold-start screenshot inspected",
+    "768x1024": "cold-start/reload text assertions; screenshot inspected",
+    "390x844": "cold-start/reload text assertions; screenshot inspected",
+    "regression": "320/390/820 theme-switching and original reader reload"
+  }
 }
