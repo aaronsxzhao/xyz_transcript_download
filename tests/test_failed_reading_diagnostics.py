@@ -28,3 +28,27 @@ def test_provider_receipt_only_exposes_allowlisted_type_and_http_status():
     assert row['inventory_http_statuses']['524']==1
     assert row['inventory_failures_recorded']==1
     assert 'private response' not in str(row)
+
+
+def test_reported_episode_query_is_exact_read_only_and_metrics_are_allowlisted():
+    from scripts.inspect_failed_reading import inspect_reported_episode, REPORTED_EPISODE
+    calls=[]
+    def get(table,query):
+        calls.append((table,query))
+        return [{'task_id':'sample','user_id':'private-owner','state':'failed','metrics':{
+            'wall_seconds':2400,'stages':{'model.phase.inventory':{'seconds':2000,'calls':6,'body':'secret'},
+            'private prompt':{'seconds':1}},'generation':{'delivery':{'reason':'source_review','status':'blocked'}}}}]
+    result=inspect_reported_episode(get)
+    assert calls[0][0]=='processing_work'
+    assert calls[0][1]['payload->>episode_url']=='eq.'+REPORTED_EPISODE
+    assert calls[0][1]['limit']=='21'
+    assert result['tasks'][0]['stages']=={'model.phase.inventory':{'seconds':2000,'calls':6}}
+    assert 'private' not in str(result) and 'secret' not in str(result)
+    assert result['production_writes'] is False and result['provider_calls']==0
+
+
+def test_reported_episode_ambiguous_owners_do_not_disclose_task_metrics():
+    from scripts.inspect_failed_reading import inspect_reported_episode
+    result=inspect_reported_episode(lambda *_:[{'user_id':'a'},{'user_id':'b'}])
+    assert result['status']=='blocked_ambiguous_or_truncated'
+    assert 'tasks' not in result
