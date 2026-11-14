@@ -52,5 +52,13 @@
     "new_fix_real_validation_outcome": "natural quality failure;77actualHTTPrequests;65.81percentcoverage;53unresolved;newlatepath0hits",
     "real_effectiveness_demonstrated": false,
     "read_only_error_review": 43596632193
+  },
+  "memory_diagnostic_followup": {
+    "date": "2026-11-15",
+    "report": "docs/audits/2026-11-15-summary-memory-diagnostics.json",
+    "scope": "fix diagnostic lifecycle and saved-format reader; investigate archived gaps without new generation",
+    "production_algorithm_changed": false,
+    "semantic_false_positive_proven": false,
+    "full_episode_acceptance": false
   }
 }
