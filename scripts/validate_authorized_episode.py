@@ -23,6 +23,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 EPISODES = ('6af4bcc53caef3b52f546272', '6ac6a657e742e36efcbf74af')
 # Same dedicated test-account anchor as the existing billing inspection.
 ANCHOR_TASK = '25b33b27-b86e-442b-90f3-10473289c252'
+# Exact historical task already returned by the authorized source inspection.
+SOURCE_TASK = '63208f3e-1150-4d04-aafa-83f49a772878'
 DAILY_LIMIT = 100
 SETTLED_STOP = 85  # Reserve US$15 for in-flight calls and billing lag.
 MAX_CALLS = 160
@@ -143,8 +145,11 @@ def child(destination):
         temporary.write_text(json.dumps(report))
         temporary.replace(destination)
     def guard(day):
-        budget = inspect_budget(preferences, owner, seed)
-        active = database.table('processing_work').select('state').in_('state', ['queued','running']).limit(1).execute().data or []
+        try:
+            budget = inspect_budget(preferences, owner, seed)
+            active = database.table('processing_work').select('state').in_('state', ['queued','running']).limit(1).execute().data or []
+        except Exception:
+            raise TestGuardStopped('budget_or_queue_unavailable') from None
         report['budget'] = {k:budget[k] for k in ('status','beijing_date','settled_usd','scope') if k in budget}
         report['budget']['daily_limit_usd'] = DAILY_LIMIT
         report['budget']['active_work_found'] = bool(active)
@@ -154,11 +159,28 @@ def child(destination):
     # selected, loaded, split, transformed or routed through another executor.
     available = database.table('transcripts').select('episode_id').eq('user_id', owner).in_('episode_id', list(EPISODES)).execute().data or []
     eid = next((eid for eid in EPISODES if any(row['episode_id'] == eid for row in available)), None)
+    source_owner = owner
     if not eid:
+        # Keep the provider bound to the dedicated billing account. A separately
+        # authorized source may belong to another account; resolve only the exact
+        # known task and URL, never search arbitrary users or use their settings.
+        eid = EPISODES[1]
+        source_rows = (database.table('processing_work').select('user_id')
+            .eq('task_id', SOURCE_TASK).eq('kind','podcast')
+            .eq('payload->>episode_url', 'https://www.xiaoyuzhoufm.com/episode/'+eid)
+            .limit(2).execute().data or [])
+        if len(source_rows) != 1:
+            report.update(terminal_state='blocked', blocker='authorized_source_binding_unavailable')
+            publish()
+            return
+        source_owner = source_rows[0]['user_id']
+        report['source_binding'] = 'exact previously authorized historical task and episode URL; read only'
+        report['source_and_billing_account_same'] = source_owner == owner
+    record = get_supabase_database().get_transcript(source_owner, eid)
+    if record is None:
         report.update(terminal_state='blocked', blocker='authorized_alternate_transcript_unavailable')
         publish()
         return
-    record = get_supabase_database().get_transcript(owner, eid)
     transcript = Transcript(eid, record.language, record.duration, record.text,
                            [TranscriptSegment(**segment) for segment in record.segments])
     validate_transcript(transcript)
