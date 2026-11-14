@@ -90,6 +90,40 @@
       },
       "model_calls_this_inspection": 0,
       "next": "CI and platform-reviewed isolated alternate full-episode validation; previously rejected episode excluded"
+    },
+    {
+      "checked_at": "2026-11-14T18:38:57.759196+08:00",
+      "pr": 268,
+      "test_harness_commit": "48f2a99d65447484819d9cd962cbd293730ef243",
+      "targeted_tests": {
+        "passed": 20,
+        "environment": "local Python3.12 temporary venv; --noconftest; app fixtures not loaded"
+      },
+      "ci_run": 43586074652,
+      "ci_state": "in_progress",
+      "paid_workflow_dispatch": "rejected_by_automatic_approval_before_execution",
+      "rejection_reason": "Review requires explicit approval for transmitting the alternate full transcript to the configured external provider api.aipaibox.com and incurring paid calls.",
+      "confirmation": "specific destination question pending; earlier user authorization for episode investigation and budget retained",
+      "provider_calls_this_turn": 0,
+      "production_writes": false,
+      "prohibited_workaround_attempted": false
+    },
+    {
+      "user_confirmation": "Explicitly allowed the alternate complete transcripts to api.aipaibox.com under existing shared guards",
+      "platform_review": "approved following specific destination confirmation",
+      "isolated_run": 43586301792,
+      "tested_commit": "48f2a99d65447484819d9cd962cbd293730ef243",
+      "result": "blocked_before_model_calls",
+      "blocker": "authorized_alternate_transcript_unavailable_under_initial_anchor",
+      "provider_http_attempts": 0,
+      "settled_usd": 0,
+      "production_work_found": false,
+      "ci_first_run": {
+        "id": 43586074652,
+        "backend": "failed original encrypted-artifact workflow contract",
+        "correction": "Restore original review job and add a separate manually gated episode-validation job; preserve existing assertions"
+      },
+      "account_anchor_correction": "Use the same dedicated account anchor as existing billing inspection, rather than independently assuming the historical 9efa job has identical ownership."
     }
   ]
 }

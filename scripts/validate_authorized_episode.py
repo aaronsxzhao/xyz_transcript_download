@@ -21,7 +21,8 @@ from types import SimpleNamespace
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 EPISODES = ('6af4bcc53caef3b52f546272', '6ac6a657e742e36efcbf74af')
-ANCHOR_TASK = '9efa4826-4f11-4f64-898a-3b2f4fe8621b'
+# Same dedicated test-account anchor as the existing billing inspection.
+ANCHOR_TASK = '25b33b27-b86e-442b-90f3-10473289c252'
 DAILY_LIMIT = 100
 SETTLED_STOP = 85  # Reserve US$15 for in-flight calls and billing lag.
 MAX_CALLS = 160
@@ -136,7 +137,7 @@ def child(destination):
               'daily_limit_usd':DAILY_LIMIT, 'settled_stop_usd':SETTLED_STOP, 'in_flight_reserve_usd':15,
               'request_limit':MAX_CALLS, 'actual_provider_http_attempts':0, 'terminal_state':'preflight',
               'checkpoint_policy':'request-fingerprinted Execution with empty in-memory store',
-              'excluded_previously_rejected_episode':True}
+              'excluded_previously_rejected_episode':True, 'account_anchor':'existing_readonly_billing_diagnostic'}
     def publish():
         temporary = destination.with_suffix('.tmp')
         temporary.write_text(json.dumps(report))

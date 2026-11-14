@@ -58,3 +58,19 @@ def test_guard_failure_does_not_enter_provider_or_get_retried_as_exception():
         calls.admit()
     assert calls.active == 0
     assert not issubclass(GuardStop, Exception)
+
+
+def test_account_anchor_matches_the_existing_budget_inspection():
+    from scripts.validate_authorized_episode import ANCHOR_TASK
+    from scripts.inspect_failed_reading import TASKS
+    assert ANCHOR_TASK in TASKS
+
+
+def test_manual_episode_job_preserves_original_ciphertext_workflow():
+    import yaml
+    from pathlib import Path
+    workflow=yaml.safe_load(Path('.github/workflows/review-saved-summary-samples.yml').read_text())
+    job=workflow['jobs']['validate-authorized-episode']
+    assert "github.event_name == 'workflow_dispatch'" in job['if']
+    assert "github.ref == 'refs/heads/codex/summary-handoff-validation'" in job['if']
+    assert workflow['jobs']['review']['steps'][-1]['with']['path'] == '/tmp/xyz-review-artifacts/review.enc.json'
