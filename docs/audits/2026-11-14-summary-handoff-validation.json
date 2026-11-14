@@ -1,0 +1,76 @@
+{
+  "checked_at": "2026-11-14T18:02:11.880275+08:00",
+  "tested_commit": "75b2daab56434a039f08888b7887be3a67171648",
+  "scope": "Handoff verification; repository, CI, deployment and execution readiness only",
+  "repository": {
+    "remote_main": "75b2daab56434a039f08888b7887be3a67171648",
+    "open_pr_count": 0,
+    "original_checkout_clean": true,
+    "branch": "codex/summary-handoff-validation"
+  },
+  "ci": {
+    "run_id": 43560435630,
+    "conclusion": "success"
+  },
+  "deployment": {
+    "run_id": 43560435636,
+    "conclusion": "success"
+  },
+  "diagnostics": {
+    "run_id": 43560693593,
+    "conclusion": "success",
+    "recorded_curl_http_status": 200,
+    "recorded_health_revision": "75b2daab56434a039f08888b7887be3a67171648"
+  },
+  "current_public_health": {
+    "transport": "curl with normal TLS verification",
+    "status": "ok",
+    "revision": "75b2daab56434a039f08888b7887be3a67171648",
+    "python_http_status": 403
+  },
+  "budget": {
+    "beijing_daily_limit_usd": 100,
+    "settled_usd": null,
+    "in_flight_reserve_usd": null,
+    "active_processing_work": null,
+    "status": "unverified_paid_testing_paused",
+    "provider_calls_this_run": 0,
+    "provider_hard_cap_verified": false
+  },
+  "execution_readiness": {
+    "local_gh_cli_available": false,
+    "local_oci_cli_available": false,
+    "production_diagnostic_bindings_available": false,
+    "github_connector_dispatch_available": false,
+    "github_browser_authenticated": false,
+    "latest_visible_runtime_inspection_run": 43374841469,
+    "latest_visible_runtime_inspection_date": "2026-11-13"
+  },
+  "observations": [
+    "Existing scripts/inspect_failed_reading.py reports the historical US$50 limit; it is not the current authorized US$100 limit. No code change made.",
+    "Existing GitHub read-only runtime inspection workflow can query configured-provider billing and queued/running work, but cannot be dispatched with the current connector or unauthenticated browser session."
+  ],
+  "boundaries": {
+    "production_writes": false,
+    "existing_task_retries": 0,
+    "private_source_reads": 0,
+    "rejected_full_transcript_transfer_retried": false,
+    "raw_content_or_credentials_saved": false,
+    "full_episode_acceptance": false,
+    "algorithm_changes": false,
+    "new_test_runs": 0
+  },
+  "blocked": [
+    "Current shared Beijing-day spending and in-flight work cannot be reliably verified in this session. No paid requests started.",
+    "Previously rejected full-input transfer remains prohibited; no split or alternate-tool retry attempted.",
+    "No current supported authenticated test-account session or migrated test-key attachment was provided to this session."
+  ],
+  "next_steps": [
+    "Run the existing read-only budget and queue inspection through an authenticated supported workflow-dispatch route; reconcile all shared tests and reserve in-flight cost before any paid call.",
+    "Obtain platform approval or a formally supported full-source execution route before whole-episode validation; do not re-request user authorization already granted.",
+    "Keep full-episode, source-gap adjudication and actual-provider-call performance acceptance pending."
+  ],
+  "validation": [
+    "Both audit JSON files parsed successfully; no application code changed; no synthetic or production processing acceptance promoted."
+  ]
+}

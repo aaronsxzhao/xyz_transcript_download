@@ -1485,6 +1485,17 @@
       "actual_image_inspection": true,
       "authenticated_coverage": false,
       "workflow": "../cloud-browser-inspection.md"
+    },
+    {
+      "checked_at": "2026-11-14T18:02:11.880275+08:00",
+      "type": "summary_handoff_readiness",
+      "report": "docs/audits/2026-11-14-summary-handoff-validation.json",
+      "tested_commit": "75b2daab56434a039f08888b7887be3a67171648",
+      "result": "repository_ci_deployment_health_verified_paid_testing_blocked",
+      "production_acceptance": false,
+      "provider_calls": 0,
+      "budget_status": "unverified",
+      "scope": "No feature last_actual_check or acceptance status promoted"
     }
   ],
   "visual_inspection_runs": [
