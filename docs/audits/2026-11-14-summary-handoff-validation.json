@@ -148,6 +148,29 @@
       "related_ci": 43586905673,
       "production_writes": false,
       "quality_acceptance": false
+    },
+    {
+      "isolated_run": 43587969052,
+      "tested_commit": "ea480020e3e792961b02bd73aed10398e4d92c4b",
+      "actual_provider_http_attempts": 19,
+      "wall_seconds": 342.46,
+      "terminal_state": "test_guard_stopped",
+      "monitor_error": {
+        "error_type": "HTTPError",
+        "http_status": 429
+      },
+      "quality_acceptance": false,
+      "latest_readonly_budget_run": 43588507343,
+      "latest_daily_settled_usd": 2.617658,
+      "active_work_count": 0,
+      "scope": "configured_test_account_provider_token",
+      "diagnosis": "Per-model billing reads exhaust the monitor route rate limit. Upstream NewAPI puts /api/log/token under CriticalRateLimit; documented defaults20/1200seconds are consistent with the observed boundary, but provider deployment settings are not verified.",
+      "primary_sources": [
+        "https://github.com/QuantumNous/new-api/blob/main/router/api-router.go",
+        "https://docs.newapi.ai/en/docs/installation/config-maintenance/environment-variables"
+      ],
+      "observer_fix": "At most90seconds billing snapshot validity; expired snapshots must refresh before paid admission; queue remains checked every admission; reserve and stop thresholds unchanged.",
+      "limitations": "Earlier aggregate snapshots are not final per-run costs; billing may settle later or include other shared testing."
     }
   ]
 }

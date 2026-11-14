@@ -77,6 +77,33 @@ def read_monitor(check, report, sleep=time.sleep):
             sleep(delay)
 
 
+class BudgetSnapshot:
+    """Bounded freshness, not a replacement for billing verification.
+
+    The provider log route is rate limited. At most one read per 90 seconds
+    leaves headroom under the upstream default 20 reads per 20 minutes.
+    Failed reads never refresh the timestamp or extend the freshness window.
+    """
+    def __init__(self, read, report, clock=time.monotonic):
+        self.read, self.report, self.clock = read, report, clock
+        self.value = self.saved_at = None
+
+    def get(self, force=False):
+        now = self.clock()
+        if force or self.value is None or now-self.saved_at >= 90:
+            value = self.read()
+            # Publish only successful, fully checkable snapshots. The caller
+            # enforces the Beijing date and settled-stop gate before admission.
+            if value.get('status') != 'checked':
+                raise TestGuardStopped('budget_or_queue_unavailable')
+            self.value, self.saved_at = value, self.clock()
+            self.report['provider_billing_reads'] = self.report.get('provider_billing_reads',0)+1
+        else:
+            self.report['provider_billing_snapshot_hits'] = self.report.get('provider_billing_snapshot_hits',0)+1
+        self.report['billing_snapshot_age_seconds'] = round(self.clock()-self.saved_at,3)
+        return self.value
+
+
 class MemoryCheckpoints:
     def __init__(self):
         self.values = {}
@@ -178,9 +205,13 @@ def child(destination):
         temporary = destination.with_suffix('.tmp')
         temporary.write_text(json.dumps(report))
         temporary.replace(destination)
-    def guard(day):
+    billing = BudgetSnapshot(lambda:inspect_budget(preferences, owner, seed), report)
+    report['billing_snapshot_max_age_seconds'] = 90
+    def guard(day, force=False):
+        if str(datetime.now(ZONE).date()) != day:
+            raise TestGuardStopped('budget_or_queue_unavailable')
         def check():
-            budget = inspect_budget(preferences, owner, seed)
+            budget = billing.get(force=force)
             active = database.table('processing_work').select('state').in_('state', ['queued','running']).limit(1).execute().data or []
             return budget, active
         try:
@@ -267,7 +298,7 @@ def child(destination):
         report['execution'] = {key:snapshot[key] for key in ('stages','checkpoint_hits','wall_seconds') if key in snapshot}
         engine.client.close()
         try:
-            guard(calls.day)
+            guard(calls.day, force=True)
         except TestGuardStopped:
             report['final_budget_guard_passed'] = False
         else:

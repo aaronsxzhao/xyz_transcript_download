@@ -125,3 +125,46 @@ def test_monitor_does_not_override_excessive_retry_after_or_return_stale_data():
     with pytest.raises(GuardStop):
         read_monitor(read,{},waits.append)
     assert waits==[]
+
+
+def test_billing_snapshot_refreshes_before_admission_after_freshness_expires():
+    from scripts.validate_authorized_episode import BudgetSnapshot
+    clock=[0]; reads=[]; report={}
+    def read():
+        reads.append(clock[0])
+        return {'status':'checked','settled_usd':len(reads)}
+    cache=BudgetSnapshot(read,report,lambda:clock[0])
+    assert cache.get()['settled_usd']==1
+    clock[0]=89
+    assert cache.get()['settled_usd']==1
+    clock[0]=90
+    assert cache.get()['settled_usd']==2
+    assert reads==[0,90]
+    assert report['provider_billing_snapshot_hits']==1
+
+
+def test_failed_billing_refresh_never_extends_freshness_or_uses_stale_balance():
+    from scripts.validate_authorized_episode import BudgetSnapshot
+    from urllib.error import HTTPError
+    clock=[0]; reads=[]
+    def read():
+        reads.append(clock[0])
+        if len(reads)>1:
+            raise HTTPError('https://example.invalid',429,'private',{},None)
+        return {'status':'checked','settled_usd':0}
+    cache=BudgetSnapshot(read,{},lambda:clock[0])
+    cache.get()
+    clock[0]=91
+    for _ in range(2):
+        with pytest.raises(HTTPError):
+            cache.get()
+    assert cache.saved_at==0
+    assert reads==[0,91,91]
+
+
+def test_final_force_refresh_does_not_reuse_cached_balance():
+    from scripts.validate_authorized_episode import BudgetSnapshot
+    values=iter([{'status':'checked','settled_usd':1},{'status':'checked','settled_usd':2}])
+    cache=BudgetSnapshot(lambda:next(values),{},lambda:0)
+    assert cache.get()['settled_usd']==1
+    assert cache.get(force=True)['settled_usd']==2

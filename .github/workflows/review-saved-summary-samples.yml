@@ -80,4 +80,4 @@ jobs:
           printf '[DEFAULT]\nuser=%s\nfingerprint=%s\ntenancy=%s\nregion=us-ashburn-1\nkey_file=~/.oci/key.pem\n' \
             "$OCI_CLI_USER" "$OCI_CLI_FINGERPRINT" "$OCI_CLI_TENANCY" > ~/.oci/config
       - name: Validate one alternate authorized complete episode in isolation
-        run: python scripts/validate_authorized_episode.py
+        run: python scripts/validate_authorized_episode.py --probe-guard
