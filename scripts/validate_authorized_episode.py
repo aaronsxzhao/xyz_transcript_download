@@ -6,6 +6,7 @@ not production queue acceptance. Invoke through the existing maintenance runner.
 """
 import contextlib
 import io
+import hashlib
 import json
 import logging
 import math
@@ -278,11 +279,13 @@ def child(destination):
     transcript = Transcript(eid, record.language, record.duration, record.text,
                            [TranscriptSegment(**segment) for segment in record.segments])
     validate_transcript(transcript)
+    from source_coverage import video_source_text
+    exact_source = video_source_text(transcript.text, record.segments)
+    report['source_sha256'] = hashlib.sha256(exact_source.encode()).hexdigest()
     report.update(episode_id=eid, source_segments=len(transcript.segments), source_characters=len(transcript.text),
                   source_duration_seconds=transcript.duration, transcript_structural_validation='passed',
                   manual_transcript_readability='not_reviewed', manual_summary_readability='not_reviewed')
     resolved = resolve_llm_settings(settings)
-    import hashlib
     report['model_settings_fingerprint'] = hashlib.sha256(json.dumps({k:resolved[k] for k in ('model','model_options') if k in resolved},sort_keys=True).encode()).hexdigest()
     calls = Calls(guard, report, publish)
     http = custom_http_client()

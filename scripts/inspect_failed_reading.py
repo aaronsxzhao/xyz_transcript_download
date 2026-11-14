@@ -53,6 +53,10 @@ def safe_rounds(value):
 def safe_report(report):
     report = report if isinstance(report, dict) else {}
     safe = {}
+    if type(report.get('late_contradiction_repair_attempts')) is int and 0 <= report['late_contradiction_repair_attempts'] <= 1:
+        safe['late_contradiction_repair_attempts'] = report['late_contradiction_repair_attempts']
+    if report.get('late_contradiction_repair_origin') in ('following_review_repair','same_delivery_iteration'):
+        safe['late_contradiction_repair_origin'] = report['late_contradiction_repair_origin']
     if 'coverage_rounds' in report:
         safe['coverage_rounds'], safe['coverage_rounds_truncated'] = safe_rounds(report['coverage_rounds'])
     for key in ('delivery', 'coverage_ledger', 'verification'):
