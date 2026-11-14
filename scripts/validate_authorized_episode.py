@@ -20,6 +20,7 @@ import time
 from datetime import datetime, timedelta, timezone
 from types import SimpleNamespace
 from urllib.error import HTTPError, URLError
+from urllib.parse import urlparse
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 EPISODES = ('6af4bcc53caef3b52f546272', '6ac6a657e742e36efcbf74af')
@@ -31,6 +32,44 @@ DAILY_LIMIT = 100
 SETTLED_STOP = 85  # Reserve US$15 for in-flight calls and billing lag.
 MAX_CALLS = 160
 ZONE = timezone(timedelta(hours=8))
+PHASES = {'draft','grounding','inventory','match','repair','validate_inventory','repair_grounding','gap_review'}
+
+
+def enforce_authorized_destination(resolved):
+    parsed = urlparse(resolved.get('base_url',''))
+    if (parsed.scheme != 'https' or parsed.hostname != 'api.aipaibox.com'
+            or parsed.port not in (None,443) or parsed.username or parsed.password):
+        raise TestGuardStopped('authorized_provider_destination_changed')
+
+
+def request_phase(messages):
+    try:
+        payload = json.loads(messages[-1]['content'])
+        value = payload.get('phase') or ('draft' if 'mode' in payload else 'grounding')
+        return value if isinstance(value,str) and value in PHASES else 'other'
+    except (ValueError,TypeError,KeyError,IndexError,AttributeError):
+        return 'other'
+
+
+def record_provider_error(report, kwargs, error):
+    phase = request_phase(kwargs.get('messages', []))
+    entry = report.setdefault('model_errors_by_phase', {}).setdefault(phase, {'count':0,'http_status_counts':{},'code_counts':{},'param_counts':{}})
+    entry['count'] += 1
+    status = getattr(error, 'status_code', None)
+    if type(status) is int and 400 <= status <= 599:
+        entry['http_status_counts'][str(status)] = entry['http_status_counts'].get(str(status),0)+1
+    body = getattr(error, 'body', None)
+    detail = body.get('error',body) if isinstance(body,dict) else None
+    codes = {'context_length_exceeded','max_context_length_exceeded','context_window_exceeded',
+             'invalid_request_error','invalid_value','unsupported_parameter','unsupported_value',
+             'insufficient_quota','billing_hard_limit_reached','rate_limit_exceeded'}
+    params = {'max_tokens','max_completion_tokens','temperature','reasoning_effort','service_tier',
+              'response_format','messages','model'}
+    if isinstance(detail,dict):
+        for field, allowed in (('code', codes), ('param', params)):
+            value = detail.get(field)
+            if isinstance(value,str) and value in allowed:
+                counts = entry[field+'_counts'];counts[value] = counts.get(value,0)+1
 
 
 class TestGuardStopped(BaseException):
@@ -106,9 +145,10 @@ class BudgetSnapshot:
 
 
 class MemoryCheckpoints:
-    def __init__(self):
+    def __init__(self, candidate_observer=None):
         self.values = {}
         self.lock = threading.Lock()
+        self.candidate_observer = candidate_observer
 
     def get_checkpoint(self, *key):
         with self.lock:
@@ -117,6 +157,12 @@ class MemoryCheckpoints:
     def put_checkpoint(self, *args):
         with self.lock:
             self.values[args[:-1]] = args[-1]
+            if len(args) == 5 and args[2] == 'reading.candidate.v1' and self.candidate_observer:
+                self.candidate_observer(args[-1])
+
+    def clear(self):
+        with self.lock:
+            self.values.clear()
 
 
 class Calls:
@@ -126,6 +172,7 @@ class Calls:
         self.lock = threading.RLock()
         self.active = self.started = 0
         self.http_attempts = 0
+        self.observer = None
         self.day = str(datetime.now(ZONE).date())
 
     def admit(self):
@@ -146,14 +193,14 @@ class Calls:
             phase = 'other'
             try:
                 envelope = json.loads(request.content)
-                payload = json.loads(envelope['messages'][-1]['content'])
-                value = payload.get('phase') or ('draft' if 'mode' in payload else 'grounding')
-                if value in ('draft','grounding','inventory','match','repair','validate_inventory','repair_grounding','gap_review'):
-                    phase = value
+                phase = request_phase(envelope['messages'])
             except (ValueError,TypeError,KeyError,IndexError,AttributeError):
                 pass
             counts = self.report.setdefault('provider_http_attempts_by_phase', {})
             counts[phase] = counts.get(phase,0)+1
+            sizes = self.report.setdefault('provider_request_bytes_by_phase', {}).setdefault(phase, {'sum':0,'max':0})
+            size = len(getattr(request,'content',b''))
+            sizes['sum'] += size;sizes['max'] = max(sizes['max'],size)
 
     def response(self, response):
         with self.lock:
@@ -178,8 +225,20 @@ class TrackedClient:
         ok = False
         try:
             result = self.raw.chat.completions.create(**kwargs)
+            if self.calls.observer:
+                try:
+                    from summary_format import extract_model_json
+                    request = json.loads(kwargs['messages'][-1]['content'])
+                    response = extract_model_json(result.choices[0].message.content or '')
+                    self.calls.observer.observe(request, response)
+                except Exception:
+                    self.calls.report['observer_capture_failures'] = self.calls.report.get('observer_capture_failures',0)+1
             ok = True
             return result
+        except Exception as error:
+            with self.calls.lock:
+                record_provider_error(self.calls.report, kwargs, error)
+            raise
         finally:
             with self.calls.lock:
                 self.calls.active -= 1
@@ -254,7 +313,9 @@ def child(destination):
     # Read only a different explicitly authorized episode. No rejected source is
     # selected, loaded, split, transformed or routed through another executor.
     historical_mode = os.environ.get('EPISODE_HISTORICAL_GAP_REVIEW') == '1'
-    available = [] if historical_mode else database.table('transcripts').select('episode_id').eq('user_id', owner).in_('episode_id', list(EPISODES)).execute().data or []
+    memory_mode = os.environ.get('EPISODE_MEMORY_DIAGNOSTICS') == '1'
+    candidate_probe = os.environ.get('EPISODE_CANDIDATE_PROBE') == '1'
+    available = [] if historical_mode or memory_mode or candidate_probe else database.table('transcripts').select('episode_id').eq('user_id', owner).in_('episode_id', list(EPISODES)).execute().data or []
     eid = next((eid for eid in EPISODES if any(row['episode_id'] == eid for row in available)), None)
     source_owner = owner
     if not eid:
@@ -273,6 +334,14 @@ def child(destination):
         source_owner = source_rows[0]['user_id']
         report['source_binding'] = 'exact previously authorized historical task and episode URL; read only'
         report['source_and_billing_account_same'] = source_owner == owner
+    if candidate_probe:
+        from scripts.summary_memory_diagnostics import candidate_shape
+        payload = load_historical_candidate(database,source_owner,source_rows[0]['source_id'])
+        report.update(candidate_probe=candidate_shape(payload),terminal_state='candidate_probe_complete',
+                      quality_acceptance=False,provider_calls=0)
+        guard(str(datetime.now(ZONE).date()),force=True)
+        publish()
+        return
     record = get_supabase_database().get_transcript(source_owner, eid)
     if record is None:
         report.update(terminal_state='blocked', blocker='authorized_alternate_transcript_unavailable')
@@ -288,15 +357,24 @@ def child(destination):
                   source_duration_seconds=transcript.duration, transcript_structural_validation='passed',
                   manual_transcript_readability='not_reviewed', manual_summary_readability='not_reviewed')
     resolved = resolve_llm_settings(settings)
+    enforce_authorized_destination(resolved)
     report['model_settings_fingerprint'] = hashlib.sha256(json.dumps({k:resolved[k] for k in ('model','model_options') if k in resolved},sort_keys=True).encode()).hexdigest()
-    calls = Calls(guard, report, publish, maximum=1 if historical_mode else MAX_CALLS)
+    calls = Calls(guard, report, publish, maximum=1 if historical_mode else 48 if memory_mode else MAX_CALLS)
     http = custom_http_client()
     http.event_hooks.setdefault('request', []).append(calls.outbound)
     http.event_hooks.setdefault('response', []).append(calls.response)
     with patch('api.custom_models.custom_http_client', return_value=http):
         engine = Summarizer(**resolved, generation_mode=settings.get('summary_generation_mode','single'))
     engine.client = TrackedClient(engine.client, calls)
-    execution = Execution('isolated-authorized-test', eid, MemoryCheckpoints())
+    from scripts.summary_memory_diagnostics import MemoryDiagnostics
+    observer = MemoryDiagnostics() if memory_mode else None
+    calls.observer = observer
+    memory_store = MemoryCheckpoints(observer.capture_payload if observer else None)
+    execution = Execution('isolated-authorized-test', eid, memory_store)
+    if memory_mode:
+        run_memory_diagnostics(database,source_owner,source_rows[0]['source_id'],exact_source,
+            transcript,engine,execution,observer,report,guard,calls,publish,memory_store)
+        return
     if historical_mode:
         report.update(environment='isolated historical gap review; one real model assessment; production content read only',
                       quality_acceptance=False, diagnostic_model_call_limit=1,
@@ -385,15 +463,20 @@ def summarize_gap_verdicts(selected, response):
     return result
 
 
-def review_historical_gaps(database, source_owner, source_id, source, engine):
+def load_historical_candidate(database, source_owner, source_id):
     rows = (database.table('processing_checkpoints').select('result,fingerprint,created_at')
         .eq('user_id',source_owner).eq('source_id',source_id)
         .eq('stage','reading.candidate.v1').order('created_at',desc=True).limit(1).execute().data or [])
-    payload=rows[0].get('result') if len(rows)==1 else None
+    return rows[0].get('result') if len(rows)==1 else None
+
+
+def review_historical_gaps(database, source_owner, source_id, source, engine):
+    from scripts.summary_memory_diagnostics import unpack_inventory
+    payload=load_historical_candidate(database,source_owner,source_id)
     if not isinstance(payload,dict):
         raise TestGuardStopped('historical_candidate_unavailable')
     ledger=(payload.get('report') or {}).get('coverage_ledger') or {}
-    inventory={item['id']:item for item in payload.get('inventory',[])
+    inventory={item['id']:item for item in unpack_inventory(payload.get('inventory'))
         if isinstance(item,dict) and isinstance(item.get('id'),str)}
     items=[{**inventory[item['id']],**item} for item in ledger.get('items',[]) if isinstance(item,dict)
         and isinstance(item.get('id'),str) and item['id'] in inventory
@@ -433,9 +516,64 @@ def review_historical_gaps(database, source_owner, source_id, source, engine):
     response=engine._editorial_json(system,json.dumps(request,ensure_ascii=False),180)
     result=summarize_gap_verdicts(selected,response)
     result['candidate_binding']='latest source checkpoint; not a task-specific immutable snapshot'
-    fingerprint=rows[0].get('fingerprint')
-    if isinstance(fingerprint,str):result['candidate_identity_sha256']=hashlib.sha256(fingerprint.encode()).hexdigest()
     return result
+
+
+def run_memory_diagnostics(database, owner, source_id, source, transcript, engine,
+                           execution, observer, report, guard, calls, publish, store):
+    from unittest.mock import patch
+    from processing_execution import bind
+    from scripts.summary_memory_diagnostics import DiagnosticBoundary, candidate_shape
+    report.update(environment='isolated first-match memory diagnostics; not complete episode processing',
+                  quality_acceptance=False,request_limit=48,assessment_call_limit=2,
+                  stop_before='coverage repairs and delivery',current_prior_53_items_adjudicated=False)
+    started=time.monotonic()
+    try:
+        with bind(execution):
+            saved=load_historical_candidate(database,owner,source_id)
+            report['saved_candidate_probe']=candidate_shape(saved)
+            if report['saved_candidate_probe']['usable']:
+                observer.capture_payload(saved)
+                report['candidate_origin']='saved_source_checkpoint; no regeneration'
+            else:
+                report['candidate_origin']='fresh_first_match; stop before any coverage recovery or delivery'
+                # Only this isolated mode changes the operation. Production
+                # audit/acceptance functions and quality settings stay intact.
+                with patch('coverage_ledger.audit',side_effect=observer.capture_first_match):
+                    try:
+                        engine.summarize(transcript,episode_title='Authorized complete podcast validation')
+                    except DiagnosticBoundary:
+                        pass
+                    except Exception as error:
+                        report['generation_error_type']=type(error).__name__
+                report['generation']=safe_generation_report(engine)
+                if observer.candidate:
+                    from scripts.inspect_failed_reading import safe_report
+                    report['first_match_snapshot']=safe_report(observer.candidate['report'])
+            report['memory_sampling']=observer.analyze(engine,source)
+            report['terminal_state']='memory_diagnostics_complete'
+    except TestGuardStopped:
+        report['terminal_state']='test_guard_stopped'
+    except Exception as error:
+        report.update(terminal_state='memory_diagnostics_failed',error_type=type(error).__name__)
+    finally:
+        observer.clear()
+        store.clear()
+        calls.observer=None
+        report['memory_evidence_disposed']=True
+        report['wall_seconds']=round(time.monotonic()-started,3)
+        snapshot=execution.snapshot()
+        report['execution']={key:snapshot[key] for key in ('stages','checkpoint_hits','wall_seconds') if key in snapshot}
+        engine.client.close()
+        try:guard(calls.day,force=True)
+        except TestGuardStopped:report['final_budget_guard_passed']=False
+        else:report['final_budget_guard_passed']=True
+        publish()
+
+
+def safe_generation_report(engine):
+    from scripts.inspect_failed_reading import safe_report
+    return safe_report(engine.generation_report)
 
 
 def result_exit_code(report):
@@ -472,6 +610,10 @@ def main():
             bindings['EPISODE_GUARD_PROBE_ONLY'] = '1'
         if '--review-historical-gaps' in sys.argv:
             bindings['EPISODE_HISTORICAL_GAP_REVIEW'] = '1'
+        if '--probe-candidate' in sys.argv:
+            bindings['EPISODE_CANDIDATE_PROBE'] = '1'
+        if '--diagnose-in-memory' in sys.argv:
+            bindings['EPISODE_MEMORY_DIAGNOSTICS'] = '1'
         process = subprocess.Popen([sys.executable,__file__,'--child',str(destination)],
             env={**os.environ,**bindings,'XYZ_DATA_DIR':temporary,'DISCORD_WEBHOOK_URL':'','PYTHONPATH':'.'},
             stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
@@ -506,6 +648,10 @@ def main():
             return 0 if report.get('terminal_state')=='guard_probe_passed' else 2
         if '--review-historical-gaps' in sys.argv:
             return 0 if report.get('terminal_state')=='historical_gap_review_complete' else 2
+        if '--probe-candidate' in sys.argv:
+            return 0 if report.get('terminal_state')=='candidate_probe_complete' else 2
+        if '--diagnose-in-memory' in sys.argv:
+            return 0 if report.get('terminal_state')=='memory_diagnostics_complete' and report.get('final_budget_guard_passed') else 2
         return result_exit_code(report)
 
 

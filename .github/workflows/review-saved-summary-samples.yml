@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       mode:
-        description: Guard probe is read-only; full episode, historical gap review and legacy review make paid model calls
+        description: Guard/candidate probes are read-only; other modes make paid model calls
         type: choice
         required: true
         default: guard_probe
@@ -13,6 +13,8 @@ on:
           - full_episode
           - legacy_encrypted_review
           - historical_gap_review
+          - candidate_probe
+          - memory_diagnostics
 
 permissions:
   contents: read
@@ -60,7 +62,7 @@ jobs:
           compression-level: 0
 
   validate-authorized-episode:
-    if: github.event_name == 'workflow_dispatch' && (inputs.mode == 'guard_probe' || inputs.mode == 'full_episode' || inputs.mode == 'historical_gap_review')
+    if: github.event_name == 'workflow_dispatch' && (inputs.mode == 'guard_probe' || inputs.mode == 'full_episode' || inputs.mode == 'historical_gap_review' || inputs.mode == 'candidate_probe' || inputs.mode == 'memory_diagnostics')
     runs-on: ubuntu-latest
     timeout-minutes: 65
     env:
@@ -91,5 +93,7 @@ jobs:
             guard_probe) python scripts/validate_authorized_episode.py --probe-guard ;;
             full_episode) python scripts/validate_authorized_episode.py ;;
             historical_gap_review) python scripts/validate_authorized_episode.py --review-historical-gaps ;;
+            candidate_probe) python scripts/validate_authorized_episode.py --probe-candidate ;;
+            memory_diagnostics) python scripts/validate_authorized_episode.py --diagnose-in-memory ;;
             *) exit 2 ;;
           esac
