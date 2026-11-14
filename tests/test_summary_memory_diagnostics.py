@@ -28,6 +28,11 @@ def fixture():
 
 def verdicts(request,status='missing'):
     line=request['primary_source'][0]
+    if request.get('evidence_protocol')=='resolved_ranges_v2':
+        return {'samples':[{'sample_id':row['sample_id'],'source_support':'supported',
+            'draft_status':status if row['type']=='coverage' else 'covered','reason_class':'quantity_or_time',
+            'source_evidence':[{'start':line['id'],'end':line['id']}],
+            'draft_evidence':[{'paragraph_id':'P1'}]} for row in request['samples']]}
     return {'samples':[{'sample_id':row['sample_id'],'source_support':'supported',
         'draft_status':status if row['type']=='coverage' else 'covered','reason_class':'quantity_or_time',
         'source_evidence':[{'source_id':line['id'],'quote':line['text'].strip()}],
@@ -249,7 +254,7 @@ def test_first_match_boundary_never_calls_source_gap_correction_or_prose_repair(
 
 def test_valid_first_assessment_survives_incomplete_second_response_before_disposal():
     source,_,payload=fixture();observer=MemoryDiagnostics();observer.capture_payload(payload)
-    request=observer.make_request(source);events=[]
+    request=observer.make_request(source,'resolved_ranges_v2');events=[]
     with patch('reading_editor._call_editor',side_effect=[verdicts(request),{'samples':[]}]):
         with pytest.raises(ValueError):observer.analyze(SimpleNamespace(client=object(),model='fake'),source,events.append)
     assert events[0]['state']=='prepared'
@@ -263,3 +268,21 @@ def test_valid_first_assessment_survives_incomplete_second_response_before_dispo
 def test_unknown_provider_exception_text_is_never_exposed_as_diagnostic_code():
     from scripts.summary_memory_diagnostics import diagnostic_error_code
     assert diagnostic_error_code(ValueError('private source or key'))=='unclassified_diagnostic_error'
+
+
+def test_source_ranges_resolve_exact_original_text_across_asr_units_without_generated_quotes():
+    from scripts.summary_memory_diagnostics import resolve_evidence
+    source={'A':'[00:01] The trial\n','B':'[00:02] lasted twelve minutes.\n'}
+    assert resolve_evidence([{'start':'A','end':'B'}],source,True)==(True,1,{})
+    assert resolve_evidence([{'start':'B','end':'A'}],source,True)==(False,0,{'reversed_range':1})
+    assert resolve_evidence([{'start':'A','end':'invented'}],source,True)==(False,0,{'unknown_id':1})
+    assert resolve_evidence([{'start':'A','end':'B','quote':'private invented copy'}],source,True)==(False,0,{'free_text_evidence_not_allowed':1})
+
+
+def test_range_protocol_cannot_use_raw_fallback_or_wrong_grounding_paragraph_as_draft_proof():
+    source,_,payload=fixture();payload['edition']['sections'][0]['paragraphs'][0]['raw']=True
+    observer=MemoryDiagnostics();observer.capture_payload(payload)
+    request=observer.make_request(source,'resolved_ranges_v2')
+    result=validate_verdicts(verdicts(request,'covered'),request)
+    assert all(not row['citation_integrity'] for row in result.values())
+    assert all(row['citation_failure_reasons'].get('draft.unknown_id')==1 for row in result.values())
