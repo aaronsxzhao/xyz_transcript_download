@@ -45,7 +45,8 @@ async def check(browser, dist, label, output):
         except Exception:pass
     failures={'mode':'','count':0}
     embedded='data-document-program' in (dist/'index.html').read_text()
-    entry=re.search(r'<script type="module"[^>]*(?:src|data-entry)="([^"]+)"', (dist/'index.html').read_text()).group(1)
+    # The early classic-script loader owns data-entry; legacy builds use a module src.
+    entry=re.search(r'<script\b[^>]*(?:data-entry|src)="([^"]+)"', (dist/'index.html').read_text()).group(1)
     async def assets(route):
         if failures['mode']:
             if urlparse(route.request.url).path==entry and failures['mode'] in ('once','always'):

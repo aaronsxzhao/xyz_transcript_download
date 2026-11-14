@@ -20,13 +20,16 @@ The fetch omits credentials, has a 15s abort, and has no retry loop. An inline w
 
 - Production build: 201,908 gzip bytes (197.2 KiB), below the unchanged 202,496-byte / 197.75 KiB ceiling. No budget or existing assertion was relaxed.
 - Frontend: 83 files / 556 tests passed. Public frontend configuration and compressed assets: 6 pytest tests passed. The first local pytest attempt lacked dependencies; the isolated test environment was completed and the tests rerun successfully.
-- `check_document_startup.py`: normal Settings/Podcasts/Summary/local-note startup still works with every external JS/CSS denied; navigation, screenshots, early data reads and watchdog diagnostics pass. With the HTML paused halfway through the unclosed embedded script, Settings became usable in 12.49s while readyState was still loading and the program tag was already present. A pause before that tag also passed in 12.44s. Credential omission, exactly one recovery request, one import map, retained mount after tail release, and inline fallback after recovery HTTP503 all passed. Before/after fixture screenshots were captured and actually inspected.
+- `check_document_startup.py`: normal Settings/Podcasts/Summary/local-note startup still works with every external JS/CSS denied; navigation, screenshots, early data reads and watchdog diagnostics pass. With the HTML paused halfway through the unclosed embedded script, Settings became usable in 12.49s while readyState was still loading and the program tag was already present. A pause before that tag also passed in 12.44s. Credential omission, exactly one recovery request, one import map, retained mount after tail release, inline fallback after recovery HTTP503, and cancellation of an already-started recovery transfer when inline wins all passed. Before/after fixture screenshots were captured and actually inspected.
+- `check_first_paint.py`: navigation 86ms, Settings usable 2.07s with delayed fixture APIs; original timing and no-entry-request assertions pass. `check_network_resilience.py`: offline public shell, saved settings, update notification, route-preserving reload and rollback pass.
 - `check_page_loading.py --baseline-dist ...`: cold/revisit loading, lazy transcript, expired/revoked sessions pass. `check_page_boundaries.py`: optional JS/CSS failure and formatting recovery pass.
 - `check_series_theme_browser.py`: Chromium, Classic/Editorial × light/dark × 390/820/1440px, persisted-theme cold starts/reloads, ordinary/series mixing and pagination pass. These use controlled local data, not production service evidence.
 
 Private raw evidence: local `appearance-checks/nov15-startup/` in the original checkout. Anonymous network measurements and synthetic screenshots only in this run so far. Authenticated artifacts must remain private.
 
 ## Release and remaining acceptance
+
+The first PR CI failed because `check_first_paint.py` still parsed only a module-script entry tag. Its parser now recognizes the early loader data-entry attribute as well; all original behavior/timing assertions remain. The full corresponding first-paint/network lane was rerun locally and passed.
 
 PR/full CI, exact deployed revision and post-release Editorial acceptance are recorded by the release follow-up. Local Chromium is not CI WebKit or a physical-device claim. Normal production login requires the dedicated test credential, supplied through the local no-echo helper, not chat text; its prior temporary copy was deleted. Never count anonymous/fixture checks as authenticated production coverage.
 

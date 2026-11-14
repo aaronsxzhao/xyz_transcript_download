@@ -135,6 +135,19 @@ async def check(browser, dist, label, output=None):
             assert await page.locator('script[type=importmap]').count()==1
             results['recovery_failure_preserves_inline']=True
             await page.close()
+            # If the inline tail wins after recovery starts, cancel that transfer.
+            state['tail_release'].clear();state['asset_delay']=30
+            page=await context.new_page()
+            await page.route('**/assets/startup-program-*.js',lambda route:route.continue_())
+            async with page.expect_request(lambda r:'startup-program-' in r.url,timeout=15000):
+                await page.goto(origin+'/settings?tail=1',wait_until='commit')
+            async with page.expect_event('requestfailed',predicate=lambda r:'startup-program-' in r.url,timeout=2500):
+                state['tail_release'].set()
+                await page.locator('select[aria-label="Summary provider"]').wait_for(timeout=2500)
+            assert await page.locator('script[type=importmap]').count()==1
+            results['inline_win_cancels_recovery']=True
+            state['asset_delay']=0
+            await page.close()
             # Exercise the watchdog without any framework ever executing.
             page=await context.new_page();await page.clock.install()
             raw=(Path(__file__).resolve().parents[1]/'web/index.html').read_text()
