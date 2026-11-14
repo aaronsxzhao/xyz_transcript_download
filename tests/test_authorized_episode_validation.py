@@ -79,7 +79,7 @@ def test_manual_episode_job_preserves_original_ciphertext_workflow():
     assert set(events)=={'workflow_dispatch'}
     mode=events['workflow_dispatch']['inputs']['mode']
     assert mode['default']=='guard_probe'
-    assert mode['options']==['guard_probe','full_episode','legacy_encrypted_review']
+    assert mode['options']==['guard_probe','full_episode','legacy_encrypted_review','historical_gap_review']
     assert workflow['jobs']['review']['steps'][-1]['with']['path'] == '/tmp/xyz-review-artifacts/review.enc.json'
 
 
@@ -188,3 +188,56 @@ def test_http_stage_counts_use_only_allowlisted_phases_and_never_retain_payloads
     assert report['provider_http_status_counts']=={'200':1}
     assert report['actual_provider_http_attempts']==2
     assert 'private' not in str(report)
+
+
+def test_gap_assessment_exports_only_labels_and_never_proves_false_positive():
+    from scripts.validate_authorized_episode import summarize_gap_verdicts
+    result=summarize_gap_verdicts([{'status':'partial','statement':'private source'}],
+        {'samples':[{'sample_id':'S1','draft_status':'covered','source_support':'supported',
+                     'reason_class':'cross_paragraph_context','explanation':'private draft'}]})
+    assert result['status_transitions']=={'partial->covered':1}
+    assert result['semantic_false_positive_proven'] is False
+    assert 'private' not in str(result)
+
+
+@pytest.mark.parametrize('rows', [[],[
+    {'sample_id':'S1','draft_status':['covered'],'source_support':'supported','reason_class':'none'}], [
+    {'sample_id':'unknown','draft_status':'covered','source_support':'supported','reason_class':'none'}]])
+def test_gap_assessment_rejects_incomplete_or_invalid_labels(rows):
+    from scripts.validate_authorized_episode import summarize_gap_verdicts
+    with pytest.raises(ValueError):
+        summarize_gap_verdicts([{'status':'partial'}],{'samples':rows})
+
+
+def test_historical_probe_limits_model_admission_to_one():
+    calls=Calls(lambda day:None,{},lambda:None,maximum=1)
+    calls.admit()
+    with pytest.raises(GuardStop):calls.admit()
+    assert calls.started==1
+
+
+def test_historical_sample_joins_statements_by_identity_and_hides_prior_status():
+    import json
+    from scripts.validate_authorized_episode import review_historical_gaps
+    class Database:
+        def __init__(self):self.operations=[]
+        def __getattr__(self,name):
+            def query(*args,**kwargs):
+                self.operations.append((name,args,kwargs))
+                if name=='execute':return SimpleNamespace(data=[{'result':{
+                    'report':{'coverage_ledger':{'items':[{'id':'I1','status':'partial','kind':'claim'}]}},
+                    'inventory':[{'id':'I1','statement':'private source','source_ranges':[]}],
+                    'edition':{'sections':[{'paragraphs':[{'id':'P1','text':'private draft'}]}]}}}])
+                return self
+            return query
+    class Engine:
+        def _editorial_json(self,system,payload,timeout):
+            request=json.loads(payload)
+            assert request['samples'][0]['source_statement']=='private source'
+            assert 'status' not in request['samples'][0]
+            return {'samples':[{'sample_id':'S1','draft_status':'partial','source_support':'supported','reason_class':'incomplete_support'}]}
+    db=Database()
+    result=review_historical_gaps(db,'owner','source','full source',Engine())
+    assert result['agreement_count']==1
+    assert 'private' not in str(result)
+    assert all(name not in ('insert','update','upsert','delete') for name,_,_ in db.operations)

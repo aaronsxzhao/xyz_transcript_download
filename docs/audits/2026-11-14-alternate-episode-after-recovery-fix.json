@@ -1,0 +1,275 @@
+{
+  "run_id": 43593271785,
+  "revision": "b2e7da91a9e142894f1c460793b188b1cd1bdb8a",
+  "environment": "isolated Actions runner; real model; memory checkpoints; no production queue",
+  "production_writes": false,
+  "account_authentication": "authorized server maintenance bindings; not a user login",
+  "daily_limit_usd": 100,
+  "settled_stop_usd": 85,
+  "in_flight_reserve_usd": 15,
+  "request_limit": 160,
+  "actual_provider_http_attempts": 77,
+  "terminal_state": "failed",
+  "checkpoint_policy": "request-fingerprinted Execution with empty in-memory store",
+  "excluded_previously_rejected_episode": true,
+  "account_anchor": "existing_readonly_billing_diagnostic",
+  "billing_snapshot_max_age_seconds": 90,
+  "monitor": {
+    "read_attempts": 79,
+    "read_failures": 0,
+    "wait_seconds": 0
+  },
+  "provider_billing_reads": 17,
+  "billing_snapshot_age_seconds": 0,
+  "budget": {
+    "status": "checked",
+    "beijing_date": "2026-11-14",
+    "settled_usd": 11.768824,
+    "scope": "configured_test_account_provider_token",
+    "daily_limit_usd": 100,
+    "active_work_found": false
+  },
+  "source_binding": "exact previously authorized historical task and episode URL; read only",
+  "source_and_billing_account_same": false,
+  "source_sha256": "3e3af05dbabcc3bfc605ac8215be5c21696677a546f8c90ce63bb33eb8cbf477",
+  "episode_id": "6ac6a657e742e36efcbf74af",
+  "source_segments": 2170,
+  "source_characters": 18257,
+  "source_duration_seconds": 3437.2,
+  "transcript_structural_validation": "passed",
+  "manual_transcript_readability": "not_reviewed",
+  "manual_summary_readability": "not_reviewed",
+  "model_settings_fingerprint": "16bd60d985604f5db7b1d8575c6b59fe40af0182957a8c911e269faefb2dcb21",
+  "provider_billing_snapshot_hits": 62,
+  "peak_model_concurrency": 3,
+  "provider_http_attempts_by_phase": {
+    "draft": 1,
+    "inventory": 11,
+    "grounding": 7,
+    "match": 34,
+    "validate_inventory": 11,
+    "repair": 10,
+    "other": 2,
+    "repair_grounding": 1
+  },
+  "provider_http_status_counts": {
+    "200": 75,
+    "400": 2
+  },
+  "model_create_calls": 77,
+  "failed_model_create_calls": 2,
+  "provider_request_seconds_sum": 2284.187,
+  "error_type": "SummaryOutputError",
+  "wall_seconds": 1659.606,
+  "generation": {
+    "late_contradiction_repair_attempts": 0,
+    "coverage_rounds": [
+      {
+        "phase": "initial",
+        "outcome": "completed",
+        "status": "unverified",
+        "seconds": 984.739,
+        "initial_unresolved": 81,
+        "final_unresolved": 66,
+        "accepted_paragraphs": 1,
+        "rejected_paragraphs": 6,
+        "source_corrected_items": 7,
+        "logical_requests_reported": 49,
+        "coverage_ratio": 0.5769230769230769,
+        "status_counts": {
+          "covered": 90,
+          "missing": 31,
+          "partial": 35,
+          "contradicted": 0,
+          "unverified": 0,
+          "context_only": 0
+        },
+        "unresolved_by_kind": {
+          "claim": 20,
+          "experiment": 2,
+          "counterexample": 3,
+          "condition": 14,
+          "disagreement": 5,
+          "procedure": 16,
+          "example": 6
+        },
+        "rejection_reasons": {
+          "existing_support_regressed": 6
+        }
+      },
+      {
+        "phase": "after_grounding_repair",
+        "outcome": "completed",
+        "status": "unverified",
+        "seconds": 395.02,
+        "initial_unresolved": 69,
+        "final_unresolved": 53,
+        "accepted_paragraphs": 0,
+        "rejected_paragraphs": 0,
+        "source_corrected_items": 4,
+        "logical_requests_reported": 30,
+        "coverage_ratio": 0.6580645161290323,
+        "status_counts": {
+          "covered": 102,
+          "missing": 10,
+          "partial": 43,
+          "contradicted": 0,
+          "unverified": 0,
+          "context_only": 1
+        },
+        "unresolved_by_kind": {
+          "claim": 20,
+          "experiment": 2,
+          "counterexample": 3,
+          "condition": 11,
+          "disagreement": 4,
+          "procedure": 10,
+          "example": 3
+        },
+        "rejection_reasons": {}
+      }
+    ],
+    "coverage_rounds_truncated": false,
+    "delivery": {
+      "coverage_ratio": 0.6580645161290323,
+      "coverage_threshold": 0.9,
+      "status": "blocked",
+      "reason": "grounding"
+    },
+    "coverage_ledger": {
+      "coverage_ratio": 0.6580645161290323,
+      "threshold": 0.9,
+      "failed_batches": 0,
+      "inventory_failed_batches": 0,
+      "inventory_validation_failed_batches": 0,
+      "ignored_boundary_items": 0,
+      "terminal_provider_failure": false,
+      "grounding_concerns": true,
+      "unresolved_items": 53,
+      "covered_items": 102,
+      "requests": 30,
+      "validation_retries": 0,
+      "repairs_accepted": 0,
+      "repairs_rejected": 0,
+      "inventory_transport_retries": 0,
+      "inventory_split_retries": 0,
+      "inventory_recovered_batches": 0,
+      "inventory_batches": 11,
+      "status": "unverified",
+      "inventory_error_types": {
+        "ValueError": 0,
+        "SummaryOutputError": 0,
+        "APIConnectionError": 0,
+        "APITimeoutError": 0,
+        "TimeoutError": 0,
+        "APIStatusError": 0,
+        "RateLimitError": 0,
+        "RuntimeError": 0,
+        "ReadTimeout": 0,
+        "ConnectError": 0,
+        "ConnectionError": 0,
+        "ModelRequestTimeout": 0,
+        "InternalServerError": 0,
+        "BadRequestError": 0,
+        "AuthenticationError": 0,
+        "PermissionDeniedError": 0,
+        "NotFoundError": 0,
+        "UnprocessableEntityError": 0
+      },
+      "inventory_http_statuses": {
+        "408": 0,
+        "429": 0,
+        "500": 0,
+        "502": 0,
+        "503": 0,
+        "504": 0,
+        "524": 0
+      },
+      "inventory_failures_recorded": 0,
+      "inventory_failures_available": true,
+      "item_status_counts": {
+        "covered": 102,
+        "missing": 10,
+        "partial": 43,
+        "contradicted": 0,
+        "unverified": 0,
+        "context_only": 1
+      }
+    },
+    "verification": {
+      "reviewed": 1,
+      "review_attempts": 1,
+      "review_parts": 1,
+      "final_coverage_attempts": 0,
+      "status": "unverified"
+    }
+  },
+  "reuse_and_retry": {
+    "inventory_receipts_reused": 0,
+    "repair_transport_retries": 0,
+    "validation_retries": 0,
+    "inventory_transport_retries": 0,
+    "requests": 30
+  },
+  "execution": {
+    "stages": {
+      "model.queue": {
+        "seconds": 0,
+        "calls": 77
+      },
+      "model.phase.inventory": {
+        "seconds": 363.27000000000004,
+        "calls": 11
+      },
+      "model.editor": {
+        "seconds": 2301.3760000000007,
+        "calls": 77,
+        "failed_calls": 11
+      },
+      "model.phase.draft": {
+        "seconds": 74.283,
+        "calls": 1
+      },
+      "model.phase.grounding": {
+        "seconds": 143.47400000000002,
+        "calls": 7
+      },
+      "model.phase.match": {
+        "seconds": 1122.0969999999998,
+        "calls": 34,
+        "failed_calls": 1
+      },
+      "model.phase.validate_inventory": {
+        "seconds": 295.404,
+        "calls": 11
+      },
+      "model.phase.repair": {
+        "seconds": 257.41,
+        "calls": 10
+      },
+      "model.phase.other": {
+        "seconds": 17.953,
+        "calls": 2,
+        "failed_calls": 1
+      },
+      "model.phase.repair_grounding": {
+        "seconds": 27.338,
+        "calls": 1
+      }
+    },
+    "checkpoint_hits": 0,
+    "wall_seconds": 1659.606
+  },
+  "final_budget_guard_passed": true,
+  "interpretation": {
+    "quality_acceptance": false,
+    "stop_type": "natural application quality rejection; no test budget/request/time guard",
+    "new_late_recovery_path_exercised": false,
+    "completion_or_performance_gain_proven": false,
+    "semantic_gap_false_positives_proven": false,
+    "comparison": "Same episode metadata, model-settings fingerprint and empty memory-checkpoint policy as the prior natural failure. Baseline source digest was not recorded. The new late-recovery branch was not hit, and one stochastic run per revision is not causal evidence.",
+    "metrics": "HTTP counts are dispatch attempts to the configured gateway; internal provider retries are not observable. Stage seconds are cumulative request time and must not be added to wall time.",
+    "readability": "No finished summary was delivered. Saved transcript passed structural validation; original audio recognition and human summary readability were not independently reviewed.",
+    "http_400_reason": "Structured provider-error metadata investigation pending; do not infer context or parameter failure from status400 alone."
+  }
+}
