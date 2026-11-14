@@ -161,7 +161,7 @@ def inspect_budget(prefs, owner, seed):
     if not isinstance(data,list) or not data or min(datetime.fromtimestamp(row['created_at'],zone).date() for row in data) >= day:
         return {'status':'blocked','reason':'billing_history_does_not_span_day_boundary'}
     used = sum(row['quota'] for row in data if row['type']==2 and datetime.fromtimestamp(row['created_at'],zone).date()==day)/500000
-    return {'status':'checked','beijing_date':str(day),'settled_usd':used,'remaining_usd':max(0,50-used),'daily_limit_usd':50,'scope':'configured_test_account_provider_token','model_calls':0}
+    return {'status':'checked','beijing_date':str(day),'settled_usd':used,'remaining_usd':max(0,100-used),'daily_limit_usd':100,'scope':'configured_test_account_provider_token','model_calls':0}
 
 
 def main():

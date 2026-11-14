@@ -141,6 +141,23 @@ class Calls:
         with self.lock:
             self.http_attempts += 1
             self.report['actual_provider_http_attempts'] = self.http_attempts
+            phase = 'other'
+            try:
+                envelope = json.loads(request.content)
+                payload = json.loads(envelope['messages'][-1]['content'])
+                value = payload.get('phase') or ('draft' if 'mode' in payload else 'grounding')
+                if value in ('draft','grounding','inventory','match','repair','validate_inventory','repair_grounding'):
+                    phase = value
+            except (ValueError,TypeError,KeyError,IndexError,AttributeError):
+                pass
+            counts = self.report.setdefault('provider_http_attempts_by_phase', {})
+            counts[phase] = counts.get(phase,0)+1
+
+    def response(self, response):
+        with self.lock:
+            counts = self.report.setdefault('provider_http_status_counts', {})
+            status = str(response.status_code)
+            counts[status] = counts.get(status,0)+1
 
 
 class TrackedClient:
@@ -270,6 +287,7 @@ def child(destination):
     calls = Calls(guard, report, publish)
     http = custom_http_client()
     http.event_hooks.setdefault('request', []).append(calls.outbound)
+    http.event_hooks.setdefault('response', []).append(calls.response)
     with patch('api.custom_models.custom_http_client', return_value=http):
         engine = Summarizer(**resolved, generation_mode=settings.get('summary_generation_mode','single'))
     engine.client = TrackedClient(engine.client, calls)

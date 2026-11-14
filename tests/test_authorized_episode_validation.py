@@ -72,7 +72,14 @@ def test_manual_episode_job_preserves_original_ciphertext_workflow():
     workflow=yaml.safe_load(Path('.github/workflows/review-saved-summary-samples.yml').read_text())
     job=workflow['jobs']['validate-authorized-episode']
     assert "github.event_name == 'workflow_dispatch'" in job['if']
-    assert "github.ref == 'refs/heads/codex/summary-handoff-validation'" in job['if']
+    assert "inputs.mode == 'guard_probe'" in job['if']
+    assert "inputs.mode == 'full_episode'" in job['if']
+    assert "inputs.mode == 'legacy_encrypted_review'" in workflow['jobs']['review']['if']
+    events=workflow.get('on',workflow.get(True))
+    assert set(events)=={'workflow_dispatch'}
+    mode=events['workflow_dispatch']['inputs']['mode']
+    assert mode['default']=='guard_probe'
+    assert mode['options']==['guard_probe','full_episode','legacy_encrypted_review']
     assert workflow['jobs']['review']['steps'][-1]['with']['path'] == '/tmp/xyz-review-artifacts/review.enc.json'
 
 
@@ -168,3 +175,16 @@ def test_final_force_refresh_does_not_reuse_cached_balance():
     cache=BudgetSnapshot(lambda:next(values),{},lambda:0)
     assert cache.get()['settled_usd']==1
     assert cache.get(force=True)['settled_usd']==2
+
+
+def test_http_stage_counts_use_only_allowlisted_phases_and_never_retain_payloads():
+    import json
+    report={}; calls=Calls(lambda day:None,report,lambda:None)
+    for phase in ['match','private-source-label']:
+        body={'messages':[{'content':json.dumps({'phase':phase,'source':'private source prose'})}]}
+        calls.outbound(SimpleNamespace(content=json.dumps(body).encode()))
+    calls.response(SimpleNamespace(status_code=200))
+    assert report['provider_http_attempts_by_phase']=={'match':1,'other':1}
+    assert report['provider_http_status_counts']=={'200':1}
+    assert report['actual_provider_http_attempts']==2
+    assert 'private' not in str(report)
