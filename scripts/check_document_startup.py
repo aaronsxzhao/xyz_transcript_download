@@ -19,7 +19,8 @@ class StreamingPreview(DataPreview):
     def do_GET(self):
         if self.path == '/settings?tail=1':
             html=frontend_html(Path(self.directory),'settings',True,'https://example.supabase.co').encode()
-            split=html.index(b'<script data-document-program')
+            start=html.index(b'<script data-document-program')
+            split=start+(len(html)-start)//2  # Leave the actual inline script unclosed.
             self.send_response(200);self.send_header('Content-Type','text/html; charset=utf-8');self.send_header('Content-Length',str(len(html)));self.end_headers()
             self.wfile.write(html[:split]);self.wfile.flush()
             self.state['tail_release'].wait(30)
@@ -105,6 +106,7 @@ async def check(browser, dist, label, output=None):
             await select.wait_for(timeout=15000)
             await page.wait_for_function("!document.querySelector('select[aria-label=\"Summary provider\"]').disabled")
             assert await page.evaluate('document.readyState')=='loading'
+            assert await page.locator('[data-document-program]').count()==1
             assert not state['tail_release'].is_set()
             assert len(recovery)==1
             headers=await recovery[0].all_headers()
