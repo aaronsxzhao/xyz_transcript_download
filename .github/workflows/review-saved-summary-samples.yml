@@ -15,6 +15,11 @@ on:
           - historical_gap_review
           - candidate_probe
           - memory_diagnostics
+      allow_first_match:
+        description: Explicitly allow memory diagnostics to generate up to first match if no saved candidate exists (48-call cap)
+        type: boolean
+        required: false
+        default: false
 
 permissions:
   contents: read
@@ -88,12 +93,19 @@ jobs:
       - name: Validate one alternate authorized complete episode in isolation
         env:
           VALIDATION_MODE: ${{ inputs.mode }}
+          ALLOW_FIRST_MATCH: ${{ inputs.allow_first_match }}
         run: |
           case "$VALIDATION_MODE" in
             guard_probe) python scripts/validate_authorized_episode.py --probe-guard ;;
             full_episode) python scripts/validate_authorized_episode.py ;;
             historical_gap_review) python scripts/validate_authorized_episode.py --review-historical-gaps ;;
             candidate_probe) python scripts/validate_authorized_episode.py --probe-candidate ;;
-            memory_diagnostics) python scripts/validate_authorized_episode.py --diagnose-in-memory ;;
+            memory_diagnostics)
+              if [ "$ALLOW_FIRST_MATCH" = "true" ]; then
+                python scripts/validate_authorized_episode.py --diagnose-in-memory --allow-first-match
+              else
+                python scripts/validate_authorized_episode.py --diagnose-in-memory
+              fi
+              ;;
             *) exit 2 ;;
           esac

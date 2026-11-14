@@ -373,7 +373,8 @@ def child(destination):
     resolved = resolve_llm_settings(settings)
     enforce_authorized_destination(resolved)
     report['model_settings_fingerprint'] = hashlib.sha256(json.dumps({k:resolved[k] for k in ('model','model_options') if k in resolved},sort_keys=True).encode()).hexdigest()
-    calls = Calls(guard, report, publish, maximum=1 if historical_mode else 48 if memory_mode else MAX_CALLS)
+    diagnostic_limit = 48 if os.environ.get('EPISODE_ALLOW_FIRST_MATCH') == '1' else 2
+    calls = Calls(guard, report, publish, maximum=1 if historical_mode else diagnostic_limit if memory_mode else MAX_CALLS)
     http = custom_http_client()
     http.event_hooks.setdefault('request', []).append(calls.outbound)
     http.event_hooks.setdefault('response', []).append(calls.response)
@@ -539,7 +540,7 @@ def run_memory_diagnostics(database, owner, source_id, source, transcript, engin
     from processing_execution import bind
     from scripts.summary_memory_diagnostics import DiagnosticBoundary, candidate_shape
     report.update(environment='isolated first-match memory diagnostics; not complete episode processing',
-                  quality_acceptance=False,request_limit=48,assessment_call_limit=2,
+                  quality_acceptance=False,request_limit=calls.maximum,assessment_call_limit=2,
                   stop_before='coverage repairs and delivery',current_prior_53_items_adjudicated=False)
     started=time.monotonic()
     try:
@@ -548,8 +549,15 @@ def run_memory_diagnostics(database, owner, source_id, source, transcript, engin
             report['saved_candidate_probe']=candidate_shape(saved)
             if report['saved_candidate_probe']['usable']:
                 observer.capture_payload(saved)
+                observer.add_candidate_grounding_probes()
+                from scripts.inspect_failed_reading import safe_report
+                report['saved_generation']=safe_report(saved.get('report'))
+                report['saved_raw_paragraph_count']=sum(bool(p.get('raw')) for s in saved['edition']['sections'] for p in s['paragraphs'])
                 report['candidate_origin']='saved_source_checkpoint; no regeneration'
             else:
+                if os.environ.get('EPISODE_ALLOW_FIRST_MATCH') != '1':
+                    report.update(terminal_state='blocked',blocker='usable_saved_candidate_required')
+                    return
                 report['candidate_origin']='fresh_first_match; stop before any coverage recovery or delivery'
                 # Only this isolated mode changes the operation. Production
                 # audit/acceptance functions and quality settings stay intact.
@@ -629,6 +637,8 @@ def main():
             bindings['EPISODE_CANDIDATE_PROBE'] = '1'
         if '--diagnose-in-memory' in sys.argv:
             bindings['EPISODE_MEMORY_DIAGNOSTICS'] = '1'
+        if '--allow-first-match' in sys.argv:
+            bindings['EPISODE_ALLOW_FIRST_MATCH'] = '1'
         process = subprocess.Popen([sys.executable,__file__,'--child',str(destination)],
             env={**os.environ,**bindings,'XYZ_DATA_DIR':temporary,'DISCORD_WEBHOOK_URL':'','PYTHONPATH':'.'},
             stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)

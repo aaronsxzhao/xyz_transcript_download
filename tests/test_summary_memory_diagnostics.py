@@ -56,9 +56,12 @@ def test_candidate_capture_is_immutable_before_checkpoint_overwrite_and_disposal
 
 
 def test_grounding_capture_precedes_raw_replacement_and_does_not_export_feedback():
-    source,_,payload=fixture();observer=MemoryDiagnostics()
-    request={'global_draft':payload['edition']['sections'],'global_overview':''}
-    observer.observe(request,{'unsupported_paragraph_ids':['P1'],'unsupported_reasons':[{'reason':'private diagnostic prose'}]})
+    source,lines,payload=fixture();observer=MemoryDiagnostics()
+    request={'primary_source':[{'id':line.id,'text':line.text} for line in lines],
+             'global_draft':payload['edition']['sections'],'global_overview':''}
+    observer.observe(request,{'checked_source_ranges':[{'start':lines[0].id,'end':lines[-1].id}],
+        'complete':True,'grounded':False,'unsupported_paragraph_ids':['P1'],
+        'unsupported_reasons':[{'id':'P1','reason':'private diagnostic prose'}]})
     request['global_draft'][0]['paragraphs'][0]['text']='raw replacement'
     assert observer.grounding[0]['paragraph']['text']=='The trial used two cameras.'
     assert observer.make_request(source)['samples'][0]['type']=='grounding'
@@ -147,3 +150,52 @@ def test_actual_http_ceiling_also_blocks_hidden_extra_dispatch_attempts():
     calls.outbound(object())
     with pytest.raises(TestGuardStopped):calls.outbound(object())
     assert calls.http_attempts==1
+
+
+def test_malformed_source_receipt_is_not_a_semantic_grounding_rejection():
+    _,lines,payload=fixture();observer=MemoryDiagnostics()
+    observer.observe({'primary_source':[{'id':line.id,'text':line.text} for line in lines],
+                      'global_draft':payload['edition']['sections']},
+                     {'complete':True,'grounded':False,'unsupported_paragraph_ids':['P1']})
+    assert observer.grounding==[]
+    assert observer.invalid_grounding_receipts==1
+
+
+def test_saved_current_grounding_probe_cannot_prove_a_prior_review_false_positive():
+    source,_,payload=fixture();observer=MemoryDiagnostics();observer.capture_payload(payload)
+    observer.add_candidate_grounding_probes();request=observer.make_request(source)
+    response=verdicts(request)
+    rounds=validate_verdicts(response,request)
+    result=aggregate_verdicts(request['samples'],[rounds,rounds])
+    assert result['classification_counts']['stable_source_supported_candidate_probe']==1
+    assert 'possible_grounding_false_positive' not in result['classification_counts']
+
+
+def test_raw_source_fallback_cannot_certify_finished_summary_coverage():
+    source,_,payload=fixture();payload['edition']['sections'][0]['paragraphs'][0]['raw']=True
+    observer=MemoryDiagnostics();observer.capture_payload(payload);request=observer.make_request(source)
+    result=validate_verdicts(verdicts(request,'covered'),request)
+    assert all(not row['citation_integrity'] for row in result.values())
+
+
+def test_saved_candidate_with_stale_source_ids_is_blocked_before_model_calls():
+    source,_,payload=fixture();payload['inventory'][1][0]['source_ranges']=[{'start':'old:1','end':'old:2'}]
+    observer=MemoryDiagnostics();observer.capture_payload(payload)
+    with pytest.raises(ValueError,match='source identity mismatch'):observer.make_request(source)
+
+
+def test_saved_grounding_samples_share_one_immutable_draft_and_strip_internal_metadata():
+    source,_,payload=fixture();payload['edition']['sections'][0]['paragraphs'][0]['indices']=[1,2,3]
+    observer=MemoryDiagnostics();observer.capture_payload(payload);observer.add_candidate_grounding_probes()
+    request=observer.make_request(source)
+    assert len(request['drafts'])==1
+    assert 'indices' not in json.dumps(request)
+    assert all(sample['draft_id']=='D1' for sample in request['samples'])
+
+
+def test_fresh_diagnostic_generation_requires_separate_opt_in():
+    import yaml
+    from pathlib import Path
+    workflow=yaml.safe_load(Path('.github/workflows/review-saved-summary-samples.yml').read_text())
+    inputs=workflow.get('on',workflow.get(True))['workflow_dispatch']['inputs']
+    assert inputs['allow_first_match']['default'] is False
