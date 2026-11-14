@@ -1,0 +1,311 @@
+{
+  "checked_at": "2026-11-14T21:10:19.580311+08:00",
+  "tested_commit": "ce8df4c2ba95133354c916e9c39f4af54c2b924f",
+  "scope": "Supported read-only inspection, complete isolated real-model tests, narrow recovery fix and regression; production chain acceptance not established",
+  "repository": {
+    "remote_main": "c7cbb55fcfc8361b9613e900db9b9ce3712758ee",
+    "open_pr_count": 1,
+    "original_checkout_clean": true,
+    "branch": "codex/summary-handoff-validation",
+    "pr": 268
+  },
+  "ci": {
+    "last_complete_success_run": 43593796340,
+    "last_complete_success_commit": "f626ae08ac2c179523d88c74cfc9dafe5be75f2b",
+    "current_code_ci_pending": 43598265461,
+    "code_commit": "ce8df4c2ba95133354c916e9c39f4af54c2b924f",
+    "local_related_tests_passed": 305,
+    "local_environment": "Python3.12 temporary venv; --noconftest; application fixtures not loaded"
+  },
+  "budget": {
+    "beijing_daily_limit_usd": 100,
+    "latest_settled_usd": 11.768824,
+    "active_production_work": 0,
+    "active_isolated_model_tests": 0,
+    "settled_stop_usd": 85,
+    "in_flight_reserve_usd": 15,
+    "provider_hard_cap_verified": false,
+    "scope": "configured_test_account_provider_token",
+    "latest_snapshot_run": 43598283541
+  },
+  "execution_readiness": {
+    "local_gh_cli_available": false,
+    "local_oci_cli_available": false,
+    "production_diagnostic_bindings_available": false,
+    "github_connector_dispatch_available": false,
+    "github_browser_authenticated": false,
+    "latest_visible_runtime_inspection_run": 43374841469,
+    "latest_visible_runtime_inspection_date": "2026-11-13",
+    "github_official_api_dispatch_available": true,
+    "normal_github_authentication": "existing Git macOS credential helper; credential stays in memory",
+    "existing_remote_maintenance_bindings_available": true,
+    "explicit_manual_guard_probe_passed": true
+  },
+  "observations": [
+    "Official GitHub API dispatch uses the existing macOS Git credential helper; credential retained in process memory. No site login token forged.",
+    "Provider diagnostics now report the authorized shared US$100 daily limit. Billing scope remains configured test-account provider token; no provider-enforced hard cap claim.",
+    "Two initial model attempts stopped at19 HTTP calls because billing monitoring hit429. A successful billing snapshot now expires after90seconds; expired/failed reads never admit paid work.",
+    "Two subsequent whole-source runs ended naturally in quality failure; no improvement or causal latency conclusion."
+  ],
+  "boundaries": {
+    "production_writes": false,
+    "existing_task_retries": 0,
+    "private_source_reads": true,
+    "rejected_full_transcript_transfer_retried": false,
+    "raw_content_or_credentials_saved": false,
+    "full_episode_acceptance": false,
+    "algorithm_changes": true,
+    "new_test_runs": 6,
+    "provider_calls_in_completed_paid_attempts": 188,
+    "provider_calls_in_running_attempt": 0,
+    "private_source_read_scope": "only authorized alternate complete source and exact-source historical candidate; raw content not exported or saved",
+    "algorithm_scope": "make existing bounded late contradiction correction reachable after final-review initiated correction; unchanged90percent/source/loop limits",
+    "historical_probe_runs": 1
+  },
+  "blocked": [
+    "The previously rejected3088-segment episode remains excluded; no workaround attempted.",
+    "Remaining real-source gap semantics and contradiction are not manually adjudicated; no claim they are false positives or all valid.",
+    "The exact alternate-source historical binding did not provide a usable saved candidate for semantic sampling. The isolated current candidates were disposed from memory; current53 items are not semantically adjudicated."
+  ],
+  "next_steps": [
+    "Wait for full final CI, review and protected merge; verify deployment exact revision and health.",
+    "Real end-to-end quality acceptance remains unresolved. Future approved diagnostic runs should sample in memory before candidate disposal; no further blind full-source paid reruns."
+  ],
+  "validation": [
+    "305 related local regression cases passed; core fix complete CI43593796340 passed before added read-only diagnostics; final-head CI pending.",
+    "No source prose, candidate prose or credentials saved; no existing task retried or production data written."
+  ],
+  "followups": [
+    {
+      "checked_at": "2026-11-14T18:35:52.879084+08:00",
+      "readonly_run": 43585377190,
+      "result": "inspection_execution_restored",
+      "authentication": "existing Git macOS credential helper; GitHub API only; no credentials exported",
+      "budget": {
+        "beijing_date": "2026-11-14",
+        "settled_usd": 0,
+        "active_work_count": 0,
+        "active_work_scan_complete": true,
+        "daily_limit_usd": 100,
+        "provider_scope": "configured_test_account_provider_token",
+        "historical_report_limit_usd": 50
+      },
+      "model_calls_this_inspection": 0,
+      "next": "CI and platform-reviewed isolated alternate full-episode validation; previously rejected episode excluded"
+    },
+    {
+      "checked_at": "2026-11-14T18:38:57.759196+08:00",
+      "pr": 268,
+      "test_harness_commit": "48f2a99d65447484819d9cd962cbd293730ef243",
+      "targeted_tests": {
+        "passed": 20,
+        "environment": "local Python3.12 temporary venv; --noconftest; app fixtures not loaded"
+      },
+      "ci_run": 43586074652,
+      "ci_state": "in_progress",
+      "paid_workflow_dispatch": "rejected_by_automatic_approval_before_execution",
+      "rejection_reason": "Review requires explicit approval for transmitting the alternate full transcript to the configured external provider api.aipaibox.com and incurring paid calls.",
+      "confirmation": "specific destination question pending; earlier user authorization for episode investigation and budget retained",
+      "provider_calls_this_turn": 0,
+      "production_writes": false,
+      "prohibited_workaround_attempted": false
+    },
+    {
+      "user_confirmation": "Explicitly allowed the alternate complete transcripts to api.aipaibox.com under existing shared guards",
+      "platform_review": "approved following specific destination confirmation",
+      "isolated_run": 43586301792,
+      "tested_commit": "48f2a99d65447484819d9cd962cbd293730ef243",
+      "result": "blocked_before_model_calls",
+      "blocker": "authorized_alternate_transcript_unavailable_under_initial_anchor",
+      "provider_http_attempts": 0,
+      "settled_usd": 0,
+      "production_work_found": false,
+      "ci_first_run": {
+        "id": 43586074652,
+        "backend": "failed original encrypted-artifact workflow contract",
+        "correction": "Restore original review job and add a separate manually gated episode-validation job; preserve existing assertions"
+      },
+      "account_anchor_correction": "Use the same dedicated account anchor as existing billing inspection, rather than independently assuming the historical 9efa job has identical ownership."
+    },
+    {
+      "checked_at": "2026-11-14T18:50:34.948926+08:00",
+      "isolated_run": 43586674071,
+      "tested_commit": "4f6bd06feab8b2fdfb1e506199f6d1bf2dfe5e27",
+      "terminal_state": "blocked",
+      "blocker": "no alternate transcript under dedicated billing account",
+      "provider_http_attempts": 0,
+      "settled_usd": 0,
+      "quality_acceptance": false,
+      "not_claimed": "Successful workflow transport did not mean successful episode validation."
+    },
+    {
+      "checked_at": "2026-11-14T18:50:34.949042+08:00",
+      "isolated_run": 43586927157,
+      "tested_commit": "9a8323da6ad15ea70d8ae6869d57ff360f54b948",
+      "terminal_state": "test_guard_stopped",
+      "provider_http_attempts": 19,
+      "source_binding": "exact task63208f3e plus authorized6ac6a657URL; source is read only; dedicated billing settings remain separate",
+      "user_destination_approval": "api.aipaibox.com explicitly confirmed",
+      "platform_execution_review": "approved",
+      "related_ci": 43586905673,
+      "production_writes": false,
+      "quality_acceptance": false,
+      "wall_seconds": 280.853,
+      "final_observation_report": "docs/audits/2026-11-14-alternate-episode-first-run.json"
+    },
+    {
+      "isolated_run": 43587969052,
+      "tested_commit": "ea480020e3e792961b02bd73aed10398e4d92c4b",
+      "actual_provider_http_attempts": 19,
+      "wall_seconds": 342.46,
+      "terminal_state": "test_guard_stopped",
+      "monitor_error": {
+        "error_type": "HTTPError",
+        "http_status": 429
+      },
+      "quality_acceptance": false,
+      "latest_readonly_budget_run": 43588507343,
+      "latest_daily_settled_usd": 2.617658,
+      "active_work_count": 0,
+      "scope": "configured_test_account_provider_token",
+      "diagnosis": "Per-model billing reads exhaust the monitor route rate limit. Upstream NewAPI puts /api/log/token under CriticalRateLimit; documented defaults20/1200seconds are consistent with the observed boundary, but provider deployment settings are not verified.",
+      "primary_sources": [
+        "https://github.com/QuantumNous/new-api/blob/main/router/api-router.go",
+        "https://docs.newapi.ai/en/docs/installation/config-maintenance/environment-variables"
+      ],
+      "observer_fix": "At most90seconds billing snapshot validity; expired snapshots must refresh before paid admission; queue remains checked every admission; reserve and stop thresholds unchanged.",
+      "limitations": "Earlier aggregate snapshots are not final per-run costs; billing may settle later or include other shared testing."
+    }
+  ],
+  "initial_snapshot": {
+    "tested_commit": "75b2daab56434a039f08888b7887be3a67171648",
+    "budget": {
+      "beijing_daily_limit_usd": 100,
+      "settled_usd": null,
+      "in_flight_reserve_usd": null,
+      "active_processing_work": null,
+      "status": "unverified_paid_testing_paused",
+      "provider_calls_this_run": 0,
+      "provider_hard_cap_verified": false
+    },
+    "execution_readiness": {
+      "local_gh_cli_available": false,
+      "local_oci_cli_available": false,
+      "production_diagnostic_bindings_available": false,
+      "github_connector_dispatch_available": false,
+      "github_browser_authenticated": false,
+      "latest_visible_runtime_inspection_run": 43374841469,
+      "latest_visible_runtime_inspection_date": "2026-11-13",
+      "github_official_api_dispatch_available": true,
+      "normal_github_authentication": "existing Git macOS credential helper; credential stays in memory",
+      "existing_remote_maintenance_bindings_available": true,
+      "explicit_manual_guard_probe_passed": true
+    },
+    "blocked": [
+      "Current shared Beijing-day spending and in-flight work cannot be reliably verified in this session. No paid requests started.",
+      "Previously rejected full-input transfer remains prohibited; no split or alternate-tool retry attempted.",
+      "No current supported authenticated test-account session or migrated test-key attachment was provided to this session."
+    ],
+    "deployment": {
+      "run_id": 43560435636,
+      "conclusion": "success"
+    },
+    "diagnostics": {
+      "run_id": 43560693593,
+      "conclusion": "success",
+      "recorded_curl_http_status": 200,
+      "recorded_health_revision": "75b2daab56434a039f08888b7887be3a67171648"
+    },
+    "public_health": {
+      "transport": "curl with normal TLS verification",
+      "status": "ok",
+      "revision": "75b2daab56434a039f08888b7887be3a67171648",
+      "python_http_status": 403
+    }
+  },
+  "current_status": "supported_inspection_restored; two_natural_full_source_quality_failures; narrow_fix_synthetic_passed_not_exercised_by_latest_real_run",
+  "real_baseline": {
+    "run_id": 43589199855,
+    "report": "docs/audits/2026-11-14-alternate-episode-natural-failure.json",
+    "source_segments": 2170,
+    "source_seconds": 3437.2,
+    "actual_provider_http_attempts": 73,
+    "wall_seconds": 1535.799,
+    "coverage_ratio": 0.8235294117647058,
+    "unresolved_items": 27,
+    "contradicted_items": 1,
+    "terminal_state": "failed_quality_grounding",
+    "test_guard_stop": false,
+    "model_peak_concurrency": 3,
+    "checkpoint_hits": 0,
+    "bill_reads": 16,
+    "billing_snapshot_hits": 59,
+    "monitor_failures": 0,
+    "source_verification_reuse_hits": 0
+  },
+  "new_code_evidence": {
+    "commit": "b2e7da91a9e142894f1c460793b188b1cd1bdb8a",
+    "issue": "Final-review initiated first correction continued to the next iteration, whose top guard rejected the new locatable contradiction before the existing late correction opportunity.",
+    "baseline_reproduction": "Two synthetic cases failed; only one correction ran.",
+    "corrected_behavior": "Reach the same existing late correction from both entry routes within the existing three iterations; source failures/raw fallback/unlocatable or persistent contradictions/final source-review rejection still block.",
+    "semantic_false_positive_proven": false,
+    "causality_for_real_baseline": "not established",
+    "request_reduction_claim": false,
+    "live_validation_run": 43593271785,
+    "live_validation_state": "failed_quality_grounding",
+    "late_contradiction_repair_attempts": 0,
+    "real_effectiveness_demonstrated": false
+  },
+  "deployment": {
+    "current_change": "pending protected merge and automatic deployment",
+    "latest_other_main_deployment": 43590562103,
+    "latest_other_main_commit": "c7cbb55fcfc8361b9613e900db9b9ce3712758ee",
+    "latest_other_main_conclusion": "success"
+  },
+  "real_after_fix": {
+    "run_id": 43593271785,
+    "report": "docs/audits/2026-11-14-alternate-episode-after-recovery-fix.json",
+    "actual_provider_http_attempts": 77,
+    "http_status_counts": {
+      "200": 75,
+      "400": 2
+    },
+    "wall_seconds": 1659.606,
+    "coverage_ratio": 0.6580645161290323,
+    "unresolved_items": 53,
+    "contradicted_items": 0,
+    "late_contradiction_repair_attempts": 0,
+    "terminal_state": "failed_quality_grounding",
+    "test_guard_stop": false,
+    "model_peak_concurrency": 3,
+    "checkpoint_hits": 0,
+    "billing_reads": 17,
+    "billing_snapshot_hits": 62,
+    "monitor_failures": 0,
+    "source_verification_reuse_hits": 0,
+    "causal_comparison": "same episode/model settings/checkpoint policy; one stochastic run per revision; old source digest absent; no causal performance claim"
+  },
+  "provider_error_diagnostic": {
+    "run_id": 43596632193,
+    "paid_calls": 0,
+    "today_token_error_records": 3,
+    "http_status_counts": {
+      "400": 3
+    },
+    "recognized_code_counts": {},
+    "recognized_param_counts": {},
+    "cause": "unresolved; no structured code or parameter identifies context/parameter failure",
+    "scope": "entire token day; not exact attribution to this77-call run"
+  },
+  "historical_gap_review": {
+    "run_id": 43598283541,
+    "state": "blocked_before_model_calls",
+    "limit": 1,
+    "sample_limit": 5,
+    "production_writes": false,
+    "current_full_run_items_adjudicated": false,
+    "actual_provider_http_attempts": 0,
+    "blocker": "historical_candidate_unavailable",
+    "report": "docs/audits/2026-11-14-historical-gap-review.json"
+  }
+}

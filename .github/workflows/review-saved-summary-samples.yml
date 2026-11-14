@@ -1,14 +1,18 @@
 name: Review saved-model summary samples
 
 on:
-  push:
-    branches: [main, fix/argument-reading-20261026]
-    paths:
-      - '.github/workflows/review-saved-summary-samples.yml'
-      - 'scripts/run_production_sample_review.py'
-      - 'scripts/review_argument_reading.py'
-      - 'scripts/sample_review_public.pem'
   workflow_dispatch:
+    inputs:
+      mode:
+        description: Guard probe is read-only; full episode, historical gap review and legacy review make paid model calls
+        type: choice
+        required: true
+        default: guard_probe
+        options:
+          - guard_probe
+          - full_episode
+          - legacy_encrypted_review
+          - historical_gap_review
 
 permissions:
   contents: read
@@ -19,6 +23,7 @@ concurrency:
 
 jobs:
   review:
+    if: github.event_name == 'workflow_dispatch' && inputs.mode == 'legacy_encrypted_review'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     env:
@@ -53,3 +58,38 @@ jobs:
           if-no-files-found: error
           retention-days: 3
           compression-level: 0
+
+  validate-authorized-episode:
+    if: github.event_name == 'workflow_dispatch' && (inputs.mode == 'guard_probe' || inputs.mode == 'full_episode' || inputs.mode == 'historical_gap_review')
+    runs-on: ubuntu-latest
+    timeout-minutes: 65
+    env:
+      CONTAINER_INSTANCE_ID: ocid1.computecontainerinstance.oc1.iad.anuwcljrram2hqqaueqbs2y4opn3tm2jfpmx4a7gdsscygwyjgnac5vrqgta
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Configure existing deployment maintenance client
+        env:
+          OCI_CLI_USER: ${{ secrets.OCI_USER_OCID }}
+          OCI_CLI_FINGERPRINT: ${{ secrets.OCI_FINGERPRINT }}
+          OCI_CLI_TENANCY: ${{ secrets.OCI_TENANCY_OCID }}
+          OCI_PRIVATE_KEY: ${{ secrets.OCI_PRIVATE_KEY }}
+        run: |
+          pip install oci-cli -r requirements-cloud.txt
+          mkdir -p ~/.oci
+          printf '%s\n' "$OCI_PRIVATE_KEY" > ~/.oci/key.pem
+          chmod 600 ~/.oci/key.pem
+          printf '[DEFAULT]\nuser=%s\nfingerprint=%s\ntenancy=%s\nregion=us-ashburn-1\nkey_file=~/.oci/key.pem\n' \
+            "$OCI_CLI_USER" "$OCI_CLI_FINGERPRINT" "$OCI_CLI_TENANCY" > ~/.oci/config
+      - name: Validate one alternate authorized complete episode in isolation
+        env:
+          VALIDATION_MODE: ${{ inputs.mode }}
+        run: |
+          case "$VALIDATION_MODE" in
+            guard_probe) python scripts/validate_authorized_episode.py --probe-guard ;;
+            full_episode) python scripts/validate_authorized_episode.py ;;
+            historical_gap_review) python scripts/validate_authorized_episode.py --review-historical-gaps ;;
+            *) exit 2 ;;
+          esac

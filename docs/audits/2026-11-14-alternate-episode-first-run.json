@@ -1,0 +1,118 @@
+{
+  "run_id": 43586927157,
+  "revision": "9a8323da6ad15ea70d8ae6869d57ff360f54b948",
+  "environment": "isolated Actions runner; real model; memory checkpoints; no production queue",
+  "production_writes": false,
+  "account_authentication": "authorized server maintenance bindings; not a user login",
+  "daily_limit_usd": 100,
+  "settled_stop_usd": 85,
+  "in_flight_reserve_usd": 15,
+  "request_limit": 160,
+  "actual_provider_http_attempts": 19,
+  "terminal_state": "test_guard_stopped",
+  "checkpoint_policy": "request-fingerprinted Execution with empty in-memory store",
+  "excluded_previously_rejected_episode": true,
+  "account_anchor": "existing_readonly_billing_diagnostic",
+  "budget": {
+    "status": "checked",
+    "beijing_date": "2026-11-14",
+    "settled_usd": 1.325336,
+    "scope": "configured_test_account_provider_token",
+    "daily_limit_usd": 100,
+    "active_work_found": false
+  },
+  "source_binding": "exact previously authorized historical task and episode URL; read only",
+  "source_and_billing_account_same": false,
+  "episode_id": "6ac6a657e742e36efcbf74af",
+  "source_segments": 2170,
+  "source_characters": 18257,
+  "source_duration_seconds": 3437.2,
+  "transcript_structural_validation": "passed",
+  "manual_transcript_readability": "not_reviewed",
+  "manual_summary_readability": "not_reviewed",
+  "model_settings_fingerprint": "16bd60d985604f5db7b1d8575c6b59fe40af0182957a8c911e269faefb2dcb21",
+  "peak_model_concurrency": 3,
+  "model_create_calls": 19,
+  "failed_model_create_calls": 0,
+  "provider_request_seconds_sum": 656.269,
+  "wall_seconds": 280.853,
+  "generation": {
+    "delivery": {},
+    "coverage_ledger": {
+      "inventory_error_types": {
+        "ValueError": 0,
+        "SummaryOutputError": 0,
+        "APIConnectionError": 0,
+        "APITimeoutError": 0,
+        "TimeoutError": 0,
+        "APIStatusError": 0,
+        "RateLimitError": 0,
+        "RuntimeError": 0,
+        "ReadTimeout": 0,
+        "ConnectError": 0,
+        "ConnectionError": 0,
+        "ModelRequestTimeout": 0,
+        "InternalServerError": 0,
+        "BadRequestError": 0,
+        "AuthenticationError": 0,
+        "PermissionDeniedError": 0,
+        "NotFoundError": 0,
+        "UnprocessableEntityError": 0
+      },
+      "inventory_http_statuses": {
+        "408": 0,
+        "429": 0,
+        "500": 0,
+        "502": 0,
+        "503": 0,
+        "504": 0,
+        "524": 0
+      },
+      "inventory_failures_recorded": 0,
+      "inventory_failures_available": false,
+      "item_status_counts": {
+        "covered": 0,
+        "missing": 0,
+        "partial": 0,
+        "contradicted": 0,
+        "unverified": 0,
+        "context_only": 0
+      }
+    },
+    "verification": {}
+  },
+  "reuse_and_retry": {},
+  "execution": {
+    "stages": {
+      "model.queue": {
+        "seconds": 0,
+        "calls": 20
+      },
+      "model.phase.inventory": {
+        "seconds": 363.823,
+        "calls": 11
+      },
+      "model.editor": {
+        "seconds": 674.8439999999998,
+        "calls": 20,
+        "failed_calls": 1
+      },
+      "model.phase.draft": {
+        "seconds": 96.999,
+        "calls": 1
+      },
+      "model.phase.grounding": {
+        "seconds": 20.744,
+        "calls": 1
+      },
+      "model.phase.match": {
+        "seconds": 193.169,
+        "calls": 7,
+        "failed_calls": 1
+      }
+    },
+    "checkpoint_hits": 0,
+    "wall_seconds": 280.853
+  },
+  "final_budget_guard_passed": false
+}

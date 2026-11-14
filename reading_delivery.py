@@ -100,19 +100,37 @@ def accept_edition(engine, edition, title, source, formats, duration, stage_call
     grounding_repaired = False
     coverage_repaired = False
     late_contradiction_repaired = False
+    report['late_contradiction_repair_attempts'] = 0
+    report.pop('late_contradiction_repair_origin', None)
     review_failures = 0
     report['final_coverage_repair_rounds'] = 0
-    # At most one grounding replacement and one final coverage repair. Every
+    # Keep one initial grounding correction, one late contradiction correction
+    # and one final coverage repair within the existing three iterations. Every
     # prose mutation is followed by a fresh review of the whole immutable draft.
     for attempt in range(3):
         try:
-            rejected = {p['id'] for s in sections for p in s['paragraphs'] if p.get('raw')}
-            rejected.update(pid for item in report.get('coverage_ledger', {}).get('items', [])
-                            if item['status']=='contradicted' for pid in item.get('paragraph_ids', []))
-            if rejected and (grounding_repaired or attempt >= 2):
-                raise SummaryOutputError('quality', reason='grounding')
-            if rejected and not grounding_repaired and attempt < 2:
-                grounding_repaired = True
+            raw_rejected = {p['id'] for s in sections for p in s['paragraphs'] if p.get('raw')}
+            contradicted_ids = {pid for item in report.get('coverage_ledger', {}).get('items', [])
+                               if item['status']=='contradicted' for pid in item.get('paragraph_ids', [])}
+            rejected = raw_rejected | contradicted_ids
+            if rejected:
+                if attempt >= 2:
+                    raise SummaryOutputError('quality', reason='grounding')
+                if grounding_repaired:
+                    # A final-review correction continues the outer loop. Give
+                    # its newly locatable contradiction the same existing late
+                    # correction as a source-inventory initiated correction.
+                    ledger = report.get('coverage_ledger', {})
+                    failed_checks = any(ledger.get(k) for k in ('failed_batches',
+                        'inventory_failed_batches', 'inventory_validation_failed_batches',
+                        'ignored_boundary_items', 'terminal_provider_failure'))
+                    if raw_rejected or late_contradiction_repaired or not contradicted_ids or failed_checks:
+                        raise SummaryOutputError('quality', reason='grounding')
+                    late_contradiction_repaired = True
+                    report['late_contradiction_repair_attempts'] = 1
+                    report['late_contradiction_repair_origin'] = 'following_review_repair'
+                else:
+                    grounding_repaired = True
                 if 'overview' in rejected:
                     overview = ''
                 repair_unsupported(engine, lines, sections, rejected-{'overview'})
@@ -198,6 +216,8 @@ def accept_edition(engine, edition, title, source, formats, duration, stage_call
                 if (grounding_repaired and not late_contradiction_repaired
                         and contradicted_ids and not has_failed_checks and attempt < 2):
                     late_contradiction_repaired = True
+                    report['late_contradiction_repair_attempts'] = 1
+                    report['late_contradiction_repair_origin'] = 'same_delivery_iteration'
                     if 'overview' in contradicted_ids:
                         overview = ''
                     repair_unsupported(engine, lines, sections, contradicted_ids-{'overview'})

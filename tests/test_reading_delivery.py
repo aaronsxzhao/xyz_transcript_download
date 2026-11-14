@@ -553,3 +553,71 @@ def test_late_coverage_work_publishes_completed_batch_progress(resume):
     assert any(e['stage']=='coverage' and e['completed']==2 and e['total']==10 for e in events)
     assert any(e['stage']=='repair' and '3 items' in e['message'] for e in events)
     assert owner.generation_report['delivery']['status']=='accepted'
+
+
+@pytest.mark.parametrize('resolved,final_grounded', [(True,True),(False,True),(True,False)])
+def test_late_contradiction_after_delivery_review_repair_gets_same_bounded_recovery(resolved, final_grounded):
+    owner, edition = candidate(10)
+    owner.generation_report.pop('grounded_draft_identity')
+    owner._quality_inventory = ({}, [])
+    contradiction = copy.deepcopy(owner.generation_report['coverage_ledger'])
+    contradiction['items'][0].update(status='contradicted', paragraph_ids=['P1'])
+    contradiction['unresolved_items'] = 1
+    corrected = copy.deepcopy(contradiction)
+    if resolved:
+        corrected['items'][0]['status'] = 'covered'
+        corrected['unresolved_items'] = 0
+    line_ids = [line.id for line in edition['lines']]
+    rejected = {'checked_source_ids':line_ids, 'complete':True, 'grounded':False,
+                'unsupported_paragraph_ids':['P1'], 'additions':[]}
+    grounded = {'checked_source_ids':line_ids, 'complete':True, 'grounded':final_grounded,
+                'unsupported_paragraph_ids':[] if final_grounded else ['P1'], 'additions':[]}
+    def rewrite(_engine, _lines, sections, ids):
+        assert ids == {'P1'}
+        sections[0]['paragraphs'][0]['text'] += ' source-checked correction'
+    with patch('transcript_reading.call_json', side_effect=[rejected, grounded]) as review, \
+         patch('reading_delivery.repair_unsupported', side_effect=rewrite) as repair, \
+         patch('coverage_ledger.efficient_audit', side_effect=[contradiction, corrected]) as audit:
+        if resolved and final_grounded:
+            accept_edition(owner, edition, 'Title', 'Source', [], 0)
+            assert owner.generation_report['delivery']['status'] == 'accepted'
+            assert review.call_count == 2
+        else:
+            with pytest.raises(SummaryOutputError):
+                accept_edition(owner, edition, 'Title', 'Source', [], 0)
+            assert owner.generation_report['delivery']['status'] == 'blocked'
+        assert owner.generation_report['late_contradiction_repair_attempts'] == 1
+        assert owner.generation_report['late_contradiction_repair_origin'] == 'following_review_repair'
+        assert repair.call_count == 2
+        assert audit.call_count == 2
+        assert all(call.kwargs['allow_repairs'] is False for call in audit.call_args_list)
+
+
+@pytest.mark.parametrize('defect', ['unlocatable','source_check_failed','raw_fallback'])
+def test_review_initiated_late_recovery_still_blocks_unsafe_candidates(defect):
+    owner, edition = candidate(10)
+    owner.generation_report.pop('grounded_draft_identity')
+    owner._quality_inventory = ({}, [])
+    ledger=copy.deepcopy(owner.generation_report['coverage_ledger'])
+    ledger['items'][0].update(status='contradicted', paragraph_ids=[] if defect=='unlocatable' else ['P1'])
+    if defect=='source_check_failed':
+        ledger['inventory_validation_failed_batches']=1
+    ids=[line.id for line in edition['lines']]
+    rejected={'checked_source_ids':ids,'complete':True,'grounded':False,
+              'unsupported_paragraph_ids':['P1'],'additions':[]}
+    approval={**rejected,'grounded':True,'unsupported_paragraph_ids':[]}
+    def rewrite(_engine,_lines,sections,_ids):
+        sections[0]['paragraphs'][0]['text'] += ' corrected'
+        if defect=='raw_fallback':
+            sections[0]['paragraphs'][0]['raw']=True
+    with patch('transcript_reading.call_json',side_effect=[rejected,approval]), \
+         patch('reading_delivery.repair_unsupported',side_effect=rewrite) as repair, \
+         patch('coverage_ledger.efficient_audit',return_value=ledger) as audit:
+        with pytest.raises(SummaryOutputError):
+            accept_edition(owner,edition,'Title','Source',[],0)
+    assert repair.call_count==1
+    assert audit.call_count==1
+    assert owner.generation_report['delivery']['status']=='blocked'
+    assert owner.generation_report['late_contradiction_repair_attempts']==0
+    if defect=='source_check_failed':
+        assert owner.generation_report['coverage_ledger']['inventory_validation_failed_batches']==1

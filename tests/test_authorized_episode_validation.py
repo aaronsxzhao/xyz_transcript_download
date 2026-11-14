@@ -1,0 +1,243 @@
+import pytest
+from scripts.validate_authorized_episode import (
+    Calls, EPISODES, MAX_CALLS, MemoryCheckpoints, TestGuardStopped as GuardStop,
+    TrackedClient, enforce_budget,
+)
+from types import SimpleNamespace
+
+
+def snapshot(**changes):
+    return dict(status='checked', beijing_date='2026-11-14', settled_usd=0, **changes)
+
+
+@pytest.mark.parametrize('value', [None, -1, float('nan'), float('inf'), 85, 100, True])
+def test_budget_fails_closed_for_unreliable_or_exhausted_totals(value):
+    with pytest.raises(GuardStop):
+        enforce_budget({'status':'checked','beijing_date':'2026-11-14','settled_usd':value}, '2026-11-14', [])
+
+
+@pytest.mark.parametrize('day,active', [('2026-11-15',[]), ('2026-11-14',[{'state':'running'}])])
+def test_new_day_and_any_production_work_stop_paid_admission(day, active):
+    with pytest.raises(GuardStop):
+        enforce_budget(snapshot(), day, active)
+
+
+def test_budget_preserves_in_flight_reserve():
+    enforce_budget({'status':'checked','beijing_date':'2026-11-14','settled_usd':84.99}, '2026-11-14', [])
+
+
+def test_rejected_source_is_never_in_test_selection():
+    assert '6acfca97e742e36efcc313f6' not in EPISODES
+    assert set(EPISODES) == {'6af4bcc53caef3b52f546272','6ac6a657e742e36efcbf74af'}
+
+
+def test_memory_checkpoints_preserve_request_identity():
+    store=MemoryCheckpoints()
+    store.put_checkpoint('owner','source','stage','fingerprint', {'validated':True})
+    assert store.get_checkpoint('owner','source','stage','fingerprint') == {'validated':True}
+    assert store.get_checkpoint('owner','source','stage','changed') is None
+
+
+def test_actual_http_attempts_are_distinct_from_model_create_calls():
+    report={}
+    calls=Calls(lambda day:None,report,lambda:None)
+    client=TrackedClient(SimpleNamespace(base_url='https://example.invalid',
+        chat=SimpleNamespace(completions=SimpleNamespace(create=lambda **kw:'cached-protocol-result'))),calls)
+    assert client.create() == 'cached-protocol-result'
+    assert report['model_create_calls'] == 1
+    assert 'actual_provider_http_attempts' not in report
+    calls.outbound(object())
+    assert report['actual_provider_http_attempts'] == 1
+    assert calls.active == 0
+
+
+def test_guard_failure_does_not_enter_provider_or_get_retried_as_exception():
+    calls=Calls(lambda day:None,{},lambda:None)
+    calls.started=MAX_CALLS
+    with pytest.raises(GuardStop):
+        calls.admit()
+    assert calls.active == 0
+    assert not issubclass(GuardStop, Exception)
+
+
+def test_account_anchor_matches_the_existing_budget_inspection():
+    from scripts.validate_authorized_episode import ANCHOR_TASK
+    from scripts.inspect_failed_reading import TASKS
+    assert ANCHOR_TASK in TASKS
+
+
+def test_manual_episode_job_preserves_original_ciphertext_workflow():
+    import yaml
+    from pathlib import Path
+    workflow=yaml.safe_load(Path('.github/workflows/review-saved-summary-samples.yml').read_text())
+    job=workflow['jobs']['validate-authorized-episode']
+    assert "github.event_name == 'workflow_dispatch'" in job['if']
+    assert "inputs.mode == 'guard_probe'" in job['if']
+    assert "inputs.mode == 'full_episode'" in job['if']
+    assert "inputs.mode == 'legacy_encrypted_review'" in workflow['jobs']['review']['if']
+    events=workflow.get('on',workflow.get(True))
+    assert set(events)=={'workflow_dispatch'}
+    mode=events['workflow_dispatch']['inputs']['mode']
+    assert mode['default']=='guard_probe'
+    assert mode['options']==['guard_probe','full_episode','legacy_encrypted_review','historical_gap_review']
+    assert workflow['jobs']['review']['steps'][-1]['with']['path'] == '/tmp/xyz-review-artifacts/review.enc.json'
+
+
+@pytest.mark.parametrize('state', ['blocked','running','failed','test_guard_stopped','test_deadline_stopped','not_accepted',None])
+def test_incomplete_runs_cannot_produce_successful_job_exit(state):
+    from scripts.validate_authorized_episode import result_exit_code
+    assert result_exit_code({'terminal_state':state}) != 0
+
+
+def test_only_accepted_delivery_produces_successful_job_exit():
+    from scripts.validate_authorized_episode import result_exit_code
+    assert result_exit_code({'terminal_state':'accepted'}) == 0
+
+
+def test_monitor_transport_retry_never_returns_stale_budget_or_model_calls():
+    from urllib.error import HTTPError
+    from scripts.validate_authorized_episode import read_monitor
+    attempts=[]; waits=[]; report={}
+    def read():
+        attempts.append(1)
+        if len(attempts)==1:
+            raise HTTPError('https://example.invalid',429,'private body',{'Retry-After':'3'},None)
+        return snapshot()
+    assert read_monitor(read,report,waits.append)['settled_usd']==0
+    assert waits==[3]
+    assert report['monitor']['read_failures']==1
+    assert report['last_monitor_error']=={'error_type':'HTTPError','http_status':429}
+    assert 'private' not in str(report)
+
+
+@pytest.mark.parametrize('status', [401,403,429,503])
+def test_persistent_monitor_failure_stops_before_paid_admission(status):
+    from urllib.error import HTTPError
+    from scripts.validate_authorized_episode import read_monitor
+    attempts=[]
+    def read():
+        attempts.append(1)
+        raise HTTPError('https://example.invalid',status,'private body',{},None)
+    with pytest.raises(GuardStop):
+        read_monitor(read,{},lambda delay:None)
+    assert len(attempts)==(3 if status in (429,503) else 1)
+
+
+def test_monitor_does_not_override_excessive_retry_after_or_return_stale_data():
+    from urllib.error import HTTPError
+    from scripts.validate_authorized_episode import read_monitor
+    waits=[]
+    def read():
+        raise HTTPError('https://example.invalid',429,'private',{'Retry-After':'300'},None)
+    with pytest.raises(GuardStop):
+        read_monitor(read,{},waits.append)
+    assert waits==[]
+
+
+def test_billing_snapshot_refreshes_before_admission_after_freshness_expires():
+    from scripts.validate_authorized_episode import BudgetSnapshot
+    clock=[0]; reads=[]; report={}
+    def read():
+        reads.append(clock[0])
+        return {'status':'checked','settled_usd':len(reads)}
+    cache=BudgetSnapshot(read,report,lambda:clock[0])
+    assert cache.get()['settled_usd']==1
+    clock[0]=89
+    assert cache.get()['settled_usd']==1
+    clock[0]=90
+    assert cache.get()['settled_usd']==2
+    assert reads==[0,90]
+    assert report['provider_billing_snapshot_hits']==1
+
+
+def test_failed_billing_refresh_never_extends_freshness_or_uses_stale_balance():
+    from scripts.validate_authorized_episode import BudgetSnapshot
+    from urllib.error import HTTPError
+    clock=[0]; reads=[]
+    def read():
+        reads.append(clock[0])
+        if len(reads)>1:
+            raise HTTPError('https://example.invalid',429,'private',{},None)
+        return {'status':'checked','settled_usd':0}
+    cache=BudgetSnapshot(read,{},lambda:clock[0])
+    cache.get()
+    clock[0]=91
+    for _ in range(2):
+        with pytest.raises(HTTPError):
+            cache.get()
+    assert cache.saved_at==0
+    assert reads==[0,91,91]
+
+
+def test_final_force_refresh_does_not_reuse_cached_balance():
+    from scripts.validate_authorized_episode import BudgetSnapshot
+    values=iter([{'status':'checked','settled_usd':1},{'status':'checked','settled_usd':2}])
+    cache=BudgetSnapshot(lambda:next(values),{},lambda:0)
+    assert cache.get()['settled_usd']==1
+    assert cache.get(force=True)['settled_usd']==2
+
+
+def test_http_stage_counts_use_only_allowlisted_phases_and_never_retain_payloads():
+    import json
+    report={}; calls=Calls(lambda day:None,report,lambda:None)
+    for phase in ['match','private-source-label']:
+        body={'messages':[{'content':json.dumps({'phase':phase,'source':'private source prose'})}]}
+        calls.outbound(SimpleNamespace(content=json.dumps(body).encode()))
+    calls.response(SimpleNamespace(status_code=200))
+    assert report['provider_http_attempts_by_phase']=={'match':1,'other':1}
+    assert report['provider_http_status_counts']=={'200':1}
+    assert report['actual_provider_http_attempts']==2
+    assert 'private' not in str(report)
+
+
+def test_gap_assessment_exports_only_labels_and_never_proves_false_positive():
+    from scripts.validate_authorized_episode import summarize_gap_verdicts
+    result=summarize_gap_verdicts([{'status':'partial','statement':'private source'}],
+        {'samples':[{'sample_id':'S1','draft_status':'covered','source_support':'supported',
+                     'reason_class':'cross_paragraph_context','explanation':'private draft'}]})
+    assert result['status_transitions']=={'partial->covered':1}
+    assert result['semantic_false_positive_proven'] is False
+    assert 'private' not in str(result)
+
+
+@pytest.mark.parametrize('rows', [[],[
+    {'sample_id':'S1','draft_status':['covered'],'source_support':'supported','reason_class':'none'}], [
+    {'sample_id':'unknown','draft_status':'covered','source_support':'supported','reason_class':'none'}]])
+def test_gap_assessment_rejects_incomplete_or_invalid_labels(rows):
+    from scripts.validate_authorized_episode import summarize_gap_verdicts
+    with pytest.raises(ValueError):
+        summarize_gap_verdicts([{'status':'partial'}],{'samples':rows})
+
+
+def test_historical_probe_limits_model_admission_to_one():
+    calls=Calls(lambda day:None,{},lambda:None,maximum=1)
+    calls.admit()
+    with pytest.raises(GuardStop):calls.admit()
+    assert calls.started==1
+
+
+def test_historical_sample_joins_statements_by_identity_and_hides_prior_status():
+    import json
+    from scripts.validate_authorized_episode import review_historical_gaps
+    class Database:
+        def __init__(self):self.operations=[]
+        def __getattr__(self,name):
+            def query(*args,**kwargs):
+                self.operations.append((name,args,kwargs))
+                if name=='execute':return SimpleNamespace(data=[{'result':{
+                    'report':{'coverage_ledger':{'items':[{'id':'I1','status':'partial','kind':'claim'}]}},
+                    'inventory':[{'id':'I1','statement':'private source','source_ranges':[]}],
+                    'edition':{'sections':[{'paragraphs':[{'id':'P1','text':'private draft'}]}]}}}])
+                return self
+            return query
+    class Engine:
+        def _editorial_json(self,system,payload,timeout):
+            request=json.loads(payload)
+            assert request['samples'][0]['source_statement']=='private source'
+            assert 'status' not in request['samples'][0]
+            return {'samples':[{'sample_id':'S1','draft_status':'partial','source_support':'supported','reason_class':'incomplete_support'}]}
+    db=Database()
+    result=review_historical_gaps(db,'owner','source','full source',Engine())
+    assert result['agreement_count']==1
+    assert 'private' not in str(result)
+    assert all(name not in ('insert','update','upsert','delete') for name,_,_ in db.operations)
