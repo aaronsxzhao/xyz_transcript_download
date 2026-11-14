@@ -55,6 +55,9 @@ async def check(browser, dist, label, output=None):
     await context.route('**/assets/**',assets)
     results={'label':label}
     if output:output.mkdir(parents=True,exist_ok=True)
+    # WebKit screenshot waits for document.fonts.ready, which can wait for EOF.
+    # Do not let optional artifact collection release the stalled-tail fixture.
+    capture_stream=output and browser.browser_type.name!='webkit'
     try:
         for name,path,selector in [('settings','/settings','select[aria-label="Summary provider"]'),('podcasts','/podcasts','main h1'),('summary','/viewer/699acfb5de29766da924dee1','text=Readable podcast overview.'),('local','/videos/local-completed','article')]:
             page=await context.new_page();errors=[];console_errors=[]
@@ -106,7 +109,7 @@ async def check(browser, dist, label, output=None):
             await page.goto(origin+'/settings?tail=1',wait_until='commit')
             await page.wait_for_timeout(500)
             assert not recovery, 'Healthy startup must not duplicate the module graph'
-            if output:await page.screenshot(path=str(output/(label+'-stalled.png')))
+            if capture_stream:await page.screenshot(path=str(output/(label+'-stalled.png')))
             select=page.locator('select[aria-label="Summary provider"]')
             await select.wait_for(timeout=15000)
             await page.wait_for_function("!document.querySelector('select[aria-label=\"Summary provider\"]').disabled")
@@ -117,7 +120,7 @@ async def check(browser, dist, label, output=None):
             headers=await recovery[0].all_headers()
             assert 'authorization' not in headers and 'cookie' not in headers
             results['stalled_tail_recovered_ms']=round((time.monotonic()-started)*1000)
-            if output:await page.screenshot(path=str(output/(label+'-recovered.png')))
+            if capture_stream:await page.screenshot(path=str(output/(label+'-recovered.png')))
             await select.evaluate("el=>el.dataset.sameMount='true'")
             state['tail_release'].set()
             await page.wait_for_load_state('load')

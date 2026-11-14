@@ -32,6 +32,8 @@ The pre-paint theme bootstrap also preloads only the persisted Editorial or Clas
 
 Private raw evidence: local `appearance-checks/nov15-startup/` in the original checkout. Anonymous network measurements and synthetic screenshots only in this run so far. Authenticated artifacts must remain private.
 
+- Native macOS 26.5.2 / Playwright WebKit 27.2: the same production build passes all startup, blocked-asset, unclosed-tail, single-mount, recovery503, transfer-cancellation and selected-skin assertions (12.43s / 9.25s). This is separate from Linux CI WebKit and from a physical device. An initial optional streamed screenshot waited for document.fonts.ready/EOF and invalidated that test state; the no-screenshot run passed. The artifact option now skips WebKit's streamed intermediate frames while retaining every behavioral assertion, and the final run with output enabled passed. Its completed-document Editorial screenshot is inspected separately.
+
 ## Release and remaining acceptance
 
 The first PR CI failed because `check_first_paint.py` still parsed only a module-script entry tag. Its parser now recognizes the early loader data-entry attribute as well; all original behavior/timing assertions remain. The full corresponding first-paint/network lane was rerun locally and passed.
