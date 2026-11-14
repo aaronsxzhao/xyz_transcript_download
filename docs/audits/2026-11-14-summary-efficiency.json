@@ -41,5 +41,13 @@
     "evidence": "Prior authorized 189-item historical metadata/statistical check found zero exact normalized duplicates; no inference about paraphrases. New repeated SQL was rejected by automatic approval and was not rerun through another path.",
     "action": "Do not deduplicate semantic obligations without independent source-aware evidence."
   },
-  "observed_failure": "A previous authorized 3,088-segment local run ended at 79.41% coverage with 42 unresolved items including one contradiction. Its unbound local harness does not establish production request counts or whether the unresolved meanings were correctly classified."
+  "observed_failure": "A previous authorized 3,088-segment local run ended at 79.41% coverage with 42 unresolved items including one contradiction. Its unbound local harness does not establish production request counts or whether the unresolved meanings were correctly classified.",
+  "real_validation_followup": {
+    "report": "docs/audits/2026-11-14-summary-handoff-validation.json",
+    "baseline_full_source_run": 43589199855,
+    "outcome": "natural quality failure;73actualHTTPrequests;82.35percentcoverage;27unresolvedincluding1contradiction",
+    "not_claimed": "Four prior synthetic request-count findings are not whole-episode completion or causal performance proof.",
+    "new_confirmed_synthetic_code_path": "Existing late contradiction correction was unreachable after a final-review initiated correction continued the outer loop.",
+    "new_fix_real_validation": 43593271785
+  }
 }

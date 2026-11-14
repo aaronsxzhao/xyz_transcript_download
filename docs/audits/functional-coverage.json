@@ -673,7 +673,17 @@
           "result": "See per-item current/prior/blocked/decision dispositions;no wholesale promotion"
         }
       ],
-      "latest_interaction_audit": "docs/audits/2026-11-11-appearance.json"
+      "latest_interaction_audit": "docs/audits/2026-11-11-appearance.json",
+      "isolated_summary_checks": [
+        {
+          "checked_at": "2026-11-14T20:14:00.202976+08:00",
+          "run": 43589199855,
+          "report": "docs/audits/2026-11-14-alternate-episode-natural-failure.json",
+          "scope": "complete saved transcript to summary/quality gates only",
+          "result": "failed_quality",
+          "production_chain_status_changed": false
+        }
+      ]
     },
     {
       "id": "article-import-media",
@@ -1513,6 +1523,25 @@
       "provider_calls": 0,
       "production_acceptance": false,
       "result": "readonly_inspection_restored_paid_alternate_episode_dispatch_rejected_destination_confirmation_pending"
+    },
+    {
+      "checked_at": "2026-11-14T20:14:00.202976+08:00",
+      "type": "isolated_real_full_saved_transcript",
+      "report": "docs/audits/2026-11-14-summary-handoff-validation.json",
+      "tested_commit": "a5b4952cd4bdb0f71e32d0672ee0fc0f721d5bbf",
+      "run": 43589199855,
+      "environment": "Actions isolated real model with in-memory production-style request checkpoints; not production queue/UI acceptance",
+      "result": "failed_quality_naturally",
+      "actual_provider_http_attempts": 73,
+      "wall_seconds": 1535.799,
+      "coverage_ratio": 0.8235294117647058,
+      "unresolved_items": 27,
+      "contradicted_items": 1,
+      "production_writes": false,
+      "production_acceptance": false,
+      "followup_fix_commit": "b2e7da91a9e142894f1c460793b188b1cd1bdb8a",
+      "followup_live_run": 43593271785,
+      "followup_state": "running"
     }
   ],
   "visual_inspection_runs": [
