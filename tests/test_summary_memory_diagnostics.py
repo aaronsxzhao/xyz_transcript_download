@@ -199,3 +199,20 @@ def test_fresh_diagnostic_generation_requires_separate_opt_in():
     workflow=yaml.safe_load(Path('.github/workflows/review-saved-summary-samples.yml').read_text())
     inputs=workflow.get('on',workflow.get(True))['workflow_dispatch']['inputs']
     assert inputs['allow_first_match']['default'] is False
+
+
+def test_citation_failure_categories_separate_anchor_errors_and_asr_display_boundaries():
+    from scripts.summary_memory_diagnostics import citation_failures, _checked_quotes
+    lookup={'A':'[00:01] The trial\n','B':'[00:02] lasted twelve minutes.\n'}
+    assert citation_failures([{'source_id':'A','quote':'lasted twelve minutes.'}],lookup,'source_id')=={'exact_on_other_unit':1}
+    quote='The trial lasted twelve minutes.'
+    assert citation_failures([{'source_id':'A','quote':quote}],lookup,'source_id')=={'display_normalization_only':1}
+    assert _checked_quotes([{'source_id':'A','quote':quote}],lookup,'source_id')==(False,0)
+    assert citation_failures([{'source_id':'A','quote':'invented private claim'}],lookup,'source_id')=={'quote_not_found':1}
+
+
+def test_untrusted_citation_diagnostic_labels_cannot_leak_into_aggregate():
+    source,_,payload=fixture();observer=MemoryDiagnostics();observer.capture_payload(payload)
+    request=observer.make_request(source);rounds=validate_verdicts(verdicts(request),request)
+    rounds['S1']['citation_failure_reasons']={'private body':1}
+    with pytest.raises(ValueError):aggregate_verdicts(request['samples'],[rounds,rounds])

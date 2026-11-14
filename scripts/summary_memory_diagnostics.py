@@ -5,6 +5,7 @@ This is not a delivery validator. Repeated model agreement is not ground truth.
 import copy
 import hashlib
 import json
+import re
 
 
 class DiagnosticBoundary(BaseException):
@@ -80,6 +81,51 @@ def _checked_quotes(rows, lookup, key):
     return True, len(rows)
 
 
+CITATION_FAILURES = {'not_a_list','too_many_quotes','invalid_row','unknown_id','invalid_quote',
+                     'quote_too_long','exact_on_other_unit','exact_across_units',
+                     'display_normalization_only','quote_not_found','required_evidence_missing'}
+
+
+def citation_failures(rows, lookup, key):
+    """Diagnostic categories only: never relax _checked_quotes acceptance.
+
+    ASR line boundaries/timestamps can explain a display-level match; it still
+    fails exact citation integrity and cannot establish semantic entailment.
+    """
+    counts = {}
+    def add(reason): counts[reason] = counts.get(reason, 0) + 1
+    if not isinstance(rows, list):
+        return {'not_a_list':1}
+    if len(rows) > 2:
+        return {'too_many_quotes':1}
+    full = ''.join(lookup.values())
+    def display(text):
+        text = re.sub(r'(?m)^\[\d+:\d{2}(?::\d{2})?\]\s*', '', text)
+        return re.sub(r'\s+', '', text)
+    rendered = display(full)
+    for row in rows:
+        if not isinstance(row, dict):
+            add('invalid_row');continue
+        ident, quote = row.get(key), row.get('quote')
+        if not isinstance(ident, str) or ident not in lookup:
+            add('unknown_id');continue
+        if not isinstance(quote, str) or not quote.strip():
+            add('invalid_quote');continue
+        if len(quote) > 1000:
+            add('quote_too_long');continue
+        if quote in lookup[ident]:
+            continue
+        if any(quote in value for value in lookup.values()):
+            add('exact_on_other_unit')
+        elif quote in full:
+            add('exact_across_units')
+        elif display(quote) and display(quote) in rendered:
+            add('display_normalization_only')
+        else:
+            add('quote_not_found')
+    return counts
+
+
 def diagnostic_draft(sections, overview=''):
     from transcript_reading import public_draft
     draft = public_draft(sections)
@@ -114,20 +160,28 @@ def validate_verdicts(response, request):
             paragraphs = {pid:text for pid,text in paragraphs.items() if pid == wanted[ident].get('paragraph_id')}
         source_ok, source_count = _checked_quotes(row.get('source_evidence'), sources, 'source_id')
         draft_ok, draft_count = _checked_quotes(row.get('draft_evidence'), paragraphs, 'paragraph_id')
+        failures = {'source.'+key:value for key,value in citation_failures(row.get('source_evidence'),sources,'source_id').items()}
+        failures.update({'draft.'+key:value for key,value in citation_failures(row.get('draft_evidence'),paragraphs,'paragraph_id').items()})
+        if row.get('source_evidence') == []:
+            failures['source.required_evidence_missing'] = 1
         evidence = source_ok and draft_ok and source_count > 0
         if labels[1] in ('covered', 'contradicted') or wanted[ident]['type'] in ('grounding','grounding_probe'):
             evidence = evidence and draft_count > 0
+            if row.get('draft_evidence') == []:
+                failures['draft.required_evidence_missing'] = 1
         # Exact substring checks validate citations, not semantic entailment.
         result[ident] = {'source_support': labels[0], 'draft_status': labels[1],
-                         'reason_class': labels[2], 'citation_integrity': bool(evidence)}
+                         'reason_class': labels[2], 'citation_integrity': bool(evidence),
+                         'citation_failure_reasons': failures}
     return result
 
 
 def aggregate_verdicts(samples, rounds):
     if len(rounds) != 2 or any(set(r) != {s['sample_id'] for s in samples} for r in rounds):
         raise ValueError('Two complete independent assessments required')
-    result = {'sample_count': len(samples), 'classification_counts': {}, 'reason_class_counts': {},
-              'sample_type_counts': {}, 'citation_integrity_failures': 0,
+    result = {'diagnostic_schema_version':2,'sample_count': len(samples), 'classification_counts': {}, 'reason_class_counts': {},
+              'sample_type_counts': {}, 'citation_integrity_failures': 0,'citation_failure_reasons':{},
+              'classification_by_sample_type':{},'citation_failures_by_sample_type':{},
               'semantic_false_positive_proven': False,
               'basis': 'two same-provider model assessments; exact citations checked in RAM; not human ground truth or a population estimate'}
     for sample in samples:
@@ -137,11 +191,19 @@ def aggregate_verdicts(samples, rounds):
             raise ValueError('Invalid sample type')
         result['sample_type_counts'][kind] = result['sample_type_counts'].get(kind, 0) + 1
         for row in (a, b):
+            if row.get('source_support') not in SUPPORT or row.get('draft_status') not in STATUSES:
+                raise ValueError('Invalid decision label')
             reason = row['reason_class']
             if reason not in REASONS:
                 raise ValueError('Invalid reason label')
             result['reason_class_counts'][reason] = result['reason_class_counts'].get(reason, 0) + 1
             result['citation_integrity_failures'] += int(not row['citation_integrity'])
+            for reason, count in row.get('citation_failure_reasons',{}).items():
+                if reason not in {role+'.'+r for role in ('source','draft') for r in CITATION_FAILURES} or type(count) is not int or count < 0:
+                    raise ValueError('Invalid citation diagnostic label')
+                counters=result['citation_failure_reasons'];counters[reason]=counters.get(reason,0)+count
+                counters=result['citation_failures_by_sample_type'].setdefault(kind,{})
+                counters[reason]=counters.get(reason,0)+count
         if (a['source_support'], a['draft_status']) != (b['source_support'], b['draft_status']):
             label = 'fixed_input_reviewer_variation'
         elif not a['citation_integrity'] or not b['citation_integrity']:
@@ -154,17 +216,19 @@ def aggregate_verdicts(samples, rounds):
         elif a['source_support'] == 'not_supported':
             label = ('stable_unsupported_prose_evidence' if kind in ('grounding','grounding_probe')
                      else 'possible_inventory_source_error')
+        elif a['draft_status'] == 'contradicted':
+            label = 'stable_draft_contradiction_evidence'
         elif kind == 'grounding_probe':
             label = 'stable_source_supported_candidate_probe'
         elif kind == 'grounding':
-            label = 'possible_grounding_false_positive'
+            label = 'possible_grounding_false_positive' if a['draft_status']=='covered' else 'unresolved_draft_alignment'
         elif a['draft_status'] == 'covered':
             label = 'possible_coverage_false_positive'
-        elif a['draft_status'] == 'contradicted':
-            label = 'stable_draft_contradiction_evidence'
         else:
             label = 'stable_omission_evidence'
         result['classification_counts'][label] = result['classification_counts'].get(label, 0) + 1
+        counters=result['classification_by_sample_type'].setdefault(kind,{})
+        counters[label]=counters.get(label,0)+1
     return result
 
 
