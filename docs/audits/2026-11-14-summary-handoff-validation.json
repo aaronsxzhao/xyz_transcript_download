@@ -124,6 +124,30 @@
         "correction": "Restore original review job and add a separate manually gated episode-validation job; preserve existing assertions"
       },
       "account_anchor_correction": "Use the same dedicated account anchor as existing billing inspection, rather than independently assuming the historical 9efa job has identical ownership."
+    },
+    {
+      "checked_at": "2026-11-14T18:50:34.948926+08:00",
+      "isolated_run": 43586674071,
+      "tested_commit": "4f6bd06feab8b2fdfb1e506199f6d1bf2dfe5e27",
+      "terminal_state": "blocked",
+      "blocker": "no alternate transcript under dedicated billing account",
+      "provider_http_attempts": 0,
+      "settled_usd": 0,
+      "quality_acceptance": false,
+      "not_claimed": "Successful workflow transport did not mean successful episode validation."
+    },
+    {
+      "checked_at": "2026-11-14T18:50:34.949042+08:00",
+      "isolated_run": 43586927157,
+      "tested_commit": "9a8323da6ad15ea70d8ae6869d57ff360f54b948",
+      "terminal_state": "running",
+      "provider_http_attempts": null,
+      "source_binding": "exact task63208f3e plus authorized6ac6a657URL; source is read only; dedicated billing settings remain separate",
+      "user_destination_approval": "api.aipaibox.com explicitly confirmed",
+      "platform_execution_review": "approved",
+      "related_ci": 43586905673,
+      "production_writes": false,
+      "quality_acceptance": false
     }
   ]
 }

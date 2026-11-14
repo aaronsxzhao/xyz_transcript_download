@@ -74,3 +74,54 @@ def test_manual_episode_job_preserves_original_ciphertext_workflow():
     assert "github.event_name == 'workflow_dispatch'" in job['if']
     assert "github.ref == 'refs/heads/codex/summary-handoff-validation'" in job['if']
     assert workflow['jobs']['review']['steps'][-1]['with']['path'] == '/tmp/xyz-review-artifacts/review.enc.json'
+
+
+@pytest.mark.parametrize('state', ['blocked','running','failed','test_guard_stopped','test_deadline_stopped','not_accepted',None])
+def test_incomplete_runs_cannot_produce_successful_job_exit(state):
+    from scripts.validate_authorized_episode import result_exit_code
+    assert result_exit_code({'terminal_state':state}) != 0
+
+
+def test_only_accepted_delivery_produces_successful_job_exit():
+    from scripts.validate_authorized_episode import result_exit_code
+    assert result_exit_code({'terminal_state':'accepted'}) == 0
+
+
+def test_monitor_transport_retry_never_returns_stale_budget_or_model_calls():
+    from urllib.error import HTTPError
+    from scripts.validate_authorized_episode import read_monitor
+    attempts=[]; waits=[]; report={}
+    def read():
+        attempts.append(1)
+        if len(attempts)==1:
+            raise HTTPError('https://example.invalid',429,'private body',{'Retry-After':'3'},None)
+        return snapshot()
+    assert read_monitor(read,report,waits.append)['settled_usd']==0
+    assert waits==[3]
+    assert report['monitor']['read_failures']==1
+    assert report['last_monitor_error']=={'error_type':'HTTPError','http_status':429}
+    assert 'private' not in str(report)
+
+
+@pytest.mark.parametrize('status', [401,403,429,503])
+def test_persistent_monitor_failure_stops_before_paid_admission(status):
+    from urllib.error import HTTPError
+    from scripts.validate_authorized_episode import read_monitor
+    attempts=[]
+    def read():
+        attempts.append(1)
+        raise HTTPError('https://example.invalid',status,'private body',{},None)
+    with pytest.raises(GuardStop):
+        read_monitor(read,{},lambda delay:None)
+    assert len(attempts)==(3 if status in (429,503) else 1)
+
+
+def test_monitor_does_not_override_excessive_retry_after_or_return_stale_data():
+    from urllib.error import HTTPError
+    from scripts.validate_authorized_episode import read_monitor
+    waits=[]
+    def read():
+        raise HTTPError('https://example.invalid',429,'private',{'Retry-After':'300'},None)
+    with pytest.raises(GuardStop):
+        read_monitor(read,{},waits.append)
+    assert waits==[]

@@ -18,6 +18,7 @@ import threading
 import time
 from datetime import datetime, timedelta, timezone
 from types import SimpleNamespace
+from urllib.error import HTTPError, URLError
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 EPISODES = ('6af4bcc53caef3b52f546272', '6ac6a657e742e36efcbf74af')
@@ -41,6 +42,39 @@ def enforce_budget(snapshot, day, active_work):
             or not math.isfinite(snapshot['settled_usd'])
             or not 0 <= snapshot['settled_usd'] < SETTLED_STOP):
         raise TestGuardStopped('budget_or_queue_unavailable')
+
+
+def read_monitor(check, report, sleep=time.sleep):
+    """Retry only read-only monitor transport failures; never admit paid work
+    until a fresh complete snapshot succeeds. Honor bounded Retry-After delays.
+    """
+    monitor = report.setdefault('monitor', {'read_attempts':0,'read_failures':0,'wait_seconds':0})
+    for attempt in range(3):
+        monitor['read_attempts'] += 1
+        try:
+            return check()
+        except Exception as error:
+            monitor['read_failures'] += 1
+            status = getattr(error, 'code', None)
+            report['last_monitor_error'] = {'error_type':type(error).__name__}
+            if type(status) is int:
+                report['last_monitor_error']['http_status'] = status
+            transient = ((isinstance(error, HTTPError) and (status in (408,429) or status>=500))
+                or (isinstance(error, URLError) and not isinstance(error, HTTPError))
+                or isinstance(error, TimeoutError)
+                or type(error).__name__ in ('ReadTimeout','ConnectTimeout','ConnectError','ReadError','RemoteProtocolError'))
+            delay = 2 * (attempt+1)
+            headers = getattr(error, 'headers', None)
+            retry_after = headers.get('Retry-After') if headers is not None else None
+            if retry_after is not None:
+                try:
+                    delay = max(delay, float(retry_after))
+                except (ValueError,TypeError):
+                    transient = False
+            if not transient or attempt==2 or not math.isfinite(delay) or delay>60-monitor['wait_seconds']:
+                raise TestGuardStopped('monitor_unavailable') from None
+            monitor['wait_seconds'] += delay
+            sleep(delay)
 
 
 class MemoryCheckpoints:
@@ -145,16 +179,27 @@ def child(destination):
         temporary.write_text(json.dumps(report))
         temporary.replace(destination)
     def guard(day):
-        try:
+        def check():
             budget = inspect_budget(preferences, owner, seed)
             active = database.table('processing_work').select('state').in_('state', ['queued','running']).limit(1).execute().data or []
-        except Exception:
-            raise TestGuardStopped('budget_or_queue_unavailable') from None
+            return budget, active
+        try:
+            budget, active = read_monitor(check, report)
+        except TestGuardStopped:
+            publish()
+            raise
         report['budget'] = {k:budget[k] for k in ('status','beijing_date','settled_usd','scope') if k in budget}
         report['budget']['daily_limit_usd'] = DAILY_LIMIT
         report['budget']['active_work_found'] = bool(active)
         enforce_budget(budget, day, active)
+    publish()
     guard(str(datetime.now(ZONE).date()))
+    if os.environ.get('EPISODE_GUARD_PROBE_ONLY') == '1':
+        for _ in range(2):
+            guard(str(datetime.now(ZONE).date()))
+        report.update(terminal_state='guard_probe_passed', provider_calls=0, quality_acceptance=False)
+        publish()
+        return
     # Read only a different explicitly authorized episode. No rejected source is
     # selected, loaded, split, transformed or routed through another executor.
     available = database.table('transcripts').select('episode_id').eq('user_id', owner).in_('episode_id', list(EPISODES)).execute().data or []
@@ -207,8 +252,9 @@ def child(destination):
         report['terminal_state'] = 'accepted' if accepted else 'not_accepted'
         if summary:
             report['summary_structure'] = {'overview_characters':len(summary.overview), 'key_points':len(summary.key_points), 'topics':len(summary.topics)}
-    except TestGuardStopped:
+    except TestGuardStopped as error:
         report['terminal_state'] = 'test_guard_stopped'
+        report['guard_stop_reason'] = str(error) if str(error) in ('monitor_unavailable','budget_or_queue_unavailable','request_guard') else 'unknown'
     except Exception as error:
         report.update(terminal_state='failed', error_type=type(error).__name__)
     finally:
@@ -226,6 +272,11 @@ def child(destination):
         else:
             report['final_budget_guard_passed'] = True
         publish()
+
+
+def result_exit_code(report):
+    # A green job must never stand in for an incomplete or failed episode.
+    return 0 if report.get('terminal_state') == 'accepted' else 2
 
 
 def main():
@@ -251,8 +302,10 @@ def main():
                 break
         if not bindings:
             print(json.dumps({'terminal_state':'blocked','blocker':'existing_bindings_unavailable'}))
-            return
+            return 2
         destination = Path(temporary)/'aggregate.json'
+        if '--probe-guard' in sys.argv:
+            bindings['EPISODE_GUARD_PROBE_ONLY'] = '1'
         process = subprocess.Popen([sys.executable,__file__,'--child',str(destination)],
             env={**os.environ,**bindings,'XYZ_DATA_DIR':temporary,'DISCORD_WEBHOOK_URL':'','PYTHONPATH':'.'},
             stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
@@ -273,7 +326,7 @@ def main():
             time.sleep(1)
         if not destination.exists():
             print(json.dumps({'terminal_state':'blocked','blocker':'child_report_unavailable'}))
-            return
+            return 2
         if timed_out:
             report = json.loads(destination.read_text())
             report['terminal_state'] = 'test_deadline_stopped'
@@ -281,8 +334,17 @@ def main():
             destination.write_text(json.dumps(report))
         # The child writes only the explicit aggregate report. No raw child
         # stdout, stderr, model output or source leaves its temporary process.
-        print(json.dumps({'authorized_episode_validation':json.loads(destination.read_text())}))
+        report = json.loads(destination.read_text())
+        print(json.dumps({'authorized_episode_validation':report}))
+        if '--probe-guard' in sys.argv:
+            return 0 if report.get('terminal_state')=='guard_probe_passed' else 2
+        return result_exit_code(report)
 
 
 if __name__=='__main__':
-    main()
+    try:
+        status = main()
+    except Exception as error:
+        print(json.dumps({'terminal_state':'blocked','error_type':type(error).__name__}))
+        status = 2
+    raise SystemExit(status)
