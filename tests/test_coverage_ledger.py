@@ -599,6 +599,7 @@ def test_append_only_repair_preserves_existing_support_but_rejects_contradiction
         assert report['items'][1]['paragraph_ids']==['P1']
     else:
         assert report['status']=='unverified' and report['repairs_accepted']==0
+        assert report['failed_batches'] > 0  # A partial pre-repair receipt must not erase the failure.
         assert len(sections)==1
 
 
@@ -725,6 +726,35 @@ def test_final_readonly_audit_source_checks_new_incidental_gap_without_adding_pr
         report=efficient_audit(owner,lines,sections,prepared_inventory=({'failed_batches':0,'inventory_failed_batches':0,'terminal_provider_failure':False},inventory),allow_repairs=False)
     assert 'validate_inventory' in phases and 'repair' not in phases
     assert report['items'][0]['status']=='context_only' and sections==before
+
+
+def test_incidental_classification_does_not_rematch_unchanged_material_items():
+    from coverage_ledger import _audit
+    case={'source':'[00:00] A useful condition and an incidental illustration.',
+          'missing_draft':'A useful method.'}
+    lines,sections,ranges=setup_case(case)
+    inventory=[{'id':'C1','kind':'condition','statement':'A useful condition.','source_ranges':ranges},
+               {'id':'C2','kind':'example','statement':'An incidental illustration.','source_ranges':ranges}]
+    phases=[]
+    def response(_engine,_system,payload,_validator):
+        phases.append(payload['phase'])
+        if payload['phase']=='validate_inventory':
+            return {'items':[{'id':'C1','supported':True,'material':True},
+                {'id':'C2','supported':True,'material':False,'material_reason':'Interchangeable example.'}]}
+        if payload['phase']=='repair':
+            assert [item['id'] for item in payload['items']]==['C1']
+            return {'sections':[{'heading':'Argument','paragraphs':[
+                {'text':'A useful condition.','source_ranges':ranges}]}]}
+        proposed=payload.get('proposed_paragraph_ids',[])
+        return {'checked_proposed_paragraph_ids':proposed,'matches':[
+            {'item_id':item['id'],'status':'covered' if proposed else 'partial',
+             'support':[{'paragraph_id':proposed[0] if proposed else 'P1'}],
+             'grounded':True,'duplicate':False} for item in payload['items']]}
+    with patch('coverage_ledger.request',side_effect=response):
+        report,_=_audit(SimpleNamespace(),lines,sections,inventory=inventory)
+    assert phases==['match','validate_inventory','repair','match']
+    assert {item['id']:item['status'] for item in report['items']}=={'C1':'covered','C2':'context_only'}
+    assert report['repairs_accepted']==1
 
 
 def test_source_validation_reuses_only_identical_affirmative_receipts_across_batches():

@@ -582,6 +582,13 @@ def _audit(engine, lines, sections, overview='', progress=None, stage_callback=N
                     raise ValueError('Repair obligations were not source-verified')
                 if corrections:
                     corrected={item['id']:item for item in corrections}
+                    # If the source meaning and ranges are unchanged, a
+                    # source-only materiality decision cannot invalidate the
+                    # matches for the other items or the immutable draft.
+                    source_changed=any(
+                        corrected[item['id']].get('statement') != item.get('statement') or
+                        corrected[item['id']].get('source_ranges') != item.get('source_ranges')
+                        for item in items if item['id'] in corrected)
                     for item in items:
                         if item['id'] in corrected:item.update(corrected[item['id']])
                     report['corrected_inventory_items'].extend(item['id'] for item in corrections if item.get('source_corrected'))
@@ -590,7 +597,13 @@ def _audit(engine, lines, sections, overview='', progress=None, stage_callback=N
                         for span in item['source_ranges']:
                             evidence_indices.update(range(index[span['start']],index[span['end']]+1))
                     evidence=[lines[i] for i in sorted(evidence_indices)]
-                    rows=match(sections)
+                    if source_changed:
+                        rows=match(sections)
+                    else:
+                        rows=[{'item_id':item['id'],'status':'context_only','support':[],
+                               'grounded':True,'duplicate':False}
+                              if not item.get('material',True) else by_id[item['id']]
+                              for item in items]
                     by_id={row['item_id']:row for row in rows}
                     gaps=[item for item in items if by_id[item['id']]['status'] in {'partial','missing'}]
             if gaps and not matching_only:
@@ -799,6 +812,7 @@ def efficient_audit(engine, lines, sections, overview='', progress=None, stage_c
             and (allow_repairs or not coverage_acceptable(report, threshold))):
         report['recovery_rounds'] = int(allow_repairs)
         gaps = [item for item in inventory if item['id'] in pending]
+        recovery_failed_batches = 0
         for start in range(0, len(gaps), ITEM_LIMIT):
             if progress: progress()
             # Receipts refer to the immutable initial draft. The repair sees the
@@ -806,13 +820,17 @@ def efficient_audit(engine, lines, sections, overview='', progress=None, stage_c
             local, corrected = _audit(engine, lines, sections, overview, progress, stage_callback,
                 inventory=gaps[start:start+ITEM_LIMIT], initial_rows=receipts,
                 matching_only=not allow_repairs, verify_gaps=not allow_repairs)
+            recovery_failed_batches += local['failed_batches']
             add_counters(local)
             report['grounding_concerns'] |= any(
                 not row.get('grounded') for row in local.get('matching_rows', {}).values())
             updates = {item['id']:item for item in local['items']}
             report['items'] = [updates.get(item['id'], item) for item in report['items']]
-            report['failed_batches'] = report['inventory_failed_batches'] + sum(
-                item['status']=='unverified' for item in report['items'])
+            # A failed repair can leave an earlier partial receipt rather than
+            # an unverified item. Keep the failure even in that case; otherwise
+            # delivery may spend another full review on an incomplete batch.
+            report['failed_batches'] = report['inventory_failed_batches'] + max(
+                recovery_failed_batches, sum(item['status']=='unverified' for item in report['items']))
             changed = {item['id']:item for item in corrected}
             inventory = [changed.get(item['id'],item) for item in inventory]
             if report['terminal_provider_failure']: break

@@ -1,0 +1,45 @@
+{
+  "date": "2026-11-14",
+  "baseline": "7d314deff97276a963d462acb25f478efb05d989",
+  "environment": "isolated local synthetic fixtures and previously recorded authorized test-account observations",
+  "hypotheses": [
+    {
+      "id": "batch_scaling",
+      "result": "confirmed",
+      "evidence": "Current ITEM_LIMIT=16; a 208-item checklist requires 13 matching batches per full pass. Full rereview after prose changes remains necessary for contradiction detection.",
+      "action": "Do not raise batch size without long-source quality evidence."
+    },
+    {
+      "id": "failure_erased",
+      "result": "confirmed_synthetic",
+      "evidence": "On baseline two synthetic repair timeouts resulted in failed_batches=0 even though the source item was still partial.",
+      "action": "Preserve failed recovery count so incomplete checks are not hidden."
+    },
+    {
+      "id": "review_despite_blocking_failure",
+      "result": "confirmed_synthetic",
+      "evidence": "A synthetic hard source failure triggered one full-source final review on baseline before failing; the revised path makes zero review calls.",
+      "action": "Avoid final review when a blocking source failure remains after the existing correction opportunity."
+    },
+    {
+      "id": "incidental_classification_rematch",
+      "result": "confirmed_synthetic",
+      "evidence": "A mixed batch with an unchanged material claim and an independently source-verified incidental example made three match requests on baseline and two after change; final coverage and source checks retained.",
+      "action": "Reuse existing matches only when the verified source statement and ranges have not changed."
+    }
+  ],
+  "validation": "207 relevant local tests passed; synthetic request-count comparisons; no production content modified.",
+  "limitations": [
+    "Prior 88-call long-source run used a local harness without binding production checkpoints; it is not production call attribution.",
+    "Prior 50-segment runs are not a controlled causal comparison.",
+    "Full-episode validation was not rerun after the execution platform rejected the full-input transfer.",
+    "No change to 90% threshold or final source-grounding acceptance."
+  ],
+  "additional_observation": {
+    "id": "exact_duplicate_obligations",
+    "result": "not_supported_by_sample_semantic_duplicates_unknown",
+    "evidence": "Prior authorized 189-item historical metadata/statistical check found zero exact normalized duplicates; no inference about paraphrases. New repeated SQL was rejected by automatic approval and was not rerun through another path.",
+    "action": "Do not deduplicate semantic obligations without independent source-aware evidence."
+  },
+  "observed_failure": "A previous authorized 3,088-segment local run ended at 79.41% coverage with 42 unresolved items including one contradiction. Its unbound local harness does not establish production request counts or whether the unresolved meanings were correctly classified."
+}

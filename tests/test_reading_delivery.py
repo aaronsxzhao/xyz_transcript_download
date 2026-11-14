@@ -505,6 +505,37 @@ def test_provider_inventory_failure_is_not_reported_as_missing_source_meaning():
     assert owner.generation_report['delivery']['status'] == 'blocked'
     assert 'markdown' not in edition
 
+
+@pytest.mark.parametrize('failure', ['failed_batches','inventory_failed_batches',
+    'inventory_validation_failed_batches','ignored_boundary_items','terminal_provider_failure'])
+def test_failed_coverage_checks_stop_before_unrecoverable_final_review(failure):
+    owner,edition=candidate(10)
+    owner.generation_report.pop('grounded_draft_identity')
+    owner.generation_report['coverage_ledger'][failure]=1
+    with patch('transcript_reading.call_json',side_effect=AssertionError('Unnecessary final review')) as review:
+        with pytest.raises(SummaryOutputError):
+            accept_edition(owner,edition,'Title','Source',[],0)
+    assert review.call_count==0
+    assert owner.generation_report['delivery']['status']=='blocked'
+    assert 'markdown' not in edition
+
+
+def test_early_failure_gate_keeps_existing_grounding_recovery_opportunity():
+    owner,edition=candidate(10);owner._quality_inventory=({},[])
+    owner.generation_report['coverage_ledger']['failed_batches']=1
+    edition['sections'][0]['paragraphs'][0]['raw']=True
+    recovered=copy.deepcopy(owner.generation_report['coverage_ledger'])
+    recovered['failed_batches']=0
+    review={'checked_source_ids':[line.id for line in edition['lines']],
+            'complete':True,'grounded':True,'unsupported_paragraph_ids':[],'additions':[]}
+    def rewrite(_engine,_lines,sections,_ids):
+        sections[0]['paragraphs'][0].pop('raw',None)
+    with patch('reading_delivery.repair_unsupported',side_effect=rewrite), \
+         patch('coverage_ledger.efficient_audit',return_value=recovered), \
+         patch('transcript_reading.call_json',return_value=review) as check:
+        accept_edition(owner,edition,'Title','Source',[],0)
+    assert check.call_count==1 and owner.generation_report['delivery']['status']=='accepted'
+
 @pytest.mark.parametrize('resume',[False,True])
 def test_late_coverage_work_publishes_completed_batch_progress(resume):
     owner,edition=candidate(10 if resume else 8)
