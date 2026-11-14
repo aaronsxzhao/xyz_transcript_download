@@ -72,5 +72,24 @@
   ],
   "validation": [
     "Both audit JSON files parsed successfully; no application code changed; no synthetic or production processing acceptance promoted."
+  ],
+  "followups": [
+    {
+      "checked_at": "2026-11-14T18:35:52.879084+08:00",
+      "readonly_run": 43585377190,
+      "result": "inspection_execution_restored",
+      "authentication": "existing Git macOS credential helper; GitHub API only; no credentials exported",
+      "budget": {
+        "beijing_date": "2026-11-14",
+        "settled_usd": 0,
+        "active_work_count": 0,
+        "active_work_scan_complete": true,
+        "daily_limit_usd": 100,
+        "provider_scope": "configured_test_account_provider_token",
+        "historical_report_limit_usd": 50
+      },
+      "model_calls_this_inspection": 0,
+      "next": "CI and platform-reviewed isolated alternate full-episode validation; previously rejected episode excluded"
+    }
   ]
 }

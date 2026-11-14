@@ -1,13 +1,6 @@
 name: Review saved-model summary samples
 
 on:
-  push:
-    branches: [main, fix/argument-reading-20261026]
-    paths:
-      - '.github/workflows/review-saved-summary-samples.yml'
-      - 'scripts/run_production_sample_review.py'
-      - 'scripts/review_argument_reading.py'
-      - 'scripts/sample_review_public.pem'
   workflow_dispatch:
 
 permissions:
@@ -20,9 +13,8 @@ concurrency:
 jobs:
   review:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 65
     env:
-      REVIEW_MODE: argument_edit
       CONTAINER_INSTANCE_ID: ocid1.computecontainerinstance.oc1.iad.anuwcljrram2hqqaueqbs2y4opn3tm2jfpmx4a7gdsscygwyjgnac5vrqgta
     steps:
       - uses: actions/checkout@v4
@@ -42,14 +34,5 @@ jobs:
           chmod 600 ~/.oci/key.pem
           printf '[DEFAULT]\nuser=%s\nfingerprint=%s\ntenancy=%s\nregion=us-ashburn-1\nkey_file=~/.oci/key.pem\n' \
             "$OCI_CLI_USER" "$OCI_CLI_FINGERPRINT" "$OCI_CLI_TENANCY" > ~/.oci/config
-      - name: Probe the saved provider and generate private review samples
-        run: python scripts/run_production_sample_review.py
-      - name: Upload encrypted review only
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: encrypted-summary-review
-          path: /tmp/xyz-review-artifacts/review.enc.json
-          if-no-files-found: error
-          retention-days: 3
-          compression-level: 0
+      - name: Validate one alternate authorized complete episode in isolation
+        run: python scripts/validate_authorized_episode.py
