@@ -1,0 +1,2 @@
+/* Same bundled glyphs and swap policy; never gate the theme on this manifest. */
+@import './fonts/noto-serif-sc.css';

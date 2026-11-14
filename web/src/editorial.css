@@ -1,4 +1,3 @@
-@import './fonts/noto-serif-sc.css';
 /* Optional skin overrides load with the skin. */
 html[data-design='editorial'] .publication-brand>svg,html[data-design='editorial'] .publication-nav nav a>svg { display:none; }
 html[data-design='editorial'] :is(.bg-dark-bg,.bg-dark-surface,.bg-dark-hover) { background:var(--ui-bg); }

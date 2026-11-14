@@ -140,6 +140,7 @@ jobs:
         run: |
           python scripts/check_editorial_fonts.py --output appearance-checks/fonts-chromium
           python scripts/check_editorial_fonts.py --webkit --output appearance-checks/fonts-webkit
+          python scripts/check_editorial_font_loading.py --baseline-dist /tmp/library-baseline/web/dist --webkit
       - name: Check appearance and retained state
         timeout-minutes: 5
         run: |

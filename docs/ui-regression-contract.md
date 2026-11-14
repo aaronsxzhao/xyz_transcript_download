@@ -16,7 +16,7 @@ Record current main SHA, relevant open PRs and the last report. Use an isolated 
 | Task progress and notifications | `check_processing_progress.py`, `check_progress_motion.py`, `check_global_feedback.py` | Parallel updates, late snapshots, completion, motion, duplicate feedback and keyboard dismissal |
 | Authentication | `check_auth_forms.py` | Pending inputs, duplicate submission prevention, failure/retry, retained drafts, recovery |
 | Subscriptions / uploads | `check_podcast_forms.py`, `check_podcast_actions.py` | Pending/selected feedback, concurrent actions, drafts and background navigation |
-| Startup, CSS or lazy assets | `check_document_startup.py`, `check_page_boundaries.py`, `check_page_loading.py`, `check_series_theme_browser.py` | Production startup, blocked optional assets, CSS ordering, navigation readiness |
+| Startup, CSS or lazy assets | `check_document_startup.py`, `check_editorial_font_loading.py`, `check_page_boundaries.py`, `check_page_loading.py`, `check_series_theme_browser.py` | Production startup, blocked optional assets, CSS ordering, navigation readiness |
 
 Settings tabs, custom model fields, platform accounts and tools/data controls are covered by `check_editorial_components.py`; add focused tests for any business logic change. Read a script's `--help` and fixtures before running it. Browser test names alone do not imply all themes/widths: record the actual arguments. `check_reader_themes.py`, for example, currently covers 390/1280px; the page matrix adds 820/1440px visual bounds.
 

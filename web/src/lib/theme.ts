@@ -24,6 +24,10 @@ export function getDesign(): Design { return document.documentElement.dataset.de
 let revision = 0
 const skins = {editorial:retryableStyleLoad(() => import('../editorial.css'), 'editorial'), classic:retryableStyleLoad(() => import('../classic-light.css'), 'classic-light')}
 export function loadAppearance(design = getDesign(), theme = getColorTheme()) {
+  if (design === 'editorial') {
+    if (import.meta.env.DEV) void import('../editorial-fonts.css')
+    else (window as Window & {__xyzLoadEditorialFonts?: () => void}).__xyzLoadEditorialFonts?.()
+  }
   return Promise.all([
     design === 'editorial' ? skins.editorial() : Promise.resolve(),
     design === 'classic' && theme === 'light' ? skins.classic() : Promise.resolve(),
