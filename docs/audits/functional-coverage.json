@@ -1628,6 +1628,15 @@
       "change": "Within one engine, reuse only validated affirmative receipts for identical item, original source context, reported gap, verification prompt and model. Never reuse corrections, incidental classifications or failed responses. Retry one transient repair transport failure at the same batch boundary before proceeding to full review; preserve validation and fail closed.",
       "limitations": "Does not skip final coverage matching or grounding. Real long-podcast request savings and final quality remain unverified; short real-source sample is not whole-episode acceptance. Small sample before the targeted retry used 14 calls in 289 seconds, coverage 77.78%, no receipt cache hits; its prior harness did not bind production-style checkpoints.",
       "next_step": "Run the entire authorized long test episode when the executor can receive its full transcript safely, and compare actual provider calls, final coverage, completion and costs."
+    },
+    {
+      "id": "2026-11-14-summary-efficiency-four-hypotheses",
+      "scope": "Summary coverage matching and delivery review",
+      "result": "local synthetic comparisons; production acceptance pending",
+      "report": "docs/audits/2026-11-14-summary-efficiency.json",
+      "change": "Preserve failed repair batches, avoid final review when source checks irrecoverably failed, and avoid rematching unchanged source meaning when only incidental classification changed.",
+      "limitations": "No full-episode production success or real request-reduction claim; exact vs semantic duplicate distinction recorded.",
+      "next_step": "Complete authorized full-episode validation in a platform-approved execution path; compare exact provider calls, total time, source support and final coverage."
     }
   ],
   "user_authorization_updates": [

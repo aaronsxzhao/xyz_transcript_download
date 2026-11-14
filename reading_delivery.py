@@ -121,6 +121,16 @@ def accept_edition(engine, edition, title, source, formats, duration, stage_call
                     prepared_inventory=engine._quality_inventory, allow_repairs=False, stage_callback=stage_callback)
                 if any(p.get('raw') for s in sections for p in s['paragraphs']):
                     raise SummaryOutputError('quality', reason='grounding')
+            # A grounding correction may replace the ledger, so check only
+            # after that existing recovery opportunity. The remaining failures
+            # cannot be fixed by the full-source delivery review.
+            ledger = report.get('coverage_ledger', {})
+            if any(ledger.get(k) for k in ('failed_batches', 'inventory_failed_batches',
+                    'inventory_validation_failed_batches', 'ignored_boundary_items',
+                    'terminal_provider_failure')):
+                raise SummaryOutputError('quality', reason='source_review'
+                    if ledger.get('inventory_failed_batches') or ledger.get('inventory_validation_failed_batches')
+                    else 'coverage')
             identity = draft_identity(sections, overview)
             if (report.get('grounded_draft_identity') != identity or
                     report.get('coverage_ledger', {}).get('grounding_concerns')):
