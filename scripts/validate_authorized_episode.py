@@ -197,7 +197,8 @@ def child(destination):
     if os.environ.get('EPISODE_GUARD_PROBE_ONLY') == '1':
         for _ in range(2):
             guard(str(datetime.now(ZONE).date()))
-        report.update(terminal_state='guard_probe_passed', provider_calls=0, quality_acceptance=False)
+        report.update(terminal_state='guard_probe_passed', provider_calls=0, quality_acceptance=False,
+                      environment='isolated Actions runner; read-only billing and queue probe; zero model calls')
         publish()
         return
     # Read only a different explicitly authorized episode. No rejected source is
