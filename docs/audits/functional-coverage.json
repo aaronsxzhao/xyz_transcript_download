@@ -682,6 +682,14 @@
           "scope": "complete saved transcript to summary/quality gates only",
           "result": "failed_quality",
           "production_chain_status_changed": false
+        },
+        {
+          "checked_at": "2026-11-14T21:10:19.580311+08:00",
+          "run": 43593271785,
+          "report": "docs/audits/2026-11-14-alternate-episode-after-recovery-fix.json",
+          "scope": "complete saved transcript to isolated real-model summary and unchanged quality gates",
+          "result": "failed_quality;77actualHTTP;65.81percent;53unresolved;latepath0hits",
+          "production_chain_status_changed": false
         }
       ]
     },
@@ -1473,6 +1481,19 @@
       "status": "local_verified_release_pending",
       "environment": "local production-build synthetic8task fixtures",
       "not_claimed": "real provider processing or physical devices"
+    },
+    {
+      "id": "2026-11-14-final-review-recovery-entry",
+      "report": "docs/audits/2026-11-14-summary-handoff-validation.json",
+      "result": "synthetic_regression_passed_real_path_not_exercised",
+      "scope": "existing bounded correction reachable after final-review initiated repair; strict source and90percent coverage retained",
+      "limitations": "Both complete alternate-source model runs failed naturally; no request reduction or completion improvement demonstrated.",
+      "historical_sample": {
+        "run": 43598283541,
+        "result": "blocked_no_usable_candidate",
+        "actual_model_calls": 0,
+        "semantic_false_positive_proven": false
+      }
     }
   ],
   "audit_attempts": [
@@ -1576,6 +1597,12 @@
       "browser": "real shell Chromium interactions/screenshots actually viewed",
       "network": "enforced",
       "new_key_probe": "usage200;not a generation test"
+    },
+    {
+      "checked_at": "2026-11-14T21:10:19.580311+08:00",
+      "report": "docs/audits/2026-11-14-summary-handoff-validation.json",
+      "scope": "official GitHub dispatch restored; read-only shared billing and active work checks; no production quality acceptance promoted",
+      "latest_readonly_run": 43596632193
     }
   ],
   "integration_note": "2026-11-09: merged PR239/240/241/242 evidence. Latest RSS report remains current; older environment blockers and rollout-pending statements are historical observations, not current acceptance. Prior local fixtures retained separately from production evidence.",

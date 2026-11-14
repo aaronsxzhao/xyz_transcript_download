@@ -32,7 +32,7 @@
   "limitations": [
     "Prior 88-call long-source run used a local harness without binding production checkpoints; it is not production call attribution.",
     "Prior 50-segment runs are not a controlled causal comparison.",
-    "Full-episode validation was not rerun after the execution platform rejected the full-input transfer.",
+    "The rejected3088-segment source remains excluded; two other authorized complete2170-segment runs were completed through the restored supported route and failed quality.",
     "No change to 90% threshold or final source-grounding acceptance."
   ],
   "additional_observation": {
@@ -48,6 +48,9 @@
     "outcome": "natural quality failure;73actualHTTPrequests;82.35percentcoverage;27unresolvedincluding1contradiction",
     "not_claimed": "Four prior synthetic request-count findings are not whole-episode completion or causal performance proof.",
     "new_confirmed_synthetic_code_path": "Existing late contradiction correction was unreachable after a final-review initiated correction continued the outer loop.",
-    "new_fix_real_validation": 43593271785
+    "new_fix_real_validation": 43593271785,
+    "new_fix_real_validation_outcome": "natural quality failure;77actualHTTPrequests;65.81percentcoverage;53unresolved;newlatepath0hits",
+    "real_effectiveness_demonstrated": false,
+    "read_only_error_review": 43596632193
   }
 }

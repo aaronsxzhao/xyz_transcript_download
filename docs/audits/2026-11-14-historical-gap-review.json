@@ -1,0 +1,65 @@
+{
+  "run_id": 43598283541,
+  "job_id": 132457376594,
+  "result": {
+    "revision": "ce8df4c2ba95133354c916e9c39f4af54c2b924f",
+    "environment": "isolated historical gap review; one real model assessment; production content read only",
+    "production_writes": false,
+    "account_authentication": "authorized server maintenance bindings; not a user login",
+    "daily_limit_usd": 100,
+    "settled_stop_usd": 85,
+    "in_flight_reserve_usd": 15,
+    "request_limit": 160,
+    "actual_provider_http_attempts": 0,
+    "terminal_state": "blocked",
+    "checkpoint_policy": "request-fingerprinted Execution with empty in-memory store",
+    "excluded_previously_rejected_episode": true,
+    "account_anchor": "existing_readonly_billing_diagnostic",
+    "billing_snapshot_max_age_seconds": 90,
+    "monitor": {
+      "read_attempts": 2,
+      "read_failures": 0,
+      "wait_seconds": 0
+    },
+    "provider_billing_reads": 2,
+    "billing_snapshot_age_seconds": 0,
+    "budget": {
+      "status": "checked",
+      "beijing_date": "2026-11-14",
+      "settled_usd": 11.768824,
+      "scope": "configured_test_account_provider_token",
+      "daily_limit_usd": 100,
+      "active_work_found": false
+    },
+    "source_binding": "exact previously authorized historical task and episode URL; read only",
+    "source_and_billing_account_same": false,
+    "source_sha256": "3e3af05dbabcc3bfc605ac8215be5c21696677a546f8c90ce63bb33eb8cbf477",
+    "episode_id": "6ac6a657e742e36efcbf74af",
+    "source_segments": 2170,
+    "source_characters": 18257,
+    "source_duration_seconds": 3437.2,
+    "transcript_structural_validation": "passed",
+    "manual_transcript_readability": "not_reviewed",
+    "manual_summary_readability": "not_reviewed",
+    "model_settings_fingerprint": "16bd60d985604f5db7b1d8575c6b59fe40af0182957a8c911e269faefb2dcb21",
+    "quality_acceptance": false,
+    "diagnostic_model_call_limit": 1,
+    "historical_task": "63208f3e-1150-4d04-aafa-83f49a772878",
+    "current_full_run_items_adjudicated": false,
+    "blocker": "historical_candidate_unavailable",
+    "wall_seconds": 0.345,
+    "execution": {
+      "stages": {},
+      "checkpoint_hits": 0,
+      "wall_seconds": 0.345
+    },
+    "final_budget_guard_passed": true
+  },
+  "interpretation": {
+    "quality_acceptance": false,
+    "semantic_misjudgment_proven": false,
+    "current_53_items_adjudicated": false,
+    "blocker": "No usable saved candidate with source-linked unresolved items and prose was available at the exact authorized source binding; no model call was admitted.",
+    "next": "Do not search arbitrary accounts or rerun paid generation to manufacture a sample. Future full-source diagnostic runs need an approved in-memory sampling hook before candidate disposal."
+  }
+}
