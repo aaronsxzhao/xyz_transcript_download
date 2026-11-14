@@ -5,14 +5,18 @@ import { minify } from 'vite'
 import { documentProgram } from './document-program.mjs'
 const root = new URL('../dist/', import.meta.url)
 let html = readFileSync(new URL('index.html', root), 'utf8')
+const manifest = JSON.parse(readFileSync(new URL('manifest.json',root),'utf8'))
+// Preload only the persisted skin, without applying it ahead of base styles.
+// This overlaps its transfer with the document instead of starting after it.
+const skins = Object.fromEntries(['editorial','classic-light'].map(name=>[name,'/'+manifest['src/'+name+'.css'].file]))
+const skinPreload = `(()=>{var root=document.documentElement,path=${JSON.stringify(skins)}[root.dataset.design==='editorial'?'editorial':root.dataset.theme==='light'?'classic-light':''];if(path){var link=document.createElement('link');link.rel='preload';link.as='style';link.crossOrigin='';link.href=path;link.dataset.appearancePreload='';document.head.appendChild(link)}})();`
 // Minify the existing pre-paint theme bootstrap, just like the startup shell.
 const themeBootstrap = html.match(/<script>([\s\S]*?)<\/script>/)
 if (themeBootstrap) {
-  const theme = await minify('theme.js', themeBootstrap[1])
+  const theme = await minify('theme.js', themeBootstrap[1]+';'+skinPreload)
   if (theme.errors?.length) throw new Error('Theme bootstrap minification failed')
   html = html.replace(themeBootstrap[0], () => '<script>' + theme.code + '</script>')
 }
-const manifest = JSON.parse(readFileSync(new URL('manifest.json',root),'utf8'))
 const program = await documentProgram(root,manifest)
 const payload = JSON.stringify(program.modules).replace(/</g,'\\u003c')
 // The normal path remains self-contained. Only a stalled document races a

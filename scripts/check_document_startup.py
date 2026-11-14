@@ -17,6 +17,11 @@ from playwright.async_api import async_playwright, TimeoutError as BrowserTimeou
 
 class StreamingPreview(DataPreview):
     def do_GET(self):
+        if self.path == '/settings?skin=1':
+            html=frontend_html(Path(self.directory),'settings',True,'https://example.supabase.co').encode()
+            split=html.index(b'</head>')+len(b'</head>')
+            self.send_response(200);self.send_header('Content-Type','text/html; charset=utf-8');self.send_header('Content-Length',str(len(html)));self.end_headers()
+            self.wfile.write(html[:split]);self.wfile.flush();time.sleep(3);self.wfile.write(html[split:]);return
         if self.path == '/settings?tail=1':
             html=frontend_html(Path(self.directory),'settings',True,'https://example.supabase.co').encode()
             start=html.index(b'<script data-document-program')
@@ -169,6 +174,36 @@ async def check(browser, dist, label, output=None):
     finally:
         await context.close();server.shutdown()
 
+async def check_skin(browser, dist, label, output=None):
+    # A nine-second skin transfer exceeds the unchanged eight-second timeout
+    # when started after the three-second document. Early preload must overlap it.
+    state={'reads':[],'asset_delay':9,'document_delay':0,'release':False}
+    handler=type('SkinHandler',(StreamingPreview,),{'state':state})
+    server=PreviewServer(('127.0.0.1',0),functools.partial(handler,directory=str(dist),bootstrap=True))
+    threading.Thread(target=server.serve_forever,daemon=True).start()
+    context=await browser.new_context(viewport={'width':390,'height':900},service_workers='block')
+    await context.add_init_script("localStorage.setItem('xyz:design','editorial');localStorage.setItem('xyz:color-theme','light');localStorage.setItem('xyz_access_token',"+json.dumps(token(int(time.time())+3600))+");localStorage.setItem('xyz_user',JSON.stringify({id:'bench',email:'bench@example.com',authenticated:true}));window.WebSocket=class{static OPEN=1;readyState=0;send(){}close(){}}")
+    try:
+        page=await context.new_page();started=time.monotonic()
+        await page.goto(f'http://127.0.0.1:{server.server_port}/settings?skin=1',wait_until='commit')
+        await page.wait_for_timeout(350)
+        early=any(path.startswith('/assets/editorial-') for path in state['reads'])
+        assert await page.locator('[data-document-program]').count()==0
+        await page.locator('select[aria-label="Summary provider"]').wait_for(timeout=14000)
+        design=await page.locator('html').get_attribute('data-design')
+        report={'label':label,'skin_preload_before_program':early,'design':design,'ready_ms':round((time.monotonic()-started)*1000)}
+        if label.startswith('after'):
+            assert early and design=='editorial',report
+            assert await page.locator('html').get_attribute('data-theme')=='light'
+            assert await page.evaluate("Array.from(document.querySelectorAll('link[rel=stylesheet]')).some(link=>link.href.includes('/editorial-')&&link.sheet)")
+            preloads=await page.locator('link[data-appearance-preload]').evaluate_all('(links)=>links.map(link=>link.href)')
+            assert len(preloads)==1 and '/editorial-' in preloads[0],preloads
+            if output:await page.screenshot(path=str(output/(label+'-selected-skin.png')))
+        print(json.dumps(report),flush=True)
+    finally:
+        await context.close();server.shutdown()
+
+
 async def main():
     parser=argparse.ArgumentParser();parser.add_argument('--baseline-dist',type=Path);parser.add_argument('--browser-path');parser.add_argument('--browser-args',type=Path);parser.add_argument('--webkit',action='store_true');parser.add_argument('--output',type=Path);args=parser.parse_args()
     current=Path(__file__).resolve().parents[1]/'web/dist'
@@ -176,7 +211,7 @@ async def main():
         for label,dist in [('before',args.baseline_dist),('after',current)]:
             if not dist:continue
             browser=await p.chromium.launch(executable_path=args.browser_path,headless=True,args=json.loads(args.browser_args.read_text()) if args.browser_args else ['--no-sandbox'])
-            await check(browser,dist,label,args.output);await browser.close()
+            await check(browser,dist,label,args.output);await check_skin(browser,dist,label,args.output);await browser.close()
         if args.webkit:
-            browser=await p.webkit.launch(headless=True);await check(browser,current,'after-webkit',args.output);await browser.close()
+            browser=await p.webkit.launch(headless=True);await check(browser,current,'after-webkit',args.output);await check_skin(browser,current,'after-webkit',args.output);await browser.close()
 if __name__=='__main__':asyncio.run(main())
