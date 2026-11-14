@@ -33,3 +33,10 @@ for item in instance.get('containers') or []:
                 report['logs'] = safe_log_summary(path.read_text(errors='replace'))
             else: report['logs_available'] = False
             print(json.dumps(report))
+
+    # Read only the two explicitly authorized Nov11 disposable import records.
+    # Never export bindings, domain content or raw container logs.
+    bindings = row.get('environment-variables') or {}
+    if bindings.get('SUPABASE_URL') and bindings.get('SUPABASE_SERVICE_KEY'):
+        from scripts.inspect_pending_imports import inspect_bindings
+        print(json.dumps({'pending_import_diagnostic':inspect_bindings(bindings)}))
