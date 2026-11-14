@@ -1540,6 +1540,57 @@
         "canonical": "https://github.com/aaronsxzhao/xyz_transcript_download/pull/271",
         "scope": "final-head CI, merge and formal workflow verification recorded in PR body/checks; this file is a pre-merge snapshot"
       }
+    },
+    {
+      "id": "2026-11-15-startup-editorial-font-delivery",
+      "report": "docs/audits/2026-11-15-startup-release.md",
+      "prs": [
+        272,
+        273
+      ],
+      "result": "deployed_public_editorial_passed_authenticated_pending",
+      "revision": "1c92f966e801fee7fd16ddea74af9460b792d586",
+      "scope": "stalled-document public recovery; independent font metadata; anonymous Editorial cold/reload/font-delivery matrix at390/820/1440 light/dark",
+      "pr_ci": [
+        {
+          "run": 43622847598,
+          "conclusion": "success"
+        },
+        {
+          "run": 43629076383,
+          "conclusion": "success"
+        }
+      ],
+      "main_ci": [
+        {
+          "run": 43626099658,
+          "conclusion": "success"
+        },
+        {
+          "run": 43631840893,
+          "conclusion": "success"
+        }
+      ],
+      "deployment": [
+        {
+          "run": 43626099659,
+          "conclusion": "success"
+        },
+        {
+          "run": 43631840868,
+          "conclusion": "success"
+        }
+      ],
+      "exact_health_revision_verified": true,
+      "anonymous_live_cases": 6,
+      "anonymous_live_cases_passed": 6,
+      "actual_live_screenshots_reviewed": 6,
+      "first_live_attempt": "PARTIAL on1f33f3e:3passes,2Classic fallbacks,1reload timeout; preserved",
+      "authenticated_current_run": "not_run;dedicated credential unavailable",
+      "physical_device": "not_run",
+      "actual_model_calls": 0,
+      "production_chain_status_changed": false,
+      "checked_at": "2026-11-14T19:41:56.504499+00:00"
     }
   ],
   "audit_attempts": [
@@ -1627,6 +1678,13 @@
       "status": "Actual screenshot inspection; loading series screenshot excluded; no full-site acceptance",
       "evidence_private": "/workspace/browser-validation/appearance-20261111",
       "scope": "3anonymous,30live,3RSS,4localtitle,3postdeploy,48article screenshots actually viewed;series loading screenshot excluded"
+    },
+    {
+      "checked_at": "2026-11-14T19:41:56.504499+00:00",
+      "report": "docs/audits/2026-11-15-startup-release.md",
+      "scope": "all6real anonymous Editorial login screenshots on1c92f96;4local font UI screenshots;not authenticated readers",
+      "result": "passed_scoped_anonymous_and_local",
+      "screenshots_private": true
     }
   ],
   "environment_readiness_checks": [
