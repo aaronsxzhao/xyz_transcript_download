@@ -140,7 +140,8 @@
       "allCompletedStatesMatch": true
     },
     "status": "PARTIAL",
-    "errorType": "TimeoutError"
+    "errorType": "TimeoutError",
+    "failure_stage_limit": "The stage field was last set before reader reload and not updated for Back. Failure screenshot shows Library lazy loading after the reader screenshot. It does not establish a reader reload defect; requested Editorial screenshot was Classic and rejected."
   },
   "free_original_import": {
     "newTaskId": "c0c49d04-cfa",
