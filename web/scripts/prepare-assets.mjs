@@ -5,24 +5,52 @@ import { minify } from 'vite'
 import { documentProgram } from './document-program.mjs'
 const root = new URL('../dist/', import.meta.url)
 let html = readFileSync(new URL('index.html', root), 'utf8')
+const manifest = JSON.parse(readFileSync(new URL('manifest.json',root),'utf8'))
+// Preload only the persisted skin, without applying it ahead of base styles.
+// This overlaps its transfer with the document instead of starting after it.
+const skins = Object.fromEntries(['editorial','classic-light'].map(name=>[name,'/'+manifest['src/'+name+'.css'].file]))
+const skinPreload = `(()=>{var root=document.documentElement,path=${JSON.stringify(skins)}[root.dataset.design==='editorial'?'editorial':root.dataset.theme==='light'?'classic-light':''];if(path){var link=document.createElement('link');link.rel='preload';link.as='style';link.crossOrigin='';link.href=path;link.dataset.appearancePreload='';document.head.appendChild(link)}})();`
 // Minify the existing pre-paint theme bootstrap, just like the startup shell.
 const themeBootstrap = html.match(/<script>([\s\S]*?)<\/script>/)
 if (themeBootstrap) {
-  const theme = await minify('theme.js', themeBootstrap[1])
+  const theme = await minify('theme.js', themeBootstrap[1]+';'+skinPreload)
   if (theme.errors?.length) throw new Error('Theme bootstrap minification failed')
   html = html.replace(themeBootstrap[0], () => '<script>' + theme.code + '</script>')
 }
-const manifest = JSON.parse(readFileSync(new URL('manifest.json',root),'utf8'))
 const program = await documentProgram(root,manifest)
 const payload = JSON.stringify(program.modules).replace(/</g,'\\u003c')
-const setup = `<script data-document-program data-cfasync="false">(function(){var source=${payload},imports={};for(var path in source){var blob=URL.createObjectURL(new Blob([source[path]],{type:'text/javascript'}));imports[path]=blob;imports['xyz-public:'+path]=blob;}var retry=new URLSearchParams(location.search).get('__xyz_boot');var optional=${JSON.stringify(readdirSync(new URL('assets/',root)).sort().filter(file=>file.endsWith('.js')&&!file.includes('.worker-')&&!Object.hasOwn(program.modules,'/assets/'+file)).map(file=>'/assets/'+file))};for(var path of optional)if(!imports[path]){var target=path+(retry?'?__xyz_retry='+encodeURIComponent(retry):'');imports['xyz-public:'+path]=new URL(target,location.origin).href;if(retry)imports[path]=target;}var map=document.createElement('script');map.type='importmap';map.textContent=JSON.stringify({imports:imports});document.head.appendChild(map)})()</script>`
-// No separate request is needed to evaluate the application. Optional modules
+// The normal path remains self-contained. Only a stalled document races a
+// separately cached copy of the identical public module graph. No auth data is
+// included, and a failed recovery request leaves the inline fallback intact.
+// The .js suffix uses the existing immutable compressed-asset/CDN path; the
+// response is parsed as JSON data, never imported or executed as a script.
+const recoveryPath = '/assets/startup-program-' + createHash('sha256').update(payload).digest('hex').slice(0,16) + '.js'
+const loader = await minify('document-loader.js', `
+(function(){
+  var started=false,entry=${JSON.stringify(program.entry)},timer,controller;
+  window.__xyzDocumentStart=function(source){
+    if(started || typeof source[entry]!=='string')return;
+    started=true;clearTimeout(timer);if(controller)controller.abort();
+    var imports={};
+    for(var path in source){var blob=URL.createObjectURL(new Blob([source[path]],{type:'text/javascript'}));imports[path]=blob;imports['xyz-public:'+path]=blob;}
+    var retry=new URLSearchParams(location.search).get('__xyz_boot');
+    var optional=${JSON.stringify(readdirSync(new URL('assets/',root)).sort().filter(file=>file.endsWith('.js')&&!file.includes('.worker-')&&!Object.hasOwn(program.modules,'/assets/'+file)).map(file=>'/assets/'+file))};
+    for(var path of optional)if(!imports[path]){var target=path+(retry?'?__xyz_retry='+encodeURIComponent(retry):'');imports['xyz-public:'+path]=new URL(target,location.origin).href;if(retry)imports[path]=target;}
+    var map=document.createElement('script');map.type='importmap';map.textContent=JSON.stringify({imports:imports});document.head.appendChild(map);
+    import(entry).catch(function(error){console.error('Application startup failed',error);window.__xyzEntryFailed=true;window.dispatchEvent(new Event('xyz:entry-error'))});
+  };
+  timer=setTimeout(function(){if(started)return;controller=new AbortController();var timeout=setTimeout(function(){controller.abort()},15000);fetch(${JSON.stringify(recoveryPath)},{credentials:'omit',signal:controller.signal}).then(function(response){if(!response.ok)throw Error('Startup recovery unavailable');return response.json()}).then(window.__xyzDocumentStart).catch(function(){}).finally(function(){clearTimeout(timeout)})},12000);
+})()`)
+if (loader.errors?.length) throw new Error('Document loader minification failed')
+const setup = `<script data-document-program data-cfasync="false">window.__xyzDocumentStart(${payload})</script>`
+writeFileSync(new URL('.'+recoveryPath, root), payload)
+// No separate request is needed on healthy startup. Optional modules
 // still use normal hashed public URLs and share the embedded React runtime.
 html = html.replace(/<link rel="modulepreload"[^>]*>/g,'')
 html = html.replace(/<script type="module"[^>]*src="[^"]+"[^>]*><\/script>/,'')
 // Keep the small shell and early reads before the larger embedded program so
 // streaming documents can paint navigation and start data reads immediately.
-html = html.replace('</body>',()=>setup+`<script type="module" data-cfasync="false" data-entry="${program.entry}">import(${JSON.stringify(program.entry)}).catch(function(error){console.error('Application startup failed',error);window.__xyzEntryFailed=true;window.dispatchEvent(new Event('xyz:entry-error'))})</script></body>`)
+html = html.replace('</body>',()=>`<script data-entry="${program.entry}" data-cfasync="false">${loader.code}</script>`+setup+'</body>')
 
 // The inline startup shell needs the same production minification as the app.
 const startup = await minify('startup.js', readFileSync(new URL('../src/startup.js', import.meta.url), 'utf8'))

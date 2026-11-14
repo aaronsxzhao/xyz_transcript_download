@@ -17,6 +17,19 @@ from playwright.async_api import async_playwright, TimeoutError as BrowserTimeou
 
 class StreamingPreview(DataPreview):
     def do_GET(self):
+        if self.path == '/settings?skin=1':
+            html=frontend_html(Path(self.directory),'settings',True,'https://example.supabase.co').encode()
+            split=html.index(b'</head>')+len(b'</head>')
+            self.send_response(200);self.send_header('Content-Type','text/html; charset=utf-8');self.send_header('Content-Length',str(len(html)));self.end_headers()
+            self.wfile.write(html[:split]);self.wfile.flush();time.sleep(3);self.wfile.write(html[split:]);return
+        if self.path == '/settings?tail=1':
+            html=frontend_html(Path(self.directory),'settings',True,'https://example.supabase.co').encode()
+            start=html.index(b'<script data-document-program')
+            split=start+(len(html)-start)//2  # Leave the actual inline script unclosed.
+            self.send_response(200);self.send_header('Content-Type','text/html; charset=utf-8');self.send_header('Content-Length',str(len(html)));self.end_headers()
+            self.wfile.write(html[:split]);self.wfile.flush()
+            self.state['tail_release'].wait(30)
+            self.wfile.write(html[split:]);return
         if self.path == '/settings?stream=1':
             html=frontend_html(Path(self.directory),'settings',True,'https://example.supabase.co').encode()
             split=html.index(b'<script data-document-program')
@@ -25,8 +38,8 @@ class StreamingPreview(DataPreview):
         super().do_GET()
 
 
-async def check(browser, dist, label):
-    state={'reads':[],'asset_delay':0,'document_delay':0,'release':False}
+async def check(browser, dist, label, output=None):
+    state={'reads':[],'asset_delay':0,'document_delay':0,'release':False,'tail_release':threading.Event()}
     handler=type('Handler',(StreamingPreview,),{'state':state})
     server=PreviewServer(('127.0.0.1',0),functools.partial(handler,directory=str(dist),bootstrap=True))
     threading.Thread(target=server.serve_forever,daemon=True).start()
@@ -41,6 +54,10 @@ async def check(browser, dist, label):
         await route.continue_()
     await context.route('**/assets/**',assets)
     results={'label':label}
+    if output:output.mkdir(parents=True,exist_ok=True)
+    # WebKit screenshot waits for document.fonts.ready, which can wait for EOF.
+    # Do not let optional artifact collection release the stalled-tail fixture.
+    capture_stream=output and browser.browser_type.name!='webkit'
     try:
         for name,path,selector in [('settings','/settings','select[aria-label="Summary provider"]'),('podcasts','/podcasts','main h1'),('summary','/viewer/699acfb5de29766da924dee1','text=Readable podcast overview.'),('local','/videos/local-completed','article')]:
             page=await context.new_page();errors=[];console_errors=[]
@@ -80,6 +97,65 @@ async def check(browser, dist, label):
             results['streamed_program_ready_ms']=round((time.monotonic()-started)*1000)
             assert state['reads'].count('/api/settings')==before+1
             await page.close()
+            # Reproduce a stalled HTML tail. Recovery must mount before the
+            # document finishes, without credentials or a second module identity.
+            page=await context.new_page();recovery=[]
+            async def allow_recovery(route):
+                recovery.append(route.request)
+                await route.continue_()
+            await page.route('**/assets/startup-program-*.js',allow_recovery)
+            await context.add_cookies([{'name':'startup-private','value':'fixture','url':origin}])
+            started=time.monotonic()
+            await page.goto(origin+'/settings?tail=1',wait_until='commit')
+            await page.wait_for_timeout(500)
+            assert not recovery, 'Healthy startup must not duplicate the module graph'
+            if capture_stream:await page.screenshot(path=str(output/(label+'-stalled.png')))
+            select=page.locator('select[aria-label="Summary provider"]')
+            await select.wait_for(timeout=15000)
+            await page.wait_for_function("!document.querySelector('select[aria-label=\"Summary provider\"]').disabled")
+            assert await page.evaluate('document.readyState')=='loading'
+            assert await page.locator('[data-document-program]').count()==1
+            assert not state['tail_release'].is_set()
+            assert len(recovery)==1
+            headers=await recovery[0].all_headers()
+            assert 'authorization' not in headers and 'cookie' not in headers
+            results['stalled_tail_recovered_ms']=round((time.monotonic()-started)*1000)
+            if capture_stream:await page.screenshot(path=str(output/(label+'-recovered.png')))
+            await select.evaluate("el=>el.dataset.sameMount='true'")
+            state['tail_release'].set()
+            await page.wait_for_load_state('load')
+            assert await page.locator('script[type=importmap]').count()==1
+            assert await select.get_attribute('data-same-mount')=='true'
+            results['late_inline_does_not_remount']=True
+            await page.close()
+            # An unavailable recovery asset must leave the embedded path usable.
+            state['tail_release'].clear();page=await context.new_page()
+            async def unavailable(route):
+                await route.fulfill(status=503,body='Unavailable')
+            await page.route('**/assets/startup-program-*.js',unavailable)
+            await page.goto(origin+'/settings?tail=1',wait_until='commit')
+            async with page.expect_response(lambda r:'startup-program-' in r.url,timeout=15000) as pending:
+                pass
+            assert (await pending.value).status==503
+            assert await page.locator('#startup-shell').count()==1
+            state['tail_release'].set()
+            await page.locator('select[aria-label="Summary provider"]').wait_for(timeout=2500)
+            assert await page.locator('script[type=importmap]').count()==1
+            results['recovery_failure_preserves_inline']=True
+            await page.close()
+            # If the inline tail wins after recovery starts, cancel that transfer.
+            state['tail_release'].clear();state['asset_delay']=30
+            page=await context.new_page()
+            await page.route('**/assets/startup-program-*.js',lambda route:route.continue_())
+            async with page.expect_request(lambda r:'startup-program-' in r.url,timeout=15000):
+                await page.goto(origin+'/settings?tail=1',wait_until='commit')
+            async with page.expect_event('requestfailed',predicate=lambda r:'startup-program-' in r.url,timeout=2500):
+                state['tail_release'].set()
+                await page.locator('select[aria-label="Summary provider"]').wait_for(timeout=2500)
+            assert await page.locator('script[type=importmap]').count()==1
+            results['inline_win_cancels_recovery']=True
+            state['asset_delay']=0
+            await page.close()
             # Exercise the watchdog without any framework ever executing.
             page=await context.new_page();await page.clock.install()
             raw=(Path(__file__).resolve().parents[1]/'web/index.html').read_text()
@@ -101,14 +177,44 @@ async def check(browser, dist, label):
     finally:
         await context.close();server.shutdown()
 
+async def check_skin(browser, dist, label, output=None):
+    # A nine-second skin transfer exceeds the unchanged eight-second timeout
+    # when started after the three-second document. Early preload must overlap it.
+    state={'reads':[],'asset_delay':9,'document_delay':0,'release':False}
+    handler=type('SkinHandler',(StreamingPreview,),{'state':state})
+    server=PreviewServer(('127.0.0.1',0),functools.partial(handler,directory=str(dist),bootstrap=True))
+    threading.Thread(target=server.serve_forever,daemon=True).start()
+    context=await browser.new_context(viewport={'width':390,'height':900},service_workers='block')
+    await context.add_init_script("localStorage.setItem('xyz:design','editorial');localStorage.setItem('xyz:color-theme','light');localStorage.setItem('xyz_access_token',"+json.dumps(token(int(time.time())+3600))+");localStorage.setItem('xyz_user',JSON.stringify({id:'bench',email:'bench@example.com',authenticated:true}));window.WebSocket=class{static OPEN=1;readyState=0;send(){}close(){}}")
+    try:
+        page=await context.new_page();started=time.monotonic()
+        await page.goto(f'http://127.0.0.1:{server.server_port}/settings?skin=1',wait_until='commit')
+        await page.wait_for_timeout(350)
+        early=any(path.startswith('/assets/editorial-') for path in state['reads'])
+        assert await page.locator('[data-document-program]').count()==0
+        await page.locator('select[aria-label="Summary provider"]').wait_for(timeout=14000)
+        design=await page.locator('html').get_attribute('data-design')
+        report={'label':label,'skin_preload_before_program':early,'design':design,'ready_ms':round((time.monotonic()-started)*1000)}
+        if label.startswith('after'):
+            assert early and design=='editorial',report
+            assert await page.locator('html').get_attribute('data-theme')=='light'
+            assert await page.evaluate("Array.from(document.querySelectorAll('link[rel=stylesheet]')).some(link=>link.href.includes('/editorial-')&&link.sheet)")
+            preloads=await page.locator('link[data-appearance-preload]').evaluate_all('(links)=>links.map(link=>link.href)')
+            assert len(preloads)==1 and '/editorial-' in preloads[0],preloads
+            if output:await page.screenshot(path=str(output/(label+'-selected-skin.png')))
+        print(json.dumps(report),flush=True)
+    finally:
+        await context.close();server.shutdown()
+
+
 async def main():
-    parser=argparse.ArgumentParser();parser.add_argument('--baseline-dist',type=Path);parser.add_argument('--browser-path');parser.add_argument('--browser-args',type=Path);parser.add_argument('--webkit',action='store_true');args=parser.parse_args()
+    parser=argparse.ArgumentParser();parser.add_argument('--baseline-dist',type=Path);parser.add_argument('--browser-path');parser.add_argument('--browser-args',type=Path);parser.add_argument('--webkit',action='store_true');parser.add_argument('--output',type=Path);args=parser.parse_args()
     current=Path(__file__).resolve().parents[1]/'web/dist'
     async with async_playwright() as p:
         for label,dist in [('before',args.baseline_dist),('after',current)]:
             if not dist:continue
             browser=await p.chromium.launch(executable_path=args.browser_path,headless=True,args=json.loads(args.browser_args.read_text()) if args.browser_args else ['--no-sandbox'])
-            await check(browser,dist,label);await browser.close()
+            await check(browser,dist,label,args.output);await check_skin(browser,dist,label,args.output);await browser.close()
         if args.webkit:
-            browser=await p.webkit.launch(headless=True);await check(browser,current,'after-webkit');await browser.close()
+            browser=await p.webkit.launch(headless=True);await check(browser,current,'after-webkit',args.output);await check_skin(browser,current,'after-webkit',args.output);await browser.close()
 if __name__=='__main__':asyncio.run(main())
