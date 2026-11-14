@@ -1,0 +1,288 @@
+import copy
+import json
+from types import SimpleNamespace
+from unittest.mock import patch
+
+import pytest
+
+from scripts.summary_memory_diagnostics import (
+    DiagnosticBoundary, MemoryDiagnostics, aggregate_verdicts, candidate_shape,
+    unpack_inventory, validate_verdicts,
+)
+from scripts.validate_authorized_episode import MemoryCheckpoints, record_provider_error
+from transcript_reading import source_lines
+
+
+def fixture():
+    source='The trial lasted exactly twelve minutes.\nThe trial used two cameras.\n'
+    _, lines=source_lines(source)
+    span=[{'start':lines[0].id,'end':lines[-1].id}]
+    paragraphs=[{'id':'P1','text':'The trial used two cameras.','source_ranges':span}]
+    items=[{'id':'I1','kind':'condition','statement':'The trial lasted twelve minutes.','source_ranges':span},
+           {'id':'I2','kind':'claim','statement':'The trial used two cameras.','source_ranges':span}]
+    candidate={'edition':{'sections':[{'heading':'Trial','paragraphs':paragraphs}],'overview':''},
+               'report':{'coverage_ledger':{'items':[{'id':'I1','status':'missing'}, {'id':'I2','status':'covered'}]}},
+               'inventory':({'inventory_batches':1},items)}
+    return source, lines, candidate
+
+
+def verdicts(request,status='missing'):
+    line=request['primary_source'][0]
+    if request.get('evidence_protocol')=='resolved_ranges_v2':
+        return {'samples':[{'sample_id':row['sample_id'],'source_support':'supported',
+            'draft_status':status if row['type']=='coverage' else 'covered','reason_class':'quantity_or_time',
+            'source_evidence':[{'start':line['id'],'end':line['id']}],
+            'draft_evidence':[{'paragraph_id':'P1'}]} for row in request['samples']]}
+    return {'samples':[{'sample_id':row['sample_id'],'source_support':'supported',
+        'draft_status':status if row['type']=='coverage' else 'covered','reason_class':'quantity_or_time',
+        'source_evidence':[{'source_id':line['id'],'quote':line['text'].strip()}],
+        'draft_evidence':[{'paragraph_id':'P1','quote':'The trial used two cameras.'}]}
+        for row in request['samples']]}
+
+
+@pytest.mark.parametrize('encoded',[False,True])
+def test_candidate_reader_matches_real_saved_report_and_inventory_pair(encoded):
+    _,_,payload=fixture()
+    if encoded:payload=json.loads(json.dumps(payload))
+    assert candidate_shape(payload)=={'candidate_present':True,'paragraph_count':1,
+        'inventory_item_count':2,'linked_gap_count':1,'usable':True}
+    assert len(unpack_inventory(payload['inventory']))==2
+    assert len(unpack_inventory(payload['inventory'][1]))==2
+
+
+def test_candidate_capture_is_immutable_before_checkpoint_overwrite_and_disposal():
+    _,_,payload=fixture();observer=MemoryDiagnostics()
+    store=MemoryCheckpoints(observer.capture_payload)
+    store.put_checkpoint('owner','source','reading.candidate.v1','identity',payload)
+    payload['edition']['sections'][0]['paragraphs'][0]['text']='replacement'
+    assert observer.candidate['edition']['sections'][0]['paragraphs'][0]['text']=='The trial used two cameras.'
+    observer.clear();store.clear()
+    assert observer.candidate is None and observer.grounding==[] and store.values=={}
+
+
+def test_grounding_capture_precedes_raw_replacement_and_does_not_export_feedback():
+    source,lines,payload=fixture();observer=MemoryDiagnostics()
+    request={'primary_source':[{'id':line.id,'text':line.text} for line in lines],
+             'global_draft':payload['edition']['sections'],'global_overview':''}
+    observer.observe(request,{'checked_source_ranges':[{'start':lines[0].id,'end':lines[-1].id}],
+        'complete':True,'grounded':False,'unsupported_paragraph_ids':['P1'],
+        'unsupported_reasons':[{'id':'P1','reason':'private diagnostic prose'}]})
+    request['global_draft'][0]['paragraphs'][0]['text']='raw replacement'
+    assert observer.grounding[0]['paragraph']['text']=='The trial used two cameras.'
+    assert observer.make_request(source)['samples'][0]['type']=='grounding'
+    assert 'private diagnostic prose' not in json.dumps(observer.make_request(source))
+
+
+def test_first_match_stops_before_any_repair_or_delivery_even_with_no_gaps():
+    _,lines,payload=fixture();observer=MemoryDiagnostics();engine=SimpleNamespace(_quality_inventory=payload['inventory'])
+    with patch('coverage_ledger._audit',return_value=({**payload['report']['coverage_ledger'],'failed_batches':0},payload['inventory'][1])) as operation:
+        with pytest.raises(DiagnosticBoundary):
+            observer.capture_first_match(engine,lines,payload['edition']['sections'],prepared_inventory=payload['inventory'])
+    assert operation.call_args.kwargs['matching_only'] is True
+    assert operation.call_args.kwargs['verify_gaps'] is False
+    assert observer.candidate is not None
+
+
+def test_fixed_input_assessments_make_two_real_calls_without_receipt_reuse():
+    source,_,payload=fixture();observer=MemoryDiagnostics();observer.capture_payload(payload)
+    engine=SimpleNamespace(client=object(),model='synthetic')
+    requests=[]
+    def judge(client,model,system,payload,timeout,**kwargs):
+        requests.append((system,payload,kwargs))
+        return verdicts(json.loads(payload))
+    with patch('reading_editor._call_editor',side_effect=judge):result=observer.analyze(engine,source)
+    assert len(requests)==2 and requests[0]==requests[1]
+    assert result['diagnostic_checkpoint_reuse'] is False
+    assert result['classification_counts']=={'stable_omission_evidence':1,'stable_covered_control':1}
+    assert result['semantic_false_positive_proven'] is False
+    assert 'twelve' not in json.dumps(result) and 'cameras' not in json.dumps(result)
+    assert all('status' not in sample for sample in json.loads(requests[0][1])['samples'])
+
+
+def test_same_input_disagreement_is_variation_not_proven_false_positive():
+    source,_,payload=fixture();observer=MemoryDiagnostics();observer.capture_payload(payload)
+    request=observer.make_request(source)
+    first=validate_verdicts(verdicts(request),request)
+    second=validate_verdicts(verdicts(request,'covered'),request)
+    result=aggregate_verdicts(request['samples'],[first,second])
+    assert result['classification_counts']['fixed_input_reviewer_variation']==1
+    assert result['semantic_false_positive_proven'] is False
+
+
+def test_fabricated_evidence_cannot_count_as_supported_omission_or_false_positive():
+    source,_,payload=fixture();observer=MemoryDiagnostics();observer.capture_payload(payload)
+    request=observer.make_request(source);response=verdicts(request,'covered')
+    response['samples'][0]['source_evidence'][0]['quote']='invented private source quote'
+    result=validate_verdicts(response,request)
+    summary=aggregate_verdicts(request['samples'],[result,result])
+    assert summary['classification_counts']['unresolved_invalid_or_missing_citations']==1
+    assert 'invented' not in json.dumps(summary)
+
+
+@pytest.mark.parametrize('change',[lambda d:d['samples'].clear(),
+    lambda d:d['samples'][0].update(source_support=['supported']),
+    lambda d:d['samples'][0].update(sample_id='S2'),
+    lambda d:d['samples'][0].update(reason_class='private source text')])
+def test_malformed_or_untrusted_labels_fail_closed(change):
+    source,_,payload=fixture();observer=MemoryDiagnostics();observer.capture_payload(payload)
+    request=observer.make_request(source);response=verdicts(request);change(response)
+    with pytest.raises(ValueError):validate_verdicts(response,request)
+
+
+def test_400_diagnostic_records_only_known_fields_and_exact_stage():
+    report={};error=SimpleNamespace(status_code=400,body={'error':{
+        'code':'context_length_exceeded','param':'messages','message':'private body and API key'}})
+    record_provider_error(report,{'messages':[{'content':json.dumps({'phase':'grounding','source':'private transcript'})}]},error)
+    assert report['model_errors_by_phase']['grounding']=={'count':1,'http_status_counts':{'400':1},
+        'code_counts':{'context_length_exceeded':1},'param_counts':{'messages':1}}
+    assert 'private' not in json.dumps(report) and 'key' not in json.dumps(report)
+
+
+@pytest.mark.parametrize('url',['https://different.example/v1','http://api.aipaibox.com/v1',
+    'https://api.aipaibox.com:8443/v1','https://user:private@api.aipaibox.com/v1'])
+def test_saved_provider_cannot_drift_outside_explicit_destination_consent(url):
+    from scripts.validate_authorized_episode import enforce_authorized_destination, TestGuardStopped
+    with pytest.raises(TestGuardStopped):enforce_authorized_destination({'base_url':url})
+
+
+def test_full_generation_and_failed_delivery_are_not_diagnostic_success():
+    from scripts.validate_authorized_episode import result_exit_code
+    assert result_exit_code({'terminal_state':'memory_diagnostics_complete','quality_acceptance':False})==2
+
+
+def test_actual_http_ceiling_also_blocks_hidden_extra_dispatch_attempts():
+    from scripts.validate_authorized_episode import Calls, TestGuardStopped
+    calls=Calls(lambda day:None,{},lambda:None,maximum=1)
+    calls.outbound(object())
+    with pytest.raises(TestGuardStopped):calls.outbound(object())
+    assert calls.http_attempts==1
+
+
+def test_malformed_source_receipt_is_not_a_semantic_grounding_rejection():
+    _,lines,payload=fixture();observer=MemoryDiagnostics()
+    observer.observe({'primary_source':[{'id':line.id,'text':line.text} for line in lines],
+                      'global_draft':payload['edition']['sections']},
+                     {'complete':True,'grounded':False,'unsupported_paragraph_ids':['P1']})
+    assert observer.grounding==[]
+    assert observer.invalid_grounding_receipts==1
+
+
+def test_saved_current_grounding_probe_cannot_prove_a_prior_review_false_positive():
+    source,_,payload=fixture();observer=MemoryDiagnostics();observer.capture_payload(payload)
+    observer.add_candidate_grounding_probes();request=observer.make_request(source)
+    response=verdicts(request)
+    rounds=validate_verdicts(response,request)
+    result=aggregate_verdicts(request['samples'],[rounds,rounds])
+    assert result['classification_counts']['stable_source_supported_candidate_probe']==1
+    assert 'possible_grounding_false_positive' not in result['classification_counts']
+
+
+def test_raw_source_fallback_cannot_certify_finished_summary_coverage():
+    source,_,payload=fixture();payload['edition']['sections'][0]['paragraphs'][0]['raw']=True
+    observer=MemoryDiagnostics();observer.capture_payload(payload);request=observer.make_request(source)
+    result=validate_verdicts(verdicts(request,'covered'),request)
+    assert all(not row['citation_integrity'] for row in result.values())
+
+
+def test_saved_candidate_with_stale_source_ids_is_blocked_before_model_calls():
+    source,_,payload=fixture();payload['inventory'][1][0]['source_ranges']=[{'start':'old:1','end':'old:2'}]
+    observer=MemoryDiagnostics();observer.capture_payload(payload)
+    with pytest.raises(ValueError,match='source identity mismatch'):observer.make_request(source)
+
+
+def test_saved_grounding_samples_share_one_immutable_draft_and_strip_internal_metadata():
+    source,_,payload=fixture();payload['edition']['sections'][0]['paragraphs'][0]['indices']=[1,2,3]
+    observer=MemoryDiagnostics();observer.capture_payload(payload);observer.add_candidate_grounding_probes()
+    request=observer.make_request(source)
+    assert len(request['drafts'])==1
+    assert 'indices' not in json.dumps(request)
+    assert all(sample['draft_id']=='D1' for sample in request['samples'])
+
+
+def test_fresh_diagnostic_generation_requires_separate_opt_in():
+    import yaml
+    from pathlib import Path
+    workflow=yaml.safe_load(Path('.github/workflows/review-saved-summary-samples.yml').read_text())
+    inputs=workflow.get('on',workflow.get(True))['workflow_dispatch']['inputs']
+    assert inputs['allow_first_match']['default'] is False
+
+
+def test_citation_failure_categories_separate_anchor_errors_and_asr_display_boundaries():
+    from scripts.summary_memory_diagnostics import citation_failures, _checked_quotes
+    lookup={'A':'[00:01] The trial\n','B':'[00:02] lasted twelve minutes.\n'}
+    assert citation_failures([{'source_id':'A','quote':'lasted twelve minutes.'}],lookup,'source_id')=={'exact_on_other_unit':1}
+    quote='The trial lasted twelve minutes.'
+    assert citation_failures([{'source_id':'A','quote':quote}],lookup,'source_id')=={'display_normalization_only':1}
+    assert _checked_quotes([{'source_id':'A','quote':quote}],lookup,'source_id')==(False,0)
+    assert citation_failures([{'source_id':'A','quote':'invented private claim'}],lookup,'source_id')=={'quote_not_found':1}
+
+
+def test_untrusted_citation_diagnostic_labels_cannot_leak_into_aggregate():
+    source,_,payload=fixture();observer=MemoryDiagnostics();observer.capture_payload(payload)
+    request=observer.make_request(source);rounds=validate_verdicts(verdicts(request),request)
+    rounds['S1']['citation_failure_reasons']={'private body':1}
+    with pytest.raises(ValueError):aggregate_verdicts(request['samples'],[rounds,rounds])
+
+
+def test_match_grounding_rejection_keeps_exact_original_paragraph_before_mutation():
+    source,_,payload=fixture();observer=MemoryDiagnostics()
+    request={'phase':'match','items':payload['inventory'][1],
+             'global_draft':copy.deepcopy(payload['edition']['sections'])}
+    response={'matches':[{'item_id':'I1','status':'missing','support':[],
+                          'grounded':False,'duplicate':False},
+                         {'item_id':'I2','status':'covered','support':[{'paragraph_id':'P1'}],
+                          'grounded':False,'duplicate':False}]}
+    observer.observe(request,response)
+    request['global_draft'][0]['paragraphs'][0]['text']='new text'
+    assert observer.grounding[0]['paragraph']['text']=='The trial used two cameras.'
+    assert observer.grounding[0]['origin']=='coverage_match'
+    assert observer.unlocatable_match_grounding_rejections==1
+    assert observer.make_request(source)['samples'][0]['type']=='grounding'
+
+
+def test_first_match_boundary_never_calls_source_gap_correction_or_prose_repair():
+    _,lines,payload=fixture();observer=MemoryDiagnostics();engine=SimpleNamespace(_quality_inventory=None)
+    response={'matches':[{'item_id':item['id'],'status':'missing','support':[],
+                          'grounded':True,'duplicate':False} for item in payload['inventory'][1]]}
+    with patch('coverage_ledger.request',return_value=response), \
+         patch('coverage_ledger._correct_inventory',side_effect=AssertionError('must stop before correction')):
+        with pytest.raises(DiagnosticBoundary):
+            observer.capture_first_match(engine,lines,payload['edition']['sections'],
+                                         prepared_inventory=payload['inventory'])
+    assert len(observer.candidate['report']['coverage_ledger']['items'])==2
+
+
+def test_valid_first_assessment_survives_incomplete_second_response_before_disposal():
+    source,_,payload=fixture();observer=MemoryDiagnostics();observer.capture_payload(payload)
+    request=observer.make_request(source,'resolved_ranges_v2');events=[]
+    with patch('reading_editor._call_editor',side_effect=[verdicts(request),{'samples':[]}]):
+        with pytest.raises(ValueError):observer.analyze(SimpleNamespace(client=object(),model='fake'),source,events.append)
+    assert events[0]['state']=='prepared'
+    assert events[1]['summary']['validated_sample_count']==2
+    assert events[2]=={'state':'assessment_failed','assessment_number':2,
+                      'validated_assessments':1,'error_code':'incomplete_verdicts'}
+    observer.clear()
+    assert 'twelve' not in json.dumps(events) and 'cameras' not in json.dumps(events)
+
+
+def test_unknown_provider_exception_text_is_never_exposed_as_diagnostic_code():
+    from scripts.summary_memory_diagnostics import diagnostic_error_code
+    assert diagnostic_error_code(ValueError('private source or key'))=='unclassified_diagnostic_error'
+
+
+def test_source_ranges_resolve_exact_original_text_across_asr_units_without_generated_quotes():
+    from scripts.summary_memory_diagnostics import resolve_evidence
+    source={'A':'[00:01] The trial\n','B':'[00:02] lasted twelve minutes.\n'}
+    assert resolve_evidence([{'start':'A','end':'B'}],source,True)==(True,1,{})
+    assert resolve_evidence([{'start':'B','end':'A'}],source,True)==(False,0,{'reversed_range':1})
+    assert resolve_evidence([{'start':'A','end':'invented'}],source,True)==(False,0,{'unknown_id':1})
+    assert resolve_evidence([{'start':'A','end':'B','quote':'private invented copy'}],source,True)==(False,0,{'free_text_evidence_not_allowed':1})
+
+
+def test_range_protocol_cannot_use_raw_fallback_or_wrong_grounding_paragraph_as_draft_proof():
+    source,_,payload=fixture();payload['edition']['sections'][0]['paragraphs'][0]['raw']=True
+    observer=MemoryDiagnostics();observer.capture_payload(payload)
+    request=observer.make_request(source,'resolved_ranges_v2')
+    result=validate_verdicts(verdicts(request,'covered'),request)
+    assert all(not row['citation_integrity'] for row in result.values())
+    assert all(row['citation_failure_reasons'].get('draft.unknown_id')==1 for row in result.values())

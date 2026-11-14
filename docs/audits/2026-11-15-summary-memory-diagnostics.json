@@ -1,0 +1,166 @@
+{
+  "checked_at": "2026-11-15T01:36:35.870622+08:00",
+  "base_main": "a6b987b0950b985c516fe8db961fe097f2d6755b",
+  "tested_tool_commit": "3dc3f8537e44f31eeeb39ef76e855190d6a0bada",
+  "branch": "codex/summary-memory-diagnostics-20261115",
+  "pr": 271,
+  "scope": "isolated read-only diagnosis; source/draft evidence only in RAM; no production queue acceptance",
+  "quality_acceptance": false,
+  "production_writes": false,
+  "full_episode_generation_runs_this_followup": 0,
+  "prior_current_53_gaps_adjudicated": false,
+  "hypotheses": [
+    {
+      "id": "historical_candidate_shape",
+      "status": "confirmed_code_defect_and_readonly_availability",
+      "evidence": "Actual saved format is (inventory_report,inventory_items). Corrected zero-model probe found a currently usable38-paragraph137-item candidate with37 linked gaps; previous probe cannot prove absence at its earlier time.",
+      "not_claimed": "The old unavailable result did not establish absence; this is a different historical candidate from the77-call isolated run."
+    },
+    {
+      "id": "omission_vs_review_error",
+      "status": "source_linked_omission_candidates_and_fixed_input_review_variation_observed_semantic_truth_not_proven",
+      "method": "Up to4 purposive coverage items including a covered control, plus up to2 nonraw current-candidate paragraph source probes. Two real same-provider calls with exactly identical source/draft/prompt/options; diagnostic cache reuse bypassed.",
+      "interpretation": "Stable cited omission/unsupported-prose judgments are evidence, not human ground truth. Disagreement is fixed-input reviewer variation. Two supported judgments contrary to a prior item verdict are possible false positives, never automatic acceptance."
+    },
+    {
+      "id": "source_review_failure",
+      "status": "historical_grounding_block_confirmed_exact_original_rejection_binding_not_available_in_selected_candidate",
+      "method": "Capture validated original rejected wording before raw replacement for future first-match diagnostics. Archived current paragraphs are separate grounding probes, never claimed to be identical to originally rejected wording. Record safe exact-phase HTTP error codes/params/sizes when present."
+    }
+  ],
+  "budget": {
+    "beijing_date": "2026-11-15",
+    "daily_shared_limit_usd": 100,
+    "settled_stop_usd": 85,
+    "in_flight_reserve_usd": 15,
+    "preflight_settled_usd": 0,
+    "scope": "configured_test_account_provider_token",
+    "provider_hard_cap_verified": false,
+    "preflight_run": 43617418747,
+    "production_work_found": false,
+    "latest_settled_usd": 0.89922,
+    "latest_snapshot_run": 43621516379,
+    "active_isolated_model_tests": 0
+  },
+  "zero_model_candidate_probe": {
+    "run": 43618536793,
+    "actual_http_attempts": 0,
+    "paragraph_count": 38,
+    "inventory_item_count": 137,
+    "linked_gap_count": 37,
+    "candidate_present": true,
+    "usable": true
+  },
+  "paid_assessment": {
+    "run": 43619246649,
+    "state": "complete",
+    "actual_http_call_limit": 2,
+    "allow_first_match": false,
+    "regeneration_prohibited": true,
+    "destination": "https://api.aipaibox.com",
+    "explicit_destination_consent": "retained from user confirmation; current followup explicitly authorizes continued read-only diagnosis and budgeted validation",
+    "actual_http_attempts": 2,
+    "settled_usd_after": 0.310802,
+    "report": "docs/audits/2026-11-15-memory-assessment-first.json"
+  },
+  "validation": {
+    "related_local_tests_passed": 338,
+    "environment": "Python3.12 temporary venv; --noconftest; synthetic fixtures",
+    "full_pr_ci": {
+      "pr": 271,
+      "pre_report_code_run": 43621460769,
+      "state_at_report_commit": "running; report revision receives its own full CI",
+      "canonical_release_evidence": "https://github.com/aaronsxzhao/xyz_transcript_download/pull/271",
+      "merge_requires_full_final_head_CI": true
+    }
+  },
+  "privacy": {
+    "raw_source_or_prose_exported": false,
+    "raw_provider_error_messages_exported": false,
+    "credentials_exported_or_saved": false,
+    "rejected_3088_segment_input_selected": false,
+    "rejected_private_189_item_query_retried": false
+  },
+  "limitations": [
+    "Archived37 gaps and earlier isolated53 gaps are different candidate states; do not conflate.",
+    "Purposive small sample and same-provider judges do not establish population error rate or semantic truth.",
+    "Exact citation substring checks validate references, not entailment or ASR/audio accuracy.",
+    "Diagnostic completion never changes coverage90percent, grounding or delivery decision.",
+    "Current stored candidate availability does not prove the exact payload state existed during the earlier November14 probe.",
+    "Literal quote copying errors are secondary-diagnostic protocol failures, not proof of the original production grounding failure cause."
+  ],
+  "first_findings": {
+    "sample_count": 6,
+    "stable_omission_evidence": 1,
+    "fixed_input_reviewer_variation": 1,
+    "stable_covered_control": 1,
+    "unresolved_invalid_or_missing_citations": 3,
+    "citation_integrity_failures_of_12_verdicts": 7,
+    "semantic_false_positive_proven": false
+  },
+  "citation_followup": {
+    "run": 43620002443,
+    "actual_http_attempts": 2,
+    "state": "failed_with_ValueError_after_HTTP200",
+    "report": "docs/audits/2026-11-15-memory-assessment-citation-attempt.json",
+    "settled_usd_after": 0.483194,
+    "limitation": "Earlier revision did not preserve per-assessment typed progress or fixed schema error codes; exact failure kind remains unknown."
+  },
+  "final_targeted_probe": {
+    "run": 43620698797,
+    "state": "complete",
+    "call_limit": 2,
+    "new_generation_allowed": false,
+    "purpose": "Capture per-assessment allowlisted citation failure reasons and schema codes; retain valid first-round evidence if later response fails.",
+    "actual_http_attempts": 2,
+    "report": "docs/audits/2026-11-15-memory-assessment-citation-diagnosis.json",
+    "citation_failure_counts": {
+      "source.display_normalization_only": 8,
+      "draft.quote_not_found": 2,
+      "source.exact_on_other_unit": 1
+    }
+  },
+  "source_failure_boundary": "The historical candidate reports grounding_concerns=true and0failed source/validation batches. Secondary diagnostic citation failures are not evidence for why the original production grounding check failed. Original validated rejected-wording capture is implemented and synthetic-tested for future explicit first-match diagnostics; not exercised by the saved-candidate runs.",
+  "total_actual_provider_http_attempts_completed": 8,
+  "reference_protocol_fix": {
+    "scope": "secondary diagnostic only; production source verification untouched",
+    "protocol": "resolved_ranges_v2",
+    "behavior": "Materialize original evidence by validated source start/end IDs and draft paragraph IDs in RAM; reject generated quote/text, reversed/unknown ranges and raw fallback as finished summary support. No normalization-based acceptance.",
+    "validation_run": 43621516379,
+    "report": "docs/audits/2026-11-15-memory-assessment-resolved-evidence.json",
+    "actual_http_attempts": 2,
+    "citation_integrity_failures_of_12_verdicts": 0,
+    "semantic_accuracy_or_causal_performance_improvement_proven": false
+  },
+  "latest_findings": {
+    "sample_count": 6,
+    "source_linked_stable_omission_candidates": 3,
+    "source_supported_current_candidate_probes": 2,
+    "covered_control_disagreement": 1,
+    "proven_review_false_positives": 0,
+    "truth_labels": "model evidence only; control disagreement prevents treating stable votes as verified ground truth",
+    "fixed_input_variation": "One literal-v1 sample changed verdict within a fixed-input pair. Later pairs can be stable; no inference about whole-episode generation variance."
+  },
+  "other_audit_coordination": {
+    "thread_title": "UI/UX",
+    "thread_id": "01a1d998-99db-7eb2-80e3-c391ed4d0036",
+    "reviewed_recent_turns": 2,
+    "self_reported_no_paid_model_calls": true,
+    "evidence_level": "thread self-report; current provider token billing and production queue independently queried"
+  },
+  "status": "diagnostics_implemented_budgeted_real_source_review_complete_full_episode_still_not_accepted",
+  "remaining": [
+    "The selected historical37 gaps differ from the disposed isolated53-gap candidate. No claim those53 were adjudicated.",
+    "Three source-linked omission candidates and two supported current paragraphs are repeated same-provider model evidence; the covered control changed to partial under the diagnostic criterion. Misjudgment versus original criterion remains unresolved.",
+    "The selected candidate lacks a verifiable binding between original rejected wording and exact source-review receipt. The new observer records validated original review/matching rejections before mutation, including unlocatable matching flags, for future explicitly authorized diagnostics.",
+    "The second pair returned2HTTP200 and then ValueError. Raw responses were intentionally not saved and this revision lacked per-assessment safe progress, so its exact schema error cannot be reconstructed. Progress and fixed-code reporting are now synthetic-tested; subsequent pairs completed.",
+    "Prior production400 cause remains unknown; no400 occurred in these8diagnostic requests.",
+    "No further paid calls or whole-source regeneration planned this follow-up."
+  ],
+  "cancelled_obsolete_ci_runs": [
+    43619967411,
+    43619212512,
+    43618500672
+  ],
+  "release_scope": "Diagnostic scripts/workflow and audit metadata only; production algorithm/quality gates unchanged. Verify formal merged workflow and actual deployment/health state separately."
+}

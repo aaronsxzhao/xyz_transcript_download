@@ -1,0 +1,274 @@
+{
+  "run": 43621516379,
+  "job": 132528040171,
+  "result": {
+    "revision": "3dc3f8537e44f31eeeb39ef76e855190d6a0bada",
+    "environment": "isolated first-match memory diagnostics; not complete episode processing",
+    "production_writes": false,
+    "account_authentication": "authorized server maintenance bindings; not a user login",
+    "daily_limit_usd": 100,
+    "settled_stop_usd": 85,
+    "in_flight_reserve_usd": 15,
+    "request_limit": 2,
+    "actual_provider_http_attempts": 2,
+    "terminal_state": "memory_diagnostics_complete",
+    "checkpoint_policy": "request-fingerprinted Execution with empty in-memory store",
+    "excluded_previously_rejected_episode": true,
+    "account_anchor": "existing_readonly_billing_diagnostic",
+    "billing_snapshot_max_age_seconds": 90,
+    "monitor": {
+      "read_attempts": 4,
+      "read_failures": 0,
+      "wait_seconds": 0
+    },
+    "provider_billing_reads": 2,
+    "billing_snapshot_age_seconds": 0,
+    "budget": {
+      "status": "checked",
+      "beijing_date": "2026-11-15",
+      "settled_usd": 0.89922,
+      "scope": "configured_test_account_provider_token",
+      "daily_limit_usd": 100,
+      "active_work_found": false
+    },
+    "source_binding": "exact previously authorized historical task and episode URL; read only",
+    "source_and_billing_account_same": false,
+    "source_sha256": "3e3af05dbabcc3bfc605ac8215be5c21696677a546f8c90ce63bb33eb8cbf477",
+    "episode_id": "6ac6a657e742e36efcbf74af",
+    "source_segments": 2170,
+    "source_characters": 18257,
+    "source_duration_seconds": 3437.2,
+    "transcript_structural_validation": "passed",
+    "manual_transcript_readability": "not_reviewed",
+    "manual_summary_readability": "not_reviewed",
+    "model_settings_fingerprint": "16bd60d985604f5db7b1d8575c6b59fe40af0182957a8c911e269faefb2dcb21",
+    "quality_acceptance": false,
+    "assessment_call_limit": 2,
+    "stop_before": "coverage repairs and delivery",
+    "current_prior_53_items_adjudicated": false,
+    "saved_candidate_probe": {
+      "candidate_present": true,
+      "paragraph_count": 38,
+      "inventory_item_count": 137,
+      "linked_gap_count": 37,
+      "usable": true
+    },
+    "saved_generation": {
+      "delivery": {
+        "coverage_ratio": 0.7299270072992701,
+        "coverage_threshold": 0.9,
+        "status": "blocked",
+        "reason": "grounding"
+      },
+      "coverage_ledger": {
+        "coverage_ratio": 0.7299270072992701,
+        "threshold": 0.9,
+        "failed_batches": 0,
+        "inventory_failed_batches": 0,
+        "inventory_validation_failed_batches": 0,
+        "ignored_boundary_items": 0,
+        "terminal_provider_failure": false,
+        "grounding_concerns": true,
+        "unresolved_items": 37,
+        "covered_items": 100,
+        "requests": 24,
+        "validation_retries": 0,
+        "repairs_accepted": 0,
+        "repairs_rejected": 0,
+        "inventory_transport_retries": 0,
+        "inventory_split_retries": 0,
+        "inventory_recovered_batches": 0,
+        "inventory_batches": 11,
+        "status": "unverified",
+        "inventory_error_types": {
+          "ValueError": 0,
+          "SummaryOutputError": 0,
+          "APIConnectionError": 0,
+          "APITimeoutError": 0,
+          "TimeoutError": 0,
+          "APIStatusError": 0,
+          "RateLimitError": 0,
+          "RuntimeError": 0,
+          "ReadTimeout": 0,
+          "ConnectError": 0,
+          "ConnectionError": 0,
+          "ModelRequestTimeout": 0,
+          "InternalServerError": 0,
+          "BadRequestError": 0,
+          "AuthenticationError": 0,
+          "PermissionDeniedError": 0,
+          "NotFoundError": 0,
+          "UnprocessableEntityError": 0
+        },
+        "inventory_http_statuses": {
+          "408": 0,
+          "429": 0,
+          "500": 0,
+          "502": 0,
+          "503": 0,
+          "504": 0,
+          "524": 0
+        },
+        "inventory_failures_recorded": 0,
+        "inventory_failures_available": true,
+        "item_status_counts": {
+          "covered": 100,
+          "missing": 9,
+          "partial": 28,
+          "contradicted": 0,
+          "unverified": 0,
+          "context_only": 0
+        }
+      },
+      "verification": {
+        "reviewed": 1,
+        "review_attempts": 1,
+        "review_parts": 1,
+        "final_coverage_attempts": 0,
+        "status": "unverified"
+      }
+    },
+    "saved_raw_paragraph_count": 0,
+    "candidate_origin": "saved_source_checkpoint; no regeneration",
+    "assessment_progress": [
+      {
+        "state": "prepared",
+        "request_sha256": "25f434317801083b060c0bad48092ccff22f87ef039542c191953cefb258ffb2",
+        "sample_count": 6,
+        "diagnostic_checkpoint_reuse": false,
+        "evidence_protocol": "resolved_ranges_v2"
+      },
+      {
+        "state": "assessment_validated",
+        "assessment_number": 1,
+        "summary": {
+          "validated_sample_count": 6,
+          "citation_integrity_failures": 0,
+          "citation_failure_reasons": {},
+          "verdict_counts": {
+            "supported.covered": 2,
+            "supported.missing": 1,
+            "supported.partial": 3
+          }
+        }
+      },
+      {
+        "state": "assessment_validated",
+        "assessment_number": 2,
+        "summary": {
+          "validated_sample_count": 6,
+          "citation_integrity_failures": 0,
+          "citation_failure_reasons": {},
+          "verdict_counts": {
+            "supported.covered": 2,
+            "supported.missing": 1,
+            "supported.partial": 3
+          }
+        }
+      }
+    ],
+    "provider_billing_snapshot_hits": 2,
+    "peak_model_concurrency": 1,
+    "provider_http_attempts_by_phase": {
+      "gap_review": 2
+    },
+    "provider_request_bytes_by_phase": {
+      "gap_review": {
+        "sum": 432166,
+        "max": 216083
+      }
+    },
+    "provider_http_status_counts": {
+      "200": 2
+    },
+    "provider_reported_usage": {
+      "prompt_tokens": 163802,
+      "completion_tokens": 1234,
+      "total_tokens": 165036
+    },
+    "response_model_hash_counts": {
+      "576a599a64cb3dde05f18ebb3e26e3d5bcbf4b108ff92da24f5229188fa0972a": 2
+    },
+    "model_create_calls": 2,
+    "failed_model_create_calls": 0,
+    "provider_request_seconds_sum": 28.015,
+    "memory_sampling": {
+      "diagnostic_schema_version": 2,
+      "sample_count": 6,
+      "classification_counts": {
+        "stable_omission_evidence": 3,
+        "covered_control_disagreement": 1,
+        "stable_source_supported_candidate_probe": 2
+      },
+      "reason_class_counts": {
+        "incomplete_support": 8,
+        "none": 4
+      },
+      "sample_type_counts": {
+        "coverage": 3,
+        "covered_control": 1,
+        "grounding_probe": 2
+      },
+      "citation_integrity_failures": 0,
+      "citation_failure_reasons": {},
+      "classification_by_sample_type": {
+        "coverage": {
+          "stable_omission_evidence": 3
+        },
+        "covered_control": {
+          "covered_control_disagreement": 1
+        },
+        "grounding_probe": {
+          "stable_source_supported_candidate_probe": 2
+        }
+      },
+      "citation_failures_by_sample_type": {},
+      "semantic_false_positive_proven": false,
+      "basis": "two same-provider model assessments; exact citations checked in RAM; not human ground truth or a population estimate",
+      "assessment_http_calls": 2,
+      "repeat_request_sha256": "25f434317801083b060c0bad48092ccff22f87ef039542c191953cefb258ffb2",
+      "evidence_protocol": "resolved_ranges_v2",
+      "diagnostic_checkpoint_reuse": false,
+      "sample_limit": 6,
+      "delivery_decision_changed": false,
+      "invalid_grounding_receipts": 0,
+      "captured_source_rejections": 0,
+      "current_candidate_grounding_probes": 2,
+      "unlocatable_match_grounding_rejections": 0,
+      "source_rejection_origin_counts": {
+        "source_review": 0,
+        "coverage_match": 0
+      }
+    },
+    "diagnostic_buffers_cleared": true,
+    "wall_seconds": 28.473,
+    "execution": {
+      "stages": {
+        "model.queue": {
+          "seconds": 0,
+          "calls": 2
+        },
+        "model.phase.other": {
+          "seconds": 28.255,
+          "calls": 2
+        }
+      },
+      "checkpoint_hits": 0,
+      "wall_seconds": 28.473
+    },
+    "final_budget_guard_passed": true
+  },
+  "interpretation": {
+    "fresh_generation_calls": 0,
+    "complete_episode_acceptance": false,
+    "diagnostic_reference_integrity_all_12_verdicts_valid": true,
+    "source_linked_omission_candidates": 3,
+    "source_supported_current_candidate_probes": 2,
+    "previously_covered_control_now_judged_partial": 1,
+    "proven_semantic_false_positive": false,
+    "proven_population_error_rate": false,
+    "protocol_comparison": "The evidence protocol and prompt changed from literal copy v1 to program-resolved reference v2. Single pairs are not causal performance/accuracy comparisons. Each pair uses identical internal input and bypasses diagnostic caches.",
+    "source_failure_cause": "Historical grounding flag lacks preserved original rejected assertion/receipt. Current candidate probes are not the original rejected wording; no causal exoneration or confirmation of the original gate.",
+    "budgeted_followup": "8total actual HTTP attempts across4serial pairs;0new episode generations; no further paid calls planned."
+  }
+}

@@ -79,7 +79,7 @@ def test_manual_episode_job_preserves_original_ciphertext_workflow():
     assert set(events)=={'workflow_dispatch'}
     mode=events['workflow_dispatch']['inputs']['mode']
     assert mode['default']=='guard_probe'
-    assert mode['options']==['guard_probe','full_episode','legacy_encrypted_review','historical_gap_review']
+    assert mode['options']==['guard_probe','full_episode','legacy_encrypted_review','historical_gap_review','candidate_probe','memory_diagnostics']
     assert workflow['jobs']['review']['steps'][-1]['with']['path'] == '/tmp/xyz-review-artifacts/review.enc.json'
 
 

@@ -690,6 +690,14 @@
           "scope": "complete saved transcript to isolated real-model summary and unchanged quality gates",
           "result": "failed_quality;77actualHTTP;65.81percent;53unresolved;latepath0hits",
           "production_chain_status_changed": false
+        },
+        {
+          "checked_at": "2026-11-15T01:36:35.870622+08:00",
+          "run": 43621516379,
+          "report": "docs/audits/2026-11-15-summary-memory-diagnostics.json",
+          "scope": "read-only6-sample diagnosis of an existing38-paragraph137-item candidate;8HTTPcalls across4serialpairs;0new generation",
+          "result": "diagnostic_completed;3omission_candidates,2current_source_supported_probes,1covered_control_disagreement;semantic_truth_unproven",
+          "production_chain_status_changed": false
         }
       ]
     },
@@ -1203,6 +1211,15 @@
         239,
         240
       ]
+    },
+    {
+      "checked_at": "2026-11-15T01:36:35.870622+08:00",
+      "report": "docs/audits/2026-11-15-summary-memory-diagnostics.json",
+      "result": "partial_semantic_findings_diagnostic_tool_fix",
+      "scope": "read-only source-linked evidence capture and budgeted diagnostic validation; no production flow promotion",
+      "related_pending_prs": [
+        271
+      ]
     }
   ],
   "production_audit_runs": [
@@ -1485,7 +1502,7 @@
     {
       "id": "2026-11-14-final-review-recovery-entry",
       "report": "docs/audits/2026-11-14-summary-handoff-validation.json",
-      "result": "synthetic_regression_passed_real_path_not_exercised",
+      "result": "synthetic_regression_passed_fix_deployed_real_path_not_exercised",
       "scope": "existing bounded correction reachable after final-review initiated repair; strict source and90percent coverage retained",
       "limitations": "Both complete alternate-source model runs failed naturally; no request reduction or completion improvement demonstrated.",
       "historical_sample": {
@@ -1493,6 +1510,35 @@
         "result": "blocked_no_usable_candidate",
         "actual_model_calls": 0,
         "semantic_false_positive_proven": false
+      },
+      "pr": 268,
+      "revision": "a6b987b0950b985c516fe8db961fe097f2d6755b",
+      "ci": {
+        "run": 43598566032,
+        "attempt": 2,
+        "conclusion": "success",
+        "first_attempt": "failed WebKit synthetic fixture access-control error; no test change; root cause unresolved"
+      },
+      "deployment": {
+        "run": 43603017543,
+        "conclusion": "success",
+        "exact_health_revision_verified": true
+      },
+      "production_chain_status_changed": false
+    },
+    {
+      "id": "2026-11-15-memory-diagnostic-capture",
+      "report": "docs/audits/2026-11-15-summary-memory-diagnostics.json",
+      "pr": 271,
+      "result": "338local_regressions_passed_real_diagnostic_validation_complete",
+      "scope": "decode persisted inventory pair; capture original rejected prose before mutation/disposal; strictly stop optional first-match diagnostic before gap correction/repair/delivery; resolve original evidence in RAM; preserve per-assessment safe progress",
+      "limits": "default saved-candidate diagnostics2actualHTTPcalls; fresh first-match requires separate explicit opt-in and48-call ceiling; shared100/85stop/15reserve/concurrency≤3",
+      "semantic_false_positive_proven": false,
+      "production_chain_status_changed": false,
+      "release_evidence": {
+        "pr": 271,
+        "canonical": "https://github.com/aaronsxzhao/xyz_transcript_download/pull/271",
+        "scope": "final-head CI, merge and formal workflow verification recorded in PR body/checks; this file is a pre-merge snapshot"
       }
     }
   ],
@@ -1731,6 +1777,13 @@
       "notion": "User paused Notion testing; primary workflow is Markdown export to Obsidian. Do not repeatedly request Notion setup.",
       "hosted_recovery": "Do not add an independent database, storage or hosted recovery environment for now. No infrastructure cost authorization.",
       "model_budget": "Existing shared Beijing-day US$50 monitoring budget remains; no paid model calls were made by this repair task."
+    },
+    {
+      "date": "2026-11-15",
+      "source": "current explicit user continuation and retained destination/budget consent",
+      "authorized": "read-only candidate/source diagnosis; capture samples in RAM before disposal; budgeted controlled validation at api.aipaibox.com; no blind whole-episode reruns or lower quality gates",
+      "model_budget": "shared Beijing-dayUS$100;US$85settled stop;reserve15;not per task;provider hard cap unverified",
+      "production_writes": false
     }
   ]
 }

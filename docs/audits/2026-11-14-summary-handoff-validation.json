@@ -1,10 +1,10 @@
 {
-  "checked_at": "2026-11-14T21:10:19.580311+08:00",
+  "checked_at": "2026-11-14T22:11:19.269563+08:00",
   "tested_commit": "ce8df4c2ba95133354c916e9c39f4af54c2b924f",
   "scope": "Supported read-only inspection, complete isolated real-model tests, narrow recovery fix and regression; production chain acceptance not established",
   "repository": {
-    "remote_main": "c7cbb55fcfc8361b9613e900db9b9ce3712758ee",
-    "open_pr_count": 1,
+    "remote_main": "a6b987b0950b985c516fe8db961fe097f2d6755b",
+    "open_pr_count": 0,
     "original_checkout_clean": true,
     "branch": "codex/summary-handoff-validation",
     "pr": 268
@@ -12,10 +12,15 @@
   "ci": {
     "last_complete_success_run": 43593796340,
     "last_complete_success_commit": "f626ae08ac2c179523d88c74cfc9dafe5be75f2b",
-    "current_code_ci_pending": 43598265461,
     "code_commit": "ce8df4c2ba95133354c916e9c39f4af54c2b924f",
     "local_related_tests_passed": 305,
-    "local_environment": "Python3.12 temporary venv; --noconftest; application fixtures not loaded"
+    "local_environment": "Python3.12 temporary venv; --noconftest; application fixtures not loaded",
+    "final_pr_run": 43598566032,
+    "final_pr_attempt": 2,
+    "final_pr_conclusion": "success",
+    "final_pr_head": "a3c2893f6fc04fad277831dd1161e91bf5c217dd",
+    "first_attempt_failure": "WebKit mobile synthetic local /api/library/sources access-control pageerror; unchanged rerun passed; root cause not confirmed",
+    "same_code_previous_head_full_success": 43598265461
   },
   "budget": {
     "beijing_daily_limit_usd": 100,
@@ -26,7 +31,7 @@
     "in_flight_reserve_usd": 15,
     "provider_hard_cap_verified": false,
     "scope": "configured_test_account_provider_token",
-    "latest_snapshot_run": 43598283541
+    "latest_snapshot_run": 43603044602
   },
   "execution_readiness": {
     "local_gh_cli_available": false,
@@ -68,8 +73,8 @@
     "The exact alternate-source historical binding did not provide a usable saved candidate for semantic sampling. The isolated current candidates were disposed from memory; current53 items are not semantically adjudicated."
   ],
   "next_steps": [
-    "Wait for full final CI, review and protected merge; verify deployment exact revision and health.",
-    "Real end-to-end quality acceptance remains unresolved. Future approved diagnostic runs should sample in memory before candidate disposal; no further blind full-source paid reruns."
+    "End-to-end real quality acceptance remains unresolved;53 latest gaps lack semantic adjudication.",
+    "No further blind paid reruns; future authorized diagnostics need in-memory gap sampling before candidate disposal."
   ],
   "validation": [
     "305 related local regression cases passed; core fix complete CI43593796340 passed before added read-only diagnostics; final-head CI pending.",
@@ -257,10 +262,18 @@
     "real_effectiveness_demonstrated": false
   },
   "deployment": {
-    "current_change": "pending protected merge and automatic deployment",
-    "latest_other_main_deployment": 43590562103,
-    "latest_other_main_commit": "c7cbb55fcfc8361b9613e900db9b9ce3712758ee",
-    "latest_other_main_conclusion": "success"
+    "run_id": 43603017543,
+    "conclusion": "success",
+    "revision": "a6b987b0950b985c516fe8db961fe097f2d6755b",
+    "exact_healthy_revision_verified_by": "scripts/verify_deployment.py public API check in deployment runner",
+    "verified_at_utc": "2026-11-14T14:08:32Z",
+    "independent_local_curl": {
+      "status": "ok",
+      "revision": "a6b987b0950b985c516fe8db961fe097f2d6755b",
+      "normal_tls": true,
+      "first_attempt": "network timeout",
+      "retry": "success"
+    }
   },
   "real_after_fix": {
     "run_id": 43593271785,
@@ -307,5 +320,20 @@
     "actual_provider_http_attempts": 0,
     "blocker": "historical_candidate_unavailable",
     "report": "docs/audits/2026-11-14-historical-gap-review.json"
+  },
+  "release_guard_probe": {
+    "run": 43603044602,
+    "revision": "a6b987b0950b985c516fe8db961fe097f2d6755b",
+    "state": "guard_probe_passed",
+    "actual_provider_http_attempts": 0,
+    "settled_usd": 11.768824,
+    "production_work_found": false
+  },
+  "report_disposition": "Post-release evidence for PR268 preserved here and in its canonical PR body; carried forward by the November15 diagnostic follow-up PR271. This is audit metadata, not whole-episode acceptance.",
+  "followup_2026_11_15": {
+    "report": "docs/audits/2026-11-15-summary-memory-diagnostics.json",
+    "old_unavailable_probe_proves_no_candidate": false,
+    "current_candidate_found": true,
+    "full_episode_regeneration_runs": 0
   }
 }

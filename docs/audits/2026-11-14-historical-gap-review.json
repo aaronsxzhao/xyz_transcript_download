@@ -61,5 +61,19 @@
     "current_53_items_adjudicated": false,
     "blocker": "No usable saved candidate with source-linked unresolved items and prose was available at the exact authorized source binding; no model call was admitted.",
     "next": "Do not search arbitrary accounts or rerun paid generation to manufacture a sample. Future full-source diagnostic runs need an approved in-memory sampling hook before candidate disposal."
+  },
+  "correction_2026_11_15": {
+    "report": "docs/audits/2026-11-15-summary-memory-diagnostics.json",
+    "reader_bug": "The sampler treated the saved(report,items) inventory pair as a flat item list. This can falsely label an available candidate unusable.",
+    "current_zero_model_probe": 43618536793,
+    "current_candidate_found": true,
+    "current_candidate_shape": {
+      "paragraphs": 38,
+      "inventory_items": 137,
+      "linked_gaps": 37
+    },
+    "prior_unavailable_result_proves_absence": false,
+    "prior_snapshot_availability_or_identical_state_proven": false,
+    "prior_model_calls_remain": 0
   }
 }
