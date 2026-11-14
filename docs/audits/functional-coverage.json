@@ -1463,6 +1463,16 @@
       "status": "local_verified_release_pending",
       "environment": "local production-build synthetic8task fixtures",
       "not_claimed": "real provider processing or physical devices"
+    },
+    {
+      "checked_at": "2026-11-14T11:53:16.402492+00:00",
+      "report": "docs/audits/2026-11-14-handoff.json",
+      "diagnostic_pr": 269,
+      "main_diagnostic_run": 43589297716,
+      "pending_root": "unresolved_missing_historical_events",
+      "current_no_model_import": "success observed24.802s, original, empty model, current-run item removed200/404",
+      "closed_repairs_preserved": "No repeat paid RSS task or deep-image matrix; #254 final acceptance retained",
+      "paused_exclusions_unchanged": true
     }
   ],
   "audit_attempts": [
@@ -1503,6 +1513,16 @@
       "status": "Actual screenshot inspection; loading series screenshot excluded; no full-site acceptance",
       "evidence_private": "/workspace/browser-validation/appearance-20261111",
       "scope": "3anonymous,30live,3RSS,4localtitle,3postdeploy,48article screenshots actually viewed;series loading screenshot excluded"
+    },
+    {
+      "checked_at": "2026-11-14T11:53:16.402492+00:00",
+      "report": "docs/audits/2026-11-14-handoff.md",
+      "details": "docs/audits/2026-11-14-handoff.json",
+      "repair_pr": 270,
+      "production_revision": "c7cbb55fcfc8361b9613e900db9b9ce3712758ee",
+      "result": "fixed_deployed_scoped_live_acceptance",
+      "scope": "Expanded reader directory restored; Classic1440dark and820light production-frontend fixtures accepted. Real login/protected stats and5/5cross-surface completed states verified. Editorial live attempt blocked before login form; local/CI all appearances separate.",
+      "model_calls": 0
     }
   ],
   "environment_readiness_checks": [

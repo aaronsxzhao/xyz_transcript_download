@@ -1,0 +1,193 @@
+{
+  "checked_at": "2026-11-14T11:53:16.402492+00:00",
+  "baseline": "75b2daab56434a039f08888b7887be3a67171648",
+  "diagnostic_head": "8abaf28d1518afe3c0a9235bf0bb69b91287e040",
+  "repair_head": "887ca3eef5cc06d2773c9dfe8d979f6dc9bd43cf",
+  "production": "c7cbb55fcfc8361b9613e900db9b9ce3712758ee",
+  "ci": {
+    "269": 43586646157,
+    "270": 43587791871,
+    "both": "success"
+  },
+  "deployment": {
+    "run": 43590562103,
+    "result": "success",
+    "independent_health": "ok; exact revision"
+  },
+  "main_diagnostic": {
+    "code": "44bb3e8bdf7968f49624321a27783c6e77b52017",
+    "run_id": 43589297716,
+    "checked_at": "2026-11-14T11:17:56Z",
+    "pending_import_diagnostic": {
+      "status": "snapshot_only",
+      "production_writes": false,
+      "provider_calls": 0,
+      "tasks": [
+        {
+          "task_prefix": "c9a6a826-ac4",
+          "status": "found",
+          "snapshots": [
+            {
+              "state": "cancelled",
+              "attempts": 0,
+              "cancel_requested": true,
+              "deleted": true,
+              "created_at": "2026-11-11T01:58:29.305375+00:00",
+              "updated_at": "2026-11-11T01:59:40.637407+00:00",
+              "lease_until": null
+            }
+          ]
+        },
+        {
+          "task_prefix": "3b886818-487",
+          "status": "found",
+          "snapshots": [
+            {
+              "state": "cancelled",
+              "attempts": 0,
+              "cancel_requested": true,
+              "deleted": true,
+              "created_at": "2026-11-11T02:00:53.331835+00:00",
+              "updated_at": "2026-11-11T02:04:28.740666+00:00",
+              "lease_until": null
+            }
+          ]
+        }
+      ],
+      "current_drain": [],
+      "historical_events_available": false,
+      "missing_history": [
+        "enqueue_to_claim",
+        "claim_outcome",
+        "heartbeat_events",
+        "drain_intervals",
+        "dispatcher_poll_and_slot_occupancy"
+      ]
+    }
+  },
+  "local": {
+    "frontend_tests": 556,
+    "initial_page_matrix_cases": 108,
+    "series_paths": 24,
+    "multipart_browser_cases": 12,
+    "startup": "pass",
+    "initial_gzip_bytes": 202496,
+    "unchanged_budget_bytes": 202496,
+    "source": {
+      "commit": "887ca3eef5cc06d2773c9dfe8d979f6dc9bd43cf",
+      "source_diff": [],
+      "document_sha256": "a921310eb08756ebde2f3a74fe98c39190e8aae301a91bc36b08494e4d571703",
+      "parts": {
+        "assets/BilibiliParts-DDKI7ThR.js": "02d6d03cf8b7b8f723aa2614f524f80c9477e27e7840346c889e34fa074e98a5"
+      },
+      "initial_gzip_bytes": 202496,
+      "budget_bytes": 202496
+    }
+  },
+  "human_review": {
+    "baseline_series_images": 24,
+    "repair_before_images": 1,
+    "repair_after_images": 4,
+    "accepted_live_images": 2,
+    "synthetic_examples_only_in_public_git": true
+  },
+  "live": {
+    "expectedRevision": "c7cbb55fcfc8361b9613e900db9b9ce3712758ee",
+    "health": true,
+    "browser": "157.0.8103.52",
+    "sandbox": true,
+    "tls": true,
+    "realLogin": true,
+    "protectedStats": true,
+    "fixtureScope": "Only library and auditpart reader/collection GET responses are synthetic. Production assets, login and protected stats are real. No production write or saved metadata claim.",
+    "cases": [
+      {
+        "width": 1440,
+        "design": "classic",
+        "theme": "dark",
+        "initialExpanded": true,
+        "manualCollapseRetained": true,
+        "keyboard": true,
+        "nextPart": true,
+        "reloadExpanded": true,
+        "return": true,
+        "overflow": false
+      },
+      {
+        "width": 820,
+        "design": "classic",
+        "theme": "light",
+        "initialExpanded": true,
+        "manualCollapseRetained": true,
+        "keyboard": true,
+        "nextPart": true,
+        "reloadExpanded": true,
+        "return": true,
+        "overflow": false
+      }
+    ],
+    "blockedWrites": [],
+    "startupRetries": 0,
+    "assets": [
+      "/assets/BilibiliParts-DDKI7ThR.js",
+      "/assets/BilibiliParts-_f0Psw0c.css"
+    ],
+    "stage": "reload-390-editorial-light",
+    "loginAttempts": 1,
+    "productionStateComparison": {
+      "libraryVideoRows": 5,
+      "compared": 5,
+      "allCompletedStatesMatch": true
+    },
+    "status": "PARTIAL",
+    "errorType": "TimeoutError"
+  },
+  "free_original_import": {
+    "newTaskId": "c0c49d04-cfa",
+    "timeline": [
+      {
+        "seconds": 24.801,
+        "status": "success",
+        "progress": 100
+      }
+    ],
+    "terminal": {
+      "status": "success",
+      "style": "original",
+      "modelEmpty": true,
+      "characters": 5080,
+      "seconds": 24.802
+    },
+    "cleanup": {
+      "deleted": 200,
+      "after": 404
+    }
+  },
+  "editorial_corrected_live_attempt": {
+    "expectedRevision": "c7cbb55fcfc8361b9613e900db9b9ce3712758ee",
+    "health": true,
+    "browser": "157.0.8103.52",
+    "sandbox": true,
+    "tls": true,
+    "realLogin": false,
+    "protectedStats": false,
+    "fixtureScope": "Only library and auditpart reader/collection GET responses are synthetic. Production assets, login and protected stats are real. No production write or saved metadata claim.",
+    "cases": [],
+    "blockedWrites": [],
+    "startupRetries": 1,
+    "assets": [],
+    "stage": "login",
+    "status": "PARTIAL",
+    "errorType": "TimeoutError"
+  },
+  "boundaries": {
+    "model_calls": 0,
+    "temporary_credential_file_deleted": true,
+    "production_content_cleanup": "only current-run original task; DELETE200 then GET404",
+    "historical_pending_root": "unresolved; snapshots cannot reconstruct missing events; attempts can decrement on drain return",
+    "real_saved_series": "legacy API returned2 parts,1ready; no persisted part metadata; not a two-saved-part acceptance",
+    "physical_devices": "not tested",
+    "second_account_reset_mailbox": "not available",
+    "paused_work": "Notion integration, independent hosting and historical images remain paused"
+  }
+}
