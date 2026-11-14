@@ -244,7 +244,8 @@ class TrackedClient:
                     from summary_format import extract_model_json
                     request = json.loads(kwargs['messages'][-1]['content'])
                     response = extract_model_json(result.choices[0].message.content or '')
-                    self.calls.observer.observe(request, response)
+                    with self.calls.lock:
+                        self.calls.observer.observe(request, response)
                 except Exception:
                     self.calls.report['observer_capture_failures'] = self.calls.report.get('observer_capture_failures',0)+1
             ok = True
@@ -538,7 +539,7 @@ def run_memory_diagnostics(database, owner, source_id, source, transcript, engin
                            execution, observer, report, guard, calls, publish, store):
     from unittest.mock import patch
     from processing_execution import bind
-    from scripts.summary_memory_diagnostics import DiagnosticBoundary, candidate_shape
+    from scripts.summary_memory_diagnostics import DiagnosticBoundary, candidate_shape, diagnostic_error_code
     report.update(environment='isolated first-match memory diagnostics; not complete episode processing',
                   quality_acceptance=False,request_limit=calls.maximum,assessment_call_limit=2,
                   stop_before='coverage repairs and delivery',current_prior_53_items_adjudicated=False)
@@ -572,12 +573,16 @@ def run_memory_diagnostics(database, owner, source_id, source, transcript, engin
                 if observer.candidate:
                     from scripts.inspect_failed_reading import safe_report
                     report['first_match_snapshot']=safe_report(observer.candidate['report'])
-            report['memory_sampling']=observer.analyze(engine,source)
+            def sample_progress(event):
+                report.setdefault('assessment_progress',[]).append(event)
+                publish()
+            report['memory_sampling']=observer.analyze(engine,source,on_progress=sample_progress)
             report['terminal_state']='memory_diagnostics_complete'
     except TestGuardStopped:
         report['terminal_state']='test_guard_stopped'
     except Exception as error:
-        report.update(terminal_state='memory_diagnostics_failed',error_type=type(error).__name__)
+        report.update(terminal_state='memory_diagnostics_failed',error_type=type(error).__name__,
+                      diagnostic_error_code=diagnostic_error_code(error))
     finally:
         observer.clear()
         store.clear()

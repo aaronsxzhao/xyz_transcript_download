@@ -12,6 +12,22 @@ class DiagnosticBoundary(BaseException):
     """Stop a diagnostic before recovery or publication, without app retry."""
 
 
+ERROR_CODES = {'Incomplete diagnostic verdicts':'incomplete_verdicts',
+               'Invalid diagnostic identity':'invalid_sample_identity',
+               'Invalid diagnostic labels':'invalid_verdict_label',
+               'Two complete independent assessments required':'incomplete_assessment_pair',
+               'Invalid sample type':'invalid_sample_type','Invalid reason label':'invalid_reason_label',
+               'Invalid decision label':'invalid_decision_label',
+               'Invalid citation diagnostic label':'invalid_citation_diagnostic_label',
+               'Saved candidate source identity mismatch':'source_identity_mismatch',
+               'No diagnostic samples available':'no_diagnostic_samples'}
+
+
+def diagnostic_error_code(error):
+    # Compare only our fixed messages. Never export a free-text exception.
+    return ERROR_CODES.get(str(error),'unclassified_diagnostic_error')
+
+
 def unpack_inventory(value):
     # save_candidate persists (inventory_report, inventory_items), JSON as a list.
     if (isinstance(value, (tuple, list)) and len(value) == 2
@@ -127,11 +143,9 @@ def citation_failures(rows, lookup, key):
 
 
 def diagnostic_draft(sections, overview=''):
-    from transcript_reading import public_draft
-    draft = public_draft(sections)
-    for section, original in zip(draft, sections):
-        for paragraph, old in zip(section['paragraphs'], original['paragraphs']):
-            paragraph['raw'] = bool(old.get('raw'))
+    draft = [{'heading': section['heading'], 'paragraphs': [
+        {'id': p['id'], 'text': p['text'], 'source_ranges': p.get('source_ranges', []),
+         'raw': bool(p.get('raw'))} for p in section['paragraphs']]} for section in sections]
     if overview:
         draft.append({'heading': 'Opening', 'paragraphs': [
             {'id': 'overview', 'text': overview, 'raw': False}]})
@@ -232,14 +246,31 @@ def aggregate_verdicts(samples, rounds):
     return result
 
 
+def one_assessment_summary(samples, verdicts):
+    """Allowlisted progress survives a later schema/transport failure."""
+    summary = aggregate_verdicts(samples, [verdicts, verdicts])
+    # Reusing a typed result for summarization is not a repeated model call.
+    # Avoid publishing fake pair classifications; keep per-assessment counters.
+    return {'validated_sample_count':len(verdicts),
+            'citation_integrity_failures':summary['citation_integrity_failures']//2,
+            'citation_failure_reasons':{key:value//2 for key,value in summary['citation_failure_reasons'].items()},
+            'verdict_counts':{support+'.'+status:sum(row['source_support']==support and row['draft_status']==status
+                for row in verdicts.values()) for support in sorted(SUPPORT) for status in sorted(STATUSES)
+                if any(row['source_support']==support and row['draft_status']==status for row in verdicts.values())}}
+
+
 class MemoryDiagnostics:
     def __init__(self):
         self.candidate = None
         self.grounding = []
         self.invalid_grounding_receipts = 0
+        self.unlocatable_match_grounding_rejections = 0
 
     def observe(self, request, response):
         # Runs before transcript_reading replaces rejected prose with raw source.
+        if isinstance(request,dict) and request.get('phase') == 'match':
+            self.observe_matching(request,response)
+            return
         if (len(self.grounding) >= 2 or not isinstance(request, dict)
                 or 'global_draft' not in request or request.get('phase')
                 or not isinstance(response, dict)):
@@ -259,6 +290,26 @@ class MemoryDiagnostics:
         for ident in response.get('unsupported_paragraph_ids', []):
             if ident in paragraphs and len(self.grounding) < 2:
                 self.grounding.append({'draft': draft, 'paragraph': copy.deepcopy(paragraphs[ident])})
+
+    def observe_matching(self, request, response):
+        from coverage_ledger import matching_response
+        try:
+            rows = matching_response(response,request['items'],request['global_draft'],
+                                     request.get('proposed_paragraph_ids',[]))
+        except (ValueError,TypeError,KeyError):
+            return
+        draft = diagnostic_draft(request['global_draft'])
+        paragraphs = {p['id']:p for section in draft for p in section['paragraphs'] if not p.get('raw')}
+        for row in rows:
+            if row['grounded']:
+                continue
+            ids = sorted({entry['paragraph_id'] for entry in row['support'] if entry['paragraph_id'] in paragraphs})
+            if not ids:
+                self.unlocatable_match_grounding_rejections += 1
+            for ident in ids:
+                if len(self.grounding) < 2:
+                    self.grounding.append({'draft': draft, 'paragraph': paragraphs[ident],
+                                          'origin':'coverage_match'})
 
     def capture_payload(self, payload):
         shape = candidate_shape(payload)
@@ -281,10 +332,30 @@ class MemoryDiagnostics:
             self.grounding.append({'draft': draft, 'paragraph': paragraphs[ident], 'kind': 'grounding_probe'})
 
     def capture_first_match(self, engine, lines, sections, overview='', **kwargs):
-        from coverage_ledger import efficient_audit
-        ledger = efficient_audit(engine, lines, sections, overview,
-            prepared_inventory=kwargs.get('prepared_inventory'), allow_repairs=False,
-            stage_callback=kwargs.get('stage_callback'))
+        from coverage_ledger import _audit, build_inventory, ITEM_LIMIT
+        from processing_parallel import bounded_map
+        prepared = kwargs.get('prepared_inventory')
+        if prepared is None:
+            prepared = build_inventory(engine,lines)
+        inventory_report, inventory = copy.deepcopy(prepared)
+        snapshot = copy.deepcopy(sections)
+        chunks = [inventory[start:start+ITEM_LIMIT] for start in range(0,len(inventory),ITEM_LIMIT)]
+        # efficient_audit(allow_repairs=False) can still verify/correct source
+        # gaps below threshold. Invoke its matching-only primitive directly so
+        # this diagnostic boundary truly precedes *all* gap recovery.
+        batches = bounded_map(lambda chunk: _audit(engine,lines,snapshot,overview,
+            inventory=chunk,matching_only=True,verify_gaps=False),chunks,workers=2,
+            stop_when=lambda result: result[0].get('terminal_provider_failure',False))
+        ledger = {**inventory_report,'status':'unverified','items':[],
+                  'failed_batches':inventory_report.get('failed_batches',0)+len(chunks)-len(batches),
+                  'grounding_concerns':False,'repairs_accepted':0,'repairs_rejected':0}
+        for local, _ in batches:
+            ledger['items'].extend(local['items'])
+            ledger['failed_batches'] += local['failed_batches']
+            ledger['grounding_concerns'] |= any(not row['grounded'] for row in local.get('matching_rows',{}).values())
+        ledger['unresolved_items'] = sum(row['status'] not in ('covered','context_only') for row in ledger['items'])
+        ledger['covered_items'] = sum(row['status']=='covered' for row in ledger['items'])
+        engine._quality_inventory = (inventory_report, inventory)
         self.capture_payload({'edition': {'sections': sections, 'overview': overview},
                               'report': {'coverage_ledger': ledger},
                               'inventory': engine._quality_inventory})
@@ -336,24 +407,41 @@ class MemoryDiagnostics:
             sample['sample_id'] = 'S'+str(index+1)
         return request
 
-    def analyze(self, engine, source):
+    def analyze(self, engine, source, on_progress=None):
         from reading_editor import _call_editor
         request = self.make_request(source)
         if not request['samples']:
             raise ValueError('No diagnostic samples available')
         payload = json.dumps(request, ensure_ascii=False, sort_keys=True)
+        request_hash = hashlib.sha256((JUDGE+payload).encode()).hexdigest()
         rounds = []
+        if on_progress:
+            on_progress({'state':'prepared','request_sha256':request_hash,'sample_count':len(request['samples']),
+                         'diagnostic_checkpoint_reuse':False})
         # Bypass model.editor checkpoints ONLY for diagnostic repeat assessments:
         # same exact prompt/payload/options; each is a real independent HTTP call.
-        for _ in range(2):
-            response = _call_editor(engine.client, engine.model, JUDGE, payload, 240, output_tokens=8192)
-            rounds.append(validate_verdicts(response, request))
+        for index in range(2):
+            try:
+                response = _call_editor(engine.client, engine.model, JUDGE, payload, 240, output_tokens=8192)
+                typed = validate_verdicts(response, request)
+                rounds.append(typed)
+            except Exception as error:
+                if on_progress:
+                    on_progress({'state':'assessment_failed','assessment_number':index+1,
+                                 'validated_assessments':len(rounds),'error_code':diagnostic_error_code(error)})
+                raise
+            if on_progress:
+                on_progress({'state':'assessment_validated','assessment_number':index+1,
+                             'summary':one_assessment_summary(request['samples'],typed)})
         result = aggregate_verdicts(request['samples'], rounds)
-        result.update(assessment_http_calls=2, repeat_request_sha256=hashlib.sha256((JUDGE+payload).encode()).hexdigest(),
+        result.update(assessment_http_calls=2, repeat_request_sha256=request_hash,
                       diagnostic_checkpoint_reuse=False, sample_limit=6, delivery_decision_changed=False,
                       invalid_grounding_receipts=self.invalid_grounding_receipts,
                       captured_source_rejections=sum(case.get('kind','grounding')=='grounding' for case in self.grounding),
-                      current_candidate_grounding_probes=sum(case.get('kind')=='grounding_probe' for case in self.grounding))
+                      current_candidate_grounding_probes=sum(case.get('kind')=='grounding_probe' for case in self.grounding),
+                      unlocatable_match_grounding_rejections=self.unlocatable_match_grounding_rejections,
+                      source_rejection_origin_counts={origin:sum(case.get('kind','grounding')=='grounding' and case.get('origin','source_review')==origin for case in self.grounding)
+                          for origin in ('source_review','coverage_match')})
         return result
 
     def clear(self):

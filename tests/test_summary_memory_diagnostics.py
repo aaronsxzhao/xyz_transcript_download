@@ -70,10 +70,11 @@ def test_grounding_capture_precedes_raw_replacement_and_does_not_export_feedback
 
 def test_first_match_stops_before_any_repair_or_delivery_even_with_no_gaps():
     _,lines,payload=fixture();observer=MemoryDiagnostics();engine=SimpleNamespace(_quality_inventory=payload['inventory'])
-    with patch('coverage_ledger.efficient_audit',return_value=payload['report']['coverage_ledger']) as operation:
+    with patch('coverage_ledger._audit',return_value=({**payload['report']['coverage_ledger'],'failed_batches':0},payload['inventory'][1])) as operation:
         with pytest.raises(DiagnosticBoundary):
             observer.capture_first_match(engine,lines,payload['edition']['sections'],prepared_inventory=payload['inventory'])
-    assert operation.call_args.kwargs['allow_repairs'] is False
+    assert operation.call_args.kwargs['matching_only'] is True
+    assert operation.call_args.kwargs['verify_gaps'] is False
     assert observer.candidate is not None
 
 
@@ -216,3 +217,49 @@ def test_untrusted_citation_diagnostic_labels_cannot_leak_into_aggregate():
     request=observer.make_request(source);rounds=validate_verdicts(verdicts(request),request)
     rounds['S1']['citation_failure_reasons']={'private body':1}
     with pytest.raises(ValueError):aggregate_verdicts(request['samples'],[rounds,rounds])
+
+
+def test_match_grounding_rejection_keeps_exact_original_paragraph_before_mutation():
+    source,_,payload=fixture();observer=MemoryDiagnostics()
+    request={'phase':'match','items':payload['inventory'][1],
+             'global_draft':copy.deepcopy(payload['edition']['sections'])}
+    response={'matches':[{'item_id':'I1','status':'missing','support':[],
+                          'grounded':False,'duplicate':False},
+                         {'item_id':'I2','status':'covered','support':[{'paragraph_id':'P1'}],
+                          'grounded':False,'duplicate':False}]}
+    observer.observe(request,response)
+    request['global_draft'][0]['paragraphs'][0]['text']='new text'
+    assert observer.grounding[0]['paragraph']['text']=='The trial used two cameras.'
+    assert observer.grounding[0]['origin']=='coverage_match'
+    assert observer.unlocatable_match_grounding_rejections==1
+    assert observer.make_request(source)['samples'][0]['type']=='grounding'
+
+
+def test_first_match_boundary_never_calls_source_gap_correction_or_prose_repair():
+    _,lines,payload=fixture();observer=MemoryDiagnostics();engine=SimpleNamespace(_quality_inventory=None)
+    response={'matches':[{'item_id':item['id'],'status':'missing','support':[],
+                          'grounded':True,'duplicate':False} for item in payload['inventory'][1]]}
+    with patch('coverage_ledger.request',return_value=response), \
+         patch('coverage_ledger._correct_inventory',side_effect=AssertionError('must stop before correction')):
+        with pytest.raises(DiagnosticBoundary):
+            observer.capture_first_match(engine,lines,payload['edition']['sections'],
+                                         prepared_inventory=payload['inventory'])
+    assert len(observer.candidate['report']['coverage_ledger']['items'])==2
+
+
+def test_valid_first_assessment_survives_incomplete_second_response_before_disposal():
+    source,_,payload=fixture();observer=MemoryDiagnostics();observer.capture_payload(payload)
+    request=observer.make_request(source);events=[]
+    with patch('reading_editor._call_editor',side_effect=[verdicts(request),{'samples':[]}]):
+        with pytest.raises(ValueError):observer.analyze(SimpleNamespace(client=object(),model='fake'),source,events.append)
+    assert events[0]['state']=='prepared'
+    assert events[1]['summary']['validated_sample_count']==2
+    assert events[2]=={'state':'assessment_failed','assessment_number':2,
+                      'validated_assessments':1,'error_code':'incomplete_verdicts'}
+    observer.clear()
+    assert 'twelve' not in json.dumps(events) and 'cameras' not in json.dumps(events)
+
+
+def test_unknown_provider_exception_text_is_never_exposed_as_diagnostic_code():
+    from scripts.summary_memory_diagnostics import diagnostic_error_code
+    assert diagnostic_error_code(ValueError('private source or key'))=='unclassified_diagnostic_error'
