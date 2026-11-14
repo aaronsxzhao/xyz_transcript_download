@@ -126,3 +126,13 @@ it('orders the directory and links adjacent admitted parts without skipping unpr
  expect(node.querySelectorAll('nav a')[1]?.getAttribute('href')).toBe('/videos/part-3')
  expect(node.querySelector('[aria-current=page]')?.getAttribute('href')).toBe('/videos/current')
 })
+
+it('starts with the collection directory expanded and keeps explicit collapse usable',async()=>{
+ await mount()
+ const directory=node.querySelector<HTMLDetailsElement>('.bilibili-directory')!
+ expect(directory.open).toBe(true)
+ directory.open=false
+ await act(async()=>button('Refresh statuses').click())
+ expect(directory.open).toBe(false)
+ expect(node.querySelectorAll('.bilibili-part-row')).toHaveLength(4)
+})

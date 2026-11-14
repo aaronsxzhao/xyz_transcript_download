@@ -80,7 +80,8 @@ export default function BilibiliParts({metadata}: {metadata:NonNullable<VideoTas
       if(mounted.current&&!controller.signal.aborted)setBusy(false)
     }
   }
-  if((metadata.bilibili_parts?.length||0)<2)return null
+  const total=metadata.bilibili_parts?.length||0
+  if(total<2)return null
   const current=metadata.bilibili_part?.page
   const position=parts.findIndex(part=>part.page===current)
   const ready=parts.filter(part=>part.status==='success').length
@@ -89,7 +90,7 @@ export default function BilibiliParts({metadata}: {metadata:NonNullable<VideoTas
   const collectionTitle=metadata.bilibili_part?.title.split(/ · P\d+\/\d+/)[0]
   return <section aria-label="Bilibili collection parts" className="bilibili-parts mb-5 rounded-lg border border-dark-border p-3 text-sm">
     <div className="flex flex-wrap items-center justify-between gap-2">
-      <h2 className="font-semibold">Series · {metadata.bilibili_parts?.length} episodes</h2>
+      <h2 className="font-semibold">Series · {total} episodes</h2>
       <button className="reader-action" disabled={busy||loading} onClick={()=>void refresh()}>Refresh statuses</button>
     </div>
     <p className="bilibili-collection-title">{collectionTitle}</p>
@@ -97,8 +98,8 @@ export default function BilibiliParts({metadata}: {metadata:NonNullable<VideoTas
     <nav className="bilibili-part-navigation" aria-label="Part navigation">
       {[previous,next].map((part,index)=>part?.task_id ? <Link key={index} className="reader-action" to={`/videos/${part.task_id}`}>{index===0?'← Previous':'Next →'} · P{part.page}</Link> : <span key={index} className="reader-action" aria-disabled="true">{index===0?'← Previous':'Next →'}{part?` · P${part.page} not processed`:''}</span>)}
     </nav>
-    <details className="bilibili-directory">
-    <summary>Episodes · {metadata.bilibili_parts?.length}</summary>
+    <details className="bilibili-directory" open>
+    <summary>Episodes · {total}</summary>
     {loading&&<p role="status">Loading part statuses…</p>}
     {error&&<p role="alert" className="mt-2 mb-2 text-red-300">{error}</p>}
     {message&&<p role="status" className="mt-2 mb-2 text-indigo-300">{message}</p>}
