@@ -148,6 +148,58 @@ def inspect(base, key, credential_seed=None):
     return {'production_writes':False, 'provider_calls':0, 'task_count':len(rows), 'tasks':result, 'budget':budget, 'reported_episode':inspect_reported_episode(get)}
 
 
+def summarize_token_error_metadata(rows, day, zone):
+    """Only count recognized structured error labels; never export messages.
+
+    Missing provider error logs are not proof that HTTP requests succeeded.
+    These are token-wide day aggregates, not per-run causal attribution.
+    """
+    from datetime import datetime
+    codes = {'context_length_exceeded','invalid_request_error','invalid_value',
+        'unsupported_parameter','unsupported_value','rate_limit_exceeded',
+        'insufficient_quota','model_not_found','string_above_max_length','content_filter',
+        'invalid_api_key','max_tokens_exceeded'}
+    params = {'temperature','max_completion_tokens','max_tokens','response_format',
+        'messages','model','reasoning_effort','service_tier'}
+    statuses = {400,401,403,404,408,409,413,422,429,500,502,503,504}
+    result = {'error_records_today':0,'recognized_code_counts':{},
+              'recognized_param_counts':{},'http_status_counts':{},'unclassified_records':0}
+    for row in rows:
+        if not isinstance(row,dict) or row.get('type') != 5:
+            continue
+        timestamp = row.get('created_at')
+        if type(timestamp) not in (int,float) or not math.isfinite(timestamp):
+            continue
+        if datetime.fromtimestamp(timestamp,zone).date() != day:
+            continue
+        result['error_records_today'] += 1
+        objects = [row]
+        for key in ('other','content'):
+            value = row.get(key)
+            if isinstance(value,str) and len(value)<=65536:
+                try: value=json.loads(value)
+                except ValueError: value=None
+            if isinstance(value,dict): objects.append(value)
+        found_codes=set();found_params=set();found_statuses=set()
+        for obj in objects:
+            for item in (obj,obj.get('error'),obj.get('provider_error')):
+                if not isinstance(item,dict): continue
+                for key in ('code','type'):
+                    value=item.get(key)
+                    if isinstance(value,str) and value in codes: found_codes.add(value)
+                value=item.get('param')
+                if isinstance(value,str) and value in params: found_params.add(value)
+                for key in ('http_status','status_code'):
+                    value=item.get(key)
+                    if type(value) is int and value in statuses: found_statuses.add(str(value))
+        for key, values in (('recognized_code_counts',found_codes),
+                            ('recognized_param_counts',found_params),('http_status_counts',found_statuses)):
+            for value in values: result[key][value]=result[key].get(value,0)+1
+        if not found_codes and not found_params and not found_statuses:
+            result['unclassified_records'] += 1
+    return result
+
+
 def inspect_budget(prefs, owner, seed):
     # Same account-bound format as api.model_credentials; key exists only in
     # process memory and is sent only to this account's configured provider.
@@ -165,7 +217,8 @@ def inspect_budget(prefs, owner, seed):
     if not isinstance(data,list) or not data or min(datetime.fromtimestamp(row['created_at'],zone).date() for row in data) >= day:
         return {'status':'blocked','reason':'billing_history_does_not_span_day_boundary'}
     used = sum(row['quota'] for row in data if row['type']==2 and datetime.fromtimestamp(row['created_at'],zone).date()==day)/500000
-    return {'status':'checked','beijing_date':str(day),'settled_usd':used,'remaining_usd':max(0,100-used),'daily_limit_usd':100,'scope':'configured_test_account_provider_token','model_calls':0}
+    return {'status':'checked','beijing_date':str(day),'settled_usd':used,'remaining_usd':max(0,100-used),'daily_limit_usd':100,'scope':'configured_test_account_provider_token','model_calls':0,
+            'provider_error_metadata':summarize_token_error_metadata(data,day,zone)}
 
 
 def main():

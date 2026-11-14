@@ -88,3 +88,36 @@ def test_budget_report_uses_authorized_shared_daily_limit_without_exposing_key(m
     assert result['remaining_usd']==98
     assert result['scope']=='configured_test_account_provider_token'
     assert 'private' not in str(result) and 'seed' not in str(result)
+
+
+def test_provider_error_metadata_only_exports_recognized_labels():
+    import json
+    from datetime import datetime,timedelta,timezone
+    from scripts.inspect_failed_reading import summarize_token_error_metadata
+    zone=timezone(timedelta(hours=8));now=datetime(2026,11,14,12,tzinfo=zone)
+    rows=[{'created_at':now.timestamp(),'type':5,
+        'content':json.dumps({'error':{'code':'context_length_exceeded','param':'messages','message':'private source'}}),
+        'other':json.dumps({'status_code':400,'api_key':'private key'})},
+        {'created_at':now.timestamp(),'type':5,'content':'private unstructured message'},
+        {'created_at':(now-timedelta(days=1)).timestamp(),'type':5,'code':'invalid_api_key'},
+        {'created_at':now.timestamp(),'type':2,'content':'private billed record'}]
+    result=summarize_token_error_metadata(rows,now.date(),zone)
+    assert result['error_records_today']==2
+    assert result['recognized_code_counts']=={'context_length_exceeded':1}
+    assert result['recognized_param_counts']=={'messages':1}
+    assert result['http_status_counts']=={'400':1}
+    assert result['unclassified_records']==1
+    assert 'private' not in str(result)
+
+
+def test_provider_error_metadata_never_infers_status_from_raw_prose():
+    from datetime import datetime,timezone
+    from scripts.inspect_failed_reading import summarize_token_error_metadata
+    now=datetime(2026,11,14,tzinfo=timezone.utc)
+    result=summarize_token_error_metadata([{'created_at':now.timestamp(),'type':5,
+        'content':'private prompt mentions400 context_length_exceeded',
+        'other':{'error':{'code':['private'],'param':{'secret':'value'},'status_code':True}}}],now.date(),timezone.utc)
+    assert result['recognized_code_counts']=={}
+    assert result['recognized_param_counts']=={}
+    assert result['http_status_counts']=={}
+    assert result['unclassified_records']==1
