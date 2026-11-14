@@ -31,10 +31,9 @@ def inspect(get):
     owners = set()
     for prefix in PREFIXES:
         rows = get('processing_work', {'select': SELECT, 'kind': 'eq.video',
-            'task_id': 'like.' + prefix + '*', 'order': 'created_at.asc', 'limit': '21'})
+            'task_id': 'eq.' + prefix, 'order': 'created_at.asc', 'limit': '21'})
         if len(rows) > 20 or any(not isinstance(row, dict) or not isinstance(row.get('task_id'), str)
-                or not re.fullmatch(r'[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}', row['task_id'])
-                or not row['task_id'].startswith(prefix) or not row.get('user_id') for row in rows):
+                or row['task_id'] != prefix or not row.get('user_id') for row in rows):
             return {'status': 'blocked_ambiguous_or_truncated', 'production_writes': False, 'provider_calls': 0}
         owners.update(row['user_id'] for row in rows)
         if len(owners) > 1 or len({row['task_id'] for row in rows}) > 1:
