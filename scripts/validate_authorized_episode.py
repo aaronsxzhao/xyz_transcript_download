@@ -188,6 +188,8 @@ class Calls:
         # Count actual HTTP dispatch attempts separately from logical stages and
         # create() calls. Never retain headers, URL, body, response or exceptions.
         with self.lock:
+            if self.http_attempts >= self.maximum:
+                raise TestGuardStopped('request_guard')
             self.http_attempts += 1
             self.report['actual_provider_http_attempts'] = self.http_attempts
             phase = 'other'
@@ -225,6 +227,18 @@ class TrackedClient:
         ok = False
         try:
             result = self.raw.chat.completions.create(**kwargs)
+            with self.calls.lock:
+                usage = getattr(result,'usage',None)
+                for field in ('prompt_tokens','completion_tokens','total_tokens'):
+                    value = getattr(usage,field,None)
+                    if type(value) is int and value >= 0:
+                        totals = self.calls.report.setdefault('provider_reported_usage',{})
+                        totals[field] = totals.get(field,0)+value
+                model = getattr(result,'model',None)
+                if isinstance(model,str) and model:
+                    ident = hashlib.sha256(model.encode()).hexdigest()
+                    counts = self.calls.report.setdefault('response_model_hash_counts',{})
+                    counts[ident] = counts.get(ident,0)+1
             if self.calls.observer:
                 try:
                     from summary_format import extract_model_json
@@ -560,7 +574,8 @@ def run_memory_diagnostics(database, owner, source_id, source, transcript, engin
         observer.clear()
         store.clear()
         calls.observer=None
-        report['memory_evidence_disposed']=True
+        saved=None
+        report['diagnostic_buffers_cleared']=True
         report['wall_seconds']=round(time.monotonic()-started,3)
         snapshot=execution.snapshot()
         report['execution']={key:snapshot[key] for key in ('stages','checkpoint_hits','wall_seconds') if key in snapshot}

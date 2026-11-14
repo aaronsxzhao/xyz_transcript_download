@@ -139,3 +139,11 @@ def test_saved_provider_cannot_drift_outside_explicit_destination_consent(url):
 def test_full_generation_and_failed_delivery_are_not_diagnostic_success():
     from scripts.validate_authorized_episode import result_exit_code
     assert result_exit_code({'terminal_state':'memory_diagnostics_complete','quality_acceptance':False})==2
+
+
+def test_actual_http_ceiling_also_blocks_hidden_extra_dispatch_attempts():
+    from scripts.validate_authorized_episode import Calls, TestGuardStopped
+    calls=Calls(lambda day:None,{},lambda:None,maximum=1)
+    calls.outbound(object())
+    with pytest.raises(TestGuardStopped):calls.outbound(object())
+    assert calls.http_attempts==1
