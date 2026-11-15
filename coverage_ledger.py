@@ -813,9 +813,21 @@ def coverage_acceptable(report, threshold=.9):
 
 def _support_bindings(sections, overview):
     from processing_execution import fingerprint
-    result = {p['id']:fingerprint({'paragraph':p,'heading':s['heading'],
-        'section':i,'position':j,'overview':overview})
-        for i,s in enumerate(sections) for j,p in enumerate(s['paragraphs']) if not p.get('raw')}
+    def semantic(paragraph):
+        return {key:paragraph.get(key) for key in ('id','text','source_ranges','indices')} | {
+            'raw':bool(paragraph.get('raw'))}
+    result={}
+    for section in sections:
+        # Rendering adds frame_time and organizes chapter containers after the
+        # initial audit. Bind factual prose/provenance and its complete local
+        # chapter context/order, not those incidental container indices or media
+        # annotations. Changing a neighboring qualification invalidates the
+        # whole chapter; global changes still require whole-draft source review.
+        scope=fingerprint({'heading':section['heading'],'overview':overview,
+            'paragraphs':[semantic(p) for p in section['paragraphs']]})
+        for paragraph in section['paragraphs']:
+            if not paragraph.get('raw'):
+                result[paragraph['id']]=fingerprint({'paragraph':semantic(paragraph),'scope':scope})
     if overview:result['overview']=fingerprint({'overview':overview})
     return result
 

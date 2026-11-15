@@ -104,6 +104,26 @@ def test_known_negative_receipts_are_never_eligible_for_reuse():
     assert report['items'][0]['status']=='missing'
 
 
+@pytest.mark.parametrize('change',['render_annotations','local_qualification'])
+def test_support_binding_tracks_meaningful_local_context_not_renderer_annotations(change):
+    owner,lines,sections,prepared=scene();seen=[]
+    def respond(engine,system,payload,validator):
+        seen.extend(item['id'] for item in payload['items'])
+        return {'matches':[row(item) for item in payload['items']]}
+    with patch('coverage_ledger.request',side_effect=respond):
+        efficient_audit(owner,lines,sections,prepared_inventory=prepared,allow_repairs=False)
+        seen.clear()
+        if change=='render_annotations':
+            for section in sections:section['paragraphs'][0]['frame_time']=None
+        else:
+            sections[0]['paragraphs'].append({**copy.deepcopy(sections[0]['paragraphs'][0]),
+                'id':'QUALIFIER','text':'The previous claim has a different scope.'})
+        report=efficient_audit(owner,lines,sections,prepared_inventory=prepared,
+            allow_repairs=False,reuse_unchanged_support=True)
+    assert report['reused_covered_receipts']==(20 if change=='render_annotations' else 19)
+    assert seen==([] if change=='render_annotations' else ['C0'])
+
+
 def test_reused_coverage_still_requires_whole_draft_source_review_and_rejects_global_contradiction():
     from tests.test_reading_delivery import candidate
     owner,edition=candidate(10)

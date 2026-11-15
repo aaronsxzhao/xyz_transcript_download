@@ -479,6 +479,7 @@ def generate(engine, source, title, *, formats=(), style='detailed', extras='',
     mode = getattr(engine, 'generation_mode', 'single')
     if mode not in MODES:
         raise ValueError('Generation mode must be single or segmented')
+    if not isinstance(getattr(engine,'generation_report',None),dict):engine.generation_report={}
     revision, lines = source_lines(source, compact=True)
     engine.generation_report['source_layout'] = ('lossless-timed-groups-v1'
         if any(':g' in line.id for line in lines) else 'original-lines')

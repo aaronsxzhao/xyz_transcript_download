@@ -35,7 +35,7 @@
     {
       "id": "H2",
       "cause": "Local source correction re-evaluates unrelated positive coverage against the whole changed draft, causing cost and possible reviewer variance.",
-      "fix": "Positive coverage certificates require unchanged source/model/options/obligation and exact cited support including heading/position/overview. Changed support, obligations, source, model and every negative receipt are rechecked. Whole final draft independently source-reviewed after any changes; certificates cannot replace that review. Source rewrites receive untrusted previously covered obligations to preserve only source-supported clauses.",
+      "fix": "Positive coverage certificates require unchanged source/model/options/obligation and exact cited factual prose/provenance plus complete local chapter wording/order and overview. Renderer media annotations and outer chapter container indices do not invalidate factual support. Changed local qualifications invalidate the whole local chapter. All negative receipts remain rechecked; every changed whole draft requires final independent source review. Previously covered obligations guide source correction as untrusted data.",
       "synthetic": "20covered obligations,1changed paragraph:19stable certificates reused and only changed item matched; changed item remains missing. Source/model/overview changes invalidate all. Added whole-draft contradiction still blocks."
     },
     {
@@ -52,8 +52,8 @@
     }
   ],
   "regression": {
-    "new_cases": 21,
-    "related_passed": 381,
+    "new_cases": 23,
+    "related_passed": 393,
     "environment": "local Python3.12,synthetic data,no real model calls; includes fixed archived-inventory validation and source-layout resume tests"
   },
   "real_validation": {
@@ -81,5 +81,13 @@
     "provider_hard_cap_verified": false
   },
   "excluded": "Previously denied3088segment input and private189item normalization query; no real-account reprocessing/deletion or invented authentication.",
-  "acceptance_pending": "Full exact-head CI, real episode and frozen-inventory acceptance, protected merge/deploy and exact health revision."
+  "acceptance_pending": "Full exact-head CI, real episode and frozen-inventory acceptance, protected merge/deploy and exact health revision.",
+  "validation_followup": {
+    "first_head": "bc24971aec3d9fb45a66c604ca97ba1eff264a11",
+    "first_real_run": 43671158025,
+    "first_head_ci": 43671152730,
+    "ci_found": "one direct-generate concurrency fixture lacks generation_report; generation now initializes it safely;1871otherbackend tests passed",
+    "binding_found": "render-stage frame_time annotations made whole-paragraph fingerprints too conservative; bind semantic prose and entire local chapter context/order instead;2new rendering/context counterexamples pass",
+    "plan": "First running isolated job is a staged control with known conservative cache invalidation, not final-head acceptance. Do not cancel/discard its tracking or start another model job concurrently. Final head requires full CI and real acceptance including fixed archived checklist."
+  }
 }
