@@ -1,0 +1,654 @@
+{
+  "run": 43695420923,
+  "pr": 276,
+  "role": "fast_core_accepted_but_independent_recall_failed",
+  "full_episode_problem_resolved": false,
+  "measurement": {
+    "revision": "8d9ab65f42f61b3d9abf9537ee0d468a902ef70e",
+    "environment": "isolated Actions runner; real model; memory checkpoints; no production queue",
+    "production_writes": false,
+    "account_authentication": "authorized server maintenance bindings; not a user login",
+    "daily_limit_usd": 100,
+    "settled_stop_usd": 85,
+    "in_flight_reserve_usd": 15,
+    "request_limit": 160,
+    "actual_provider_http_attempts": 50,
+    "terminal_state": "not_accepted",
+    "checkpoint_policy": "request-fingerprinted Execution with empty in-memory store",
+    "excluded_previously_rejected_episode": true,
+    "account_anchor": "existing_readonly_billing_diagnostic",
+    "billing_snapshot_max_age_seconds": 90,
+    "monitor": {
+      "read_attempts": 102,
+      "read_failures": 0,
+      "wait_seconds": 0
+    },
+    "provider_billing_reads": 10,
+    "billing_snapshot_age_seconds": 0,
+    "budget": {
+      "status": "checked",
+      "beijing_date": "2026-11-15",
+      "settled_usd": 37.57817,
+      "scope": "configured_test_account_provider_token",
+      "daily_limit_usd": 100,
+      "active_work_found": false
+    },
+    "source_binding": "exact previously authorized historical task and episode URL; read only",
+    "source_and_billing_account_same": false,
+    "source_sha256": "3e3af05dbabcc3bfc605ac8215be5c21696677a546f8c90ce63bb33eb8cbf477",
+    "episode_id": "6ac6a657e742e36efcbf74af",
+    "source_segments": 2170,
+    "source_characters": 18257,
+    "source_duration_seconds": 3437.2,
+    "transcript_structural_validation": "passed",
+    "manual_transcript_readability": "not_reviewed",
+    "manual_summary_readability": "not_reviewed",
+    "model_settings_fingerprint": "16bd60d985604f5db7b1d8575c6b59fe40af0182957a8c911e269faefb2dcb21",
+    "independent_inventory_item_count": 137,
+    "independent_inventory_fingerprint": "7a9827b0469f7e34f6fc91caee50279bcb7c2ae19a14089e30cf889bd838e263",
+    "provider_billing_snapshot_hits": 92,
+    "peak_model_concurrency": 2,
+    "provider_http_attempts_by_phase": {
+      "inventory": 12,
+      "draft": 1,
+      "repair_obligation_map": 1,
+      "grounding": 2,
+      "match": 27,
+      "validate_inventory": 1,
+      "repair": 1,
+      "other": 1,
+      "repair_grounding": 1,
+      "verify_grounding_preservation": 1,
+      "gap_review": 2
+    },
+    "provider_request_bytes_by_phase": {
+      "inventory": {
+        "sum": 370963,
+        "max": 145569
+      },
+      "draft": {
+        "sum": 148103,
+        "max": 148103
+      },
+      "repair_obligation_map": {
+        "sum": 68584,
+        "max": 68584
+      },
+      "grounding": {
+        "sum": 234970,
+        "max": 117987
+      },
+      "match": {
+        "sum": 1255036,
+        "max": 53970
+      },
+      "validate_inventory": {
+        "sum": 92529,
+        "max": 92529
+      },
+      "repair": {
+        "sum": 54286,
+        "max": 54286
+      },
+      "other": {
+        "sum": 41359,
+        "max": 41359
+      },
+      "repair_grounding": {
+        "sum": 12518,
+        "max": 12518
+      },
+      "verify_grounding_preservation": {
+        "sum": 63494,
+        "max": 63494
+      },
+      "gap_review": {
+        "sum": 473070,
+        "max": 236535
+      }
+    },
+    "provider_http_status_counts": {
+      "200": 50
+    },
+    "provider_reported_usage": {
+      "prompt_tokens": 1164957,
+      "completion_tokens": 53236,
+      "total_tokens": 1218193
+    },
+    "response_model_hash_counts": {
+      "576a599a64cb3dde05f18ebb3e26e3d5bcbf4b108ff92da24f5229188fa0972a": 50
+    },
+    "model_create_calls": 50,
+    "failed_model_create_calls": 0,
+    "provider_request_seconds_sum": 1226.416,
+    "delivery_provider_http_attempts": 39,
+    "delivery_wall_seconds": 686.037,
+    "delivery_provider_http_attempts_by_phase": {
+      "inventory": 12,
+      "draft": 1,
+      "repair_obligation_map": 1,
+      "grounding": 2,
+      "match": 18,
+      "validate_inventory": 1,
+      "repair": 1,
+      "other": 1,
+      "repair_grounding": 1,
+      "verify_grounding_preservation": 1
+    },
+    "delivery_provider_request_bytes_by_phase": {
+      "inventory": {
+        "sum": 370963,
+        "max": 145569
+      },
+      "draft": {
+        "sum": 148103,
+        "max": 148103
+      },
+      "repair_obligation_map": {
+        "sum": 68584,
+        "max": 68584
+      },
+      "grounding": {
+        "sum": 234970,
+        "max": 117987
+      },
+      "match": {
+        "sum": 838006,
+        "max": 53970
+      },
+      "validate_inventory": {
+        "sum": 92529,
+        "max": 92529
+      },
+      "repair": {
+        "sum": 54286,
+        "max": 54286
+      },
+      "other": {
+        "sum": 41359,
+        "max": 41359
+      },
+      "repair_grounding": {
+        "sum": 12518,
+        "max": 12518
+      },
+      "verify_grounding_preservation": {
+        "sum": 63494,
+        "max": 63494
+      }
+    },
+    "delivery_provider_http_status_counts": {
+      "200": 39
+    },
+    "delivery_provider_reported_usage": {
+      "prompt_tokens": 831401,
+      "completion_tokens": 42653,
+      "total_tokens": 874054
+    },
+    "delivery_provider_request_seconds_sum": 982.35,
+    "delivery_execution": {
+      "stages": {
+        "model.queue": {
+          "seconds": 0,
+          "calls": 39
+        },
+        "model.phase.inventory": {
+          "seconds": 366.981,
+          "calls": 12
+        },
+        "model.editor": {
+          "seconds": 989.371,
+          "calls": 39
+        },
+        "model.phase.draft": {
+          "seconds": 120.733,
+          "calls": 1
+        },
+        "model.phase.repair_obligation_map": {
+          "seconds": 29.803,
+          "calls": 1
+        },
+        "model.phase.grounding": {
+          "seconds": 38.620999999999995,
+          "calls": 2
+        },
+        "model.phase.match": {
+          "seconds": 361.864,
+          "calls": 18
+        },
+        "model.phase.validate_inventory": {
+          "seconds": 18.203,
+          "calls": 1
+        },
+        "model.phase.repair": {
+          "seconds": 19.727,
+          "calls": 1
+        },
+        "model.phase.other": {
+          "seconds": 8.842,
+          "calls": 1
+        },
+        "model.phase.repair_grounding": {
+          "seconds": 9.681,
+          "calls": 1
+        },
+        "model.phase.verify_grounding_preservation": {
+          "seconds": 14.853,
+          "calls": 1
+        }
+      },
+      "checkpoint_hits": 0,
+      "wall_seconds": 686.148
+    },
+    "independent_inventory_check": {
+      "failed_batches": 0,
+      "terminal_provider_failure": false,
+      "coverage_ratio": 0.8759124087591241,
+      "unresolved_items": 17,
+      "item_count": 137,
+      "accepted": false,
+      "checklist_changed": false
+    },
+    "independent_inventory_provider_http_attempts": 9,
+    "independent_inventory_seconds": 106.358,
+    "summary_structure": {
+      "overview_characters": 111,
+      "key_points": 29,
+      "topics": 5
+    },
+    "final_diagnostic_progress": [
+      {
+        "state": "prepared",
+        "request_sha256": "53c97c2c94487146b4bf6a0804b01f30672f9d5aaee91f14db8cb24cad081225",
+        "sample_count": 5,
+        "diagnostic_checkpoint_reuse": false,
+        "evidence_protocol": "resolved_ranges_v2"
+      },
+      {
+        "state": "assessment_validated",
+        "assessment_number": 1,
+        "summary": {
+          "validated_sample_count": 5,
+          "citation_integrity_failures": 0,
+          "citation_failure_reasons": {},
+          "verdict_counts": {
+            "supported.covered": 2,
+            "supported.partial": 3
+          },
+          "single_assessment_inventory_stage_counts": {
+            "initial_inventory_gap": 3,
+            "covered": 2
+          }
+        }
+      },
+      {
+        "state": "assessment_validated",
+        "assessment_number": 2,
+        "summary": {
+          "validated_sample_count": 5,
+          "citation_integrity_failures": 0,
+          "citation_failure_reasons": {},
+          "verdict_counts": {
+            "supported.covered": 2,
+            "supported.partial": 3
+          },
+          "single_assessment_inventory_stage_counts": {
+            "initial_inventory_gap": 3,
+            "covered": 2
+          }
+        }
+      }
+    ],
+    "failure_sampling": {
+      "diagnostic_schema_version": 2,
+      "sample_count": 5,
+      "classification_counts": {
+        "stable_omission_evidence": 3,
+        "stable_covered_control": 1,
+        "possible_grounding_false_positive": 1
+      },
+      "reason_class_counts": {
+        "incomplete_support": 6,
+        "none": 4
+      },
+      "sample_type_counts": {
+        "coverage": 3,
+        "covered_control": 1,
+        "grounding": 1
+      },
+      "citation_integrity_failures": 0,
+      "citation_failure_reasons": {},
+      "classification_by_sample_type": {
+        "coverage": {
+          "stable_omission_evidence": 3
+        },
+        "covered_control": {
+          "stable_covered_control": 1
+        },
+        "grounding": {
+          "possible_grounding_false_positive": 1
+        }
+      },
+      "citation_failures_by_sample_type": {},
+      "semantic_false_positive_proven": false,
+      "basis": "two same-provider model assessments; exact citations checked in RAM; not human ground truth or a population estimate",
+      "inventory_stage_counts": {
+        "initial_inventory_gap": 3,
+        "covered": 2
+      },
+      "assessment_http_calls": 2,
+      "repeat_request_sha256": "53c97c2c94487146b4bf6a0804b01f30672f9d5aaee91f14db8cb24cad081225",
+      "evidence_protocol": "resolved_ranges_v2",
+      "diagnostic_checkpoint_reuse": false,
+      "sample_limit": 6,
+      "delivery_decision_changed": false,
+      "invalid_grounding_receipts": 0,
+      "captured_source_rejections": 1,
+      "current_candidate_grounding_probes": 0,
+      "unlocatable_match_grounding_rejections": 0,
+      "captured_matching_contradictions": 0,
+      "source_rejection_origin_counts": {
+        "source_review": 1,
+        "coverage_match": 0
+      },
+      "inventory_context_counts": {
+        "before": {
+          "items": 123,
+          "statement_characters": 9639
+        },
+        "after": {
+          "items": 123,
+          "statement_characters": 9640
+        }
+      }
+    },
+    "generation_draft_snapshots": [
+      {
+        "json_parseable": true,
+        "sections_schema_valid": true,
+        "whole_source_scope_valid": true,
+        "paragraphs": 24,
+        "characters": 5866,
+        "plan_items": 123,
+        "mapped_items": 121,
+        "unmapped_items": 2,
+        "unknown_mapping_refs": 0,
+        "private_map_valid": false
+      }
+    ],
+    "diagnostic_buffers_cleared": true,
+    "failure_sampling_provider_http_attempts": 2,
+    "wall_seconds": 839.942,
+    "generation": {
+      "final_source_review_parts": 1,
+      "source_layout": "lossless-timed-groups-v1",
+      "source_units": 205,
+      "inventory_guided_draft": true,
+      "inventory_source_items": 123,
+      "draft_map_repair_attempts": 1,
+      "draft_obligation_map": {
+        "supplied": 123,
+        "mapped": 121,
+        "unmapped": 2,
+        "claimed_source_conflicts": 0,
+        "status": "metadata_repaired"
+      },
+      "grounding_repair_sizes": [
+        {
+          "paragraphs": 1,
+          "characters_before": 1917,
+          "characters_after": 397,
+          "original_rejections_used": 1,
+          "rejected_prose_characters": 324,
+          "covered_obligations_supplied": 0,
+          "source_obligations_supplied": 6
+        }
+      ],
+      "grounding_preservation_checks": [
+        {
+          "obligations": 6,
+          "source_supported": 6,
+          "missing_supported": 0,
+          "preexisting_uncovered": 0,
+          "newly_covered": 0
+        }
+      ],
+      "late_contradiction_repair_attempts": 0,
+      "coverage_rounds": [
+        {
+          "phase": "initial",
+          "outcome": "completed",
+          "status": "acceptable",
+          "seconds": 201.554,
+          "initial_unresolved": 15,
+          "final_unresolved": 3,
+          "accepted_paragraphs": 5,
+          "rejected_paragraphs": 2,
+          "source_corrected_items": 1,
+          "logical_requests_reported": 25,
+          "coverage_ratio": 0.975609756097561,
+          "stale_gap_receipts_refreshed": 0,
+          "empty_repair_rechecks_avoided": 0,
+          "regression_pruning_attempts": 0,
+          "reused_covered_receipts": 0,
+          "existing_redundancy_flags": 0,
+          "changed_support_regressions": 0,
+          "contradiction_obligations_validated": 0,
+          "contradiction_source_corrections": 0,
+          "status_counts": {
+            "covered": 120,
+            "missing": 0,
+            "partial": 3,
+            "contradicted": 0,
+            "unverified": 0,
+            "context_only": 0
+          },
+          "unresolved_by_kind": {
+            "claim": 3,
+            "experiment": 0,
+            "counterexample": 0,
+            "condition": 0,
+            "disagreement": 0,
+            "procedure": 0,
+            "example": 0
+          },
+          "rejection_reasons": {
+            "duplicate_or_no_novelty": 2
+          }
+        },
+        {
+          "phase": "after_grounding_repair",
+          "outcome": "completed",
+          "status": "acceptable",
+          "seconds": 63.273,
+          "initial_unresolved": 4,
+          "final_unresolved": 4,
+          "accepted_paragraphs": 0,
+          "rejected_paragraphs": 0,
+          "source_corrected_items": 0,
+          "logical_requests_reported": 20,
+          "coverage_ratio": 0.967479674796748,
+          "stale_gap_receipts_refreshed": 0,
+          "empty_repair_rechecks_avoided": 0,
+          "regression_pruning_attempts": 0,
+          "reused_covered_receipts": 27,
+          "existing_redundancy_flags": 0,
+          "changed_support_regressions": 4,
+          "contradiction_obligations_validated": 0,
+          "contradiction_source_corrections": 0,
+          "status_counts": {
+            "covered": 119,
+            "missing": 0,
+            "partial": 4,
+            "contradicted": 0,
+            "unverified": 0,
+            "context_only": 0
+          },
+          "unresolved_by_kind": {
+            "claim": 2,
+            "experiment": 1,
+            "counterexample": 0,
+            "condition": 0,
+            "disagreement": 0,
+            "procedure": 1,
+            "example": 0
+          },
+          "rejection_reasons": {}
+        }
+      ],
+      "coverage_rounds_truncated": false,
+      "delivery": {
+        "coverage_ratio": 0.967479674796748,
+        "coverage_threshold": 0.9,
+        "unresolved_items": 4,
+        "status": "accepted"
+      },
+      "coverage_ledger": {
+        "coverage_ratio": 0.967479674796748,
+        "threshold": 0.9,
+        "failed_batches": 0,
+        "inventory_failed_batches": 0,
+        "inventory_validation_failed_batches": 0,
+        "ignored_boundary_items": 0,
+        "terminal_provider_failure": false,
+        "grounding_concerns": false,
+        "unresolved_items": 4,
+        "covered_items": 119,
+        "requests": 20,
+        "validation_retries": 0,
+        "repairs_accepted": 0,
+        "repairs_rejected": 0,
+        "inventory_transport_retries": 0,
+        "inventory_split_retries": 0,
+        "inventory_recovered_batches": 0,
+        "inventory_batches": 12,
+        "initial_grounding_concerns": false,
+        "empty_repair_rechecks_avoided": 0,
+        "regression_pruning_attempts": 0,
+        "reused_covered_receipts": 27,
+        "existing_redundancy_flags": 0,
+        "changed_support_regressions": 4,
+        "contradiction_obligations_validated": 0,
+        "contradiction_source_corrections": 0,
+        "inventory_unclaimed_units": 4,
+        "inventory_supplement_batches": 1,
+        "inventory_unclaimed_units_reviewed": 4,
+        "inventory_completeness_units_reviewed": 205,
+        "status": "acceptable",
+        "check_failure_counts": {},
+        "check_failure_types": {},
+        "inventory_error_types": {
+          "ValueError": 0,
+          "SummaryOutputError": 0,
+          "APIConnectionError": 0,
+          "APITimeoutError": 0,
+          "TimeoutError": 0,
+          "APIStatusError": 0,
+          "RateLimitError": 0,
+          "RuntimeError": 0,
+          "ReadTimeout": 0,
+          "ConnectError": 0,
+          "ConnectionError": 0,
+          "ModelRequestTimeout": 0,
+          "InternalServerError": 0,
+          "BadRequestError": 0,
+          "AuthenticationError": 0,
+          "PermissionDeniedError": 0,
+          "NotFoundError": 0,
+          "UnprocessableEntityError": 0
+        },
+        "inventory_http_statuses": {
+          "408": 0,
+          "429": 0,
+          "500": 0,
+          "502": 0,
+          "503": 0,
+          "504": 0,
+          "524": 0
+        },
+        "inventory_failures_recorded": 0,
+        "inventory_failures_available": true,
+        "item_status_counts": {
+          "covered": 119,
+          "missing": 0,
+          "partial": 4,
+          "contradicted": 0,
+          "unverified": 0,
+          "context_only": 0
+        }
+      },
+      "verification": {
+        "reviewed": 1,
+        "review_attempts": 1,
+        "review_parts": 1,
+        "final_coverage_attempts": 0,
+        "status": "model_reviewed"
+      }
+    },
+    "reuse_and_retry": {
+      "inventory_receipts_reused": 0,
+      "repair_transport_retries": 0,
+      "validation_retries": 0,
+      "inventory_transport_retries": 0,
+      "requests": 20
+    },
+    "execution": {
+      "stages": {
+        "model.queue": {
+          "seconds": 0,
+          "calls": 50
+        },
+        "model.phase.inventory": {
+          "seconds": 366.981,
+          "calls": 12
+        },
+        "model.editor": {
+          "seconds": 1188.7140000000002,
+          "calls": 48
+        },
+        "model.phase.draft": {
+          "seconds": 120.733,
+          "calls": 1
+        },
+        "model.phase.repair_obligation_map": {
+          "seconds": 29.803,
+          "calls": 1
+        },
+        "model.phase.grounding": {
+          "seconds": 38.620999999999995,
+          "calls": 2
+        },
+        "model.phase.match": {
+          "seconds": 561.152,
+          "calls": 27
+        },
+        "model.phase.validate_inventory": {
+          "seconds": 18.203,
+          "calls": 1
+        },
+        "model.phase.repair": {
+          "seconds": 19.727,
+          "calls": 1
+        },
+        "model.phase.other": {
+          "seconds": 56.372,
+          "calls": 3
+        },
+        "model.phase.repair_grounding": {
+          "seconds": 9.681,
+          "calls": 1
+        },
+        "model.phase.verify_grounding_preservation": {
+          "seconds": 14.853,
+          "calls": 1
+        }
+      },
+      "checkpoint_hits": 0,
+      "wall_seconds": 840.053
+    },
+    "final_budget_guard_passed": true
+  },
+  "conclusion": "Core39actualHTTP/686.037s accepted; same final prose120/13787.59percent on immutable checklist,17unresolved and no failed checks, so NOT_ACCEPTED. Initial primary120/12397.56percent ->119/12396.75percent after source correction. Original rejected prose324characters became397, not1917->397:1917was internal raw fallback. Six source-supported obligations preserved by paired check with0newloss;27unchanged positive receipts reused. Two diagnostics judged3remaining material source-supported partial omissions absent/partial already in the initial123-item9639-character inventory. No source-only correction loss observed in those3samples; possible grounding false positive remains unproved.",
+  "next_fix": "Replace one whole-source completeness pass with one independent recall check per original source-work scope, workers2. Use a dedicated recall contract rather than generic summarization/extraction instructions; compare explicit bound actor/action/mechanism/setup/result/condition/attribution against local obligations and a compact global known-meaning index. Append only source-supported missing meaning; preserve original items, counts, generation mode, source authority,90percent and160HTTP/3600s. More upfront local checks are real work, not identical-request retries; verify total latency/HTTP and unchanged137quality before claiming improvement.",
+  "causal_performance_claim": false
+}

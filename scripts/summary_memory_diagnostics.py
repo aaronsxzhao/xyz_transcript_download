@@ -57,6 +57,8 @@ def candidate_shape(payload):
 
 STATUSES = {'covered', 'partial', 'missing', 'contradicted', 'uncertain'}
 SUPPORT = {'supported', 'not_supported', 'uncertain'}
+MISSING_ROLES={'none','mechanism','causal_direction','experiment_setup','experiment_result','condition',
+    'quantity_or_time','attribution','procedure_step','temporal_order','contrast','rationale','scope','uncertain'}
 REASONS = {'none', 'scope', 'attribution', 'quantity_or_time', 'condition',
            'procedure', 'incomplete_support', 'cross_paragraph_context', 'uncertain'}
 
@@ -239,7 +241,15 @@ def validate_verdicts(response, request):
             if row.get('draft_evidence') == []:
                 failures['draft.required_evidence_missing'] = 1
         # Exact substring checks validate citations, not semantic entailment.
-        result[ident] = {'source_support': labels[0], 'draft_status': labels[1],
+        stage={}
+        if request.get('inventory_context'):
+            stage={key:row.get(key) for key in ('inventory_before_status','inventory_after_status','gap_importance')}
+            role=row.get('missing_role','uncertain')
+            stage['missing_role']=role if isinstance(role,str) and role in MISSING_ROLES else 'uncertain'
+            if (stage['inventory_before_status'] not in STATUSES or stage['inventory_after_status'] not in STATUSES
+                    or stage['gap_importance'] not in {'material','incidental','uncertain'}):
+                raise ValueError('Invalid diagnostic labels')
+        result[ident] = {**stage,'source_support': labels[0], 'draft_status': labels[1],
                          'reason_class': labels[2], 'citation_integrity': bool(evidence),
                          'citation_failure_reasons': failures}
     return result
@@ -295,6 +305,21 @@ def aggregate_verdicts(samples, rounds):
             label = 'possible_coverage_false_positive'
         else:
             label = 'stable_omission_evidence'
+        if 'inventory_before_status' in a and 'inventory_before_status' in b:
+            keys=('source_support','draft_status','inventory_before_status','inventory_after_status','gap_importance')
+            if any(a[key]!=b[key] for key in keys):stage='stage_judgement_variation'
+            elif not a['citation_integrity'] or not b['citation_integrity']:stage='invalid_evidence'
+            elif a['source_support']!='supported':stage='source_or_importance_unresolved'
+            elif a['draft_status']=='covered':stage='covered'
+            elif a['gap_importance']=='uncertain' or 'uncertain' in (a['draft_status'],a['inventory_before_status'],a['inventory_after_status']):stage='source_or_importance_unresolved'
+            elif a['gap_importance']=='incidental':stage='possible_incidental_gap'
+            elif a['inventory_before_status']!='covered':stage='initial_inventory_gap'
+            elif a['inventory_after_status']!='covered':stage='inventory_correction_loss'
+            else:stage='draft_ignored_supported_plan'
+            counters=result.setdefault('inventory_stage_counts',{});counters[stage]=counters.get(stage,0)+1
+            if a['source_support']=='supported' and a['draft_status'] in {'partial','missing'}:
+                role=a.get('missing_role','uncertain') if a.get('missing_role')==b.get('missing_role') else 'reviewer_variation'
+                counters=result.setdefault('missing_role_counts',{});counters[role]=counters.get(role,0)+1
         result['classification_counts'][label] = result['classification_counts'].get(label, 0) + 1
         counters=result['classification_by_sample_type'].setdefault(kind,{})
         counters[label]=counters.get(label,0)+1
@@ -306,27 +331,42 @@ def one_assessment_summary(samples, verdicts):
     summary = aggregate_verdicts(samples, [verdicts, verdicts])
     # Reusing a typed result for summarization is not a repeated model call.
     # Avoid publishing fake pair classifications; keep per-assessment counters.
-    return {'validated_sample_count':len(verdicts),
+    result = {'validated_sample_count':len(verdicts),
             'citation_integrity_failures':summary['citation_integrity_failures']//2,
             'citation_failure_reasons':{key:value//2 for key,value in summary['citation_failure_reasons'].items()},
             'verdict_counts':{support+'.'+status:sum(row['source_support']==support and row['draft_status']==status
                 for row in verdicts.values()) for support in sorted(SUPPORT) for status in sorted(STATUSES)
                 if any(row['source_support']==support and row['draft_status']==status for row in verdicts.values())}}
+    if 'inventory_stage_counts' in summary:
+        result['single_assessment_inventory_stage_counts']=summary['inventory_stage_counts']
+    if 'missing_role_counts' in summary:result['single_assessment_missing_role_counts']=summary['missing_role_counts']
+    return result
 
 
 class MemoryDiagnostics:
     def __init__(self):
+        self.generation_snapshots=[]
+        self.generated_candidate=None
+        self.inventory_before = []
+        self.inventory_after = []
         self.candidate = None
         self.grounding = []
         self.invalid_grounding_receipts = 0
         self.unlocatable_match_grounding_rejections = 0
 
     def observe(self, request, response):
+        # Capture the exact private plan before any checklist correction.
+        if isinstance(request,dict) and isinstance(request.get('source_obligations'),list):
+            previous={item['id']:item for item in self.inventory_before}
+            previous.update({item['id']:copy.deepcopy(item) for item in request['source_obligations']})
+            self.inventory_before=list(previous.values())
+        if isinstance(request,dict) and 'mode' in request:
+            self.capture_generation_shape(request,response)
         # Runs before transcript_reading replaces rejected prose with raw source.
         if isinstance(request,dict) and request.get('phase') == 'match':
             self.observe_matching(request,response)
             return
-        if (len(self.grounding) >= 2 or not isinstance(request, dict)
+        if (not isinstance(request, dict)
                 or 'global_draft' not in request or request.get('phase')
                 or not isinstance(response, dict)):
             return
@@ -342,9 +382,47 @@ class MemoryDiagnostics:
             return
         draft = diagnostic_draft(request['global_draft'], request.get('global_overview',''))
         paragraphs = {p['id']: p for s in draft for p in s['paragraphs']}
+        # A later final review can reject a different/rewritten assertion.
+        # Keep the latest actual finding, not just the first two historical
+        # rejections that may already have been repaired. Still at most two RAM
+        # samples and two diagnostic calls; no source/prose export.
+        if response.get('unsupported_paragraph_ids'):
+            self.grounding.clear()
         for ident in response.get('unsupported_paragraph_ids', []):
             if ident in paragraphs and len(self.grounding) < 2:
                 self.grounding.append({'draft': draft, 'paragraph': copy.deepcopy(paragraphs[ident])})
+
+    def capture_generation_shape(self,request,response):
+        if len(self.generation_snapshots)>=4:return
+        from transcript_reading import SourceLine,validate_sections,reject_prefix_only,validate_obligation_map
+        from summary_errors import SummaryOutputError
+        row={'json_parseable':True,'sections_schema_valid':False,'whole_source_scope_valid':False}
+        try:
+            lines=[SourceLine(item['id'],item['text'],None) for item in request['primary_source']]
+            sections,_=validate_sections(response,lines)
+            row.update(sections_schema_valid=True,paragraphs=sum(len(s['paragraphs']) for s in sections),
+                characters=sum(len(p['text']) for s in sections for p in s['paragraphs']))
+            self.generated_candidate=copy.deepcopy({'sections':sections,'overview':response.get('overview','')})
+            if request['mode']=='single':reject_prefix_only(sections,lines)
+            row['whole_source_scope_valid']=True
+            obligations=request.get('source_obligations',[])
+            expected={item['id'] for item in obligations}
+            refs=[ident for s in response['sections'] for p in s['paragraphs']
+                for ident in (p.get('obligation_ids') if isinstance(p.get('obligation_ids'),list) else [])]
+            known={ident for ident in refs if isinstance(ident,str) and ident in expected}
+            row.update(plan_items=len(expected),mapped_items=len(known),unmapped_items=len(expected-known),
+                unknown_mapping_refs=sum(not isinstance(ident,str) or ident not in expected for ident in refs))
+            try:validate_obligation_map(response,obligations,lines);row['private_map_valid']=True
+            except (SummaryOutputError,ValueError,TypeError,KeyError):row['private_map_valid']=False
+        except (SummaryOutputError,ValueError,TypeError,KeyError) as error:
+            reason=getattr(error,'reason',None)
+            row['failure_category']=(reason if isinstance(reason,str) and reason in {'sections','source_ranges','structure'}
+                else 'prefix_incomplete' if isinstance(error,SummaryOutputError) and error.code=='incomplete' else 'structure')
+        self.generation_snapshots.append(row)
+
+    def capture_generation_parse_failure(self,request,characters):
+        if isinstance(request,dict) and 'mode' in request and len(self.generation_snapshots)<4:
+            self.generation_snapshots.append({'json_parseable':False,'characters':characters,'failure_category':'json'})
 
     def observe_matching(self, request, response):
         from coverage_ledger import matching_response
@@ -356,7 +434,7 @@ class MemoryDiagnostics:
         draft = diagnostic_draft(request['global_draft'])
         paragraphs = {p['id']:p for section in draft for p in section['paragraphs'] if not p.get('raw')}
         for row in rows:
-            if row['grounded']:
+            if row['grounded'] and row['status']!='contradicted':
                 continue
             ids = sorted({entry['paragraph_id'] for entry in row['support'] if entry['paragraph_id'] in paragraphs})
             if not ids:
@@ -364,12 +442,18 @@ class MemoryDiagnostics:
             for ident in ids:
                 if len(self.grounding) < 2:
                     self.grounding.append({'draft': draft, 'paragraph': paragraphs[ident],
-                                          'origin':'coverage_match'})
+                                          'origin':'coverage_match','matching_contradiction':row['status']=='contradicted'})
 
     def capture_payload(self, payload):
         shape = candidate_shape(payload)
         if shape.get('paragraph_count', 0) and shape.get('inventory_item_count', 0):
             self.candidate = copy.deepcopy(payload)
+
+    def capture_final_inventory(self, engine):
+        # Also runs after delivery raises, before failure diagnostics/disposal.
+        # A fixed benchmark may be the diagnostic candidate's inventory; it
+        # must not replace the actual checklist after source corrections.
+        self.inventory_after = copy.deepcopy(unpack_inventory(getattr(engine,'_quality_inventory',[])))
 
     def add_candidate_grounding_probes(self):
         # Saved candidates may already have replaced/repaired original rejected
@@ -393,6 +477,9 @@ class MemoryDiagnostics:
         if prepared is None:
             prepared = build_inventory(engine,lines)
         inventory_report, inventory = copy.deepcopy(prepared)
+        self.inventory_after = copy.deepcopy(inventory)
+        diagnostic_inventory=kwargs.get('diagnostic_inventory')
+        if diagnostic_inventory is not None:inventory=copy.deepcopy(diagnostic_inventory)
         snapshot = copy.deepcopy(sections)
         chunks = [inventory[start:start+ITEM_LIMIT] for start in range(0,len(inventory),ITEM_LIMIT)]
         # efficient_audit(allow_repairs=False) can still verify/correct source
@@ -419,7 +506,12 @@ class MemoryDiagnostics:
 
     def make_request(self, source, evidence_protocol='literal_quotes_v1'):
         from transcript_reading import source_lines, serialize
-        request = {'phase': 'gap_review', 'primary_source': serialize(source_lines(source)[1]),
+        # Archived candidates retain their original line IDs. New grouped IDs
+        # explicitly identify their lossless layout; never reinterpret old IDs.
+        compact = bool(self.candidate and any(':g' in span.get('start','')
+            for item in unpack_inventory(self.candidate.get('inventory'))
+            for span in item.get('source_ranges',[])))
+        request = {'phase': 'gap_review', 'primary_source': serialize(source_lines(source,compact=compact)[1]),
                    'drafts': {}, 'samples': []}
         if evidence_protocol != 'literal_quotes_v1':request['evidence_protocol']=evidence_protocol
         if self.candidate:
@@ -461,6 +553,8 @@ class MemoryDiagnostics:
                 'source_ranges': case['paragraph'].get('source_ranges', [])})
         for index, sample in enumerate(request['samples']):
             sample['sample_id'] = 'S'+str(index+1)
+        if self.inventory_before and self.inventory_after:
+            request['inventory_context']={'before':copy.deepcopy(self.inventory_before),'after':copy.deepcopy(self.inventory_after)}
         return request
 
     def analyze(self, engine, source, on_progress=None, evidence_protocol='resolved_ranges_v2'):
@@ -470,6 +564,8 @@ class MemoryDiagnostics:
             raise ValueError('No diagnostic samples available')
         payload = json.dumps(request, ensure_ascii=False, sort_keys=True)
         system=JUDGE_RANGES if evidence_protocol=='resolved_ranges_v2' else JUDGE
+        if request.get('inventory_context'):
+            system += INVENTORY_STAGE_JUDGE
         request_hash = hashlib.sha256((system+payload).encode()).hexdigest()
         rounds = []
         if on_progress:
@@ -497,10 +593,39 @@ class MemoryDiagnostics:
                       captured_source_rejections=sum(case.get('kind','grounding')=='grounding' for case in self.grounding),
                       current_candidate_grounding_probes=sum(case.get('kind')=='grounding_probe' for case in self.grounding),
                       unlocatable_match_grounding_rejections=self.unlocatable_match_grounding_rejections,
+                      captured_matching_contradictions=sum(bool(case.get('matching_contradiction')) for case in self.grounding),
                       source_rejection_origin_counts={origin:sum(case.get('kind','grounding')=='grounding' and case.get('origin','source_review')==origin for case in self.grounding)
                           for origin in ('source_review','coverage_match')})
+        if request.get('inventory_context'):
+            result['inventory_context_counts']={phase:{'items':len(items),'statement_characters':sum(len(item['statement']) for item in items)}
+                for phase,items in request['inventory_context'].items()}
         return result
 
     def clear(self):
+        self.generation_snapshots.clear()
+        self.generated_candidate=None
+        self.inventory_before.clear()
+        self.inventory_after.clear()
         self.candidate = None
         self.grounding.clear()
+
+
+INVENTORY_STAGE_JUDGE = """
+Additional independent diagnostic only; never change delivery. Each inventory_context
+list is a private planning checklist, not summary prose. For EVERY sample also return
+"inventory_before_status" and "inventory_after_status" using covered|partial|missing|contradicted|uncertain.
+Judge whether the UNION of statements anywhere in that list contains the sample's
+important source meaning, not whether wording, IDs, or item counts match. Before
+is the immutable plan used to draft; after is the checklist after source corrections.
+Also return "missing_role":"none|mechanism|causal_direction|experiment_setup|experiment_result|condition|quantity_or_time|attribution|procedure_step|temporal_order|contrast|rationale|scope|uncertain".
+For a real omission choose its specific role instead of merely incomplete_support;
+use none when covered and uncertain when the role cannot be resolved.
+Also return "gap_importance":"material|incidental|uncertain": judge the concrete
+remaining draft gap, not the general importance of its topic. Omitted intervention,
+outcome, mechanism, scope-changing attribution, conditions, numerical units and
+substantive objections are material. A colorful name or interchangeable illustration
+is incidental only if it changes neither the argument nor evidence. When uncertain
+say uncertain. Grounding samples judge the named assertion with the same rules.
+Do not relax source_support or draft_status to make inventories agree. Never
+quote/paraphrase private content outside the already requested evidence schema.
+"""

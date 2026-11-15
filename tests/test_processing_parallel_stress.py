@@ -60,9 +60,10 @@ class Provider:
                     raise RateLimitError('Synthetic rate limit', response=response, body=None)
                 spans = [{'start': rows[0]['id'], 'end': rows[-1]['id']}]
                 if phase == 'inventory':
-                    data = {'checked_source_ranges': spans, 'items': [{'kind':'claim', 'statement':rows[0]['text'], 'source_ranges':spans}]}
+                    data = {'checked_source_ranges': spans, 'items': [] if payload.get('source_inventory_completeness_check') else [{'kind':'claim', 'statement':rows[0]['text'], 'source_ranges':spans}]}
                 elif phase == 'draft':
-                    data = {'sections':[{'heading':part, 'paragraphs':[{'text':f'{part} claim with its condition.', 'source_ranges':spans}]}]}
+                    data = {'sections':[{'heading':part, 'paragraphs':[{'text':f'{part} claim with its condition.', 'source_ranges':spans,
+                        'obligation_ids':[item['id'] for item in payload.get('source_obligations',[])]}]}]}
                 elif phase == 'match':
                     paragraph = payload['global_draft'][0]['paragraphs'][0]
                     assert part in paragraph['text'], 'A draft leaked between sources'
@@ -100,13 +101,13 @@ def test_multiple_parts_limits_recovery_and_source_isolation(monkeypatch, fault,
     assert provider.peak >= 2
     assert provider.active == 0
     calls = len(provider.calls)
-    assert calls == 20 + bool(fault)  # 5 distinct successful requests per source.
+    assert calls == 28 + bool(fault)  #7distinct successful requests including2local recall checks per source.
     for owner, part, source, engine, note in results:
         assert part in note and all(f'PART-{other}' not in note for other in range(4) if f'PART-{other}' != part)
         resumed = Execution(owner, part, store)
         with bind(resumed):
             assert engine.generate_note(part, source) == note
-        assert resumed.snapshot()['checkpoint_hits'] == 5
+        assert resumed.snapshot()['checkpoint_hits'] == 7
     assert len(provider.calls) == calls
     from processing_parallel import _OWNER_SLOTS
     assert not _OWNER_SLOTS
@@ -136,8 +137,14 @@ def test_cancel_after_checkpoint_then_resume_without_repeating_saved_request(mon
         note = engine.generate_note('PART-CANCEL', source)
     assert 'PART-CANCEL' in note
     assert resumed.snapshot()['checkpoint_hits'] == len(saved)
+    recall=[]
     for _, _, phase, payload in provider.calls[before:]:
         if phase == 'inventory':
-            rows = json.loads(payload)['primary_source']
-            assert [{'start':rows[0]['id'], 'end':rows[-1]['id']}] not in completed_inventory
+            request=json.loads(payload);rows=request['primary_source']
+            if request.get('source_inventory_completeness_check'):
+                recall.append(request)
+                assert request['known_source_obligations'] and request['other_known_source_statements']
+            else:
+                assert [{'start':rows[0]['id'], 'end':rows[-1]['id']}] not in completed_inventory
+    assert len(recall)==2  # Independent recall checks are not repeats of saved extraction requests.
     assert provider.active == 0

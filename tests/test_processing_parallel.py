@@ -82,13 +82,17 @@ def test_inventory_batches_overlap_keep_source_ids_and_do_not_see_draft(monkeypa
     barrier = threading.Barrier(2)
     def request(engine, system, payload, validator):
         assert payload['phase'] == 'inventory' and 'global_draft' not in payload
+        if payload.get('source_inventory_completeness_check'):
+            assert len(payload['known_source_obligations'])==1 and len(payload['other_known_source_statements'])==1
+            return {'checked_source_ranges':[{'start':row['id'],'end':row['id']} for row in payload['primary_source']],'items':[]}
         barrier.wait(timeout=2)
         rows = payload['primary_source']
         spans = [{'start': rows[0]['id'], 'end': rows[-1]['id']}]
         return {'checked_source_ranges': spans, 'items': [{'kind': 'claim', 'statement': rows[0]['text'], 'source_ranges': spans}]}
     monkeypatch.setattr(ledger, 'request', request)
-    report, items = ledger.build_inventory(SimpleNamespace(), lines)
-    assert report['requests'] == 2 and report['failed_batches'] == 0
+    report, items = ledger.build_inventory(SimpleNamespace(quality_coverage_threshold=.9), lines)
+    assert report['requests'] == 4 and report['failed_batches'] == 0
+    assert report['inventory_completeness_units_reviewed']==2
     assert [item['id'] for item in items] == ['C1.1', 'C2.2']
     assert [item['source_ranges'][0]['start'] for item in items] == [line.id for line in lines]
 
@@ -110,12 +114,13 @@ def test_generation_and_inventory_overlap_and_prepared_results_are_consumed(monk
     assert result == {'joined': prepared}
 
 
-def test_real_generation_reuses_parallel_inventory_checkpoints(monkeypatch):
+@pytest.mark.parametrize('source_limit,guided,expected_calls',[(1,True,7),(12000,False,4)])
+def test_real_generation_uses_parallel_inventory_as_a_drafting_plan_and_reuses_checkpoints(monkeypatch,source_limit,guided,expected_calls):
     import json
     from note_summarizer import NoteSummarizer
     import coverage_ledger as ledger
-    monkeypatch.setattr(ledger, 'SOURCE_LIMIT', 1)
-    barrier = threading.Barrier(3)  # Two inventory calls plus the draft.
+    monkeypatch.setattr(ledger, 'SOURCE_LIMIT', source_limit)
+    barrier = threading.Barrier(2)  # Inventory stays parallel; draft consumes its complete plan.
     owner = NoteSummarizer(api_key='synthetic')
     owner.client = Mock(base_url='https://model.example/v1')
     calls = []
@@ -129,11 +134,23 @@ def test_real_generation_reuses_parallel_inventory_checkpoints(monkeypatch):
         rows = payload.get('primary_source', [])
         spans = [{'start': rows[0]['id'], 'end': rows[-1]['id']}]
         if payload.get('phase') == 'inventory':
+            if payload.get('source_inventory_completeness_check'):
+                data={'checked_source_ranges':spans,'items':[]}
+                return SimpleNamespace(choices=[SimpleNamespace(finish_reason='stop', message=SimpleNamespace(content=json.dumps(data)))])
             barrier.wait(timeout=3)
             data = {'checked_source_ranges': spans, 'items': [{'kind': 'claim', 'statement': rows[0]['text'], 'source_ranges': spans}]}
         elif 'mode' in payload:
-            barrier.wait(timeout=3)
-            data = {'sections': [{'heading': 'Argument', 'paragraphs': [{'text': 'Supported argument with an essential condition.', 'source_ranges': spans}]}]}
+            if guided:
+                assert sum(call.get('phase')=='inventory' for call in calls)==4
+                assert len(payload['source_obligations'])==2
+                assert '"obligation_ids":[' in kwargs['messages'][0]['content']
+                assert '"unmapped_obligation_ids":[]' in kwargs['messages'][0]['content']
+                assert {item['statement'] for item in payload['source_obligations']}=={'A supported argument.\n','An essential condition.'}
+            else:
+                assert 'source_obligations' not in payload
+                barrier.wait(timeout=3)  # Small video keeps generation/inventory overlap.
+            data = {'sections': [{'heading': 'Argument', 'paragraphs': [{'text': 'Supported argument with an essential condition.', 'source_ranges': spans,
+                **({'obligation_ids':[item['id'] for item in payload['source_obligations']]} if guided else {})}]}]}
         elif payload.get('phase') == 'match':
             paragraph = payload['global_draft'][0]['paragraphs'][0]
             data = {'checked_proposed_paragraph_ids': [], 'matches': [{'item_id': item['id'], 'status': 'covered', 'support': [{'paragraph_id': paragraph['id']}], 'grounded': True, 'duplicate': False} for item in payload['items']]}
@@ -148,8 +165,9 @@ def test_real_generation_reuses_parallel_inventory_checkpoints(monkeypatch):
     resumed = Execution('owner', 'source', store)
     with bind(resumed):
         second = owner.generate_note('Title', 'A supported argument.\nAn essential condition.')
-    assert first == second and len(calls) == count == 5
-    assert resumed.snapshot()['checkpoint_hits'] == 5
+    assert first == second and len(calls) == count == expected_calls
+    assert resumed.snapshot()['checkpoint_hits'] == expected_calls
+    assert owner.generation_report['inventory_guided_draft'] is guided
     assert owner.generation_report['coverage_ledger']['status'] == 'model_reviewed'
 
 
@@ -186,6 +204,8 @@ def test_inventory_reports_first_finished_batch_while_second_is_still_waiting(mo
     events = []
     def request(engine, system, payload, validator):
         rows = payload['primary_source']
+        if payload.get('source_inventory_completeness_check'):
+            return {'checked_source_ranges':[{'start':row['id'],'end':row['id']} for row in payload['primary_source']],'items':[]}
         if rows[0]['id'] == lines[1].id:
             assert release.wait(2), 'First batch did not publish incremental progress'
         spans = [{'start': rows[0]['id'], 'end': rows[-1]['id']}]
@@ -195,7 +215,8 @@ def test_inventory_reports_first_finished_batch_while_second_is_still_waiting(mo
         if event['stage'] == 'inventory' and event['completed'] == 1:
             release.set()
     monkeypatch.setattr(ledger, 'request', request)
-    report, items = ledger.build_inventory(SimpleNamespace(), lines, stage_callback=stage)
+    report, items = ledger.build_inventory(SimpleNamespace(quality_coverage_threshold=.9), lines, stage_callback=stage)
     assert report['failed_batches'] == 0
     assert [item['id'] for item in items] == ['C1.1', 'C2.2']
-    assert [event['completed'] for event in events] == [0, 1, 2, 2]
+    assert [event['completed'] for event in events] == [0, 1, 2, 2, 3, 4, 4]
+    assert all(event['total']==4 for event in events)

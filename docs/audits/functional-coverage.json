@@ -1545,6 +1545,157 @@
         "formal_zero_model_probe": 43625509352,
         "shared_settled_usd": 1.654734
       }
+    },
+    {
+      "id": "2026-11-15-summary-four-hypotheses",
+      "checked_at": "2026-11-15T10:33:34+08:00",
+      "pr": 274,
+      "tested_commit": "778ed8481fb0448b798b49168aed9b4f434c5e18",
+      "report": "docs/audits/2026-11-15-summary-four-hypotheses-real-result.json",
+      "status": "four_bounded_fixes_verified_full_episode_failed",
+      "regression_passed": 350,
+      "real_run": 43665955963,
+      "delivery_actual_http_attempts": 76,
+      "delivery_seconds": 1545.114,
+      "initial_coverage": 0.9735099337748344,
+      "final_coverage": 0.8278145695364238,
+      "failure_sampling": "6samples in RAM,2extraHTTP;3stableomission,1stableunsupportedoriginalprose,1coveredcontrol,1invalidcitation; no proven semantic false positive",
+      "budget_settled_usd": 13.882554,
+      "not_claimed": "Whole episode problem resolved, causal speed gain, production queue or readable saved-note acceptance. Existing feature operation-chain status unchanged.",
+      "release": {
+        "pr": 274,
+        "merged_sha": "ebd2b2422adc33ae9f39cc790f2757868e0dc40f",
+        "tested_pr_head": "778ed8481fb0448b798b49168aed9b4f434c5e18",
+        "full_pr_ci": 43665948987,
+        "full_pr_ci_status": "success",
+        "deploy_run": 43668814409,
+        "deployment_status": "success",
+        "production_episode_acceptance": "not performed; isolated whole episode quality acceptance failed",
+        "post_run_metadata": "Local append after tested head; durable remote result recorded in PR274body. No claim these post-run metadata edits are in the merged commit.",
+        "health_status": "ok",
+        "health_exact_revision": "ebd2b2422adc33ae9f39cc790f2757868e0dc40f",
+        "health_checked_at": "2026-11-15T10:44:05+08:00"
+      }
+    },
+    {
+      "id": "2026-11-15-summary-grounding-preserve",
+      "report": "docs/audits/2026-11-15-summary-grounding-preserve.json",
+      "status": "whole_authorized_episode_accepted_release_validation_pending",
+      "related_regression_passed": 560,
+      "scope": "shared video/podcast core,lossless timed-source grouping,stable positive coverage support certificates,proposal-only duplicate judgement,post-source coverage-before-final-review ordering",
+      "not_claimed": "One isolated real-provider complete-episode result, not population reliability, causal speed attribution, production-queue E2E or manual semantic/readability proof. Release exact-head CI/protectedmerge/health pending.",
+      "staged_control_run": 43671158025,
+      "staged_control_status": "failed_quality,not_final_head",
+      "staged_control_final_coverage": 0.8828828828828829,
+      "canonical_release_evidence": "https://github.com/aaronsxzhao/xyz_transcript_download/pull/276",
+      "independent_quality_control_run": 43673901672,
+      "independent_quality_control_result": "core96.59percent,butfrozen137only80.29percent;testnotaccepted",
+      "latest_fidelity_control_run": 43677751876,
+      "latest_fidelity_control_status": "coverage91.79percentbutfinalsourcefailure;notaccepted",
+      "paired_preservation_followup": {
+        "local_related_passed": 465,
+        "last_real_run": 43681772424,
+        "last_real_result": "failed; before/after guard correction pending real validation",
+        "report": "docs/audits/2026-11-15-summary-paired-preservation-control.json"
+      },
+      "fixed_inventory_followup": {
+        "run": 43685261712,
+        "core_accepted": true,
+        "whole_episode_accepted": false,
+        "fixed_coverage": 0.7518248175182481,
+        "local_related_passed": 471,
+        "next": "inventory-plan probe before repair and delivery"
+      },
+      "plan_probe_followup": {
+        "run": 43687251223,
+        "quality_acceptance": false,
+        "http": 25,
+        "local_related_passed": 494,
+        "findings": {
+          "draft_ignored_supported_plan": 2,
+          "initial_inventory_gap": 1
+        },
+        "next": "exact-head real full validation of private mapping and append-only source inventory review"
+      },
+      "stream_transport_followup": {
+        "source_failure_run": 43689457403,
+        "source_failure_http_status": 524,
+        "probe_run": 43690941933,
+        "synthetic_stream_supported": true,
+        "source_sent": false,
+        "local_related_passed": 523,
+        "whole_episode_accepted": false,
+        "next": "streaming full episode and exact-head CI"
+      },
+      "private_index_followup": {
+        "run": 43692381673,
+        "transport_http200": 15,
+        "reader_format_failed": true,
+        "specific_reason_not_retained": true,
+        "local_related_passed": 533,
+        "whole_episode_accepted": false,
+        "fix": "private metadata-only repair; unchanged prose/full inventory/factual gates; pre-disposal format/shape counts"
+      },
+      "local_recall_followup": {
+        "run": 43695420923,
+        "core_http": 39,
+        "core_seconds": 686.037,
+        "core_coverage": 0.967479674796748,
+        "frozen_coverage": 0.8759124087591241,
+        "whole_episode_accepted": false,
+        "sample_inventory_gaps": 3,
+        "local_related_passed": 536,
+        "next": "per-original-scope independent source recall, no original item deletion or quality/budget weakening"
+      },
+      "source_adjudication_followup": {
+        "run": 43698921581,
+        "core_http": 52,
+        "core_seconds": 795.926,
+        "core_items": 146,
+        "core_coverage": 1,
+        "source_review": "failed",
+        "whole_episode_accepted": false,
+        "fixed_inventory_check": "not_reached",
+        "reviewer_variation_samples": 2,
+        "semantic_false_positive_proven": false,
+        "local_related_passed": 554,
+        "report": "docs/audits/2026-11-15-summary-local-recall-control.json",
+        "next": "exact-wording evidence adjudication before changing prose; latest actual finding in bounded RAM diagnostics"
+      },
+      "whole_episode_acceptance": {
+        "run": 43700762579,
+        "revision": "4bafba56dd1ce1d7e47c5095e70593947a672626",
+        "core_http": 38,
+        "core_seconds": 596.078,
+        "total_http": 47,
+        "total_seconds": 685.678,
+        "independent_coverage": 0.9562043795620438,
+        "independent_item_count": 137,
+        "independent_unresolved": 6,
+        "accepted": true,
+        "production_queue_tested": false,
+        "manual_readability_reviewed": false,
+        "report": "docs/audits/2026-11-15-summary-whole-episode-acceptance.json"
+      },
+      "source_flag_branch_validation": {
+        "run": 43702374961,
+        "http": 1,
+        "data": "synthetic,no_real_transcript",
+        "supported_flag_cleared": true,
+        "conflicting_and_unknown_flags_retained": true,
+        "source_review_bypassed": false,
+        "prose_unchanged": true,
+        "report": "docs/audits/2026-11-15-summary-source-flag-probe.json"
+      },
+      "shared_budget_snapshot": {
+        "beijing_date": "2026-11-15",
+        "settled_usd": 43.477324,
+        "scope": "configured_test_account_provider_token",
+        "active_work": false,
+        "daily_limit": 100,
+        "settled_stop": 85,
+        "vendor_hard_cap_verified": false
+      }
     }
   ],
   "audit_attempts": [

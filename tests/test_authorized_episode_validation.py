@@ -79,7 +79,7 @@ def test_manual_episode_job_preserves_original_ciphertext_workflow():
     assert set(events)=={'workflow_dispatch'}
     mode=events['workflow_dispatch']['inputs']['mode']
     assert mode['default']=='guard_probe'
-    assert mode['options']==['guard_probe','full_episode','legacy_encrypted_review','historical_gap_review','candidate_probe','memory_diagnostics']
+    assert mode['options']==['guard_probe','full_episode','legacy_encrypted_review','historical_gap_review','candidate_probe','memory_diagnostics','inventory_plan_probe','stream_probe','source_flag_probe']
     assert workflow['jobs']['review']['steps'][-1]['with']['path'] == '/tmp/xyz-review-artifacts/review.enc.json'
 
 
@@ -241,3 +241,55 @@ def test_historical_sample_joins_statements_by_identity_and_hides_prior_status()
     assert result['agreement_count']==1
     assert 'private' not in str(result)
     assert all(name not in ('insert','update','upsert','delete') for name,_,_ in db.operations)
+
+
+@pytest.mark.parametrize('finish,ok,expected',[('stop',True,'stream_probe_passed'),(None,True,'stream_probe_failed'),('length',True,'stream_probe_failed'),('stop',False,'stream_probe_failed')])
+def test_synthetic_stream_capability_probe_loads_no_source_and_cannot_accept_episode(finish,ok,expected):
+    import json
+    from types import SimpleNamespace
+    from unittest.mock import Mock,patch
+    from scripts.validate_authorized_episode import run_json_stream_probe
+    response=SimpleNamespace(choices=[SimpleNamespace(delta=SimpleNamespace(content=json.dumps({'ok':ok})),finish_reason=finish)])
+    class Stream:
+        closed=False
+        def __iter__(self):return iter([SimpleNamespace(choices=[]),response])
+        def close(self):self.closed=True
+    stream=Stream();raw=Mock(base_url='https://api.aipaibox.com/v1')
+    raw.with_options.return_value=raw;raw.chat.completions.create.return_value=stream
+    engine=SimpleNamespace(client=raw,model='synthetic');report={};guard=Mock();publish=Mock()
+    with patch('api.llm_settings.resolve_llm_settings',return_value={'api_key':'synthetic','base_url':'https://api.aipaibox.com/v1','model':'synthetic'}), \
+         patch('api.custom_models.custom_http_client',return_value=SimpleNamespace(event_hooks={})), \
+         patch('summarizer.Summarizer',return_value=engine):
+        run_json_stream_probe({},report,guard,publish)
+    assert report['terminal_state']==expected and report['quality_acceptance'] is False
+    assert report['source_content_sent'] is False and report['request_limit']==1
+    assert raw.chat.completions.create.call_count==1
+    assert raw.chat.completions.create.call_args.kwargs['stream'] is True
+    assert stream.closed and report['final_budget_guard_passed']
+    assert 'Synthetic JSON stream capability check' not in json.dumps(report)
+
+
+@pytest.mark.parametrize('remaining,passed',[
+    (['NEGATIVE','UNKNOWN'],True),(['POSITIVE','NEGATIVE','UNKNOWN'],False),
+    (['UNKNOWN'],False),(['NEGATIVE'],False)])
+def test_source_flag_probe_checks_both_vetoes_and_never_counts_as_whole_acceptance(remaining,passed):
+    import json
+    from types import SimpleNamespace
+    from unittest.mock import Mock,patch
+    from scripts.validate_authorized_episode import run_source_flag_probe
+    engine=SimpleNamespace(client=Mock(),model='synthetic')
+    report={};guard=Mock();publish=Mock()
+    def adjudicate(owner,lines,request,response):
+        assert owner.generation_report=={}
+        assert len(lines)==3 and request['global_draft'][0]['paragraphs'][0]['id']=='POSITIVE'
+        assert response['unsupported_paragraph_ids']==['POSITIVE','NEGATIVE','UNKNOWN']
+        return {'unsupported_paragraph_ids':remaining}
+    with patch('api.llm_settings.resolve_llm_settings',return_value={'api_key':'synthetic','base_url':'https://api.aipaibox.com/v1','model':'synthetic'}), \
+         patch('api.custom_models.custom_http_client',return_value=SimpleNamespace(event_hooks={})), \
+         patch('summarizer.Summarizer',return_value=engine), \
+         patch('source_review_adjudication.adjudicate',side_effect=adjudicate):
+        run_source_flag_probe({},report,guard,publish)
+    assert report['terminal_state']==('source_flag_probe_passed' if passed else 'source_flag_probe_failed')
+    assert report['quality_acceptance'] is False and report['source_content_sent'] is False
+    assert report['request_limit']==1 and report['final_budget_guard_passed']
+    assert 'cameras' not in json.dumps(report)

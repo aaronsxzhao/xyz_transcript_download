@@ -1,0 +1,224 @@
+{
+  "run": 43689457403,
+  "pr": 276,
+  "role": "provider_gateway_failure_before_quality_measurement",
+  "full_episode_problem_resolved": false,
+  "measurement": {
+    "revision": "b434ad586c4c09e9565616dcc07fdbd649af3218",
+    "environment": "isolated Actions runner; real model; memory checkpoints; no production queue",
+    "production_writes": false,
+    "account_authentication": "authorized server maintenance bindings; not a user login",
+    "daily_limit_usd": 100,
+    "settled_stop_usd": 85,
+    "in_flight_reserve_usd": 15,
+    "request_limit": 160,
+    "actual_provider_http_attempts": 14,
+    "terminal_state": "failed",
+    "checkpoint_policy": "request-fingerprinted Execution with empty in-memory store",
+    "excluded_previously_rejected_episode": true,
+    "account_anchor": "existing_readonly_billing_diagnostic",
+    "billing_snapshot_max_age_seconds": 90,
+    "monitor": {
+      "read_attempts": 16,
+      "read_failures": 0,
+      "wait_seconds": 0
+    },
+    "provider_billing_reads": 4,
+    "billing_snapshot_age_seconds": 0,
+    "budget": {
+      "status": "checked",
+      "beijing_date": "2026-11-15",
+      "settled_usd": 33.310304,
+      "scope": "configured_test_account_provider_token",
+      "daily_limit_usd": 100,
+      "active_work_found": false
+    },
+    "source_binding": "exact previously authorized historical task and episode URL; read only",
+    "source_and_billing_account_same": false,
+    "source_sha256": "3e3af05dbabcc3bfc605ac8215be5c21696677a546f8c90ce63bb33eb8cbf477",
+    "episode_id": "6ac6a657e742e36efcbf74af",
+    "source_segments": 2170,
+    "source_characters": 18257,
+    "source_duration_seconds": 3437.2,
+    "transcript_structural_validation": "passed",
+    "manual_transcript_readability": "not_reviewed",
+    "manual_summary_readability": "not_reviewed",
+    "model_settings_fingerprint": "16bd60d985604f5db7b1d8575c6b59fe40af0182957a8c911e269faefb2dcb21",
+    "independent_inventory_item_count": 137,
+    "independent_inventory_fingerprint": "7a9827b0469f7e34f6fc91caee50279bcb7c2ae19a14089e30cf889bd838e263",
+    "provider_billing_snapshot_hits": 12,
+    "peak_model_concurrency": 2,
+    "provider_http_attempts_by_phase": {
+      "inventory": 13,
+      "draft": 1
+    },
+    "provider_request_bytes_by_phase": {
+      "inventory": {
+        "sum": 393087,
+        "max": 146769
+      },
+      "draft": {
+        "sum": 149304,
+        "max": 149304
+      }
+    },
+    "provider_http_status_counts": {
+      "200": 13,
+      "524": 1
+    },
+    "provider_reported_usage": {
+      "prompt_tokens": 206112,
+      "completion_tokens": 17696,
+      "total_tokens": 223808
+    },
+    "response_model_hash_counts": {
+      "576a599a64cb3dde05f18ebb3e26e3d5bcbf4b108ff92da24f5229188fa0972a": 13
+    },
+    "model_create_calls": 14,
+    "failed_model_create_calls": 1,
+    "provider_request_seconds_sum": 567.376,
+    "model_errors_by_phase": {
+      "draft": {
+        "count": 1,
+        "http_status_counts": {
+          "524": 1
+        },
+        "code_counts": {},
+        "param_counts": {}
+      }
+    },
+    "error_type": "ReadingProviderError",
+    "delivery_provider_http_attempts": 14,
+    "delivery_wall_seconds": 363.239,
+    "delivery_provider_http_attempts_by_phase": {
+      "inventory": 13,
+      "draft": 1
+    },
+    "delivery_provider_request_bytes_by_phase": {
+      "inventory": {
+        "sum": 393087,
+        "max": 146769
+      },
+      "draft": {
+        "sum": 149304,
+        "max": 149304
+      }
+    },
+    "delivery_provider_http_status_counts": {
+      "200": 13,
+      "524": 1
+    },
+    "delivery_provider_reported_usage": {
+      "prompt_tokens": 206112,
+      "completion_tokens": 17696,
+      "total_tokens": 223808
+    },
+    "delivery_provider_request_seconds_sum": 567.376,
+    "delivery_execution": {
+      "stages": {
+        "model.queue": {
+          "seconds": 0,
+          "calls": 14
+        },
+        "model.phase.inventory": {
+          "seconds": 443.95,
+          "calls": 13
+        },
+        "model.editor": {
+          "seconds": 569.419,
+          "calls": 14,
+          "failed_calls": 2
+        },
+        "model.phase.draft": {
+          "seconds": 125.42,
+          "calls": 1,
+          "failed_calls": 1
+        }
+      },
+      "checkpoint_hits": 0,
+      "wall_seconds": 363.334
+    },
+    "diagnostic_buffers_cleared": true,
+    "failure_sampling_provider_http_attempts": 0,
+    "wall_seconds": 363.24,
+    "generation": {
+      "source_layout": "lossless-timed-groups-v1",
+      "source_units": 205,
+      "inventory_guided_draft": true,
+      "inventory_source_items": 124,
+      "delivery": {},
+      "coverage_ledger": {
+        "check_failure_counts": {},
+        "check_failure_types": {},
+        "inventory_error_types": {
+          "ValueError": 0,
+          "SummaryOutputError": 0,
+          "APIConnectionError": 0,
+          "APITimeoutError": 0,
+          "TimeoutError": 0,
+          "APIStatusError": 0,
+          "RateLimitError": 0,
+          "RuntimeError": 0,
+          "ReadTimeout": 0,
+          "ConnectError": 0,
+          "ConnectionError": 0,
+          "ModelRequestTimeout": 0,
+          "InternalServerError": 0,
+          "BadRequestError": 0,
+          "AuthenticationError": 0,
+          "PermissionDeniedError": 0,
+          "NotFoundError": 0,
+          "UnprocessableEntityError": 0
+        },
+        "inventory_http_statuses": {
+          "408": 0,
+          "429": 0,
+          "500": 0,
+          "502": 0,
+          "503": 0,
+          "504": 0,
+          "524": 0
+        },
+        "inventory_failures_recorded": 0,
+        "inventory_failures_available": false,
+        "item_status_counts": {
+          "covered": 0,
+          "missing": 0,
+          "partial": 0,
+          "contradicted": 0,
+          "unverified": 0,
+          "context_only": 0
+        }
+      },
+      "verification": {}
+    },
+    "reuse_and_retry": {},
+    "execution": {
+      "stages": {
+        "model.queue": {
+          "seconds": 0,
+          "calls": 14
+        },
+        "model.phase.inventory": {
+          "seconds": 443.95,
+          "calls": 13
+        },
+        "model.editor": {
+          "seconds": 569.419,
+          "calls": 14,
+          "failed_calls": 2
+        },
+        "model.phase.draft": {
+          "seconds": 125.42,
+          "calls": 1,
+          "failed_calls": 1
+        }
+      },
+      "checkpoint_hits": 0,
+      "wall_seconds": 363.334
+    },
+    "final_budget_guard_passed": true
+  },
+  "conclusion": "HTTP524 on first whole-source draft after125.420s. Thirteen preceding source/inventory HTTP responses returned200;14totalHTTP,363.239s core, no draft or material-coverage verdict available. This does not establish success/failure of mapping or completeness quality. Increasing client timeout cannot remove an upstream gateway limit. Investigate existing streaming transport with one synthetic configured-provider capability request before another real episode attempt.",
+  "causal_performance_claim": false
+}

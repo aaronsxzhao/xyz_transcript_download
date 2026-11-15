@@ -18,7 +18,10 @@ COUNTERS = ('coverage_ratio', 'coverage_threshold', 'threshold', 'failed_batches
     'terminal_provider_failure', 'grounding_concerns', 'unresolved_items', 'covered_items',
     'requests', 'validation_retries', 'repairs_accepted', 'repairs_rejected',
     'inventory_transport_retries', 'inventory_split_retries', 'inventory_recovered_batches', 'inventory_batches', 'reviewed', 'review_attempts', 'review_parts', 'final_coverage_attempts',
-    'initial_grounding_concerns','stale_gap_receipts_refreshed','empty_repair_rechecks_avoided','regression_pruning_attempts')
+    'initial_grounding_concerns','stale_gap_receipts_refreshed','empty_repair_rechecks_avoided','regression_pruning_attempts',
+    'reused_covered_receipts','existing_redundancy_flags','changed_support_regressions',
+    'contradiction_obligations_validated','contradiction_source_corrections',
+    'inventory_initial_items','inventory_supplement_added_items','inventory_supplement_exact_repeats','inventory_unclaimed_units','inventory_supplement_batches','inventory_unclaimed_units_reviewed','inventory_completeness_units_reviewed')
 
 ROUND_PHASES = ('initial','resume','after_grounding_repair','final_coverage_repair')
 ROUND_KINDS = ('claim','experiment','counterexample','condition','disagreement','procedure','example')
@@ -40,7 +43,9 @@ def safe_rounds(value):
         if type(entry.get('cancelled')) is bool: row['cancelled']=entry['cancelled']
         for key in ('seconds','initial_unresolved','final_unresolved','accepted_paragraphs',
                     'rejected_paragraphs','source_corrected_items','logical_requests_reported','coverage_ratio',
-                    'stale_gap_receipts_refreshed','empty_repair_rechecks_avoided','regression_pruning_attempts'):
+                    'stale_gap_receipts_refreshed','empty_repair_rechecks_avoided','regression_pruning_attempts',
+                    'reused_covered_receipts','existing_redundancy_flags','changed_support_regressions',
+                    'contradiction_obligations_validated','contradiction_source_corrections'):
             number=entry.get(key)
             if type(number) in (int,float) and math.isfinite(number) and 0<=number<=1000000:
                 row[key]=number
@@ -55,9 +60,50 @@ def safe_rounds(value):
 def safe_report(report):
     report = report if isinstance(report, dict) else {}
     safe = {}
+    if isinstance(report.get('source_adjudications'),list):
+        safe['source_adjudications']=[{k:v for k,v in row.items()
+            if k in ('flagged_paragraphs','supported_paragraphs','unsupported_paragraphs',
+                     'uncertain_paragraphs','segments','invalid_checks')
+            and type(v) is int and 0<=v<=100000}
+            for row in report['source_adjudications'][:20] if isinstance(row,dict)]
+    if type(report.get('final_source_capacity_fallback')) is bool:
+        safe['final_source_capacity_fallback']=report['final_source_capacity_fallback']
+    if type(report.get('final_source_review_parts')) is int and 0<=report['final_source_review_parts']<=100000:
+        safe['final_source_review_parts']=report['final_source_review_parts']
+    if report.get('source_layout') in ('original-lines','lossless-timed-groups-v1'):
+        safe['source_layout']=report['source_layout']
+    if type(report.get('source_units')) is int and 0<report['source_units']<=100000:
+        safe['source_units']=report['source_units']
+    if type(report.get('inventory_guided_draft')) is bool:safe['inventory_guided_draft']=report['inventory_guided_draft']
+    if type(report.get('inventory_source_items')) is int and 0<=report['inventory_source_items']<=100000:
+        safe['inventory_source_items']=report['inventory_source_items']
+    if report.get('draft_map_repair_failure_category') in ('format','transport'):
+        safe['draft_map_repair_failure_category']=report['draft_map_repair_failure_category']
+    if report.get('format_failure_category') in ('json','sections','source_ranges','structure','obligation_map','stream_incomplete'):
+        safe['format_failure_category']=report['format_failure_category']
+    for key in ('format_retries','draft_map_repair_attempts','draft_map_repair_failures'):
+        if type(report.get(key)) is int and 0<=report[key]<=100000:safe[key]=report[key]
+    if type(report.get('draft_transport_retries')) is int and 0<=report['draft_transport_retries']<=100000:
+        safe['draft_transport_retries']=report['draft_transport_retries']
+    if isinstance(report.get('draft_obligation_map'),dict):
+        safe['draft_obligation_map']={k:v for k,v in report['draft_obligation_map'].items()
+            if k in ('supplied','mapped','unmapped','claimed_source_conflicts') and type(v) is int and 0<=v<=100000}
+    if isinstance(report.get('draft_obligation_map'),dict) and report['draft_obligation_map'].get('status') in (
+            'model_supplied','metadata_repaired','unavailable_requires_full_matching'):
+        safe['draft_obligation_map']['status']=report['draft_obligation_map']['status']
+    if isinstance(report.get('grounding_repair_sizes'),list):
+        safe['grounding_repair_sizes']=[{k:v for k,v in row.items()
+            if k in ('paragraphs','characters_before','characters_after','covered_obligations_supplied','source_obligations_supplied',
+                     'original_rejections_used','rejected_prose_characters')
+            and type(v) is int and 0<=v<=1000000}
+            for row in report['grounding_repair_sizes'][:3] if isinstance(row,dict)]
+    if isinstance(report.get('grounding_preservation_checks'),list):
+        safe['grounding_preservation_checks']=[{k:v for k,v in row.items()
+            if k in ('obligations','source_supported','missing_supported','preexisting_uncovered','newly_covered') and type(v) is int and 0<=v<=100000}
+            for row in report['grounding_preservation_checks'][:50] if isinstance(row,dict)]
     if type(report.get('late_contradiction_repair_attempts')) is int and 0 <= report['late_contradiction_repair_attempts'] <= 1:
         safe['late_contradiction_repair_attempts'] = report['late_contradiction_repair_attempts']
-    if report.get('late_contradiction_repair_origin') in ('following_review_repair','same_delivery_iteration'):
+    if report.get('late_contradiction_repair_origin') in ('following_review_repair','same_delivery_iteration','final_source_review'):
         safe['late_contradiction_repair_origin'] = report['late_contradiction_repair_origin']
     if 'coverage_rounds' in report:
         safe['coverage_rounds'], safe['coverage_rounds_truncated'] = safe_rounds(report['coverage_rounds'])
@@ -71,6 +117,16 @@ def safe_report(report):
         if source.get('reason') in ('coverage','source_review','grounding','review','ValueError','SummaryOutputError','ReadingProviderError'):
             row['reason'] = source['reason']
         if key == 'coverage_ledger':
+            allowed=('incomplete_matches','unknown_paragraph','missing_support','missing_judgement',
+                'invalid_status','incomplete_proposal_check','raw_support','source_obligations_unverified',
+                'schema_or_provider_failure','invalid_match','invalid_support','invalid_missing_meaning',
+                'output_invalid','output_empty','output_length','output_capacity','output_content_filter')
+            row['check_failure_counts']={label:count for label,count in (source.get('check_failure_counts') or {}).items()
+                if label in allowed and type(count) is int and 0<=count<=10000}
+            names=('ValueError','TypeError','KeyError','SummaryOutputError','APIConnectionError','APITimeoutError',
+                'TimeoutError','APIStatusError','RateLimitError','RuntimeError','ReadTimeout','InternalServerError','OtherError')
+            row['check_failure_types']={name:count for name,count in (source.get('check_failure_types') or {}).items()
+                if name in names and type(count) is int and 0<=count<=10000}
             row['inventory_error_types'] = {name:sum(isinstance(e,dict) and e.get('error_type')==name for e in source.get('inventory_failures',[]) or []) for name in ('ValueError','SummaryOutputError','APIConnectionError','APITimeoutError','TimeoutError','APIStatusError','RateLimitError','RuntimeError','ReadTimeout','ConnectError','ConnectionError','ModelRequestTimeout','InternalServerError','BadRequestError','AuthenticationError','PermissionDeniedError','NotFoundError','UnprocessableEntityError')}
             row['inventory_http_statuses'] = {str(code):sum(isinstance(e,dict) and e.get('http_status')==code for e in source.get('inventory_failures',[]) or []) for code in (408,429,500,502,503,504,524)}
             row['inventory_failures_recorded'] = len(source.get('inventory_failures',[]) or [])
@@ -92,7 +148,7 @@ def inspect_reported_episode(get):
     if len(rows)>20 or len({row.get('user_id') for row in rows})>1:
         return {'status':'blocked_ambiguous_or_truncated','record_count':len(rows)}
     allowed = {'model.editor','transcription.segment','reading.candidate.v1',
-        *('model.phase.'+phase for phase in ('draft','grounding','inventory','match','repair','validate_inventory','repair_grounding','other'))}
+        *('model.phase.'+phase for phase in ('draft','grounding','inventory','match','repair','validate_inventory','repair_grounding','verify_grounding_preservation','adjudicate_grounding','repair_obligation_map','other'))}
     result=[]
     for row in rows:
         metrics=row.get('metrics') or {}

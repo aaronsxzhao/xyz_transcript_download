@@ -141,14 +141,31 @@ def _call_editor(client, model, system, payload, timeout, *, output_tokens=None)
             phase = request_data.get('phase') or ('draft' if 'mode' in request_data else 'grounding')
         except (ValueError, TypeError, AttributeError):
             phase = 'other'
-        if phase not in {'draft','grounding','inventory','match','repair','validate_inventory','repair_grounding'}:
+        if phase not in {'draft','grounding','inventory','match','repair','validate_inventory','repair_grounding','verify_grounding_preservation','repair_obligation_map','adjudicate_grounding'}:
             phase = 'other'
         started = time.monotonic()
         failed = False
         try:
-            response = client.with_options(timeout=timeout, max_retries=0).chat.completions.create(
-                model=model, messages=[{'role':'system','content':system}, {'role':'user','content':payload}],
-                response_format={'type':'json_object'}, temperature=0, **options)
+            from json_model_stream import collect_completion, unsupported_stream
+            configured=client.with_options(timeout=timeout,max_retries=0)
+            parameters=dict(model=model,messages=[{'role':'system','content':system},{'role':'user','content':payload}],
+                response_format={'type':'json_object'},temperature=0,**options)
+            streaming=phase in {'draft','repair_obligation_map'} and getattr(client,'_json_stream_disabled',False) is not True
+            try:
+                response=configured.chat.completions.create(**parameters,**({'stream':True} if streaming else {}))
+            except Exception as error:
+                if not streaming or not unsupported_stream(error):raise
+                # Explicit protocol rejection only; never turn an auth, quota,
+                # ordinary400 or valid semantic rejection into another request.
+                client._json_stream_disabled=True
+                response=configured.chat.completions.create(**parameters)
+                if execution:
+                    with execution.lock:
+                        metric=execution.metrics.setdefault('model.stream_fallback',{'calls':0})
+                        metric['calls']+=1
+            if streaming:
+                response=collect_completion(response)
+                if getattr(response,'_stream_ignored',False) is True:client._json_stream_disabled=True
         except BaseException:
             failed = True
             raise

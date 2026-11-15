@@ -24,7 +24,8 @@ def retryable_model_failure(error):
         if getattr(error,'code',None) in ('insufficient_quota','billing_hard_limit_reached'):
             return False
         return error.status_code in (408,409,429) or error.status_code>=500
-    return isinstance(error,(APIConnectionError,TimeoutError,ConnectionError))
+    from httpx import TransportError
+    return isinstance(error,(APIConnectionError,TimeoutError,ConnectionError,TransportError))
 
 
 def capabilities(base_url,model):
