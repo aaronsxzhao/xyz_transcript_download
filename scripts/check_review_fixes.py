@@ -17,8 +17,10 @@ async def main():
      for design in ['classic','editorial']:
       for theme in ['light','dark']:
        c=await context_for(browser,width);await c.add_init_script(f"localStorage.setItem('xyz:design','{design}');localStorage.setItem('xyz:color-theme','{theme}')")
-       task,_=fixtures();task.update(title='Me at the zoo',published_at='2005-04-24',created_at='2026-11-09T05:51:46Z',thumbnail='/data/thumbnails/cover.png',versions=[],markdown='# Me at the zoo\n\n## Contents\n\n- [AI Summary](#ai-summary)\n\n## AI Summary\n\nOriginal saved paragraph.\n\n| Design | Intent | Typography |\n| --- | --- | --- |\n| Classic | Familiar tool interface with readable notes | System sans-serif |')
+       task,_=fixtures();task.update(title='Me at the zoo',published_at='2005-04-24',created_at='2026-11-09T05:51:46Z',duration=19,thumbnail='/data/thumbnails/cover.png',versions=[],markdown='# Me at the zoo\n\n## Contents\n\n- [AI Summary](#ai-summary)\n\n## AI Summary\n\nOriginal saved paragraph.\n\n| Design | Intent | Typography |\n| --- | --- | --- |\n| Classic | Familiar tool interface with readable notes | System sans-serif |')
        await c.route('**/api/video-notes/tasks/bench*',lambda r:r.fulfill(json=task))
+       cover=(Path(__file__).resolve().parents[1]/'design-review/appearance/fixtures/post.jpg').read_bytes()
+       await c.route('**/api/image-proxy**',lambda r:r.fulfill(content_type='image/jpeg',body=cover))
        page=await c.new_page();await page.goto(f'http://127.0.0.1:{server.server_port}/');await page.get_by_role('group',name='Recent content type',exact=True).wait_for();await page.reload();await page.get_by_role('group',name='Recent content type',exact=True).wait_for()
        assert await page.locator('html').get_attribute('data-design')==design
        metrics=await page.evaluate('''() => {const box=e=>{const r=e.getBoundingClientRect();return {x:r.x,y:r.y,w:r.width,h:r.height,right:r.right,bottom:r.bottom}};return {brand:box(document.querySelector('.publication-brand>span')),font:getComputedStyle(document.querySelector('.publication-brand>span')).fontSize,targets:[...document.querySelectorAll('.appearance-controls select,.appearance-controls button,.navigation-toggle')].map(box),filters:[...document.querySelectorAll('.dashboard-recent-filters button')].map(box),form:box(document.querySelector('#dashboard-add-content')),recent:box(document.querySelector('.dashboard-recent')),overflow:document.documentElement.scrollWidth>innerWidth+1}}''')
@@ -39,6 +41,9 @@ async def main():
        assert await page.locator('.reader-metadata time').inner_text()=='Published 2005-04-24'
        assert await page.locator('.reader-metadata time').get_attribute('datetime')=='2005-04-24'
        assert await page.locator('.publication-reader-cover').count()==(1 if design=='editorial' else 0),'Approved cover removed'
+       if design=='editorial':
+        await page.locator('.publication-reader-cover img').wait_for()
+        assert await page.locator('.publication-reader-cover').evaluate('e=>e.getBoundingClientRect().height')>200,'Large Editorial cover changed'
        table=await page.locator('.markdown-table').evaluate('''e=>{const th=e.querySelector('th'),range=document.createRange();range.selectNodeContents(th);const r=range.getBoundingClientRect();return {headerHeight:r.height,font:parseFloat(getComputedStyle(th).fontSize),scroll:e.scrollWidth,client:e.clientWidth,pageOverflow:document.documentElement.scrollWidth>innerWidth+1}}''')
        assert table['headerHeight']<table['font']*2,(width,design,'split table label',table)
        assert not table['pageOverflow'],(width,design,table)
