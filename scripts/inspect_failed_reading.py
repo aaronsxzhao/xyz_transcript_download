@@ -71,11 +71,20 @@ def safe_report(report):
     if type(report.get('inventory_guided_draft')) is bool:safe['inventory_guided_draft']=report['inventory_guided_draft']
     if type(report.get('inventory_source_items')) is int and 0<=report['inventory_source_items']<=100000:
         safe['inventory_source_items']=report['inventory_source_items']
+    if report.get('draft_map_repair_failure_category') in ('format','transport'):
+        safe['draft_map_repair_failure_category']=report['draft_map_repair_failure_category']
+    if report.get('format_failure_category') in ('json','sections','source_ranges','structure','obligation_map','stream_incomplete'):
+        safe['format_failure_category']=report['format_failure_category']
+    for key in ('format_retries','draft_map_repair_attempts','draft_map_repair_failures'):
+        if type(report.get(key)) is int and 0<=report[key]<=100000:safe[key]=report[key]
     if type(report.get('draft_transport_retries')) is int and 0<=report['draft_transport_retries']<=100000:
         safe['draft_transport_retries']=report['draft_transport_retries']
     if isinstance(report.get('draft_obligation_map'),dict):
         safe['draft_obligation_map']={k:v for k,v in report['draft_obligation_map'].items()
-            if k in ('supplied','mapped','claimed_source_conflicts') and type(v) is int and 0<=v<=100000}
+            if k in ('supplied','mapped','unmapped','claimed_source_conflicts') and type(v) is int and 0<=v<=100000}
+    if isinstance(report.get('draft_obligation_map'),dict) and report['draft_obligation_map'].get('status') in (
+            'model_supplied','metadata_repaired','unavailable_requires_full_matching'):
+        safe['draft_obligation_map']['status']=report['draft_obligation_map']['status']
     if isinstance(report.get('grounding_repair_sizes'),list):
         safe['grounding_repair_sizes']=[{k:v for k,v in row.items()
             if k in ('paragraphs','characters_before','characters_after','covered_obligations_supplied','source_obligations_supplied',

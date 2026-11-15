@@ -336,3 +336,25 @@ def test_single_assessment_stage_counts_are_not_presented_as_repeated_agreement(
     assert progress['single_assessment_inventory_stage_counts']=={'draft_ignored_supported_plan':1,'covered':1}
     assert 'inventory_stage_counts' not in progress and 'classification_counts' not in progress
     assert 'twelve' not in json.dumps(progress)
+
+
+def test_generation_shape_is_captured_before_private_map_validation_and_erased_after_counts_export():
+    source,lines,payload=fixture();observer=MemoryDiagnostics()
+    request={'mode':'single','primary_source':[{'id':line.id,'text':line.text} for line in lines],
+        'source_obligations':payload['inventory'][1]}
+    response={'sections':copy.deepcopy(payload['edition']['sections'])}
+    observer.observe(request,response)
+    snapshot=observer.generation_snapshots[0]
+    assert snapshot['sections_schema_valid'] and snapshot['whole_source_scope_valid']
+    assert snapshot['private_map_valid'] is False and snapshot['unmapped_items']==2
+    assert observer.generated_candidate['sections'][0]['paragraphs'][0]['text']=='The trial used two cameras.'
+    assert 'cameras' not in json.dumps(snapshot) and 'twelve' not in json.dumps(snapshot)
+    exported=copy.deepcopy(observer.generation_snapshots);observer.clear()
+    assert observer.generated_candidate is None and observer.generation_snapshots==[]
+    assert exported[0]['unmapped_items']==2
+
+
+def test_bad_generation_json_has_fixed_shape_evidence_without_saving_private_output():
+    observer=MemoryDiagnostics();observer.capture_generation_parse_failure({'mode':'single'},120)
+    assert observer.generation_snapshots==[{'json_parseable':False,'characters':120,'failure_category':'json'}]
+    assert observer.generated_candidate is None

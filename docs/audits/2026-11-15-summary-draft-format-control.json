@@ -1,0 +1,211 @@
+{
+  "run": 43692381673,
+  "pr": 276,
+  "role": "streaming_completed_but_draft_format_failed",
+  "full_episode_problem_resolved": false,
+  "measurement": {
+    "revision": "3bafd9ccf760ded65a7a617ecad6bf1456848529",
+    "environment": "isolated Actions runner; real model; memory checkpoints; no production queue",
+    "production_writes": false,
+    "account_authentication": "authorized server maintenance bindings; not a user login",
+    "daily_limit_usd": 100,
+    "settled_stop_usd": 85,
+    "in_flight_reserve_usd": 15,
+    "request_limit": 160,
+    "actual_provider_http_attempts": 15,
+    "terminal_state": "failed",
+    "checkpoint_policy": "request-fingerprinted Execution with empty in-memory store",
+    "excluded_previously_rejected_episode": true,
+    "account_anchor": "existing_readonly_billing_diagnostic",
+    "billing_snapshot_max_age_seconds": 90,
+    "monitor": {
+      "read_attempts": 32,
+      "read_failures": 0,
+      "wait_seconds": 0
+    },
+    "provider_billing_reads": 5,
+    "billing_snapshot_age_seconds": 0,
+    "budget": {
+      "status": "checked",
+      "beijing_date": "2026-11-15",
+      "settled_usd": 34.318842,
+      "scope": "configured_test_account_provider_token",
+      "daily_limit_usd": 100,
+      "active_work_found": false
+    },
+    "source_binding": "exact previously authorized historical task and episode URL; read only",
+    "source_and_billing_account_same": false,
+    "source_sha256": "3e3af05dbabcc3bfc605ac8215be5c21696677a546f8c90ce63bb33eb8cbf477",
+    "episode_id": "6ac6a657e742e36efcbf74af",
+    "source_segments": 2170,
+    "source_characters": 18257,
+    "source_duration_seconds": 3437.2,
+    "transcript_structural_validation": "passed",
+    "manual_transcript_readability": "not_reviewed",
+    "manual_summary_readability": "not_reviewed",
+    "model_settings_fingerprint": "16bd60d985604f5db7b1d8575c6b59fe40af0182957a8c911e269faefb2dcb21",
+    "independent_inventory_item_count": 137,
+    "independent_inventory_fingerprint": "7a9827b0469f7e34f6fc91caee50279bcb7c2ae19a14089e30cf889bd838e263",
+    "provider_billing_snapshot_hits": 27,
+    "peak_model_concurrency": 2,
+    "provider_http_attempts_by_phase": {
+      "inventory": 13,
+      "draft": 2
+    },
+    "provider_request_bytes_by_phase": {
+      "inventory": {
+        "sum": 393792,
+        "max": 147474
+      },
+      "draft": {
+        "sum": 298914,
+        "max": 149721
+      }
+    },
+    "provider_http_status_counts": {
+      "200": 15
+    },
+    "provider_reported_usage": {
+      "prompt_tokens": 317865,
+      "completion_tokens": 31097,
+      "total_tokens": 348962
+    },
+    "response_model_hash_counts": {
+      "576a599a64cb3dde05f18ebb3e26e3d5bcbf4b108ff92da24f5229188fa0972a": 15
+    },
+    "model_create_calls": 15,
+    "failed_model_create_calls": 0,
+    "provider_request_seconds_sum": 676.397,
+    "error_type": "SummaryOutputError",
+    "delivery_provider_http_attempts": 15,
+    "delivery_wall_seconds": 481.29,
+    "delivery_provider_http_attempts_by_phase": {
+      "inventory": 13,
+      "draft": 2
+    },
+    "delivery_provider_request_bytes_by_phase": {
+      "inventory": {
+        "sum": 393792,
+        "max": 147474
+      },
+      "draft": {
+        "sum": 298914,
+        "max": 149721
+      }
+    },
+    "delivery_provider_http_status_counts": {
+      "200": 15
+    },
+    "delivery_provider_reported_usage": {
+      "prompt_tokens": 317865,
+      "completion_tokens": 31097,
+      "total_tokens": 348962
+    },
+    "delivery_provider_request_seconds_sum": 676.397,
+    "delivery_execution": {
+      "stages": {
+        "model.queue": {
+          "seconds": 0,
+          "calls": 15
+        },
+        "model.phase.inventory": {
+          "seconds": 419.77500000000003,
+          "calls": 13
+        },
+        "model.editor": {
+          "seconds": 680.3,
+          "calls": 15,
+          "failed_calls": 3
+        },
+        "model.phase.draft": {
+          "seconds": 260.478,
+          "calls": 2
+        }
+      },
+      "checkpoint_hits": 0,
+      "wall_seconds": 481.519
+    },
+    "diagnostic_buffers_cleared": true,
+    "failure_sampling_provider_http_attempts": 0,
+    "wall_seconds": 481.29,
+    "generation": {
+      "source_layout": "lossless-timed-groups-v1",
+      "source_units": 205,
+      "inventory_guided_draft": true,
+      "inventory_source_items": 128,
+      "delivery": {},
+      "coverage_ledger": {
+        "check_failure_counts": {},
+        "check_failure_types": {},
+        "inventory_error_types": {
+          "ValueError": 0,
+          "SummaryOutputError": 0,
+          "APIConnectionError": 0,
+          "APITimeoutError": 0,
+          "TimeoutError": 0,
+          "APIStatusError": 0,
+          "RateLimitError": 0,
+          "RuntimeError": 0,
+          "ReadTimeout": 0,
+          "ConnectError": 0,
+          "ConnectionError": 0,
+          "ModelRequestTimeout": 0,
+          "InternalServerError": 0,
+          "BadRequestError": 0,
+          "AuthenticationError": 0,
+          "PermissionDeniedError": 0,
+          "NotFoundError": 0,
+          "UnprocessableEntityError": 0
+        },
+        "inventory_http_statuses": {
+          "408": 0,
+          "429": 0,
+          "500": 0,
+          "502": 0,
+          "503": 0,
+          "504": 0,
+          "524": 0
+        },
+        "inventory_failures_recorded": 0,
+        "inventory_failures_available": false,
+        "item_status_counts": {
+          "covered": 0,
+          "missing": 0,
+          "partial": 0,
+          "contradicted": 0,
+          "unverified": 0,
+          "context_only": 0
+        }
+      },
+      "verification": {}
+    },
+    "reuse_and_retry": {},
+    "execution": {
+      "stages": {
+        "model.queue": {
+          "seconds": 0,
+          "calls": 15
+        },
+        "model.phase.inventory": {
+          "seconds": 419.77500000000003,
+          "calls": 13
+        },
+        "model.editor": {
+          "seconds": 680.3,
+          "calls": 15,
+          "failed_calls": 3
+        },
+        "model.phase.draft": {
+          "seconds": 260.478,
+          "calls": 2
+        }
+      },
+      "checkpoint_hits": 0,
+      "wall_seconds": 481.519
+    },
+    "final_budget_guard_passed": true
+  },
+  "conclusion": "All15provider HTTP responses200, both draft streams ended normally;0failedmodelcreatecalls. Two draft/editor validations failed, not a gateway524. The aggregate exporter omitted the specific format category, so the exact old fields cannot be reconstructed. Code review reproduced2private-map defects: the concrete generation JSON example omitted the required field, and missing private metadata caused whole-prose regeneration. Do not attribute all failure to metadata without the lost field evidence.",
+  "fix": "Include private fields in the requested schema. Validate reader structure/ranges/prefix as before; separately reconcile only private IDs once while preserving original text, headings and citations. If expected metadata-only schema/transport recovery cannot index a paragraph, account every obligation as UNMAPPED/UNKNOWN, never covered; keep the full original inventory for mandatory independent matching, source adjudication and unchanged90percent/final-source gates. Implementation faults, cancellation, auth/quota and refusals still fail. Export fixed format reasons and candidate-shape/map counts from RAM before disposal; no private prose saved.",
+  "causal_performance_claim": false
+}

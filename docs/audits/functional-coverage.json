@@ -1626,6 +1626,15 @@
         "local_related_passed": 523,
         "whole_episode_accepted": false,
         "next": "streaming full episode and exact-head CI"
+      },
+      "private_index_followup": {
+        "run": 43692381673,
+        "transport_http200": 15,
+        "reader_format_failed": true,
+        "specific_reason_not_retained": true,
+        "local_related_passed": 533,
+        "whole_episode_accepted": false,
+        "fix": "private metadata-only repair; unchanged prose/full inventory/factual gates; pre-disposal format/shape counts"
       }
     }
   ],

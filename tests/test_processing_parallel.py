@@ -143,6 +143,8 @@ def test_real_generation_uses_parallel_inventory_as_a_drafting_plan_and_reuses_c
             if guided:
                 assert sum(call.get('phase')=='inventory' for call in calls)==3
                 assert len(payload['source_obligations'])==2
+                assert '"obligation_ids":[' in kwargs['messages'][0]['content']
+                assert '"unmapped_obligation_ids":[]' in kwargs['messages'][0]['content']
                 assert {item['statement'] for item in payload['source_obligations']}=={'A supported argument.\n','An essential condition.'}
             else:
                 assert 'source_obligations' not in payload

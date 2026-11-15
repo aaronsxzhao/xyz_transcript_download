@@ -32,7 +32,7 @@ DAILY_LIMIT = 100
 SETTLED_STOP = 85  # Reserve US$15 for in-flight calls and billing lag.
 MAX_CALLS = 160
 ZONE = timezone(timedelta(hours=8))
-PHASES = {'draft','grounding','inventory','match','repair','validate_inventory','repair_grounding','verify_grounding_preservation','gap_review'}
+PHASES = {'draft','grounding','inventory','match','repair','validate_inventory','repair_grounding','verify_grounding_preservation','gap_review','repair_obligation_map'}
 
 
 def enforce_authorized_destination(resolved):
@@ -241,7 +241,11 @@ class TrackedClient:
             try:
                 from summary_format import extract_model_json
                 request=json.loads(kwargs['messages'][-1]['content'])
-                response=extract_model_json(result.choices[0].message.content or '')
+                content=result.choices[0].message.content or ''
+                try:response=extract_model_json(content)
+                except Exception:
+                    with self.calls.lock:self.calls.observer.capture_generation_parse_failure(request,len(content))
+                    raise
                 with self.calls.lock:self.calls.observer.observe(request,response)
             except Exception:
                 self.calls.report['observer_capture_failures']=self.calls.report.get('observer_capture_failures',0)+1
@@ -509,6 +513,9 @@ def child(destination):
         report['guard_stop_reason'] = str(error) if str(error) in ('monitor_unavailable','budget_or_queue_unavailable','request_guard') else 'unknown'
     except Exception as error:
         report.update(terminal_state='failed', error_type=type(error).__name__)
+        code=getattr(error,'code',None);reason=getattr(error,'reason',None)
+        if isinstance(code,str) and code in {'quality','incomplete','coverage','length','empty','invalid','content_filter','capacity'}:report['failure_code']=code
+        if isinstance(reason,str) and reason in {'source_review','grounding','coverage','review','json','sections','source_ranges','structure','obligation_map','stream_incomplete'}:report['failure_reason']=reason
     finally:
         record_delivery()
         pipeline_http_attempts=calls.http_attempts
@@ -526,6 +533,7 @@ def child(destination):
                 from scripts.summary_memory_diagnostics import diagnostic_error_code
                 report.update(failure_sampling_state='failed',failure_sampling_error=diagnostic_error_code(error))
         if observer:
+            report['generation_draft_snapshots']=[dict(row) for row in observer.generation_snapshots]
             observer.clear();memory_store.clear();calls.observer=None
             getattr(engine,'_source_rejection_context',{}).clear()
             engine._source_correction_overview = ''
@@ -773,6 +781,7 @@ def run_memory_diagnostics(database, owner, source_id, source, transcript, engin
         report.update(terminal_state='memory_diagnostics_failed',error_type=type(error).__name__,
                       diagnostic_error_code=diagnostic_error_code(error))
     finally:
+        report['generation_draft_snapshots']=[dict(row) for row in observer.generation_snapshots]
         observer.clear()
         store.clear()
         getattr(engine,'_source_rejection_context',{}).clear()

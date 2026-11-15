@@ -141,7 +141,7 @@ def _call_editor(client, model, system, payload, timeout, *, output_tokens=None)
             phase = request_data.get('phase') or ('draft' if 'mode' in request_data else 'grounding')
         except (ValueError, TypeError, AttributeError):
             phase = 'other'
-        if phase not in {'draft','grounding','inventory','match','repair','validate_inventory','repair_grounding','verify_grounding_preservation'}:
+        if phase not in {'draft','grounding','inventory','match','repair','validate_inventory','repair_grounding','verify_grounding_preservation','repair_obligation_map'}:
             phase = 'other'
         started = time.monotonic()
         failed = False
@@ -150,7 +150,7 @@ def _call_editor(client, model, system, payload, timeout, *, output_tokens=None)
             configured=client.with_options(timeout=timeout,max_retries=0)
             parameters=dict(model=model,messages=[{'role':'system','content':system},{'role':'user','content':payload}],
                 response_format={'type':'json_object'},temperature=0,**options)
-            streaming=phase=='draft' and getattr(client,'_json_stream_disabled',False) is not True
+            streaming=phase in {'draft','repair_obligation_map'} and getattr(client,'_json_stream_disabled',False) is not True
             try:
                 response=configured.chat.completions.create(**parameters,**({'stream':True} if streaming else {}))
             except Exception as error:

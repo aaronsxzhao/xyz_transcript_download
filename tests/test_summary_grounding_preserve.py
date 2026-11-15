@@ -652,3 +652,65 @@ def test_video_media_retains_original_event_level_ids_and_timestamps(formats):
     assert edition['lines']==source_lines(text)[1]
     assert all(':g' not in line.id for line in edition['lines'])
     assert owner.generation_report['source_layout']=='original-lines'
+
+
+@pytest.mark.parametrize('mapping',['valid','unmapped','invalid','transport'])
+def test_private_index_repair_never_regenerates_or_changes_valid_reader_prose(mapping):
+    from transcript_reading import call_json
+    owner,lines,sections,prepared=scene();owner.generation_report={};items=prepared[1][:2]
+    data={'sections':[{'heading':'Topic','paragraphs':[{'text':'Only a broad topic mention.',
+        'source_ranges':[{'start':lines[0].id,'end':lines[-1].id}]}]}]}
+    before=copy.deepcopy(data);requests=[]
+    request={'mode':'single','primary_source':[{'id':line.id,'text':line.text} for line in lines],
+        'source_obligations':items}
+    def respond(client,model,system,payload,timeout,**kwargs):
+        parsed=json.loads(payload);requests.append(parsed)
+        if 'mode' in parsed:return copy.deepcopy(data)
+        assert parsed['phase']=='repair_obligation_map' and 'primary_source' not in parsed
+        if mapping=='transport':raise TimeoutError('synthetic map failure')
+        return {'mappings':[{'paragraph_id':'invented' if mapping=='invalid' else '0:0',
+            'obligation_ids':[] if mapping=='unmapped' else ['C0','C1']}],
+            'unmapped_obligation_ids':['C0','C1'] if mapping=='unmapped' else []}
+    with patch('reading_editor._call_editor',side_effect=respond):result=call_json(owner,'Instruction',json.dumps(request),10)
+    assert len(requests)==2 and sum('mode' in entry for entry in requests)==1
+    assert result['sections'][0]['paragraphs'][0]['text']==before['sections'][0]['paragraphs'][0]['text']
+    assert result['sections'][0]['paragraphs'][0]['source_ranges']==before['sections'][0]['paragraphs'][0]['source_ranges']
+    assert data==before and items==prepared[1][:2]
+    counts=owner.generation_report['draft_obligation_map']
+    assert counts['semantic_coverage_certified'] is False
+    assert counts['status']==('unavailable_requires_full_matching' if mapping in ('invalid','transport') else 'metadata_repaired')
+    assert counts['unmapped']==(0 if mapping=='valid' else 2)
+    assert owner.generation_report.get('format_retries',0)==0
+
+
+def test_explicit_unmapped_planning_items_remain_real_semantic_gaps():
+    from transcript_reading import validate_obligation_map
+    from coverage_ledger import _audit
+    owner,lines,sections,prepared=scene();items=prepared[1][:2]
+    data={'sections':[{'heading':'Topic','paragraphs':[{'text':'Broad topic only.','obligation_ids':[]}]}],
+        'unmapped_obligation_ids':['C0','C1']}
+    assert validate_obligation_map(data,items,lines)['unmapped']==2
+    with patch('coverage_ledger.request',return_value={'matches':[row(item,'missing') for item in items]}):
+        ledger,_=_audit(owner,lines,sections,inventory=items,matching_only=True)
+    assert not coverage_acceptable(ledger) and all(item['status']=='missing' for item in ledger['items'])
+
+
+def test_private_map_repair_cannot_change_paragraph_text_even_if_model_sends_rewritten_prose():
+    from transcript_reading import reconcile_obligation_metadata
+    owner,lines,_,prepared=scene();owner.generation_report={};item=prepared[1][0]
+    data={'sections':[{'heading':'Original','paragraphs':[{'text':'Unchanged reader prose.','source_ranges':item['source_ranges']}]}]}
+    bad={'mappings':[{'paragraph_id':'0:0','obligation_ids':['C0'],'text':'Untrusted replacement.'}],
+         'unmapped_obligation_ids':[]}
+    with patch('reading_editor._call_editor',return_value=bad):result=reconcile_obligation_metadata(owner,data,[item],lines)
+    assert result['sections'][0]['paragraphs'][0]['text']=='Unchanged reader prose.'
+    assert result['unmapped_obligation_ids']==['C0']
+    assert owner.generation_report['draft_map_repair_failures']==1
+
+
+@pytest.mark.parametrize('error',[RuntimeError('synthetic implementation error'),SummaryOutputError('content_filter')])
+def test_private_index_repair_never_hides_implementation_error_or_provider_refusal(error):
+    from transcript_reading import reconcile_obligation_metadata
+    owner,lines,_,prepared=scene();owner.generation_report={};item=prepared[1][0]
+    data={'sections':[{'heading':'Original','paragraphs':[{'text':'Unchanged prose.','source_ranges':item['source_ranges']}]}]}
+    with patch('reading_editor._call_editor',side_effect=error):
+        with pytest.raises(type(error)):reconcile_obligation_metadata(owner,data,[item],lines)

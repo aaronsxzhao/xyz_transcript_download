@@ -337,6 +337,8 @@ def one_assessment_summary(samples, verdicts):
 
 class MemoryDiagnostics:
     def __init__(self):
+        self.generation_snapshots=[]
+        self.generated_candidate=None
         self.inventory_before = []
         self.inventory_after = []
         self.candidate = None
@@ -350,6 +352,8 @@ class MemoryDiagnostics:
             previous={item['id']:item for item in self.inventory_before}
             previous.update({item['id']:copy.deepcopy(item) for item in request['source_obligations']})
             self.inventory_before=list(previous.values())
+        if isinstance(request,dict) and 'mode' in request:
+            self.capture_generation_shape(request,response)
         # Runs before transcript_reading replaces rejected prose with raw source.
         if isinstance(request,dict) and request.get('phase') == 'match':
             self.observe_matching(request,response)
@@ -373,6 +377,38 @@ class MemoryDiagnostics:
         for ident in response.get('unsupported_paragraph_ids', []):
             if ident in paragraphs and len(self.grounding) < 2:
                 self.grounding.append({'draft': draft, 'paragraph': copy.deepcopy(paragraphs[ident])})
+
+    def capture_generation_shape(self,request,response):
+        if len(self.generation_snapshots)>=4:return
+        from transcript_reading import SourceLine,validate_sections,reject_prefix_only,validate_obligation_map
+        from summary_errors import SummaryOutputError
+        row={'json_parseable':True,'sections_schema_valid':False,'whole_source_scope_valid':False}
+        try:
+            lines=[SourceLine(item['id'],item['text'],None) for item in request['primary_source']]
+            sections,_=validate_sections(response,lines)
+            row.update(sections_schema_valid=True,paragraphs=sum(len(s['paragraphs']) for s in sections),
+                characters=sum(len(p['text']) for s in sections for p in s['paragraphs']))
+            self.generated_candidate=copy.deepcopy({'sections':sections,'overview':response.get('overview','')})
+            if request['mode']=='single':reject_prefix_only(sections,lines)
+            row['whole_source_scope_valid']=True
+            obligations=request.get('source_obligations',[])
+            expected={item['id'] for item in obligations}
+            refs=[ident for s in response['sections'] for p in s['paragraphs']
+                for ident in (p.get('obligation_ids') if isinstance(p.get('obligation_ids'),list) else [])]
+            known={ident for ident in refs if isinstance(ident,str) and ident in expected}
+            row.update(plan_items=len(expected),mapped_items=len(known),unmapped_items=len(expected-known),
+                unknown_mapping_refs=sum(not isinstance(ident,str) or ident not in expected for ident in refs))
+            try:validate_obligation_map(response,obligations,lines);row['private_map_valid']=True
+            except (SummaryOutputError,ValueError,TypeError,KeyError):row['private_map_valid']=False
+        except (SummaryOutputError,ValueError,TypeError,KeyError) as error:
+            reason=getattr(error,'reason',None)
+            row['failure_category']=(reason if isinstance(reason,str) and reason in {'sections','source_ranges','structure'}
+                else 'prefix_incomplete' if isinstance(error,SummaryOutputError) and error.code=='incomplete' else 'structure')
+        self.generation_snapshots.append(row)
+
+    def capture_generation_parse_failure(self,request,characters):
+        if isinstance(request,dict) and 'mode' in request and len(self.generation_snapshots)<4:
+            self.generation_snapshots.append({'json_parseable':False,'characters':characters,'failure_category':'json'})
 
     def observe_matching(self, request, response):
         from coverage_ledger import matching_response
@@ -546,6 +582,8 @@ class MemoryDiagnostics:
         return result
 
     def clear(self):
+        self.generation_snapshots.clear()
+        self.generated_candidate=None
         self.inventory_before.clear()
         self.inventory_after.clear()
         self.candidate = None
