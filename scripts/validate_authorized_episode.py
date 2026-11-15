@@ -434,7 +434,10 @@ def child(destination):
     except Exception as error:
         report.update(terminal_state='failed', error_type=type(error).__name__)
     finally:
-        if (observer and report.get('terminal_state')=='failed' and observer.candidate
+        pipeline_http_attempts=calls.http_attempts
+        report['delivery_provider_http_attempts']=pipeline_http_attempts
+        report['delivery_wall_seconds']=round(time.monotonic()-started,3)
+        if (observer and report.get('terminal_state') in ('failed','not_accepted') and observer.candidate
                 and calls.started <= calls.maximum-2 and time.monotonic()-started < 3120):
             try:
                 def diagnosis_progress(event):
@@ -450,6 +453,7 @@ def child(destination):
         if observer:
             observer.clear();memory_store.clear();calls.observer=None
             report['diagnostic_buffers_cleared']=True
+        report['failure_sampling_provider_http_attempts']=calls.http_attempts-pipeline_http_attempts
         report['wall_seconds'] = round(time.monotonic()-started, 3)
         report['generation'] = safe_report(engine.generation_report)
         ledger = engine.generation_report.get('coverage_ledger') or {}
