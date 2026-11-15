@@ -17,6 +17,7 @@ on:
           - memory_diagnostics
           - inventory_plan_probe
           - stream_probe
+          - source_flag_probe
       allow_first_match:
         description: Explicitly allow memory diagnostics to generate up to first match if no saved candidate exists (48-call cap)
         type: boolean
@@ -75,7 +76,7 @@ jobs:
           compression-level: 0
 
   validate-authorized-episode:
-    if: github.event_name == 'workflow_dispatch' && (inputs.mode == 'guard_probe' || inputs.mode == 'full_episode' || inputs.mode == 'historical_gap_review' || inputs.mode == 'candidate_probe' || inputs.mode == 'memory_diagnostics' || inputs.mode == 'inventory_plan_probe' || inputs.mode == 'stream_probe')
+    if: github.event_name == 'workflow_dispatch' && (inputs.mode == 'guard_probe' || inputs.mode == 'full_episode' || inputs.mode == 'historical_gap_review' || inputs.mode == 'candidate_probe' || inputs.mode == 'memory_diagnostics' || inputs.mode == 'inventory_plan_probe' || inputs.mode == 'stream_probe' || inputs.mode == 'source_flag_probe')
     runs-on: ubuntu-latest
     timeout-minutes: 65
     env:
@@ -116,6 +117,7 @@ jobs:
             historical_gap_review) python scripts/validate_authorized_episode.py --review-historical-gaps ;;
             candidate_probe) python scripts/validate_authorized_episode.py --probe-candidate ;;
             stream_probe) python scripts/validate_authorized_episode.py --probe-json-stream ;;
+            source_flag_probe) python scripts/validate_authorized_episode.py --probe-source-flags ;;
             inventory_plan_probe) python scripts/validate_authorized_episode.py --probe-inventory-plan ;;
             memory_diagnostics)
               if [ "$ALLOW_FIRST_MATCH" = "true" ]; then

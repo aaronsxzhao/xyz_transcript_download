@@ -364,6 +364,9 @@ def child(destination):
     if os.environ.get('EPISODE_STREAM_PROBE') == '1':
         run_json_stream_probe(settings,report,guard,publish)
         return
+    if os.environ.get('EPISODE_SOURCE_FLAG_PROBE') == '1':
+        run_source_flag_probe(settings,report,guard,publish)
+        return
     # Read only a different explicitly authorized episode. No rejected source is
     # selected, loaded, split, transformed or routed through another executor.
     historical_mode = os.environ.get('EPISODE_HISTORICAL_GAP_REVIEW') == '1'
@@ -493,7 +496,6 @@ def child(destination):
             summary = engine.summarize(transcript, episode_title='Authorized complete podcast validation')
         accepted = bool(summary) and engine.generation_report.get('delivery', {}).get('status') == 'accepted'
         record_delivery()
-        if observer:observer.inventory_after=__import__('copy').deepcopy(engine._quality_inventory[1])
         if accepted and frozen_inventory is not None:
             before=calls.http_attempts;independent_started=time.monotonic()
             with bind(execution):
@@ -518,6 +520,7 @@ def child(destination):
         if isinstance(reason,str) and reason in {'source_review','grounding','coverage','review','json','sections','source_ranges','structure','obligation_map','stream_incomplete'}:report['failure_reason']=reason
     finally:
         record_delivery()
+        if observer:observer.capture_final_inventory(engine)
         pipeline_http_attempts=calls.http_attempts
         if (observer and report.get('terminal_state') in ('failed','not_accepted') and observer.candidate
                 and calls.started <= calls.maximum-2 and time.monotonic()-started < 3120):
@@ -554,6 +557,54 @@ def child(destination):
             report['final_budget_guard_passed'] = False
         else:
             report['final_budget_guard_passed'] = True
+        publish()
+
+
+def run_source_flag_probe(settings,report,guard,publish):
+    """One synthetic positive/negative/unknown fidelity check; no real source."""
+    from api.llm_settings import resolve_llm_settings
+    from api.custom_models import custom_http_client
+    from summarizer import Summarizer
+    from unittest.mock import patch
+    from transcript_reading import source_lines,serialize
+    from source_review_adjudication import adjudicate
+    from processing_execution import Execution,bind
+    resolved=resolve_llm_settings(settings);enforce_authorized_destination(resolved)
+    report.update(environment='isolated synthetic source-flag adjudication probe; no transcript loaded',
+        quality_acceptance=False,request_limit=1,source_content_sent=False)
+    report['model_settings_fingerprint']=hashlib.sha256(json.dumps({k:resolved[k] for k in ('model','model_options') if k in resolved},sort_keys=True).encode()).hexdigest()
+    calls=Calls(guard,report,publish,maximum=1);http=custom_http_client()
+    http.event_hooks.setdefault('request',[]).append(calls.outbound)
+    http.event_hooks.setdefault('response',[]).append(calls.response)
+    with patch('api.custom_models.custom_http_client',return_value=http):engine=Summarizer(**resolved)
+    engine.client=TrackedClient(engine.client,calls)
+    _,lines=source_lines('The trial used exactly two cameras.\nThe trial ran only at night.\n'
+        'The shipment arrival day cannot be recovered from the damaged recording.')
+    paragraphs=[{'id':'POSITIVE','text':'The trial used exactly two cameras at night.'},
+        {'id':'NEGATIVE','text':'The trial used four cameras.'},
+        {'id':'UNKNOWN','text':'The shipment arrived on Tuesday.'}]
+    request={'primary_source':serialize(lines),'global_draft':[{'heading':'Synthetic trial','paragraphs':paragraphs}],
+        'global_overview':''}
+    response={'grounded':False,'unsupported_paragraph_ids':[p['id'] for p in paragraphs]}
+    before=json.dumps(request,sort_keys=True);memory=MemoryCheckpoints();started=time.monotonic()
+    try:
+        with bind(Execution('isolated-synthetic-probe','source-flags',memory)):
+            result=adjudicate(engine,lines,request,response)
+        remaining=set(result['unsupported_paragraph_ids'])
+        checks={'supported_flag_cleared':'POSITIVE' not in remaining,
+            'conflicting_flag_retained':'NEGATIVE' in remaining,
+            'unknown_flag_retained':'UNKNOWN' in remaining,
+            'prose_unchanged':json.dumps(request,sort_keys=True)==before}
+        report['source_flag_probe']=checks
+        report['terminal_state']='source_flag_probe_passed' if all(checks.values()) else 'source_flag_probe_failed'
+        from scripts.inspect_failed_reading import safe_report
+        report['generation']=safe_report(engine.generation_report)
+    except Exception as error:report.update(terminal_state='source_flag_probe_failed',error_type=type(error).__name__)
+    finally:
+        memory.clear();engine.client.close();report['wall_seconds']=round(time.monotonic()-started,3)
+        try:guard(calls.day,force=True)
+        except TestGuardStopped:report['final_budget_guard_passed']=False
+        else:report['final_budget_guard_passed']=True
         publish()
 
 
@@ -836,6 +887,8 @@ def main():
         destination = Path(temporary)/'aggregate.json'
         if '--probe-json-stream' in sys.argv:
             bindings['EPISODE_STREAM_PROBE']='1'
+        if '--probe-source-flags' in sys.argv:
+            bindings['EPISODE_SOURCE_FLAG_PROBE']='1'
         if '--probe-guard' in sys.argv:
             bindings['EPISODE_GUARD_PROBE_ONLY'] = '1'
         if '--review-historical-gaps' in sys.argv:
@@ -881,6 +934,8 @@ def main():
         # stdout, stderr, model output or source leaves its temporary process.
         report = json.loads(destination.read_text())
         print(json.dumps({'authorized_episode_validation':report}))
+        if '--probe-source-flags' in sys.argv:
+            return 0 if report.get('terminal_state')=='source_flag_probe_passed' and report.get('final_budget_guard_passed') else 2
         if '--probe-json-stream' in sys.argv:
             return 0 if report.get('terminal_state')=='stream_probe_passed' and report.get('final_budget_guard_passed') else 2
         if '--probe-guard' in sys.argv:

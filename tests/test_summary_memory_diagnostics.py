@@ -60,6 +60,25 @@ def test_candidate_capture_is_immutable_before_checkpoint_overwrite_and_disposal
     assert observer.candidate is None and observer.grounding==[] and store.values=={}
 
 
+def test_failed_delivery_retains_actual_final_inventory_not_fixed_benchmark_and_clears_it():
+    source,_,payload=fixture();observer=MemoryDiagnostics()
+    observer.observe({'source_obligations':payload['inventory'][1]}, {})
+    actual=copy.deepcopy(payload['inventory']);actual[1][0]['statement']='A source-corrected obligation.'
+    benchmark=copy.deepcopy(payload);benchmark['inventory'][1][0]['id']='FIXED1'
+    observer.capture_payload(benchmark)
+    observer.capture_final_inventory(SimpleNamespace(_quality_inventory=actual))
+    actual[1][0]['statement']='Subsequent mutation.'
+    request=observer.make_request(source,'resolved_ranges_v2')
+    assert request['inventory_context']['after'][0]['statement']=='A source-corrected obligation.'
+    assert request['inventory_context']['after'][0]['id']!='FIXED1'
+    observer.clear();assert observer.inventory_before==observer.inventory_after==[]
+
+
+def test_failure_before_inventory_does_not_invent_completed_plan():
+    observer=MemoryDiagnostics();observer.capture_final_inventory(SimpleNamespace())
+    assert observer.inventory_after==[]
+
+
 def test_grounding_capture_precedes_raw_replacement_and_does_not_export_feedback():
     source,lines,payload=fixture();observer=MemoryDiagnostics()
     request={'primary_source':[{'id':line.id,'text':line.text} for line in lines],

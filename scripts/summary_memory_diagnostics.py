@@ -449,6 +449,12 @@ class MemoryDiagnostics:
         if shape.get('paragraph_count', 0) and shape.get('inventory_item_count', 0):
             self.candidate = copy.deepcopy(payload)
 
+    def capture_final_inventory(self, engine):
+        # Also runs after delivery raises, before failure diagnostics/disposal.
+        # A fixed benchmark may be the diagnostic candidate's inventory; it
+        # must not replace the actual checklist after source corrections.
+        self.inventory_after = copy.deepcopy(unpack_inventory(getattr(engine,'_quality_inventory',[])))
+
     def add_candidate_grounding_probes(self):
         # Saved candidates may already have replaced/repaired original rejected
         # wording. Do not call these probes replications of an earlier verdict.

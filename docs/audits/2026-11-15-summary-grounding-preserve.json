@@ -56,7 +56,8 @@
       "original_rejected_prose": "Keep original source-rejected summary prose and bounded review feedback in engine RAM before substituting internal raw source. Correct that original prose against its actual source and owned obligations, rather than re-summarizing a large raw passage. Reject unchanged replay against the original rejected wording/evidence. Context is never part of generation_report,candidate persistence or public output; clear it after successful replacement and test disposal.",
       "paired_preservation": "Compare source-supported obligations against original rejected prose BEFORE and proposed whole draft AFTER in the same independent request. Block actual newly lost coverage. Already missing before-and-after obligations remain in the unchanged inventory and normal coverage repair; they are not new correction damage. One format-only retry for invalid review schema, never for a valid semantic rejection; original two local edits and160actualHTTP cap retained.",
       "source_review_adjudication": "One independent evidence adjudication of each located negative global-review result before correction. Every character of every flagged paragraph must belong to an evidence-cited supported/unsupported/uncertain assertion. Only complete positive source support withdraws a flag. Omitted wording, invalid references, uncertain/unsupported clauses retain veto. No prose or coverage change. Same actual source/model/options/checkpoints and original bounded correction loop; no retry-until-pass. Counts only exported.",
-      "diagnostic_latest_finding": "Bounded RAM sampling retains latest actual source rejection before candidate destruction, instead of only first2earlier findings that may already be repaired. Still2samples/2calls; no private content export."
+      "diagnostic_latest_finding": "Bounded RAM sampling retains latest actual source rejection before candidate destruction, instead of only first2earlier findings that may already be repaired. Still2samples/2calls; no private content export.",
+      "diagnostic_failure_inventory": "Capture final actual engine inventory in finally on success and failure before diagnostics/disposal. Keep it separate from the frozen benchmark inventory used to select sample gaps; no borrowed acceptance credits."
     },
     {
       "id": "H3",
@@ -100,8 +101,8 @@
     }
   ],
   "regression": {
-    "new_cases": 130,
-    "related_passed": 554,
+    "new_cases": 136,
+    "related_passed": 560,
     "environment": "local Python3.12,synthetic data,no real model calls; includes fixed archived-inventory validation and source-layout resume tests"
   },
   "real_validation": {
@@ -117,7 +118,7 @@
     "guard_run": 43669862171,
     "guard_http_calls": 0,
     "beijing_date": "2026-11-15",
-    "settled_usd": 40.860688,
+    "settled_usd": 43.453706,
     "scope": "configured_test_account_provider_token",
     "active_production_work": false,
     "daily_shared_limit": 100,
@@ -129,7 +130,7 @@
     "provider_hard_cap_verified": false
   },
   "excluded": "Previously denied3088segment input and private189item normalization query; no real-account reprocessing/deletion or invented authentication.",
-  "acceptance_pending": "Full exact-head CI, real episode and frozen-inventory acceptance, protected merge/deploy and exact health revision.",
+  "acceptance_pending": "Final exact-head CI, one-call synthetic real-provider source-flag positive/negative/unknown probe, protected merge/deploy and exact health revision. Whole authorized episode and unchanged137itemgate passed; no further whole-episode rerun planned.",
   "validation_followup": {
     "first_head": "bc24971aec3d9fb45a66c604ca97ba1eff264a11",
     "first_real_run": 43671158025,
@@ -218,7 +219,7 @@
     "report": "docs/audits/2026-11-15-summary-fixed-inventory-failure.json",
     "same_final_edition_verified": true
   },
-  "next_validation": "One serial real full episode after554relatedregressions, then immutable137check. Review local-recall core100percent and latest disputed source findings separately; no whole acceptance until all gates pass.",
+  "next_validation": "One synthetic provider call for source-flag adjudication (no real source); final full CI. Core runtime bytes unchanged from accepted4bafba5; subsequent changes only diagnostics/tests/workflow/evidence.",
   "plan_probe_report": "docs/audits/2026-11-15-summary-inventory-plan-probe.json",
   "stream_probe": {
     "run": 43690941933,
@@ -268,5 +269,24 @@
     "terminal_state": "failed_grounding",
     "reviewer_variation_samples": 2,
     "semantic_false_positive_proven": false
+  },
+  "whole_episode_acceptance": {
+    "run": 43700762579,
+    "revision": "4bafba56dd1ce1d7e47c5095e70593947a672626",
+    "report": "docs/audits/2026-11-15-summary-whole-episode-acceptance.json",
+    "core_http": 38,
+    "core_seconds": 596.078,
+    "independent_http": 9,
+    "independent_seconds": 89.599,
+    "total_http": 47,
+    "total_seconds": 685.678,
+    "frozen_items": 137,
+    "frozen_coverage": 0.9562043795620438,
+    "frozen_unresolved": 6,
+    "frozen_checklist_changed": false,
+    "terminal_state": "accepted",
+    "final_budget_guard_passed": true,
+    "actual_adjudication_hits": 0,
+    "causal_performance_improvement_proven": false
   }
 }
