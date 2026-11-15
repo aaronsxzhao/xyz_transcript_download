@@ -259,8 +259,10 @@ jobs:
       - name: Check dashboard reader return positions
         timeout-minutes: 5
         run: |
-          python scripts/check_dashboard_return.py
+          python scripts/check_dashboard_return.py &
+          dashboard_return_chromium_pid=$!
           python scripts/check_dashboard_return.py --webkit
+          wait "$dashboard_return_chromium_pid"
       - name: Check collection list wrapping and alignment
         timeout-minutes: 4
         run: |
