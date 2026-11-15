@@ -577,6 +577,9 @@ def run_source_flag_probe(settings,report,guard,publish):
     http.event_hooks.setdefault('request',[]).append(calls.outbound)
     http.event_hooks.setdefault('response',[]).append(calls.response)
     with patch('api.custom_models.custom_http_client',return_value=http):engine=Summarizer(**resolved)
+    # Normal generate() initializes this; this isolated helper probe does not
+    # invoke generation and must initialize its own aggregate-only container.
+    engine.generation_report={}
     engine.client=TrackedClient(engine.client,calls)
     _,lines=source_lines('The trial used exactly two cameras.\nThe trial ran only at night.\n'
         'The shipment arrival day cannot be recovered from the damaged recording.')

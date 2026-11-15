@@ -1,0 +1,68 @@
+{
+  "run": 43702126766,
+  "role": "synthetic_provider_probe_harness_failure_not_quality_result",
+  "measurement": {
+    "revision": "40f52eb59dbbc2aeec83210ce418ddeb4daa4a55",
+    "environment": "isolated synthetic source-flag adjudication probe; no transcript loaded",
+    "production_writes": false,
+    "account_authentication": "authorized server maintenance bindings; not a user login",
+    "daily_limit_usd": 100,
+    "settled_stop_usd": 85,
+    "in_flight_reserve_usd": 15,
+    "request_limit": 1,
+    "actual_provider_http_attempts": 1,
+    "terminal_state": "source_flag_probe_failed",
+    "checkpoint_policy": "request-fingerprinted Execution with empty in-memory store",
+    "excluded_previously_rejected_episode": true,
+    "account_anchor": "existing_readonly_billing_diagnostic",
+    "billing_snapshot_max_age_seconds": 90,
+    "monitor": {
+      "read_attempts": 4,
+      "read_failures": 0,
+      "wait_seconds": 0
+    },
+    "provider_billing_reads": 2,
+    "billing_snapshot_age_seconds": 0,
+    "budget": {
+      "status": "checked",
+      "beijing_date": "2026-11-15",
+      "settled_usd": 43.471644,
+      "scope": "configured_test_account_provider_token",
+      "daily_limit_usd": 100,
+      "active_work_found": false
+    },
+    "quality_acceptance": false,
+    "source_content_sent": false,
+    "model_settings_fingerprint": "16bd60d985604f5db7b1d8575c6b59fe40af0182957a8c911e269faefb2dcb21",
+    "provider_billing_snapshot_hits": 2,
+    "peak_model_concurrency": 1,
+    "provider_http_attempts_by_phase": {
+      "adjudicate_grounding": 1
+    },
+    "provider_request_bytes_by_phase": {
+      "adjudicate_grounding": {
+        "sum": 3745,
+        "max": 3745
+      }
+    },
+    "provider_http_status_counts": {
+      "200": 1
+    },
+    "provider_reported_usage": {
+      "prompt_tokens": 5605,
+      "completion_tokens": 314,
+      "total_tokens": 5919
+    },
+    "response_model_hash_counts": {
+      "576a599a64cb3dde05f18ebb3e26e3d5bcbf4b108ff92da24f5229188fa0972a": 1
+    },
+    "model_create_calls": 1,
+    "failed_model_create_calls": 0,
+    "provider_request_seconds_sum": 10.295,
+    "error_type": "AttributeError",
+    "wall_seconds": 10.343,
+    "final_budget_guard_passed": true
+  },
+  "cause": "Probe bypassed normal generate() initialization and lacked engine.generation_report. The real model HTTP completed successfully; post-response aggregate collection raised AttributeError. Initialize probe-only report container and keep positive/negative/unknown checks unchanged. Accepted whole-episode runtime is unchanged.",
+  "next": "One same-input1HTTPsyntheticprobe;no real source loaded or whole-episode rerun."
+}

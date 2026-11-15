@@ -277,9 +277,10 @@ def test_source_flag_probe_checks_both_vetoes_and_never_counts_as_whole_acceptan
     from types import SimpleNamespace
     from unittest.mock import Mock,patch
     from scripts.validate_authorized_episode import run_source_flag_probe
-    engine=SimpleNamespace(client=Mock(),model='synthetic',generation_report={})
+    engine=SimpleNamespace(client=Mock(),model='synthetic')
     report={};guard=Mock();publish=Mock()
     def adjudicate(owner,lines,request,response):
+        assert owner.generation_report=={}
         assert len(lines)==3 and request['global_draft'][0]['paragraphs'][0]['id']=='POSITIVE'
         assert response['unsupported_paragraph_ids']==['POSITIVE','NEGATIVE','UNKNOWN']
         return {'unsupported_paragraph_ids':remaining}
