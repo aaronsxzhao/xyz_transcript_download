@@ -76,13 +76,13 @@ async def check(browser,origin,width):
         print(json.dumps({'state':state,'body':await page.locator('body').inner_text(),'errors':errors}),flush=True)
         raise
     state.update(phase='success',version=4)
-    await row.get_by_role('link',name='Read summary',exact=True).wait_for(timeout=10000)
+    await row.get_by_role('link',name='Read post',exact=True).wait_for(timeout=10000)
     assert state['progress_reads']>=2
     state.update(case='fast',phase='discovered',accepted=False,version=1)
     await page.goto(origin+'/videos?platform=substack&channel=Writer&import=https%3A%2F%2Fwriter.substack.com%2Fp%2Ffast',wait_until='domcontentloaded')
     await page.get_by_role('button',name='Import content',exact=True).click()
     await page.locator('.video-task-list').get_by_role('heading',name='Synthetic fast import',exact=True).wait_for(timeout=10000)
-    await page.locator('.video-task-list').get_by_role('link',name='Read summary',exact=True).wait_for(timeout=10000)
+    await page.locator('.video-task-list').get_by_role('link',name='Read post',exact=True).wait_for(timeout=10000)
     assert state['detail_reads']>=1
     assert not await page.locator('.video-task-list').get_by_text('Queued',exact=True).count()
     assert not errors,errors
