@@ -1564,8 +1564,9 @@
       },
       "main_ci_observation": {
         "run": 43669994089,
-        "status": "in_progress",
-        "scope": "Separate automatic merged-main run; not counted as completed."
+        "status": "completed",
+        "conclusion": "success",
+        "scope": "Separate automatic merged-main run; independently verified after release."
       },
       "preserved_parallel_main": "ebd2b2422adc33ae9f39cc790f2757868e0dc40f",
       "local_matrix": {
@@ -1588,7 +1589,7 @@
         "frontend_unit_tests": 559
       },
       "live_scope": "Exact health revision, seven byte-identical public module bodies, one anonymous phone cold/reload smoke. Not real-account dashboard acceptance. Transport timing limitations retained in report.",
-      "real_account_condition": "Authorized dedicated test credential input unavailable.",
+      "real_account_condition": "Dedicated credential configured in macOS Keychain; real sign-in and protected stats verified. Dashboard return matrix remains unperformed because saved-summary and startup transport timed out; see local-browser-test-keychain report.",
       "actual_images_reviewed": 9,
       "new_paid_validation_calls": 0,
       "production_chain_status_changed": false
@@ -1701,6 +1702,35 @@
       "report": "docs/audits/2026-11-14-summary-handoff-validation.json",
       "scope": "official GitHub dispatch restored; read-only shared billing and active work checks; no production quality acceptance promoted",
       "latest_readonly_run": 43596632193
+    },
+    {
+      "id": "2026-11-15-macos-keychain-test-account",
+      "report": "docs/audits/2026-11-15-local-browser-test-keychain.md",
+      "credential_source": "macOS Keychain, one dedicated fixed-service item",
+      "command": "~/.local/bin/xyz-browser-test",
+      "state": "configured_by_user",
+      "native_self_test": "isolated store/read/delete passed",
+      "provider_tests": "parse/origin/denial/redacted-errors/child-env passed with synthetic data",
+      "actual_signin_api": {
+        "status": 200,
+        "milliseconds": 2095,
+        "session_issued": true,
+        "token_exported": false
+      },
+      "normal_ui_auth": {
+        "comparison": "Chromium --disable-http2; negotiated protocol not captured",
+        "signin_status": 200,
+        "headers_ms": [
+          2782,
+          2536
+        ],
+        "protected_stats": true
+      },
+      "real_return_matrix": "incomplete: saved-summary read and dashboard startup transport timeouts; not counted as passed",
+      "plaintext_credential_file": false,
+      "credential_values_in_reports": false,
+      "production_chain_status_changed": false,
+      "new_paid_validation_calls": 0
     }
   ],
   "integration_note": "2026-11-09: merged PR239/240/241/242 evidence. Latest RSS report remains current; older environment blockers and rollout-pending statements are historical observations, not current acceptance. Prior local fixtures retained separately from production evidence.",

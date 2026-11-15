@@ -45,6 +45,33 @@ It is an anonymous login-page smoke test, not full product or theme acceptance.
 Use the existing UI regression contract lanes for broader local synthetic tests.
 No scheduler or automatic production job is installed by this change.
 
+## Local Mac credential source
+
+On the user's Mac, `xyz-browser-test` is installed in `~/.local/bin` with its
+source and dedicated native helper in `~/Library/Application Support/XYZ Browser Tests/`.
+Before asking the user to enter the test account again, run:
+
+```sh
+~/.local/bin/xyz-browser-test status
+```
+
+`CONFIGURED` means the site's dedicated account exists in the macOS Keychain.
+`xyz-browser-test check` retrieves it directly into memory and launches the
+existing authenticated smoke check with child-only BROWSER_TEST bindings.
+The Keychain service is `online.aipodcastsummary.browser-tests`; no other items
+are enumerated. Never invoke the internal helper's `read` action in a logged
+tool call, print credential values, or export browser session state. Trusted
+custom runners can import the installed `runner.credentials()` provider; it
+returns only this site's dedicated account and rejects other origins.
+
+The user's one-time setup command is `~/.local/bin/xyz-browser-test setup` in
+Terminal, with both fields hidden. It updates one encrypted Keychain item and
+writes no plaintext credential file. It must not be repeated merely because
+BROWSER_TEST environment variables are absent. A locked Keychain or denied OS
+prompt requires unlocking/authorizing the dedicated helper, not re-entering the
+website password. Other hosts without this local installation continue using
+the environment/private-prompt path below.
+
 ## Explicit authenticated inspection
 
 Only use an authorized test account. Supply `BROWSER_TEST_EMAIL` and
