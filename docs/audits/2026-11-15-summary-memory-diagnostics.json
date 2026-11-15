@@ -38,9 +38,12 @@
     "provider_hard_cap_verified": false,
     "preflight_run": 43617418747,
     "production_work_found": false,
-    "latest_settled_usd": 0.89922,
-    "latest_snapshot_run": 43621516379,
-    "active_isolated_model_tests": 0
+    "latest_settled_usd": 1.654734,
+    "latest_snapshot_run": 43625509352,
+    "active_isolated_model_tests": 0,
+    "paid_pair_end_snapshot_usd": 0.89922,
+    "additional_settled_since_paid_pair_end_unattributed_usd": 0.755514,
+    "attribution": "Daily shared configured-token total, not cost assigned to the8ownedHTTPattempts. The increase since the last snapshot is unattributed; no claim whether delayed settlement or other shared use."
   },
   "zero_model_candidate_probe": {
     "run": 43618536793,
@@ -67,11 +70,10 @@
     "related_local_tests_passed": 338,
     "environment": "Python3.12 temporary venv; --noconftest; synthetic fixtures",
     "full_pr_ci": {
-      "pr": 271,
-      "pre_report_code_run": 43621460769,
-      "state_at_report_commit": "running; report revision receives its own full CI",
-      "canonical_release_evidence": "https://github.com/aaronsxzhao/xyz_transcript_download/pull/271",
-      "merge_requires_full_final_head_CI": true
+      "run": 43622185581,
+      "head": "3603af367ddcb7dda93dd7c0e49eca3b6581812a",
+      "conclusion": "success",
+      "attempt": 1
     }
   },
   "privacy": {
@@ -148,7 +150,7 @@
     "self_reported_no_paid_model_calls": true,
     "evidence_level": "thread self-report; current provider token billing and production queue independently queried"
   },
-  "status": "diagnostics_implemented_budgeted_real_source_review_complete_full_episode_still_not_accepted",
+  "status": "diagnostic_tool_merged_formal_zero_call_probe_passed_semantic_quality_unresolved",
   "remaining": [
     "The selected historical37 gaps differ from the disposed isolated53-gap candidate. No claim those53 were adjudicated.",
     "Three source-linked omission candidates and two supported current paragraphs are repeated same-provider model evidence; the covered control changed to partial under the diagnostic criterion. Misjudgment versus original criterion remains unresolved.",
@@ -162,5 +164,34 @@
     43619212512,
     43618500672
   ],
-  "release_scope": "Diagnostic scripts/workflow and audit metadata only; production algorithm/quality gates unchanged. Verify formal merged workflow and actual deployment/health state separately."
+  "release_scope": "Diagnostic scripts/workflow and audit metadata only; production algorithm/quality gates unchanged. Verify formal merged workflow and actual deployment/health state separately.",
+  "post_merge_verification": {
+    "checked_at": "2026-11-15T02:20:18.679268+08:00",
+    "merged_revision": "229b467dbb288abd2efb5443c6f691a6bc90b7a5",
+    "final_pr_head": "3603af367ddcb7dda93dd7c0e49eca3b6581812a",
+    "full_pr_ci": {
+      "run": 43622185581,
+      "conclusion": "success",
+      "attempt": 1
+    },
+    "formal_zero_model_candidate_probe": {
+      "run": 43625509352,
+      "revision": "229b467dbb288abd2efb5443c6f691a6bc90b7a5",
+      "conclusion": "success",
+      "actual_provider_http_attempts": 0,
+      "candidate_shape": {
+        "paragraphs": 38,
+        "inventory_items": 137,
+        "linked_gaps": 37
+      }
+    },
+    "production_health": {
+      "status": "ok",
+      "revision": "a6b987b0950b985c516fe8db961fe097f2d6755b",
+      "transport": "independent curl with normal TLS"
+    },
+    "deployment": "Diagnostic-only scripts/workflow/docs diff did not trigger application deployment. Formal runner uses merged229b467; live application remains healthy at unchangeda6b987b.",
+    "model_quality_acceptance": false
+  },
+  "post_merge_report_disposition": "Merged diagnostic reports are in main. This final CI/budget/health metadata supplement is retained locally; identical canonical release facts are persisted in PR271 body."
 }

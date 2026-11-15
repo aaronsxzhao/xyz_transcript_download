@@ -21,6 +21,12 @@ on:
         required: false
         default: false
 
+      capture_final_diagnostics:
+        description: Capture bounded failure samples in RAM after a full episode attempt (within existing160call limit)
+        type: boolean
+        required: false
+        default: false
+
 permissions:
   contents: read
 
@@ -94,10 +100,17 @@ jobs:
         env:
           VALIDATION_MODE: ${{ inputs.mode }}
           ALLOW_FIRST_MATCH: ${{ inputs.allow_first_match }}
+          CAPTURE_FINAL_DIAGNOSTICS: ${{ inputs.capture_final_diagnostics }}
         run: |
           case "$VALIDATION_MODE" in
             guard_probe) python scripts/validate_authorized_episode.py --probe-guard ;;
-            full_episode) python scripts/validate_authorized_episode.py ;;
+            full_episode)
+              if [ "$CAPTURE_FINAL_DIAGNOSTICS" = "true" ]; then
+                python scripts/validate_authorized_episode.py --capture-final-diagnostics
+              else
+                python scripts/validate_authorized_episode.py
+              fi
+              ;;
             historical_gap_review) python scripts/validate_authorized_episode.py --review-historical-gaps ;;
             candidate_probe) python scripts/validate_authorized_episode.py --probe-candidate ;;
             memory_diagnostics)

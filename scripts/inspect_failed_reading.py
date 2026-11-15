@@ -17,7 +17,8 @@ COUNTERS = ('coverage_ratio', 'coverage_threshold', 'threshold', 'failed_batches
     'inventory_failed_batches', 'inventory_validation_failed_batches', 'ignored_boundary_items',
     'terminal_provider_failure', 'grounding_concerns', 'unresolved_items', 'covered_items',
     'requests', 'validation_retries', 'repairs_accepted', 'repairs_rejected',
-    'inventory_transport_retries', 'inventory_split_retries', 'inventory_recovered_batches', 'inventory_batches', 'reviewed', 'review_attempts', 'review_parts', 'final_coverage_attempts')
+    'inventory_transport_retries', 'inventory_split_retries', 'inventory_recovered_batches', 'inventory_batches', 'reviewed', 'review_attempts', 'review_parts', 'final_coverage_attempts',
+    'initial_grounding_concerns','stale_gap_receipts_refreshed','empty_repair_rechecks_avoided','regression_pruning_attempts')
 
 ROUND_PHASES = ('initial','resume','after_grounding_repair','final_coverage_repair')
 ROUND_KINDS = ('claim','experiment','counterexample','condition','disagreement','procedure','example')
@@ -38,7 +39,8 @@ def safe_rounds(value):
         if entry.get('status') in ('blocked','accepted','acceptable','unverified','model_reviewed','failed'): row['status']=entry['status']
         if type(entry.get('cancelled')) is bool: row['cancelled']=entry['cancelled']
         for key in ('seconds','initial_unresolved','final_unresolved','accepted_paragraphs',
-                    'rejected_paragraphs','source_corrected_items','logical_requests_reported','coverage_ratio'):
+                    'rejected_paragraphs','source_corrected_items','logical_requests_reported','coverage_ratio',
+                    'stale_gap_receipts_refreshed','empty_repair_rechecks_avoided','regression_pruning_attempts'):
             number=entry.get(key)
             if type(number) in (int,float) and math.isfinite(number) and 0<=number<=1000000:
                 row[key]=number
