@@ -3,7 +3,7 @@ import {webcrypto} from 'node:crypto'
 import {afterEach,beforeEach,expect,it,vi} from 'vitest'
 import {mapCacheKey,prepareMindMap} from '../src/lib/mindmapCache'
 import {buildMapOutline} from '../src/lib/mindmapOutline'
-import {clearCache} from '../src/lib/cache'
+import {clearCache,setCache} from '../src/lib/cache'
 
 const first='# Markdown examples\n\nUse `![first](first.png)` in the source.'
 const second='# Markdown examples\n\nUse `![second](second.png)` in the source.'
@@ -30,4 +30,15 @@ it('does not reuse another note outline when only literal image syntax changed',
  expect(worker).toHaveBeenCalledTimes(1)
  expect(await prepareMindMap(second,signal)).toEqual(buildMapOutline(second))
  expect(worker).toHaveBeenCalledTimes(2)
+})
+
+it('rebuilds old cached graphs that still contain the generated Contents list',async()=>{
+ const markdown='# Saved note\n\n## Contents\n\n- [Chapter](#chapter)\n\n## Chapter\n\nSaved text.'
+ const oldKey=(await mapCacheKey(markdown)).replace(/^mindmap:v\d+:/,'mindmap:v1:')
+ setCache(oldKey,{root:{content:'Stale Contents graph',children:[]},count:1,limited:false})
+ const worker=vi.spyOn(MapWorker.prototype,'postMessage')
+ const outline=await prepareMindMap(markdown,new AbortController().signal)
+ expect(JSON.stringify(outline)).not.toContain('Contents')
+ expect(outline.root.children.some(node=>node.content==='Chapter')).toBe(true)
+ expect(worker).toHaveBeenCalledOnce()
 })

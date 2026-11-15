@@ -25,7 +25,7 @@ export function prepareNoteMarkdown(markdown: string) {
   const body = tokens.slice(index + 1, end)
   // Remove only a generated navigation list, never prose or fenced source.
   if (!body.some(token => token.type === 'list') || body.some(token => !['list', 'space', 'hr'].includes(token.type))) return markdown
-  if (body.some(token => token.type === 'list' && token.items.some((item: Tokens.ListItem) => !/^\[.+\]\(#[^)]+\)$/.test(item.text.trim())))) return markdown
+  if (body.some(token => token.type === 'list' && token.items.some((item: Tokens.ListItem) => !/^(?:\s*(?:[-+*]|\d+[.)])?\s*\[[^\]]+\]\(#[^)]+\)\s*)+$/.test(item.text.trim())))) return markdown
   return [...tokens.slice(0, index), ...tokens.slice(end)].map(token => token.raw).join('')
 }
 

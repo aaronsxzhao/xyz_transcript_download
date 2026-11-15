@@ -149,5 +149,7 @@ it('renders one reader outline for generated English Contents without changing s
  expect(extractNoteToc(source).map(item=>item.text)).toEqual(['Me at the zoo','AI Summary','At the elephant'])
  expect(extractNoteToc(source,false,'Me at the zoo').map(item=>item.text)).toEqual(['AI Summary','At the elephant'])
  expect(extractNoteToc(source,true).map(item=>item.text)).toContain('Contents')
+ const nested='## Contents\n\n- [Chapter](#chapter)\n  - [Section](#section)\n\n## Chapter\n\nText.'
+ expect(prepareNoteMarkdown(nested)).not.toContain('## Contents')
  for(const ordinary of ['## Contents\n\nThis is editorial prose.', '## Contents\n\n- Apples\n- Pears', '## Contents\n\n- [External source](https://example.com)' ,'```markdown\n## Contents\n- [Link](#link)\n```']) expect(prepareNoteMarkdown(ordinary)).toBe(ordinary)
 })

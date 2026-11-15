@@ -113,7 +113,6 @@ body {
 
 /* Shared reader preferences; leave screenshot bounds independent of text width. */
 html[data-reader-contents="hidden"] [data-reader-contents], html[data-reader-contents="hidden"] .reader-contents { display: none; }
-.reader-body [id] { scroll-margin-top: 1rem; }
 
 /* Application chrome is compact; reading content keeps its independent scale. */
 .app-shell { height:100vh; height:100dvh; color: var(--ui-text); font-size: 14px; line-height: 1.5; }

@@ -45,3 +45,5 @@
 .note-prose .markdown-table :is(th,td) :is(a,code){overflow-wrap:anywhere}
 
 .podcast-reader .markdown-table table { display:table; width:100%; min-width:480px; }
+
+.reader-body [id] { scroll-margin-top: 1rem; }
