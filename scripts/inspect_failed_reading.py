@@ -72,7 +72,8 @@ def safe_report(report):
         safe['inventory_source_items']=report['inventory_source_items']
     if isinstance(report.get('grounding_repair_sizes'),list):
         safe['grounding_repair_sizes']=[{k:v for k,v in row.items()
-            if k in ('paragraphs','characters_before','characters_after','covered_obligations_supplied','source_obligations_supplied')
+            if k in ('paragraphs','characters_before','characters_after','covered_obligations_supplied','source_obligations_supplied',
+                     'original_rejections_used','rejected_prose_characters')
             and type(v) is int and 0<=v<=1000000}
             for row in report['grounding_repair_sizes'][:3] if isinstance(row,dict)]
     if isinstance(report.get('grounding_preservation_checks'),list):
@@ -81,7 +82,7 @@ def safe_report(report):
             for row in report['grounding_preservation_checks'][:50] if isinstance(row,dict)]
     if type(report.get('late_contradiction_repair_attempts')) is int and 0 <= report['late_contradiction_repair_attempts'] <= 1:
         safe['late_contradiction_repair_attempts'] = report['late_contradiction_repair_attempts']
-    if report.get('late_contradiction_repair_origin') in ('following_review_repair','same_delivery_iteration'):
+    if report.get('late_contradiction_repair_origin') in ('following_review_repair','same_delivery_iteration','final_source_review'):
         safe['late_contradiction_repair_origin'] = report['late_contradiction_repair_origin']
     if 'coverage_rounds' in report:
         safe['coverage_rounds'], safe['coverage_rounds_truncated'] = safe_rounds(report['coverage_rounds'])

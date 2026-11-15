@@ -1581,7 +1581,7 @@
       "id": "2026-11-15-summary-grounding-preserve",
       "report": "docs/audits/2026-11-15-summary-grounding-preserve.json",
       "status": "four_hypotheses_regression_verified_real_acceptance_pending",
-      "related_regression_passed": 455,
+      "related_regression_passed": 460,
       "scope": "shared video/podcast core,lossless timed-source grouping,stable positive coverage support certificates,proposal-only duplicate judgement,post-source coverage-before-final-review ordering",
       "not_claimed": "No full-episode success or causal performance improvement until real result. Existing operation-chain production status unchanged.",
       "staged_control_run": 43671158025,
@@ -1589,7 +1589,9 @@
       "staged_control_final_coverage": 0.8828828828828829,
       "canonical_release_evidence": "https://github.com/aaronsxzhao/xyz_transcript_download/pull/276",
       "independent_quality_control_run": 43673901672,
-      "independent_quality_control_result": "core96.59percent,butfrozen137only80.29percent;testnotaccepted"
+      "independent_quality_control_result": "core96.59percent,butfrozen137only80.29percent;testnotaccepted",
+      "latest_fidelity_control_run": 43677751876,
+      "latest_fidelity_control_status": "coverage91.79percentbutfinalsourcefailure;notaccepted"
     }
   ],
   "audit_attempts": [

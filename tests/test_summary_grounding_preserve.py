@@ -453,3 +453,61 @@ def test_incomplete_large_source_inventory_blocks_draft_without_spending_a_gener
                 extras='',visual_context='',tags=(),progress=None,duration=0,stage_callback=None)
     assert error.value.reason=='source_review'
     assert owner.generation_report['delivery']['status']=='blocked'
+
+
+def test_raw_fallback_correction_targets_original_rejection_and_cannot_replay_it_unchanged():
+    from reading_delivery import remember_source_rejection,repair_unsupported,save_candidate
+    from scripts.validate_parallel_processing import Store
+    from processing_execution import Execution
+    _,lines=source_lines('Only adults respond at the low dose.')
+    spans=[{'start':lines[0].id,'end':lines[0].id}]
+    bad='Every age responds at any dose.'
+    sections,_=validate_sections({'sections':[{'heading':'Scope','paragraphs':[{'text':bad,'source_ranges':spans}]}]},lines)
+    sections[0]['paragraphs'][0]['id']='P0'
+    owner=SimpleNamespace(client=Mock(base_url='https://model.test'),model='test',generation_report={},_quality_inventory=({},[]))
+    remember_source_rejection(owner,sections,{'P0'},{'P0':['The scope and dose are unsupported.']})
+    sections[0]['paragraphs'][0].update(text=lines[0].text,raw=True)
+    remember_source_rejection(owner,sections,{'P0'},{'P0':['A later source slice sees only raw fallback.']})
+    store=Store();execution=Execution('owner','source',store)
+    save_candidate(execution,'key',owner,{'sections':sections,'overview':''})
+    assert bad not in json.dumps(list(store.values.values()))  # Context stays RAM-only.
+    calls=[]
+    def complete(client,model,system,payload,timeout,**kwargs):
+        request=json.loads(payload);calls.append(request)
+        assert request['paragraphs'][0]['rejected_text']==bad
+        assert request['paragraphs'][0]['review_feedback']==['The scope and dose are unsupported.']
+        return {'replacements':[{'id':'P0','text':bad if len(calls)==1 else 'At the low dose, the response applies only to adults.',
+            'source_ranges':spans}]}
+    with patch('reading_editor._call_editor',side_effect=complete):repair_unsupported(owner,lines,sections,{'P0'})
+    assert len(calls)==2
+    assert owner._source_rejection_context=={}
+    assert owner.generation_report['grounding_repair_sizes'][0]['original_rejections_used']==1
+    assert bad not in json.dumps(owner.generation_report)
+
+
+@pytest.mark.parametrize('result',['resolved','still_rejected','unchanged_version'])
+def test_new_locatable_final_source_rejection_uses_only_existing_late_correction_budget(result):
+    from tests.test_reading_delivery import candidate
+    owner,edition=candidate(10);owner._quality_inventory=({},[])
+    edition['sections'][0]['paragraphs'][0]['raw']=True
+    repairs=[];reviews=[]
+    def rewrite(*args,**kwargs):
+        paragraph=args[2][0]['paragraphs'][0];paragraph.pop('raw',None)
+        repairs.append(paragraph['text'])
+        if result!='unchanged_version':paragraph['text']+=' corrected'
+    def review(*args):
+        reviews.append(json.loads(args[2]))
+        good=result=='resolved' and len(reviews)>1
+        return {'checked_source_ids':[line.id for line in edition['lines']],
+            'complete':True,'grounded':good,'unsupported_paragraph_ids':[] if good else ['P1'],'additions':[]}
+    ledger=copy.deepcopy(owner.generation_report['coverage_ledger'])
+    with patch('reading_delivery.repair_unsupported',side_effect=rewrite), \
+         patch('coverage_ledger.efficient_audit',return_value=ledger),patch('transcript_reading.call_json',side_effect=review):
+        if result=='resolved':accept_edition(owner,edition,'Title','Source',[],0)
+        else:
+            with pytest.raises(SummaryOutputError):accept_edition(owner,edition,'Title','Source',[],0)
+    assert len(repairs)==(1 if result=='unchanged_version' else 2)
+    assert len(reviews)==(1 if result=='unchanged_version' else 2)
+    assert owner.generation_report['late_contradiction_repair_attempts']==(0 if result=='unchanged_version' else 1)
+    if result!='unchanged_version':assert owner.generation_report['late_contradiction_repair_origin']=='final_source_review'
+    assert owner.generation_report['delivery']['status']==('accepted' if result=='resolved' else 'blocked')

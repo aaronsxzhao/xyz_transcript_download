@@ -490,6 +490,7 @@ def child(destination):
                 report.update(failure_sampling_state='failed',failure_sampling_error=diagnostic_error_code(error))
         if observer:
             observer.clear();memory_store.clear();calls.observer=None
+            getattr(engine,'_source_rejection_context',{}).clear()
             final_edition.clear()
             if frozen_inventory is not None:frozen_inventory.clear()
             report['diagnostic_buffers_cleared']=True
@@ -696,6 +697,7 @@ def run_memory_diagnostics(database, owner, source_id, source, transcript, engin
     finally:
         observer.clear()
         store.clear()
+        getattr(engine,'_source_rejection_context',{}).clear()
         calls.observer=None
         saved=None
         report['diagnostic_buffers_cleared']=True

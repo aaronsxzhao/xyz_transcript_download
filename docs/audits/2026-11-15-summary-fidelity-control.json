@@ -1,0 +1,580 @@
+{
+  "run": 43677751876,
+  "pr": 276,
+  "role": "guided_draft_pre_targeted_correction_control",
+  "full_episode_problem_resolved": false,
+  "measurement": {
+    "revision": "0c45d2c26f9de578f7dbdce7a563c8ba1782e285",
+    "environment": "isolated Actions runner; real model; memory checkpoints; no production queue",
+    "production_writes": false,
+    "account_authentication": "authorized server maintenance bindings; not a user login",
+    "daily_limit_usd": 100,
+    "settled_stop_usd": 85,
+    "in_flight_reserve_usd": 15,
+    "request_limit": 160,
+    "actual_provider_http_attempts": 60,
+    "terminal_state": "failed",
+    "checkpoint_policy": "request-fingerprinted Execution with empty in-memory store",
+    "excluded_previously_rejected_episode": true,
+    "account_anchor": "existing_readonly_billing_diagnostic",
+    "billing_snapshot_max_age_seconds": 90,
+    "monitor": {
+      "read_attempts": 62,
+      "read_failures": 0,
+      "wait_seconds": 0
+    },
+    "provider_billing_reads": 11,
+    "billing_snapshot_age_seconds": 0,
+    "budget": {
+      "status": "checked",
+      "beijing_date": "2026-11-15",
+      "settled_usd": 25.46101,
+      "scope": "configured_test_account_provider_token",
+      "daily_limit_usd": 100,
+      "active_work_found": false
+    },
+    "source_binding": "exact previously authorized historical task and episode URL; read only",
+    "source_and_billing_account_same": false,
+    "source_sha256": "3e3af05dbabcc3bfc605ac8215be5c21696677a546f8c90ce63bb33eb8cbf477",
+    "episode_id": "6ac6a657e742e36efcbf74af",
+    "source_segments": 2170,
+    "source_characters": 18257,
+    "source_duration_seconds": 3437.2,
+    "transcript_structural_validation": "passed",
+    "manual_transcript_readability": "not_reviewed",
+    "manual_summary_readability": "not_reviewed",
+    "model_settings_fingerprint": "16bd60d985604f5db7b1d8575c6b59fe40af0182957a8c911e269faefb2dcb21",
+    "independent_inventory_item_count": 137,
+    "independent_inventory_fingerprint": "7a9827b0469f7e34f6fc91caee50279bcb7c2ae19a14089e30cf889bd838e263",
+    "provider_billing_snapshot_hits": 51,
+    "peak_model_concurrency": 2,
+    "provider_http_attempts_by_phase": {
+      "inventory": 15,
+      "draft": 1,
+      "grounding": 2,
+      "match": 28,
+      "validate_inventory": 5,
+      "repair": 3,
+      "other": 2,
+      "repair_grounding": 1,
+      "verify_grounding_preservation": 1,
+      "gap_review": 2
+    },
+    "provider_request_bytes_by_phase": {
+      "inventory": {
+        "sum": 301630,
+        "max": 21426
+      },
+      "draft": {
+        "sum": 150536,
+        "max": 150536
+      },
+      "grounding": {
+        "sum": 231623,
+        "max": 117510
+      },
+      "match": {
+        "sum": 1292170,
+        "max": 55370
+      },
+      "validate_inventory": {
+        "sum": 263548,
+        "max": 98310
+      },
+      "repair": {
+        "sum": 161522,
+        "max": 56049
+      },
+      "other": {
+        "sum": 84553,
+        "max": 43418
+      },
+      "repair_grounding": {
+        "sum": 15355,
+        "max": 15355
+      },
+      "verify_grounding_preservation": {
+        "sum": 38127,
+        "max": 38127
+      },
+      "gap_review": {
+        "sum": 273266,
+        "max": 136633
+      }
+    },
+    "provider_http_status_counts": {
+      "200": 60
+    },
+    "provider_reported_usage": {
+      "prompt_tokens": 1323432,
+      "completion_tokens": 66927,
+      "total_tokens": 1390359
+    },
+    "response_model_hash_counts": {
+      "576a599a64cb3dde05f18ebb3e26e3d5bcbf4b108ff92da24f5229188fa0972a": 60
+    },
+    "model_create_calls": 60,
+    "failed_model_create_calls": 0,
+    "provider_request_seconds_sum": 1445.322,
+    "error_type": "SummaryOutputError",
+    "delivery_provider_http_attempts": 58,
+    "delivery_wall_seconds": 1017.728,
+    "delivery_provider_http_attempts_by_phase": {
+      "inventory": 15,
+      "draft": 1,
+      "grounding": 2,
+      "match": 28,
+      "validate_inventory": 5,
+      "repair": 3,
+      "other": 2,
+      "repair_grounding": 1,
+      "verify_grounding_preservation": 1
+    },
+    "delivery_provider_request_bytes_by_phase": {
+      "inventory": {
+        "sum": 301630,
+        "max": 21426
+      },
+      "draft": {
+        "sum": 150536,
+        "max": 150536
+      },
+      "grounding": {
+        "sum": 231623,
+        "max": 117510
+      },
+      "match": {
+        "sum": 1292170,
+        "max": 55370
+      },
+      "validate_inventory": {
+        "sum": 263548,
+        "max": 98310
+      },
+      "repair": {
+        "sum": 161522,
+        "max": 56049
+      },
+      "other": {
+        "sum": 84553,
+        "max": 43418
+      },
+      "repair_grounding": {
+        "sum": 15355,
+        "max": 15355
+      },
+      "verify_grounding_preservation": {
+        "sum": 38127,
+        "max": 38127
+      }
+    },
+    "delivery_provider_http_status_counts": {
+      "200": 58
+    },
+    "delivery_provider_reported_usage": {
+      "prompt_tokens": 1224660,
+      "completion_tokens": 65450,
+      "total_tokens": 1290110
+    },
+    "delivery_provider_request_seconds_sum": 1415.056,
+    "delivery_execution": {
+      "stages": {
+        "model.queue": {
+          "seconds": 0,
+          "calls": 58
+        },
+        "model.phase.inventory": {
+          "seconds": 446.04600000000005,
+          "calls": 15
+        },
+        "model.editor": {
+          "seconds": 1428.2909999999997,
+          "calls": 58,
+          "failed_calls": 6
+        },
+        "model.phase.draft": {
+          "seconds": 89.296,
+          "calls": 1
+        },
+        "model.phase.grounding": {
+          "seconds": 41.393,
+          "calls": 2
+        },
+        "model.phase.match": {
+          "seconds": 679.4310000000002,
+          "calls": 28
+        },
+        "model.phase.validate_inventory": {
+          "seconds": 79.539,
+          "calls": 5
+        },
+        "model.phase.repair": {
+          "seconds": 48.004999999999995,
+          "calls": 3
+        },
+        "model.phase.other": {
+          "seconds": 19.691,
+          "calls": 2
+        },
+        "model.phase.repair_grounding": {
+          "seconds": 10.729,
+          "calls": 1
+        },
+        "model.phase.verify_grounding_preservation": {
+          "seconds": 14.059,
+          "calls": 1
+        }
+      },
+      "checkpoint_hits": 0,
+      "wall_seconds": 1017.878
+    },
+    "final_diagnostic_progress": [
+      {
+        "state": "prepared",
+        "request_sha256": "13d583031e1b0089db03593bf43f4d00eb583643b7b05c4f3005ba11609194ef",
+        "sample_count": 6,
+        "diagnostic_checkpoint_reuse": false,
+        "evidence_protocol": "resolved_ranges_v2"
+      },
+      {
+        "state": "assessment_validated",
+        "assessment_number": 1,
+        "summary": {
+          "validated_sample_count": 6,
+          "citation_integrity_failures": 0,
+          "citation_failure_reasons": {},
+          "verdict_counts": {
+            "supported.covered": 2,
+            "supported.missing": 3,
+            "supported.partial": 1
+          }
+        }
+      },
+      {
+        "state": "assessment_validated",
+        "assessment_number": 2,
+        "summary": {
+          "validated_sample_count": 6,
+          "citation_integrity_failures": 0,
+          "citation_failure_reasons": {},
+          "verdict_counts": {
+            "supported.covered": 3,
+            "supported.missing": 2,
+            "supported.partial": 1
+          }
+        }
+      }
+    ],
+    "failure_sampling": {
+      "diagnostic_schema_version": 2,
+      "sample_count": 6,
+      "classification_counts": {
+        "stable_omission_evidence": 2,
+        "stable_covered_control": 1,
+        "fixed_input_reviewer_variation": 2,
+        "possible_grounding_false_positive": 1
+      },
+      "reason_class_counts": {
+        "incomplete_support": 7,
+        "none": 5
+      },
+      "sample_type_counts": {
+        "coverage": 3,
+        "covered_control": 1,
+        "grounding": 2
+      },
+      "citation_integrity_failures": 0,
+      "citation_failure_reasons": {},
+      "classification_by_sample_type": {
+        "coverage": {
+          "stable_omission_evidence": 2,
+          "fixed_input_reviewer_variation": 1
+        },
+        "covered_control": {
+          "stable_covered_control": 1
+        },
+        "grounding": {
+          "possible_grounding_false_positive": 1,
+          "fixed_input_reviewer_variation": 1
+        }
+      },
+      "citation_failures_by_sample_type": {},
+      "semantic_false_positive_proven": false,
+      "basis": "two same-provider model assessments; exact citations checked in RAM; not human ground truth or a population estimate",
+      "assessment_http_calls": 2,
+      "repeat_request_sha256": "13d583031e1b0089db03593bf43f4d00eb583643b7b05c4f3005ba11609194ef",
+      "evidence_protocol": "resolved_ranges_v2",
+      "diagnostic_checkpoint_reuse": false,
+      "sample_limit": 6,
+      "delivery_decision_changed": false,
+      "invalid_grounding_receipts": 0,
+      "captured_source_rejections": 2,
+      "current_candidate_grounding_probes": 0,
+      "unlocatable_match_grounding_rejections": 0,
+      "captured_matching_contradictions": 0,
+      "source_rejection_origin_counts": {
+        "source_review": 2,
+        "coverage_match": 0
+      }
+    },
+    "diagnostic_buffers_cleared": true,
+    "failure_sampling_provider_http_attempts": 2,
+    "wall_seconds": 1048.195,
+    "generation": {
+      "final_source_review_parts": 1,
+      "source_layout": "lossless-timed-groups-v1",
+      "source_units": 205,
+      "inventory_guided_draft": true,
+      "inventory_source_items": 134,
+      "grounding_repair_sizes": [
+        {
+          "paragraphs": 1,
+          "characters_before": 2059,
+          "characters_after": 394,
+          "covered_obligations_supplied": 0,
+          "source_obligations_supplied": 4
+        }
+      ],
+      "grounding_preservation_checks": [
+        {
+          "obligations": 4,
+          "source_supported": 4,
+          "missing_supported": 0
+        }
+      ],
+      "late_contradiction_repair_attempts": 0,
+      "coverage_rounds": [
+        {
+          "phase": "initial",
+          "outcome": "completed",
+          "status": "acceptable",
+          "seconds": 475.661,
+          "initial_unresolved": 46,
+          "final_unresolved": 8,
+          "accepted_paragraphs": 10,
+          "rejected_paragraphs": 3,
+          "source_corrected_items": 2,
+          "logical_requests_reported": 41,
+          "coverage_ratio": 0.9402985074626866,
+          "stale_gap_receipts_refreshed": 2,
+          "empty_repair_rechecks_avoided": 0,
+          "regression_pruning_attempts": 0,
+          "reused_covered_receipts": 0,
+          "existing_redundancy_flags": 0,
+          "changed_support_regressions": 0,
+          "contradiction_obligations_validated": 0,
+          "contradiction_source_corrections": 0,
+          "status_counts": {
+            "covered": 126,
+            "missing": 2,
+            "partial": 6,
+            "contradicted": 0,
+            "unverified": 0,
+            "context_only": 0
+          },
+          "unresolved_by_kind": {
+            "claim": 1,
+            "experiment": 0,
+            "counterexample": 1,
+            "condition": 3,
+            "disagreement": 0,
+            "procedure": 1,
+            "example": 2
+          },
+          "rejection_reasons": {
+            "duplicate_or_no_novelty": 3
+          }
+        },
+        {
+          "phase": "after_grounding_repair",
+          "outcome": "completed",
+          "status": "acceptable",
+          "seconds": 162.144,
+          "initial_unresolved": 17,
+          "final_unresolved": 11,
+          "accepted_paragraphs": 0,
+          "rejected_paragraphs": 0,
+          "source_corrected_items": 2,
+          "logical_requests_reported": 27,
+          "coverage_ratio": 0.917910447761194,
+          "stale_gap_receipts_refreshed": 0,
+          "empty_repair_rechecks_avoided": 0,
+          "regression_pruning_attempts": 0,
+          "reused_covered_receipts": 37,
+          "existing_redundancy_flags": 0,
+          "changed_support_regressions": 8,
+          "contradiction_obligations_validated": 0,
+          "contradiction_source_corrections": 0,
+          "status_counts": {
+            "covered": 123,
+            "missing": 1,
+            "partial": 10,
+            "contradicted": 0,
+            "unverified": 0,
+            "context_only": 0
+          },
+          "unresolved_by_kind": {
+            "claim": 5,
+            "experiment": 0,
+            "counterexample": 1,
+            "condition": 2,
+            "disagreement": 0,
+            "procedure": 1,
+            "example": 2
+          },
+          "rejection_reasons": {}
+        }
+      ],
+      "coverage_rounds_truncated": false,
+      "delivery": {
+        "coverage_ratio": 0.917910447761194,
+        "coverage_threshold": 0.9,
+        "status": "blocked",
+        "reason": "grounding"
+      },
+      "coverage_ledger": {
+        "coverage_ratio": 0.917910447761194,
+        "threshold": 0.9,
+        "failed_batches": 0,
+        "inventory_failed_batches": 0,
+        "inventory_validation_failed_batches": 0,
+        "ignored_boundary_items": 0,
+        "terminal_provider_failure": false,
+        "grounding_concerns": false,
+        "unresolved_items": 11,
+        "covered_items": 123,
+        "requests": 27,
+        "validation_retries": 2,
+        "repairs_accepted": 0,
+        "repairs_rejected": 0,
+        "inventory_transport_retries": 0,
+        "inventory_split_retries": 1,
+        "inventory_recovered_batches": 1,
+        "inventory_batches": 11,
+        "initial_grounding_concerns": false,
+        "empty_repair_rechecks_avoided": 0,
+        "regression_pruning_attempts": 0,
+        "reused_covered_receipts": 37,
+        "existing_redundancy_flags": 0,
+        "changed_support_regressions": 8,
+        "contradiction_obligations_validated": 0,
+        "contradiction_source_corrections": 0,
+        "status": "acceptable",
+        "check_failure_counts": {},
+        "check_failure_types": {},
+        "inventory_error_types": {
+          "ValueError": 0,
+          "SummaryOutputError": 0,
+          "APIConnectionError": 0,
+          "APITimeoutError": 0,
+          "TimeoutError": 0,
+          "APIStatusError": 0,
+          "RateLimitError": 0,
+          "RuntimeError": 0,
+          "ReadTimeout": 0,
+          "ConnectError": 0,
+          "ConnectionError": 0,
+          "ModelRequestTimeout": 0,
+          "InternalServerError": 0,
+          "BadRequestError": 0,
+          "AuthenticationError": 0,
+          "PermissionDeniedError": 0,
+          "NotFoundError": 0,
+          "UnprocessableEntityError": 0
+        },
+        "inventory_http_statuses": {
+          "408": 0,
+          "429": 0,
+          "500": 0,
+          "502": 0,
+          "503": 0,
+          "504": 0,
+          "524": 0
+        },
+        "inventory_failures_recorded": 0,
+        "inventory_failures_available": true,
+        "item_status_counts": {
+          "covered": 123,
+          "missing": 1,
+          "partial": 10,
+          "contradicted": 0,
+          "unverified": 0,
+          "context_only": 0
+        }
+      },
+      "verification": {
+        "reviewed": 1,
+        "review_attempts": 1,
+        "review_parts": 1,
+        "final_coverage_attempts": 0,
+        "status": "unverified"
+      }
+    },
+    "reuse_and_retry": {
+      "inventory_receipts_reused": 0,
+      "repair_transport_retries": 0,
+      "validation_retries": 2,
+      "inventory_transport_retries": 0,
+      "requests": 27
+    },
+    "execution": {
+      "stages": {
+        "model.queue": {
+          "seconds": 0,
+          "calls": 60
+        },
+        "model.phase.inventory": {
+          "seconds": 446.04600000000005,
+          "calls": 15
+        },
+        "model.editor": {
+          "seconds": 1428.2909999999997,
+          "calls": 58,
+          "failed_calls": 6
+        },
+        "model.phase.draft": {
+          "seconds": 89.296,
+          "calls": 1
+        },
+        "model.phase.grounding": {
+          "seconds": 41.393,
+          "calls": 2
+        },
+        "model.phase.match": {
+          "seconds": 679.4310000000002,
+          "calls": 28
+        },
+        "model.phase.validate_inventory": {
+          "seconds": 79.539,
+          "calls": 5
+        },
+        "model.phase.repair": {
+          "seconds": 48.004999999999995,
+          "calls": 3
+        },
+        "model.phase.other": {
+          "seconds": 50.144999999999996,
+          "calls": 4
+        },
+        "model.phase.repair_grounding": {
+          "seconds": 10.729,
+          "calls": 1
+        },
+        "model.phase.verify_grounding_preservation": {
+          "seconds": 14.059,
+          "calls": 1
+        }
+      },
+      "checkpoint_hits": 0,
+      "wall_seconds": 1048.345
+    },
+    "final_budget_guard_passed": true
+  },
+  "interpretation": {
+    "outcome": "58coreHTTP/1017.728seconds; primary94.03→91.79percent,above90 but FAILED final source review;2extra diagnosticcalls. Independent137itemchecknotreached.",
+    "findings": "Inventory-guided draft used134items and preserved original extraction work scope. Source-owned correction guard checked4supported obligations with0lost. Typed sourcecheck failures0 and contradictions0. Source fidelity remained the blocker, not request cap or provider transport.",
+    "diagnostics": "2stableomission-evidence samples,1possiblegroundingfalsepositive,2fixed-inputreviewervariations and1coveredcontrol;allreferencesvalid,no semantic falsepositive proven.",
+    "correction_context": "Raw fallback2059characters became394; original source-rejected summary wording had been replaced before the corrector saw it. Preserve original rejected prose/reasons RAM-only, target that prose and reject unchanged replay even if the working edition contains raw source.",
+    "bounded_followup": "Use the already existing single late-correction budget for a new locatable final-source rejection of a different candidate version, then recheck coverage and the actual final whole draft. Repeated unchanged rejected versions and further failures remain blocked. No iteration/request/threshold/deadline raise."
+  }
+}

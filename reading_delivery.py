@@ -17,6 +17,22 @@ def draft_identity(sections, overview):
             for p in section['paragraphs']]} for section in sections]})
 
 
+def remember_source_rejection(engine,sections,ids,reasons=None):
+    """Keep rejected prose in RAM before an internal raw-source substitution.
+
+    This is not part of generation_report, public output or candidate storage.
+    """
+    contexts=getattr(engine,'_source_rejection_context',None)
+    if contexts is None:contexts={};engine._source_rejection_context=contexts
+    for section in sections:
+        for paragraph in section['paragraphs']:
+            if paragraph['id'] in ids:
+                if paragraph.get('raw') and paragraph['id'] in contexts:continue
+                contexts[paragraph['id']]={'text':paragraph['text'],
+                    'source_ranges':copy.deepcopy(paragraph['source_ranges']),
+                    'reasons':(reasons or {}).get(paragraph['id'],[])}
+
+
 def repair_unsupported(engine, lines, sections, ids, reasons=None):
     """Replace only rejected paragraphs; preserve their IDs and source scope."""
     from transcript_reading import serialize, validate_sections
@@ -25,6 +41,11 @@ def repair_unsupported(engine, lines, sections, ids, reasons=None):
     paragraphs = {p['id']:p for s in sections for p in s['paragraphs'] if p['id'] in ids}
     if not paragraphs: return
     if not isinstance(getattr(engine,'generation_report',None),dict):engine.generation_report={}
+    contexts=getattr(engine,'_source_rejection_context',{})
+    originals={ident:contexts.get(ident,{}) for ident in paragraphs}
+    originals={ident:value for ident,value in originals.items()
+        if value.get('source_ranges')==paragraphs[ident]['source_ranges'] and isinstance(value.get('text'),str)}
+    feedback={ident:((reasons or {}).get(ident) or originals.get(ident,{}).get('reasons')) for ident in paragraphs}
     # A rejected paragraph may also contain several independently supported
     # facts. Correct its error without discarding those facts wholesale.
     inventory = {item['id']:item for item in getattr(engine,'_quality_inventory',({},[]))[1]}
@@ -48,9 +69,10 @@ def repair_unsupported(engine, lines, sections, ids, reasons=None):
                 obligations[ident].append({'id':item['id'],'statement':item['statement'],
                     'source_ranges':item['source_ranges']})
     payload = {'phase':'repair_grounding', 'paragraphs':[
-        {'id':ident, 'rejected_text':p['text'], 'original_source':serialize([lines[i] for i in p['indices']]),
+        {'id':ident, 'rejected_text':originals.get(ident,{}).get('text',p['text']),
+         'original_source':serialize([lines[i] for i in p['indices']]),
          'source_obligations':obligations[ident],
-         **({'review_feedback':reasons[ident]} if reasons and ident in reasons else {})}
+         **({'review_feedback':feedback[ident]} if feedback.get(ident) else {})}
         for ident,p in paragraphs.items()]}
     payload['review_attempt'] = getattr(engine, '_quality_attempt', 0)
     class UnchangedRepair(ValueError):
@@ -67,8 +89,9 @@ def repair_unsupported(engine, lines, sections, ids, reasons=None):
                 {lines[i].id for i in paragraphs[ident]['indices']})
             replacement = parsed[0]['paragraphs'][0]
             original = paragraphs[ident]
-            if (' '.join(replacement['text'].split()) == ' '.join(original['text'].split())
-                    and set(replacement['indices']) == set(original['indices'])):
+            rejected_text=originals.get(ident,{}).get('text',original['text'])
+            if (' '.join(replacement['text'].split()) == ' '.join(rejected_text.split())
+                    and set(replacement['indices'])==set(original['indices'])):
                 # Structurally valid JSON is not a correction of an already
                 # rejected claim. Do not checkpoint it as completed repair work.
                 raise UnchangedRepair('Rejected paragraph and evidence unchanged')
@@ -96,7 +119,7 @@ def repair_unsupported(engine, lines, sections, ids, reasons=None):
         try:
             data = call_editor(engine.client, engine.model, system,
                 json.dumps(payload,ensure_ascii=False), 180, output_tokens=16384,
-                response_validator=validate, validation_version='grounding-repair-v4-source-owned')
+                response_validator=validate, validation_version='grounding-repair-v5-original-prose')
             replacements=validate(data)
             lost=check_grounding_preservation(engine,lines,sections,replacements,obligations)
             if lost:
@@ -114,10 +137,13 @@ def repair_unsupported(engine, lines, sections, ids, reasons=None):
     engine.generation_report.setdefault('grounding_repair_sizes',[]).append({
         'paragraphs':len(paragraphs), 'characters_before':before,
         'characters_after':sum(len(p['text']) for p in replacements.values()),
+        'original_rejections_used':len(originals),
+        'rejected_prose_characters':sum(len(originals.get(ident,{}).get('text',p['text'])) for ident,p in paragraphs.items()),
         'covered_obligations_supplied':covered_obligation_count,
         'source_obligations_supplied':sum(map(len,obligations.values()))})
     for section in sections:
         section['paragraphs'] = [replacements.get(p['id'],p) for p in section['paragraphs']]
+    for ident in replacements:contexts.pop(ident,None)
 
 
 def check_grounding_preservation(engine,lines,sections,replacements,obligations):
@@ -217,6 +243,18 @@ def accept_edition(engine, edition, title, source, formats, duration, stage_call
     report.pop('late_contradiction_repair_origin', None)
     review_failures = 0
     report['final_coverage_repair_rounds'] = 0
+    rejected_versions=set()
+    def rejection_versions(ids):
+        contexts=getattr(engine,'_source_rejection_context',{})
+        result={}
+        for section in sections:
+            for paragraph in section['paragraphs']:
+                if paragraph['id'] not in ids:continue
+                context=contexts.get(paragraph['id'],{})
+                text=(context.get('text') if context.get('source_ranges')==paragraph['source_ranges'] else None) or paragraph['text']
+                result[paragraph['id']]=fingerprint({'text':text,'source_ranges':paragraph['source_ranges']})
+        if 'overview' in ids and overview:result['overview']=fingerprint({'overview':overview})
+        return {(ident,value) for ident,value in result.items()}
     # Keep one initial grounding correction, one late contradiction correction
     # and one final coverage repair within the existing three iterations. Every
     # prose mutation is followed by a fresh review of the whole immutable draft.
@@ -252,6 +290,7 @@ def accept_edition(engine, edition, title, source, formats, duration, stage_call
                     grounding_repaired = True
                 if 'overview' in rejected:
                     overview = ''
+                rejected_versions.update(rejection_versions(rejected))
                 repair_unsupported(engine, lines, sections, rejected-{'overview'})
                 report.pop('grounded_draft_identity', None)
                 report['coverage_ledger'] = measure_coverage_round(engine, 'after_grounding_repair', efficient_audit, lines, sections, overview,
@@ -290,6 +329,7 @@ def accept_edition(engine, edition, title, source, formats, duration, stage_call
                     report['late_contradiction_repair_origin'] = 'same_delivery_iteration'
                     if 'overview' in contradicted_ids:
                         overview = ''
+                    rejected_versions.update(rejection_versions(contradicted_ids))
                     repair_unsupported(engine, lines, sections, contradicted_ids-{'overview'})
                     report.pop('grounded_draft_identity', None)
                     report['coverage_ledger'] = measure_coverage_round(engine, 'after_grounding_repair',
@@ -364,8 +404,17 @@ def accept_edition(engine, edition, title, source, formats, duration, stage_call
                                 and isinstance(item.get('reason'), str) and item['reason'].strip()):
                             reasons.setdefault(item['id'], []).append(item['reason'].strip()[:1000])
                 if not grounded:
-                    if not grounding_repaired and attempt < 2 and unsupported:
+                    versions=rejection_versions(unsupported)
+                    late_source=(grounding_repaired and not late_contradiction_repaired
+                        and versions and len(versions)==len(unsupported) and not (versions & rejected_versions))
+                    if attempt < 2 and unsupported and (not grounding_repaired or late_source):
+                        if late_source:
+                            late_contradiction_repaired=True
+                            report['late_contradiction_repair_attempts']=1
+                            report['late_contradiction_repair_origin']='final_source_review'
                         grounding_repaired = True
+                        rejected_versions.update(versions)
+                        remember_source_rejection(engine,sections,unsupported,reasons)
                         if 'overview' in unsupported:
                             overview = ''
                         if reasons:
