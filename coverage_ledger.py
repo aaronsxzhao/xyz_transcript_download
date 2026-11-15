@@ -7,7 +7,7 @@ from reading_language import source_language_lock
 from source_coverage import SOURCE_FIDELITY
 from summary_errors import is_cancellation
 
-VERSION = 'coverage-ledger-v15-scoped-support'
+VERSION = 'coverage-ledger-v16-inventory-guided'
 SOURCE_LIMIT = 12000
 ITEM_LIMIT = 16
 KINDS = {'claim', 'experiment', 'counterexample', 'condition', 'disagreement', 'procedure', 'example'}
@@ -453,7 +453,7 @@ def _audit(engine, lines, sections, overview='', progress=None, stage_callback=N
     Inventories see no draft. Matching sees the whole evolving draft. A failed
     recheck discards proposed prose; no rewrite loop or hidden generation mode.
     """
-    from transcript_reading import batches, serialize, public_draft, validate_sections
+    from transcript_reading import source_work_batches as batches, serialize, public_draft, validate_sections
     from model_execution import terminal_provider_failure, retryable_model_failure
     from reading_progress import stage
     report={'version':VERSION, 'status':'unverified', 'semantic_proof':False,
@@ -999,7 +999,7 @@ def efficient_audit(engine, lines, sections, overview='', progress=None, stage_c
 def build_inventory(engine, lines, progress=None, stage_callback=None):
     """Source-only inventory; isolate per-batch counters and assign IDs in order."""
     from processing_parallel import bounded_map
-    from transcript_reading import batches
+    from transcript_reading import source_work_batches as batches
     from reading_progress import stage
     parts = list(batches(lines, SOURCE_LIMIT))
     offset = 0

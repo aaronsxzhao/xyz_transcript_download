@@ -110,12 +110,13 @@ def test_generation_and_inventory_overlap_and_prepared_results_are_consumed(monk
     assert result == {'joined': prepared}
 
 
-def test_real_generation_reuses_parallel_inventory_checkpoints(monkeypatch):
+@pytest.mark.parametrize('source_limit,guided,expected_calls',[(1,True,5),(12000,False,4)])
+def test_real_generation_uses_parallel_inventory_as_a_drafting_plan_and_reuses_checkpoints(monkeypatch,source_limit,guided,expected_calls):
     import json
     from note_summarizer import NoteSummarizer
     import coverage_ledger as ledger
-    monkeypatch.setattr(ledger, 'SOURCE_LIMIT', 1)
-    barrier = threading.Barrier(3)  # Two inventory calls plus the draft.
+    monkeypatch.setattr(ledger, 'SOURCE_LIMIT', source_limit)
+    barrier = threading.Barrier(2)  # Inventory stays parallel; draft consumes its complete plan.
     owner = NoteSummarizer(api_key='synthetic')
     owner.client = Mock(base_url='https://model.example/v1')
     calls = []
@@ -132,7 +133,13 @@ def test_real_generation_reuses_parallel_inventory_checkpoints(monkeypatch):
             barrier.wait(timeout=3)
             data = {'checked_source_ranges': spans, 'items': [{'kind': 'claim', 'statement': rows[0]['text'], 'source_ranges': spans}]}
         elif 'mode' in payload:
-            barrier.wait(timeout=3)
+            if guided:
+                assert sum(call.get('phase')=='inventory' for call in calls)==2
+                assert len(payload['source_obligations'])==2
+                assert {item['statement'] for item in payload['source_obligations']}=={'A supported argument.\n','An essential condition.'}
+            else:
+                assert 'source_obligations' not in payload
+                barrier.wait(timeout=3)  # Small video keeps generation/inventory overlap.
             data = {'sections': [{'heading': 'Argument', 'paragraphs': [{'text': 'Supported argument with an essential condition.', 'source_ranges': spans}]}]}
         elif payload.get('phase') == 'match':
             paragraph = payload['global_draft'][0]['paragraphs'][0]
@@ -148,8 +155,9 @@ def test_real_generation_reuses_parallel_inventory_checkpoints(monkeypatch):
     resumed = Execution('owner', 'source', store)
     with bind(resumed):
         second = owner.generate_note('Title', 'A supported argument.\nAn essential condition.')
-    assert first == second and len(calls) == count == 5
-    assert resumed.snapshot()['checkpoint_hits'] == 5
+    assert first == second and len(calls) == count == expected_calls
+    assert resumed.snapshot()['checkpoint_hits'] == expected_calls
+    assert owner.generation_report['inventory_guided_draft'] is guided
     assert owner.generation_report['coverage_ledger']['status'] == 'model_reviewed'
 
 

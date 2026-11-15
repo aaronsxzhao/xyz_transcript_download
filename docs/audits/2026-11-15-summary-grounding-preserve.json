@@ -31,7 +31,18 @@
         "source_bytes_equal": true
       },
       "boundary": "Real quality and provider-call savings require full-episode acceptance, not merely grouping counts.",
-      "final_review": "Single-mode generation now gets a single whole-source final review, matching the existing whole-source generation/initial-review context. Only an explicit provider capacity error permits one bounded partitioned fallback; valid rejection, malformed check and transport errors never trigger repartition. Segmented-mode final review remains bounded and parallel<=2. All source lines and final prose are checked."
+      "final_review": "Single-mode generation now gets a single whole-source final review, matching the existing whole-source generation/initial-review context. Only an explicit provider capacity error permits one bounded partitioned fallback; valid rejection, malformed check and transport errors never trigger repartition. Segmented-mode final review remains bounded and parallel<=2. All source lines and final prose are checked.",
+      "quality_preserving_adjustment": "Real independent checking rejected the broadened4batch inventory workload. Keep lossless ID grouping, but retain the pre-compaction fragment ownership budget for extraction and explicit segmentation. Do not silently ask each inventory call to summarize several times more meaning. Single-mode final review still reads complete source, with capacity-only fallback.",
+      "synthetic_final_policy": {
+        "units_before": 2170,
+        "units_after": 161,
+        "source_work_batches_before": 11,
+        "source_work_batches_after": 12,
+        "serialized_bytes_before": 133430,
+        "serialized_bytes_after": 49213,
+        "source_bytes_equal": true,
+        "note": "Atomic grouped-unit boundaries can create one extra source-work batch; no inventory-call-saving claim. Metadata reduction is exact; real latency remains an observation."
+      }
     },
     {
       "id": "H2",
@@ -39,13 +50,17 @@
       "fix": "Positive coverage certificates require unchanged source/model/options/obligation and exact cited factual prose/provenance plus complete local chapter wording/order and overview. Renderer media annotations and outer chapter container indices do not invalidate factual support. Changed local qualifications invalidate the whole local chapter. All negative receipts remain rechecked; every changed whole draft requires final independent source review. Previously covered obligations guide source correction as untrusted data.",
       "synthetic": "20covered obligations,1changed paragraph:19stable certificates reused and only changed item matched; changed item remains missing. Source/model/overview changes invalidate all. Added whole-draft contradiction still blocks.",
       "semantic_preservation_gate": "Before applying a source correction, independently check every previously covered obligation linked to its paragraphs against original source and the entire proposed draft. Retain every source-supported material meaning. On validated loss, use only the existing second local-edit opportunity, with specific missing obligations as feedback; validate again. Still missing or malformed evidence blocks replacement. No old obligation is deleted,reclassified or marked covered by this guard; source errors are not forced into prose. Candidate changes are atomic and an unsafe old paragraph is never published as fallback.",
-      "contradiction_source_authority": "Before changing prose to resolve a checklist contradiction, verify that obligation against primary source. Correct a false source statement and rematch the unchanged draft; retain a source-affirmed contradiction for real paragraph repair. Never compress away a contradicted obligation as incidental background. If its source validation failed, an unverified checklist cannot authorize rewriting prose; independent raw-source correction remains available."
+      "contradiction_source_authority": "Before changing prose to resolve a checklist contradiction, verify that obligation against primary source. Correct a false source statement and rematch the unchanged draft; retain a source-affirmed contradiction for real paragraph repair. Never compress away a contradicted obligation as incidental background. If its source validation failed, an unverified checklist cannot authorize rewriting prose; independent raw-source correction remains available.",
+      "raw_source_guard": "Preserve every material obligation fully owned by a rewritten paragraph source range as well as its positive coverage references. This guards raw fallback, which cannot have positive summary-coverage receipts. Unsupported obligations are not forced into prose; they remain for normal source adjudication."
     },
     {
       "id": "H3",
       "cause": "Matcher duplicate flag for existing prose is treated as missing/unverified coverage, although duplicate judges novelty of proposed additions.",
       "fix": "For no proposed paragraphs only, record existing redundancy and normalize proposal-duplicate flag. Grounding rejection, contradiction, raw fallback and new duplicate-proposal vetoes remain.",
-      "boundary": "Old two unverified items may fit this mechanism; their exact old failure messages were not retained, so historical attribution is unproven."
+      "boundary": "Old two unverified items may fit this mechanism; their exact old failure messages were not retained, so historical attribution is unproven.",
+      "refined_hypothesis": "Draft generation starts before its independent checklist exists, leaving many material conditions to repeated late repair. Broader post-compaction extraction can also make a small fresh checklist look complete while older real obligations remain absent.",
+      "refined_fix": "For more than one source-work batch, await the complete existing inventory before drafting and pass every owned material obligation as untrusted private planning data. Verify against primary source; do not expose checklist IDs or write one paragraph per item. Keep parallel inventory workers and source-first failure checks; small single-source video retains generation/inventory overlap and exact checkpoint reuse. No extra inventory extraction pass or model call added.",
+      "additional_bug": "Proposal-only duplicate normalization remains fixed and tested; neither real staged run hit existing_redundancy_flags, so no historical-call attribution to that branch."
     },
     {
       "id": "H4",
@@ -56,8 +71,8 @@
     }
   ],
   "regression": {
-    "new_cases": 37,
-    "related_passed": 452,
+    "new_cases": 39,
+    "related_passed": 455,
     "environment": "local Python3.12,synthetic data,no real model calls; includes fixed archived-inventory validation and source-layout resume tests"
   },
   "real_validation": {
@@ -73,7 +88,7 @@
     "guard_run": 43669862171,
     "guard_http_calls": 0,
     "beijing_date": "2026-11-15",
-    "settled_usd": 17.846792,
+    "settled_usd": 21.979592,
     "scope": "configured_test_account_provider_token",
     "active_production_work": false,
     "daily_shared_limit": 100,
@@ -99,7 +114,8 @@
     "new_confirmed_path": "Contradicted items previously skipped source-only obligation validation and could force a rewrite of correct prose. Positive/negative examples now distinguish false obligation from a genuine draft contradiction without changing item count or the contradiction veto.",
     "capture_fix": "Matching status=contradicted with grounded=true now captures original linked prose in RAM before correction; counted separately from other grounding flags. No raw prose export.",
     "running_pre_final_real_run": 43673901672,
-    "running_pre_final_real_head": "86afa8091ac966fa2c8de41f48287ae7dee47f3b"
+    "running_pre_final_real_head": "86afa8091ac966fa2c8de41f48287ae7dee47f3b",
+    "next_validation": "One serial final-head whole-episode validation after the granularity/guided-draft/raw-source-preservation fixes and455relatedpasses. Same exact source/model/checkpoints and frozen137items; no cap/threshold/deadline change."
   },
   "control_result": {
     "run": 43671158025,
@@ -111,5 +127,23 @@
     "final_guard_passed": true,
     "budget_settled_usd": 17.846792,
     "status": "failed_quality_not_final_head_acceptance"
+  },
+  "canonical_release_evidence": "https://github.com/aaronsxzhao/xyz_transcript_download/pull/276",
+  "report_scope": "Pre-release hypotheses and controlled findings; final execution/CI/deployment evidence appended in the canonical PR and local aggregate supplement, not inferred from this pending snapshot.",
+  "independent_quality_control": {
+    "run": 43673901672,
+    "report": "docs/audits/2026-11-15-summary-independent-check.json",
+    "core_coverage": 0.9659090909090909,
+    "frozen_137_coverage": 0.8029197080291971,
+    "terminal_state": "not_accepted",
+    "core_http": 55,
+    "core_seconds": 1103.698,
+    "extra_check_http": 9,
+    "sampling_http": 2,
+    "false_completion_prevented": true,
+    "source_rewrite_characters_before": 1360,
+    "source_rewrite_characters_after": 294,
+    "prior_covered_obligations": 0,
+    "manual_readability": "not_reviewed"
   }
 }

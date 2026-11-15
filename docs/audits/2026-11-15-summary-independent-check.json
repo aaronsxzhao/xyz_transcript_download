@@ -1,0 +1,603 @@
+{
+  "run": 43673901672,
+  "pr": 276,
+  "role": "pre_final_quality_control",
+  "full_episode_problem_resolved": false,
+  "measurement": {
+    "revision": "86afa8091ac966fa2c8de41f48287ae7dee47f3b",
+    "environment": "isolated Actions runner; real model; memory checkpoints; no production queue",
+    "production_writes": false,
+    "account_authentication": "authorized server maintenance bindings; not a user login",
+    "daily_limit_usd": 100,
+    "settled_stop_usd": 85,
+    "in_flight_reserve_usd": 15,
+    "request_limit": 160,
+    "actual_provider_http_attempts": 66,
+    "terminal_state": "not_accepted",
+    "checkpoint_policy": "request-fingerprinted Execution with empty in-memory store",
+    "excluded_previously_rejected_episode": true,
+    "account_anchor": "existing_readonly_billing_diagnostic",
+    "billing_snapshot_max_age_seconds": 90,
+    "monitor": {
+      "read_attempts": 68,
+      "read_failures": 0,
+      "wait_seconds": 0
+    },
+    "provider_billing_reads": 14,
+    "billing_snapshot_age_seconds": 0,
+    "budget": {
+      "status": "checked",
+      "beijing_date": "2026-11-15",
+      "settled_usd": 21.979592,
+      "scope": "configured_test_account_provider_token",
+      "daily_limit_usd": 100,
+      "active_work_found": false
+    },
+    "source_binding": "exact previously authorized historical task and episode URL; read only",
+    "source_and_billing_account_same": false,
+    "source_sha256": "3e3af05dbabcc3bfc605ac8215be5c21696677a546f8c90ce63bb33eb8cbf477",
+    "episode_id": "6ac6a657e742e36efcbf74af",
+    "source_segments": 2170,
+    "source_characters": 18257,
+    "source_duration_seconds": 3437.2,
+    "transcript_structural_validation": "passed",
+    "manual_transcript_readability": "not_reviewed",
+    "manual_summary_readability": "not_reviewed",
+    "model_settings_fingerprint": "16bd60d985604f5db7b1d8575c6b59fe40af0182957a8c911e269faefb2dcb21",
+    "independent_inventory_item_count": 137,
+    "independent_inventory_fingerprint": "7a9827b0469f7e34f6fc91caee50279bcb7c2ae19a14089e30cf889bd838e263",
+    "provider_billing_snapshot_hits": 54,
+    "peak_model_concurrency": 3,
+    "provider_http_attempts_by_phase": {
+      "draft": 1,
+      "inventory": 5,
+      "grounding": 2,
+      "match": 39,
+      "validate_inventory": 7,
+      "repair": 6,
+      "other": 3,
+      "repair_grounding": 1,
+      "gap_review": 2
+    },
+    "provider_request_bytes_by_phase": {
+      "draft": {
+        "sum": 98170,
+        "max": 98170
+      },
+      "inventory": {
+        "sum": 171343,
+        "max": 35972
+      },
+      "grounding": {
+        "sum": 228757,
+        "max": 118725
+      },
+      "match": {
+        "sum": 1738767,
+        "max": 63852
+      },
+      "validate_inventory": {
+        "sum": 515270,
+        "max": 112339
+      },
+      "repair": {
+        "sum": 316917,
+        "max": 60923
+      },
+      "other": {
+        "sum": 137291,
+        "max": 48554
+      },
+      "repair_grounding": {
+        "sum": 10647,
+        "max": 10647
+      },
+      "gap_review": {
+        "sum": 264952,
+        "max": 132476
+      }
+    },
+    "provider_http_status_counts": {
+      "200": 66
+    },
+    "provider_reported_usage": {
+      "prompt_tokens": 1583011,
+      "completion_tokens": 83617,
+      "total_tokens": 1666628
+    },
+    "response_model_hash_counts": {
+      "576a599a64cb3dde05f18ebb3e26e3d5bcbf4b108ff92da24f5229188fa0972a": 66
+    },
+    "model_create_calls": 66,
+    "failed_model_create_calls": 0,
+    "provider_request_seconds_sum": 1762.621,
+    "delivery_provider_http_attempts": 55,
+    "delivery_wall_seconds": 1103.698,
+    "delivery_provider_http_attempts_by_phase": {
+      "draft": 1,
+      "inventory": 5,
+      "grounding": 2,
+      "match": 30,
+      "validate_inventory": 7,
+      "repair": 6,
+      "other": 3,
+      "repair_grounding": 1
+    },
+    "delivery_provider_request_bytes_by_phase": {
+      "draft": {
+        "sum": 98170,
+        "max": 98170
+      },
+      "inventory": {
+        "sum": 171343,
+        "max": 35972
+      },
+      "grounding": {
+        "sum": 228757,
+        "max": 118725
+      },
+      "match": {
+        "sum": 1312071,
+        "max": 63852
+      },
+      "validate_inventory": {
+        "sum": 515270,
+        "max": 112339
+      },
+      "repair": {
+        "sum": 316917,
+        "max": 60923
+      },
+      "other": {
+        "sum": 137291,
+        "max": 48554
+      },
+      "repair_grounding": {
+        "sum": 10647,
+        "max": 10647
+      }
+    },
+    "delivery_provider_http_status_counts": {
+      "200": 55
+    },
+    "delivery_provider_reported_usage": {
+      "prompt_tokens": 1265098,
+      "completion_tokens": 69292,
+      "total_tokens": 1334390
+    },
+    "delivery_provider_request_seconds_sum": 1471.7,
+    "delivery_execution": {
+      "stages": {
+        "model.queue": {
+          "seconds": 0,
+          "calls": 55
+        },
+        "model.phase.inventory": {
+          "seconds": 327.613,
+          "calls": 5
+        },
+        "model.editor": {
+          "seconds": 1492.4640000000002,
+          "calls": 55,
+          "failed_calls": 3
+        },
+        "model.phase.draft": {
+          "seconds": 69.998,
+          "calls": 1
+        },
+        "model.phase.grounding": {
+          "seconds": 51.54,
+          "calls": 2
+        },
+        "model.phase.match": {
+          "seconds": 734.4340000000001,
+          "calls": 30
+        },
+        "model.phase.validate_inventory": {
+          "seconds": 115.90299999999999,
+          "calls": 7
+        },
+        "model.phase.repair": {
+          "seconds": 151.82699999999997,
+          "calls": 6
+        },
+        "model.phase.other": {
+          "seconds": 33.968,
+          "calls": 3
+        },
+        "model.phase.repair_grounding": {
+          "seconds": 7.085,
+          "calls": 1
+        }
+      },
+      "checkpoint_hits": 0,
+      "wall_seconds": 1104.216
+    },
+    "independent_inventory_check": {
+      "failed_batches": 0,
+      "terminal_provider_failure": false,
+      "coverage_ratio": 0.8029197080291971,
+      "unresolved_items": 27,
+      "item_count": 137,
+      "accepted": false,
+      "checklist_changed": false
+    },
+    "independent_inventory_provider_http_attempts": 9,
+    "independent_inventory_seconds": 120.387,
+    "summary_structure": {
+      "overview_characters": 111,
+      "key_points": 50,
+      "topics": 6
+    },
+    "final_diagnostic_progress": [
+      {
+        "state": "prepared",
+        "request_sha256": "7fd4d3aca53c6501d7eed9d72b230337e8b98ad7db4d54c48d41cff7aa1e2405",
+        "sample_count": 5,
+        "diagnostic_checkpoint_reuse": false,
+        "evidence_protocol": "resolved_ranges_v2"
+      },
+      {
+        "state": "assessment_validated",
+        "assessment_number": 1,
+        "summary": {
+          "validated_sample_count": 5,
+          "citation_integrity_failures": 0,
+          "citation_failure_reasons": {},
+          "verdict_counts": {
+            "supported.covered": 1,
+            "supported.missing": 1,
+            "supported.partial": 3
+          }
+        }
+      },
+      {
+        "state": "assessment_validated",
+        "assessment_number": 2,
+        "summary": {
+          "validated_sample_count": 5,
+          "citation_integrity_failures": 0,
+          "citation_failure_reasons": {},
+          "verdict_counts": {
+            "not_supported.contradicted": 1,
+            "supported.covered": 1,
+            "supported.missing": 1,
+            "supported.partial": 2
+          }
+        }
+      }
+    ],
+    "failure_sampling": {
+      "diagnostic_schema_version": 2,
+      "sample_count": 5,
+      "classification_counts": {
+        "stable_omission_evidence": 2,
+        "covered_control_disagreement": 1,
+        "possible_coverage_false_positive": 1,
+        "fixed_input_reviewer_variation": 1
+      },
+      "reason_class_counts": {
+        "incomplete_support": 4,
+        "quantity_or_time": 3,
+        "none": 2,
+        "attribution": 1
+      },
+      "sample_type_counts": {
+        "coverage": 3,
+        "covered_control": 1,
+        "grounding": 1
+      },
+      "citation_integrity_failures": 0,
+      "citation_failure_reasons": {},
+      "classification_by_sample_type": {
+        "coverage": {
+          "stable_omission_evidence": 2,
+          "possible_coverage_false_positive": 1
+        },
+        "covered_control": {
+          "covered_control_disagreement": 1
+        },
+        "grounding": {
+          "fixed_input_reviewer_variation": 1
+        }
+      },
+      "citation_failures_by_sample_type": {},
+      "semantic_false_positive_proven": false,
+      "basis": "two same-provider model assessments; exact citations checked in RAM; not human ground truth or a population estimate",
+      "assessment_http_calls": 2,
+      "repeat_request_sha256": "7fd4d3aca53c6501d7eed9d72b230337e8b98ad7db4d54c48d41cff7aa1e2405",
+      "evidence_protocol": "resolved_ranges_v2",
+      "diagnostic_checkpoint_reuse": false,
+      "sample_limit": 6,
+      "delivery_decision_changed": false,
+      "invalid_grounding_receipts": 0,
+      "captured_source_rejections": 1,
+      "current_candidate_grounding_probes": 0,
+      "unlocatable_match_grounding_rejections": 0,
+      "source_rejection_origin_counts": {
+        "source_review": 1,
+        "coverage_match": 0
+      }
+    },
+    "diagnostic_buffers_cleared": true,
+    "failure_sampling_provider_http_attempts": 2,
+    "wall_seconds": 1288.576,
+    "generation": {
+      "final_source_review_parts": 1,
+      "source_layout": "lossless-timed-groups-v1",
+      "source_units": 205,
+      "grounding_repair_sizes": [
+        {
+          "paragraphs": 1,
+          "characters_before": 1360,
+          "characters_after": 294,
+          "covered_obligations_supplied": 0
+        }
+      ],
+      "late_contradiction_repair_attempts": 0,
+      "coverage_rounds": [
+        {
+          "phase": "initial",
+          "outcome": "completed",
+          "status": "unverified",
+          "seconds": 512.348,
+          "initial_unresolved": 44,
+          "final_unresolved": 13,
+          "accepted_paragraphs": 14,
+          "rejected_paragraphs": 1,
+          "source_corrected_items": 4,
+          "logical_requests_reported": 27,
+          "coverage_ratio": 0.8522727272727273,
+          "stale_gap_receipts_refreshed": 2,
+          "empty_repair_rechecks_avoided": 0,
+          "regression_pruning_attempts": 0,
+          "reused_covered_receipts": 0,
+          "existing_redundancy_flags": 0,
+          "changed_support_regressions": 0,
+          "status_counts": {
+            "covered": 75,
+            "missing": 1,
+            "partial": 12,
+            "contradicted": 0,
+            "unverified": 0,
+            "context_only": 0
+          },
+          "unresolved_by_kind": {
+            "claim": 2,
+            "experiment": 1,
+            "counterexample": 0,
+            "condition": 2,
+            "disagreement": 1,
+            "procedure": 4,
+            "example": 3
+          },
+          "rejection_reasons": {
+            "duplicate_or_no_novelty": 1
+          }
+        },
+        {
+          "phase": "after_grounding_repair",
+          "outcome": "completed",
+          "status": "unverified",
+          "seconds": 141.065,
+          "initial_unresolved": 24,
+          "final_unresolved": 21,
+          "accepted_paragraphs": 0,
+          "rejected_paragraphs": 0,
+          "source_corrected_items": 2,
+          "logical_requests_reported": 14,
+          "coverage_ratio": 0.7613636363636364,
+          "stale_gap_receipts_refreshed": 0,
+          "empty_repair_rechecks_avoided": 0,
+          "regression_pruning_attempts": 0,
+          "reused_covered_receipts": 0,
+          "existing_redundancy_flags": 0,
+          "changed_support_regressions": 0,
+          "status_counts": {
+            "covered": 67,
+            "missing": 1,
+            "partial": 20,
+            "contradicted": 0,
+            "unverified": 0,
+            "context_only": 0
+          },
+          "unresolved_by_kind": {
+            "claim": 5,
+            "experiment": 1,
+            "counterexample": 0,
+            "condition": 3,
+            "disagreement": 2,
+            "procedure": 6,
+            "example": 4
+          },
+          "rejection_reasons": {}
+        },
+        {
+          "phase": "final_coverage_repair",
+          "outcome": "completed",
+          "status": "acceptable",
+          "seconds": 195.866,
+          "initial_unresolved": 19,
+          "final_unresolved": 3,
+          "accepted_paragraphs": 12,
+          "rejected_paragraphs": 2,
+          "source_corrected_items": 1,
+          "logical_requests_reported": 20,
+          "coverage_ratio": 0.9659090909090909,
+          "stale_gap_receipts_refreshed": 1,
+          "empty_repair_rechecks_avoided": 0,
+          "regression_pruning_attempts": 0,
+          "reused_covered_receipts": 67,
+          "existing_redundancy_flags": 0,
+          "changed_support_regressions": 0,
+          "status_counts": {
+            "covered": 85,
+            "missing": 0,
+            "partial": 3,
+            "contradicted": 0,
+            "unverified": 0,
+            "context_only": 0
+          },
+          "unresolved_by_kind": {
+            "claim": 0,
+            "experiment": 0,
+            "counterexample": 0,
+            "condition": 1,
+            "disagreement": 1,
+            "procedure": 1,
+            "example": 0
+          },
+          "rejection_reasons": {
+            "duplicate_or_no_novelty": 2
+          }
+        }
+      ],
+      "coverage_rounds_truncated": false,
+      "delivery": {
+        "coverage_ratio": 0.9659090909090909,
+        "coverage_threshold": 0.9,
+        "unresolved_items": 3,
+        "status": "accepted"
+      },
+      "coverage_ledger": {
+        "coverage_ratio": 0.9659090909090909,
+        "threshold": 0.9,
+        "failed_batches": 0,
+        "inventory_failed_batches": 0,
+        "inventory_validation_failed_batches": 0,
+        "ignored_boundary_items": 0,
+        "terminal_provider_failure": false,
+        "grounding_concerns": false,
+        "unresolved_items": 3,
+        "covered_items": 85,
+        "requests": 20,
+        "validation_retries": 1,
+        "repairs_accepted": 12,
+        "repairs_rejected": 2,
+        "inventory_transport_retries": 0,
+        "inventory_split_retries": 0,
+        "inventory_recovered_batches": 0,
+        "inventory_batches": 4,
+        "initial_grounding_concerns": false,
+        "stale_gap_receipts_refreshed": 1,
+        "empty_repair_rechecks_avoided": 0,
+        "regression_pruning_attempts": 0,
+        "reused_covered_receipts": 67,
+        "existing_redundancy_flags": 0,
+        "changed_support_regressions": 0,
+        "status": "acceptable",
+        "check_failure_counts": {},
+        "check_failure_types": {},
+        "inventory_error_types": {
+          "ValueError": 0,
+          "SummaryOutputError": 0,
+          "APIConnectionError": 0,
+          "APITimeoutError": 0,
+          "TimeoutError": 0,
+          "APIStatusError": 0,
+          "RateLimitError": 0,
+          "RuntimeError": 0,
+          "ReadTimeout": 0,
+          "ConnectError": 0,
+          "ConnectionError": 0,
+          "ModelRequestTimeout": 0,
+          "InternalServerError": 0,
+          "BadRequestError": 0,
+          "AuthenticationError": 0,
+          "PermissionDeniedError": 0,
+          "NotFoundError": 0,
+          "UnprocessableEntityError": 0
+        },
+        "inventory_http_statuses": {
+          "408": 0,
+          "429": 0,
+          "500": 0,
+          "502": 0,
+          "503": 0,
+          "504": 0,
+          "524": 0
+        },
+        "inventory_failures_recorded": 0,
+        "inventory_failures_available": true,
+        "item_status_counts": {
+          "covered": 85,
+          "missing": 0,
+          "partial": 3,
+          "contradicted": 0,
+          "unverified": 0,
+          "context_only": 0
+        }
+      },
+      "verification": {
+        "reviewed": 1,
+        "review_attempts": 1,
+        "review_parts": 1,
+        "final_coverage_attempts": 0,
+        "status": "model_reviewed"
+      }
+    },
+    "reuse_and_retry": {
+      "inventory_receipts_reused": 0,
+      "repair_transport_retries": 0,
+      "validation_retries": 1,
+      "inventory_transport_retries": 0,
+      "requests": 20
+    },
+    "execution": {
+      "stages": {
+        "model.queue": {
+          "seconds": 0,
+          "calls": 66
+        },
+        "model.phase.inventory": {
+          "seconds": 327.613,
+          "calls": 5
+        },
+        "model.editor": {
+          "seconds": 1722.3760000000004,
+          "calls": 64,
+          "failed_calls": 3
+        },
+        "model.phase.draft": {
+          "seconds": 69.998,
+          "calls": 1
+        },
+        "model.phase.grounding": {
+          "seconds": 51.54,
+          "calls": 2
+        },
+        "model.phase.match": {
+          "seconds": 964.343,
+          "calls": 39
+        },
+        "model.phase.validate_inventory": {
+          "seconds": 115.90299999999999,
+          "calls": 7
+        },
+        "model.phase.repair": {
+          "seconds": 151.82699999999997,
+          "calls": 6
+        },
+        "model.phase.other": {
+          "seconds": 98.443,
+          "calls": 5
+        },
+        "model.phase.repair_grounding": {
+          "seconds": 7.085,
+          "calls": 1
+        }
+      },
+      "checkpoint_hits": 0,
+      "wall_seconds": 1289.093
+    },
+    "final_budget_guard_passed": true
+  },
+  "interpretation": {
+    "acceptance": "Core96.59percent was NOT accepted as end-to-end success: frozen137item checklist80.29percent failed. No production write or delivery decision changed by diagnostics.",
+    "observed_cost": "55coreHTTP/1103.698seconds;9independent-checkHTTP/120.387seconds;2diagnosticHTTP;66totalHTTP/1288.576seconds. AllHTTP200.",
+    "findings": "Fresh inventory had88items versus frozen137. Two stable omission-evidence samples, one possible coverage false positive, covered-control disagreement and one fixed-input reviewer variation. No semantic false positive proven; no assumption that all old gaps are valid.",
+    "source_rewrite": "Raw source fallback1360characters became294;0covered_obligations_supplied meant the earlier guard had no obligations to preserve. Source-owned material obligations must also be checked.",
+    "quality_response": "Preserve pre-compaction source ownership for extraction, rather than widening its semantic workload from11to4batches. Use the complete source checklist to plan a large-source draft before generation. Preserve short single-source video overlap. Extend atomic correction preservation to contained source obligations even without positive prose receipts. Keep the frozen137item independent check unchanged.",
+    "remaining_scope": "Final-head real acceptance and exact-head CI/deployment still required; this result predates those source-granularity/drafting changes."
+  }
+}

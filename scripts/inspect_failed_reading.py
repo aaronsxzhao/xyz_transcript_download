@@ -67,9 +67,12 @@ def safe_report(report):
         safe['source_layout']=report['source_layout']
     if type(report.get('source_units')) is int and 0<report['source_units']<=100000:
         safe['source_units']=report['source_units']
+    if type(report.get('inventory_guided_draft')) is bool:safe['inventory_guided_draft']=report['inventory_guided_draft']
+    if type(report.get('inventory_source_items')) is int and 0<=report['inventory_source_items']<=100000:
+        safe['inventory_source_items']=report['inventory_source_items']
     if isinstance(report.get('grounding_repair_sizes'),list):
         safe['grounding_repair_sizes']=[{k:v for k,v in row.items()
-            if k in ('paragraphs','characters_before','characters_after','covered_obligations_supplied')
+            if k in ('paragraphs','characters_before','characters_after','covered_obligations_supplied','source_obligations_supplied')
             and type(v) is int and 0<=v<=1000000}
             for row in report['grounding_repair_sizes'][:3] if isinstance(row,dict)]
     if isinstance(report.get('grounding_preservation_checks'),list):

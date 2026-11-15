@@ -15,13 +15,20 @@ def timed_source(count=2170):
     return ''.join(f'[{i//60:02d}:{i%60:02d}] Fact {i}.\n' for i in range(count))
 
 
-def test_lossless_asr_grouping_reduces_inventory_batches_without_enlarging_limit():
+def test_lossless_asr_grouping_reduces_metadata_without_enlarging_source_work_scopes():
+    from transcript_reading import source_work_batches,serialize
     text=timed_source()
     revision,old=source_lines(text)
     new_revision,new=source_lines(text,compact=True)
     assert revision==new_revision
     assert ''.join(line.text for line in new)==text
     assert len(list(batches(new,12000))) < len(list(batches(old,12000)))
+    assert len(json.dumps(serialize(new)))<len(json.dumps(serialize(old)))
+    # Fewer IDs must not make each checklist extraction read several times
+    # more meaning. Preserve the old fragment ownership budget independently.
+    grouped_parts=list(source_work_batches(new,12000))
+    assert len(grouped_parts)>=len(list(batches(old,12000)))
+    assert ''.join(line.text for part in grouped_parts for line in part)==text
     assert len(new)<len(old)//4
     assert all(len(line.text)<=256 for line in new)
     for line in new:
@@ -314,7 +321,7 @@ def test_changed_chapter_scope_cannot_reuse_a_pass_for_identical_paragraph_text(
     assert owner.generation_report['delivery']['status']=='blocked'
 
 
-@pytest.mark.parametrize('outcome',['restored','still_missing','unsupported_old_claim','invalid_receipt'])
+@pytest.mark.parametrize('outcome',['restored','still_missing','unsupported_old_claim','invalid_receipt','owned_raw'])
 def test_local_source_rewrite_is_atomic_and_preserves_independently_supported_meaning(outcome):
     from reading_delivery import repair_unsupported
     _,lines=source_lines('Treatment helped only adults at the low dose.\nFollow-up lasted two weeks.')
@@ -322,10 +329,14 @@ def test_local_source_rewrite_is_atomic_and_preserves_independently_supported_me
     sections,_=validate_sections({'sections':[{'heading':'Treatment','paragraphs':[
         {'text':'Treatment helps everybody. Follow-up lasted two weeks.','source_ranges':spans}]}]},lines)
     sections[0]['paragraphs'][0]['id']='P0';before=copy.deepcopy(sections)
+    if outcome=='owned_raw':
+        sections[0]['paragraphs'][0].update(raw=True,text=''.join(line.text for line in lines))
+        before=copy.deepcopy(sections)
     item={'id':'C0','kind':'condition','statement':'Follow-up lasted '+('three' if outcome=='unsupported_old_claim' else 'two')+' weeks.',
         'source_ranges':[{'start':lines[1].id,'end':lines[1].id}]}
     owner=SimpleNamespace(client=Mock(base_url='https://model.test'),model='test',_quality_inventory=({},[item]),
-        generation_report={'coverage_ledger':{'items':[{'id':'C0','status':'covered','paragraph_ids':['P0']}]}})
+        generation_report={'coverage_ledger':{'items':[] if outcome=='owned_raw' else [
+            {'id':'C0','status':'covered','paragraph_ids':['P0']}]}})
     calls=[];repairs=[0]
     def complete(client,model,system,payload,timeout,**kwargs):
         request=json.loads(payload);calls.append(request)
@@ -333,7 +344,8 @@ def test_local_source_rewrite_is_atomic_and_preserves_independently_supported_me
             repairs[0]+=1
             if repairs[0]==2:assert request['repair_feedback']['missing_obligations'][0]['id']=='C0'
             text='Treatment helped only adults at the low dose.'
-            if repairs[0]==2 and outcome=='restored':text+=' Follow-up lasted two weeks.'
+            if outcome=='owned_raw':text='Only adults benefited at the low dose.'
+            if repairs[0]==2 and outcome in ('restored','owned_raw'):text+=' Follow-up lasted two weeks.'
             return {'replacements':[{'id':'P0','text':text,'source_ranges':spans}]}
         assert request['phase']=='verify_grounding_preservation'
         assert sections==before  # No tentative rewrite is committed.
@@ -349,8 +361,8 @@ def test_local_source_rewrite_is_atomic_and_preserves_independently_supported_me
             repair_unsupported(owner,lines,sections,{'P0'})
             text=sections[0]['paragraphs'][0]['text']
             assert 'everybody' not in text and 'three weeks' not in text
-            if outcome=='restored':assert 'Follow-up lasted two weeks.' in text
-    assert repairs[0]==(2 if outcome in ('restored','still_missing') else 1)
+            if outcome in ('restored','owned_raw'):assert 'Follow-up lasted two weeks.' in text
+    assert repairs[0]==(2 if outcome in ('restored','still_missing','owned_raw') else 1)
     assert len(calls)==repairs[0]*2
     assert owner._quality_inventory[1]==[item]  # No obligation was deleted or simplified.
 
@@ -426,3 +438,18 @@ def test_matching_contradiction_captures_original_prose_even_when_grounded_flag_
     assert observer.grounding[0]['paragraph']['text']=='Original source-supported prose.'
     assert observer.grounding[0]['matching_contradiction'] is True
     observer.clear();assert observer.grounding==[]
+
+
+def test_incomplete_large_source_inventory_blocks_draft_without_spending_a_generation_call():
+    from concurrent.futures import Future
+    from transcript_reading import _generate_with_inventory
+    source='A supported argument.\nAn essential condition.';revision,lines=source_lines(source)
+    ready=Future();ready.set_result(({'inventory_batches':2,'inventory_failed_batches':1},[]))
+    owner=SimpleNamespace(generation_mode='single',quality_coverage_threshold=.9,generation_report={})
+    with patch('coverage_ledger.SOURCE_LIMIT',1), \
+         patch('transcript_reading.call_json',side_effect=AssertionError('No drafting against incomplete source inventory')):
+        with pytest.raises(SummaryOutputError) as error:
+            _generate_with_inventory(owner,source,'Title',revision,lines,ready,formats=(),style='detailed',
+                extras='',visual_context='',tags=(),progress=None,duration=0,stage_callback=None)
+    assert error.value.reason=='source_review'
+    assert owner.generation_report['delivery']['status']=='blocked'
