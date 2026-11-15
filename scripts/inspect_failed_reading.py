@@ -20,7 +20,8 @@ COUNTERS = ('coverage_ratio', 'coverage_threshold', 'threshold', 'failed_batches
     'inventory_transport_retries', 'inventory_split_retries', 'inventory_recovered_batches', 'inventory_batches', 'reviewed', 'review_attempts', 'review_parts', 'final_coverage_attempts',
     'initial_grounding_concerns','stale_gap_receipts_refreshed','empty_repair_rechecks_avoided','regression_pruning_attempts',
     'reused_covered_receipts','existing_redundancy_flags','changed_support_regressions',
-    'contradiction_obligations_validated','contradiction_source_corrections')
+    'contradiction_obligations_validated','contradiction_source_corrections',
+    'inventory_supplement_exact_repeats','inventory_unclaimed_units','inventory_supplement_batches','inventory_unclaimed_units_reviewed','inventory_completeness_units_reviewed')
 
 ROUND_PHASES = ('initial','resume','after_grounding_repair','final_coverage_repair')
 ROUND_KINDS = ('claim','experiment','counterexample','condition','disagreement','procedure','example')
@@ -70,6 +71,9 @@ def safe_report(report):
     if type(report.get('inventory_guided_draft')) is bool:safe['inventory_guided_draft']=report['inventory_guided_draft']
     if type(report.get('inventory_source_items')) is int and 0<=report['inventory_source_items']<=100000:
         safe['inventory_source_items']=report['inventory_source_items']
+    if isinstance(report.get('draft_obligation_map'),dict):
+        safe['draft_obligation_map']={k:v for k,v in report['draft_obligation_map'].items()
+            if k in ('supplied','mapped','claimed_source_conflicts') and type(v) is int and 0<=v<=100000}
     if isinstance(report.get('grounding_repair_sizes'),list):
         safe['grounding_repair_sizes']=[{k:v for k,v in row.items()
             if k in ('paragraphs','characters_before','characters_after','covered_obligations_supplied','source_obligations_supplied',

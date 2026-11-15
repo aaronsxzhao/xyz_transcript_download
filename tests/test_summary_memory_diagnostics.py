@@ -322,3 +322,17 @@ def test_fixed_inventory_probe_uses_original_plan_only_as_diagnostic_context():
     assert match.call_args.kwargs['matching_only'] is True
     assert observer.inventory_after==payload['inventory'][1]
     assert observer.candidate['inventory'][1]==benchmark
+
+
+def test_single_assessment_stage_counts_are_not_presented_as_repeated_agreement():
+    from scripts.summary_memory_diagnostics import one_assessment_summary
+    source,_,payload=fixture();observer=MemoryDiagnostics();observer.capture_payload(payload)
+    observer.inventory_before=copy.deepcopy(payload['inventory'][1]);observer.inventory_after=copy.deepcopy(observer.inventory_before)
+    request=observer.make_request(source,'resolved_ranges_v2');response=verdicts(request)
+    for row in response['samples']:
+        row.update(inventory_before_status='covered',inventory_after_status='covered',gap_importance='material')
+    typed=validate_verdicts(response,request)
+    progress=one_assessment_summary(request['samples'],typed)
+    assert progress['single_assessment_inventory_stage_counts']=={'draft_ignored_supported_plan':1,'covered':1}
+    assert 'inventory_stage_counts' not in progress and 'classification_counts' not in progress
+    assert 'twelve' not in json.dumps(progress)

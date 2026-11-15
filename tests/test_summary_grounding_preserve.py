@@ -545,3 +545,98 @@ def test_preservation_compares_original_rejected_prose_and_counts_only_new_loss(
     assert check['missing_supported']==expected_losses
     assert sections[0]['paragraphs'][0]['raw'] is True
     assert prepared[1][0]['statement']=='Fact 0.'
+
+
+@pytest.mark.parametrize('case',['valid','missing','unknown','duplicate','unsupported','false_conflict','bad_evidence'])
+def test_private_draft_map_requires_every_source_obligation_without_certifying_coverage(case):
+    from transcript_reading import validate_obligation_map
+    owner,lines,sections,prepared=scene();items=prepared[1][:2]
+    data={'sections':[{'heading':'Scope','paragraphs':[{'text':'A thematic mention.',
+        'source_ranges':items[0]['source_ranges'],'obligation_ids':['C0','C1']}]}]}
+    paragraph=data['sections'][0]['paragraphs'][0]
+    if case=='missing':paragraph['obligation_ids']=['C0']
+    if case=='unknown':paragraph['obligation_ids']=['C0','invented']
+    if case=='duplicate':paragraph['obligation_ids']=['C0','C0','C1']
+    if case in ('unsupported','false_conflict','bad_evidence'):
+        paragraph['obligation_ids']=['C0']
+        data['source_conflicts']=[{'obligation_id':'C1','source_ranges':items[1]['source_ranges']}]
+        if case=='false_conflict':paragraph['obligation_ids'].append('C1')
+        if case=='bad_evidence':data['source_conflicts'][0]['source_ranges']=[{'start':'unknown','end':'unknown'}]
+    if case in ('valid','unsupported'):
+        result=validate_obligation_map(data,items,lines)
+        assert result['semantic_coverage_certified'] is False
+        assert result['supplied']==2
+        assert result['mapped']==(1 if case=='unsupported' else 2)
+        assert prepared[1][:2]==items  # No item is changed or removed.
+    else:
+        with pytest.raises(SummaryOutputError) as error:validate_obligation_map(data,items,lines)
+        assert error.value.reason=='obligation_map'
+
+
+@pytest.mark.parametrize('extra',['material','background','failed'])
+@pytest.mark.parametrize('all_units_cited',[False,True])
+def test_source_inventory_reviews_meaning_once_without_draft_or_inventory_deletion(extra,all_units_cited):
+    from coverage_ledger import build_inventory
+    owner,lines,_,_=scene();lines=lines[:4];requests=[]
+    def parts(owned,limit):return [owned[start:start+2] for start in range(0,len(owned),2)]
+    def respond(engine,system,payload,validator):
+        requests.append(copy.deepcopy(payload));rows=payload['primary_source']
+        assert payload['phase']=='inventory' and 'global_draft' not in payload
+        supplement=payload.get('source_inventory_completeness_check',False)
+        if supplement and extra=='failed':raise RuntimeError('synthetic source scan failure')
+        known={span['start'] for item in payload.get('known_source_obligations',[]) for span in item['source_ranges']}
+        selected=[row for row in rows if row['id'] not in known] if supplement and extra=='material' else [] if supplement else rows[:1]
+        data={'checked_source_ranges':[{'start':rows[0]['id'],'end':rows[-1]['id']}],
+            'items':[{'kind':'condition','statement':line['text'],
+                'source_ranges':[{'start':line['id'],'end':rows[-1]['id'] if not supplement and all_units_cited else line['id']}]} for line in selected]}
+        if supplement and extra=='material':
+            prior=payload['known_source_obligations'][0]
+            data['items'].append({key:prior[key] for key in ('kind','statement','source_ranges')})
+        validator(data);return data
+    with patch('transcript_reading.source_work_batches',side_effect=parts),patch('coverage_ledger.request',side_effect=respond):
+        report,items=build_inventory(owner,lines)
+    scans=[request for request in requests if request.get('source_inventory_completeness_check')]
+    assert len(scans)==1  # Never recursively re-scan a valid empty result.
+    assert {row['id'] for row in scans[0]['primary_source']}=={line.id for line in lines}
+    assert len(scans[0]['known_source_obligations'])==2
+    assert report['inventory_unclaimed_units']==(0 if all_units_cited else 2)
+    assert report['inventory_supplement_batches']==1
+    assert len(items)==(4 if extra=='material' else 2)
+    assert report.get('inventory_supplement_exact_repeats',0)==int(extra=='material')
+    assert items[:2][0]['source_ranges']==[{'start':lines[0].id,'end':lines[1 if all_units_cited else 0].id}]
+    assert bool(report['inventory_failed_batches'])==(extra=='failed')
+    assert report['inventory_unclaimed_units_reviewed']==(0 if extra=='failed' or all_units_cited else 2)
+    assert report['inventory_completeness_units_reviewed']==(0 if extra=='failed' else 4)
+    assert len({item['id'] for item in items})==len(items)
+
+
+def test_unclaimed_source_scan_cannot_cite_across_unprovided_units():
+    from coverage_ledger import _audit
+    owner,lines,_,_=scene();owned=[lines[0],lines[2]]
+    def invalid(engine,system,payload,validator):
+        rows=payload['primary_source']
+        data={'checked_source_ranges':[{'start':rows[0]['id'],'end':rows[-1]['id']}],
+            'items':[{'kind':'claim','statement':'A synthetic claim.',
+                'source_ranges':[{'start':lines[0].id,'end':lines[2].id}]}]}
+        validator(data);return data
+    with patch('coverage_ledger.request',side_effect=invalid):
+        report,items=_audit(owner,lines,[],inventory_only=True,
+            inventory_parts=[(0,0,owned)],inventory_context=[])
+    assert report['inventory_failed_batches'] and not items
+
+
+def test_private_obligation_map_cannot_supply_missing_semantic_coverage():
+    from transcript_reading import validate_obligation_map
+    from coverage_ledger import _audit,coverage_acceptable
+    owner,lines,sections,prepared=scene();items=prepared[1][:2]
+    sections=sections[:1];sections[0]['paragraphs'][0]['text']='Only a broad topic mention.'
+    data={'sections':[{'heading':'Topic','paragraphs':[{'text':'Only a broad topic mention.',
+        'obligation_ids':['C0','C1'],'source_ranges':items[0]['source_ranges']}]}]}
+    assert validate_obligation_map(data,items,lines)['mapped']==2
+    def match(engine,system,payload,validator):
+        assert all('obligation_ids' not in paragraph for section in payload['global_draft'] for paragraph in section['paragraphs'])
+        return {'matches':[row(item,'missing') for item in items]}
+    with patch('coverage_ledger.request',side_effect=match):
+        ledger,_=_audit(owner,lines,sections,inventory=items,matching_only=True)
+    assert len(ledger['items'])==2 and all(item['status']=='missing' for item in ledger['items'])
+    assert not coverage_acceptable(ledger)

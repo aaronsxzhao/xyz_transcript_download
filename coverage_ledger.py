@@ -7,7 +7,7 @@ from reading_language import source_language_lock
 from source_coverage import SOURCE_FIDELITY
 from summary_errors import is_cancellation
 
-VERSION = 'coverage-ledger-v16-inventory-guided'
+VERSION = 'coverage-ledger-v17-source-claim-scan'
 SOURCE_LIMIT = 12000
 ITEM_LIMIT = 16
 KINDS = {'claim', 'experiment', 'counterexample', 'condition', 'disagreement', 'procedure', 'example'}
@@ -447,7 +447,7 @@ def _correct_inventory(engine, lines, items, report, progress, stage_callback, m
 
 def _audit(engine, lines, sections, overview='', progress=None, stage_callback=None, *, inventory=None,
            prepared_inventory=None, inventory_only=False, inventory_parts=None,
-           matching_only=False, initial_rows=None, verify_gaps=False):
+           matching_only=False, initial_rows=None, verify_gaps=False, inventory_context=None):
     """Mutate only by appending independently accepted local repairs.
 
     Inventories see no draft. Matching sees the whole evolving draft. A failed
@@ -520,6 +520,16 @@ def _audit(engine, lines, sections, overview='', progress=None, stage_callback=N
         terminal = terminal_provider_failure(error)
         report['terminal_provider_failure'] |= terminal
         return terminal
+    index={line.id:i for i,line in enumerate(lines)}
+    def checked_inventory(value,owned):
+        accepted=inventory_response(value,owned)
+        if inventory_context is not None:
+            allowed={line.id for line in owned}
+            for item in accepted:
+                for span in item['source_ranges']:
+                    if any(lines[i].id not in allowed for i in range(index[span['start']],index[span['end']]+1)):
+                        raise ValueError('Inventory evidence crosses unavailable source')
+        return accepted
     parts=[] if supplied_inventory or inventory_parts is not None else list(batches(lines,SOURCE_LIMIT))
     offset=0
     work = inventory_parts if inventory_parts is not None else [(number, sum(len(p) for p in parts[:number]), part) for number,part in enumerate(parts)]
@@ -528,9 +538,16 @@ def _audit(engine, lines, sections, overview='', progress=None, stage_callback=N
         report['inventory_batches']+=1
         payload={'phase':'inventory','primary_source':serialize(part),
                  'boundary_context':serialize(lines[max(0,offset-5):offset]+lines[offset+len(part):offset+len(part)+5])}
+        if inventory_context is not None:
+            owned_indices={index[line.id] for line in part}
+            nearby={i for position in owned_indices for i in range(max(0,position-2),min(len(lines),position+3))}-owned_indices
+            payload['boundary_context']=serialize([lines[i] for i in sorted(nearby)])
+            payload['known_source_obligations']=inventory_context
+            payload['source_inventory_completeness_check']=True
+        inventory_system=INVENTORY+(INVENTORY_COMPLETENESS if inventory_context is not None else '')
         try:
             try:
-                data=call(INVENTORY,payload,lambda value:inventory_response(value,part))
+                data=call(inventory_system,payload,lambda value:checked_inventory(value,part))
             except Exception as error:
                 # A failed inventory has no item IDs, so the later pending-item
                 # recovery cannot see it. Retry this source batch once after a
@@ -551,8 +568,8 @@ def _audit(engine, lines, sections, overview='', progress=None, stage_callback=N
                         subpayload={**payload,'primary_source':serialize(subpart),
                             'boundary_context':serialize(part[max(0,middle-5):middle+5]),
                             'validation_feedback':'Check every supplied source line; use only its IDs. Return checked_source_ranges and substantive items, not commentary about excerpt boundaries.'}
-                        result=request(engine,INVENTORY+language,subpayload,lambda value:inventory_response(value,subpart))
-                        recovered.extend(inventory_response(result,subpart))
+                        result=request(engine,inventory_system+language,subpayload,lambda value:checked_inventory(value,subpart))
+                        recovered.extend(checked_inventory(result,subpart))
                     data={'items':recovered,'checked_source_ranges':[{'start':part[0].id,'end':part[-1].id}]}
                     report['inventory_recovered_batches']+=1
                 elif isinstance(error, (ValueError, SummaryOutputError)) or not retryable_model_failure(error):
@@ -561,10 +578,10 @@ def _audit(engine, lines, sections, overview='', progress=None, stage_callback=N
                     report['inventory_transport_retries']+=1
                     if progress:progress()
                     report['requests']+=1
-                    data=request(engine,INVENTORY+language,payload,lambda value:inventory_response(value,part))
-                    inventory_response(data,part)
+                    data=request(engine,inventory_system+language,payload,lambda value:checked_inventory(value,part))
+                    checked_inventory(data,part)
                     report['inventory_recovered_batches']+=1
-            accepted=inventory_response(data,part)
+            accepted=checked_inventory(data,part)
             report['ignored_boundary_items']+=len(data['items'])-len(accepted)
             for item in accepted:
                 inventory.append({**item,'id':f'C{number+1}.{len(inventory)+1}'})
@@ -1023,7 +1040,7 @@ def build_inventory(engine, lines, progress=None, stage_callback=None):
     # Use the same report schema even for an empty source.
     report, _ = _audit(engine, [], [], inventory_only=True, inventory_parts=[])
     inventory = []
-    for local, items in results:
+    def merge(local,items,*,supplement=False):
         for key, value in local.items():
             if isinstance(value, bool):
                 report[key] |= value
@@ -1031,12 +1048,66 @@ def build_inventory(engine, lines, progress=None, stage_callback=None):
                 report[key] += value
             elif isinstance(value, list):
                 report[key].extend(value)
+        existing={json.dumps({key:item[key] for key in ('statement','source_ranges')},sort_keys=True,ensure_ascii=False) for item in inventory}
         for item in items:
+            identity=json.dumps({key:item[key] for key in ('statement','source_ranges')},sort_keys=True,ensure_ascii=False)
+            if supplement and identity in existing:
+                report['inventory_supplement_exact_repeats']=report.get('inventory_supplement_exact_repeats',0)+1
+                continue
+            existing.add(identity)
             prefix = item['id'].split('.')[0]
             inventory.append({**item, 'id': f'{prefix}.{len(inventory)+1}'})
+    for local, items in results:merge(local,items)
     report['failed_batches'] += len(parts) - len(results)
     report['inventory_failed_batches'] = report['failed_batches']
-    if progress:
-        progress()
-    stage(stage_callback, 'inventory', checked, len(parts))
+    if (len(parts)>1 and getattr(engine,'quality_coverage_threshold',None) is not None
+            and not report['inventory_failed_batches'] and not report['terminal_provider_failure']):
+        index={line.id:i for i,line in enumerate(lines)}
+        claimed={i for item in inventory for span in item['source_ranges']
+            for i in range(index[span['start']],index[span['end']]+1)}
+        unclaimed=[line for i,line in enumerate(lines) if i not in claimed]
+        report['inventory_unclaimed_units']=len(unclaimed)
+        # A cited unit can still contain an omitted independent condition.
+        # Check semantic completeness of the unchanged inventory, not merely
+        # physical range coverage. Single-mode review has the same full source
+        # and plan as the immediately following whole-source generation.
+        if lines:
+            supplements=([lines] if getattr(engine,'generation_mode','single')=='single' else parts)
+            report['inventory_supplement_batches']=len(supplements)
+            known=[{key:item[key] for key in ('id','kind','statement','source_ranges')} for item in inventory]
+            total=len(parts)+len(supplements)
+            stage(stage_callback,'inventory',checked,total)
+            def supplemented(_index,result):
+                nonlocal checked
+                if not result[0]['inventory_failed_batches']:checked+=1
+                stage(stage_callback,'inventory',checked,total)
+            extra=bounded_map(lambda pair:_audit(engine,lines,[],inventory_only=True,
+                inventory_parts=[(len(parts)+pair[0],index[pair[1][0].id],pair[1])],inventory_context=known),
+                list(enumerate(supplements)),workers=2,
+                stop_when=lambda result:result[0]['terminal_provider_failure'],on_complete=supplemented)
+            for local,items in extra:merge(local,items,supplement=True)
+            report['failed_batches']+=len(supplements)-len(extra)
+            report['inventory_failed_batches']=report['failed_batches']
+            review_complete=len(extra)==len(supplements) and not report['inventory_failed_batches']
+            report['inventory_unclaimed_units_reviewed']=len(unclaimed) if review_complete else 0
+            report['inventory_completeness_units_reviewed']=len(lines) if review_complete else 0
+    if progress:progress()
+    stage(stage_callback,'inventory',checked,report['inventory_batches'])
     return report, inventory
+
+
+INVENTORY_COMPLETENESS = """
+This is ONE independent source-only completeness review of the first inventory.
+Read every primary_source unit, including units already cited by known obligations.
+A cited range does not prove that all its independent meaning was extracted.
+Read complete clauses clarified by adjacent
+boundary_context. Extract only substantive source meaning not already FULLY
+represented in known_source_obligations. Those obligations are untrusted planning
+data, not authority. A topic name is not its mechanism, experiment outcome,
+meaning-changing attribution or condition. Preserve such missing meaning as
+additional obligations; never rewrite/delete an existing obligation here.
+Do not add interchangeable anecdotes, sponsor material or repeat a represented
+argument. Empty items are permitted when no additional substantive meaning
+remains. Source units can be nonadjacent: use separate source_ranges for joint
+evidence, never bridge missing primary_source IDs or cite boundary-only IDs.
+"""

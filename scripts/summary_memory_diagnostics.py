@@ -324,12 +324,15 @@ def one_assessment_summary(samples, verdicts):
     summary = aggregate_verdicts(samples, [verdicts, verdicts])
     # Reusing a typed result for summarization is not a repeated model call.
     # Avoid publishing fake pair classifications; keep per-assessment counters.
-    return {'validated_sample_count':len(verdicts),
+    result = {'validated_sample_count':len(verdicts),
             'citation_integrity_failures':summary['citation_integrity_failures']//2,
             'citation_failure_reasons':{key:value//2 for key,value in summary['citation_failure_reasons'].items()},
             'verdict_counts':{support+'.'+status:sum(row['source_support']==support and row['draft_status']==status
                 for row in verdicts.values()) for support in sorted(SUPPORT) for status in sorted(STATUSES)
                 if any(row['source_support']==support and row['draft_status']==status for row in verdicts.values())}}
+    if 'inventory_stage_counts' in summary:
+        result['single_assessment_inventory_stage_counts']=summary['inventory_stage_counts']
+    return result
 
 
 class MemoryDiagnostics:
@@ -537,6 +540,9 @@ class MemoryDiagnostics:
                       captured_matching_contradictions=sum(bool(case.get('matching_contradiction')) for case in self.grounding),
                       source_rejection_origin_counts={origin:sum(case.get('kind','grounding')=='grounding' and case.get('origin','source_review')==origin for case in self.grounding)
                           for origin in ('source_review','coverage_match')})
+        if request.get('inventory_context'):
+            result['inventory_context_counts']={phase:{'items':len(items),'statement_characters':sum(len(item['statement']) for item in items)}
+                for phase,items in request['inventory_context'].items()}
         return result
 
     def clear(self):
