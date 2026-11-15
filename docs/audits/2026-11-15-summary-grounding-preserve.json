@@ -54,7 +54,9 @@
       "contradiction_source_authority": "Before changing prose to resolve a checklist contradiction, verify that obligation against primary source. Correct a false source statement and rematch the unchanged draft; retain a source-affirmed contradiction for real paragraph repair. Never compress away a contradicted obligation as incidental background. If its source validation failed, an unverified checklist cannot authorize rewriting prose; independent raw-source correction remains available.",
       "raw_source_guard": "Preserve every material obligation fully owned by a rewritten paragraph source range as well as its positive coverage references. This guards raw fallback, which cannot have positive summary-coverage receipts. Unsupported obligations are not forced into prose; they remain for normal source adjudication.",
       "original_rejected_prose": "Keep original source-rejected summary prose and bounded review feedback in engine RAM before substituting internal raw source. Correct that original prose against its actual source and owned obligations, rather than re-summarizing a large raw passage. Reject unchanged replay against the original rejected wording/evidence. Context is never part of generation_report,candidate persistence or public output; clear it after successful replacement and test disposal.",
-      "paired_preservation": "Compare source-supported obligations against original rejected prose BEFORE and proposed whole draft AFTER in the same independent request. Block actual newly lost coverage. Already missing before-and-after obligations remain in the unchanged inventory and normal coverage repair; they are not new correction damage. One format-only retry for invalid review schema, never for a valid semantic rejection; original two local edits and160actualHTTP cap retained."
+      "paired_preservation": "Compare source-supported obligations against original rejected prose BEFORE and proposed whole draft AFTER in the same independent request. Block actual newly lost coverage. Already missing before-and-after obligations remain in the unchanged inventory and normal coverage repair; they are not new correction damage. One format-only retry for invalid review schema, never for a valid semantic rejection; original two local edits and160actualHTTP cap retained.",
+      "source_review_adjudication": "One independent evidence adjudication of each located negative global-review result before correction. Every character of every flagged paragraph must belong to an evidence-cited supported/unsupported/uncertain assertion. Only complete positive source support withdraws a flag. Omitted wording, invalid references, uncertain/unsupported clauses retain veto. No prose or coverage change. Same actual source/model/options/checkpoints and original bounded correction loop; no retry-until-pass. Counts only exported.",
+      "diagnostic_latest_finding": "Bounded RAM sampling retains latest actual source rejection before candidate destruction, instead of only first2earlier findings that may already be repaired. Still2samples/2calls; no private content export."
     },
     {
       "id": "H3",
@@ -98,8 +100,8 @@
     }
   ],
   "regression": {
-    "new_cases": 112,
-    "related_passed": 536,
+    "new_cases": 130,
+    "related_passed": 554,
     "environment": "local Python3.12,synthetic data,no real model calls; includes fixed archived-inventory validation and source-layout resume tests"
   },
   "real_validation": {
@@ -115,7 +117,7 @@
     "guard_run": 43669862171,
     "guard_http_calls": 0,
     "beijing_date": "2026-11-15",
-    "settled_usd": 37.57817,
+    "settled_usd": 40.860688,
     "scope": "configured_test_account_provider_token",
     "active_production_work": false,
     "daily_shared_limit": 100,
@@ -216,7 +218,7 @@
     "report": "docs/audits/2026-11-15-summary-fixed-inventory-failure.json",
     "same_final_edition_verified": true
   },
-  "next_validation": "One serial complete episode after536localpasses. Compare total providerHTTP/wall time, added local-recall work and immutable137acceptance, with richer fixed-label omission roles in the same2failurediagnostics. Do not infer causal latency gain from a single run or call a high fresh-inventory score whole success.",
+  "next_validation": "One serial real full episode after554relatedregressions, then immutable137check. Review local-recall core100percent and latest disputed source findings separately; no whole acceptance until all gates pass.",
   "plan_probe_report": "docs/audits/2026-11-15-summary-inventory-plan-probe.json",
   "stream_probe": {
     "run": 43690941933,
@@ -253,5 +255,18 @@
     "sample_initial_inventory_gaps": 3,
     "terminal_state": "not_accepted",
     "report": "docs/audits/2026-11-15-summary-inventory-recall-control.json"
+  },
+  "local_recall_result": {
+    "run": 43698921581,
+    "report": "docs/audits/2026-11-15-summary-local-recall-control.json",
+    "core_http": 52,
+    "core_seconds": 795.926,
+    "coverage": 1,
+    "items": 146,
+    "source_corrections": 2,
+    "frozen_check": "not_reached",
+    "terminal_state": "failed_grounding",
+    "reviewer_variation_samples": 2,
+    "semantic_false_positive_proven": false
   }
 }

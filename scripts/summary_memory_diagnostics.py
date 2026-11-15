@@ -366,7 +366,7 @@ class MemoryDiagnostics:
         if isinstance(request,dict) and request.get('phase') == 'match':
             self.observe_matching(request,response)
             return
-        if (len(self.grounding) >= 2 or not isinstance(request, dict)
+        if (not isinstance(request, dict)
                 or 'global_draft' not in request or request.get('phase')
                 or not isinstance(response, dict)):
             return
@@ -382,6 +382,12 @@ class MemoryDiagnostics:
             return
         draft = diagnostic_draft(request['global_draft'], request.get('global_overview',''))
         paragraphs = {p['id']: p for s in draft for p in s['paragraphs']}
+        # A later final review can reject a different/rewritten assertion.
+        # Keep the latest actual finding, not just the first two historical
+        # rejections that may already have been repaired. Still at most two RAM
+        # samples and two diagnostic calls; no source/prose export.
+        if response.get('unsupported_paragraph_ids'):
+            self.grounding.clear()
         for ident in response.get('unsupported_paragraph_ids', []):
             if ident in paragraphs and len(self.grounding) < 2:
                 self.grounding.append({'draft': draft, 'paragraph': copy.deepcopy(paragraphs[ident])})

@@ -60,6 +60,12 @@ def safe_rounds(value):
 def safe_report(report):
     report = report if isinstance(report, dict) else {}
     safe = {}
+    if isinstance(report.get('source_adjudications'),list):
+        safe['source_adjudications']=[{k:v for k,v in row.items()
+            if k in ('flagged_paragraphs','supported_paragraphs','unsupported_paragraphs',
+                     'uncertain_paragraphs','segments','invalid_checks')
+            and type(v) is int and 0<=v<=100000}
+            for row in report['source_adjudications'][:20] if isinstance(row,dict)]
     if type(report.get('final_source_capacity_fallback')) is bool:
         safe['final_source_capacity_fallback']=report['final_source_capacity_fallback']
     if type(report.get('final_source_review_parts')) is int and 0<=report['final_source_review_parts']<=100000:
@@ -142,7 +148,7 @@ def inspect_reported_episode(get):
     if len(rows)>20 or len({row.get('user_id') for row in rows})>1:
         return {'status':'blocked_ambiguous_or_truncated','record_count':len(rows)}
     allowed = {'model.editor','transcription.segment','reading.candidate.v1',
-        *('model.phase.'+phase for phase in ('draft','grounding','inventory','match','repair','validate_inventory','repair_grounding','verify_grounding_preservation','other'))}
+        *('model.phase.'+phase for phase in ('draft','grounding','inventory','match','repair','validate_inventory','repair_grounding','verify_grounding_preservation','adjudicate_grounding','repair_obligation_map','other'))}
     result=[]
     for row in rows:
         metrics=row.get('metrics') or {}

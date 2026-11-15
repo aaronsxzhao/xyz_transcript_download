@@ -1646,6 +1646,21 @@
         "sample_inventory_gaps": 3,
         "local_related_passed": 536,
         "next": "per-original-scope independent source recall, no original item deletion or quality/budget weakening"
+      },
+      "source_adjudication_followup": {
+        "run": 43698921581,
+        "core_http": 52,
+        "core_seconds": 795.926,
+        "core_items": 146,
+        "core_coverage": 1,
+        "source_review": "failed",
+        "whole_episode_accepted": false,
+        "fixed_inventory_check": "not_reached",
+        "reviewer_variation_samples": 2,
+        "semantic_false_positive_proven": false,
+        "local_related_passed": 554,
+        "report": "docs/audits/2026-11-15-summary-local-recall-control.json",
+        "next": "exact-wording evidence adjudication before changing prose; latest actual finding in bounded RAM diagnostics"
       }
     }
   ],

@@ -14,7 +14,7 @@ from reading_language import source_language_lock, chinese_source
 from source_coverage import split_source, SOURCE_FIDELITY
 from summary_errors import SummaryOutputError, delivery_notice, is_cancellation
 
-VERSION = 'source-linked-reading-v8-obligation-map'
+VERSION = 'source-linked-reading-v9-evidence-adjudication'
 MODES = ('single', 'segmented')
 GENERATION_TIMEOUT = 600
 REVIEW_TIMEOUT = 240
@@ -575,6 +575,9 @@ def call_json(engine, system, payload, timeout):
                 data=completed_call()
                 if 'mode' in request and request.get('source_obligations'):
                     data=reconcile_obligation_metadata(engine,data,request['source_obligations'],owned)
+                elif 'primary_source' in request and 'global_draft' in request:
+                    from source_review_adjudication import adjudicate
+                    data=adjudicate(engine,owned,request,data)
                 return data
             except (SummaryOutputError, json.JSONDecodeError) as error:
                 # A malformed draft gets one fresh whole-source attempt. Never
