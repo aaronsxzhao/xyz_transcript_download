@@ -141,7 +141,7 @@ def _call_editor(client, model, system, payload, timeout, *, output_tokens=None)
             phase = request_data.get('phase') or ('draft' if 'mode' in request_data else 'grounding')
         except (ValueError, TypeError, AttributeError):
             phase = 'other'
-        if phase not in {'draft','grounding','inventory','match','repair','validate_inventory','repair_grounding'}:
+        if phase not in {'draft','grounding','inventory','match','repair','validate_inventory','repair_grounding','verify_grounding_preservation'}:
             phase = 'other'
         started = time.monotonic()
         failed = False

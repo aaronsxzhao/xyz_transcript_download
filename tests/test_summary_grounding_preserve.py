@@ -312,3 +312,44 @@ def test_changed_chapter_scope_cannot_reuse_a_pass_for_identical_paragraph_text(
         with pytest.raises(SummaryOutputError):accept_edition(owner,edition,'Title','Source',[],0)
     assert review.call_count==1
     assert owner.generation_report['delivery']['status']=='blocked'
+
+
+@pytest.mark.parametrize('outcome',['restored','still_missing','unsupported_old_claim','invalid_receipt'])
+def test_local_source_rewrite_is_atomic_and_preserves_independently_supported_meaning(outcome):
+    from reading_delivery import repair_unsupported
+    _,lines=source_lines('Treatment helped only adults at the low dose.\nFollow-up lasted two weeks.')
+    spans=[{'start':lines[0].id,'end':lines[-1].id}]
+    sections,_=validate_sections({'sections':[{'heading':'Treatment','paragraphs':[
+        {'text':'Treatment helps everybody. Follow-up lasted two weeks.','source_ranges':spans}]}]},lines)
+    sections[0]['paragraphs'][0]['id']='P0';before=copy.deepcopy(sections)
+    item={'id':'C0','kind':'condition','statement':'Follow-up lasted '+('three' if outcome=='unsupported_old_claim' else 'two')+' weeks.',
+        'source_ranges':[{'start':lines[1].id,'end':lines[1].id}]}
+    owner=SimpleNamespace(client=Mock(base_url='https://model.test'),model='test',_quality_inventory=({},[item]),
+        generation_report={'coverage_ledger':{'items':[{'id':'C0','status':'covered','paragraph_ids':['P0']}]}})
+    calls=[];repairs=[0]
+    def complete(client,model,system,payload,timeout,**kwargs):
+        request=json.loads(payload);calls.append(request)
+        if request['phase']=='repair_grounding':
+            repairs[0]+=1
+            if repairs[0]==2:assert request['repair_feedback']['missing_obligations'][0]['id']=='C0'
+            text='Treatment helped only adults at the low dose.'
+            if repairs[0]==2 and outcome=='restored':text+=' Follow-up lasted two weeks.'
+            return {'replacements':[{'id':'P0','text':text,'source_ranges':spans}]}
+        assert request['phase']=='verify_grounding_preservation'
+        assert sections==before  # No tentative rewrite is committed.
+        text=''.join(p['text'] for section in request['global_draft'] for p in section['paragraphs'])
+        return {'obligations':[{'id':'UNKNOWN' if outcome=='invalid_receipt' else 'C0',
+            'source_supported':outcome!='unsupported_old_claim','covered':'Follow-up lasted two weeks.' in text,
+            'source_evidence':[{'start':lines[1].id,'end':lines[1].id}]}]}
+    with patch('reading_editor._call_editor',side_effect=complete):
+        if outcome in ('still_missing','invalid_receipt'):
+            with pytest.raises(SummaryOutputError):repair_unsupported(owner,lines,sections,{'P0'})
+            assert sections==before
+        else:
+            repair_unsupported(owner,lines,sections,{'P0'})
+            text=sections[0]['paragraphs'][0]['text']
+            assert 'everybody' not in text and 'three weeks' not in text
+            if outcome=='restored':assert 'Follow-up lasted two weeks.' in text
+    assert repairs[0]==(2 if outcome in ('restored','still_missing') else 1)
+    assert len(calls)==repairs[0]*2
+    assert owner._quality_inventory[1]==[item]  # No obligation was deleted or simplified.

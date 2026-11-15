@@ -493,12 +493,22 @@ def _audit(engine, lines, sections, overview='', progress=None, stage_callback=N
             'Missing draft support':'missing_support',
             'Missing evidence judgement':'missing_judgement',
             'Invalid item status':'invalid_status',
+            'Invalid match':'invalid_match',
+            'Invalid support':'invalid_support',
+            'Invalid missing meaning':'invalid_missing_meaning',
             'Incomplete proposed-paragraph inspection':'incomplete_proposal_check',
             'Raw fallback is not verified prose':'raw_support',
             'Repair obligations were not source-verified':'source_obligations_unverified'}
         label = labels.get(str(error), 'schema_or_provider_failure')
+        from summary_errors import SummaryOutputError
+        if isinstance(error,SummaryOutputError) and error.code in ('invalid','empty','length','capacity','content_filter'):
+            label='output_'+error.code
         counts = report.setdefault('check_failure_counts', {})
         counts[label] = counts.get(label,0)+1
+        names={'ValueError','TypeError','KeyError','SummaryOutputError','APIConnectionError','APITimeoutError',
+            'TimeoutError','APIStatusError','RateLimitError','RuntimeError','ReadTimeout','InternalServerError'}
+        name=type(error).__name__ if type(error).__name__ in names else 'OtherError'
+        types=report.setdefault('check_failure_types',{});types[name]=types.get(name,0)+1
         terminal = terminal_provider_failure(error)
         report['terminal_provider_failure'] |= terminal
         return terminal
@@ -892,6 +902,8 @@ def efficient_audit(engine, lines, sections, overview='', progress=None, stage_c
         report['terminal_provider_failure'] |= local['terminal_provider_failure']
         for label,count in local.get('check_failure_counts',{}).items():
             report.setdefault('check_failure_counts',{})[label]=report.setdefault('check_failure_counts',{}).get(label,0)+count
+        for name,count in local.get('check_failure_types',{}).items():
+            report.setdefault('check_failure_types',{})[name]=report.setdefault('check_failure_types',{}).get(name,0)+count
         for reason, count in local.get('repair_rejection_reasons', {}).items():
             reasons = report.setdefault('repair_rejection_reasons', {})
             reasons[reason] = reasons.get(reason, 0) + count

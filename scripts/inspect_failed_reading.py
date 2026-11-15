@@ -70,6 +70,10 @@ def safe_report(report):
             if k in ('paragraphs','characters_before','characters_after','covered_obligations_supplied')
             and type(v) is int and 0<=v<=1000000}
             for row in report['grounding_repair_sizes'][:3] if isinstance(row,dict)]
+    if isinstance(report.get('grounding_preservation_checks'),list):
+        safe['grounding_preservation_checks']=[{k:v for k,v in row.items()
+            if k in ('obligations','source_supported','missing_supported') and type(v) is int and 0<=v<=100000}
+            for row in report['grounding_preservation_checks'][:50] if isinstance(row,dict)]
     if type(report.get('late_contradiction_repair_attempts')) is int and 0 <= report['late_contradiction_repair_attempts'] <= 1:
         safe['late_contradiction_repair_attempts'] = report['late_contradiction_repair_attempts']
     if report.get('late_contradiction_repair_origin') in ('following_review_repair','same_delivery_iteration'):
@@ -88,9 +92,14 @@ def safe_report(report):
         if key == 'coverage_ledger':
             allowed=('incomplete_matches','unknown_paragraph','missing_support','missing_judgement',
                 'invalid_status','incomplete_proposal_check','raw_support','source_obligations_unverified',
-                'schema_or_provider_failure')
+                'schema_or_provider_failure','invalid_match','invalid_support','invalid_missing_meaning',
+                'output_invalid','output_empty','output_length','output_capacity','output_content_filter')
             row['check_failure_counts']={label:count for label,count in (source.get('check_failure_counts') or {}).items()
                 if label in allowed and type(count) is int and 0<=count<=10000}
+            names=('ValueError','TypeError','KeyError','SummaryOutputError','APIConnectionError','APITimeoutError',
+                'TimeoutError','APIStatusError','RateLimitError','RuntimeError','ReadTimeout','InternalServerError','OtherError')
+            row['check_failure_types']={name:count for name,count in (source.get('check_failure_types') or {}).items()
+                if name in names and type(count) is int and 0<=count<=10000}
             row['inventory_error_types'] = {name:sum(isinstance(e,dict) and e.get('error_type')==name for e in source.get('inventory_failures',[]) or []) for name in ('ValueError','SummaryOutputError','APIConnectionError','APITimeoutError','TimeoutError','APIStatusError','RateLimitError','RuntimeError','ReadTimeout','ConnectError','ConnectionError','ModelRequestTimeout','InternalServerError','BadRequestError','AuthenticationError','PermissionDeniedError','NotFoundError','UnprocessableEntityError')}
             row['inventory_http_statuses'] = {str(code):sum(isinstance(e,dict) and e.get('http_status')==code for e in source.get('inventory_failures',[]) or []) for code in (408,429,500,502,503,504,524)}
             row['inventory_failures_recorded'] = len(source.get('inventory_failures',[]) or [])
@@ -112,7 +121,7 @@ def inspect_reported_episode(get):
     if len(rows)>20 or len({row.get('user_id') for row in rows})>1:
         return {'status':'blocked_ambiguous_or_truncated','record_count':len(rows)}
     allowed = {'model.editor','transcription.segment','reading.candidate.v1',
-        *('model.phase.'+phase for phase in ('draft','grounding','inventory','match','repair','validate_inventory','repair_grounding','other'))}
+        *('model.phase.'+phase for phase in ('draft','grounding','inventory','match','repair','validate_inventory','repair_grounding','verify_grounding_preservation','other'))}
     result=[]
     for row in rows:
         metrics=row.get('metrics') or {}

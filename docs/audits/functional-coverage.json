@@ -1581,9 +1581,12 @@
       "id": "2026-11-15-summary-grounding-preserve",
       "report": "docs/audits/2026-11-15-summary-grounding-preserve.json",
       "status": "four_hypotheses_regression_verified_real_acceptance_pending",
-      "related_regression_passed": 398,
+      "related_regression_passed": 447,
       "scope": "shared video/podcast core,lossless timed-source grouping,stable positive coverage support certificates,proposal-only duplicate judgement,post-source coverage-before-final-review ordering",
-      "not_claimed": "No full-episode success or causal performance improvement until real result. Existing operation-chain production status unchanged."
+      "not_claimed": "No full-episode success or causal performance improvement until real result. Existing operation-chain production status unchanged.",
+      "staged_control_run": 43671158025,
+      "staged_control_status": "failed_quality,not_final_head",
+      "staged_control_final_coverage": 0.8828828828828829
     }
   ],
   "audit_attempts": [

@@ -32,7 +32,7 @@ DAILY_LIMIT = 100
 SETTLED_STOP = 85  # Reserve US$15 for in-flight calls and billing lag.
 MAX_CALLS = 160
 ZONE = timezone(timedelta(hours=8))
-PHASES = {'draft','grounding','inventory','match','repair','validate_inventory','repair_grounding','gap_review'}
+PHASES = {'draft','grounding','inventory','match','repair','validate_inventory','repair_grounding','verify_grounding_preservation','gap_review'}
 
 
 def enforce_authorized_destination(resolved):

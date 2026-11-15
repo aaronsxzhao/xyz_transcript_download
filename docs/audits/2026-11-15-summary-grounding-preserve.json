@@ -37,7 +37,8 @@
       "id": "H2",
       "cause": "Local source correction re-evaluates unrelated positive coverage against the whole changed draft, causing cost and possible reviewer variance.",
       "fix": "Positive coverage certificates require unchanged source/model/options/obligation and exact cited factual prose/provenance plus complete local chapter wording/order and overview. Renderer media annotations and outer chapter container indices do not invalidate factual support. Changed local qualifications invalidate the whole local chapter. All negative receipts remain rechecked; every changed whole draft requires final independent source review. Previously covered obligations guide source correction as untrusted data.",
-      "synthetic": "20covered obligations,1changed paragraph:19stable certificates reused and only changed item matched; changed item remains missing. Source/model/overview changes invalidate all. Added whole-draft contradiction still blocks."
+      "synthetic": "20covered obligations,1changed paragraph:19stable certificates reused and only changed item matched; changed item remains missing. Source/model/overview changes invalidate all. Added whole-draft contradiction still blocks.",
+      "semantic_preservation_gate": "Before applying a source correction, independently check every previously covered obligation linked to its paragraphs against original source and the entire proposed draft. Retain every source-supported material meaning. On validated loss, use only the existing second local-edit opportunity, with specific missing obligations as feedback; validate again. Still missing or malformed evidence blocks replacement. No old obligation is deleted,reclassified or marked covered by this guard; source errors are not forced into prose. Candidate changes are atomic and an unsafe old paragraph is never published as fallback."
     },
     {
       "id": "H3",
@@ -54,8 +55,8 @@
     }
   ],
   "regression": {
-    "new_cases": 28,
-    "related_passed": 398,
+    "new_cases": 32,
+    "related_passed": 447,
     "environment": "local Python3.12,synthetic data,no real model calls; includes fixed archived-inventory validation and source-layout resume tests"
   },
   "real_validation": {
@@ -71,7 +72,7 @@
     "guard_run": 43669862171,
     "guard_http_calls": 0,
     "beijing_date": "2026-11-15",
-    "settled_usd": 13.882554,
+    "settled_usd": 17.846792,
     "scope": "configured_test_account_provider_token",
     "active_production_work": false,
     "daily_shared_limit": 100,
@@ -91,8 +92,19 @@
     "ci_found": "one direct-generate concurrency fixture lacks generation_report; generation now initializes it safely;1871otherbackend tests passed",
     "binding_found": "render-stage frame_time annotations made whole-paragraph fingerprints too conservative; bind semantic prose and entire local chapter context/order instead;2new rendering/context counterexamples pass",
     "plan": "First running isolated job is a staged control with known conservative cache invalidation, not final-head acceptance. Do not cancel/discard its tracking or start another model job concurrently. Final head requires full CI and real acceptance including fixed archived checklist.",
-    "latest_pre_final_head": "30eeb89675d74f481eac4076ab67839acd7048b3",
-    "latest_pre_final_ci": 43671534220,
-    "latest_pre_final_backend": "success; final whole-source and immutable-chapter changes require a new exact-head full CI"
+    "latest_pre_final_head": "02ee0a0760481307ef6b7e22db235d5cc6359245",
+    "latest_pre_final_ci": 43672620546,
+    "latest_pre_final_backend": "success before adding the source-correction preservation gate; final exact head requires full CI"
+  },
+  "control_result": {
+    "run": 43671158025,
+    "report": "docs/audits/2026-11-15-summary-grounding-control.json",
+    "core_http": 63,
+    "core_seconds": 1227.183,
+    "final_coverage": 0.8828828828828829,
+    "source_units": 205,
+    "final_guard_passed": true,
+    "budget_settled_usd": 17.846792,
+    "status": "failed_quality_not_final_head_acceptance"
   }
 }
