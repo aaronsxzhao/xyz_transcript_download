@@ -1530,7 +1530,7 @@
       "id": "2026-11-15-memory-diagnostic-capture",
       "report": "docs/audits/2026-11-15-summary-memory-diagnostics.json",
       "pr": 271,
-      "result": "338local_regressions_passed_real_diagnostic_validation_complete",
+      "result": "diagnostic_tool_merged_verified_semantic_quality_unresolved",
       "scope": "decode persisted inventory pair; capture original rejected prose before mutation/disposal; strictly stop optional first-match diagnostic before gap correction/repair/delivery; resolve original evidence in RAM; preserve per-assessment safe progress",
       "limits": "default saved-candidate diagnostics2actualHTTPcalls; fresh first-match requires separate explicit opt-in and48-call ceiling; shared100/85stop/15reserve/concurrency≤3",
       "semantic_false_positive_proven": false,
@@ -1538,7 +1538,12 @@
       "release_evidence": {
         "pr": 271,
         "canonical": "https://github.com/aaronsxzhao/xyz_transcript_download/pull/271",
-        "scope": "final-head CI, merge and formal workflow verification recorded in PR body/checks; this file is a pre-merge snapshot"
+        "scope": "diagnostic scripts/workflow only; unchanged live app healtha6b987b; no full-episode acceptance",
+        "revision": "229b467dbb288abd2efb5443c6f691a6bc90b7a5",
+        "ci_run": 43622185581,
+        "ci_conclusion": "success",
+        "formal_zero_model_probe": 43625509352,
+        "shared_settled_usd": 1.654734
       }
     }
   ],

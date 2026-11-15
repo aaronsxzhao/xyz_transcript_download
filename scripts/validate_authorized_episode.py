@@ -315,6 +315,7 @@ def child(destination):
         report['budget'] = {k:budget[k] for k in ('status','beijing_date','settled_usd','scope') if k in budget}
         report['budget']['daily_limit_usd'] = DAILY_LIMIT
         report['budget']['active_work_found'] = bool(active)
+        publish()  # A blocked guard must retain the verified budget/queue cause.
         enforce_budget(budget, day, active)
     publish()
     guard(str(datetime.now(ZONE).date()))
@@ -330,7 +331,8 @@ def child(destination):
     historical_mode = os.environ.get('EPISODE_HISTORICAL_GAP_REVIEW') == '1'
     memory_mode = os.environ.get('EPISODE_MEMORY_DIAGNOSTICS') == '1'
     candidate_probe = os.environ.get('EPISODE_CANDIDATE_PROBE') == '1'
-    available = [] if historical_mode or memory_mode or candidate_probe else database.table('transcripts').select('episode_id').eq('user_id', owner).in_('episode_id', list(EPISODES)).execute().data or []
+    capture_final = os.environ.get('EPISODE_CAPTURE_FINAL_DIAGNOSTICS') == '1'
+    available = [] if historical_mode or memory_mode or candidate_probe or capture_final else database.table('transcripts').select('episode_id').eq('user_id', owner).in_('episode_id', list(EPISODES)).execute().data or []
     eid = next((eid for eid in EPISODES if any(row['episode_id'] == eid for row in available)), None)
     source_owner = owner
     if not eid:
@@ -383,7 +385,7 @@ def child(destination):
         engine = Summarizer(**resolved, generation_mode=settings.get('summary_generation_mode','single'))
     engine.client = TrackedClient(engine.client, calls)
     from scripts.summary_memory_diagnostics import MemoryDiagnostics
-    observer = MemoryDiagnostics() if memory_mode else None
+    observer = MemoryDiagnostics() if memory_mode or capture_final else None
     calls.observer = observer
     memory_store = MemoryCheckpoints(observer.capture_payload if observer else None)
     execution = Execution('isolated-authorized-test', eid, memory_store)
@@ -432,6 +434,26 @@ def child(destination):
     except Exception as error:
         report.update(terminal_state='failed', error_type=type(error).__name__)
     finally:
+        pipeline_http_attempts=calls.http_attempts
+        report['delivery_provider_http_attempts']=pipeline_http_attempts
+        report['delivery_wall_seconds']=round(time.monotonic()-started,3)
+        if (observer and report.get('terminal_state') in ('failed','not_accepted') and observer.candidate
+                and calls.started <= calls.maximum-2 and time.monotonic()-started < 3120):
+            try:
+                def diagnosis_progress(event):
+                    report.setdefault('final_diagnostic_progress',[]).append(event)
+                    publish()
+                with bind(execution):
+                    report['failure_sampling']=observer.analyze(engine,exact_source,on_progress=diagnosis_progress)
+            except TestGuardStopped:
+                report['failure_sampling_state']='guard_stopped'
+            except Exception as error:
+                from scripts.summary_memory_diagnostics import diagnostic_error_code
+                report.update(failure_sampling_state='failed',failure_sampling_error=diagnostic_error_code(error))
+        if observer:
+            observer.clear();memory_store.clear();calls.observer=None
+            report['diagnostic_buffers_cleared']=True
+        report['failure_sampling_provider_http_attempts']=calls.http_attempts-pipeline_http_attempts
         report['wall_seconds'] = round(time.monotonic()-started, 3)
         report['generation'] = safe_report(engine.generation_report)
         ledger = engine.generation_report.get('coverage_ledger') or {}
@@ -644,6 +666,8 @@ def main():
             bindings['EPISODE_MEMORY_DIAGNOSTICS'] = '1'
         if '--allow-first-match' in sys.argv:
             bindings['EPISODE_ALLOW_FIRST_MATCH'] = '1'
+        if '--capture-final-diagnostics' in sys.argv:
+            bindings['EPISODE_CAPTURE_FINAL_DIAGNOSTICS'] = '1'
         process = subprocess.Popen([sys.executable,__file__,'--child',str(destination)],
             env={**os.environ,**bindings,'XYZ_DATA_DIR':temporary,'DISCORD_WEBHOOK_URL':'','PYTHONPATH':'.'},
             stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)

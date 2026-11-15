@@ -1,0 +1,125 @@
+{
+  "checked_at": "2026-11-15T10:01:06.141429+08:00",
+  "base_main": "1c92f966e801fee7fd16ddea74af9460b792d586",
+  "branch": "codex/summary-four-hypotheses",
+  "status": "four_core_changes_regression_verified_real_acceptance_pending",
+  "full_episode_problem_resolved": false,
+  "prior_inspection": {
+    "isolated_baseline": {
+      "run": 43589199855,
+      "actual_http_attempts": 73,
+      "wall_seconds": 1535.799,
+      "coverage": 0.8235294117647058,
+      "unresolved": 27,
+      "contradictions": 1
+    },
+    "isolated_after_previous_fix": {
+      "run": 43593271785,
+      "actual_http_attempts": 77,
+      "wall_seconds": 1659.606,
+      "coverage": 0.6580645161290323,
+      "unresolved": 53,
+      "new_path_hits": 0
+    },
+    "current_readonly_run": 43665147485,
+    "saved_production_stage_observations": [
+      {
+        "task": "63208f3e-1150-4d04-aafa-83f49a772878",
+        "model_editor_calls": 102,
+        "matching_calls": 50,
+        "wall_seconds": 2194.986,
+        "coverage": 0.7299270072992701,
+        "checkpoint_hits": 13,
+        "status": "failed_grounding"
+      },
+      {
+        "task": "ae557f9c-4145-4880-8159-601f258d3db7",
+        "model_editor_calls": 71,
+        "matching_calls": 34,
+        "wall_seconds": 1901.639,
+        "coverage": 0.82,
+        "checkpoint_hits": 0,
+        "status": "failed_grounding"
+      }
+    ],
+    "counter_boundary": "saved stage calls are not independently instrumented HTTP counts; do not attribute every saved call to a single provider HTTP attempt or compare different transcripts causally"
+  },
+  "hypotheses": [
+    {
+      "id": "H1",
+      "hypothesis": "A superseded negative grounding receipt remains sticky and forces unnecessary final source review.",
+      "reproduction": "Old module leaves grounding_concerns=true after a valid source-corrected re-match becomes grounded.",
+      "fix": "Publish current per-item receipts from recovery and recompute the final flag from latest valid receipts; retain initial flag as history and preserve unrelated/failed negative checks.",
+      "validation": "positive correction, persistent rejection and failed-recovery counterexamples pass",
+      "production_causality": "not proven for the historical failures"
+    },
+    {
+      "id": "H2",
+      "hypothesis": "Later recovery batches use initial gaps even after earlier accepted prose fills them.",
+      "reproduction": "Earlier append covers the next gap; old code still proposes a second repair.",
+      "fix": "Invalidate frozen initial match receipts after any draft snapshot change, including heading/order/provenance; re-match the current batch before source verification or prose work.",
+      "synthetic_before_requests": 8,
+      "synthetic_after_requests": 6,
+      "synthetic_before_repairs": 2,
+      "synthetic_after_repairs": 1,
+      "coverage_before_and_after": 1.0,
+      "validation": "changed and unchanged draft cases pass"
+    },
+    {
+      "id": "H3",
+      "hypothesis": "A repair that returns no paragraphs still causes an identical match.",
+      "synthetic_before_matching_calls": 2,
+      "synthetic_after_matching_calls": 1,
+      "fix": "Retain unresolved receipts when proposed list is empty; do not call matcher for unchanged prose.",
+      "validation": "missing status remains missing and no candidate text is added"
+    },
+    {
+      "id": "H4",
+      "hypothesis": "One harmful proposal rejects a whole batch, losing independently valid coverage.",
+      "reproduction": "A supported missing condition and a contradictory addition are returned together; old code rejects both.",
+      "fix": "One bounded independent per-proposal source/novelty/contradiction verification; prune rejected proposals, then match the surviving actual draft and retain only independently supported nonregressing repairs.",
+      "validation": "valid subset retained; all-bad, verifier timeout, continued contradiction and dependencies remain rejected",
+      "request_effect": "can add verifier and filtered-draft matching calls; no universal request-reduction claim"
+    }
+  ],
+  "regression": {
+    "baseline_tests": 11,
+    "baseline_failures": 6,
+    "baseline_passes": 5,
+    "fixed_tests_passed": 12,
+    "related_suite_passed": 350,
+    "environment": "local Python3.12 temporary venv, --noconftest, synthetic data"
+  },
+  "budget": {
+    "date": "2026-11-15",
+    "daily_shared_limit_usd": 100,
+    "settled_stop_usd": 85,
+    "reserve_usd": 15,
+    "latest_checked_usd": 8.648238,
+    "active_work_count": 0,
+    "scope": "configured_test_account_provider_token",
+    "provider_hard_cap_verified": false,
+    "zero_call_guard_run": 43664729433,
+    "opaque_guard_block_reason": "not retained by the old guard; now publish checked budget/queue snapshot before enforcement",
+    "read_only_runtime_run": 43665147485
+  },
+  "real_validation_plan": {
+    "source": "6ac6a657e742e36efcbf74af",
+    "source_binding": "exact authorized63208f3e historical task; source data read only",
+    "max_actual_http_attempts": 160,
+    "max_model_concurrency": 3,
+    "shared_stop_usd": 85,
+    "deadline_seconds": 3600,
+    "checkpoint_policy": "fresh fingerprinted in-memory store, no production processing queue",
+    "failure_sampling": "explicit optional original rejected wording and final candidate retained in RAM; at most2diagnosticcalls within160total and existing deadline",
+    "not_claimed": "No successful full episode or causal speed/accuracy improvement until actual acceptance is observed"
+  },
+  "unchanged": [
+    "90percent material coverage",
+    "complete final source verification after prose mutations",
+    "contradiction and failed-source-check vetoes",
+    "existing real tasks/checkpoints read only",
+    "previously rejected3088segment source and private189item query excluded"
+  ],
+  "canonical_release_evidence": "own PR body and linked full-head CI/actions; final run metrics appended after execution"
+}

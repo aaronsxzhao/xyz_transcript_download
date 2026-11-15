@@ -7,7 +7,7 @@ from reading_language import source_language_lock
 from source_coverage import SOURCE_FIDELITY
 from summary_errors import is_cancellation
 
-VERSION = 'coverage-ledger-v13-verified-delta'
+VERSION = 'coverage-ledger-v14-current-receipts'
 SOURCE_LIMIT = 12000
 ITEM_LIMIT = 16
 KINDS = {'claim', 'experiment', 'counterexample', 'condition', 'disagreement', 'procedure', 'example'}
@@ -46,6 +46,9 @@ def measure_coverage_round(engine, phase, operation, *args, **kwargs):
         inventory_receipts_reused=ledger.get('inventory_receipts_reused', 0),
         repair_transport_retries=ledger.get('repair_transport_retries', 0),
         logical_requests_reported=ledger.get('requests', 0),
+        stale_gap_receipts_refreshed=ledger.get('stale_gap_receipts_refreshed',0),
+        empty_repair_rechecks_avoided=ledger.get('empty_repair_rechecks_avoided',0),
+        regression_pruning_attempts=ledger.get('regression_pruning_attempts',0),
         coverage_ratio=coverage_ratio(ledger))
     engine.generation_report.setdefault('coverage_rounds', []).append(entry)
     return ledger
@@ -647,7 +650,13 @@ def _audit(engine, lines, sections, overview='', progress=None, stage_callback=N
                         proposed.append(p['id'])
                     candidate.append(s)
                 stage(stage_callback,'recheck',start,len(inventory),batch_size=len(items),fraction=(start+len(items)*.7)/len(inventory))
-                rechecked=match(candidate,proposed)
+                if not proposed:
+                    # No prose changed: preserve the current failed coverage
+                    # receipts instead of paying for the identical match again.
+                    rechecked=rows
+                    report['empty_repair_rechecks_avoided']=report.get('empty_repair_rechecks_avoided',0)+1
+                else:
+                    rechecked=match(candidate,proposed)
                 # A duplicate flag can refer to joint or new-only support.
                 # Independently check source, novelty and contradictions before
                 # accepting either; truly repeated or unsupported prose stays out.
@@ -659,14 +668,19 @@ def _audit(engine, lines, sections, overview='', progress=None, stage_callback=N
                             and by_id[row['item_id']]['status'] in {'partial','missing'}
                             and used & proposed_set):
                         ambiguous.append(row)
-                if ambiguous:
-                    wanted = {s['paragraph_id'] for row in ambiguous for s in row['support']} & proposed_set
+                delta_checks={}
+                def verify_proposals(wanted):
                     proposals = [p for section in draft_of(candidate) for p in section['paragraphs']
-                                 if p['id'] in wanted]
+                                 if p['id'] in wanted and p['id'] not in delta_checks]
+                    if not proposals:return
                     verified = call(VERIFY_REPAIR_DELTA, {'phase':'verify_repair_delta',
                         'primary_source':serialize(evidence), 'existing_draft':draft_of(sections),
                         'proposed_paragraphs':proposals}, lambda data:delta_response(data,proposals))
-                    novel_ids = {row['id'] for row in delta_response(verified,proposals)
+                    delta_checks.update({row['id']:row for row in delta_response(verified,proposals)})
+                if ambiguous:
+                    wanted = {s['paragraph_id'] for row in ambiguous for s in row['support']} & proposed_set
+                    verify_proposals(wanted)
+                    novel_ids = {row['id'] for row in delta_checks.values()
                                  if row['grounded'] and row['adds_material_meaning']
                                  and not row['contradicts_existing']}
                     for row in ambiguous:
@@ -684,6 +698,22 @@ def _audit(engine, lines, sections, overview='', progress=None, stage_callback=N
                 # Contradiction or a grounding failure still vetoes the batch.
                 regression=any(by_id[row['item_id']]['status']=='covered' and
                                (row['status']=='contradicted' or not row['grounded']) for row in rechecked)
+                if regression and proposed:
+                    # One bad addition must not discard unrelated valid prose.
+                    # Independently check every proposal, remove rejected ones,
+                    # then re-match the actual surviving draft before accepting.
+                    report['regression_pruning_attempts']=report.get('regression_pruning_attempts',0)+1
+                    verify_proposals(proposed_set)
+                    retained={pid for pid,row in delta_checks.items() if row['grounded']
+                              and row['adds_material_meaning'] and not row['contradicts_existing']}
+                    if retained and retained != proposed_set:
+                        candidate=copy.deepcopy(sections)
+                        for section in additions:
+                            kept=[p for p in section['paragraphs'] if p['id'] in retained]
+                            if kept:candidate.append({**section,'paragraphs':kept})
+                        rechecked=match(candidate,[pid for pid in proposed if pid in retained])
+                        regression=any(by_id[row['item_id']]['status']=='covered' and
+                            (row['status']=='contradicted' or not row['grounded']) for row in rechecked)
                 accepted=set()
                 if not regression:
                     for pid in proposed:
@@ -727,8 +757,7 @@ def _audit(engine, lines, sections, overview='', progress=None, stage_callback=N
                                         'status':'unverified','paragraph_ids':[]} for item in inventory[start:])
                 break
         lookup={row['item_id']:row for row in rows}
-        if matching_only:
-            report.setdefault('matching_rows', {}).update(lookup)
+        report.setdefault('matching_rows', {}).update(lookup)
         for item in items:
             row=lookup.get(item['id'],{})
             status=row.get('status','unverified')
@@ -772,6 +801,8 @@ def efficient_audit(engine, lines, sections, overview='', progress=None, stage_c
     inventory_report = copy.deepcopy(report)
     report.update(version=VERSION, items=[], recovery_rounds=0, corrected_inventory_items=[])
     snapshot = copy.deepcopy(sections)
+    from processing_execution import fingerprint
+    initial_draft_identity=fingerprint({'sections':snapshot,'overview':overview})
     from reading_progress import stage
     stage(stage_callback, 'coverage', 0, len(inventory))
     chunks = [inventory[i:i+ITEM_LIMIT] for i in range(0, len(inventory), ITEM_LIMIT)]
@@ -785,7 +816,7 @@ def efficient_audit(engine, lines, sections, overview='', progress=None, stage_c
     receipts = {}
     def add_counters(local):
         for key in ('requests', 'repairs_accepted', 'repairs_rejected', 'validation_retries', 'inventory_receipts_reused', 'repair_transport_retries',
-                    'inventory_validation_failed_batches'):
+                    'inventory_validation_failed_batches','empty_repair_rechecks_avoided','regression_pruning_attempts'):
             report[key] = report.get(key, 0) + local.get(key, 0)
         report['terminal_provider_failure'] |= local['terminal_provider_failure']
         for reason, count in local.get('repair_rejection_reasons', {}).items():
@@ -804,6 +835,7 @@ def efficient_audit(engine, lines, sections, overview='', progress=None, stage_c
         report['items'].append(lookup.get(item['id'], {'id':item['id'], 'kind':item['kind'],
             'source_ranges':item['source_ranges'], 'status':'unverified', 'paragraph_ids':[]}))
     report['grounding_concerns'] = any(not row.get('grounded') for row in receipts.values())
+    report['initial_grounding_concerns']=report['grounding_concerns']
     report['failed_batches'] += sum(local['failed_batches'] for local, _ in results) + len(chunks)-len(results)
     threshold = engine.quality_coverage_threshold
     pending = {item['id'] for item in report['items'] if item['status'] not in RESOLVED}
@@ -817,13 +849,16 @@ def efficient_audit(engine, lines, sections, overview='', progress=None, stage_c
             if progress: progress()
             # Receipts refer to the immutable initial draft. The repair sees the
             # current draft and its additions require independent novelty checks.
+            current_receipts=receipts if fingerprint({'sections':sections,'overview':overview})==initial_draft_identity else None
+            if current_receipts is None:
+                report['stale_gap_receipts_refreshed']=report.get('stale_gap_receipts_refreshed',0)+1
             local, corrected = _audit(engine, lines, sections, overview, progress, stage_callback,
-                inventory=gaps[start:start+ITEM_LIMIT], initial_rows=receipts,
+                inventory=gaps[start:start+ITEM_LIMIT], initial_rows=current_receipts,
                 matching_only=not allow_repairs, verify_gaps=not allow_repairs)
             recovery_failed_batches += local['failed_batches']
             add_counters(local)
-            report['grounding_concerns'] |= any(
-                not row.get('grounded') for row in local.get('matching_rows', {}).values())
+            receipts.update(local.get('matching_rows', {}))
+            report['grounding_concerns'] = any(not row.get('grounded') for row in receipts.values())
             updates = {item['id']:item for item in local['items']}
             report['items'] = [updates.get(item['id'], item) for item in report['items']]
             # A failed repair can leave an earlier partial receipt rather than
