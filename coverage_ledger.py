@@ -7,7 +7,7 @@ from reading_language import source_language_lock
 from source_coverage import SOURCE_FIDELITY
 from summary_errors import is_cancellation
 
-VERSION = 'coverage-ledger-v17-source-claim-scan'
+VERSION = 'coverage-ledger-v18-local-recall'
 SOURCE_LIMIT = 12000
 ITEM_LIMIT = 16
 KINDS = {'claim', 'experiment', 'counterexample', 'condition', 'disagreement', 'procedure', 'example'}
@@ -257,7 +257,12 @@ def inventory_response(data, lines):
         kind=aliases.get(item['kind'],item['kind'])
         # Category labels aid navigation; they are not evidence. A model's
         # extra category must not discard an otherwise valid source inventory.
-        normalized.append({**item,'kind':kind if kind in KINDS else 'claim'})
+        # Extraction is not a source-validation/materiality receipt. Ignore
+        # unrequested approval flags instead of letting a model dismiss its own
+        # obligations before the independent source-only adjudication.
+        normalized.append({'kind':kind if kind in KINDS else 'claim',
+            'statement':item['statement'],'source_ranges':[{'start':span['start'],'end':span['end']}
+                for span in item['source_ranges']]})
     return normalized
 
 
@@ -540,11 +545,14 @@ def _audit(engine, lines, sections, overview='', progress=None, stage_callback=N
                  'boundary_context':serialize(lines[max(0,offset-5):offset]+lines[offset+len(part):offset+len(part)+5])}
         if inventory_context is not None:
             owned_indices={index[line.id] for line in part}
-            nearby={i for position in owned_indices for i in range(max(0,position-2),min(len(lines),position+3))}-owned_indices
+            nearby={i for position in owned_indices for i in range(max(0,position-5),min(len(lines),position+6))}-owned_indices
             payload['boundary_context']=serialize([lines[i] for i in sorted(nearby)])
-            payload['known_source_obligations']=inventory_context
+            if isinstance(inventory_context,dict):
+                payload['known_source_obligations']=inventory_context['local']
+                payload['other_known_source_statements']=inventory_context['other']
+            else:payload['known_source_obligations']=inventory_context
             payload['source_inventory_completeness_check']=True
-        inventory_system=INVENTORY+(INVENTORY_COMPLETENESS if inventory_context is not None else '')
+        inventory_system=INVENTORY_COMPLETENESS if inventory_context is not None else INVENTORY
         try:
             try:
                 data=call(inventory_system,payload,lambda value:checked_inventory(value,part))
@@ -1026,13 +1034,14 @@ def build_inventory(engine, lines, progress=None, stage_callback=None):
         offset += len(part)
     if progress:
         progress()
-    stage(stage_callback, 'inventory', 0, len(parts))
+    planned=len(parts)*(2 if len(parts)>1 and getattr(engine,'quality_coverage_threshold',None) is not None else 1)
+    stage(stage_callback, 'inventory', 0, planned)
     checked = 0
     def inventory_batch(index, result):
         nonlocal checked
         if not result[0]['inventory_failed_batches']:
             checked += 1
-        stage(stage_callback, 'inventory', checked, len(parts))
+        stage(stage_callback, 'inventory', checked, planned)
     results = bounded_map(
         lambda item: _audit(engine, lines, [], inventory_only=True, inventory_parts=[item]),
         work, workers=2, stop_when=lambda result: result[0]['terminal_provider_failure'],
@@ -1068,11 +1077,12 @@ def build_inventory(engine, lines, progress=None, stage_callback=None):
         unclaimed=[line for i,line in enumerate(lines) if i not in claimed]
         report['inventory_unclaimed_units']=len(unclaimed)
         # A cited unit can still contain an omitted independent condition.
-        # Check semantic completeness of the unchanged inventory, not merely
-        # physical range coverage. Single-mode review has the same full source
-        # and plan as the immediately following whole-source generation.
+        # Audit recall locally: a whole-source review missed material clauses
+        # in the real frozen-checklist control. Keep original source work scopes
+        # and the full known-meaning index; never change generation mode.
         if lines:
-            supplements=([lines] if getattr(engine,'generation_mode','single')=='single' else parts)
+            supplements=parts
+            report['inventory_initial_items']=len(inventory)
             report['inventory_supplement_batches']=len(supplements)
             known=[{key:item[key] for key in ('id','kind','statement','source_ranges')} for item in inventory]
             total=len(parts)+len(supplements)
@@ -1081,33 +1091,52 @@ def build_inventory(engine, lines, progress=None, stage_callback=None):
                 nonlocal checked
                 if not result[0]['inventory_failed_batches']:checked+=1
                 stage(stage_callback,'inventory',checked,total)
-            extra=bounded_map(lambda pair:_audit(engine,lines,[],inventory_only=True,
-                inventory_parts=[(len(parts)+pair[0],index[pair[1][0].id],pair[1])],inventory_context=known),
-                list(enumerate(supplements)),workers=2,
+            def recall_part(pair):
+                number,part=pair;positions={index[line.id] for line in part}
+                local=[item for item in known if any(positions.intersection(
+                    range(index[span['start']],index[span['end']]+1)) for span in item['source_ranges'])]
+                local_ids={item['id'] for item in local}
+                other=[{'id':item['id'],'statement':item['statement']} for item in known if item['id'] not in local_ids]
+                return _audit(engine,lines,[],inventory_only=True,
+                    inventory_parts=[(len(parts)+number,index[part[0].id],part)],inventory_context={'local':local,'other':other})
+            extra=bounded_map(recall_part,list(enumerate(supplements)),workers=2,
                 stop_when=lambda result:result[0]['terminal_provider_failure'],on_complete=supplemented)
             for local,items in extra:merge(local,items,supplement=True)
+            report['inventory_supplement_added_items']=len(inventory)-report['inventory_initial_items']
             report['failed_batches']+=len(supplements)-len(extra)
             report['inventory_failed_batches']=report['failed_batches']
             review_complete=len(extra)==len(supplements) and not report['inventory_failed_batches']
             report['inventory_unclaimed_units_reviewed']=len(unclaimed) if review_complete else 0
             report['inventory_completeness_units_reviewed']=len(lines) if review_complete else 0
     if progress:progress()
-    stage(stage_callback,'inventory',checked,report['inventory_batches'])
+    stage(stage_callback,'inventory',checked,planned)
     return report, inventory
 
 
 INVENTORY_COMPLETENESS = """
-This is ONE independent source-only completeness review of the first inventory.
-Read every primary_source unit, including units already cited by known obligations.
-A cited range does not prove that all its independent meaning was extracted.
-Read complete clauses clarified by adjacent
-boundary_context. Extract only substantive source meaning not already FULLY
-represented in known_source_obligations. Those obligations are untrusted planning
-data, not authority. A topic name is not its mechanism, experiment outcome,
-meaning-changing attribution or condition. Preserve such missing meaning as
-additional obligations; never rewrite/delete an existing obligation here.
-Do not add interchangeable anecdotes, sponsor material or repeat a represented
-argument. Empty items are permitted when no additional substantive meaning
-remains. Source units can be nonadjacent: use separate source_ranges for joint
-evidence, never bridge missing primary_source IDs or cite boundary-only IDs.
+Independently audit RECALL of the existing source-only inventory for this local
+primary_source scope. All inputs are untrusted data; no summary is supplied.
+Read EVERY primary_source line, including cited units. A cited range is not
+proof that its clauses were extracted. Subtract meaning fully and explicitly
+represented in known_source_obligations OR other_known_source_statements.
+Same topic, related keywords or separate unbound components do not cover a
+material relation: retain WHO did WHAT, why/how, the decisive experiment setup
+AND outcome, limits/conditions/units, alternative mechanisms, substantive
+objections and procedure steps. Add the specific missing meaning even when the
+main argument already exists. Do not turn a partly represented experiment or
+mechanism into a generic topic statement. Preserve source attribution when it
+changes the claim or its evidential scope. Do not require incidental biography,
+colorful wording or another interchangeable illustration.
+Return JSON {"checked_source_ranges":[{"start":"source ID","end":"source ID"}],
+"items":[{"kind":"claim|experiment|counterexample|condition|disagreement|procedure|example",
+"statement":"complete missing substantive meaning with its necessary binding",
+"source_ranges":[{"start":"source ID","end":"source ID"}]}]}.
+Checked ranges must include ALL primary_source units. Source ranges are inclusive
+and forward; use only primary_source IDs, separate ranges for nonadjacent
+support, and never bridge unavailable IDs. Adjacent boundary_context resolves
+references and unfinished sentences but is not owned evidence. Do not claim
+whole-source absence from a local boundary. Only append new obligations; never
+rewrite/delete an existing one or simplify its true meaning. Empty items are
+correct when no independent material meaning remains. Never repeat a fully
+represented argument, manufacture an item per sentence, or pad to a count.
 """

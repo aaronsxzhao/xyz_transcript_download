@@ -83,15 +83,15 @@ def test_inventory_batches_overlap_keep_source_ids_and_do_not_see_draft(monkeypa
     def request(engine, system, payload, validator):
         assert payload['phase'] == 'inventory' and 'global_draft' not in payload
         if payload.get('source_inventory_completeness_check'):
-            assert len(payload['known_source_obligations'])==2
-            return {'checked_source_ranges':[{'start':lines[0].id,'end':lines[-1].id}],'items':[]}
+            assert len(payload['known_source_obligations'])==1 and len(payload['other_known_source_statements'])==1
+            return {'checked_source_ranges':[{'start':row['id'],'end':row['id']} for row in payload['primary_source']],'items':[]}
         barrier.wait(timeout=2)
         rows = payload['primary_source']
         spans = [{'start': rows[0]['id'], 'end': rows[-1]['id']}]
         return {'checked_source_ranges': spans, 'items': [{'kind': 'claim', 'statement': rows[0]['text'], 'source_ranges': spans}]}
     monkeypatch.setattr(ledger, 'request', request)
     report, items = ledger.build_inventory(SimpleNamespace(quality_coverage_threshold=.9), lines)
-    assert report['requests'] == 3 and report['failed_batches'] == 0
+    assert report['requests'] == 4 and report['failed_batches'] == 0
     assert report['inventory_completeness_units_reviewed']==2
     assert [item['id'] for item in items] == ['C1.1', 'C2.2']
     assert [item['source_ranges'][0]['start'] for item in items] == [line.id for line in lines]
@@ -114,7 +114,7 @@ def test_generation_and_inventory_overlap_and_prepared_results_are_consumed(monk
     assert result == {'joined': prepared}
 
 
-@pytest.mark.parametrize('source_limit,guided,expected_calls',[(1,True,6),(12000,False,4)])
+@pytest.mark.parametrize('source_limit,guided,expected_calls',[(1,True,7),(12000,False,4)])
 def test_real_generation_uses_parallel_inventory_as_a_drafting_plan_and_reuses_checkpoints(monkeypatch,source_limit,guided,expected_calls):
     import json
     from note_summarizer import NoteSummarizer
@@ -141,7 +141,7 @@ def test_real_generation_uses_parallel_inventory_as_a_drafting_plan_and_reuses_c
             data = {'checked_source_ranges': spans, 'items': [{'kind': 'claim', 'statement': rows[0]['text'], 'source_ranges': spans}]}
         elif 'mode' in payload:
             if guided:
-                assert sum(call.get('phase')=='inventory' for call in calls)==3
+                assert sum(call.get('phase')=='inventory' for call in calls)==4
                 assert len(payload['source_obligations'])==2
                 assert '"obligation_ids":[' in kwargs['messages'][0]['content']
                 assert '"unmapped_obligation_ids":[]' in kwargs['messages'][0]['content']
@@ -205,7 +205,7 @@ def test_inventory_reports_first_finished_batch_while_second_is_still_waiting(mo
     def request(engine, system, payload, validator):
         rows = payload['primary_source']
         if payload.get('source_inventory_completeness_check'):
-            return {'checked_source_ranges':[{'start':lines[0].id,'end':lines[-1].id}],'items':[]}
+            return {'checked_source_ranges':[{'start':row['id'],'end':row['id']} for row in payload['primary_source']],'items':[]}
         if rows[0]['id'] == lines[1].id:
             assert release.wait(2), 'First batch did not publish incremental progress'
         spans = [{'start': rows[0]['id'], 'end': rows[-1]['id']}]
@@ -218,4 +218,5 @@ def test_inventory_reports_first_finished_batch_while_second_is_still_waiting(mo
     report, items = ledger.build_inventory(SimpleNamespace(quality_coverage_threshold=.9), lines, stage_callback=stage)
     assert report['failed_batches'] == 0
     assert [item['id'] for item in items] == ['C1.1', 'C2.2']
-    assert [event['completed'] for event in events] == [0, 1, 2, 2, 3, 3]
+    assert [event['completed'] for event in events] == [0, 1, 2, 2, 3, 4, 4]
+    assert all(event['total']==4 for event in events)

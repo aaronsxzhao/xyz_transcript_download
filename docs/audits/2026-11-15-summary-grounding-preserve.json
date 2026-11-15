@@ -2,7 +2,7 @@
   "date": "2026-11-15",
   "base_main": "ebd2b2422adc33ae9f39cc790f2757868e0dc40f",
   "branch": "codex/summary-grounding-preserve",
-  "status": "private_index_repair_and_pre_disposal_shape_capture_verified_full_episode_pending",
+  "status": "local_inventory_recall_fix_verified_full_acceptance_pending",
   "full_episode_problem_resolved": false,
   "entry_point_comparison": {
     "podcast": "Summarizer.summarize -> video_source_text for all complete segment metadata -> transcript_reading.generate -> coverage_ledger -> reading_delivery.accept_edition",
@@ -75,7 +75,7 @@
         "semantic_false_positive_proven": false
       },
       "plan_reconciliation_fix": "Include obligation_ids, unmapped_obligation_ids and source_conflicts in the guided JSON example. Account every planning item as mapped, explicitly unmapped/unknown, or an evidence-bound claimed conflict. Private metadata is not source truth or semantic coverage. Reader sections, references and prefix validation remain unchanged. Repair missing private metadata once without rewriting/re-generating already valid prose. On expected private-index schema/transient failure, mark every item UNKNOWN and run the complete unchanged inventory through mandatory normal matching/source adjudication/repair and final90percent/source gates. Never hide cancellation, implementation faults, auth/quota, unrelatedAPI4xx or refusals. Small single-source video remains map-free and parallel.",
-      "inventory_completeness_fix": "One independent source-only review of the immutable initial checklist before multi-source certified drafting. Cited ranges alone do not establish semantic completeness. Single mode reads the same whole source and known plan that immediately following generation already supports; explicit segmented mode keeps bounded source scopes/workers2. Append only additional source-supported material meaning, never delete/rewrite initial obligations. Empty additional list is allowed when no independent meaning remains. Any failed source review blocks drafting. No recursive scans or weakened source-range validation.",
+      "inventory_completeness_fix": "One independent source-only recall check per original source-work scope, workers2, before multi-source certified drafting. Use a dedicated recall contract rather than the first-pass compression/extraction prompt. Require explicit binding of actor/action/mechanism/setup/result/condition/attribution; a cited range or shared topic is insufficient. Each check sees source-local full obligations and a compact global known-meaning index for duplicate avoidance. Append only source-supported missing meaning, never delete/rewrite initial items. Empty valid results remain valid; any failed required recall batch blocks drafting. Extracted rows cannot self-certify materiality or approval via unrequested flags. Single-source video remains unchanged; generation mode,90percent/160HTTP/3600s unchanged.",
       "pre_disposal_capture": "Record successful JSON parse, actual reader-section/reference/prefix validation and known/unknown/missing private-map counts before any candidate disposal. Keep a private RAM copy of structurally valid generated prose; export only fixed labels/counts. Capture JSON-parse failure size only, never raw content. Clear all buffers. Specific format error code/reason is now allowlisted in the harness; prior lost reasons remain unknown."
     },
     {
@@ -98,8 +98,8 @@
     }
   ],
   "regression": {
-    "new_cases": 109,
-    "related_passed": 533,
+    "new_cases": 112,
+    "related_passed": 536,
     "environment": "local Python3.12,synthetic data,no real model calls; includes fixed archived-inventory validation and source-layout resume tests"
   },
   "real_validation": {
@@ -115,7 +115,7 @@
     "guard_run": 43669862171,
     "guard_http_calls": 0,
     "beijing_date": "2026-11-15",
-    "settled_usd": 34.318842,
+    "settled_usd": 37.57817,
     "scope": "configured_test_account_provider_token",
     "active_production_work": false,
     "daily_shared_limit": 100,
@@ -216,7 +216,7 @@
     "report": "docs/audits/2026-11-15-summary-fixed-inventory-failure.json",
     "same_final_edition_verified": true
   },
-  "next_validation": "One serial full exact source/settings/fresh-memory-checkpoint/fixed137 validation after533relatedpasses, with no extra complete draft generation for private metadata and new pre-disposal shape capture. Final main coverage must contain real result, exact-head CI and protected release evidence; do not promote a high core score alone.",
+  "next_validation": "One serial complete episode after536localpasses. Compare total providerHTTP/wall time, added local-recall work and immutable137acceptance, with richer fixed-label omission roles in the same2failurediagnostics. Do not infer causal latency gain from a single run or call a high fresh-inventory score whole success.",
   "plan_probe_report": "docs/audits/2026-11-15-summary-inventory-plan-probe.json",
   "stream_probe": {
     "run": 43690941933,
@@ -238,5 +238,20 @@
     "quality_reached": false,
     "specific_old_format_field": "not_retained",
     "report": "docs/audits/2026-11-15-summary-draft-format-control.json"
+  },
+  "recall_control": {
+    "run": 43695420923,
+    "core_coverage_before_source_correction": 0.975609756097561,
+    "core_coverage_after_source_correction": 0.967479674796748,
+    "core_http": 39,
+    "core_seconds": 686.037,
+    "frozen_137_coverage": 0.8759124087591241,
+    "frozen_unresolved": 17,
+    "paired_new_losses": 0,
+    "paired_obligations": 6,
+    "unchanged_positive_receipts_reused": 27,
+    "sample_initial_inventory_gaps": 3,
+    "terminal_state": "not_accepted",
+    "report": "docs/audits/2026-11-15-summary-inventory-recall-control.json"
   }
 }

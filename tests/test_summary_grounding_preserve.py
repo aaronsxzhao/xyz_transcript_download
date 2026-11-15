@@ -596,13 +596,15 @@ def test_source_inventory_reviews_meaning_once_without_draft_or_inventory_deleti
     with patch('transcript_reading.source_work_batches',side_effect=parts),patch('coverage_ledger.request',side_effect=respond):
         report,items=build_inventory(owner,lines)
     scans=[request for request in requests if request.get('source_inventory_completeness_check')]
-    assert len(scans)==1  # Never recursively re-scan a valid empty result.
-    assert {row['id'] for row in scans[0]['primary_source']}=={line.id for line in lines}
-    assert len(scans[0]['known_source_obligations'])==2
+    assert len(scans)==2  # One local recall pass, never recursive re-scanning.
+    assert ''.join(row['text'] for scan in scans for row in scan['primary_source'])==''.join(line.text for line in lines)
+    assert all(len(scan['known_source_obligations'])==1 and len(scan['other_known_source_statements'])==1 for scan in scans)
     assert report['inventory_unclaimed_units']==(0 if all_units_cited else 2)
-    assert report['inventory_supplement_batches']==1
+    assert report['inventory_supplement_batches']==2
     assert len(items)==(4 if extra=='material' else 2)
-    assert report.get('inventory_supplement_exact_repeats',0)==int(extra=='material')
+    assert report.get('inventory_supplement_exact_repeats',0)==2*int(extra=='material')
+    assert report['inventory_initial_items']==2
+    assert report['inventory_supplement_added_items']==(2 if extra=='material' else 0)
     assert items[:2][0]['source_ranges']==[{'start':lines[0].id,'end':lines[1 if all_units_cited else 0].id}]
     assert bool(report['inventory_failed_batches'])==(extra=='failed')
     assert report['inventory_unclaimed_units_reviewed']==(0 if extra=='failed' or all_units_cited else 2)
@@ -714,3 +716,21 @@ def test_private_index_repair_never_hides_implementation_error_or_provider_refus
     data={'sections':[{'heading':'Original','paragraphs':[{'text':'Unchanged prose.','source_ranges':item['source_ranges']}]}]}
     with patch('reading_editor._call_editor',side_effect=error):
         with pytest.raises(type(error)):reconcile_obligation_metadata(owner,data,[item],lines)
+
+
+def test_extracted_inventory_cannot_self_certify_materiality_or_skip_independent_matching():
+    from coverage_ledger import inventory_response,_audit
+    owner,lines,sections,prepared=scene();spans=prepared[1][0]['source_ranges']
+    response={'checked_source_ranges':[{'start':lines[0].id,'end':lines[-1].id}],
+        'items':[{'kind':'claim','statement':'Fact 0.','source_ranges':spans,
+            'material':False,'material_reason':'untrusted dismissal','status':'covered','source_corrected':True}]}
+    before=copy.deepcopy(response);items=inventory_response(response,lines)
+    assert items==[{'kind':'claim','statement':'Fact 0.','source_ranges':spans}]
+    items[0]['id']='C0';calls=[]
+    def match(engine,system,payload,validator):
+        calls.append(payload)
+        assert len(payload['items'])==1
+        return {'matches':[row(items[0],'missing')]}
+    with patch('coverage_ledger.request',side_effect=match):ledger,_=_audit(owner,lines,sections,inventory=items,matching_only=True)
+    assert len(calls)==1 and ledger['items'][0]['status']=='missing'
+    assert not coverage_acceptable(ledger) and response==before

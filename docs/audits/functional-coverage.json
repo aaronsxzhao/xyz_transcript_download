@@ -1635,6 +1635,17 @@
         "local_related_passed": 533,
         "whole_episode_accepted": false,
         "fix": "private metadata-only repair; unchanged prose/full inventory/factual gates; pre-disposal format/shape counts"
+      },
+      "local_recall_followup": {
+        "run": 43695420923,
+        "core_http": 39,
+        "core_seconds": 686.037,
+        "core_coverage": 0.967479674796748,
+        "frozen_coverage": 0.8759124087591241,
+        "whole_episode_accepted": false,
+        "sample_inventory_gaps": 3,
+        "local_related_passed": 536,
+        "next": "per-original-scope independent source recall, no original item deletion or quality/budget weakening"
       }
     }
   ],

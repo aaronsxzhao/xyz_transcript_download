@@ -358,3 +358,15 @@ def test_bad_generation_json_has_fixed_shape_evidence_without_saving_private_out
     observer=MemoryDiagnostics();observer.capture_generation_parse_failure({'mode':'single'},120)
     assert observer.generation_snapshots==[{'json_parseable':False,'characters':120,'failure_category':'json'}]
     assert observer.generated_candidate is None
+
+
+@pytest.mark.parametrize('role',['experiment_result','private source quotation'])
+def test_missing_role_diagnosis_exports_only_fixed_categories(role):
+    source,_,payload=fixture();observer=MemoryDiagnostics();observer.capture_payload(payload)
+    observer.inventory_before=copy.deepcopy(payload['inventory'][1]);observer.inventory_after=copy.deepcopy(observer.inventory_before)
+    request=observer.make_request(source,'resolved_ranges_v2');response=verdicts(request)
+    for row in response['samples']:
+        row.update(inventory_before_status='partial',inventory_after_status='partial',gap_importance='material',missing_role=role)
+    typed=validate_verdicts(response,request);result=aggregate_verdicts(request['samples'],[typed,typed])
+    assert result['missing_role_counts']=={role if role=='experiment_result' else 'uncertain':1}
+    assert 'private source quotation' not in json.dumps(result)

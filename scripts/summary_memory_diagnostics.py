@@ -57,6 +57,8 @@ def candidate_shape(payload):
 
 STATUSES = {'covered', 'partial', 'missing', 'contradicted', 'uncertain'}
 SUPPORT = {'supported', 'not_supported', 'uncertain'}
+MISSING_ROLES={'none','mechanism','causal_direction','experiment_setup','experiment_result','condition',
+    'quantity_or_time','attribution','procedure_step','temporal_order','contrast','rationale','scope','uncertain'}
 REASONS = {'none', 'scope', 'attribution', 'quantity_or_time', 'condition',
            'procedure', 'incomplete_support', 'cross_paragraph_context', 'uncertain'}
 
@@ -242,6 +244,8 @@ def validate_verdicts(response, request):
         stage={}
         if request.get('inventory_context'):
             stage={key:row.get(key) for key in ('inventory_before_status','inventory_after_status','gap_importance')}
+            role=row.get('missing_role','uncertain')
+            stage['missing_role']=role if isinstance(role,str) and role in MISSING_ROLES else 'uncertain'
             if (stage['inventory_before_status'] not in STATUSES or stage['inventory_after_status'] not in STATUSES
                     or stage['gap_importance'] not in {'material','incidental','uncertain'}):
                 raise ValueError('Invalid diagnostic labels')
@@ -313,6 +317,9 @@ def aggregate_verdicts(samples, rounds):
             elif a['inventory_after_status']!='covered':stage='inventory_correction_loss'
             else:stage='draft_ignored_supported_plan'
             counters=result.setdefault('inventory_stage_counts',{});counters[stage]=counters.get(stage,0)+1
+            if a['source_support']=='supported' and a['draft_status'] in {'partial','missing'}:
+                role=a.get('missing_role','uncertain') if a.get('missing_role')==b.get('missing_role') else 'reviewer_variation'
+                counters=result.setdefault('missing_role_counts',{});counters[role]=counters.get(role,0)+1
         result['classification_counts'][label] = result['classification_counts'].get(label, 0) + 1
         counters=result['classification_by_sample_type'].setdefault(kind,{})
         counters[label]=counters.get(label,0)+1
@@ -332,6 +339,7 @@ def one_assessment_summary(samples, verdicts):
                 if any(row['source_support']==support and row['draft_status']==status for row in verdicts.values())}}
     if 'inventory_stage_counts' in summary:
         result['single_assessment_inventory_stage_counts']=summary['inventory_stage_counts']
+    if 'missing_role_counts' in summary:result['single_assessment_missing_role_counts']=summary['missing_role_counts']
     return result
 
 
@@ -597,6 +605,9 @@ list is a private planning checklist, not summary prose. For EVERY sample also r
 Judge whether the UNION of statements anywhere in that list contains the sample's
 important source meaning, not whether wording, IDs, or item counts match. Before
 is the immutable plan used to draft; after is the checklist after source corrections.
+Also return "missing_role":"none|mechanism|causal_direction|experiment_setup|experiment_result|condition|quantity_or_time|attribution|procedure_step|temporal_order|contrast|rationale|scope|uncertain".
+For a real omission choose its specific role instead of merely incomplete_support;
+use none when covered and uncertain when the role cannot be resolved.
 Also return "gap_importance":"material|incidental|uncertain": judge the concrete
 remaining draft gap, not the general importance of its topic. Omitted intervention,
 outcome, mechanism, scope-changing attribution, conditions, numerical units and

@@ -21,7 +21,7 @@ COUNTERS = ('coverage_ratio', 'coverage_threshold', 'threshold', 'failed_batches
     'initial_grounding_concerns','stale_gap_receipts_refreshed','empty_repair_rechecks_avoided','regression_pruning_attempts',
     'reused_covered_receipts','existing_redundancy_flags','changed_support_regressions',
     'contradiction_obligations_validated','contradiction_source_corrections',
-    'inventory_supplement_exact_repeats','inventory_unclaimed_units','inventory_supplement_batches','inventory_unclaimed_units_reviewed','inventory_completeness_units_reviewed')
+    'inventory_initial_items','inventory_supplement_added_items','inventory_supplement_exact_repeats','inventory_unclaimed_units','inventory_supplement_batches','inventory_unclaimed_units_reviewed','inventory_completeness_units_reviewed')
 
 ROUND_PHASES = ('initial','resume','after_grounding_repair','final_coverage_repair')
 ROUND_KINDS = ('claim','experiment','counterexample','condition','disagreement','procedure','example')
