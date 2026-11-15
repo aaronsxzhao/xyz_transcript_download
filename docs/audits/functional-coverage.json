@@ -1610,7 +1610,7 @@
         "run": 43687251223,
         "quality_acceptance": false,
         "http": 25,
-        "local_related_passed": 487,
+        "local_related_passed": 494,
         "findings": {
           "draft_ignored_supported_plan": 2,
           "initial_inventory_gap": 1

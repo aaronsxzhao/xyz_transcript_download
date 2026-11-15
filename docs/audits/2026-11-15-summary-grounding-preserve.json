@@ -87,7 +87,7 @@
   ],
   "regression": {
     "new_cases": 70,
-    "related_passed": 487,
+    "related_passed": 494,
     "environment": "local Python3.12,synthetic data,no real model calls; includes fixed archived-inventory validation and source-layout resume tests"
   },
   "real_validation": {
@@ -130,7 +130,15 @@
     "capture_fix": "Matching status=contradicted with grounded=true now captures original linked prose in RAM before correction; counted separately from other grounding flags. No raw prose export.",
     "running_pre_final_real_run": 43673901672,
     "running_pre_final_real_head": "86afa8091ac966fa2c8de41f48287ae7dee47f3b",
-    "next_validation": "One serial final-head whole-episode validation after the granularity/guided-draft/raw-source-preservation fixes and455relatedpasses. Same exact source/model/checkpoints and frozen137items; no cap/threshold/deadline change."
+    "next_validation": "One serial final-head whole-episode validation after the granularity/guided-draft/raw-source-preservation fixes and455relatedpasses. Same exact source/model/checkpoints and frozen137items; no cap/threshold/deadline change.",
+    "plan_reconciliation_ci": {
+      "run": 43689422768,
+      "backend_failed": 7,
+      "backend_passed": 1915,
+      "cause": "concurrent synthetic Provider fixture missing new obligation_ids and treating completeness review as another extraction",
+      "fix": "update only synthetic response schema and assert6distinctsuccessfulrequests per source, unchanged owner concurrency, cancellation and checkpoint reuse assertions",
+      "real_runtime_unchanged_from": "b434ad586c4c09e9565616dcc07fdbd649af3218"
+    }
   },
   "control_result": {
     "run": 43671158025,
