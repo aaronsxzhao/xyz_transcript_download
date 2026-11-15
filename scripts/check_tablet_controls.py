@@ -93,7 +93,7 @@ async def check(browser, origin, width, output):
         await more.click()
         await page.get_by_role('combobox', name='Interface style').focus()
         assert await page.locator('.task-more[open]').count() == 0, 'Focus leaving the menu did not dismiss More'
-        await page.get_by_role('link',name='View',exact=True).click()
+        await page.get_by_role('link',name='Read summary',exact=True).click()
         await page.wait_for_url('**/videos/bench')
     except Exception:
         await page.screenshot(path=str(output/f'failure-{width}.png'), full_page=True)

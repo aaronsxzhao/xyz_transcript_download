@@ -1,3 +1,4 @@
+import {contentDate} from '../ContentDates'
 import { lazy, useEffect, useRef } from "react";
 import { ExternalLink, X } from "lucide-react";
 import { OptionalTool } from "../DeferredView";
@@ -92,7 +93,7 @@ export default function ReaderDetails({
                 <option key={version.id} value={version.id}>
                   v{versions.length - index} · {version.style || "default"}
                   {version.created_at
-                    ? ` · ${new Date(version.created_at).toLocaleDateString()}`
+                    ? ` · ${contentDate(version.created_at)}`
                     : ""}
                 </option>
               ))}

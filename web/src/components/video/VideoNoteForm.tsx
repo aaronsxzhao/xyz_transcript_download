@@ -671,7 +671,7 @@ export default function VideoNoteForm({ onTaskCreated, hideTitle, initialUrl = '
         ) : (
           <>
             <Play size={16} />
-            {socialLink ? 'Import content' : 'Generate Notes'}
+            {socialLink ? 'Import content' : 'Generate notes'}
           </>
         )}
       </button>

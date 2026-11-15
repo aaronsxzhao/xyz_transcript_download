@@ -141,3 +141,12 @@ it('reconciles a cross-tab account change that happened before the watcher mount
   expect(getAuthGeneration()).toBe(generation+1)
   stop()
 })
+
+it('renders one reader outline for generated English Contents without changing source articles', () => {
+ const source='# Me at the zoo\n\n## Contents\n\n- [AI Summary](#ai-summary)\n- [At the elephant](#at-the-elephant)\n\n## AI Summary\n\nA brief observation.\n\n## At the elephant\n\nOriginal paragraph.'
+ expect(prepareNoteMarkdown(source)).not.toContain('## Contents')
+ expect(prepareNoteMarkdown(source)).toContain('Original paragraph.')
+ expect(extractNoteToc(source).map(item=>item.text)).toEqual(['Me at the zoo','AI Summary','At the elephant'])
+ expect(extractNoteToc(source,true).map(item=>item.text)).toContain('Contents')
+ for(const ordinary of ['## Contents\n\nThis is editorial prose.', '## Contents\n\n- Apples\n- Pears', '## Contents\n\n- [External source](https://example.com)' ,'```markdown\n## Contents\n- [Link](#link)\n```']) expect(prepareNoteMarkdown(ordinary)).toBe(ordinary)
+})

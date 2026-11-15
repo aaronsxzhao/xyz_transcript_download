@@ -215,7 +215,7 @@ async def measure(browser, origin, verify, recovery_only=False):
         # depend on whether the runner took longer than that cache window.
         await page.goto(origin + '/podcasts/prefetch/episodes')
         await page.locator('a[href="/viewer/prefetch"]').wait_for()
-        await page.get_by_role('link', name='View', exact=True).focus()
+        await page.get_by_role('link', name='Read summary', exact=True).focus()
         cached = False
         deadline = time.monotonic() + 5
         while time.monotonic() < deadline:
@@ -228,7 +228,7 @@ async def measure(browser, origin, verify, recovery_only=False):
         assert await page.evaluate("localStorage.getItem('xyz_cache_bench:summary_prefetch') === null")
         state['delay'] = 8
         prefetch_started = time.perf_counter()
-        await page.get_by_role('link', name='View', exact=True).click()
+        await page.get_by_role('link', name='Read summary', exact=True).click()
         await page.get_by_text('Readable saved overview.', exact=True).wait_for(timeout=1500)
         prefetched_summary_ms = round((time.perf_counter() - prefetch_started) * 1000)
         assert prefetched_summary_ms < 1500

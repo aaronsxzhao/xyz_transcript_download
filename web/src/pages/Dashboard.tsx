@@ -718,7 +718,7 @@ export default function Dashboard() {
                 ) : (
                   <Plus className="w-5 h-5" />
                 )}
-                Process
+                Generate notes
               </button>
             </form>
             {!activeQueue.length && (
@@ -744,7 +744,7 @@ export default function Dashboard() {
             </div>
           </div>
 
-          <section aria-label="Continue reading" className="space-y-3">
+          <section aria-label="Continue reading" className="dashboard-reading space-y-3" data-empty={!reading.length && readingStatus !== "error"}>
             <div className="flex items-center justify-between">
               <h2 className="text-lg font-semibold">Continue reading</h2>
               <Link className="text-sm text-indigo-300" to="/library">

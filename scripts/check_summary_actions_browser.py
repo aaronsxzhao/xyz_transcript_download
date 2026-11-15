@@ -68,7 +68,7 @@ async def main():
      assert not calls
      await confirm_action(page,page.get_by_role('button',name='Delete summary only',exact=True),True)
      await page.wait_for_function("[...document.querySelectorAll('button')].some(b=>b.textContent==='Delete summary only'&&b.disabled)")
-     await page.get_by_role('button',name='Process',exact=True).wait_for()
+     await page.get_by_role('button',name='Generate notes',exact=True).wait_for()
      assert calls==(['/api/summaries/bench'] if kind=='episode' else ['/api/video-notes/tasks/bench/summary'])
      assert await page.get_by_role('heading',name=title,exact=True).count()==1
      assert episode['has_transcript'] and task['transcript']

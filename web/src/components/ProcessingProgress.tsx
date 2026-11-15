@@ -1,3 +1,4 @@
+import {contentDate} from './ContentDates'
 import Button from "./ui/Button";
 import { useRef, useState } from "react";
 import { Link } from "react-router-dom";
@@ -71,7 +72,7 @@ export default function ProcessingProgress({
         </h3>
         <p className="text-xs text-gray-400 mt-1">
         {source.name}
-        {created && Number.isFinite(created.getTime()) && <> · Task created <time dateTime={typeof createdValue === 'string' ? createdValue : created.toISOString()}>{created.toLocaleDateString()}</time></>}
+        {created && Number.isFinite(created.getTime()) && <> · Task created <time dateTime={typeof createdValue === 'string' ? createdValue : created.toISOString()}>{contentDate(created.toISOString())}</time></>}
         </p>
         </div>
       </div>

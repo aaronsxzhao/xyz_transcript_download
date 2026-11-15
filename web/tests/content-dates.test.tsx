@@ -30,3 +30,10 @@ it('keeps the import date without repeating missing publication notices in compa
  expect(html).toContain('Imported 2026-10-30')
  expect(html).not.toContain('Publication date unavailable')
 })
+
+it('keeps an old source publication separate from a new library import', () => {
+ const html = renderToStaticMarkup(<ContentDates published="2005-04-24" imported="2026-11-09T05:51:46.372982+00:00" />)
+ expect(html).toContain('Published 2005-04-24')
+ expect(html).toContain('Imported 2026-11-09')
+ expect(html).not.toContain('4/24/2005')
+})

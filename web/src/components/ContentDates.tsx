@@ -1,4 +1,4 @@
-function day(value?: string): string {
+export function contentDate(value?: string): string {
   const match = value?.match(/^(\d{4})-?(\d{2})-?(\d{2})(?:T| |$)/)
   if (!match) return ''
   const date = `${match[1]}-${match[2]}-${match[3]}`
@@ -8,7 +8,7 @@ function day(value?: string): string {
 
 /** Keep source dates distinct from the time content was added to this app. */
 export default function ContentDates({published, imported, local = false, compact = false}: {published?: string; imported?: string; local?: boolean; compact?: boolean}) {
-  const source = day(published), added = day(imported)
+  const source = contentDate(published), added = contentDate(imported)
   if (local) return added ? <time dateTime={added}>Uploaded {added}</time> : null
   return <>
     {source ? <time dateTime={source}>Published {source}</time> : !compact ? <span title="The source has not provided a publication date. Import time is shown separately.">Publication date unavailable</span> : null}

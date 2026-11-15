@@ -51,3 +51,13 @@ html[data-theme='light'] .note-prose.prose pre code span {
   background:transparent;
   text-shadow:none;
 }
+
+/* Keep the compact two-line identity beside full-size phone controls. */
+@media(max-width:767px) {
+  html[data-design='classic'] .publication-brand>svg { display:none; }
+  html[data-design='classic'] .publication-brand-name { display:block; max-width:80px; line-height:1.35; }
+  html[data-design='classic'] .publication-nav-inner { padding-inline:12px; gap:6px; }
+}
+@media(max-width:380px) {
+  html[data-design] .publication-nav-inner { padding-inline:8px; gap:6px; }
+}

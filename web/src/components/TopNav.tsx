@@ -65,7 +65,7 @@ export default function TopNav() {
         {/* Logo */}
         <Link to="/" aria-label="Podcast and Video Tool home" className="publication-brand flex items-center gap-2 flex-shrink-0">
           <Radio className="w-5 h-5 text-indigo-500" />
-          <span className="font-semibold text-sm text-white hidden lg:inline">Podcast & Video Tool</span>
+          <span className="font-semibold text-sm text-white hidden lg:inline publication-brand-name">Podcast & Video Tool</span>
         </Link>
 
         {/* Desktop nav */}

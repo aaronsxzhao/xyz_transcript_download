@@ -25,7 +25,7 @@ beforeEach(()=>{
 afterEach(()=>{act(()=>root.unmount());node.remove();clearCache();useStore.getState().reset();vi.unstubAllGlobals();vi.restoreAllMocks()})
 async function mount(){await act(async()=>root.render(<MemoryRouter initialEntries={['/podcasts/show/episodes']}><Routes><Route path='/podcasts/:pid/episodes' element={<Episodes/>}/></Routes></MemoryRouter>))}
 const card=(id:string)=>[...node.querySelectorAll('h3')].find(el=>el.textContent==='Episode '+id)!.closest('.rounded-xl')!
-const process=(id:string)=>[...card(id).querySelectorAll('button')].find(el=>el.textContent?.trim()==='Process')!
+const process=(id:string)=>[...card(id).querySelectorAll('button')].find(el=>el.textContent?.trim()==='Generate notes')!
 it.each(['apple','spotify','local'])('loads source details on a cold %s page without blocking its episodes',async platform=>{
  let finish!:(value:Podcast)=>void
  vi.mocked(fetchPodcast).mockImplementationOnce(()=>new Promise(resolve=>{finish=resolve}))
@@ -82,7 +82,7 @@ it('persists completed episode annotations so revisiting the page keeps its summ
  await mount()
  vi.mocked(fetchEpisode).mockResolvedValueOnce({...episode('one'),has_transcript:true,has_summary:true,topics_count:4,key_points_count:8})
  await act(async()=>useStore.getState().updateJob({job_id:'done',episode_id:'one',status:'completed',progress:100,message:'Complete'}))
- expect(card('one').textContent).toContain('View')
+ expect(card('one').textContent).toContain('Read summary')
  expect(getCache<Episode[]>(CacheKeys.EPISODES('show'))?.find(row=>row.eid==='one')?.has_summary).toBe(true)
 })
 it('keeps pagination available after deleting a row while source counts are stale',async()=>{
@@ -109,9 +109,9 @@ it('does not lose a newly completed summary when an older page response arrives'
  await mount()
  vi.mocked(fetchEpisode).mockResolvedValueOnce({...episode('one'),has_transcript:true,has_summary:true,topics_count:4,key_points_count:8})
  await act(async()=>useStore.getState().updateJob({job_id:'done',episode_id:'one',status:'completed',progress:100,message:'Complete'}))
- expect(card('one').textContent).toContain('View')
+ expect(card('one').textContent).toContain('Read summary')
  await act(async()=>finish([episode('one'),episode('two')]))
- expect(card('one').textContent).toContain('View')
+ expect(card('one').textContent).toContain('Read summary')
  expect(node.textContent).toContain('Episode two')
  expect(getCache<Episode[]>(CacheKeys.EPISODES('show'))?.find(row=>row.eid==='one')?.has_summary).toBe(true)
 })
@@ -148,5 +148,5 @@ it('keeps the episode after summary deletion and ignores an older completion rea
  const saved=getCache<Episode[]>(CacheKeys.EPISODES('show'))!
  expect(saved).toHaveLength(1);expect(saved[0].has_summary).toBe(false);expect(saved[0].has_transcript).toBe(true)
  expect(deleteEpisode).not.toHaveBeenCalled()
- expect(card('one').textContent).not.toContain('View')
+ expect(card('one').textContent).not.toContain('Read summary')
 })

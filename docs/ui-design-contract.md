@@ -92,3 +92,19 @@ viewport position, even when Continue reading changes height or order. Retain
 the selected recent-content filter and loaded pages. Further user scrolling
 stops automatic position correction. Store this context per account and tab;
 it must not replace the reader's own saved reading position.
+
+## Approved review refinements (2026-11-15)
+
+- Restore Classic's two-line phone brand without reducing touch targets.
+- Tighten idle dashboard/form spacing while keeping all statistics and entry positions.
+- Editorial controls, form explanations and system metadata use system sans-serif;
+  publication titles and reading prose retain the serif family.
+- The phone recent-content filters form one four-item row below the heading.
+- Generated video-note navigation lists titled Contents, Table of Contents or 目录
+  are omitted from the rendered note when the reader already provides navigation.
+  Source articles and saved/exported Markdown retain their original content.
+- Saved-content dates use YYYY-MM-DD, preserving the source calendar day and the
+  separate Published / Saved / Imported meanings. Generation actions say Generate notes.
+- Tables keep minimum cell widths and scroll within their region on small screens.
+- Editorial's small-screen import-after-content order and large reader cover are
+  intentional and must remain unchanged.
