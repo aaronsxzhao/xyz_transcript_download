@@ -64,7 +64,7 @@ def record_provider_error(report, kwargs, error):
              'invalid_request_error','invalid_value','unsupported_parameter','unsupported_value',
              'insufficient_quota','billing_hard_limit_reached','rate_limit_exceeded'}
     params = {'max_tokens','max_completion_tokens','temperature','reasoning_effort','service_tier',
-              'response_format','messages','model'}
+              'response_format','messages','model','stream','stream_options'}
     if isinstance(detail,dict):
         for field, allowed in (('code', codes), ('param', params)):
             value = detail.get(field)
@@ -326,6 +326,9 @@ def child(destination):
                       environment='isolated Actions runner; read-only billing and queue probe; zero model calls')
         publish()
         return
+    if os.environ.get('EPISODE_STREAM_PROBE') == '1':
+        run_json_stream_probe(settings,report,guard,publish)
+        return
     # Read only a different explicitly authorized episode. No rejected source is
     # selected, loaded, split, transformed or routed through another executor.
     historical_mode = os.environ.get('EPISODE_HISTORICAL_GAP_REVIEW') == '1'
@@ -512,6 +515,49 @@ def child(destination):
             report['final_budget_guard_passed'] = False
         else:
             report['final_budget_guard_passed'] = True
+        publish()
+
+
+def run_json_stream_probe(settings,report,guard,publish):
+    """One synthetic paid capability check; never load or send a transcript."""
+    from api.llm_settings import resolve_llm_settings
+    from api.custom_models import custom_http_client
+    from summarizer import Summarizer
+    from unittest.mock import patch
+    from summary_format import extract_model_json
+    resolved=resolve_llm_settings(settings);enforce_authorized_destination(resolved)
+    report.update(environment='isolated synthetic JSON-stream capability probe; no transcript loaded',
+        quality_acceptance=False,request_limit=1,source_content_sent=False)
+    report['model_settings_fingerprint']=hashlib.sha256(json.dumps({k:resolved[k] for k in ('model','model_options') if k in resolved},sort_keys=True).encode()).hexdigest()
+    calls=Calls(guard,report,publish,maximum=1);http=custom_http_client()
+    http.event_hooks.setdefault('request',[]).append(calls.outbound)
+    http.event_hooks.setdefault('response',[]).append(calls.response)
+    with patch('api.custom_models.custom_http_client',return_value=http):engine=Summarizer(**resolved)
+    engine.client=TrackedClient(engine.client,calls)
+    started=time.monotonic();stream=None
+    try:
+        stream=engine.client.with_options(timeout=120,max_retries=0).chat.completions.create(
+            model=engine.model,messages=[{'role':'system','content':'Return exactly a JSON object with ok=true. No other content.'},
+                {'role':'user','content':'Synthetic JSON stream capability check.'}],response_format={'type':'json_object'},temperature=0,stream=True)
+        chunks=[];finish=None;events=0
+        for chunk in stream:
+            events+=1
+            if not chunk.choices:continue
+            choice=chunk.choices[0]
+            if choice.delta.content:chunks.append(choice.delta.content)
+            if choice.finish_reason:finish=choice.finish_reason
+        parsed=extract_model_json(''.join(chunks))
+        report['stream_probe']={'received_events':events,'clean_stop':finish=='stop','expected_json':parsed=={'ok':True}}
+        report['terminal_state']='stream_probe_passed' if finish=='stop' and parsed=={'ok':True} else 'stream_probe_failed'
+    except Exception as error:report.update(terminal_state='stream_probe_failed',error_type=type(error).__name__)
+    finally:
+        if stream is not None:
+            try:stream.close()
+            except Exception:pass
+        engine.client.close();report['wall_seconds']=round(time.monotonic()-started,3)
+        try:guard(calls.day,force=True)
+        except TestGuardStopped:report['final_budget_guard_passed']=False
+        else:report['final_budget_guard_passed']=True
         publish()
 
 
@@ -753,6 +799,8 @@ def main():
             print(json.dumps({'terminal_state':'blocked','blocker':'existing_bindings_unavailable'}))
             return 2
         destination = Path(temporary)/'aggregate.json'
+        if '--probe-json-stream' in sys.argv:
+            bindings['EPISODE_STREAM_PROBE']='1'
         if '--probe-guard' in sys.argv:
             bindings['EPISODE_GUARD_PROBE_ONLY'] = '1'
         if '--review-historical-gaps' in sys.argv:
@@ -798,6 +846,8 @@ def main():
         # stdout, stderr, model output or source leaves its temporary process.
         report = json.loads(destination.read_text())
         print(json.dumps({'authorized_episode_validation':report}))
+        if '--probe-json-stream' in sys.argv:
+            return 0 if report.get('terminal_state')=='stream_probe_passed' and report.get('final_budget_guard_passed') else 2
         if '--probe-guard' in sys.argv:
             return 0 if report.get('terminal_state')=='guard_probe_passed' else 2
         if '--review-historical-gaps' in sys.argv:
