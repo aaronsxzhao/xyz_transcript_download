@@ -18,13 +18,14 @@ export function normalizeNoteHeadings(markdown: string): string {
 export function prepareNoteMarkdown(markdown: string) {
   markdown = normalizeNoteHeadings(markdown)
   const tokens = Lexer.lex(markdown)
-  const index = tokens.findIndex(token => token.type === 'heading' && token.depth === 2 && /^(目录|Table of Contents)$/i.test(token.text.trim()))
+  const index = tokens.findIndex(token => token.type === 'heading' && token.depth === 2 && /^(目录|Contents|Table of Contents)$/i.test(token.text.trim()))
   if (index < 0) return markdown
   let end = index + 1
   while (end < tokens.length && tokens[end].type !== 'heading') end++
   const body = tokens.slice(index + 1, end)
   // Remove only a generated navigation list, never prose or fenced source.
   if (!body.some(token => token.type === 'list') || body.some(token => !['list', 'space', 'hr'].includes(token.type))) return markdown
+  if (body.some(token => token.type === 'list' && token.items.some((item: Tokens.ListItem) => !/^(?:\s*(?:[-+*]|\d+[.)])?\s*\[[^\]]+\]\(#[^)]+\)\s*)+$/.test(item.text.trim())))) return markdown
   return [...tokens.slice(0, index), ...tokens.slice(end)].map(token => token.raw).join('')
 }
 
@@ -58,7 +59,7 @@ export function inlineNoteText(tokens:Inline[]):string {
   return tokens.map(token=>token.tokens?inlineNoteText(token.tokens):token.type === 'codespan' ? token.text || '' : decodeNoteText(token.text || '')).join('')
 }
 
-export function extractNoteToc(markdown:string,preserveSource=false) {
+export function extractNoteToc(markdown:string,preserveSource=false,readerTitle?:string) {
   const counts:Record<string,number>=Object.create(null)
   const headings:{level:number;text:string;slug:string}[]=[]
   walkTokens(Lexer.lex(preserveSource?markdown:prepareNoteMarkdown(markdown)),token=>{
@@ -68,5 +69,5 @@ export function extractNoteToc(markdown:string,preserveSource=false) {
     const slug=uniqueNoteHeadingSlug(text,counts)
     if(heading.depth<=3)headings.push({level:heading.depth,text,slug})
   })
-  return headings
+  return headings.filter((heading,index)=>preserveSource || index>0 || heading.level!==1 || heading.text.trim()!==readerTitle?.trim())
 }

@@ -110,6 +110,11 @@ jobs:
         run: |
           python scripts/check_youtube_verification_browser.py
           python scripts/check_youtube_verification_browser.py --webkit
+      - name: Check approved design refinements
+        timeout-minutes: 5
+        run: |
+          python scripts/check_review_fixes.py --browser-path /usr/bin/google-chrome
+          python scripts/check_review_fixes.py --webkit --widths 320 390 820 1440 --output appearance-checks/design-refinements-webkit
       - name: Capture cold-start page matrix
         timeout-minutes: 5
         run: python scripts/check_ui_page_matrix.py --output appearance-checks/page-matrix

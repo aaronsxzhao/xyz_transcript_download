@@ -1,3 +1,4 @@
+import {contentDate} from '../components/ContentDates'
 import {useReaderReturn} from '../lib/readerReturn'
 import {retryCoverageReview} from '../lib/coverageReview';
 import LoadError from '../components/LoadError';
@@ -407,7 +408,7 @@ export default function VideoViewer() {
       !!content &&
       viewMode === "markdown",
   );
-  const toc = useMemo(() => extractNoteToc(content,isOriginal), [content,isOriginal]);
+  const toc = useMemo(() => extractNoteToc(content,isOriginal,task?.title), [content,isOriginal,task?.title]);
 
   const scrollToHeading = (slug: string) => {
     const el = document.getElementById(slug);
@@ -469,10 +470,10 @@ export default function VideoViewer() {
           {sourceAuthor && sourceAuthor !== task.channel && (
             <span>By {sourceAuthor}</span>
           )}
-          {task.published_at && (
-            <span>
-              Published {new Date(task.published_at).toLocaleDateString()}
-            </span>
+          {contentDate(task.published_at) && (
+            <time dateTime={contentDate(task.published_at)} title="Original source publication date">
+              Published {contentDate(task.published_at)}
+            </time>
           )}
           {!isOriginal && task.duration > 0 && <span>{formatDuration(task.duration)}</span>}
           {selectedStyle && <span>{selectedStyle}</span>}

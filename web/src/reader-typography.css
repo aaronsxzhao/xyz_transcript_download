@@ -9,6 +9,22 @@
 @source "./components/video/MarkdownPreview.tsx";
 @config "../tailwind.config.js";
 
+.note-prose { --tw-prose-body: #d1d5db; }
+.note-prose > :first-child { margin-top: 0; }
+.note-prose h2 { scroll-margin-top: 1rem; border-bottom: 1px solid #334155; padding-bottom: .5rem; }
+.note-prose p, .note-prose li { line-height: 1.75; }
+.note-prose table { display: block; max-width: 100%; overflow-x: auto; }
+.note-prose pre { max-width: 100%; overflow-x: auto; }
+.note-prose img { margin-block: .75rem; }
+.note-prose button img { margin: 0; }
+.note-prose h1 { font-size: 1.65em; line-height: 1.35; margin: 0 0 1.25rem; }
+.note-prose h2 { font-size: 1.3em; margin-top: 1.8rem; margin-bottom: .8rem; color: #b7c1ff; }
+.note-prose h3 { font-size: 1.12em; margin-top: 1.4rem; margin-bottom: .6rem; }
+.note-prose p { margin-block: .75em; }
+.note-prose li > span > p { margin-block: .3em; }
+.note-prose th, .note-prose td { border: 1px solid #334155; padding: .5rem .75rem; }
+.note-prose th { background: #334155; }
+
 /* Keep long native list numbers in the content box, including old saved notes.
    Normal one/two-digit lists retain their original hanging indentation. */
 .note-prose :is(ol,ul) { list-style-position:outside; }
@@ -17,9 +33,17 @@
 .note-prose ol.wide-number-list>li { overflow-wrap:anywhere; }
 .note-prose :is(ol,ul)>li::marker { color:var(--ui-secondary,#94a3b8); }
 .note-prose .markdown-table { max-width:100%; min-width:0; }
-.note-prose .markdown-table table { display:table; width:100%; min-width:480px; max-width:none; }
+.note-prose .markdown-table table { display:table; width:100%; min-width:480px; max-width:none; table-layout:auto; }
 .note-prose .markdown-table:focus-visible { outline:2px solid var(--ui-accent,#818cf8); outline-offset:2px; }
 
 /* Wide math belongs to its own scroller, never the page's reading column. */
 .note-prose .katex-display { max-width:100%; overflow-x:auto; overflow-y:hidden; overscroll-behavior-x:contain; }
 .note-prose .katex-display>.katex { width:max-content; min-width:100%; }
+
+/* Preserve short column labels; constrain scrolling to the table region. */
+.note-prose .markdown-table :is(th,td){min-width:100px;word-break:normal;overflow-wrap:normal}
+.note-prose .markdown-table :is(th,td) :is(a,code){overflow-wrap:anywhere}
+
+.podcast-reader .markdown-table table { display:table; width:100%; min-width:480px; }
+
+.reader-body [id] { scroll-margin-top: 1rem; }

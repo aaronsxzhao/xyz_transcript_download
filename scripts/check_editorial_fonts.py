@@ -67,7 +67,7 @@ async def check(browser, origin, width, args):
                         fonts = (await cdp.send('CSS.getPlatformFontsForNode', {'nodeId':node['nodeId']}))['fonts']
                         assert any(f['isCustomFont'] and 'Serif' in f['familyName'] and f['glyphCount'] for f in fonts), (target, fonts)
                         assert not any('Sans' in f['familyName'] for f in fonts), (target, fonts)
-                assert await page.locator('button,select,input').evaluate_all("es=>es.every(e=>getComputedStyle(e).fontFamily.includes('Noto Serif SC'))")
+                assert await page.locator('button,select,input').evaluate_all("es=>es.every(e=>getComputedStyle(e).fontFamily.includes('sans-serif'))")
                 assert not await page.evaluate('document.documentElement.scrollWidth>innerWidth+1')
                 await page.locator(selector).first.scroll_into_view_if_needed()
                 await page.screenshot(path=str(args.output/f'{width}-{theme}-{"reader" if "videos" in path else "dashboard"}.png'))

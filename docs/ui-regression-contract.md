@@ -8,7 +8,7 @@ Record current main SHA, relevant open PRs and the last report. Use an isolated 
 
 | Surface/change | Existing executable regression | What it protects |
 | --- | --- | --- |
-| All page presentation | `check_ui_page_matrix.py`, `check_appearance.py`, `check_editorial_components.py` | Cold starts, page bounds, saved themes, retained state, controls and composited contrast |
+| All page presentation | `check_ui_page_matrix.py`, `check_appearance.py`, `check_editorial_components.py`, `check_review_fixes.py` | Cold starts, page bounds, saved themes, retained state, controls and composited contrast |
 | Header, toolbar, responsive spacing | `check_mobile_controls.py`, `check_tablet_controls.py`, `check_editorial_fonts.py` | Touch targets, mobile title, fonts, narrow layouts |
 | Dashboard / Library / series | `check_dashboard_recent.py`, `check_dashboard_return.py`, `check_series_theme_browser.py`, `check_series_browser.py`, `check_series_spacing.py`, `check_library_browser.py` | Dashboard entry-card return position, retained filters/pages, grouping, pagination, search, list/grid alignment, matched-title row/footer height and disclosure hit targets, fallback and no duplicate base CSS |
 | Channel / multipart reader | `check_unassigned_channels.py`, `check_bilibili_parts_browser.py` and relevant collection unit/API tests | Source identity, numeric order, current/ready/selected states, expanded reader directory, legacy parts |

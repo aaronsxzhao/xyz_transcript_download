@@ -370,7 +370,7 @@ export default function Episodes() {
                           className="ui-button ui-button-primary"
                         >
                           <CheckCircle size={16} />
-                          View
+                          Read summary
                         </Link>
                       </>
                     )
@@ -394,7 +394,7 @@ export default function Episodes() {
                       ) : (
                         <Play size={16} />
                       )}
-                      {sourceBlocked(episode.source_status) && !episode.has_transcript ? 'Source access required' : 'Process'}
+                      {sourceBlocked(episode.source_status) && !episode.has_transcript ? 'Source access required' : 'Generate notes'}
                     </button>
                   )
                 })()}

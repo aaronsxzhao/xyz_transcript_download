@@ -11,7 +11,8 @@ export interface MapOutline {
   count: number;
   limited: boolean;
 }
-export const MAP_FORMAT = 1;
+// The reader now omits English Contents navigation. Do not reuse older graphs.
+export const MAP_FORMAT = 2;
 const MAX_NODES = 220;
 const MAX_LABEL = 180;
 const escape = (text: string) =>

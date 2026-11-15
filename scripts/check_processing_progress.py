@@ -68,7 +68,7 @@ async def check(browser,origin,width):
     page=await context.new_page();errors=[];page.on('pageerror',lambda error:errors.append(str(error)))
     await page.goto(origin+'/videos?platform=substack&channel=Writer',wait_until='domcontentloaded')
     row=page.locator('.video-task-list')
-    await row.get_by_role('button',name='Process',exact=True).click()
+    await row.get_by_role('button',name='Generate notes',exact=True).click()
     await row.get_by_text('Queued',exact=True).wait_for(timeout=5000)
     state.update(phase='summarizing',version=3)
     try: await row.get_by_text('Generating summary',exact=True).wait_for(timeout=10000)
@@ -76,13 +76,13 @@ async def check(browser,origin,width):
         print(json.dumps({'state':state,'body':await page.locator('body').inner_text(),'errors':errors}),flush=True)
         raise
     state.update(phase='success',version=4)
-    await row.get_by_role('link',name='View',exact=True).wait_for(timeout=10000)
+    await row.get_by_role('link',name='Read post',exact=True).wait_for(timeout=10000)
     assert state['progress_reads']>=2
     state.update(case='fast',phase='discovered',accepted=False,version=1)
     await page.goto(origin+'/videos?platform=substack&channel=Writer&import=https%3A%2F%2Fwriter.substack.com%2Fp%2Ffast',wait_until='domcontentloaded')
     await page.get_by_role('button',name='Import content',exact=True).click()
     await page.locator('.video-task-list').get_by_role('heading',name='Synthetic fast import',exact=True).wait_for(timeout=10000)
-    await page.locator('.video-task-list').get_by_role('link',name='View',exact=True).wait_for(timeout=10000)
+    await page.locator('.video-task-list').get_by_role('link',name='Read post',exact=True).wait_for(timeout=10000)
     assert state['detail_reads']>=1
     assert not await page.locator('.video-task-list').get_by_text('Queued',exact=True).count()
     assert not errors,errors

@@ -33,14 +33,6 @@ body {
 :where(button,a,select) { touch-action: manipulation; }
 .reader-body, .reader-body p, .reader-body li { font-size: var(--reader-font-size, 16px); line-height: 1.8; }
 .reader-body article { max-width: 1120px; width: 100%; margin-inline: auto; overflow-wrap: anywhere; }
-.note-prose { --tw-prose-body: #d1d5db; }
-.note-prose > :first-child { margin-top: 0; }
-.note-prose h2 { scroll-margin-top: 1rem; border-bottom: 1px solid #334155; padding-bottom: .5rem; }
-.note-prose p, .note-prose li { line-height: 1.75; }
-.note-prose table { display: block; max-width: 100%; overflow-x: auto; }
-.note-prose pre { max-width: 100%; overflow-x: auto; }
-.note-prose img { margin-block: .75rem; }
-.note-prose button img { margin: 0; }
 .mindmap-canvas { height: 100%; min-height: 460px; }
 .mindmap-canvas .markmap { color: #e2e8f0; }
 .mindmap-canvas .markmap-foreign a { color: #a5b4fc; }
@@ -118,17 +110,9 @@ body {
    images; max-height:100% in normal flex flow can resolve as unbounded there. */
 .note-prose .reader-screenshot img { position: absolute; inset: 0; display: block; width: auto; height: auto; max-width: 100%; max-height: 100%; margin: auto; object-fit: contain; }
 .markdown-table { width: 100%; overflow-x: auto; }
-.note-prose h1 { font-size: 1.65em; line-height: 1.35; margin: 0 0 1.25rem; }
-.note-prose h2 { font-size: 1.3em; margin-top: 1.8rem; margin-bottom: .8rem; color: #b7c1ff; }
-.note-prose h3 { font-size: 1.12em; margin-top: 1.4rem; margin-bottom: .6rem; }
-.note-prose p { margin-block: .75em; }
-.note-prose li > span > p { margin-block: .3em; }
-.note-prose th, .note-prose td { border: 1px solid #334155; padding: .5rem .75rem; }
-.note-prose th { background: #334155; }
 
 /* Shared reader preferences; leave screenshot bounds independent of text width. */
 html[data-reader-contents="hidden"] [data-reader-contents], html[data-reader-contents="hidden"] .reader-contents { display: none; }
-.reader-body [id] { scroll-margin-top: 1rem; }
 
 /* Application chrome is compact; reading content keeps its independent scale. */
 .app-shell { height:100vh; height:100dvh; color: var(--ui-text); font-size: 14px; line-height: 1.5; }
@@ -313,7 +297,6 @@ html[data-reader-contents="hidden"] [data-reader-contents], html[data-reader-con
 .podcast-reader .note-prose p { margin-block:0 18px; color:#c4cdda; }
 .podcast-reader .note-prose h4 { font-size:calc(var(--reader-font-size,16px) + 1px); line-height:1.65; margin:20px 0 14px; font-weight:650; color:#e5e8f0; }
 .podcast-reader .note-prose strong { font-weight:600; }
-.podcast-reader .markdown-table table { display:table; width:100%; min-width:480px; }
 .podcast-reader .reader-core h2 { font-size:16px; color:#c8bfff; margin-bottom:16px; font-weight:650; }
 .podcast-reader .reader-core .note-prose ul { padding-left:20px; margin-bottom:0; }
 .podcast-reader .reader-quote { border:0; padding:12px 16px; background:#1b2534; border-radius:9px; font-size:13px; }
@@ -452,11 +435,11 @@ html[data-reader-contents="hidden"] .unified-reader{grid-template-columns:minmax
 .dashboard-notification{display:flex;align-items:center;gap:14px;padding:16px;border:1px solid #514266;border-radius:10px;background:linear-gradient(110deg,#30274466,#1c293c88);color:#c1aaf0}
 .dashboard-notification>div{flex:1;min-width:0}.dashboard-notification h2{color:#e3e0f1;font-weight:600;font-size:14px}.dashboard-notification h2 span{color:#ab9fbb;font-size:12px;font-weight:400;margin-left:10px}
 .dashboard-notification p{color:#9f9db0;font-size:12px;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.dashboard-workspace{display:grid;grid-template-columns:1fr;gap:24px}.dashboard-workspace.has-processing{grid-template-columns:minmax(0,1fr) 360px}.dashboard-main-work{display:flex;flex-direction:column;gap:26px;min-width:0}
-.dashboard-page #dashboard-add-content{padding:20px;background:#1a2535}.dashboard-page h2{font-size:17px;font-weight:600}.dashboard-page #dashboard-add-content h2{margin-bottom:14px}
+.dashboard-workspace{display:grid;grid-template-columns:1fr;gap:24px}.dashboard-workspace.has-processing{grid-template-columns:minmax(0,1fr) 360px}.dashboard-main-work{display:flex;flex-direction:column;gap:16px;min-width:0}
+.dashboard-page #dashboard-add-content{padding:16px;background:#1a2535}.dashboard-page h2{font-size:17px;font-weight:600}.dashboard-page #dashboard-add-content h2{margin-bottom:10px}
 .dashboard-page #dashboard-add-content form{gap:10px}.dashboard-page #dashboard-add-content form :is(input,button){min-height:42px;font-size:13px;padding:10px 12px}
-.dashboard-idle,.dashboard-add-helper{display:flex;justify-content:space-between;align-items:center;gap:12px;font-size:12px;margin-top:12px;color:#9ebbb3}
-.dashboard-idle .reader-action,.dashboard-add-helper .reader-action{font-size:12px;padding:3px 0;color:#b8a8eb}.dashboard-add-helper{color:var(--ui-muted);font-size:11px;margin-top:4px}
+.dashboard-idle,.dashboard-add-helper{display:flex;justify-content:space-between;align-items:center;gap:12px;font-size:12px;margin-top:8px;color:#9ebbb3}
+.dashboard-idle .reader-action,.dashboard-add-helper .reader-action{font-size:12px;padding:3px 0;color:#b8a8eb}.dashboard-add-helper{color:var(--ui-muted);font-size:11px;margin-top:0}
 .dashboard-main-work .collection-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}.dashboard-main-work .reading-history-card{flex-wrap:wrap;align-content:start;gap:12px;padding:16px}.dashboard-main-work .reading-history-art{width:58px;height:58px}
 .dashboard-page .reading-history-card h3{font-size:14px;line-height:1.5}.dashboard-page .reading-history-card .text-sm,.dashboard-page .reading-history-card .text-xs{font-size:12px}
 .dashboard-processing{padding:18px;border:1px solid var(--ui-border);border-radius:12px;background:#172232;align-self:start;min-width:0}
@@ -468,7 +451,7 @@ html[data-reader-contents="hidden"] .unified-reader{grid-template-columns:minmax
 .dashboard-recent-notes{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0 26px}.dashboard-recent-notes .reading-history-card{align-items:flex-start;min-width:0;gap:14px;padding:16px 0;border:0;border-top:1px solid var(--ui-border);border-radius:0;background:transparent}.dashboard-recent-notes .reading-history-art{flex-shrink:0;width:64px;height:64px}
 .dashboard-dialog{display:flex;flex-direction:column;width:100%;max-width:680px;max-height:85dvh;background:#1b2636;border:1px solid #43516a;border-radius:12px}.dashboard-dialog>header{display:flex;align-items:center;justify-content:space-between;padding:16px 20px;border-bottom:1px solid var(--ui-border)}.dashboard-dialog>ul,.dashboard-task-history{padding:20px;overflow:auto}.dashboard-dialog li+li{border-top:1px solid var(--ui-border)}.dashboard-dialog li a{display:block;padding:12px 0}.dashboard-dialog li span{display:block;font-size:12px;color:var(--ui-muted);margin-bottom:4px}.dashboard-dialog li strong{font-size:14px;font-weight:500}.dashboard-task-history .task-row{display:flex;flex-direction:column;gap:12px;margin-bottom:12px}
 @media(max-width:1000px){.dashboard-workspace.has-processing{grid-template-columns:1fr}.dashboard-main-work{display:contents}.dashboard-processing{order:2}.dashboard-main-work>[aria-label="Continue reading"]{order:3}.dashboard-page .dashboard-stats{grid-template-columns:repeat(4,minmax(0,1fr));gap:20px 0}.dashboard-stats>div:nth-child(4){border-right:0}.dashboard-stats>div:nth-child(5){padding-left:0}}
-@media(max-width:600px){.dashboard-main-work .collection-grid,.dashboard-recent-notes{grid-template-columns:1fr}.dashboard-notification{gap:8px;padding:12px}.dashboard-notification>svg{display:none}.dashboard-notification h2 span{display:block;margin:3px 0 0;font-size:11px}.dashboard-notification h2{font-size:13px}.dashboard-notification p{display:none}.dashboard-page .dashboard-stats{grid-template-columns:repeat(3,minmax(0,1fr))}.dashboard-page .dashboard-stats>div{padding-inline:8px;border-right:1px solid var(--ui-border)}.dashboard-stats>div:nth-child(3n),.dashboard-stats>div:last-child{border-right:0}.dashboard-stats>div:nth-child(3n+1){padding-left:0}.dashboard-stats .text-xs{font-size:11px;line-height:1.4;white-space:normal;padding-left:17px}.dashboard-stats .text-xl{font-size:23px}.dashboard-page #dashboard-add-content form input{font-size:16px}.dashboard-add-helper>span{font-size:10px}}
+@media(max-width:600px){.dashboard-main-work .collection-grid,.dashboard-recent-notes{grid-template-columns:1fr}.dashboard-notification{gap:8px;padding:12px}.dashboard-notification>svg{display:none}.dashboard-notification h2 span{display:block;margin:3px 0 0;font-size:11px}.dashboard-notification h2{font-size:13px}.dashboard-notification p{display:none}.dashboard-page .dashboard-stats{grid-template-columns:repeat(3,minmax(0,1fr));row-gap:12px;padding-bottom:16px}.dashboard-page .dashboard-stats>div{padding-inline:8px;border-right:1px solid var(--ui-border)}.dashboard-stats>div:nth-child(3n),.dashboard-stats>div:last-child{border-right:0}.dashboard-stats>div:nth-child(3n+1){padding-left:0}.dashboard-stats .text-xs{font-size:11px;line-height:1.4;white-space:normal;padding-left:17px}.dashboard-stats .text-xl{font-size:23px}.dashboard-page #dashboard-add-content form input{font-size:16px}.dashboard-add-helper>span{font-size:10px}}
 .unified-reader[data-outline="false"]{grid-template-columns:minmax(0,var(--reader-measure))}
 .unified-reader[data-outline="false"]>.unified-outline{display:none}
 .app-shell .unified-reader .reader-action{font-size:12px;border-radius:var(--ui-radius)}
@@ -537,3 +520,5 @@ html[data-design][data-theme] .dashboard-page .dashboard-recent-notes .reading-h
 /* Keep horizontal gestures inside wide reading content, including on touch. */
 .app-shell>main:has(.unified-reader) { overflow-x:hidden; overscroll-behavior-x:none; }
 .unified-reader :is(.markdown-table,pre,.summary-code) { overscroll-behavior-x:contain; }
+
+.dashboard-reading[data-empty="true"]>p{margin-top:4px}

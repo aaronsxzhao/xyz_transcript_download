@@ -1,3 +1,4 @@
+import {contentDate} from '../components/ContentDates'
 import {fetchGroupedLibraryPage} from '../lib/groupedLibraryPage'
 import SeriesCard from '../components/SeriesCard'
 import {groupLibrarySeries} from '../lib/librarySeries'
@@ -119,7 +120,7 @@ export default function Library() {
     <div className={layout === 'grid' ? 'collection-grid' : 'grid gap-3'}>{groups.map((group,index) => { const i=group.items[0]; return group.series ? <SeriesCard key={group.key} group={group} priority={index<4} layout={layout}/> : <Link key={`${i.kind}:${i.id}`} to={i.kind === 'podcast' ? `/viewer/${i.id}` : `/videos/${i.id}`} onPointerEnter={() => i.kind === 'podcast' ? prefetchSummary(i.id) : prefetchVideoNote(i.id)} onPointerLeave={cancelPrefetch} onBlur={cancelPrefetch} onFocus={() => i.kind === 'podcast' ? prefetchSummary(i.id) : prefetchVideoNote(i.id)} className="library-card group" data-layout={layout} data-kind={i.kind}>
       <LibraryArtwork priority={index<4} key={`${i.kind}:${i.id}:${i.thumbnail || ''}`} item={i} />
       <div className="library-card-body">
-        <div className="library-card-meta"><span>{platformLabel(i.platform,i.kind === 'podcast' ? 'Podcast' : 'Video')}</span><time title={i.published_at ? `Published ${i.published_at.slice(0,10)}` : "Date this summary was saved, not its original publication date"} dateTime={i.published_at || i.date}>{i.published_at ? `Published ${i.published_at.slice(0,10)}` : i.date ? `Saved ${new Date(i.date).toLocaleDateString()}` : ''}</time></div>
+        <div className="library-card-meta"><span>{platformLabel(i.platform,i.kind === 'podcast' ? 'Podcast' : 'Video')}</span><time title={i.published_at ? `Published ${contentDate(i.published_at)}` : "Date this summary was saved, not its original publication date"} dateTime={i.published_at || i.date}>{i.published_at ? `Published ${contentDate(i.published_at)}` : i.date ? `Saved ${contentDate(i.date)}` : ''}</time></div>
         <h2 title={i.title} className="font-semibold leading-snug line-clamp-2 group-hover:text-indigo-200">{i.title}</h2>
         <p className="mt-2 text-sm text-gray-400 truncate">{i.source}</p>
         <div className="library-card-footer"><span>{history.some(r=>r.kind===i.kind&&r.id===i.id) ? `${history.find(r=>r.kind===i.kind&&r.id===i.id)!.progress}% read` : i.topics_count ? `${i.topics_count} topics` : 'Ready to read'}</span><span className="flex items-center gap-1">{i.content_type==='article'?'Read article':['twitter','substack'].includes(i.platform||'')?'Read post':'Read summary'} <ArrowUpRight size={14} /></span></div>

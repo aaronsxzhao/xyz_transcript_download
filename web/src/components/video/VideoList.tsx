@@ -189,7 +189,7 @@ export default function VideoList({ videos, onDelete, onRetry, onCancel }: {
                         className="ui-button ui-button-primary"
                       >
                         <CheckCircle size={16} />
-                        View
+                        {task.style === 'original' && ['twitter','substack','web'].includes(task.platform) ? task.platform === 'web' ? 'Read article' : 'Read post' : 'Read summary'}
                       </Link>
                     </>
                   )
@@ -203,7 +203,7 @@ export default function VideoList({ videos, onDelete, onRetry, onCancel }: {
                       title="Start processing this video"
                     >
                       <Play size={16} />
-                      Process
+                      Generate notes
                     </button>
                   )
                 }
