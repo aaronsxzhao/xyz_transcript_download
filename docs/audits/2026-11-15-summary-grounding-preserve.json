@@ -1,0 +1,85 @@
+{
+  "date": "2026-11-15",
+  "base_main": "ebd2b2422adc33ae9f39cc790f2757868e0dc40f",
+  "branch": "codex/summary-grounding-preserve",
+  "status": "four_hypotheses_regression_verified_full_episode_pending",
+  "full_episode_problem_resolved": false,
+  "entry_point_comparison": {
+    "podcast": "Summarizer.summarize -> video_source_text for all complete segment metadata -> transcript_reading.generate -> coverage_ledger -> reading_delivery.accept_edition",
+    "video": "NoteSummarizer.generate_note -> same core; video_notes applies timed segment formatting only for screenshot/link formats",
+    "finding": "Shared algorithm; ordinary video can avoid the per-ASR-fragment timed-unit overhead that podcast always incurs."
+  },
+  "prior_real_failure": {
+    "run": 43665955963,
+    "delivery_actual_http": 76,
+    "delivery_seconds": 1545.114,
+    "initial_coverage": 0.9735099337748344,
+    "after_source_correction": 0.8278145695364238,
+    "semantic_false_positive_proven": false,
+    "attribution": "Previous aggregate cannot distinguish prose deletion from stochastic matching changes or name the2failed checks."
+  },
+  "hypotheses": [
+    {
+      "id": "H1",
+      "cause": "Dense short timed ASR fragments make metadata dominate source batches.",
+      "fix": "Lossless shared source-unit grouping for >=128short timed fragments, <=256characters and15seconds per group. Original characters and every real time anchor preserved. No source batch limit raised. Explicit grouped ID namespace; legacy candidates resume original IDs.",
+      "synthetic_2170_units": {
+        "before": 2170,
+        "after": 161,
+        "inventory_batches_before": 11,
+        "inventory_batches_after": 4,
+        "source_bytes_equal": true
+      },
+      "boundary": "Real quality and provider-call savings require full-episode acceptance, not merely grouping counts."
+    },
+    {
+      "id": "H2",
+      "cause": "Local source correction re-evaluates unrelated positive coverage against the whole changed draft, causing cost and possible reviewer variance.",
+      "fix": "Positive coverage certificates require unchanged source/model/options/obligation and exact cited support including heading/position/overview. Changed support, obligations, source, model and every negative receipt are rechecked. Whole final draft independently source-reviewed after any changes; certificates cannot replace that review. Source rewrites receive untrusted previously covered obligations to preserve only source-supported clauses.",
+      "synthetic": "20covered obligations,1changed paragraph:19stable certificates reused and only changed item matched; changed item remains missing. Source/model/overview changes invalidate all. Added whole-draft contradiction still blocks."
+    },
+    {
+      "id": "H3",
+      "cause": "Matcher duplicate flag for existing prose is treated as missing/unverified coverage, although duplicate judges novelty of proposed additions.",
+      "fix": "For no proposed paragraphs only, record existing redundancy and normalize proposal-duplicate flag. Grounding rejection, contradiction, raw fallback and new duplicate-proposal vetoes remain.",
+      "boundary": "Old two unverified items may fit this mechanism; their exact old failure messages were not retained, so historical attribution is unproven."
+    },
+    {
+      "id": "H4",
+      "cause": "After a source correction makes coverage insufficient, an immutable whole-draft review is spent before known necessary coverage edits, then repeated after them.",
+      "fix": "After source correction, use the one existing bounded coverage-repair opportunity before final whole-draft review. Keep source-first ordering when source safety is still unknown. Skip final review only when delivery is already impossible; never publish without final source review. Original three iterations and repair limits retained.",
+      "synthetic": "Source repair -> matching -> coverage repair -> one final review; initially unknown unsupported prose still receives preliminary source review before correction."
+    }
+  ],
+  "regression": {
+    "new_cases": 21,
+    "related_passed": 381,
+    "environment": "local Python3.12,synthetic data,no real model calls; includes fixed archived-inventory validation and source-layout resume tests"
+  },
+  "real_validation": {
+    "source": "6ac6a657e742e36efcbf74af",
+    "fresh_source_hash_expected": "3e3af05dbabcc3bfc605ac8215be5c21696677a546f8c90ce63bb33eb8cbf477",
+    "settings_fingerprint_expected": "16bd60d985604f5db7b1d8575c6b59fe40af0182957a8c911e269faefb2dcb21",
+    "additional_quality_control": "After core acceptance, independently match every frozen same-source archived obligation. Losslessly translate ranges; no item deletion/correction/materiality change or prose repair. Report core latency/HTTP separately from independent checklist validation and optional failure samples. A failing independent check keeps the test unaccepted.",
+    "provider": "https://api.aipaibox.com",
+    "production_writes": false,
+    "capture": "Original rejected wording and final candidate in RAM; bounded2call sampling on failure; cleared before exit. Fixed-label check failure causes, rewrite sizes and changed-support regressions retained as aggregates."
+  },
+  "budget": {
+    "guard_run": 43669862171,
+    "guard_http_calls": 0,
+    "beijing_date": "2026-11-15",
+    "settled_usd": 13.882554,
+    "scope": "configured_test_account_provider_token",
+    "active_production_work": false,
+    "daily_shared_limit": 100,
+    "settled_stop": 85,
+    "reserve": 15,
+    "max_actual_http_including_validation": 160,
+    "max_concurrency": 3,
+    "deadline_seconds": 3600,
+    "provider_hard_cap_verified": false
+  },
+  "excluded": "Previously denied3088segment input and private189item normalization query; no real-account reprocessing/deletion or invented authentication.",
+  "acceptance_pending": "Full exact-head CI, real episode and frozen-inventory acceptance, protected merge/deploy and exact health revision."
+}

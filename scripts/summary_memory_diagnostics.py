@@ -419,7 +419,12 @@ class MemoryDiagnostics:
 
     def make_request(self, source, evidence_protocol='literal_quotes_v1'):
         from transcript_reading import source_lines, serialize
-        request = {'phase': 'gap_review', 'primary_source': serialize(source_lines(source)[1]),
+        # Archived candidates retain their original line IDs. New grouped IDs
+        # explicitly identify their lossless layout; never reinterpret old IDs.
+        compact = bool(self.candidate and any(':g' in span.get('start','')
+            for item in unpack_inventory(self.candidate.get('inventory'))
+            for span in item.get('source_ranges',[])))
+        request = {'phase': 'gap_review', 'primary_source': serialize(source_lines(source,compact=compact)[1]),
                    'drafts': {}, 'samples': []}
         if evidence_protocol != 'literal_quotes_v1':request['evidence_protocol']=evidence_protocol
         if self.candidate:

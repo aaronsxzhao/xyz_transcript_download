@@ -1,8 +1,8 @@
 {
-  "checked_at": "2026-11-15T10:01:06.141429+08:00",
+  "checked_at": "2026-11-15T10:33:34+08:00",
   "base_main": "1c92f966e801fee7fd16ddea74af9460b792d586",
   "branch": "codex/summary-four-hypotheses",
-  "status": "four_core_changes_regression_verified_real_acceptance_pending",
+  "status": "four_core_fixes_verified_full_episode_still_failed",
   "full_episode_problem_resolved": false,
   "prior_inspection": {
     "isolated_baseline": {
@@ -71,7 +71,16 @@
       "synthetic_before_matching_calls": 2,
       "synthetic_after_matching_calls": 1,
       "fix": "Retain unresolved receipts when proposed list is empty; do not call matcher for unchanged prose.",
-      "validation": "missing status remains missing and no candidate text is added"
+      "validation": "missing status remains missing and no candidate text is added",
+      "checkpoint_bound_counterexample": {
+        "logical_requests_before": 4,
+        "logical_requests_after": 3,
+        "provider_adapter_calls_before": 3,
+        "provider_adapter_calls_after": 3,
+        "checkpoint_hits_before": 1,
+        "checkpoint_hits_after": 0,
+        "scope": "The identical match was already cached with bound checkpoints. Do not claim an actual HTTP saving for this case."
+      }
     },
     {
       "id": "H4",
@@ -95,13 +104,14 @@
     "daily_shared_limit_usd": 100,
     "settled_stop_usd": 85,
     "reserve_usd": 15,
-    "latest_checked_usd": 8.648238,
+    "latest_checked_usd": 13.882554,
     "active_work_count": 0,
     "scope": "configured_test_account_provider_token",
     "provider_hard_cap_verified": false,
     "zero_call_guard_run": 43664729433,
     "opaque_guard_block_reason": "not retained by the old guard; now publish checked budget/queue snapshot before enforcement",
-    "read_only_runtime_run": 43665147485
+    "read_only_runtime_run": 43665147485,
+    "final_guard_passed": true
   },
   "real_validation_plan": {
     "source": "6ac6a657e742e36efcbf74af",
@@ -121,5 +131,38 @@
     "existing real tasks/checkpoints read only",
     "previously rejected3088segment source and private189item query excluded"
   ],
-  "canonical_release_evidence": "own PR body and linked full-head CI/actions; final run metrics appended after execution"
+  "canonical_release_evidence": "https://github.com/aaronsxzhao/xyz_transcript_download/pull/274 ; runtime result and post-run audit metadata retained locally; release CI/deployment recorded separately",
+  "real_validation_result": {
+    "run": 43665955963,
+    "revision": "778ed8481fb0448b798b49168aed9b4f434c5e18",
+    "terminal_state": "failed",
+    "delivery_http_attempts": 76,
+    "delivery_seconds": 1545.114,
+    "diagnostic_http_attempts": 2,
+    "total_http_attempts": 78,
+    "initial_coverage": 0.9735099337748344,
+    "final_coverage": 0.8278145695364238,
+    "unresolved": 26,
+    "final_check_failures": 2,
+    "hypothesis_H2_refreshes": 5,
+    "H3_hits": 0,
+    "H4_hits": 0,
+    "semantic_false_positive_proven": false,
+    "details": "docs/audits/2026-11-15-summary-four-hypotheses-real-result.json",
+    "remaining": "Coverage falls after a source correction, and two failed/unverified checks block recovery; exact failure types were not exported. Do not infer transport failure from this counter."
+  },
+  "release": {
+    "pr": 274,
+    "merged_sha": "ebd2b2422adc33ae9f39cc790f2757868e0dc40f",
+    "tested_pr_head": "778ed8481fb0448b798b49168aed9b4f434c5e18",
+    "full_pr_ci": 43665948987,
+    "full_pr_ci_status": "success",
+    "deploy_run": 43668814409,
+    "deployment_status": "success",
+    "production_episode_acceptance": "not performed; isolated whole episode quality acceptance failed",
+    "post_run_metadata": "Local append after tested head; durable remote result recorded in PR274body. No claim these post-run metadata edits are in the merged commit.",
+    "health_status": "ok",
+    "health_exact_revision": "ebd2b2422adc33ae9f39cc790f2757868e0dc40f",
+    "health_checked_at": "2026-11-15T10:44:05+08:00"
+  }
 }

@@ -1545,6 +1545,45 @@
         "formal_zero_model_probe": 43625509352,
         "shared_settled_usd": 1.654734
       }
+    },
+    {
+      "id": "2026-11-15-summary-four-hypotheses",
+      "checked_at": "2026-11-15T10:33:34+08:00",
+      "pr": 274,
+      "tested_commit": "778ed8481fb0448b798b49168aed9b4f434c5e18",
+      "report": "docs/audits/2026-11-15-summary-four-hypotheses-real-result.json",
+      "status": "four_bounded_fixes_verified_full_episode_failed",
+      "regression_passed": 350,
+      "real_run": 43665955963,
+      "delivery_actual_http_attempts": 76,
+      "delivery_seconds": 1545.114,
+      "initial_coverage": 0.9735099337748344,
+      "final_coverage": 0.8278145695364238,
+      "failure_sampling": "6samples in RAM,2extraHTTP;3stableomission,1stableunsupportedoriginalprose,1coveredcontrol,1invalidcitation; no proven semantic false positive",
+      "budget_settled_usd": 13.882554,
+      "not_claimed": "Whole episode problem resolved, causal speed gain, production queue or readable saved-note acceptance. Existing feature operation-chain status unchanged.",
+      "release": {
+        "pr": 274,
+        "merged_sha": "ebd2b2422adc33ae9f39cc790f2757868e0dc40f",
+        "tested_pr_head": "778ed8481fb0448b798b49168aed9b4f434c5e18",
+        "full_pr_ci": 43665948987,
+        "full_pr_ci_status": "success",
+        "deploy_run": 43668814409,
+        "deployment_status": "success",
+        "production_episode_acceptance": "not performed; isolated whole episode quality acceptance failed",
+        "post_run_metadata": "Local append after tested head; durable remote result recorded in PR274body. No claim these post-run metadata edits are in the merged commit.",
+        "health_status": "ok",
+        "health_exact_revision": "ebd2b2422adc33ae9f39cc790f2757868e0dc40f",
+        "health_checked_at": "2026-11-15T10:44:05+08:00"
+      }
+    },
+    {
+      "id": "2026-11-15-summary-grounding-preserve",
+      "report": "docs/audits/2026-11-15-summary-grounding-preserve.json",
+      "status": "four_hypotheses_regression_verified_real_acceptance_pending",
+      "related_regression_passed": 381,
+      "scope": "shared video/podcast core,lossless timed-source grouping,stable positive coverage support certificates,proposal-only duplicate judgement,post-source coverage-before-final-review ordering",
+      "not_claimed": "No full-episode success or causal performance improvement until real result. Existing operation-chain production status unchanged."
     }
   ],
   "audit_attempts": [

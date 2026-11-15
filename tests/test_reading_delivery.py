@@ -380,7 +380,11 @@ def test_final_coverage_gap_gets_one_bounded_repair_and_fresh_grounding(repair_s
         else:
             with pytest.raises(SummaryOutputError):accept_edition(owner,edition,'Title','Source',[],0)
         assert audit.call_count==1
-        assert check.call_count==1
+        # Coverage work comes first. An unsuccessful repair cannot deliver and
+        # needs no throwaway review; a successful repair gets a fresh review.
+        assert check.call_count==int(repair_succeeds)
+        if repair_succeeds:
+            assert json.loads(check.call_args.args[2])['global_draft'][0]['paragraphs'][0]['text']=='A corrected and qualified claim.'
 
 
 def test_final_coverage_repair_cannot_publish_when_new_prose_fails_grounding():
@@ -447,7 +451,8 @@ def test_new_contradiction_after_grounding_repair_gets_one_bounded_correction(re
         if resolved:
             accept_edition(owner, edition, 'Title', 'Source', [], 0)
             assert owner.generation_report['delivery']['status'] == 'accepted'
-            assert check.call_count == 2  # The corrected final draft is reviewed again.
+            assert check.call_count == 1  # Review the final correction, not its known-contradicted predecessor.
+            assert json.loads(check.call_args.args[2])['global_draft'][0]['paragraphs'][0]['text'].endswith(' corrected corrected')
         else:
             with pytest.raises(SummaryOutputError):
                 accept_edition(owner, edition, 'Title', 'Source', [], 0)

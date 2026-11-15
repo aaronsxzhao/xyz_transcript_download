@@ -389,6 +389,17 @@ def child(destination):
     calls.observer = observer
     memory_store = MemoryCheckpoints(observer.capture_payload if observer else None)
     execution = Execution('isolated-authorized-test', eid, memory_store)
+    frozen_inventory = None
+    if capture_final:
+        # A changed source layout must not manufacture acceptance by producing
+        # a smaller fresh checklist. Also check the finished draft against the
+        # complete, fixed historical checklist for this exact authorized source.
+        archived=load_historical_candidate(database,source_owner,source_rows[0]['source_id'])
+        frozen_inventory=translate_archived_inventory(archived,exact_source)
+        report['independent_inventory_item_count']=len(frozen_inventory)
+        report['independent_inventory_fingerprint']=hashlib.sha256(json.dumps(
+            frozen_inventory,sort_keys=True,ensure_ascii=False).encode()).hexdigest()
+        del archived
     if memory_mode:
         run_memory_diagnostics(database,source_owner,source_rows[0]['source_id'],exact_source,
             transcript,engine,execution,observer,report,guard,calls,publish,memory_store)
@@ -421,10 +432,29 @@ def child(destination):
     report['terminal_state'] = 'running'
     publish()
     started = time.monotonic()
+    final_edition = []
     try:
-        with bind(execution):
+        from transcript_reading import generate as real_generate
+        def capture_edition(*args,**kwargs):
+            edition=real_generate(*args,**kwargs)
+            final_edition.append(edition)
+            return edition
+        with bind(execution), patch('transcript_reading.generate',side_effect=capture_edition):
             summary = engine.summarize(transcript, episode_title='Authorized complete podcast validation')
         accepted = bool(summary) and engine.generation_report.get('delivery', {}).get('status') == 'accepted'
+        report['delivery_provider_http_attempts']=calls.http_attempts
+        report['delivery_wall_seconds']=round(time.monotonic()-started,3)
+        if accepted and frozen_inventory is not None:
+            before=calls.http_attempts;independent_started=time.monotonic()
+            with bind(execution):
+                comparison=check_frozen_inventory(engine,final_edition[0],frozen_inventory)
+            report['independent_inventory_check']={key:value for key,value in comparison.items() if key!='items'}
+            report['independent_inventory_provider_http_attempts']=calls.http_attempts-before
+            report['independent_inventory_seconds']=round(time.monotonic()-independent_started,3)
+            accepted=comparison['accepted']
+            if not accepted and observer:
+                observer.capture_payload({'edition':final_edition[0],
+                    'report':{'coverage_ledger':comparison},'inventory':({},frozen_inventory)})
         report['terminal_state'] = 'accepted' if accepted else 'not_accepted'
         if summary:
             report['summary_structure'] = {'overview_characters':len(summary.overview), 'key_points':len(summary.key_points), 'topics':len(summary.topics)}
@@ -435,8 +465,8 @@ def child(destination):
         report.update(terminal_state='failed', error_type=type(error).__name__)
     finally:
         pipeline_http_attempts=calls.http_attempts
-        report['delivery_provider_http_attempts']=pipeline_http_attempts
-        report['delivery_wall_seconds']=round(time.monotonic()-started,3)
+        report.setdefault('delivery_provider_http_attempts',pipeline_http_attempts)
+        report.setdefault('delivery_wall_seconds',round(time.monotonic()-started,3))
         if (observer and report.get('terminal_state') in ('failed','not_accepted') and observer.candidate
                 and calls.started <= calls.maximum-2 and time.monotonic()-started < 3120):
             try:
@@ -452,6 +482,8 @@ def child(destination):
                 report.update(failure_sampling_state='failed',failure_sampling_error=diagnostic_error_code(error))
         if observer:
             observer.clear();memory_store.clear();calls.observer=None
+            final_edition.clear()
+            if frozen_inventory is not None:frozen_inventory.clear()
             report['diagnostic_buffers_cleared']=True
         report['failure_sampling_provider_http_attempts']=calls.http_attempts-pipeline_http_attempts
         report['wall_seconds'] = round(time.monotonic()-started, 3)
@@ -468,6 +500,54 @@ def child(destination):
         else:
             report['final_budget_guard_passed'] = True
         publish()
+
+
+def translate_archived_inventory(payload,source):
+    """Map complete old obligations to lossless new units; never remove any."""
+    import bisect
+    import copy
+    from transcript_reading import source_lines
+    from scripts.summary_memory_diagnostics import unpack_inventory
+    if not isinstance(payload,dict):raise TestGuardStopped('historical_candidate_unavailable')
+    items=copy.deepcopy(unpack_inventory(payload.get('inventory')))
+    if not items:raise TestGuardStopped('historical_candidate_unavailable')
+    grouped=payload.get('report',{}).get('source_layout')=='lossless-timed-groups-v1'
+    old=source_lines(source,compact=grouped)[1];new=source_lines(source,compact=True)[1]
+    offsets={};offset=0
+    for line in old:
+        offsets[line.id]=(offset,offset+len(line.text)-1);offset+=len(line.text)
+    starts=[];offset=0
+    for line in new:
+        starts.append(offset);offset+=len(line.text)
+    for item in items:
+        spans=item.get('source_ranges')
+        if not isinstance(spans,list) or not spans:raise TestGuardStopped('historical_candidate_unavailable')
+        for span in spans:
+            if span.get('start') not in offsets or span.get('end') not in offsets:
+                raise TestGuardStopped('historical_candidate_unavailable')
+            first,last=offsets[span['start']][0],offsets[span['end']][1]
+            if last<first:raise TestGuardStopped('historical_candidate_unavailable')
+            span.update(start=new[bisect.bisect_right(starts,first)-1].id,
+                        end=new[bisect.bisect_right(starts,last)-1].id)
+    return items
+
+
+def check_frozen_inventory(engine,edition,inventory):
+    """Independent matching only: no item corrections, deletions or repairs."""
+    from coverage_ledger import _audit, ITEM_LIMIT, coverage_ratio, coverage_acceptable
+    from processing_parallel import bounded_map
+    chunks=[inventory[i:i+ITEM_LIMIT] for i in range(0,len(inventory),ITEM_LIMIT)]
+    results=bounded_map(lambda chunk:_audit(engine,edition['lines'],edition['sections'],edition['overview'],
+        inventory=chunk,matching_only=True,verify_gaps=False),chunks,workers=2)
+    ledger={'items':[row for local,_ in results for row in local['items']],
+        'failed_batches':sum(local['failed_batches'] for local,_ in results),
+        'terminal_provider_failure':any(local['terminal_provider_failure'] for local,_ in results)}
+    ledger['coverage_ratio']=coverage_ratio(ledger)
+    ledger['unresolved_items']=sum(row['status'] not in ('covered','context_only') for row in ledger['items'])
+    ledger['item_count']=len(inventory)
+    ledger['accepted']=coverage_acceptable(ledger,engine.quality_coverage_threshold)
+    ledger['checklist_changed']=False
+    return ledger
 
 
 def summarize_gap_verdicts(selected, response):

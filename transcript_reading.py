@@ -14,7 +14,7 @@ from reading_language import source_language_lock, chinese_source
 from source_coverage import split_source, SOURCE_FIDELITY
 from summary_errors import SummaryOutputError, delivery_notice, is_cancellation
 
-VERSION = 'source-linked-reading-v5-meaning-first'
+VERSION = 'source-linked-reading-v6-lossless-timed-groups'
 MODES = ('single', 'segmented')
 GENERATION_TIMEOUT = 600
 REVIEW_TIMEOUT = 240
@@ -105,7 +105,7 @@ class SourceLine:
     time: float | None
 
 
-def source_lines(text):
+def source_lines(text, *, compact=False):
     if not isinstance(text, str) or not text.strip():
         raise SummaryOutputError('empty')
     revision = hashlib.sha256(text.encode()).hexdigest()
@@ -121,6 +121,25 @@ def source_lines(text):
             if b < 60 and (match[3] is None or int(match[3]) < 60):
                 seconds = a * 60 + b if match[3] is None else a * 3600 + b * 60 + int(match[3])
         lines.append(SourceLine(f'{revision[:12]}:{i:05d}', part, seconds))
+    # ASR can emit a handful of characters per timed segment. Keep every byte
+    # and real anchor, but avoid turning metadata for each fragment into most
+    # of the model input. This is shared by video and audio generation.
+    timed = [line for line in lines if line.time is not None]
+    if (compact and len(timed) >= 128 and len(timed) >= .8 * len(lines)
+            and sum(len(line.text) for line in timed) / len(timed) <= 48):
+        grouped = []
+        for line in lines:
+            previous = grouped[-1] if grouped else None
+            if (previous and previous.time is not None and line.time is not None
+                    and previous.time <= line.time <= previous.time + 15
+                    and len(previous.text) + len(line.text) <= 256):
+                grouped[-1] = SourceLine('', previous.text + line.text, previous.time)
+            else:
+                grouped.append(SourceLine('', line.text, line.time))
+        if len(grouped) < len(lines):
+            lines = [SourceLine(f'{revision[:12]}:g{i:05d}', line.text, line.time)
+                     for i,line in enumerate(grouped)]
+    assert ''.join(line.text for line in lines) == text
     return revision, lines
 
 
@@ -460,7 +479,10 @@ def generate(engine, source, title, *, formats=(), style='detailed', extras='',
     mode = getattr(engine, 'generation_mode', 'single')
     if mode not in MODES:
         raise ValueError('Generation mode must be single or segmented')
-    revision, lines = source_lines(source)
+    revision, lines = source_lines(source, compact=True)
+    engine.generation_report['source_layout'] = ('lossless-timed-groups-v1'
+        if any(':g' in line.id for line in lines) else 'original-lines')
+    engine.generation_report['source_units'] = len(lines)
     from coverage_ledger import build_inventory
     from processing_parallel import background_work
     certified = getattr(engine, 'quality_coverage_threshold', None) is not None
@@ -468,6 +490,7 @@ def generate(engine, source, title, *, formats=(), style='detailed', extras='',
     candidate_key = None
     saved = None
     engine._quality_attempt = 0
+    engine._coverage_support_snapshot = None
     if certified:
         from reading_delivery import candidate_checkpoint, accept_edition, save_candidate
         execution, candidate_key, saved = candidate_checkpoint(engine, source, title,
@@ -476,6 +499,13 @@ def generate(engine, source, title, *, formats=(), style='detailed', extras='',
         if saved:
             from copy import deepcopy
             saved = deepcopy(saved)
+            # Resume the saved layout, never bind archived ranges to newly
+            # grouped IDs or discard a usable candidate just to change layout.
+            grouped = saved.get('report',{}).get('source_layout') == 'lossless-timed-groups-v1'
+            revision, lines = source_lines(source, compact=grouped)
+            engine.generation_report['source_layout'] = ('lossless-timed-groups-v1'
+                if grouped else 'original-lines')
+            engine.generation_report['source_units'] = len(lines)
             edition = {**saved['edition'], 'lines':lines}
             engine.generation_report.update(saved['report'])
             engine._quality_inventory = saved['inventory']

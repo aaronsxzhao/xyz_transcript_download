@@ -18,7 +18,8 @@ COUNTERS = ('coverage_ratio', 'coverage_threshold', 'threshold', 'failed_batches
     'terminal_provider_failure', 'grounding_concerns', 'unresolved_items', 'covered_items',
     'requests', 'validation_retries', 'repairs_accepted', 'repairs_rejected',
     'inventory_transport_retries', 'inventory_split_retries', 'inventory_recovered_batches', 'inventory_batches', 'reviewed', 'review_attempts', 'review_parts', 'final_coverage_attempts',
-    'initial_grounding_concerns','stale_gap_receipts_refreshed','empty_repair_rechecks_avoided','regression_pruning_attempts')
+    'initial_grounding_concerns','stale_gap_receipts_refreshed','empty_repair_rechecks_avoided','regression_pruning_attempts',
+    'reused_covered_receipts','existing_redundancy_flags','changed_support_regressions')
 
 ROUND_PHASES = ('initial','resume','after_grounding_repair','final_coverage_repair')
 ROUND_KINDS = ('claim','experiment','counterexample','condition','disagreement','procedure','example')
@@ -40,7 +41,8 @@ def safe_rounds(value):
         if type(entry.get('cancelled')) is bool: row['cancelled']=entry['cancelled']
         for key in ('seconds','initial_unresolved','final_unresolved','accepted_paragraphs',
                     'rejected_paragraphs','source_corrected_items','logical_requests_reported','coverage_ratio',
-                    'stale_gap_receipts_refreshed','empty_repair_rechecks_avoided','regression_pruning_attempts'):
+                    'stale_gap_receipts_refreshed','empty_repair_rechecks_avoided','regression_pruning_attempts',
+                    'reused_covered_receipts','existing_redundancy_flags','changed_support_regressions'):
             number=entry.get(key)
             if type(number) in (int,float) and math.isfinite(number) and 0<=number<=1000000:
                 row[key]=number
@@ -55,6 +57,15 @@ def safe_rounds(value):
 def safe_report(report):
     report = report if isinstance(report, dict) else {}
     safe = {}
+    if report.get('source_layout') in ('original-lines','lossless-timed-groups-v1'):
+        safe['source_layout']=report['source_layout']
+    if type(report.get('source_units')) is int and 0<report['source_units']<=100000:
+        safe['source_units']=report['source_units']
+    if isinstance(report.get('grounding_repair_sizes'),list):
+        safe['grounding_repair_sizes']=[{k:v for k,v in row.items()
+            if k in ('paragraphs','characters_before','characters_after','covered_obligations_supplied')
+            and type(v) is int and 0<=v<=1000000}
+            for row in report['grounding_repair_sizes'][:3] if isinstance(row,dict)]
     if type(report.get('late_contradiction_repair_attempts')) is int and 0 <= report['late_contradiction_repair_attempts'] <= 1:
         safe['late_contradiction_repair_attempts'] = report['late_contradiction_repair_attempts']
     if report.get('late_contradiction_repair_origin') in ('following_review_repair','same_delivery_iteration'):
@@ -71,6 +82,11 @@ def safe_report(report):
         if source.get('reason') in ('coverage','source_review','grounding','review','ValueError','SummaryOutputError','ReadingProviderError'):
             row['reason'] = source['reason']
         if key == 'coverage_ledger':
+            allowed=('incomplete_matches','unknown_paragraph','missing_support','missing_judgement',
+                'invalid_status','incomplete_proposal_check','raw_support','source_obligations_unverified',
+                'schema_or_provider_failure')
+            row['check_failure_counts']={label:count for label,count in (source.get('check_failure_counts') or {}).items()
+                if label in allowed and type(count) is int and 0<=count<=10000}
             row['inventory_error_types'] = {name:sum(isinstance(e,dict) and e.get('error_type')==name for e in source.get('inventory_failures',[]) or []) for name in ('ValueError','SummaryOutputError','APIConnectionError','APITimeoutError','TimeoutError','APIStatusError','RateLimitError','RuntimeError','ReadTimeout','ConnectError','ConnectionError','ModelRequestTimeout','InternalServerError','BadRequestError','AuthenticationError','PermissionDeniedError','NotFoundError','UnprocessableEntityError')}
             row['inventory_http_statuses'] = {str(code):sum(isinstance(e,dict) and e.get('http_status')==code for e in source.get('inventory_failures',[]) or []) for code in (408,429,500,502,503,504,524)}
             row['inventory_failures_recorded'] = len(source.get('inventory_failures',[]) or [])

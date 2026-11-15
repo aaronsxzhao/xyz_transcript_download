@@ -22,7 +22,7 @@ on:
         default: false
 
       capture_final_diagnostics:
-        description: Capture bounded failure samples in RAM after a full episode attempt (within existing160call limit)
+        description: Capture final failure samples and compare the fixed same-source archived checklist (within existing160call limit)
         type: boolean
         required: false
         default: false
