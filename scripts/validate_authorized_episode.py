@@ -433,6 +433,16 @@ def child(destination):
     publish()
     started = time.monotonic()
     final_edition = []
+    def record_delivery():
+        if 'delivery_provider_http_attempts' in report:return
+        import copy
+        report['delivery_provider_http_attempts']=calls.http_attempts
+        report['delivery_wall_seconds']=round(time.monotonic()-started,3)
+        for key in ('provider_http_attempts_by_phase','provider_request_bytes_by_phase',
+                'provider_http_status_counts','provider_reported_usage','provider_request_seconds_sum'):
+            if key in report:report['delivery_'+key]=copy.deepcopy(report[key])
+        snapshot=execution.snapshot()
+        report['delivery_execution']={key:snapshot[key] for key in ('stages','checkpoint_hits','wall_seconds') if key in snapshot}
     try:
         from transcript_reading import generate as real_generate
         def capture_edition(*args,**kwargs):
@@ -442,8 +452,7 @@ def child(destination):
         with bind(execution), patch('transcript_reading.generate',side_effect=capture_edition):
             summary = engine.summarize(transcript, episode_title='Authorized complete podcast validation')
         accepted = bool(summary) and engine.generation_report.get('delivery', {}).get('status') == 'accepted'
-        report['delivery_provider_http_attempts']=calls.http_attempts
-        report['delivery_wall_seconds']=round(time.monotonic()-started,3)
+        record_delivery()
         if accepted and frozen_inventory is not None:
             before=calls.http_attempts;independent_started=time.monotonic()
             with bind(execution):
@@ -464,9 +473,8 @@ def child(destination):
     except Exception as error:
         report.update(terminal_state='failed', error_type=type(error).__name__)
     finally:
+        record_delivery()
         pipeline_http_attempts=calls.http_attempts
-        report.setdefault('delivery_provider_http_attempts',pipeline_http_attempts)
-        report.setdefault('delivery_wall_seconds',round(time.monotonic()-started,3))
         if (observer and report.get('terminal_state') in ('failed','not_accepted') and observer.candidate
                 and calls.started <= calls.maximum-2 and time.monotonic()-started < 3120):
             try:
