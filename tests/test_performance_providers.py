@@ -121,9 +121,16 @@ def test_groq_full_source_capacity_failure_does_not_silently_chunk():
     from transcriber import Transcript
     summarizer=Summarizer(api_key='fixture',base_url='https://api.groq.com/openai/v1',model='openai/gpt-oss-120b')
     transcript=Transcript('episode','zh',100,'中文内容。'*15000,[])
-    with patch('transcript_reading.call_json',side_effect=RuntimeError('context capacity')) as call:
+    # Isolate the full-source generation capacity boundary after the new
+    # source-inventory preflight. Never send fixture credentials to a provider.
+    with patch('coverage_ledger.build_inventory',return_value=({'inventory_failed_batches':0},[])) as inventory, \
+         patch('transcript_reading.call_json',side_effect=RuntimeError('context capacity')) as call:
         with pytest.raises(RuntimeError):summarizer.summarize(transcript)
+    assert inventory.call_count==1
     assert call.call_count==1
+    request=json.loads(call.call_args.args[2])
+    assert request['mode']=='single' and request['parts']==1
+    assert ''.join(row['text'] for row in request['primary_source'])==transcript.text
     assert summarizer.generation_report['actual_mode']=='single'
 
 
