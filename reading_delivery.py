@@ -152,9 +152,12 @@ def check_grounding_preservation(engine,lines,sections,replacements,obligations)
                 if not isinstance(spans,list) or not 1<=len(spans)<=2:raise ValueError('Missing preservation source evidence')
                 for span in spans:
                     if (not isinstance(span,dict) or set(span)!={'start','end'}
+                            or not isinstance(span.get('start'),str) or not isinstance(span.get('end'),str)
                             or span.get('start') not in allowed or span.get('end') not in allowed
                             or index[span['start']]>index[span['end']]):
                         raise ValueError('Invalid preservation source evidence')
+                    if any(lines[i].id not in allowed for i in range(index[span['start']],index[span['end']]+1)):
+                        raise ValueError('Preservation evidence crosses unavailable source')
             return rows
         try:
             data=call_editor(engine.client,engine.model,system,json.dumps({
@@ -208,6 +211,12 @@ def accept_edition(engine, edition, title, source, formats, duration, stage_call
             contradicted_ids = {pid for item in report.get('coverage_ledger', {}).get('items', [])
                                if item['status']=='contradicted' for pid in item.get('paragraph_ids', [])}
             rejected = raw_rejected | contradicted_ids
+            if contradicted_ids and report.get('coverage_ledger',{}).get('inventory_validation_failed_batches'):
+                # A failed source check cannot authorize rewriting prose to fit
+                # an unverified checklist. Retain the independent raw-source
+                # correction opportunity when the source reviewer rejected it.
+                if not raw_rejected:raise SummaryOutputError('quality',reason='source_review')
+                rejected=raw_rejected
             if rejected:
                 if attempt >= 2:
                     raise SummaryOutputError('quality', reason='grounding')

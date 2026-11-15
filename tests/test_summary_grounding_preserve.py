@@ -353,3 +353,76 @@ def test_local_source_rewrite_is_atomic_and_preserves_independently_supported_me
     assert repairs[0]==(2 if outcome in ('restored','still_missing') else 1)
     assert len(calls)==repairs[0]*2
     assert owner._quality_inventory[1]==[item]  # No obligation was deleted or simplified.
+
+
+def test_preservation_evidence_cannot_bridge_a_gap_not_supplied_to_the_reviewer():
+    from reading_delivery import check_grounding_preservation
+    owner,lines,sections,prepared=scene();owner.generation_report={}
+    obligation={'id':'C','statement':'Both source facts matter.','source_ranges':[
+        {'start':lines[0].id,'end':lines[0].id},{'start':lines[-1].id,'end':lines[-1].id}]}
+    def complete(client,model,system,payload,timeout,**kwargs):
+        request=json.loads(payload)
+        assert lines[10].id not in {line['id'] for line in request['primary_source']}
+        return {'obligations':[{'id':'C','source_supported':True,'covered':True,
+            'source_evidence':[{'start':lines[0].id,'end':lines[-1].id}]}]}
+    with patch('reading_editor._call_editor',side_effect=complete):
+        with pytest.raises(SummaryOutputError) as error:
+            check_grounding_preservation(owner,lines,sections,{}, {'P0':[obligation]})
+    assert error.value.reason=='source_review'
+
+
+@pytest.mark.parametrize('source_claim_wrong',[True,False])
+def test_verify_contradicted_obligation_before_rewriting_correct_source_prose(source_claim_wrong):
+    from coverage_ledger import _audit
+    _,lines=source_lines('Only adults respond at the low dose.')
+    spans=[{'start':lines[0].id,'end':lines[-1].id}]
+    sections,_=validate_sections({'sections':[{'heading':'Treatment','paragraphs':[
+        {'text':'Only adults respond at the low dose.' if source_claim_wrong else 'Only children respond.',
+         'source_ranges':spans}]}]},lines)
+    sections[0]['paragraphs'][0]['id']='P0';before=copy.deepcopy(sections);phases=[]
+    item={'id':'C','kind':'claim','statement':'All ages respond.' if source_claim_wrong else 'Only adults respond at the low dose.',
+        'source_ranges':spans}
+    def respond(engine,system,payload,validator):
+        phases.append(payload['phase'])
+        if payload['phase']=='validate_inventory':
+            assert payload['items'][0]['reported_status']=='contradicted'
+            return {'items':[{'id':'C','supported':not source_claim_wrong,'material':False,'material_reason':'Do not hide the conflict.',
+                **({'reason':'The source limits this to adults.','statement':'Only adults respond at the low dose.',
+                    'source_ranges':spans} if source_claim_wrong else {})}]}
+        assert payload['phase']=='match'  # Never append an opposite assertion.
+        covered=source_claim_wrong and payload['items'][0]['statement'].startswith('Only adults')
+        return {'matches':[{'item_id':'C','status':'covered' if covered else 'contradicted',
+            'support':[{'paragraph_id':'P0'}],'grounded':True,'duplicate':False}]}
+    with patch('coverage_ledger.request',side_effect=respond):
+        ledger,items=_audit(SimpleNamespace(),lines,sections,inventory=[item])
+    assert sections==before
+    assert phases==['match','validate_inventory']+(['match'] if source_claim_wrong else [])
+    assert ledger['contradiction_obligations_validated']==1
+    assert bool(items[0].get('material',True))  # Never compress away a conflict.
+    assert coverage_acceptable(ledger) is source_claim_wrong
+
+
+def test_failed_contradiction_source_check_cannot_authorize_a_prose_rewrite():
+    from tests.test_reading_delivery import candidate
+    owner,edition=candidate(10);owner._quality_inventory=({},[])
+    owner.generation_report['coverage_ledger']['items'][0]['status']='contradicted'
+    owner.generation_report['coverage_ledger']['inventory_validation_failed_batches']=1
+    with patch('reading_delivery.repair_unsupported',side_effect=AssertionError('Unchecked checklist is not source truth')):
+        with pytest.raises(SummaryOutputError) as error:accept_edition(owner,edition,'Title','Source',[],0)
+    assert error.value.reason=='source_review'
+
+
+def test_matching_contradiction_captures_original_prose_even_when_grounded_flag_is_true():
+    from scripts.summary_memory_diagnostics import MemoryDiagnostics
+    owner,lines,sections,prepared=scene();item=prepared[1][0]
+    draft=[{'heading':'Claim','paragraphs':[{'id':'P0','text':'Original source-supported prose.',
+        'source_ranges':item['source_ranges'],'raw':False}]}]
+    observer=MemoryDiagnostics()
+    rejection=row(item,'contradicted',grounded=True)
+    rejection['support']=[{'paragraph_id':'P0'}]
+    observer.observe_matching({'items':[item],'global_draft':draft},
+        {'matches':[rejection]})
+    draft[0]['paragraphs'][0]['text']='A later correction.'
+    assert observer.grounding[0]['paragraph']['text']=='Original source-supported prose.'
+    assert observer.grounding[0]['matching_contradiction'] is True
+    observer.clear();assert observer.grounding==[]

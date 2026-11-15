@@ -38,7 +38,8 @@
       "cause": "Local source correction re-evaluates unrelated positive coverage against the whole changed draft, causing cost and possible reviewer variance.",
       "fix": "Positive coverage certificates require unchanged source/model/options/obligation and exact cited factual prose/provenance plus complete local chapter wording/order and overview. Renderer media annotations and outer chapter container indices do not invalidate factual support. Changed local qualifications invalidate the whole local chapter. All negative receipts remain rechecked; every changed whole draft requires final independent source review. Previously covered obligations guide source correction as untrusted data.",
       "synthetic": "20covered obligations,1changed paragraph:19stable certificates reused and only changed item matched; changed item remains missing. Source/model/overview changes invalidate all. Added whole-draft contradiction still blocks.",
-      "semantic_preservation_gate": "Before applying a source correction, independently check every previously covered obligation linked to its paragraphs against original source and the entire proposed draft. Retain every source-supported material meaning. On validated loss, use only the existing second local-edit opportunity, with specific missing obligations as feedback; validate again. Still missing or malformed evidence blocks replacement. No old obligation is deleted,reclassified or marked covered by this guard; source errors are not forced into prose. Candidate changes are atomic and an unsafe old paragraph is never published as fallback."
+      "semantic_preservation_gate": "Before applying a source correction, independently check every previously covered obligation linked to its paragraphs against original source and the entire proposed draft. Retain every source-supported material meaning. On validated loss, use only the existing second local-edit opportunity, with specific missing obligations as feedback; validate again. Still missing or malformed evidence blocks replacement. No old obligation is deleted,reclassified or marked covered by this guard; source errors are not forced into prose. Candidate changes are atomic and an unsafe old paragraph is never published as fallback.",
+      "contradiction_source_authority": "Before changing prose to resolve a checklist contradiction, verify that obligation against primary source. Correct a false source statement and rematch the unchanged draft; retain a source-affirmed contradiction for real paragraph repair. Never compress away a contradicted obligation as incidental background. If its source validation failed, an unverified checklist cannot authorize rewriting prose; independent raw-source correction remains available."
     },
     {
       "id": "H3",
@@ -55,8 +56,8 @@
     }
   ],
   "regression": {
-    "new_cases": 32,
-    "related_passed": 447,
+    "new_cases": 37,
+    "related_passed": 452,
     "environment": "local Python3.12,synthetic data,no real model calls; includes fixed archived-inventory validation and source-layout resume tests"
   },
   "real_validation": {
@@ -94,7 +95,11 @@
     "plan": "First running isolated job is a staged control with known conservative cache invalidation, not final-head acceptance. Do not cancel/discard its tracking or start another model job concurrently. Final head requires full CI and real acceptance including fixed archived checklist.",
     "latest_pre_final_head": "02ee0a0760481307ef6b7e22db235d5cc6359245",
     "latest_pre_final_ci": 43672620546,
-    "latest_pre_final_backend": "success before adding the source-correction preservation gate; final exact head requires full CI"
+    "latest_pre_final_backend": "success before adding the source-correction preservation gate; final exact head requires full CI",
+    "new_confirmed_path": "Contradicted items previously skipped source-only obligation validation and could force a rewrite of correct prose. Positive/negative examples now distinguish false obligation from a genuine draft contradiction without changing item count or the contradiction veto.",
+    "capture_fix": "Matching status=contradicted with grounded=true now captures original linked prose in RAM before correction; counted separately from other grounding flags. No raw prose export.",
+    "running_pre_final_real_run": 43673901672,
+    "running_pre_final_real_head": "86afa8091ac966fa2c8de41f48287ae7dee47f3b"
   },
   "control_result": {
     "run": 43671158025,

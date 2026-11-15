@@ -356,7 +356,7 @@ class MemoryDiagnostics:
         draft = diagnostic_draft(request['global_draft'])
         paragraphs = {p['id']:p for section in draft for p in section['paragraphs'] if not p.get('raw')}
         for row in rows:
-            if row['grounded']:
+            if row['grounded'] and row['status']!='contradicted':
                 continue
             ids = sorted({entry['paragraph_id'] for entry in row['support'] if entry['paragraph_id'] in paragraphs})
             if not ids:
@@ -364,7 +364,7 @@ class MemoryDiagnostics:
             for ident in ids:
                 if len(self.grounding) < 2:
                     self.grounding.append({'draft': draft, 'paragraph': paragraphs[ident],
-                                          'origin':'coverage_match'})
+                                          'origin':'coverage_match','matching_contradiction':row['status']=='contradicted'})
 
     def capture_payload(self, payload):
         shape = candidate_shape(payload)
@@ -502,6 +502,7 @@ class MemoryDiagnostics:
                       captured_source_rejections=sum(case.get('kind','grounding')=='grounding' for case in self.grounding),
                       current_candidate_grounding_probes=sum(case.get('kind')=='grounding_probe' for case in self.grounding),
                       unlocatable_match_grounding_rejections=self.unlocatable_match_grounding_rejections,
+                      captured_matching_contradictions=sum(bool(case.get('matching_contradiction')) for case in self.grounding),
                       source_rejection_origin_counts={origin:sum(case.get('kind','grounding')=='grounding' and case.get('origin','source_review')==origin for case in self.grounding)
                           for origin in ('source_review','coverage_match')})
         return result

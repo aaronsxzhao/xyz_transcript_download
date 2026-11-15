@@ -19,7 +19,8 @@ COUNTERS = ('coverage_ratio', 'coverage_threshold', 'threshold', 'failed_batches
     'requests', 'validation_retries', 'repairs_accepted', 'repairs_rejected',
     'inventory_transport_retries', 'inventory_split_retries', 'inventory_recovered_batches', 'inventory_batches', 'reviewed', 'review_attempts', 'review_parts', 'final_coverage_attempts',
     'initial_grounding_concerns','stale_gap_receipts_refreshed','empty_repair_rechecks_avoided','regression_pruning_attempts',
-    'reused_covered_receipts','existing_redundancy_flags','changed_support_regressions')
+    'reused_covered_receipts','existing_redundancy_flags','changed_support_regressions',
+    'contradiction_obligations_validated','contradiction_source_corrections')
 
 ROUND_PHASES = ('initial','resume','after_grounding_repair','final_coverage_repair')
 ROUND_KINDS = ('claim','experiment','counterexample','condition','disagreement','procedure','example')
@@ -42,7 +43,8 @@ def safe_rounds(value):
         for key in ('seconds','initial_unresolved','final_unresolved','accepted_paragraphs',
                     'rejected_paragraphs','source_corrected_items','logical_requests_reported','coverage_ratio',
                     'stale_gap_receipts_refreshed','empty_repair_rechecks_avoided','regression_pruning_attempts',
-                    'reused_covered_receipts','existing_redundancy_flags','changed_support_regressions'):
+                    'reused_covered_receipts','existing_redundancy_flags','changed_support_regressions',
+                    'contradiction_obligations_validated','contradiction_source_corrections'):
             number=entry.get(key)
             if type(number) in (int,float) and math.isfinite(number) and 0<=number<=1000000:
                 row[key]=number

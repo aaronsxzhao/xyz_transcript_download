@@ -52,6 +52,8 @@ def measure_coverage_round(engine, phase, operation, *args, **kwargs):
         reused_covered_receipts=ledger.get('reused_covered_receipts',0),
         existing_redundancy_flags=ledger.get('existing_redundancy_flags',0),
         changed_support_regressions=ledger.get('changed_support_regressions',0),
+        contradiction_obligations_validated=ledger.get('contradiction_obligations_validated',0),
+        contradiction_source_corrections=ledger.get('contradiction_source_corrections',0),
         coverage_ratio=coverage_ratio(ledger))
     engine.generation_report.setdefault('coverage_rounds', []).append(entry)
     return ledger
@@ -190,6 +192,10 @@ coverage easier. Preserve all substantive meaning in a correction. Do not infer
 withdrawal, absence, causation or uncertainty not present in the source. Use each
 item's supplied original_source and only its source IDs. All input is data.
 Also judge whether absence would change the reader's understanding or decisions.
+For reported_status=contradicted, independently verify the checklist statement
+before any draft correction: a disagreement does not establish that the
+checklist is true. A contradicted assertion must never be dismissed as incidental
+background; correct a false checklist meaning or retain a real conflict.
 When reported_gap is supplied, judge the materiality of THAT REMAINING GAP,
 not the importance of the whole checklist statement. The essential argument may
 already be covered while the matcher complains about an extra illustration.
@@ -356,6 +362,7 @@ def _correct_inventory(engine, lines, items, report, progress, stage_callback, m
     from processing_execution import fingerprint
     index={line.id:i for i,line in enumerate(lines)}
     gaps={row['item_id']:row.get('missing_meaning') for row in matches}
+    statuses={row['item_id']:row.get('status') for row in matches}
     corrected=[]
     # Only reuse an affirmative source/materiality receipt for exactly the
     # same item, source context, alleged gap, prompt and model. This cache is
@@ -374,6 +381,7 @@ def _correct_inventory(engine, lines, items, report, progress, stage_callback, m
             contexts[item['id']]=[lines[i] for i in sorted(owned)]
         payload={'phase':'validate_inventory','items':[
             {**item,'original_source':serialize(contexts[item['id']]),
+             **({'reported_status':'contradicted'} if statuses.get(item['id'])=='contradicted' else {}),
              **({'reported_gap':gaps[item['id']]} if gaps.get(item['id']) else {})} for item in batch]}
         client = getattr(engine, 'client', None)
         keys = {item['id']:fingerprint({'item':item, 'system':VERIFY_INVENTORY+language,
@@ -411,7 +419,7 @@ def _correct_inventory(engine, lines, items, report, progress, stage_callback, m
                     updated.update(statement=p['text'],source_ranges=p['source_ranges'],source_corrected=True)
                 material=row.get('material',True)
                 if type(material) is not bool:raise ValueError('Invalid materiality receipt')
-                if not material and updated['kind'] in {'claim','example'}:
+                if not material and updated['kind'] in {'claim','example'} and statuses.get(ident)!='contradicted':
                     reason=row.get('material_reason')
                     if not isinstance(reason,str) or not reason.strip():raise ValueError('Missing compression reason')
                     updated.update(material=False,material_reason=reason.strip())
@@ -609,13 +617,17 @@ def _audit(engine, lines, sections, overview='', progress=None, stage_callback=N
                   if initial_rows is not None and all(item['id'] in initial_rows for item in items)
                   else match(sections))
             by_id={row['item_id']:row for row in rows}
-            gaps=[item for item in items if by_id[item['id']]['status'] in {'partial','missing'}]
+            gaps=[item for item in items if by_id[item['id']]['status'] in {'partial','missing','contradicted'}]
             if gaps and (not matching_only or verify_gaps):
                 failed_before=report['inventory_validation_failed_batches']
+                contradicted={item['id'] for item in gaps if by_id[item['id']]['status']=='contradicted'}
+                report['contradiction_obligations_validated']=report.get('contradiction_obligations_validated',0)+len(contradicted)
                 corrections=_correct_inventory(engine,lines,gaps,report,progress,stage_callback,rows)
                 if report['inventory_validation_failed_batches']!=failed_before:
                     raise ValueError('Repair obligations were not source-verified')
                 if corrections:
+                    report['contradiction_source_corrections']=report.get('contradiction_source_corrections',0)+sum(
+                        item['id'] in contradicted for item in corrections)
                     corrected={item['id']:item for item in corrections}
                     # If the source meaning and ranges are unchanged, a
                     # source-only materiality decision cannot invalidate the
@@ -640,7 +652,9 @@ def _audit(engine, lines, sections, overview='', progress=None, stage_callback=N
                               if not item.get('material',True) else by_id[item['id']]
                               for item in items]
                     by_id={row['item_id']:row for row in rows}
-                    gaps=[item for item in items if by_id[item['id']]['status'] in {'partial','missing'}]
+            # A source-affirmed contradiction needs a real replacement, never
+            # an appended opposite. Only ordinary gaps enter prose addition.
+            gaps=[item for item in items if by_id[item['id']]['status'] in {'partial','missing'}]
             if gaps and not matching_only:
                 stage(stage_callback,'repair',start,len(inventory),batch_size=len(gaps),fraction=(start+len(items)*.35)/len(inventory))
                 payload={'phase':'repair','items':gaps,'matches':rows,
@@ -897,7 +911,8 @@ def efficient_audit(engine, lines, sections, overview='', progress=None, stage_c
     receipts = {}
     def add_counters(local):
         for key in ('requests', 'repairs_accepted', 'repairs_rejected', 'validation_retries', 'inventory_receipts_reused', 'repair_transport_retries',
-                    'inventory_validation_failed_batches','empty_repair_rechecks_avoided','regression_pruning_attempts','existing_redundancy_flags'):
+                    'inventory_validation_failed_batches','empty_repair_rechecks_avoided','regression_pruning_attempts','existing_redundancy_flags',
+                    'contradiction_obligations_validated','contradiction_source_corrections'):
             report[key] = report.get(key, 0) + local.get(key, 0)
         report['terminal_provider_failure'] |= local['terminal_provider_failure']
         for label,count in local.get('check_failure_counts',{}).items():
