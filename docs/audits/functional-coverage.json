@@ -1676,6 +1676,25 @@
         "production_queue_tested": false,
         "manual_readability_reviewed": false,
         "report": "docs/audits/2026-11-15-summary-whole-episode-acceptance.json"
+      },
+      "source_flag_branch_validation": {
+        "run": 43702374961,
+        "http": 1,
+        "data": "synthetic,no_real_transcript",
+        "supported_flag_cleared": true,
+        "conflicting_and_unknown_flags_retained": true,
+        "source_review_bypassed": false,
+        "prose_unchanged": true,
+        "report": "docs/audits/2026-11-15-summary-source-flag-probe.json"
+      },
+      "shared_budget_snapshot": {
+        "beijing_date": "2026-11-15",
+        "settled_usd": 43.477324,
+        "scope": "configured_test_account_provider_token",
+        "active_work": false,
+        "daily_limit": 100,
+        "settled_stop": 85,
+        "vendor_hard_cap_verified": false
       }
     }
   ],

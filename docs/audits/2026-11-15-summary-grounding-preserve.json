@@ -118,7 +118,7 @@
     "guard_run": 43669862171,
     "guard_http_calls": 0,
     "beijing_date": "2026-11-15",
-    "settled_usd": 43.453706,
+    "settled_usd": 43.477324,
     "scope": "configured_test_account_provider_token",
     "active_production_work": false,
     "daily_shared_limit": 100,
@@ -130,7 +130,7 @@
     "provider_hard_cap_verified": false
   },
   "excluded": "Previously denied3088segment input and private189item normalization query; no real-account reprocessing/deletion or invented authentication.",
-  "acceptance_pending": "Final exact-head CI, one-call synthetic real-provider source-flag positive/negative/unknown probe, protected merge/deploy and exact health revision. Whole authorized episode and unchanged137itemgate passed; no further whole-episode rerun planned.",
+  "acceptance_pending": "Final exact-head full CI, protected merge/deploy and exact public health revision. Authorized complete episode/frozen137gate and separate synthetic real-provider source-flag branch passed.",
   "validation_followup": {
     "first_head": "bc24971aec3d9fb45a66c604ca97ba1eff264a11",
     "first_real_run": 43671158025,
@@ -219,7 +219,7 @@
     "report": "docs/audits/2026-11-15-summary-fixed-inventory-failure.json",
     "same_final_edition_verified": true
   },
-  "next_validation": "One synthetic provider call for source-flag adjudication (no real source); final full CI. Core runtime bytes unchanged from accepted4bafba5; subsequent changes only diagnostics/tests/workflow/evidence.",
+  "next_validation": "No further paid model requests planned. Final evidence-head full CI and protected automatic deployment; exact runtime remains accepted4bafba5. Final source-flag probe passed1HTTP with correct/conflicting/unknown cases.",
   "plan_probe_report": "docs/audits/2026-11-15-summary-inventory-plan-probe.json",
   "stream_probe": {
     "run": 43690941933,
@@ -288,5 +288,18 @@
     "final_budget_guard_passed": true,
     "actual_adjudication_hits": 0,
     "causal_performance_improvement_proven": false
+  },
+  "source_flag_probe": {
+    "run": 43702374961,
+    "revision": "626b784cda749806324e3068ea8dc81cc63a87d8",
+    "report": "docs/audits/2026-11-15-summary-source-flag-probe.json",
+    "actual_http": 1,
+    "synthetic_only": true,
+    "supported_flag_cleared": true,
+    "conflicting_flag_retained": true,
+    "unknown_flag_retained": true,
+    "prose_unchanged": true,
+    "final_guard_passed": true,
+    "full_episode_acceptance": false
   }
 }
