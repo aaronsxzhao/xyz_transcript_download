@@ -28,3 +28,20 @@ Local synthetic API/session fixtures are not authenticated production-account co
 ## Evidence
 
 Original-checkout private artifacts: `appearance-checks/nov15-dashboard-return/`. Baseline: `before/`; final browser matrices: `final-chromium/`, `final-webkit/`; existing reader lane: `readers/`. Captured screenshots and actual image review are separate: the final visual-review manifest lists only the images opened by the reviewer. Numerical assertions cover the complete executed matrix.
+
+
+## Release
+
+- PR: [275](https://github.com/aaronsxzhao/xyz_transcript_download/pull/275), merged as `9a7555e7293adc777ee9cfbd3e7850ebee83a0c3`.
+- Final PR head: `8f485c9dc59ebef63b48576b9dd1c94508f91028`; full [CI 43667267390](https://github.com/aaronsxzhao/xyz_transcript_download/actions/runs/43667267390) completed successfully, including both engines in the new return-position lane. The product source is identical to the locally tested `98c894c` tree.
+- Concurrent main repair #274 (`ebd2b2422adc33ae9f39cc790f2757868e0dc40f`) was inspected and preserved. It changes backend coverage diagnostics/receipts and separate evidence, with no frontend overlap. It is an ancestor of the deployed candidate; `git diff 8f485c9..9a7555e -- web` is empty.
+- Formal [deployment 43669994064](https://github.com/aaronsxzhao/xyz_transcript_download/actions/runs/43669994064): **success**, exact revision `9a7555e7293adc777ee9cfbd3e7850ebee83a0c3`.
+- Post-merge [main CI 43669994089](https://github.com/aaronsxzhao/xyz_transcript_download/actions/runs/43669994089): **in progress at the release observation**. This is separate from the successful PR gate.
+- Independent live health and public frontend delivery: **pass**: HTTP200 health returned the exact deployed revision. All seven public embedded module bodies are byte-identical to the locally tested production build; the observed public recovery URL also has its expected content hash (`b6233791c6834307`)..
+
+Authenticated production-account behavior is not claimed: no dedicated credential input is present. The completed UI journeys above use controlled local APIs/sessions. Public frontend code delivery and backend revision verification do not replace a real signed-in flow. No paid validation was repeated.
+
+Existing open browser documents must load the new build before the next dashboard entry is captured; refresh the dashboard once. A position that an old build never recorded cannot be recovered retroactively.
+
+
+Post-release anonymous Chrome 157 on this Mac passed one 390×844 cold start and reload, reversible checkbox interactions and horizontal bounds, with zero business writes and page errors. Its actual login PNG was opened and inspected, bringing actual reviewed images to nine. This is a login/startup check, not a dashboard or authenticated-account claim. Cold/reload complete interaction timings were 14.677s / 29.383s in this run; no latency improvement or transport closure is claimed. The successful normal compressed HTML document was used for code comparison. Separate identity-document (45s, partial 199,348 bytes), identity recovery-file (30s, partial 381,403 bytes) and compressed recovery-file (60s, partial 32,811 bytes) curl attempts timed out and are not counted as successful transfers.

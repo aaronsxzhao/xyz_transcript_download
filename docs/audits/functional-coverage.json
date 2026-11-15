@@ -1545,6 +1545,53 @@
         "formal_zero_model_probe": 43625509352,
         "shared_settled_usd": 1.654734
       }
+    },
+    {
+      "id": "2026-11-15-dashboard-reader-return-position",
+      "report": "docs/audits/2026-11-15-dashboard-return-position.md",
+      "pr": 275,
+      "result": "deployed_local_and_ci_return_matrix_passed_real_account_pending",
+      "revision": "9a7555e7293adc777ee9cfbd3e7850ebee83a0c3",
+      "pr_ci": {
+        "run": 43667267390,
+        "conclusion": "success",
+        "head": "8f485c9dc59ebef63b48576b9dd1c94508f91028"
+      },
+      "deployment": {
+        "run": 43669994064,
+        "conclusion": "success",
+        "health_revision": "9a7555e7293adc777ee9cfbd3e7850ebee83a0c3"
+      },
+      "main_ci_observation": {
+        "run": 43669994089,
+        "status": "in_progress",
+        "scope": "Separate automatic merged-main run; not counted as completed."
+      },
+      "preserved_parallel_main": "ebd2b2422adc33ae9f39cc790f2757868e0dc40f",
+      "local_matrix": {
+        "appearances": 4,
+        "widths": [
+          390,
+          820,
+          1440
+        ],
+        "engines": [
+          "Chrome 157",
+          "native macOS WebKit 27.2"
+        ],
+        "combinations": 24,
+        "round_trips": 120,
+        "maximum_anchor_error_px": {
+          "chromium": 0.140625,
+          "webkit": 0.859375
+        },
+        "frontend_unit_tests": 559
+      },
+      "live_scope": "Exact health revision, seven byte-identical public module bodies, one anonymous phone cold/reload smoke. Not real-account dashboard acceptance. Transport timing limitations retained in report.",
+      "real_account_condition": "Authorized dedicated test credential input unavailable.",
+      "actual_images_reviewed": 9,
+      "new_paid_validation_calls": 0,
+      "production_chain_status_changed": false
     }
   ],
   "audit_attempts": [
