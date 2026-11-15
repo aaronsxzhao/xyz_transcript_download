@@ -640,3 +640,15 @@ def test_private_obligation_map_cannot_supply_missing_semantic_coverage():
         ledger,_=_audit(owner,lines,sections,inventory=items,matching_only=True)
     assert len(ledger['items'])==2 and all(item['status']=='missing' for item in ledger['items'])
     assert not coverage_acceptable(ledger)
+
+
+@pytest.mark.parametrize('formats',[('screenshot',),('link',),('summary','screenshot','link')])
+def test_video_media_retains_original_event_level_ids_and_timestamps(formats):
+    text=timed_source();owner=SimpleNamespace(generation_mode='single',generation_report={})
+    def inspect(engine,source,title,revision,lines,*args,**kwargs):return {'lines':lines}
+    with patch('coverage_ledger.build_inventory',return_value=({},[])),patch('transcript_reading._generate_with_inventory',side_effect=inspect):
+        edition=generate(owner,text,'Title',formats=formats)
+    assert len(edition['lines'])==2170
+    assert edition['lines']==source_lines(text)[1]
+    assert all(':g' not in line.id for line in edition['lines'])
+    assert owner.generation_report['source_layout']=='original-lines'

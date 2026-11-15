@@ -190,6 +190,7 @@ class Calls:
         with self.lock:
             if self.http_attempts >= self.maximum:
                 raise TestGuardStopped('request_guard')
+            self.guard(self.day)
             self.http_attempts += 1
             self.report['actual_provider_http_attempts'] = self.http_attempts
             phase = 'other'
@@ -221,49 +222,79 @@ class TrackedClient:
     def with_options(self, **options):
         return TrackedClient(self.raw.with_options(**options), self.calls)
 
+    def record_result(self,result,kwargs):
+        with self.calls.lock:
+            usage=getattr(result,'usage',None)
+            if usage is None:
+                self.calls.report['provider_usage_missing_responses']=self.calls.report.get('provider_usage_missing_responses',0)+1
+            for field in ('prompt_tokens','completion_tokens','total_tokens'):
+                value=getattr(usage,field,None)
+                if type(value) is int and value>=0:
+                    totals=self.calls.report.setdefault('provider_reported_usage',{})
+                    totals[field]=totals.get(field,0)+value
+            model=getattr(result,'model',None)
+            if isinstance(model,str) and model:
+                ident=hashlib.sha256(model.encode()).hexdigest()
+                counts=self.calls.report.setdefault('response_model_hash_counts',{})
+                counts[ident]=counts.get(ident,0)+1
+        if self.calls.observer:
+            try:
+                from summary_format import extract_model_json
+                request=json.loads(kwargs['messages'][-1]['content'])
+                response=extract_model_json(result.choices[0].message.content or '')
+                with self.calls.lock:self.calls.observer.observe(request,response)
+            except Exception:
+                self.calls.report['observer_capture_failures']=self.calls.report.get('observer_capture_failures',0)+1
+
+    def finish(self,started,ok):
+        with self.calls.lock:
+            self.calls.active-=1
+            self.calls.report['model_create_calls']=self.calls.started
+            self.calls.report['failed_model_create_calls']=self.calls.report.get('failed_model_create_calls',0)+int(not ok)
+            self.calls.report['provider_request_seconds_sum']=round(self.calls.report.get('provider_request_seconds_sum',0)+time.monotonic()-started,3)
+            self.calls.publish()
+
     def create(self, **kwargs):
-        self.calls.admit()
-        started = time.monotonic()
-        ok = False
+        from json_model_stream import is_completion
+        self.calls.admit();started=time.monotonic();ok=False;deferred=False
         try:
-            result = self.raw.chat.completions.create(**kwargs)
-            with self.calls.lock:
-                usage = getattr(result,'usage',None)
-                for field in ('prompt_tokens','completion_tokens','total_tokens'):
-                    value = getattr(usage,field,None)
-                    if type(value) is int and value >= 0:
-                        totals = self.calls.report.setdefault('provider_reported_usage',{})
-                        totals[field] = totals.get(field,0)+value
-                model = getattr(result,'model',None)
-                if isinstance(model,str) and model:
-                    ident = hashlib.sha256(model.encode()).hexdigest()
-                    counts = self.calls.report.setdefault('response_model_hash_counts',{})
-                    counts[ident] = counts.get(ident,0)+1
-            if self.calls.observer:
-                try:
-                    from summary_format import extract_model_json
-                    request = json.loads(kwargs['messages'][-1]['content'])
-                    response = extract_model_json(result.choices[0].message.content or '')
-                    with self.calls.lock:
-                        self.calls.observer.observe(request, response)
-                except Exception:
-                    self.calls.report['observer_capture_failures'] = self.calls.report.get('observer_capture_failures',0)+1
-            ok = True
+            result=self.raw.chat.completions.create(**kwargs)
+            if kwargs.get('stream') and not is_completion(result):
+                deferred=True
+                return TrackedStream(result,self,kwargs,started)
+            self.record_result(result,kwargs);ok=True
             return result
         except Exception as error:
-            with self.calls.lock:
-                record_provider_error(self.calls.report, kwargs, error)
+            with self.calls.lock:record_provider_error(self.calls.report,kwargs,error)
             raise
         finally:
-            with self.calls.lock:
-                self.calls.active -= 1
-                self.calls.report['model_create_calls'] = self.calls.started
-                self.calls.report['failed_model_create_calls'] = self.calls.report.get('failed_model_create_calls', 0) + int(not ok)
-                self.calls.report['provider_request_seconds_sum'] = round(self.calls.report.get('provider_request_seconds_sum', 0) + time.monotonic()-started, 3)
-                self.calls.publish()
+            if not deferred:self.finish(started,ok)
 
     def close(self):
         self.raw.close()
+
+
+class TrackedStream:
+    """Keep an admitted call in flight until its body is consumed or closed."""
+    def __init__(self,raw,client,kwargs,started):
+        self.raw,self.client,self.kwargs,self.started=raw,client,kwargs,started
+        self.closed=False;self.complete=False;self.recorded=False
+    def __getattr__(self,key):return getattr(self.raw,key)
+    def __iter__(self):
+        try:yield from self.raw
+        except Exception as error:
+            with self.client.calls.lock:record_provider_error(self.client.calls.report,self.kwargs,error)
+            raise
+    def record_completed_response(self,result):
+        if self.recorded:return
+        self.recorded=True
+        self.complete=bool(result.choices and result.choices[0].finish_reason is not None)
+        self.client.record_result(result,self.kwargs)
+    def close(self):
+        if self.closed:return
+        self.closed=True
+        try:self.raw.close()
+        finally:self.client.finish(self.started,self.complete)
 
 
 def child(destination):
@@ -539,15 +570,10 @@ def run_json_stream_probe(settings,report,guard,publish):
         stream=engine.client.with_options(timeout=120,max_retries=0).chat.completions.create(
             model=engine.model,messages=[{'role':'system','content':'Return exactly a JSON object with ok=true. No other content.'},
                 {'role':'user','content':'Synthetic JSON stream capability check.'}],response_format={'type':'json_object'},temperature=0,stream=True)
-        chunks=[];finish=None;events=0
-        for chunk in stream:
-            events+=1
-            if not chunk.choices:continue
-            choice=chunk.choices[0]
-            if choice.delta.content:chunks.append(choice.delta.content)
-            if choice.finish_reason:finish=choice.finish_reason
-        parsed=extract_model_json(''.join(chunks))
-        report['stream_probe']={'received_events':events,'clean_stop':finish=='stop','expected_json':parsed=={'ok':True}}
+        from json_model_stream import collect_completion
+        response=collect_completion(stream);finish=response.choices[0].finish_reason
+        parsed=extract_model_json(response.choices[0].message.content or '')
+        report['stream_probe']={'received_events':getattr(response,'_stream_events',0),'clean_stop':finish=='stop','expected_json':parsed=={'ok':True}}
         report['terminal_state']='stream_probe_passed' if finish=='stop' and parsed=={'ok':True} else 'stream_probe_failed'
     except Exception as error:report.update(terminal_state='stream_probe_failed',error_type=type(error).__name__)
     finally:

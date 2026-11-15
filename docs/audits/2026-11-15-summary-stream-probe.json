@@ -1,0 +1,67 @@
+{
+  "run": 43690941933,
+  "pr": 276,
+  "role": "synthetic_provider_json_stream_capability_only",
+  "full_episode_problem_resolved": false,
+  "measurement": {
+    "revision": "15de1f09a0fda263603ad3b6ed0d7e9f1acce46e",
+    "environment": "isolated synthetic JSON-stream capability probe; no transcript loaded",
+    "production_writes": false,
+    "account_authentication": "authorized server maintenance bindings; not a user login",
+    "daily_limit_usd": 100,
+    "settled_stop_usd": 85,
+    "in_flight_reserve_usd": 15,
+    "request_limit": 1,
+    "actual_provider_http_attempts": 1,
+    "terminal_state": "stream_probe_passed",
+    "checkpoint_policy": "request-fingerprinted Execution with empty in-memory store",
+    "excluded_previously_rejected_episode": true,
+    "account_anchor": "existing_readonly_billing_diagnostic",
+    "billing_snapshot_max_age_seconds": 90,
+    "monitor": {
+      "read_attempts": 3,
+      "read_failures": 0,
+      "wait_seconds": 0
+    },
+    "provider_billing_reads": 2,
+    "billing_snapshot_age_seconds": 0,
+    "budget": {
+      "status": "checked",
+      "beijing_date": "2026-11-15",
+      "settled_usd": 33.321514,
+      "scope": "configured_test_account_provider_token",
+      "daily_limit_usd": 100,
+      "active_work_found": false
+    },
+    "quality_acceptance": false,
+    "source_content_sent": false,
+    "model_settings_fingerprint": "16bd60d985604f5db7b1d8575c6b59fe40af0182957a8c911e269faefb2dcb21",
+    "provider_billing_snapshot_hits": 1,
+    "peak_model_concurrency": 1,
+    "provider_http_attempts_by_phase": {
+      "other": 1
+    },
+    "provider_request_bytes_by_phase": {
+      "other": {
+        "sum": 266,
+        "max": 266
+      }
+    },
+    "provider_http_status_counts": {
+      "200": 1
+    },
+    "model_create_calls": 1,
+    "failed_model_create_calls": 0,
+    "provider_request_seconds_sum": 2.609,
+    "stream_probe": {
+      "received_events": 8,
+      "clean_stop": true,
+      "expected_json": true
+    },
+    "wall_seconds": 2.728,
+    "final_budget_guard_passed": true
+  },
+  "conclusion": "Exactly one actual configured-provider HTTP request sent synthetic short text, no transcript. Eight stream events and a clean stop reconstructed the expected JSON;2.728s probe wall time. This verifies compatible JSON/SSE transport, not long-source latency, fidelity or whole-episode acceptance. The last HTTP524 was a provider gateway failure, not a material-coverage result.",
+  "planned_runtime": "Use existing stream-compatible collection patterns for draft calls only. Close connections on every exit; accept only complete JSON with terminal stream event. Preserve usage-only events, cancellation, owner slots and body-consumption timing; mark unavailable usage explicitly. At most one identical-input transient draft retry without rebuilding inventory or switching generation mode. Authentication/refusal/bad-parameter errors never take that retry.",
+  "causal_performance_claim": false
+}

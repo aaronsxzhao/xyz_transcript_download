@@ -491,16 +491,31 @@ def call_json(engine, system, payload, timeout):
         def validator(data):
             validate_review(data, owned, {line.id for line in owned},
                 {p['id'] for s in request['global_draft'] for p in s['paragraphs']} | {'overview'})
+    transport_retried=False
+    def completed_call():
+        nonlocal transport_retried
+        try:
+            return call_editor(engine.client,engine.model,system,payload,timeout,
+                output_tokens=16384,response_validator=validator,validation_version=VERSION if validator else None)
+        except Exception as error:
+            from model_execution import retryable_model_failure
+            incomplete=isinstance(error,SummaryOutputError) and error.code=='invalid' and error.reason=='stream_incomplete'
+            if ('mode' not in request or transport_retried
+                    or isinstance(error,SummaryOutputError) and not incomplete
+                    or not incomplete and not retryable_model_failure(error)):raise
+            transport_retried=True
+            engine.generation_report['draft_transport_retries']=engine.generation_report.get('draft_transport_retries',0)+1
+            return call_editor(engine.client,engine.model,system,payload,timeout,
+                output_tokens=16384,response_validator=validator,validation_version=VERSION if validator else None)
     try:
         for attempt in range(2):
             try:
-                return call_editor(engine.client, engine.model, system, payload, timeout,
-                                   output_tokens=16384, response_validator=validator,
-                                   validation_version=VERSION if validator else None)
+                return completed_call()
             except (SummaryOutputError, json.JSONDecodeError) as error:
                 # A malformed draft gets one fresh whole-source attempt. Never
                 # relax evidence validation or retry capacity/cancellation errors.
                 if ('mode' not in request or attempt or
+                        isinstance(error,SummaryOutputError) and error.reason=='stream_incomplete' or
                         isinstance(error, SummaryOutputError) and error.code != 'invalid'):
                     raise
                 if isinstance(error, SummaryOutputError) and error.reason == 'source_ranges' and candidate[0] is not None:
@@ -547,7 +562,10 @@ def generate(engine, source, title, *, formats=(), style='detailed', extras='',
     if mode not in MODES:
         raise ValueError('Generation mode must be single or segmented')
     if not isinstance(getattr(engine,'generation_report',None),dict):engine.generation_report={}
-    revision, lines = source_lines(source, compact=True)
+    # Media selection needs the original event-level time IDs; grouping is
+    # only for text reading editions, not an excuse to coarsen video anchors.
+    precise_media=bool({'screenshot','link'} & set(formats or ()))
+    revision, lines = source_lines(source, compact=not precise_media)
     engine.generation_report['source_layout'] = ('lossless-timed-groups-v1'
         if any(':g' in line.id for line in lines) else 'original-lines')
     engine.generation_report['source_units'] = len(lines)

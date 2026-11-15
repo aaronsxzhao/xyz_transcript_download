@@ -2,7 +2,7 @@
   "date": "2026-11-15",
   "base_main": "ebd2b2422adc33ae9f39cc790f2757868e0dc40f",
   "branch": "codex/summary-grounding-preserve",
-  "status": "targeted_plan_fix_regression_verified_full_validation_pending",
+  "status": "json_stream_transport_verified_full_episode_pending",
   "full_episode_problem_resolved": false,
   "entry_point_comparison": {
     "podcast": "Summarizer.summarize -> video_source_text for all complete segment metadata -> transcript_reading.generate -> coverage_ledger -> reading_delivery.accept_edition",
@@ -42,7 +42,8 @@
         "serialized_bytes_after": 49213,
         "source_bytes_equal": true,
         "note": "Atomic grouped-unit boundaries can create one extra source-work batch; no inventory-call-saving claim. Metadata reduction is exact; real latency remains an observation."
-      }
+      },
+      "media_precision": "Do not group event-level source units when screenshot or link formats are requested; retain original IDs and every event timestamp. Small ordinary sources unchanged. Media precision must not pay for podcast text compression."
     },
     {
       "id": "H2",
@@ -82,12 +83,22 @@
       "fix": "After source correction, use the one existing bounded coverage-repair opportunity before final whole-draft review. Keep source-first ordering when source safety is still unknown. Skip final review only when delivery is already impossible; never publish without final source review. Original three iterations and repair limits retained.",
       "synthetic": "Source repair -> matching -> coverage repair -> one final review; initially unknown unsupported prose still receives preliminary source review before correction.",
       "immutable_scope_fix": "Organize repaired chapters before final review, not after it. Final-review identity now includes chapter headings and paragraph order; unchanged text under a changed scope cannot reuse an old pass.",
-      "late_fidelity_fix": "A new locatable final-source rejection can use the same existing one late-correction allowance, shared with ledger contradictions. Rejected (paragraph,text,evidence) versions are tracked by hashes; unchanged already-rejected versions cannot trigger this opportunity. Recheck actual corrected coverage and final organized whole draft; further rejections fail. Existing three iterations/two local edits unchanged."
+      "late_fidelity_fix": "A new locatable final-source rejection can use the same existing one late-correction allowance, shared with ledger contradictions. Rejected (paragraph,text,evidence) versions are tracked by hashes; unchanged already-rejected versions cannot trigger this opportunity. Recheck actual corrected coverage and final organized whole draft; further rejections fail. Existing three iterations/two local edits unchanged.",
+      "gateway_failure": {
+        "run": 43689457403,
+        "http": 14,
+        "core_seconds": 363.239,
+        "draft_status": 524,
+        "draft_seconds": 125.42,
+        "quality_reached": false,
+        "report": "docs/audits/2026-11-15-summary-gateway-timeout.json"
+      },
+      "transport_fix": "Draft JSON is collected privately through streaming, reusing established legacy video/podcast stream handling. Terminal SSE event and full JSON/schema/source/coverage validation still required; no partial public prose or checkpoint. An explicit unsupported stream parameter may fall back once to normal JSON; a valid application/json response to a stream request is consumed without rebilling. Only one identical-input transient draft retry, shared across format attempts, no inventory regeneration or mode change. Auth, quota, refusal and unrelated4xx are not retried. Existing deadline/timeouts/request caps retained."
     }
   ],
   "regression": {
-    "new_cases": 70,
-    "related_passed": 494,
+    "new_cases": 99,
+    "related_passed": 523,
     "environment": "local Python3.12,synthetic data,no real model calls; includes fixed archived-inventory validation and source-layout resume tests"
   },
   "real_validation": {
@@ -103,7 +114,7 @@
     "guard_run": 43669862171,
     "guard_http_calls": 0,
     "beijing_date": "2026-11-15",
-    "settled_usd": 32.719836,
+    "settled_usd": 33.321514,
     "scope": "configured_test_account_provider_token",
     "active_production_work": false,
     "daily_shared_limit": 100,
@@ -204,6 +215,16 @@
     "report": "docs/audits/2026-11-15-summary-fixed-inventory-failure.json",
     "same_final_edition_verified": true
   },
-  "next_validation": "One serial exact-head complete source/model/settings/fresh-checkpoint validation after485+2relatedpasses, unchanged160HTTP/3600s/90percent, independent immutable137check, two RAM-only stage assessments on failure.",
-  "plan_probe_report": "docs/audits/2026-11-15-summary-inventory-plan-probe.json"
+  "next_validation": "One serial full episode using confirmed JSON streaming; exact source/settings/empty memory checkpoint/fixed137 strategy. Require full exact-head CI and forced final budget check; no new paid run solely for test-only fixture changes.",
+  "plan_probe_report": "docs/audits/2026-11-15-summary-inventory-plan-probe.json",
+  "stream_probe": {
+    "run": 43690941933,
+    "http": 1,
+    "source_sent": false,
+    "events": 8,
+    "clean_stop": true,
+    "expected_json": true,
+    "full_quality_acceptance": false,
+    "report": "docs/audits/2026-11-15-summary-stream-probe.json"
+  }
 }

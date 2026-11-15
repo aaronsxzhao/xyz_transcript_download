@@ -1616,6 +1616,16 @@
           "initial_inventory_gap": 1
         },
         "next": "exact-head real full validation of private mapping and append-only source inventory review"
+      },
+      "stream_transport_followup": {
+        "source_failure_run": 43689457403,
+        "source_failure_http_status": 524,
+        "probe_run": 43690941933,
+        "synthetic_stream_supported": true,
+        "source_sent": false,
+        "local_related_passed": 523,
+        "whole_episode_accepted": false,
+        "next": "streaming full episode and exact-head CI"
       }
     }
   ],

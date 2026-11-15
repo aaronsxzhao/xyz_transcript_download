@@ -71,6 +71,8 @@ def safe_report(report):
     if type(report.get('inventory_guided_draft')) is bool:safe['inventory_guided_draft']=report['inventory_guided_draft']
     if type(report.get('inventory_source_items')) is int and 0<=report['inventory_source_items']<=100000:
         safe['inventory_source_items']=report['inventory_source_items']
+    if type(report.get('draft_transport_retries')) is int and 0<=report['draft_transport_retries']<=100000:
+        safe['draft_transport_retries']=report['draft_transport_retries']
     if isinstance(report.get('draft_obligation_map'),dict):
         safe['draft_obligation_map']={k:v for k,v in report['draft_obligation_map'].items()
             if k in ('supplied','mapped','claimed_source_conflicts') and type(v) is int and 0<=v<=100000}
