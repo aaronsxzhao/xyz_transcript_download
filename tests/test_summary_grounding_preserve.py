@@ -256,3 +256,59 @@ def test_source_correction_then_coverage_repair_precedes_only_the_final_review(i
         'source_repair','match_corrected','coverage_repair','review']
     assert owner.generation_report['delivery']['status']=='accepted'
     assert owner.generation_report['delivery']['coverage_ratio']==.9
+
+
+@pytest.mark.parametrize('result',['approved','capacity','rejected'])
+def test_single_mode_final_review_reads_whole_source_with_only_explicit_capacity_fallback(result):
+    from tests.test_reading_delivery import candidate
+    owner,edition=candidate(10);owner.generation_mode='single'
+    owner.generation_report.pop('grounded_draft_identity');seen=[]
+    def review(*args):
+        request=json.loads(args[2]);seen.append(request)
+        if len(seen)==1 and result=='capacity':raise SummaryOutputError('capacity')
+        return {'checked_source_ids':[row['id'] for row in request['primary_source']],
+            'complete':True,'grounded':result!='rejected','unsupported_paragraph_ids':[],'additions':[]}
+    with patch('transcript_reading.batches',return_value=[[edition['lines'][0]],[edition['lines'][1]]]), \
+         patch('transcript_reading.call_json',side_effect=review):
+        if result=='rejected':
+            with pytest.raises(SummaryOutputError):accept_edition(owner,edition,'Title','Source',[],0)
+        else:accept_edition(owner,edition,'Title','Source',[],0)
+    assert len(seen[0]['primary_source'])==2
+    assert len(seen)==(3 if result=='capacity' else 1)
+    assert bool(owner.generation_report.get('final_source_capacity_fallback'))==(result=='capacity')
+    if result=='capacity':
+        assert {row['id'] for request in seen[1:] for row in request['primary_source']}=={line.id for line in edition['lines']}
+    if result=='rejected':assert owner.generation_report['delivery']['status']=='blocked'
+
+
+def test_final_source_review_sees_the_actual_rendered_chapter_scope_and_order():
+    from tests.test_reading_delivery import candidate
+    owner,edition=candidate(8);owner._quality_inventory=({},[]);reviewed=[]
+    def repair(*args,**kwargs):
+        paragraph=copy.deepcopy(edition['sections'][0]['paragraphs'][0]);paragraph['id']='NEW'
+        paragraph['indices']=[0]
+        args[2].append({'heading':'Temporary repair heading','paragraphs':[paragraph]})
+        ledger=copy.deepcopy(owner.generation_report['coverage_ledger']);ledger['items'][8]['status']='covered'
+        return ledger
+    def review(*args):
+        request=json.loads(args[2]);reviewed.append(request['global_draft'])
+        assert all(section['heading']!='Temporary repair heading' for section in request['global_draft'])
+        return {'checked_source_ids':[line.id for line in edition['lines']],
+            'complete':True,'grounded':True,'unsupported_paragraph_ids':[],'additions':[]}
+    with patch('coverage_ledger.efficient_audit',side_effect=repair),patch('transcript_reading.call_json',side_effect=review):
+        result=accept_edition(owner,edition,'Title','Source',[],0)
+    from transcript_reading import public_draft
+    assert len(reviewed)==1 and reviewed[0]==public_draft(result['sections'])
+    assert 'Temporary repair heading' not in result['markdown']
+
+
+def test_changed_chapter_scope_cannot_reuse_a_pass_for_identical_paragraph_text():
+    from tests.test_reading_delivery import candidate
+    owner,edition=candidate(10)
+    edition['sections'][0]['heading']='Unsupported universal scope'
+    rejected={'checked_source_ids':[line.id for line in edition['lines']],
+        'complete':True,'grounded':False,'unsupported_paragraph_ids':[],'additions':[]}
+    with patch('transcript_reading.call_json',return_value=rejected) as review:
+        with pytest.raises(SummaryOutputError):accept_edition(owner,edition,'Title','Source',[],0)
+    assert review.call_count==1
+    assert owner.generation_report['delivery']['status']=='blocked'

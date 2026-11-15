@@ -57,6 +57,10 @@ def safe_rounds(value):
 def safe_report(report):
     report = report if isinstance(report, dict) else {}
     safe = {}
+    if type(report.get('final_source_capacity_fallback')) is bool:
+        safe['final_source_capacity_fallback']=report['final_source_capacity_fallback']
+    if type(report.get('final_source_review_parts')) is int and 0<=report['final_source_review_parts']<=100000:
+        safe['final_source_review_parts']=report['final_source_review_parts']
     if report.get('source_layout') in ('original-lines','lossless-timed-groups-v1'):
         safe['source_layout']=report['source_layout']
     if type(report.get('source_units')) is int and 0<report['source_units']<=100000:

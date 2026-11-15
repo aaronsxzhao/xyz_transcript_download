@@ -30,7 +30,8 @@
         "inventory_batches_after": 4,
         "source_bytes_equal": true
       },
-      "boundary": "Real quality and provider-call savings require full-episode acceptance, not merely grouping counts."
+      "boundary": "Real quality and provider-call savings require full-episode acceptance, not merely grouping counts.",
+      "final_review": "Single-mode generation now gets a single whole-source final review, matching the existing whole-source generation/initial-review context. Only an explicit provider capacity error permits one bounded partitioned fallback; valid rejection, malformed check and transport errors never trigger repartition. Segmented-mode final review remains bounded and parallel<=2. All source lines and final prose are checked."
     },
     {
       "id": "H2",
@@ -48,12 +49,13 @@
       "id": "H4",
       "cause": "After a source correction makes coverage insufficient, an immutable whole-draft review is spent before known necessary coverage edits, then repeated after them.",
       "fix": "After source correction, use the one existing bounded coverage-repair opportunity before final whole-draft review. Keep source-first ordering when source safety is still unknown. Skip final review only when delivery is already impossible; never publish without final source review. Original three iterations and repair limits retained.",
-      "synthetic": "Source repair -> matching -> coverage repair -> one final review; initially unknown unsupported prose still receives preliminary source review before correction."
+      "synthetic": "Source repair -> matching -> coverage repair -> one final review; initially unknown unsupported prose still receives preliminary source review before correction.",
+      "immutable_scope_fix": "Organize repaired chapters before final review, not after it. Final-review identity now includes chapter headings and paragraph order; unchanged text under a changed scope cannot reuse an old pass."
     }
   ],
   "regression": {
-    "new_cases": 23,
-    "related_passed": 393,
+    "new_cases": 28,
+    "related_passed": 398,
     "environment": "local Python3.12,synthetic data,no real model calls; includes fixed archived-inventory validation and source-layout resume tests"
   },
   "real_validation": {
@@ -88,6 +90,9 @@
     "first_head_ci": 43671152730,
     "ci_found": "one direct-generate concurrency fixture lacks generation_report; generation now initializes it safely;1871otherbackend tests passed",
     "binding_found": "render-stage frame_time annotations made whole-paragraph fingerprints too conservative; bind semantic prose and entire local chapter context/order instead;2new rendering/context counterexamples pass",
-    "plan": "First running isolated job is a staged control with known conservative cache invalidation, not final-head acceptance. Do not cancel/discard its tracking or start another model job concurrently. Final head requires full CI and real acceptance including fixed archived checklist."
+    "plan": "First running isolated job is a staged control with known conservative cache invalidation, not final-head acceptance. Do not cancel/discard its tracking or start another model job concurrently. Final head requires full CI and real acceptance including fixed archived checklist.",
+    "latest_pre_final_head": "30eeb89675d74f481eac4076ab67839acd7048b3",
+    "latest_pre_final_ci": 43671534220,
+    "latest_pre_final_backend": "success; final whole-source and immutable-chapter changes require a new exact-head full CI"
   }
 }

@@ -11,9 +11,10 @@ from summary_errors import SummaryOutputError, is_cancellation
 
 
 def draft_identity(sections, overview):
-    return fingerprint({'overview':overview, 'paragraphs':sorted([
-        {key:p.get(key) for key in ('id','text','source_ranges','raw')}
-        for s in sections for p in s['paragraphs']], key=lambda p:p['id'])})
+    return fingerprint({'overview':overview,'sections':[
+        {'heading':section['heading'],'paragraphs':[
+            {key:p.get(key) for key in ('id','text','source_ranges')} | {'raw':bool(p.get('raw'))}
+            for p in section['paragraphs']]} for section in sections]})
 
 
 def repair_unsupported(engine, lines, sections, ids, reasons=None):
@@ -209,6 +210,10 @@ def accept_edition(engine, edition, title, source, formats, duration, stage_call
                 raise SummaryOutputError('quality', reason='source_review'
                     if ledger.get('inventory_failed_batches') or ledger.get('inventory_validation_failed_batches')
                     else 'coverage')
+            # The source reviewer must see the same chapter scope/order that
+            # will be rendered, including repaired paragraphs placed in their
+            # real chapters. No organization is allowed after the final pass.
+            sections = organize_sections(sections, baseline)
             identity = draft_identity(sections, overview)
             if (report.get('grounded_draft_identity') != identity or
                     report.get('coverage_ledger', {}).get('grounding_concerns') or
@@ -218,7 +223,9 @@ def accept_edition(engine, edition, title, source, formats, duration, stage_call
                 grounded = True
                 # Source-local receipts cover every source line. All batches see
                 # the same final draft; no intermediate edits or stale receipts.
-                review_parts = list(batches(lines, 24000))
+                partitioned_parts = list(batches(lines, 24000))
+                review_parts = ([lines] if getattr(engine,'generation_mode','single')=='single'
+                    else partitioned_parts)
                 frozen_draft = copy.deepcopy(public_draft(sections))
                 known_ids = {p['id'] for s in frozen_draft for p in s['paragraphs']} | {'overview'}
                 from processing_parallel import bounded_map
@@ -236,8 +243,20 @@ def accept_edition(engine, edition, title, source, formats, duration, stage_call
                 def reviewed_part(_index, _result):
                     completed[0] += 1
                     stage(stage_callback, 'quality', completed[0], len(review_parts))
-                for data, invalid in bounded_map(review_part, review_parts, workers=2,
-                                                 on_complete=reviewed_part):
+                try:
+                    results=bounded_map(review_part,review_parts,workers=2,on_complete=reviewed_part)
+                except SummaryOutputError as error:
+                    # Single generation already gives this provider the whole
+                    # source. Keep that context for final review too. Partition
+                    # review only when the provider explicitly cannot fit it;
+                    # never retry a valid rejection or malformed/failed check.
+                    if error.code!='capacity' or len(review_parts)!=1 or len(partitioned_parts)<=1:raise
+                    report['final_source_capacity_fallback']=True
+                    review_parts=partitioned_parts;completed[0]=0
+                    stage(stage_callback,'quality',0,len(review_parts))
+                    results=bounded_map(review_part,review_parts,workers=2,on_complete=reviewed_part)
+                report['final_source_review_parts']=len(review_parts)
+                for data, invalid in results:
                     grounded &= data.get('grounded') is True and not invalid
                     unsupported.update(invalid)
                     for item in data.get('unsupported_reasons', []) if isinstance(data.get('unsupported_reasons'), list) else []:
@@ -272,7 +291,6 @@ def accept_edition(engine, edition, title, source, formats, duration, stage_call
                     efficient_audit,lines,sections,overview,prepared_inventory=engine._quality_inventory,
                     reuse_unchanged_support=True,stage_callback=stage_callback)
                 continue
-            sections = organize_sections(sections, baseline)
             report['delivery'] = {'status':'accepted', 'coverage_ratio':coverage_ratio(ledger),
                 'coverage_threshold':threshold, 'grounded':True, 'semantic_proof':False,
                 'unresolved_items':ledger.get('unresolved_items',0)}

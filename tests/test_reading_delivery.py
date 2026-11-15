@@ -138,6 +138,7 @@ def test_changed_final_text_requires_new_grounding_and_cannot_reuse_stale_pass()
 @pytest.mark.parametrize('reject_second', [False, True])
 def test_final_review_runs_independent_batches_in_parallel_without_weakening_gate(reject_second):
     owner, edition = candidate(10)
+    owner.generation_mode='segmented'
     owner.generation_report.pop('grounded_draft_identity')
     lines = edition['lines']
     barrier = threading.Barrier(2, timeout=5)
