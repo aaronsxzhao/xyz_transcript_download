@@ -38,6 +38,7 @@ async def main():
        await page.goto(f'http://127.0.0.1:{server.server_port}/videos/bench');await page.locator('[data-rendering="formatted"]').wait_for();await page.get_by_text('Original saved paragraph.',exact=True).wait_for()
        assert await page.locator('.reader-body').get_by_role('heading',name='Contents',exact=True).count()==0
        assert await page.locator('.unified-outline').get_by_role('button',name='Contents',exact=True).count()==0
+       assert await page.locator('.unified-outline').get_by_role('button',name='Me at the zoo',exact=True).count()==0
        assert await page.locator('.reader-metadata time').inner_text()=='Published 2005-04-24'
        assert await page.locator('.reader-metadata time').get_attribute('datetime')=='2005-04-24'
        assert await page.locator('.publication-reader-cover').count()==(1 if design=='editorial' else 0),'Approved cover removed'

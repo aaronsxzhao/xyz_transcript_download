@@ -43,3 +43,5 @@
 /* Preserve short column labels; constrain scrolling to the table region. */
 .note-prose .markdown-table :is(th,td){min-width:100px;word-break:normal;overflow-wrap:normal}
 .note-prose .markdown-table :is(th,td) :is(a,code){overflow-wrap:anywhere}
+
+.podcast-reader .markdown-table table { display:table; width:100%; min-width:480px; }

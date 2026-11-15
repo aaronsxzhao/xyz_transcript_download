@@ -59,7 +59,7 @@ export function inlineNoteText(tokens:Inline[]):string {
   return tokens.map(token=>token.tokens?inlineNoteText(token.tokens):token.type === 'codespan' ? token.text || '' : decodeNoteText(token.text || '')).join('')
 }
 
-export function extractNoteToc(markdown:string,preserveSource=false) {
+export function extractNoteToc(markdown:string,preserveSource=false,readerTitle?:string) {
   const counts:Record<string,number>=Object.create(null)
   const headings:{level:number;text:string;slug:string}[]=[]
   walkTokens(Lexer.lex(preserveSource?markdown:prepareNoteMarkdown(markdown)),token=>{
@@ -69,5 +69,5 @@ export function extractNoteToc(markdown:string,preserveSource=false) {
     const slug=uniqueNoteHeadingSlug(text,counts)
     if(heading.depth<=3)headings.push({level:heading.depth,text,slug})
   })
-  return headings
+  return headings.filter((heading,index)=>preserveSource || index>0 || heading.level!==1 || heading.text.trim()!==readerTitle?.trim())
 }

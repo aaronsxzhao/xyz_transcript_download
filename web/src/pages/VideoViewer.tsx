@@ -408,7 +408,7 @@ export default function VideoViewer() {
       !!content &&
       viewMode === "markdown",
   );
-  const toc = useMemo(() => extractNoteToc(content,isOriginal), [content,isOriginal]);
+  const toc = useMemo(() => extractNoteToc(content,isOriginal,task?.title), [content,isOriginal,task?.title]);
 
   const scrollToHeading = (slug: string) => {
     const el = document.getElementById(slug);
