@@ -351,7 +351,8 @@ def test_local_source_rewrite_is_atomic_and_preserves_independently_supported_me
         assert sections==before  # No tentative rewrite is committed.
         text=''.join(p['text'] for section in request['global_draft'] for p in section['paragraphs'])
         return {'obligations':[{'id':'UNKNOWN' if outcome=='invalid_receipt' else 'C0',
-            'source_supported':outcome!='unsupported_old_claim','covered':'Follow-up lasted two weeks.' in text,
+            'source_supported':outcome!='unsupported_old_claim',
+            'before_covered':outcome!='owned_raw','after_covered':'Follow-up lasted two weeks.' in text,
             'source_evidence':[{'start':lines[1].id,'end':lines[1].id}]}]}
     with patch('reading_editor._call_editor',side_effect=complete):
         if outcome in ('still_missing','invalid_receipt'):
@@ -361,9 +362,12 @@ def test_local_source_rewrite_is_atomic_and_preserves_independently_supported_me
             repair_unsupported(owner,lines,sections,{'P0'})
             text=sections[0]['paragraphs'][0]['text']
             assert 'everybody' not in text and 'three weeks' not in text
-            if outcome in ('restored','owned_raw'):assert 'Follow-up lasted two weeks.' in text
-    assert repairs[0]==(2 if outcome in ('restored','still_missing','owned_raw') else 1)
-    assert len(calls)==repairs[0]*2
+            if outcome=='restored':assert 'Follow-up lasted two weeks.' in text
+            if outcome=='owned_raw':
+                assert 'Follow-up lasted two weeks.' not in text
+                assert owner.generation_report['grounding_preservation_checks'][0]['preexisting_uncovered']==1
+    assert repairs[0]==(2 if outcome in ('restored','still_missing') else 1)
+    assert len(calls)==repairs[0]*2+(1 if outcome=='invalid_receipt' else 0)
     assert owner._quality_inventory[1]==[item]  # No obligation was deleted or simplified.
 
 
@@ -375,7 +379,7 @@ def test_preservation_evidence_cannot_bridge_a_gap_not_supplied_to_the_reviewer(
     def complete(client,model,system,payload,timeout,**kwargs):
         request=json.loads(payload)
         assert lines[10].id not in {line['id'] for line in request['primary_source']}
-        return {'obligations':[{'id':'C','source_supported':True,'covered':True,
+        return {'obligations':[{'id':'C','source_supported':True,'before_covered':True,'after_covered':True,
             'source_evidence':[{'start':lines[0].id,'end':lines[-1].id}]}]}
     with patch('reading_editor._call_editor',side_effect=complete):
         with pytest.raises(SummaryOutputError) as error:
@@ -455,7 +459,8 @@ def test_incomplete_large_source_inventory_blocks_draft_without_spending_a_gener
     assert owner.generation_report['delivery']['status']=='blocked'
 
 
-def test_raw_fallback_correction_targets_original_rejection_and_cannot_replay_it_unchanged():
+@pytest.mark.parametrize('first_reply',['rejected','raw'])
+def test_raw_fallback_correction_targets_original_rejection_and_cannot_replay_it_unchanged(first_reply):
     from reading_delivery import remember_source_rejection,repair_unsupported,save_candidate
     from scripts.validate_parallel_processing import Store
     from processing_execution import Execution
@@ -476,7 +481,7 @@ def test_raw_fallback_correction_targets_original_rejection_and_cannot_replay_it
         request=json.loads(payload);calls.append(request)
         assert request['paragraphs'][0]['rejected_text']==bad
         assert request['paragraphs'][0]['review_feedback']==['The scope and dose are unsupported.']
-        return {'replacements':[{'id':'P0','text':bad if len(calls)==1 else 'At the low dose, the response applies only to adults.',
+        return {'replacements':[{'id':'P0','text':(bad if first_reply=='rejected' else lines[0].text) if len(calls)==1 else 'At the low dose, the response applies only to adults.',
             'source_ranges':spans}]}
     with patch('reading_editor._call_editor',side_effect=complete):repair_unsupported(owner,lines,sections,{'P0'})
     assert len(calls)==2
@@ -511,3 +516,32 @@ def test_new_locatable_final_source_rejection_uses_only_existing_late_correction
     assert owner.generation_report['late_contradiction_repair_attempts']==(0 if result=='unchanged_version' else 1)
     if result!='unchanged_version':assert owner.generation_report['late_contradiction_repair_origin']=='final_source_review'
     assert owner.generation_report['delivery']['status']==('accepted' if result=='resolved' else 'blocked')
+
+
+@pytest.mark.parametrize('before_covered,after_covered,expected_losses',[
+    (True,False,1),(True,True,0),(False,False,0),(False,True,0)])
+def test_preservation_compares_original_rejected_prose_and_counts_only_new_loss(before_covered,after_covered,expected_losses):
+    from reading_delivery import check_grounding_preservation,remember_source_rejection
+    owner,lines,sections,prepared=scene();owner.generation_report={}
+    before=copy.deepcopy(sections)
+    remember_source_rejection(owner,sections,{'P0'})
+    sections[0]['paragraphs'][0].update(raw=True,text=lines[0].text)
+    owner._source_correction_overview='An existing supported opening.'
+    replacement=copy.deepcopy(before[0]['paragraphs'][0]);replacement['text']='Corrected factual claim.'
+    def complete(client,model,system,payload,timeout,**kwargs):
+        request=json.loads(payload)
+        assert request['previous_draft'][0]['paragraphs'][0]['text']==before[0]['paragraphs'][0]['text']
+        assert request['previous_draft'][0]['paragraphs'][0]['raw'] is False
+        assert request['global_draft'][0]['paragraphs'][0]['text']=='Corrected factual claim.'
+        assert request['previous_draft'][-1]==request['global_draft'][-1]
+        return {'obligations':[{'id':'C0','source_supported':True,'before_covered':before_covered,
+            'after_covered':after_covered,'source_evidence':prepared[1][0]['source_ranges']}]}
+    with patch('reading_editor._call_editor',side_effect=complete):
+        losses=check_grounding_preservation(owner,lines,sections,{'P0':replacement},{'P0':[prepared[1][0]]})
+    assert len(losses)==expected_losses
+    check=owner.generation_report['grounding_preservation_checks'][0]
+    assert check['preexisting_uncovered']==int(not before_covered and not after_covered)
+    assert check['newly_covered']==int(not before_covered and after_covered)
+    assert check['missing_supported']==expected_losses
+    assert sections[0]['paragraphs'][0]['raw'] is True
+    assert prepared[1][0]['statement']=='Fact 0.'

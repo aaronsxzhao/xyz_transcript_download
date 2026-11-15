@@ -1,0 +1,534 @@
+{
+  "run": 43681772424,
+  "pr": 276,
+  "role": "pre_paired_preservation_control",
+  "full_episode_problem_resolved": false,
+  "measurement": {
+    "revision": "8c80cd7415050e1a5f75cc046ae5546cca290916",
+    "environment": "isolated Actions runner; real model; memory checkpoints; no production queue",
+    "production_writes": false,
+    "account_authentication": "authorized server maintenance bindings; not a user login",
+    "daily_limit_usd": 100,
+    "settled_stop_usd": 85,
+    "in_flight_reserve_usd": 15,
+    "request_limit": 160,
+    "actual_provider_http_attempts": 43,
+    "terminal_state": "failed",
+    "checkpoint_policy": "request-fingerprinted Execution with empty in-memory store",
+    "excluded_previously_rejected_episode": true,
+    "account_anchor": "existing_readonly_billing_diagnostic",
+    "billing_snapshot_max_age_seconds": 90,
+    "monitor": {
+      "read_attempts": 45,
+      "read_failures": 0,
+      "wait_seconds": 0
+    },
+    "provider_billing_reads": 10,
+    "billing_snapshot_age_seconds": 0,
+    "budget": {
+      "status": "checked",
+      "beijing_date": "2026-11-15",
+      "settled_usd": 28.286292,
+      "scope": "configured_test_account_provider_token",
+      "daily_limit_usd": 100,
+      "active_work_found": false
+    },
+    "source_binding": "exact previously authorized historical task and episode URL; read only",
+    "source_and_billing_account_same": false,
+    "source_sha256": "3e3af05dbabcc3bfc605ac8215be5c21696677a546f8c90ce63bb33eb8cbf477",
+    "episode_id": "6ac6a657e742e36efcbf74af",
+    "source_segments": 2170,
+    "source_characters": 18257,
+    "source_duration_seconds": 3437.2,
+    "transcript_structural_validation": "passed",
+    "manual_transcript_readability": "not_reviewed",
+    "manual_summary_readability": "not_reviewed",
+    "model_settings_fingerprint": "16bd60d985604f5db7b1d8575c6b59fe40af0182957a8c911e269faefb2dcb21",
+    "independent_inventory_item_count": 137,
+    "independent_inventory_fingerprint": "7a9827b0469f7e34f6fc91caee50279bcb7c2ae19a14089e30cf889bd838e263",
+    "provider_billing_snapshot_hits": 35,
+    "peak_model_concurrency": 2,
+    "provider_http_attempts_by_phase": {
+      "inventory": 11,
+      "draft": 1,
+      "grounding": 1,
+      "match": 17,
+      "validate_inventory": 3,
+      "repair": 3,
+      "other": 1,
+      "repair_grounding": 2,
+      "verify_grounding_preservation": 2,
+      "gap_review": 2
+    },
+    "provider_request_bytes_by_phase": {
+      "inventory": {
+        "sum": 225394,
+        "max": 21426
+      },
+      "draft": {
+        "sum": 150994,
+        "max": 150994
+      },
+      "grounding": {
+        "sum": 113827,
+        "max": 113827
+      },
+      "match": {
+        "sum": 938494,
+        "max": 64206
+      },
+      "validate_inventory": {
+        "sum": 242833,
+        "max": 100607
+      },
+      "repair": {
+        "sum": 186547,
+        "max": 64126
+      },
+      "other": {
+        "sum": 50909,
+        "max": 50909
+      },
+      "repair_grounding": {
+        "sum": 76172,
+        "max": 42080
+      },
+      "verify_grounding_preservation": {
+        "sum": 98635,
+        "max": 59611
+      },
+      "gap_review": {
+        "sum": 293122,
+        "max": 146561
+      }
+    },
+    "provider_http_status_counts": {
+      "200": 43
+    },
+    "provider_reported_usage": {
+      "prompt_tokens": 1014935,
+      "completion_tokens": 58391,
+      "total_tokens": 1073326
+    },
+    "response_model_hash_counts": {
+      "576a599a64cb3dde05f18ebb3e26e3d5bcbf4b108ff92da24f5229188fa0972a": 43
+    },
+    "model_create_calls": 43,
+    "failed_model_create_calls": 0,
+    "provider_request_seconds_sum": 1247.719,
+    "error_type": "SummaryOutputError",
+    "delivery_provider_http_attempts": 41,
+    "delivery_wall_seconds": 950.399,
+    "delivery_provider_http_attempts_by_phase": {
+      "inventory": 11,
+      "draft": 1,
+      "grounding": 1,
+      "match": 17,
+      "validate_inventory": 3,
+      "repair": 3,
+      "other": 1,
+      "repair_grounding": 2,
+      "verify_grounding_preservation": 2
+    },
+    "delivery_provider_request_bytes_by_phase": {
+      "inventory": {
+        "sum": 225394,
+        "max": 21426
+      },
+      "draft": {
+        "sum": 150994,
+        "max": 150994
+      },
+      "grounding": {
+        "sum": 113827,
+        "max": 113827
+      },
+      "match": {
+        "sum": 938494,
+        "max": 64206
+      },
+      "validate_inventory": {
+        "sum": 242833,
+        "max": 100607
+      },
+      "repair": {
+        "sum": 186547,
+        "max": 64126
+      },
+      "other": {
+        "sum": 50909,
+        "max": 50909
+      },
+      "repair_grounding": {
+        "sum": 76172,
+        "max": 42080
+      },
+      "verify_grounding_preservation": {
+        "sum": 98635,
+        "max": 59611
+      }
+    },
+    "delivery_provider_http_status_counts": {
+      "200": 41
+    },
+    "delivery_provider_reported_usage": {
+      "prompt_tokens": 908143,
+      "completion_tokens": 56844,
+      "total_tokens": 964987
+    },
+    "delivery_provider_request_seconds_sum": 1209.113,
+    "delivery_execution": {
+      "stages": {
+        "model.queue": {
+          "seconds": 0,
+          "calls": 41
+        },
+        "model.phase.inventory": {
+          "seconds": 337.13499999999993,
+          "calls": 11
+        },
+        "model.editor": {
+          "seconds": 1219.6819999999998,
+          "calls": 41,
+          "failed_calls": 2
+        },
+        "model.phase.draft": {
+          "seconds": 89.108,
+          "calls": 1
+        },
+        "model.phase.grounding": {
+          "seconds": 29.048,
+          "calls": 1
+        },
+        "model.phase.match": {
+          "seconds": 510.85,
+          "calls": 17
+        },
+        "model.phase.validate_inventory": {
+          "seconds": 76.826,
+          "calls": 3
+        },
+        "model.phase.repair": {
+          "seconds": 67.535,
+          "calls": 3
+        },
+        "model.phase.other": {
+          "seconds": 17.2,
+          "calls": 1
+        },
+        "model.phase.repair_grounding": {
+          "seconds": 56.214,
+          "calls": 2
+        },
+        "model.phase.verify_grounding_preservation": {
+          "seconds": 35.679,
+          "calls": 2
+        }
+      },
+      "checkpoint_hits": 0,
+      "wall_seconds": 950.532
+    },
+    "final_diagnostic_progress": [
+      {
+        "state": "prepared",
+        "request_sha256": "f27258256155a8b661503184a12640e9b1005cd6846d032faef83f2661174f5e",
+        "sample_count": 6,
+        "diagnostic_checkpoint_reuse": false,
+        "evidence_protocol": "resolved_ranges_v2"
+      },
+      {
+        "state": "assessment_validated",
+        "assessment_number": 1,
+        "summary": {
+          "validated_sample_count": 6,
+          "citation_integrity_failures": 0,
+          "citation_failure_reasons": {},
+          "verdict_counts": {
+            "not_supported.covered": 2,
+            "supported.covered": 1,
+            "supported.missing": 2,
+            "supported.partial": 1
+          }
+        }
+      },
+      {
+        "state": "assessment_validated",
+        "assessment_number": 2,
+        "summary": {
+          "validated_sample_count": 6,
+          "citation_integrity_failures": 0,
+          "citation_failure_reasons": {},
+          "verdict_counts": {
+            "not_supported.contradicted": 2,
+            "supported.covered": 1,
+            "supported.missing": 2,
+            "supported.partial": 1
+          }
+        }
+      }
+    ],
+    "failure_sampling": {
+      "diagnostic_schema_version": 2,
+      "sample_count": 6,
+      "classification_counts": {
+        "stable_omission_evidence": 3,
+        "stable_covered_control": 1,
+        "fixed_input_reviewer_variation": 2
+      },
+      "reason_class_counts": {
+        "incomplete_support": 6,
+        "none": 2,
+        "quantity_or_time": 4
+      },
+      "sample_type_counts": {
+        "coverage": 3,
+        "covered_control": 1,
+        "grounding": 2
+      },
+      "citation_integrity_failures": 0,
+      "citation_failure_reasons": {},
+      "classification_by_sample_type": {
+        "coverage": {
+          "stable_omission_evidence": 3
+        },
+        "covered_control": {
+          "stable_covered_control": 1
+        },
+        "grounding": {
+          "fixed_input_reviewer_variation": 2
+        }
+      },
+      "citation_failures_by_sample_type": {},
+      "semantic_false_positive_proven": false,
+      "basis": "two same-provider model assessments; exact citations checked in RAM; not human ground truth or a population estimate",
+      "assessment_http_calls": 2,
+      "repeat_request_sha256": "f27258256155a8b661503184a12640e9b1005cd6846d032faef83f2661174f5e",
+      "evidence_protocol": "resolved_ranges_v2",
+      "diagnostic_checkpoint_reuse": false,
+      "sample_limit": 6,
+      "delivery_decision_changed": false,
+      "invalid_grounding_receipts": 0,
+      "captured_source_rejections": 2,
+      "current_candidate_grounding_probes": 0,
+      "unlocatable_match_grounding_rejections": 0,
+      "captured_matching_contradictions": 0,
+      "source_rejection_origin_counts": {
+        "source_review": 2,
+        "coverage_match": 0
+      }
+    },
+    "diagnostic_buffers_cleared": true,
+    "failure_sampling_provider_http_attempts": 2,
+    "wall_seconds": 989.174,
+    "generation": {
+      "source_layout": "lossless-timed-groups-v1",
+      "source_units": 205,
+      "inventory_guided_draft": true,
+      "inventory_source_items": 136,
+      "grounding_preservation_checks": [
+        {
+          "obligations": 16,
+          "source_supported": 16,
+          "missing_supported": 4
+        },
+        {
+          "obligations": 7,
+          "source_supported": 7,
+          "missing_supported": 4
+        }
+      ],
+      "late_contradiction_repair_attempts": 0,
+      "coverage_rounds": [
+        {
+          "phase": "initial",
+          "outcome": "completed",
+          "status": "unverified",
+          "seconds": 559.269,
+          "initial_unresolved": 48,
+          "final_unresolved": 16,
+          "accepted_paragraphs": 11,
+          "rejected_paragraphs": 7,
+          "source_corrected_items": 5,
+          "logical_requests_reported": 35,
+          "coverage_ratio": 0.8823529411764706,
+          "stale_gap_receipts_refreshed": 2,
+          "empty_repair_rechecks_avoided": 0,
+          "regression_pruning_attempts": 0,
+          "reused_covered_receipts": 0,
+          "existing_redundancy_flags": 0,
+          "changed_support_regressions": 0,
+          "contradiction_obligations_validated": 0,
+          "contradiction_source_corrections": 0,
+          "status_counts": {
+            "covered": 120,
+            "missing": 9,
+            "partial": 7,
+            "contradicted": 0,
+            "unverified": 0,
+            "context_only": 0
+          },
+          "unresolved_by_kind": {
+            "claim": 6,
+            "experiment": 0,
+            "counterexample": 0,
+            "condition": 5,
+            "disagreement": 0,
+            "procedure": 2,
+            "example": 3
+          },
+          "rejection_reasons": {
+            "still_partial_or_missing": 5,
+            "duplicate_or_no_novelty": 2
+          }
+        }
+      ],
+      "coverage_rounds_truncated": false,
+      "delivery": {
+        "coverage_ratio": 0.8823529411764706,
+        "coverage_threshold": 0.9,
+        "status": "blocked",
+        "reason": "grounding"
+      },
+      "coverage_ledger": {
+        "coverage_ratio": 0.8823529411764706,
+        "threshold": 0.9,
+        "failed_batches": 0,
+        "inventory_failed_batches": 0,
+        "inventory_validation_failed_batches": 0,
+        "ignored_boundary_items": 0,
+        "terminal_provider_failure": false,
+        "grounding_concerns": false,
+        "unresolved_items": 16,
+        "covered_items": 120,
+        "requests": 35,
+        "validation_retries": 1,
+        "repairs_accepted": 11,
+        "repairs_rejected": 7,
+        "inventory_transport_retries": 0,
+        "inventory_split_retries": 0,
+        "inventory_recovered_batches": 0,
+        "inventory_batches": 11,
+        "initial_grounding_concerns": false,
+        "stale_gap_receipts_refreshed": 2,
+        "empty_repair_rechecks_avoided": 0,
+        "regression_pruning_attempts": 0,
+        "reused_covered_receipts": 0,
+        "existing_redundancy_flags": 0,
+        "changed_support_regressions": 0,
+        "contradiction_obligations_validated": 0,
+        "contradiction_source_corrections": 0,
+        "status": "unverified",
+        "check_failure_counts": {},
+        "check_failure_types": {},
+        "inventory_error_types": {
+          "ValueError": 0,
+          "SummaryOutputError": 0,
+          "APIConnectionError": 0,
+          "APITimeoutError": 0,
+          "TimeoutError": 0,
+          "APIStatusError": 0,
+          "RateLimitError": 0,
+          "RuntimeError": 0,
+          "ReadTimeout": 0,
+          "ConnectError": 0,
+          "ConnectionError": 0,
+          "ModelRequestTimeout": 0,
+          "InternalServerError": 0,
+          "BadRequestError": 0,
+          "AuthenticationError": 0,
+          "PermissionDeniedError": 0,
+          "NotFoundError": 0,
+          "UnprocessableEntityError": 0
+        },
+        "inventory_http_statuses": {
+          "408": 0,
+          "429": 0,
+          "500": 0,
+          "502": 0,
+          "503": 0,
+          "504": 0,
+          "524": 0
+        },
+        "inventory_failures_recorded": 0,
+        "inventory_failures_available": true,
+        "item_status_counts": {
+          "covered": 120,
+          "missing": 9,
+          "partial": 7,
+          "contradicted": 0,
+          "unverified": 0,
+          "context_only": 0
+        }
+      },
+      "verification": {
+        "reviewed": 1,
+        "review_attempts": 1,
+        "review_parts": 1,
+        "final_coverage_attempts": 0,
+        "status": "unverified"
+      }
+    },
+    "reuse_and_retry": {
+      "inventory_receipts_reused": 0,
+      "repair_transport_retries": 0,
+      "validation_retries": 1,
+      "inventory_transport_retries": 0,
+      "requests": 35
+    },
+    "execution": {
+      "stages": {
+        "model.queue": {
+          "seconds": 0,
+          "calls": 43
+        },
+        "model.phase.inventory": {
+          "seconds": 337.13499999999993,
+          "calls": 11
+        },
+        "model.editor": {
+          "seconds": 1219.6819999999998,
+          "calls": 41,
+          "failed_calls": 2
+        },
+        "model.phase.draft": {
+          "seconds": 89.108,
+          "calls": 1
+        },
+        "model.phase.grounding": {
+          "seconds": 29.048,
+          "calls": 1
+        },
+        "model.phase.match": {
+          "seconds": 510.85,
+          "calls": 17
+        },
+        "model.phase.validate_inventory": {
+          "seconds": 76.826,
+          "calls": 3
+        },
+        "model.phase.repair": {
+          "seconds": 67.535,
+          "calls": 3
+        },
+        "model.phase.other": {
+          "seconds": 55.961999999999996,
+          "calls": 3
+        },
+        "model.phase.repair_grounding": {
+          "seconds": 56.214,
+          "calls": 2
+        },
+        "model.phase.verify_grounding_preservation": {
+          "seconds": 35.679,
+          "calls": 2
+        }
+      },
+      "checkpoint_hits": 0,
+      "wall_seconds": 989.307
+    },
+    "final_budget_guard_passed": true
+  },
+  "finding": "The preservation guard checked after-only coverage of source-owned obligations. It could reject a correction for an existing gap rather than a newly introduced loss. This structural bug is reproduced by controlled before/after fixtures; aggregate model labels do not establish that all eight failed obligations were pre-existing.",
+  "next_fix": "Independently judge identical obligations against original rejected prose and candidate in the same request. Block source-supported before-covered/after-missing losses; preserve pre-existing gaps for normal coverage repair and final 90percent gate. Neither checklist reduction nor weaker source review.",
+  "causal_performance_claim": false
+}

@@ -491,6 +491,7 @@ def child(destination):
         if observer:
             observer.clear();memory_store.clear();calls.observer=None
             getattr(engine,'_source_rejection_context',{}).clear()
+            engine._source_correction_overview = ''
             final_edition.clear()
             if frozen_inventory is not None:frozen_inventory.clear()
             report['diagnostic_buffers_cleared']=True
@@ -698,6 +699,7 @@ def run_memory_diagnostics(database, owner, source_id, source, transcript, engin
         observer.clear()
         store.clear()
         getattr(engine,'_source_rejection_context',{}).clear()
+        engine._source_correction_overview = ''
         calls.observer=None
         saved=None
         report['diagnostic_buffers_cleared']=True

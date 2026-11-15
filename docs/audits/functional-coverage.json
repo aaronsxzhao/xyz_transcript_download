@@ -1591,7 +1591,13 @@
       "independent_quality_control_run": 43673901672,
       "independent_quality_control_result": "core96.59percent,butfrozen137only80.29percent;testnotaccepted",
       "latest_fidelity_control_run": 43677751876,
-      "latest_fidelity_control_status": "coverage91.79percentbutfinalsourcefailure;notaccepted"
+      "latest_fidelity_control_status": "coverage91.79percentbutfinalsourcefailure;notaccepted",
+      "paired_preservation_followup": {
+        "local_related_passed": 465,
+        "last_real_run": 43681772424,
+        "last_real_result": "failed; before/after guard correction pending real validation",
+        "report": "docs/audits/2026-11-15-summary-paired-preservation-control.json"
+      }
     }
   ],
   "audit_attempts": [

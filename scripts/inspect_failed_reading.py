@@ -78,7 +78,7 @@ def safe_report(report):
             for row in report['grounding_repair_sizes'][:3] if isinstance(row,dict)]
     if isinstance(report.get('grounding_preservation_checks'),list):
         safe['grounding_preservation_checks']=[{k:v for k,v in row.items()
-            if k in ('obligations','source_supported','missing_supported') and type(v) is int and 0<=v<=100000}
+            if k in ('obligations','source_supported','missing_supported','preexisting_uncovered','newly_covered') and type(v) is int and 0<=v<=100000}
             for row in report['grounding_preservation_checks'][:50] if isinstance(row,dict)]
     if type(report.get('late_contradiction_repair_attempts')) is int and 0 <= report['late_contradiction_repair_attempts'] <= 1:
         safe['late_contradiction_repair_attempts'] = report['late_contradiction_repair_attempts']

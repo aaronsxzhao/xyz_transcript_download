@@ -519,6 +519,7 @@ def generate(engine, source, title, *, formats=(), style='detailed', extras='',
     engine._quality_attempt = 0
     engine._coverage_support_snapshot = None
     engine._source_rejection_context = {}
+    engine._source_correction_overview = ""
     if certified:
         from reading_delivery import candidate_checkpoint, accept_edition, save_candidate
         execution, candidate_key, saved = candidate_checkpoint(engine, source, title,
