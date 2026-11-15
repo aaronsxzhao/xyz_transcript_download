@@ -1,3 +1,4 @@
+import {dashboardReturnPosition, type DashboardPosition} from './dashboardReturn';
 import { useEffect, useRef } from "react";
 import { getAccountId } from "./preferences";
 import { getCache, hydrateCache } from "./cache";
@@ -22,19 +23,25 @@ export function useReadingPosition(
           return null;
         }
       })();
-    let target = Math.max(0, Number(saved) || 0),
+    const dashboard = key === "dashboard";
+    let anchor = dashboard ? dashboardReturnPosition() : null;
+    let target = Math.max(0, anchor?.top || Number(saved) || 0),
       position = target;
     // The scroll container survives route changes. Zero is a real saved
     // position, and a new note must not inherit the previous note's offset.
     el.scrollTop = target;
     let active = true,
       interacted = false;
-    let restoring = target > 0;
+    let restoring = target > 0 || !!anchor;
     const restore = () => {
       if (restoring) {
+        if (anchor) {
+          const card=el.querySelector(`section[aria-label="${CSS.escape(anchor.section)}"] a[href="${CSS.escape(anchor.href)}"]`);
+          if(card)target=el.scrollTop+card.getBoundingClientRect().top-anchor.offset;
+        }
         position = target;
         el.scrollTop = target;
-        if (el.scrollTop >= target - 1) restoring = false;
+        if (!dashboard && el.scrollTop >= target - 1) restoring = false;
       }
     };
     restore();
@@ -53,26 +60,30 @@ export function useReadingPosition(
     // Scroll writes can resize the observed content (for example when a
     // scrollbar appears). Defer them out of ResizeObserver delivery.
     let restoreFrame = 0;
-    const observer = new ResizeObserver(() => {
+    const schedule = () => {
       if (!restoring || restoreFrame) return;
       restoreFrame = requestAnimationFrame(() => {
         restoreFrame = 0;
         if (active) restore();
       });
-    });
+    };
+    const observer = new ResizeObserver(schedule);
+    const mutations = dashboard ? new MutationObserver(schedule) : null;
+    mutations?.observe(el,{childList:true,subtree:true});
     if (el.firstElementChild) observer.observe(el.firstElementChild);
     const stop = () => {
       restoring = false;
       interacted = true;
+      if (dashboard) anchor = null;
     };
     const navigate = (event: KeyboardEvent) => {
-      if (['ArrowUp', 'ArrowDown', 'PageUp', 'PageDown', 'Home', 'End', ' '].includes(event.key)) stop();
+      if (['ArrowUp', 'ArrowDown', 'PageUp', 'PageDown', 'Home', 'End', ' ', 'Tab'].includes(event.key)) stop();
     };
-    const timeout = setTimeout(stop, 5000);
+    const timeout = setTimeout(() => {if (!dashboard) stop();}, 5000);
     const save = () => {
       if (owner === getAccountId())
         try {
-          sessionStorage.setItem(storageKey, String(position));
+          sessionStorage.setItem(storageKey, JSON.stringify(anchor ? {...anchor,top:position} : position));
         } catch {}
     };
     const scroll = () => {
@@ -81,6 +92,14 @@ export function useReadingPosition(
         save();
       }
     };
+    const capture = (event:MouseEvent) => {
+      if(!dashboard || event.button || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey)return;
+      const link=(event.target as Element).closest<HTMLAnchorElement>('a[href]');
+      if(!link || !/^\/(viewer|videos)\/[^/?#]+$/.test(link.getAttribute('href') || ''))return;
+      anchor={top:position=el.scrollTop,href:link.getAttribute('href')!,section:link.closest('section[aria-label]')?.getAttribute('aria-label') || '',offset:link.getBoundingClientRect().top,kind:el.querySelector<HTMLElement>('.dashboard-recent-filters [aria-pressed=true]')?.dataset.kind || '',count:Number(el.querySelector<HTMLElement>('[data-recent-count]')?.dataset.recentCount) || 12} satisfies DashboardPosition;
+      save();
+    };
+    el.addEventListener("click",capture,true);
     el.addEventListener("scroll", scroll, { passive: true });
     el.addEventListener("wheel", stop, { passive: true });
     el.addEventListener("touchstart", stop, { passive: true });
@@ -92,6 +111,8 @@ export function useReadingPosition(
       cancelAnimationFrame(restoreFrame);
       save();
       observer.disconnect();
+      mutations?.disconnect();
+      el.removeEventListener("click", capture, true);
       el.removeEventListener("scroll", scroll);
       el.removeEventListener("wheel", stop);
       el.removeEventListener("touchstart", stop);

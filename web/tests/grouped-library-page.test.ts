@@ -28,3 +28,12 @@ it('does not continue a cancelled filter request',async()=>{
  vi.mocked(fetchLibrary).mockImplementation(async()=>{abort.abort();return {items:[part(1),part(2)],next_cursor:'next'}})
  await expect(fetchGroupedLibraryPage('limit=12','',abort.signal)).rejects.toThrow();expect(fetchLibrary).toHaveBeenCalledOnce()
 })
+it('revalidates an explicitly restored dashboard window beyond five ordinary pages',async()=>{
+ vi.mocked(fetchLibrary).mockImplementation(async(_,cursor)=>{
+  const start=Number(cursor||0)
+  return {items:Array.from({length:12},(_,i)=>({...part(start+i),platform:'youtube'})),next_cursor:String(start+12)}
+ })
+ const page=await fetchGroupedLibraryPage('limit=12','',undefined,80)
+ expect(page.items).toHaveLength(84);expect(fetchLibrary).toHaveBeenCalledTimes(7)
+ expect(page.next_cursor).toBe('84')
+})

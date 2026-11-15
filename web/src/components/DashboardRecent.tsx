@@ -1,3 +1,4 @@
+import {dashboardReturnPosition} from '../lib/dashboardReturn'
 import {fetchGroupedLibraryPage} from '../lib/groupedLibraryPage'
 import SeriesCard from './SeriesCard'
 import {groupLibrarySeries} from '../lib/librarySeries'
@@ -13,12 +14,12 @@ import NoteCard from './NoteCard'
 
 type Kind = '' | 'podcast' | 'video' | 'article'
 export default function DashboardRecent({revision}: {revision:number}) {
-  const [kind, setKind] = useState<Kind>('')
+  const [kind, setKind] = useState<Kind>(()=>(dashboardReturnPosition()?.kind || '') as Kind)
   return <section className="dashboard-recent" aria-label="Recently added">
     <div className="dashboard-section-heading dashboard-recent-heading">
       <div className="dashboard-recent-title"><h2>Recently added</h2>
         <div className="dashboard-recent-filters" role="group" aria-label="Recent content type">
-          {(['','podcast','video','article'] as const).map(value=><button key={value} aria-pressed={kind===value} onClick={()=>setKind(value)}>{value===''?'All':value==='podcast'?'Podcasts':value==='video'?'Videos':'Articles'}</button>)}
+          {(['','podcast','video','article'] as const).map(value=><button key={value} data-kind={value} aria-pressed={kind===value} onClick={()=>setKind(value)}>{value===''?'All':value==='podcast'?'Podcasts':value==='video'?'Videos':'Articles'}</button>)}
         </div>
       </div>
       <Link to="/library" className="reader-action">View Library →</Link>
@@ -33,9 +34,10 @@ function RecentFeed({kind,revision}: {kind:Kind;revision:number}) {
   const key='library_page:dashboard_recent:v2:'+kind
   const [page,setPage]=useState<LibraryPage>(()=>getCache(key)||{items:[],next_cursor:null})
   const [loading,setLoading]=useState(true),[error,setError]=useState('')
-  const controller=useRef<AbortController>(),confirmed=useRef(false),failedCursor=useRef('')
+  const restoreCount=useRef(dashboardReturnPosition()?.kind===kind ? dashboardReturnPosition()!.count : 0)
+  const controller=useRef<AbortController>(),confirmed=useRef<string|false>(false),failedCursor=useRef('')
   useWarmCache<LibraryPage>(key,value=>{if(!confirmed.current)setPage(value)})
-  async function load(cursor='') {
+  async function load(cursor='',restore=false) {
     if(cursor && controller.current)return
     controller.current?.abort()
     const request=new AbortController(),owner=getAccountId()
@@ -43,29 +45,29 @@ function RecentFeed({kind,revision}: {kind:Kind;revision:number}) {
     const current=()=>controller.current===request && !request.signal.aborted && owner===getAccountId()
     setLoading(true);setError('')
     try {
-      const result=await fetchGroupedLibraryPage(new URLSearchParams({limit:'12',sort:'newest',status:'completed',...(kind?{kind}:{})}).toString(),cursor,request.signal)
+      const filters=new URLSearchParams({limit:'12',sort:'newest',status:'completed',...(kind?{kind}:{})}).toString()
+      const result=await fetchGroupedLibraryPage(filters,cursor,request.signal,restore?restoreCount.current:0)
       if(!current())return
-      if(!Array.isArray(result.items))throw new Error('Cannot load recent content')
       result.items=result.items.filter(item=>item.status==='completed')
-      confirmed.current=true
+      confirmed.current=owner
       setPage(previous=>cursor?{...result,items:[...new Map([...previous.items,...result.items].map(item=>[item.kind+':'+item.id,item])).values()]}:result)
-      if(!cursor)setCache(key,result,owner)
     } catch(reason) {
       if(current()){failedCursor.current=cursor;setError(reason instanceof Error?reason.message:'Cannot load recent content')}
     } finally {
       if(current()){controller.current=undefined;setLoading(false)}
     }
   }
-  useEffect(()=>{void load();return()=>controller.current?.abort()},[revision])
+  useEffect(()=>{void load('',true);return()=>controller.current?.abort()},[revision])
+  useEffect(()=>{if(confirmed.current)setCache(key,page,confirmed.current)},[key,page])
   const groups=groupLibrarySeries(page.items)
   const hasFeature=featured && groups[0] && !groups[0].series
   const card=(group:typeof groups[number],index:number)=>group.series?<SeriesCard key={group.key} group={group} priority={index===0}/>:<NoteCard key={group.key} item={group.items[0]} priority={index===0} featured={featured&&index===0}/>
   return <>
-    <div className="dashboard-recent-status">
+    <div className="dashboard-recent-status" data-recent-count={page.items.length}>
       <span role="status">{loading?'Updating…':`${groups.length} ${groups.length===1?'title':'titles'} · ${page.items.length} notes loaded${page.next_cursor?' · More available':''}`} · Saved content, newest first</span>
       <button className="reader-action reader-action-icon" aria-label="Refresh recent content" disabled={loading} onClick={()=>void load()}><RefreshCw size={16} className={loading?'animate-spin':''}/></button>
     </div>
-    {error&&<LoadError message={error} onRetry={()=>void load(failedCursor.current)}/>}
+    {error&&<LoadError message={error} onRetry={()=>void load(failedCursor.current,!failedCursor.current)}/>}
     {hasFeature && card(groups[0],0)}
     <div className="dashboard-recent-notes" aria-busy={loading}>{(hasFeature ? groups.slice(1) : groups).map((group,index)=>card(group,index+(hasFeature?1:0)))}</div>
     {!page.items.length&&!error&&!loading&&<p className="text-sm text-gray-400">No saved {kind==='article'?'articles':kind==='podcast'?'podcast summaries':kind==='video'?'video notes':'content'} yet.</p>}

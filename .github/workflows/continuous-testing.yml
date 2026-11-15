@@ -256,6 +256,11 @@ jobs:
           python scripts/check_performance_backlog.py
           python scripts/check_dashboard_recent.py
           python scripts/check_dashboard_recent.py --webkit --widths 390
+      - name: Check dashboard reader return positions
+        timeout-minutes: 5
+        run: |
+          python scripts/check_dashboard_return.py
+          python scripts/check_dashboard_return.py --webkit
       - name: Check collection list wrapping and alignment
         timeout-minutes: 4
         run: |

@@ -157,3 +157,20 @@ it('defers resize restoration to a frame and respects navigation before it runs'
   await act(async()=>root.render(<Reader ready={false}/>));
   expect(cancel).toHaveBeenCalled();
 });
+
+it('captures the dashboard card before navigation clamps the shared scroller, scoped to its account',async()=>{
+ localStorage.setItem('xyz_user',JSON.stringify({id:'owner'}));
+ function Dashboard(){useReadingPosition('dashboard');return <section aria-label="Recently added"><div data-recent-count="24"/><div className="dashboard-recent-filters"><button aria-pressed="true" data-kind="podcast"/></div><a href="/viewer/one">Summary</a></section>}
+ await act(async()=>root.render(<Dashboard/>));
+ node.scrollTop=1240;
+ vi.spyOn(node.querySelector('a')!,'getBoundingClientRect').mockReturnValue({top:220} as DOMRect);
+ node.querySelector('a')!.dispatchEvent(new MouseEvent('click',{bubbles:true,cancelable:true}));
+ const saved=JSON.parse(sessionStorage.getItem('xyz_reading:owner:dashboard')!);
+ expect(saved).toMatchObject({top:1240,href:'/viewer/one',section:'Recently added',offset:220,kind:'podcast',count:24});
+ node.scrollTop=0;
+ await act(async()=>root.render(<Reader/>));
+ expect(JSON.parse(sessionStorage.getItem('xyz_reading:owner:dashboard')!).top).toBe(1240);
+ localStorage.setItem('xyz_user',JSON.stringify({id:'second'}));
+ const {dashboardReturnPosition}=await import('../src/lib/dashboardReturn');
+ expect(dashboardReturnPosition()).toBeNull();
+})
