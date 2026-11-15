@@ -286,3 +286,39 @@ def test_range_protocol_cannot_use_raw_fallback_or_wrong_grounding_paragraph_as_
     result=validate_verdicts(verdicts(request,'covered'),request)
     assert all(not row['citation_integrity'] for row in result.values())
     assert all(row['citation_failure_reasons'].get('draft.unknown_id')==1 for row in result.values())
+
+
+@pytest.mark.parametrize('before,after,importance,expected',[
+    ('missing','missing','material','initial_inventory_gap'),
+    ('covered','partial','material','inventory_correction_loss'),
+    ('covered','covered','material','draft_ignored_supported_plan'),
+    ('covered','covered','incidental','possible_incidental_gap'),
+    ('uncertain','missing','material','source_or_importance_unresolved')])
+def test_inventory_stage_diagnosis_distinguishes_plan_omission_edit_loss_and_draft_loss(before,after,importance,expected):
+    source,_,payload=fixture();observer=MemoryDiagnostics();observer.capture_payload(payload)
+    observer.observe({'source_obligations':payload['inventory'][1]}, {})
+    observer.inventory_after=copy.deepcopy(payload['inventory'][1])
+    request=observer.make_request(source,'resolved_ranges_v2');response=verdicts(request)
+    for row in response['samples']:
+        row.update(inventory_before_status=before,inventory_after_status=after,gap_importance=importance)
+    typed=validate_verdicts(response,request)
+    result=aggregate_verdicts(request['samples'],[typed,typed])
+    assert result['inventory_stage_counts']=={expected:1,'covered':1}
+    assert result['semantic_false_positive_proven'] is False
+    assert 'twelve' not in json.dumps(result)
+    assert payload['inventory'][1]==request['inventory_context']['before']
+    observer.clear()
+    assert observer.inventory_before==observer.inventory_after==[]
+
+
+def test_fixed_inventory_probe_uses_original_plan_only_as_diagnostic_context():
+    _,lines,payload=fixture();observer=MemoryDiagnostics();engine=SimpleNamespace()
+    benchmark=copy.deepcopy(payload['inventory'][1]);benchmark[0]['id']='FROZEN1'
+    with patch('coverage_ledger._audit',return_value=({**payload['report']['coverage_ledger'],'failed_batches':0},benchmark)) as match:
+        with pytest.raises(DiagnosticBoundary):
+            observer.capture_first_match(engine,lines,payload['edition']['sections'],
+                prepared_inventory=payload['inventory'],diagnostic_inventory=benchmark)
+    assert match.call_args.kwargs['inventory']==benchmark
+    assert match.call_args.kwargs['matching_only'] is True
+    assert observer.inventory_after==payload['inventory'][1]
+    assert observer.candidate['inventory'][1]==benchmark

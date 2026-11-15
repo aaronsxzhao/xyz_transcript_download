@@ -239,7 +239,13 @@ def validate_verdicts(response, request):
             if row.get('draft_evidence') == []:
                 failures['draft.required_evidence_missing'] = 1
         # Exact substring checks validate citations, not semantic entailment.
-        result[ident] = {'source_support': labels[0], 'draft_status': labels[1],
+        stage={}
+        if request.get('inventory_context'):
+            stage={key:row.get(key) for key in ('inventory_before_status','inventory_after_status','gap_importance')}
+            if (stage['inventory_before_status'] not in STATUSES or stage['inventory_after_status'] not in STATUSES
+                    or stage['gap_importance'] not in {'material','incidental','uncertain'}):
+                raise ValueError('Invalid diagnostic labels')
+        result[ident] = {**stage,'source_support': labels[0], 'draft_status': labels[1],
                          'reason_class': labels[2], 'citation_integrity': bool(evidence),
                          'citation_failure_reasons': failures}
     return result
@@ -295,6 +301,18 @@ def aggregate_verdicts(samples, rounds):
             label = 'possible_coverage_false_positive'
         else:
             label = 'stable_omission_evidence'
+        if 'inventory_before_status' in a and 'inventory_before_status' in b:
+            keys=('source_support','draft_status','inventory_before_status','inventory_after_status','gap_importance')
+            if any(a[key]!=b[key] for key in keys):stage='stage_judgement_variation'
+            elif not a['citation_integrity'] or not b['citation_integrity']:stage='invalid_evidence'
+            elif a['source_support']!='supported':stage='source_or_importance_unresolved'
+            elif a['draft_status']=='covered':stage='covered'
+            elif a['gap_importance']=='uncertain' or 'uncertain' in (a['draft_status'],a['inventory_before_status'],a['inventory_after_status']):stage='source_or_importance_unresolved'
+            elif a['gap_importance']=='incidental':stage='possible_incidental_gap'
+            elif a['inventory_before_status']!='covered':stage='initial_inventory_gap'
+            elif a['inventory_after_status']!='covered':stage='inventory_correction_loss'
+            else:stage='draft_ignored_supported_plan'
+            counters=result.setdefault('inventory_stage_counts',{});counters[stage]=counters.get(stage,0)+1
         result['classification_counts'][label] = result['classification_counts'].get(label, 0) + 1
         counters=result['classification_by_sample_type'].setdefault(kind,{})
         counters[label]=counters.get(label,0)+1
@@ -316,12 +334,19 @@ def one_assessment_summary(samples, verdicts):
 
 class MemoryDiagnostics:
     def __init__(self):
+        self.inventory_before = []
+        self.inventory_after = []
         self.candidate = None
         self.grounding = []
         self.invalid_grounding_receipts = 0
         self.unlocatable_match_grounding_rejections = 0
 
     def observe(self, request, response):
+        # Capture the exact private plan before any checklist correction.
+        if isinstance(request,dict) and isinstance(request.get('source_obligations'),list):
+            previous={item['id']:item for item in self.inventory_before}
+            previous.update({item['id']:copy.deepcopy(item) for item in request['source_obligations']})
+            self.inventory_before=list(previous.values())
         # Runs before transcript_reading replaces rejected prose with raw source.
         if isinstance(request,dict) and request.get('phase') == 'match':
             self.observe_matching(request,response)
@@ -393,6 +418,9 @@ class MemoryDiagnostics:
         if prepared is None:
             prepared = build_inventory(engine,lines)
         inventory_report, inventory = copy.deepcopy(prepared)
+        self.inventory_after = copy.deepcopy(inventory)
+        diagnostic_inventory=kwargs.get('diagnostic_inventory')
+        if diagnostic_inventory is not None:inventory=copy.deepcopy(diagnostic_inventory)
         snapshot = copy.deepcopy(sections)
         chunks = [inventory[start:start+ITEM_LIMIT] for start in range(0,len(inventory),ITEM_LIMIT)]
         # efficient_audit(allow_repairs=False) can still verify/correct source
@@ -466,6 +494,8 @@ class MemoryDiagnostics:
                 'source_ranges': case['paragraph'].get('source_ranges', [])})
         for index, sample in enumerate(request['samples']):
             sample['sample_id'] = 'S'+str(index+1)
+        if self.inventory_before and self.inventory_after:
+            request['inventory_context']={'before':copy.deepcopy(self.inventory_before),'after':copy.deepcopy(self.inventory_after)}
         return request
 
     def analyze(self, engine, source, on_progress=None, evidence_protocol='resolved_ranges_v2'):
@@ -475,6 +505,8 @@ class MemoryDiagnostics:
             raise ValueError('No diagnostic samples available')
         payload = json.dumps(request, ensure_ascii=False, sort_keys=True)
         system=JUDGE_RANGES if evidence_protocol=='resolved_ranges_v2' else JUDGE
+        if request.get('inventory_context'):
+            system += INVENTORY_STAGE_JUDGE
         request_hash = hashlib.sha256((system+payload).encode()).hexdigest()
         rounds = []
         if on_progress:
@@ -508,5 +540,25 @@ class MemoryDiagnostics:
         return result
 
     def clear(self):
+        self.inventory_before.clear()
+        self.inventory_after.clear()
         self.candidate = None
         self.grounding.clear()
+
+
+INVENTORY_STAGE_JUDGE = """
+Additional independent diagnostic only; never change delivery. Each inventory_context
+list is a private planning checklist, not summary prose. For EVERY sample also return
+"inventory_before_status" and "inventory_after_status" using covered|partial|missing|contradicted|uncertain.
+Judge whether the UNION of statements anywhere in that list contains the sample's
+important source meaning, not whether wording, IDs, or item counts match. Before
+is the immutable plan used to draft; after is the checklist after source corrections.
+Also return "gap_importance":"material|incidental|uncertain": judge the concrete
+remaining draft gap, not the general importance of its topic. Omitted intervention,
+outcome, mechanism, scope-changing attribution, conditions, numerical units and
+substantive objections are material. A colorful name or interchangeable illustration
+is incidental only if it changes neither the argument nor evidence. When uncertain
+say uncertain. Grounding samples judge the named assertion with the same rules.
+Do not relax source_support or draft_status to make inventories agree. Never
+quote/paraphrase private content outside the already requested evidence schema.
+"""

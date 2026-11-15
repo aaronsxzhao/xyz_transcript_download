@@ -2,7 +2,7 @@
   "date": "2026-11-15",
   "base_main": "ebd2b2422adc33ae9f39cc790f2757868e0dc40f",
   "branch": "codex/summary-grounding-preserve",
-  "status": "four_hypotheses_regression_verified_full_episode_pending",
+  "status": "core_passed_fixed_inventory_failed_stage_diagnostic_pending",
   "full_episode_problem_resolved": false,
   "entry_point_comparison": {
     "podcast": "Summarizer.summarize -> video_source_text for all complete segment metadata -> transcript_reading.generate -> coverage_ledger -> reading_delivery.accept_edition",
@@ -74,8 +74,8 @@
     }
   ],
   "regression": {
-    "new_cases": 48,
-    "related_passed": 465,
+    "new_cases": 54,
+    "related_passed": 471,
     "environment": "local Python3.12,synthetic data,no real model calls; includes fixed archived-inventory validation and source-layout resume tests"
   },
   "real_validation": {
@@ -91,7 +91,7 @@
     "guard_run": 43669862171,
     "guard_http_calls": 0,
     "beijing_date": "2026-11-15",
-    "settled_usd": 28.286292,
+    "settled_usd": 31.097262,
     "scope": "configured_test_account_provider_token",
     "active_production_work": false,
     "daily_shared_limit": 100,
@@ -172,5 +172,17 @@
     "obligations_checked": 23,
     "after_only_missing": 8,
     "independent_137_check": "not_reached"
-  }
+  },
+  "fixed_inventory_failure": {
+    "run": 43685261712,
+    "core_http": 42,
+    "core_seconds": 830.995,
+    "core_coverage": 0.9770992366412213,
+    "fixed_coverage": 0.7518248175182481,
+    "fixed_unresolved": 34,
+    "terminal_state": "not_accepted",
+    "report": "docs/audits/2026-11-15-summary-fixed-inventory-failure.json",
+    "same_final_edition_verified": true
+  },
+  "next_validation": "Focused inventory-plan probe only, stopping before coverage repair or delivery. Two RAM-only fixed-input assessments compare original source, immutable pre-draft plan, after-correction checklist and raw initial draft. Distinguish extraction gap, checklist correction loss, draft ignoring plan, incidental detail and reviewer variation. No complete rerun until a specific cause is established."
 }

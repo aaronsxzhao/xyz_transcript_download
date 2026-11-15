@@ -1597,6 +1597,14 @@
         "last_real_run": 43681772424,
         "last_real_result": "failed; before/after guard correction pending real validation",
         "report": "docs/audits/2026-11-15-summary-paired-preservation-control.json"
+      },
+      "fixed_inventory_followup": {
+        "run": 43685261712,
+        "core_accepted": true,
+        "whole_episode_accepted": false,
+        "fixed_coverage": 0.7518248175182481,
+        "local_related_passed": 471,
+        "next": "inventory-plan probe before repair and delivery"
       }
     }
   ],

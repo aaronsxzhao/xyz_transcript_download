@@ -330,6 +330,7 @@ def child(destination):
     # selected, loaded, split, transformed or routed through another executor.
     historical_mode = os.environ.get('EPISODE_HISTORICAL_GAP_REVIEW') == '1'
     memory_mode = os.environ.get('EPISODE_MEMORY_DIAGNOSTICS') == '1'
+    inventory_probe = os.environ.get('EPISODE_INVENTORY_PLAN_PROBE') == '1'
     candidate_probe = os.environ.get('EPISODE_CANDIDATE_PROBE') == '1'
     capture_final = os.environ.get('EPISODE_CAPTURE_FINAL_DIAGNOSTICS') == '1'
     available = [] if historical_mode or memory_mode or candidate_probe or capture_final else database.table('transcripts').select('episode_id').eq('user_id', owner).in_('episode_id', list(EPISODES)).execute().data or []
@@ -402,7 +403,8 @@ def child(destination):
         del archived
     if memory_mode:
         run_memory_diagnostics(database,source_owner,source_rows[0]['source_id'],exact_source,
-            transcript,engine,execution,observer,report,guard,calls,publish,memory_store)
+            transcript,engine,execution,observer,report,guard,calls,publish,memory_store,
+            diagnostic_inventory=frozen_inventory if inventory_probe else None)
         return
     if historical_mode:
         report.update(environment='isolated historical gap review; one real model assessment; production content read only',
@@ -453,6 +455,7 @@ def child(destination):
             summary = engine.summarize(transcript, episode_title='Authorized complete podcast validation')
         accepted = bool(summary) and engine.generation_report.get('delivery', {}).get('status') == 'accepted'
         record_delivery()
+        if observer:observer.inventory_after=__import__('copy').deepcopy(engine._quality_inventory[1])
         if accepted and frozen_inventory is not None:
             before=calls.http_attempts;independent_started=time.monotonic()
             with bind(execution):
@@ -648,7 +651,7 @@ def review_historical_gaps(database, source_owner, source_id, source, engine):
 
 
 def run_memory_diagnostics(database, owner, source_id, source, transcript, engine,
-                           execution, observer, report, guard, calls, publish, store):
+                           execution, observer, report, guard, calls, publish, store, diagnostic_inventory=None):
     from unittest.mock import patch
     from processing_execution import bind
     from scripts.summary_memory_diagnostics import DiagnosticBoundary, candidate_shape, diagnostic_error_code
@@ -658,7 +661,7 @@ def run_memory_diagnostics(database, owner, source_id, source, transcript, engin
     started=time.monotonic()
     try:
         with bind(execution):
-            saved=load_historical_candidate(database,owner,source_id)
+            saved=None if diagnostic_inventory is not None else load_historical_candidate(database,owner,source_id)
             report['saved_candidate_probe']=candidate_shape(saved)
             if report['saved_candidate_probe']['usable']:
                 observer.capture_payload(saved)
@@ -674,7 +677,9 @@ def run_memory_diagnostics(database, owner, source_id, source, transcript, engin
                 report['candidate_origin']='fresh_first_match; stop before any coverage recovery or delivery'
                 # Only this isolated mode changes the operation. Production
                 # audit/acceptance functions and quality settings stay intact.
-                with patch('coverage_ledger.audit',side_effect=observer.capture_first_match):
+                def first_match(*args,**kwargs):
+                    return observer.capture_first_match(*args,**kwargs,diagnostic_inventory=diagnostic_inventory)
+                with patch('coverage_ledger.audit',side_effect=first_match):
                     try:
                         engine.summarize(transcript,episode_title='Authorized complete podcast validation')
                     except DiagnosticBoundary:
@@ -754,6 +759,9 @@ def main():
             bindings['EPISODE_HISTORICAL_GAP_REVIEW'] = '1'
         if '--probe-candidate' in sys.argv:
             bindings['EPISODE_CANDIDATE_PROBE'] = '1'
+        if '--probe-inventory-plan' in sys.argv:
+            bindings.update(EPISODE_MEMORY_DIAGNOSTICS='1',EPISODE_INVENTORY_PLAN_PROBE='1',
+                EPISODE_ALLOW_FIRST_MATCH='1',EPISODE_CAPTURE_FINAL_DIAGNOSTICS='1')
         if '--diagnose-in-memory' in sys.argv:
             bindings['EPISODE_MEMORY_DIAGNOSTICS'] = '1'
         if '--allow-first-match' in sys.argv:
@@ -796,7 +804,7 @@ def main():
             return 0 if report.get('terminal_state')=='historical_gap_review_complete' else 2
         if '--probe-candidate' in sys.argv:
             return 0 if report.get('terminal_state')=='candidate_probe_complete' else 2
-        if '--diagnose-in-memory' in sys.argv:
+        if '--diagnose-in-memory' in sys.argv or '--probe-inventory-plan' in sys.argv:
             return 0 if report.get('terminal_state')=='memory_diagnostics_complete' and report.get('final_budget_guard_passed') else 2
         return result_exit_code(report)
 
