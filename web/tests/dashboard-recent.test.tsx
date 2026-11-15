@@ -150,3 +150,18 @@ it('switches the saved feed to the editorial feature without losing records or c
  expect(node.querySelectorAll('.publication-feature')).toHaveLength(0)
  expect(titles()).toEqual(rows.map(r=>r.title))
 })
+
+it('restores the dashboard content filter and all previously loaded pages, including after a retry',async()=>{
+ sessionStorage.setItem('xyz_reading:owner:dashboard',JSON.stringify({top:1400,href:'/viewer/older',section:'Recently added',offset:220,kind:'podcast',count:24}))
+ const first=Array.from({length:12},(_,i)=>item('first-'+i,'podcast'))
+ const older=Array.from({length:12},(_,i)=>item('older-'+i,'podcast'))
+ vi.mocked(fetchLibrary).mockResolvedValueOnce({items:first,next_cursor:'older'}).mockRejectedValueOnce(new Error('Page temporarily unavailable'))
+ await mount()
+ expect(button('Podcasts').getAttribute('aria-pressed')).toBe('true')
+ expect(node.textContent).toContain('Page temporarily unavailable')
+ vi.mocked(fetchLibrary).mockResolvedValueOnce({items:first,next_cursor:'older'}).mockResolvedValueOnce({items:older,next_cursor:null})
+ await act(async()=>button('Retry').click())
+ expect(titles()).toHaveLength(24)
+ expect(new URLSearchParams(vi.mocked(fetchLibrary).mock.calls[0][0]).get('kind')).toBe('podcast')
+ expect(getCache<any>('library_page:dashboard_recent:v2:podcast').items).toHaveLength(24)
+})

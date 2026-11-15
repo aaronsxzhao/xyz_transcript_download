@@ -1,3 +1,4 @@
+import {useReadingPosition} from '../lib/reading'
 import {useAppearance} from '../lib/theme'
 import {detectContentPlatform as detectVideoPlatform} from '../lib/contentLinks'
 import { taskVisible } from "../lib/taskPreferences";
@@ -88,6 +89,7 @@ const VIDEO_QUEUE_STATUSES = new Set([
 
 
 export default function Dashboard() {
+  useReadingPosition('dashboard')
   const {design} = useAppearance()
   const {
     items: reading,

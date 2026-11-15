@@ -1,3 +1,4 @@
+import { minify } from 'vite'
 import { readFileSync } from 'node:fs'
 import { posix } from 'node:path'
 import { init, parse } from 'es-module-lexer'
@@ -33,7 +34,11 @@ export async function documentProgram(root, manifest) {
       }
     }
     for (const change of changes.sort((a,b)=>b.start-a.start)) source=source.slice(0,change.start)+change.value+source.slice(change.end)
-    modules['/'+file] = source
+    // Re-minify generated import URLs too; keep the complete embedded graph
+    // within the existing document budget without deferring navigation code.
+    const compact = await minify(file, source)
+    if (compact.errors?.length) throw new Error('Embedded module minification failed')
+    modules['/'+file] = compact.code
   }
   return {modules, entry:'/'+manifest['index.html'].file}
 }

@@ -83,3 +83,12 @@ including its query filters, across reader-to-reader moves and reloads. Direct
 reader URLs fall back to Library. This user-requested behavior replaces blind
 one-step history navigation; normal browser history controls remain available.
 Empty saved podcast overviews do not produce an empty heading or TOC entry.
+
+
+## Dashboard reader return position (2026-11-15)
+
+Returning from a summary preserves the dashboard entry card at its previous
+viewport position, even when Continue reading changes height or order. Retain
+the selected recent-content filter and loaded pages. Further user scrolling
+stops automatic position correction. Store this context per account and tab;
+it must not replace the reader's own saved reading position.
