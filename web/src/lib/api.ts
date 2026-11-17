@@ -124,6 +124,9 @@ export async function authFetch(url: string, options: RequestInit = {}): Promise
 function acknowledgeMutation(url:string) {
   // Reads started during the write may still contain the pre-write snapshot.
   invalidateReads()
+  // A warm page can leave its bootstrap response unconsumed. After a write,
+  // that snapshot must not be used as the subsequent refresh.
+  window.__xyzStartupReads?.clear()
   invalidateForMutation(url)
   if(/\/(?:generate(?:-json)?|process|batch|retry|cancel)$/.test(url.split('?')[0]))
     window.dispatchEvent(new Event('xyz:processing-changed'))
