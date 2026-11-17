@@ -49,7 +49,7 @@ export function useListReturn(key:string, ready:boolean) {
       if(!row || target.closest('button,summary,input,select,textarea'))return
       const link=target.closest('a[href]')
       if(link && link.getAttribute('href')!==row.dataset.readerHref)return
-      leaving=true
+      restoring=false;leaving=true
       position={top:main.scrollTop,href:row.dataset.readerHref,offset:row.getBoundingClientRect().top}
       save()
     }
