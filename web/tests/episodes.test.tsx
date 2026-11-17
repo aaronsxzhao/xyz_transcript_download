@@ -8,7 +8,7 @@ import { ApiError, fetchEpisodes, fetchPodcast, deleteEpisode } from '../src/lib
 
 vi.mock('../src/lib/api', async importOriginal => ({...await importOriginal<typeof import('../src/lib/api')>(), fetchEpisodes:vi.fn(), fetchPodcast:vi.fn(), deleteEpisode:vi.fn(), fetchPodcasts:vi.fn(async()=>[])}))
 vi.mock('../src/components/Toast',()=>({useToast:()=>({addToast:vi.fn()})}))
-vi.mock('../src/lib/cache',()=>({getCache:()=>null,getCacheAge:()=>null,setCache:vi.fn(),useWarmCache:()=>{},CacheKeys:{PODCAST:(id:string)=>id,EPISODES:(id:string)=>id,PODCASTS:'podcasts'}}))
+vi.mock('../src/lib/cache',()=>({getCache:()=>null,hydrateCache:vi.fn(async()=>null),getCacheAge:()=>null,setCache:vi.fn(),useWarmCache:()=>{},CacheKeys:{PODCAST:(id:string)=>id,EPISODES:(id:string)=>id,PODCASTS:'podcasts'}}))
 vi.mock('../src/lib/pageTiming',()=>({usePageTiming:vi.fn()}))
 vi.mock('../src/lib/seen',()=>({markSeen:vi.fn(),isNewItem:()=>false}))
 vi.mock('../src/lib/summaryPrefetch',()=>({cancelPrefetch:vi.fn(),prefetchSummary:vi.fn()}))
