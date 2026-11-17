@@ -108,3 +108,12 @@ it must not replace the reader's own saved reading position.
 - Tables keep minimum cell widths and scroll within their region on small screens.
 - Editorial's small-screen import-after-content order and large reader cover are
   intentional and must remain unchanged.
+
+## Video and podcast list return position (2026-11-17)
+
+Returning from a summary restores the entry row to the same viewport position in
+video channel and podcast episode lists. Preserve video search, status, sort and
+loaded pages, including reader reloads and lists older than the freshness window.
+Hydrate persisted list caches before deciding whether to load the first page.
+A user scroll stops automatic correction. Scope saved context to the account
+and tab; keep the reader's own reading position separate.

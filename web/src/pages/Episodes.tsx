@@ -1,3 +1,4 @@
+import { useListReturn } from '../lib/listReturn'
 import ItemActions,{useItemActionList} from '../components/ItemActions'
 import {TaskProgress} from '../components/TaskStatus'
 import ContentDates from '../components/ContentDates'
@@ -13,7 +14,7 @@ import { useStore } from '../lib/store'
 import { markSeen, isNewItem } from '../lib/seen'
 import { fetchEpisode } from '../lib/api'
 import LoadError from '../components/LoadError'
-import { useWarmCache, getCache, getCacheAge, setCache, CacheKeys } from '../lib/cache'
+import { useWarmCache, getCache, getCacheAge, hydrateCache, setCache, CacheKeys } from '../lib/cache'
 import { getAccountId } from '../lib/preferences'
 import { prefetchSummary } from '../lib/summaryPrefetch'
 import { usePageTiming } from '../lib/pageTiming'
@@ -41,6 +42,7 @@ export default function Episodes() {
       .filter(row => !removedEpisodes.current.has(row.eid))
   }
   useWarmCache<Episode[]>(CacheKeys.EPISODES(pid!),value=>{if(value===ownCache.current)return;setEpisodes(() => reconcileEpisodes(value));setLoading(false);setError('');const cached=cachedPodcast();if(cached)setPodcast(cached);setHasMore(cachedHasMore(value,cached?.episode_count))})
+  useListReturn(`episodes:${pid}`, !loading && (episodes.length===0 || episodes[0]?.pid===pid))
   const [error, setError] = useState('')
   const [refreshWarning,setRefreshWarning] = useState('')
   const [errorSource, setErrorSource] = useState<'initial' | 'more'>('initial')
@@ -158,7 +160,10 @@ export default function Episodes() {
     setError('')
     setErrorSource('initial')
     setRefreshWarning('')
-    const key=CacheKeys.EPISODES(pid), cached=getCache<Episode[]>(key)
+    const key=CacheKeys.EPISODES(pid)
+    await hydrateCache(key)
+    if (!current()) return
+    const cached=getCache<Episode[]>(key)
     setLoading(!cached)
     if(cached && (getCacheAge(key) ?? Infinity)<60000) {
       setEpisodes(() => reconcileEpisodes(cached))
@@ -168,6 +173,12 @@ export default function Episodes() {
     }
     try {
       const data = await fetchEpisodes(pid)
+      let more=data.length===50
+      while(more && data.length<(cached?.length || 0)) {
+        const next=await fetchEpisodes(pid,data.length)
+        if(!current())return
+        data.push(...next);more=next.length===50
+      }
       if (!current()) return
       setEpisodes(() => {
         const rows = reconcileEpisodes(data)
@@ -175,7 +186,7 @@ export default function Episodes() {
         return rows
       })
       // A full page may have a successor even if metadata is unavailable/stale.
-      setHasMore(data.length === 50)
+      setHasMore(more)
     } catch (err) {
       if (current()) {
         const available=getCache<Episode[]>(CacheKeys.EPISODES(pid))
@@ -303,6 +314,7 @@ export default function Episodes() {
           <div
             key={episode.eid}
             data-episode-id={episode.eid}
+            data-reader-href={episode.has_summary ? `/viewer/${episode.eid}` : undefined}
             onClick={episode.has_summary ? () => navigate(`/viewer/${episode.eid}`) : undefined}
             onPointerEnter={() => { if (episode.has_summary) prefetchSummary(episode.eid) }}
             onTouchStart={() => { if (episode.has_summary) prefetchSummary(episode.eid) }}

@@ -29,3 +29,18 @@ it('bounds stalled session verification without logging the user out', async () 
   expect((await getCurrentUser())?.id).toBe('bench')
   vi.useRealTimers();clearTokens()
 })
+
+it('refreshes the channel after an import instead of consuming an older bootstrap snapshot', async () => {
+  const {authFetch,fetchVideoTasksByChannel}=await import('../src/lib/api')
+  localStorage.setItem('xyz_access_token','controlled-token')
+  window.__xyzStartupReads=new Map([['/api/video-notes/tasks/by-channel?channel=Writer&platform=substack',{
+    token:'controlled-token',response:Promise.resolve({body:JSON.stringify({tasks:[],next_cursor:null}),status:200,headers:new Headers()})
+  }]])
+  const fetch=vi.fn(async (_url:unknown,options?:RequestInit)=>Response.json(options?.method==='POST'
+    ? {task_id:'fast'} : {tasks:[{id:'fast',title:'Completed import',status:'success'}],next_cursor:null}))
+  vi.stubGlobal('fetch',fetch)
+  await authFetch('/api/video-notes/generate-json',{method:'POST',body:'{}'})
+  expect((await fetchVideoTasksByChannel('substack','Writer')).tasks).toEqual([{id:'fast',title:'Completed import',status:'success'}])
+  expect(fetch).toHaveBeenCalledTimes(2)
+  localStorage.removeItem('xyz_access_token')
+})

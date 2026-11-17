@@ -87,6 +87,7 @@ export default function VideoList({ videos, onDelete, onRetry, onCancel }: {
         return (
         <div
           key={task.id}
+          data-reader-href={isClickable ? `/videos/${task.id}` : undefined}
           onClick={isClickable ? () => navigate(`/videos/${task.id}`) : undefined}
           onPointerEnter={isClickable ? () => prefetchVideoNote(task.id) : undefined}
           onTouchStart={isClickable ? () => prefetchVideoNote(task.id) : undefined}
